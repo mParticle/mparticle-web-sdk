@@ -1,6 +1,6 @@
 ﻿/*
 	mParticle Javascript API
-	(c) Copyright 2014 mParticle Inc. All Rights Reserved.
+	(c) Copyright 2015 mParticle Inc. All Rights Reserved.
 
     Uses portions of code from jQuery
     jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
@@ -25,7 +25,90 @@
         isTracking = false,
         watchPositionId,
         readyQueue = [],
-        isInitialized = false;
+        isInitialized = false,
+        productsBags = {},
+        cartProducts = [],
+        currencyCode = null;
+
+    // forEach polyfill
+    // Production steps of ECMA-262, Edition 5, 15.4.4.18
+    // Reference: http://es5.github.io/#x15.4.4.18
+    if (!Array.prototype.forEach) {
+        Array.prototype.forEach = function (callback, thisArg) {
+            var T, k;
+
+            if (this == null) {
+                throw new TypeError(' this is null or not defined');
+            }
+
+            var O = Object(this);
+            var len = O.length >>> 0;
+
+            if (typeof callback !== "function") {
+                throw new TypeError(callback + ' is not a function');
+            }
+
+            if (arguments.length > 1) {
+                T = thisArg;
+            }
+
+            k = 0;
+
+            while (k < len) {
+                var kValue;
+                if (k in O) {
+                    kValue = O[k];
+                    callback.call(T, kValue, k, O);
+                }
+                k++;
+            }
+        };
+    }
+
+    // Production steps of ECMA-262, Edition 5, 15.4.4.19
+    // Reference: http://es5.github.io/#x15.4.4.19
+    if (!Array.prototype.map) {
+        Array.prototype.map = function (callback, thisArg) {
+            var T, A, k;
+
+            if (this === null) {
+                throw new TypeError(" this is null or not defined");
+            }
+
+            var O = Object(this);
+            var len = O.length >>> 0;
+
+            if (typeof callback !== "function") {
+                throw new TypeError(callback + " is not a function");
+            }
+
+            if (arguments.length > 1) {
+                T = thisArg;
+            }
+
+            A = new Array(len);
+
+            k = 0;
+
+            while (k < len) {
+
+                var kValue, mappedValue;
+
+                if (k in O) {
+
+                    kValue = O[k];
+
+                    mappedValue = callback.call(T, kValue, k, O);
+
+                    A[k] = mappedValue;
+                }
+
+                k++;
+            }
+
+            return A;
+        };
+    }
 
     // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
     function extend() {
@@ -244,10 +327,10 @@
         logDebug(InformationMessages.CookieSet);
 
         window.document.cookie =
-        encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
-        ';expires=' + expires +
-        ';path=/' +
-        domain;
+            encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
+            ';expires=' + expires +
+            ';path=/' +
+            domain;
     }
 
     function isWebViewEmbedded() {
@@ -526,6 +609,45 @@
         }
     }
 
+    function convertProductToDTO(product) {
+        return {
+            id: product.sku,
+            nm: product.name,
+            pr: product.price,
+            qt: product.quantity,
+            br: product.brand,
+            va: product.variant,
+            ca: product.category,
+            ps: product.position,
+            cc: product.couponCode,
+            tpa: product.totalAmount
+        };
+    }
+
+    function convertCartProductsToDTO() {
+        return cartProducts.map(function (item) {
+            return convertProductToDTO(item);
+        });
+    }
+
+    function convertProductBagToDTO() {
+        var convertedBag = {};
+
+        for (prop in productsBags) {
+            if (!productsBags.hasOwnProperty(prop)) {
+                continue;
+            }
+
+            convertedBag[prop] = {
+                pl: productsBags[prop].map(function (item) {
+                    return convertProductToDTO(item);
+                })
+            };
+        }
+
+        return convertedBag;
+    }
+
     function createEventObject(messageType, name, data, eventType) {
         var optOut = (messageType == MessageType.OptOut ? isEnabled : null);
 
@@ -547,7 +669,8 @@
                     Debug: mParticle.isSandbox,
                     Timestamp: lastEventSent.getTime(),
                     Location: currentPosition,
-                    OptOut: optOut
+                    OptOut: optOut,
+                    ProductBags: convertProductBagToDTO()
                 };
             }
             else {
@@ -565,12 +688,120 @@
                     dbg: mParticle.isSandbox,		// Sandbox Mode
                     ct: lastEventSent.getTime(),	// Timestamp
                     lc: currentPosition,		    // Location
-                    o: optOut                       // Opt-Out
+                    o: optOut,                      // Opt-Out
+                    pb: convertProductBagToDTO()    // Product Bags
                 };
             }
         }
 
         return null;
+    }
+
+    function createCommerceEventObject() {
+        logDebug(InformationMessages.StartingLogCommerceEvent);
+
+        if (canLog()) {
+            if (!sessionId) {
+                mParticle.startNewSession();
+            }
+
+            var baseEvent = createEventObject(MessageType.Commerce);
+
+            baseEvent.cu = currencyCode;
+            baseEvent.sc = {
+                pl: convertCartProductsToDTO(cartProducts)
+            };
+
+            return baseEvent;
+        }
+        else {
+            logDebug(InformationMessages.AbandonLogEvent);
+        }
+
+        return null;
+    };
+
+    function logAddToCart(product) {
+        var event = createCommerceEventObject();
+
+        if (event) {
+            event.pd = {
+                an: ProductActionType.AddToCart,
+                pl: [convertProductToDTO(product)]
+            };
+
+            logCommerceEvent(event);
+        }
+    }
+
+    function logCheckoutEvent(step, options) {
+        var event = createCommerceEventObject();
+
+        if (event) {
+            event.pd = {
+                an: ProductActionType.Checkout,
+                cs: step,
+                co: options
+            };
+
+            logCommerceEvent(event);
+        }
+    }
+
+    function logPurchaseEvent(transactionAttributes, product) {
+        var event = createCommerceEventObject();
+
+        if (event) {
+            event.pd = {
+                an: ProductActionType.Purchase,
+                ti: transactionAttributes.id,
+                ta: transactionAttributes.affiliation,
+                tcc: transactionAttributes.couponCode,
+                tr: transactionAttributes.revenue,
+                ts: transactionAttributes.shipping,
+                tt: transactionAttributes.tax
+            };
+
+            if (product) {
+                event.pd.pl = [convertProductToDTO(product)];
+            }
+            else {
+                event.pd.pl = event.sc.pl;
+            }
+
+            logCommerceEvent(event);
+        }
+    };
+
+    function logPromotionEvent(promotionType, promotion) {
+        var event = createCommerceEventObject();
+
+        if (event) {
+            event.pm = {
+                an: promotionType,
+                pl: [{
+                    id: promotion.id,
+                    nm: promotion.name,
+                    cr: promotion.creative,
+                    ps: promotion.position
+                }]
+            };
+
+            logCommerceEvent(event);
+        }
+    }
+
+    function logImpressionEvent(impression) {
+        var event = createCommerceEventObject();
+
+        if (event) {
+            event.pi = [{
+                pil: impression.name,
+                pl: [convertProductToDTO(impression.product)]
+            }];
+
+            logCommerceEvent(event);
+        }
     }
 
     function logOptOut() {
@@ -588,6 +819,22 @@
             }
 
             send(createEventObject(type, name, data, category));
+            setCookie();
+        }
+        else {
+            logDebug(InformationMessages.AbandonLogEvent);
+        }
+    }
+
+    function logCommerceEvent(commerceEvent) {
+        logDebug(InformationMessages.StartingLogCommerceEvent);
+
+        if (canLog()) {
+            if (!sessionId) {
+                mParticle.startNewSession();
+            }
+
+            send(commerceEvent);
             setCookie();
         }
         else {
@@ -620,11 +867,11 @@
             window.console.log(msg);
         }
     }
-    
+
     function isEventType(type) {
-        for(var prop in EventType) {
-            if(EventType.hasOwnProperty(prop)) {
-                if(EventType[prop] === type) {
+        for (var prop in EventType) {
+            if (EventType.hasOwnProperty(prop)) {
+                if (EventType[prop] === type) {
                     return true;
                 }
             }
@@ -753,13 +1000,92 @@
         return hash;
     }
 
+    function createProduct(name,
+        sku,
+        price,
+        quantity,
+        brand,
+        variant,
+        category,
+        position,
+        couponCode,
+        totalAmount) {
+
+        if (!name) {
+            logDebug('Name is required when creating a product');
+            return null;
+        }
+
+        if (!sku) {
+            logDebug('SKU is required when creating a product');
+            return null;
+        }
+
+        if (price !== price || price === null) {
+            logDebug('Price is required when creating a product');
+            return null;
+        }
+
+        return {
+            name: name,
+            sku: sku,
+            price: price,
+            quantity: quantity,
+            brand: brand,
+            variant: variant,
+            category: category,
+            position: position,
+            couponCode: couponCode,
+            totalAmount: totalAmount
+        };
+    }
+
+    function createPromotion(id, creative, name, position) {
+        return {
+            id: id,
+            creative: creative,
+            name: name,
+            position: position
+        };
+    }
+
+    function createImpression(name, product) {
+        if (!product) {
+            logDebug('Product is required when creating an impression.');
+            return null;
+        }
+
+        return {
+            name: name,
+            product: product
+        };
+    }
+
+    function createTransactionAttributes(affiliation,
+        couponCode,
+        id,
+        revenue,
+        shipping,
+        tax) {
+
+        return {
+            id: id,
+            affiliation: affiliation,
+            couponCode: couponCode,
+            revenue: revenue,
+            shipping: shipping,
+            tax: tax
+        };
+    }
+
     var MessageType = {
         SessionStart: 1,
         SessionEnd: 2,
         PageView: 3,
         PageEvent: 4,
         CrashReport: 5,
-        OptOut: 6
+        OptOut: 6,
+        Commerce: 16
     };
 
     var EventType = {
@@ -822,6 +1148,7 @@
         StartingLogOptOut: 'Starting to log user opt in/out',
         StartingEndSession: 'Starting to end session',
         StartingInitialization: 'Starting to initialize',
+        StartingLogCommerceEvent: 'Starting to log commerce event',
         LoadingConfig: 'Loading configuration options',
         AbandonLogEvent: 'Cannot log event, logging disabled or developer token not set',
         AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
@@ -840,6 +1167,26 @@
         SetSessionAttribute: 'setSessionAttribute'
     };
 
+    var ProductActionType = {
+        Unknown: 0,
+        AddToCart: 1,
+        RemoveFromCart: 2,
+        Checkout: 3,
+        CheckoutOption: 4,
+        Click: 5,
+        ViewDetail: 6,
+        Purchase: 7,
+        Refund: 8,
+        AddToWishlist: 9,
+        RemoveFromWishlist: 10,
+    };
+
+    var PromotionActionType = {
+        Unknown: 0,
+        PromotionView: 1,
+        PromotionClick: 2,
+    };
+
     var mParticle = {
         isIOS: false,
         isDebug: false,
@@ -847,6 +1194,7 @@
         generateHash: generateHash,
         IdentityType: IdentityType,
         EventType: EventType,
+        PromotionType: PromotionActionType,
         init: function () {
             var token,
                 config;
@@ -862,6 +1210,7 @@
                         mParticle.endSession();
                         devToken = token;
                     }
+
                     initForwarders();
                 }
 
@@ -888,6 +1237,7 @@
                 readyQueue = [];
             }
 
+            setCookie();
             isInitialized = true;
         },
         ready: function (f) {
@@ -1018,9 +1368,9 @@
                 logDebug(ErrorMessages.NoEventType);
                 return;
             }
-            
+
             if (!isEventType(eventType)) {
-            	logDebug('Invalid event type: ' + eventType + ', must be one of: \n' + JSON.stringify(EventType));
+                logDebug('Invalid event type: ' + eventType + ', must be one of: \n' + JSON.stringify(EventType));
                 return;
             }
 
@@ -1076,6 +1426,85 @@
                     }, 0); // Event type 0 = Unknown
             }
         },
+        eCommerce: {
+            ProductBags: {
+                add: function (productBagName, product) {
+                    if (!productsBags[productBagName]) {
+                        productsBags[productBagName] = [];
+                    }
+
+                    productsBags[productBagName].push(product);
+                },
+                remove: function (productBagName, product) {
+                    var productIndex = -1;
+
+                    if (productsBags[productBagName]) {
+                        productsBags[productBagName].forEach(function (item, index) {
+                            if (item.sku === product.sku) {
+                                productIndex = index;
+                            }
+                        });
+
+                        if (productIndex > -1) {
+                            productsBags[productBagName].splice(productIndex, 1);
+                        }
+                    }
+                },
+                clear: function (productBagName) {
+                    productsBags[productBagName] = [];
+                }
+            },
+            Cart: {
+                add: function (product, logEvent) {
+                    cartProducts.push(product);
+                },
+                remove: function (product) {
+                    var cartIndex = -1;
+
+                    if (cartProducts) {
+                        cartProducts.forEach(function (item, index) {
+                            if (item.sku === product.sku) {
+                                cartIndex = index;
+                            }
+                        });
+
+                        if (cartIndex > -1) {
+                            cartProducts.splice(cartIndex, 1);
+                        }
+                    }
+                },
+                clear: function () {
+                    cartProducts = [];
+                }
+            },
+            setCurrencyCode: function (code) {
+                currencyCode = code;
+            },
+            createProduct: function (name, sku, price, quantity) {
+                return createProduct(name, sku, price, quantity);
+            },
+            createPromotion: function (id, creative, name, position) {
+                return createPromotion(id, creative, name, position);
+            },
+            createImpression: function (name, product) {
+                return createImpression(name, product);
+            },
+            createTransactionAttributes: function (id, affiliation, couponCode, revenue, shipping, tax) {
+                return createTransactionAttributes(affiliation, couponCode, id, revenue, shipping, tax);
+            },
+            logCheckout: function (step, paymentMethod) {
+                logCheckoutEvent(step, paymentMethod);
+            },
+            logPurchase: function (transactionAttributes, product) {
+                logPurchaseEvent(transactionAttributes, product);
+            },
+            logPromotion: function (type, promotion) {
+                logPromotionEvent(type, promotion);
+            },
+            logImpression: function (impression) {
+                logImpressionEvent(impression);
+            }
+        },
         logEcommerceTransaction: function (productName,
             productSKU,
             productUnitPrice,
@@ -1123,7 +1552,7 @@
                 if (!tryNativeSdk(NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }))) {
                     if (forwarders) {
                         for (var i = 0; i < forwarders.length; i++) {
-                            if (forwarders[i].setUserAttribute && 
+                            if (forwarders[i].setUserAttribute &&
                                 !inArray(forwarders[i].userAttributeFilters, generateHash(key))) {
                                 var result = forwarders[i].setUserAttribute(key, value);
 
