@@ -214,6 +214,38 @@
         return target;
     }
 
+    function createXHR(cb) {
+        var xhr;
+
+        try {
+            xhr = new window.XMLHttpRequest();
+        }
+        catch (e) {
+            logDebug('Error creating XMLHttpRequest object.');
+        }
+
+        if (xhr && cb && "withCredentials" in xhr) {
+            xhr.onreadystatechange = cb;
+        }
+        else if (typeof window.XDomainRequest != 'undefined') {
+            logDebug('Creating XDomainRequest object');
+
+            try {
+                xhr = new window.XDomainRequest();
+                xhr.onload = cb;
+            }
+            catch (e) {
+                logDebug('Error creating XDomainRequest object');
+            }
+        }
+
+        return xhr;
+    }
+
+    function createServiceUrl() {
+        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+    }
+
     function inArray(items, name) {
         var i = 0;
 
@@ -353,7 +385,6 @@
                     parseResponse(xhr.responseText);
                 }
             },
-            isSecure = window.location.protocol === 'https:',
             eventJson = JSON.stringify(event);
 
         logDebug(InformationMessages.SendBegin);
@@ -371,41 +402,43 @@
         else if (!tryNativeSdk(NativeSdkPaths.LogEvent, JSON.stringify(event))) {
             logDebug(InformationMessages.SendHttp);
 
-            try {
-                xhr = new window.XMLHttpRequest();
-            } catch (e) {
-                logDebug('Error creating XMLHttpRequest object.');
-            }
-
-            if (xhr && "withCredentials" in xhr) {
-                xhr.onreadystatechange = xhrCallback;
-            }
-            else if (typeof window.XDomainRequest != 'undefined') {
-                logDebug('Creating XDomainRequest object');
-
-                try {
-                    xhr = new window.XDomainRequest();
-                    xhr.onload = xhrCallback;
-                }
-                catch (e) {
-                    logDebug('Error creating XDomainRequest object');
-                }
-            }
+            xhr = createXHR(xhrCallback);
 
             if (xhr) {
                 try {
-                    xhr.open('post',
-                    serviceScheme +
-                    (isSecure ? secureServiceUrl : serviceUrl) +
-                    devToken +
-                    '/' +
-                    'Events');
+                    xhr.open('post', createServiceUrl() + '/Events');
                     xhr.send(eventJson);
+
                     sendEventToForwarders(event);
                 }
                 catch (e) {
                     logDebug('Error sending event to mParticle servers.');
                 }
+            }
+        }
+    }
+
+    function sendForwardingStats(id, event) {
+        var xhr = createXHR(),
+            forwardingStat = JSON.stringify({
+                mid: id,
+                n: event.n,
+                attrs: event.attrs,
+                sdk: event.sdk,
+                dt: event.dt,
+                et: event.et,
+                dbg: event.dbg,
+                ct: event.ct,
+                eec: event.eec
+            });
+
+        if (xhr) {
+            try {
+                xhr.open('post', createServiceUrl() + '/Forwarding');
+                xhr.send(forwardingStat);
+            }
+            catch (e) {
+                logDebug('Error sending event to mParticle servers.');
             }
         }
     }
@@ -536,7 +569,7 @@
             });
 
             for (var i = 0; i < forwarders.length; i++) {
-                forwarders[i].init(forwarders[i].settings);
+                forwarders[i].init(forwarders[i].settings, sendForwardingStats, forwarders[i].id);
             }
         }
     }
@@ -1611,10 +1644,12 @@
             pageViewFilters,
             pageViewAttributeFilters,
             userIdentityFilters,
-            userAttributeFilters) {
+            userAttributeFilters,
+            id) {
 
             for (var i = 0; i < forwarders.length; i++) {
                 if (forwarders[i].name == name) {
+                    forwarders[i].id = id;
                     forwarders[i].settings = settings;
 
                     forwarders[i].eventNameFilters = eventNameFilters;
