@@ -1,0 +1,24 @@
+{
+  "name": "mparticle-sdk-javascript",
+  "version": "1.4.0",
+  "description": "mParticle core Javascript SDK",
+  "main": "mparticle.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mParticle/mparticle-sdk-javascript"
+  },
+  "author": "mParticle",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mParticle/mparticle-sdk-javascript/issues"
+  },
+  "devDependencies": {
+    "should": "~7.1.0"
+  }
+}
