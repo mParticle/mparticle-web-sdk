@@ -13,8 +13,8 @@ describe('mParticle Core SDK', function () {
 
             return requests;
         },
-        getEvent = function (eventName) {
-            var requests = getRequests('Events'),
+        getEvent = function (eventName, isForwarding) {
+            var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
                 matchedEvent = {};
 
             requests.forEach(function (item) {
@@ -68,6 +68,50 @@ describe('mParticle Core SDK', function () {
             ProductAddToWishlist: 20,
             ProductRemoveFromWishlist: 21,
             ProductImpression: 22
+        },
+        MockForwarder = function () {
+            var self = this;
+
+            this.id = 1;
+            this.initCalled = false;
+            this.processCalled = false;
+            this.setUserIdentityCalled = false;
+            this.setOptOutCalled = false;
+            this.setUserAttributeCalled = false;
+            this.reportingService = null;
+            this.name = 'MockForwarder';
+            this.userAttributeFilters = [];
+            this.setUserIdentityCalled = false;
+
+            this.init = function (settings, reportingService, id) {
+                self.reportingService = reportingService;
+                self.initCalled = true;
+            };
+
+            this.process = function (event) {
+                self.processCalled = true;
+                self.reportingService(1, event);
+            };
+
+            this.setUserIdentity = function () {
+                self.setUserIdentityCalled = true;
+            };
+
+            this.settings = {
+                PriorityValue: 1
+            };
+
+            this.setOptOut = function () {
+                this.setOptOutCalled = true;
+            };
+
+            this.setUserAttribute = function () {
+                this.setUserAttributeCalled = true;
+            };
+
+            this.setUserIdentity = function () {
+                this.setUserIdentityCalled = true;
+            };
         };
 
     before(function () {
@@ -78,7 +122,7 @@ describe('mParticle Core SDK', function () {
     beforeEach(function () {
         server.requests = [];
         mParticle.reset();
-        mParticle.init('test_key')
+        mParticle.init(apiKey);
     });
 
     it('should log an event', function (done) {
@@ -103,6 +147,20 @@ describe('mParticle Core SDK', function () {
         data.should.have.property('n', 'Error');
         data.should.have.property('attrs');
         data.attrs.should.have.property('m', 'my error');
+
+        done();
+    });
+
+    it('should log a page view', function (done) {
+        mParticle.logPageView();
+
+        var event = getEvent(window.location.pathname);
+
+        Should(event).be.ok();
+
+        event.should.have.property('attrs');
+        event.attrs.should.have.property('hostname', window.location.hostname);
+        event.attrs.should.have.property('title', window.document.title);
 
         done();
     });
@@ -409,6 +467,19 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
+    it('should invoke forwarder setIdentity', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
+
+        mockForwarder.should.have.property('setUserIdentityCalled', true);
+
+        done();
+    });
+
     it('starts new session', function (done) {
         mParticle.startNewSession();
 
@@ -428,6 +499,230 @@ describe('mParticle Core SDK', function () {
         var data = getEvent(MessageType.SessionStart);
 
         Should(data).be.ok();
+
+        done();
+    });
+
+    it('initializes forwarder', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mockForwarder.should.have.property('initCalled', true);
+
+        done();
+    });
+
+    it('sends event to forwarder', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mParticle.logEvent('send this event to forwarder');
+
+        mockForwarder.should.have.property('processCalled', true);
+
+        done();
+    });
+
+    it('sends forwarding stats', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mParticle.logEvent('send this event to forwarder',
+            mParticle.EventType.Navigation,
+            { 'my-key': 'my-value' });
+
+        var event = getEvent('send this event to forwarder', true);
+
+        Should(event).should.be.ok();
+
+        event.should.have.property('mid', 1);
+        event.should.have.property('n', 'send this event to forwarder');
+        event.should.have.property('attrs');
+        event.should.have.property('sdk', mParticle.getVersion());
+        event.should.have.property('dt', MessageType.PageEvent);
+        event.should.have.property('et', mParticle.EventType.Navigation);
+        event.should.have.property('dbg', mParticle.isSandbox);
+        event.should.have.property('ct');
+        event.should.have.property('eec', 0);
+
+        done();
+    });
+
+    it('should log opt out', function (done) {
+        mParticle.setOptOut(true);
+
+        var event = getEvent(MessageType.OptOut);
+
+        event.should.have.property('dt', MessageType.OptOut);
+        event.should.have.property('o', true);
+
+        done();
+    });
+
+    it('should invoke forwarder opt out', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.setOptOut(true);
+
+        mockForwarder.should.have.property('setOptOutCalled', true);
+
+        done();
+    });
+
+    it('should add user attribute', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('gender', 'male');
+
+        mParticle.logEvent('test user attributes');
+
+        var event = getEvent('test user attributes');
+
+        event.should.have.property('ua');
+        event.ua.should.have.property('gender', 'male');
+
+        done();
+    });
+
+    it('should remove user attribute', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('gender', 'male');
+        mParticle.removeUserAttribute('gender');
+
+        mParticle.logEvent('test user attributes');
+
+        var event = getEvent('test user attributes');
+        event.should.not.have.property('gender');
+
+        done();
+    });
+
+    it('should set session attribute', function (done) {
+        mParticle.setSessionAttribute('name', 'test');
+
+        mParticle.logEvent('test event');
+
+        var event = getEvent('test event');
+
+        event.should.have.property('sa');
+        event.sa.should.have.property('name', 'test');
+
+        done();
+    });
+
+    it('should remove session attributes when session ends', function (done) {
+        mParticle.startNewSession();
+        mParticle.setSessionAttribute('name', 'test');
+        mParticle.endSession();
+        mParticle.logEvent('test event');
+
+        var event = getEvent('test event');
+
+        event.should.have.property('sa');
+        event.sa.should.not.have.property('name');
+
+        done();
+    });
+
+    it('should invoke forwarder setuserattribute', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('gender', 'male');
+
+        mockForwarder.should.have.property('setUserAttributeCalled', true);
+
+        done();
+    });
+
+    it('should set and log position', function (done) {
+        mParticle.setPosition(34.134103, -118.321694);
+        mParticle.logEvent('test event');
+
+        var event = getEvent('test event');
+
+        event.should.have.property('lc');
+        event.lc.should.have.property('lat', 34.134103);
+        event.lc.should.have.property('lng', -118.321694);
+
+        done();
+    });
+
+    it('should set user tag', function (done) {
+        mParticle.setUserTag('test');
+
+        mParticle.logEvent('test event');
+
+        var event = getEvent('test event');
+
+        event.should.have.property('ua');
+        event.ua.should.have.property('test', null);
+
+        done();
+    });
+
+    it('should remove user tag', function (done) {
+        mParticle.setUserTag('test');
+        mParticle.removeUserTag('test');
+
+        mParticle.logEvent('test event');
+
+        var event = getEvent('test event');
+
+        event.should.have.property('ua');
+        event.ua.should.not.have.property('test');
+
+        done();
+    });
+
+    it('should log legacy ecommerce transaction', function (done) {
+        mParticle.logEcommerceTransaction('iPhone',
+            '12345',
+            400,
+            1,
+            'Phone',
+            500,
+            50,
+            50,
+            'USD',
+            'affiliation',
+            '11223344');
+
+        var event = getEvent('Ecommerce');
+
+        event.should.have.property('dt', MessageType.PageEvent);
+        event.should.have.property('et', mParticle.EventType.Transaction);
+
+        event.attrs.should.have.property('$MethodName', 'LogEcommerceTransaction');
+        event.attrs.should.have.property('ProductName', 'iPhone');
+        event.attrs.should.have.property('ProductSKU', '12345');
+        event.attrs.should.have.property('ProductUnitPrice', 400);
+        event.attrs.should.have.property('ProductQuantity', 1);
+        event.attrs.should.have.property('ProductCategory', 'Phone');
+        event.attrs.should.have.property('RevenueAmount', 500);
+        event.attrs.should.have.property('TaxAmount', 50);
+        event.attrs.should.have.property('ShippingAmount', 50);
+        event.attrs.should.have.property('CurrencyCode', 'USD');
+        event.attrs.should.have.property('TransactionAffiliation', 'affiliation');
+        event.attrs.should.have.property('TransactionID', '11223344');
 
         done();
     });

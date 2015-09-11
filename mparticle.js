@@ -493,6 +493,10 @@
             filterAttributes = function (event, filterList) {
                 var hash;
 
+                if (!filterList) {
+                    return;
+                }
+
                 for (var attrName in event.EventAttributes) {
                     if (event.EventAttributes.hasOwnProperty(attrName)) {
                         hash = generateHash(event.EventCategory + event.EventName + attrName);
@@ -561,7 +565,7 @@
     function initForwarders() {
         if (!isWebViewEmbedded() && forwarders) {
 
-            //some js libraries require that they be loaded first, or last, etc
+            // Some js libraries require that they be loaded first, or last, etc
             forwarders.sort(function (x, y) {
                 x.settings.PriorityValue = x.settings.PriorityValue || 0;
                 y.settings.PriorityValue = y.settings.PriorityValue || 0;
@@ -779,9 +783,9 @@
     }
 
     function createEventObject(messageType, name, data, eventType) {
-        var optOut = (messageType == MessageType.OptOut ? isEnabled : null);
+        var optOut = (messageType == MessageType.OptOut ? !isEnabled : null);
 
-        if (sessionId) {
+        if (sessionId || messageType == MessageType.OptOut) {
             lastEventSent = new Date();
 
             return {
@@ -799,7 +803,8 @@
                 Timestamp: lastEventSent.getTime(),
                 Location: currentPosition,
                 OptOut: optOut,
-                ProductBags: convertProductBagToDTO()
+                ProductBags: convertProductBagToDTO(),
+                ExpandedEventCount: 0
             };
         }
 
@@ -1157,8 +1162,12 @@
 
     function generateHash(name) {
         var hash = 0,
-        i = 0,
-        character;
+            i = 0,
+            character;
+
+        if (!name) {
+            return null;
+        }
 
         name = name.toString().toLowerCase();
 
@@ -1533,6 +1542,7 @@
         reset: function () {
             // Completely resets the state of the SDK. mParticle.init() will need to be called again.
 
+            isEnabled = true;
             stopTracking();
             devToken = null;
             sessionId = null;
@@ -1556,6 +1566,9 @@
                 readyQueue.push(f);
             }
         },
+        getVersion: function () {
+            return sdkVersion;
+        },
         stopTrackingLocation: function () {
             stopTracking();
         },
@@ -1575,11 +1588,6 @@
         },
         setUserIdentity: function (id, type) {
             if (canLog()) {
-                // There was a bug in setUserIdentity which resulted in duplicate identities being saved.
-                // removeUserIdentity is being called here to ensure all duplicates are cleaned up before saving.
-
-                mParticle.removeUserIdentity(id);
-
                 userIdentity = {
                     Identity: id,
                     Type: type
@@ -1591,7 +1599,9 @@
                     if (forwarders) {
                         for (var i = 0; i < forwarders.length; i++) {
                             if (forwarders[i].setUserIdentity &&
-                                !inArray(forwarders[i].userIdentityFilters, type)) {
+                                (!forwarders[i].userIdentityFilters ||
+                                !inArray(forwarders[i].userIdentityFilters, type))) {
+
                                 var result = forwarders[i].setUserIdentity(id, type);
 
                                 if (result) {
@@ -1664,7 +1674,6 @@
 
                 sessionId = null;
                 sessionAttributes = {};
-
             }
             else {
                 logDebug(InformationMessages.AbandonEndSession);
@@ -1891,6 +1900,7 @@
                     if (forwarders) {
                         for (var i = 0; i < forwarders.length; i++) {
                             if (forwarders[i].setUserAttribute &&
+                                forwarders[i].userAttributeFilters &&
                                 !inArray(forwarders[i].userAttributeFilters, generateHash(key))) {
                                 var result = forwarders[i].setUserAttribute(key, value);
 
@@ -1921,9 +1931,9 @@
             }
         },
         setOptOut: function (isOptingOut) {
-            logOptOut();
-
             isEnabled = !isOptingOut;
+
+            logOptOut();
             setCookie();
 
             if (forwarders) {
