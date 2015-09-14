@@ -82,6 +82,7 @@ describe('mParticle Core SDK', function () {
             this.name = 'MockForwarder';
             this.userAttributeFilters = [];
             this.setUserIdentityCalled = false;
+            this.receivedEvent = null;
 
             this.init = function (settings, reportingService, id) {
                 self.reportingService = reportingService;
@@ -90,6 +91,7 @@ describe('mParticle Core SDK', function () {
 
             this.process = function (event) {
                 self.processCalled = true;
+                this.receivedEvent = event;
                 self.reportingService(1, event);
             };
 
@@ -748,6 +750,125 @@ describe('mParticle Core SDK', function () {
         event.should.have.property('str');
         event.str.should.have.property('testprop');
         event.str.testprop.should.have.property('Value', 'blah');
+
+        done();
+    });
+
+    it('should filter user attributes from forwarder', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mockForwarder.userAttributeFilters = [mParticle.generateHash('gender')];
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('gender', 'male');
+
+        mParticle.logEvent('test event');
+
+        var event = mockForwarder.receivedEvent;
+        event.should.have.property('UserAttributes');
+        event.UserAttributes.should.not.have.property('gender');
+
+        done();
+    });
+
+    it('should filter user identities from forwarder', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mockForwarder.userIdentityFilters = [mParticle.IdentityType.Google];
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.setUserIdentity('test@gmail.com', mParticle.IdentityType.Google);
+
+        mParticle.logEvent('test event');
+
+        var event = mockForwarder.receivedEvent;
+        event.should.have.property('UserIdentities').with.lengthOf(0);
+
+        done();
+    });
+
+    it('should filter event names', function (done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+        mockForwarder.eventNameFilters = [mParticle.generateHash(mParticle.EventType.Navigation + 'test event')];
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mParticle.startNewSession();
+        mockForwarder.receivedEvent = null;
+
+        mParticle.logEvent('test event', mParticle.EventType.Navigation);
+
+        Should(mockForwarder.receivedEvent).not.be.ok();
+
+        mParticle.logEvent('test event 2', mParticle.EventType.Navigation);
+
+        Should(mockForwarder.receivedEvent).be.ok();
+
+        done();
+    });
+
+    it('should filter page event names', function (done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+        mockForwarder.pageViewFilters = [mParticle.generateHash(mParticle.EventType.Unknown + '/test/index.html')];
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mParticle.startNewSession();
+        mockForwarder.receivedEvent = null;
+
+        mParticle.logPageView();
+
+        Should(mockForwarder.receivedEvent).not.be.ok();
+
+        done();
+    });
+
+    it('should filter event attributes', function (done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+        mockForwarder.attributeFilters = [mParticle.generateHash(mParticle.EventType.Navigation + 'test event' + 'test attribute')];
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mParticle.logEvent('test event', mParticle.EventType.Navigation, {
+            'test attribute': 'test value',
+            'test attribute 2': 'test value 2'
+        });
+
+        var event = mockForwarder.receivedEvent;
+
+        event.EventAttributes.should.not.have.property('test attribute');
+        event.EventAttributes.should.have.property('test attribute 2');
+
+        done();
+    });
+
+    it('should filter page event attributes', function (done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+        mockForwarder.pageViewAttributeFilters = [mParticle.generateHash(mParticle.EventType.Unknown +
+            '/test/index.html' +
+            'hostname')];
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mParticle.logPageView();
+
+        var event = mockForwarder.receivedEvent;
+
+        event.EventAttributes.should.not.have.property('hostname');
+        event.EventAttributes.should.have.property('title');
 
         done();
     });
