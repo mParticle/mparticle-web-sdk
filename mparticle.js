@@ -218,30 +218,25 @@
     function createXHR(cb) {
         var xhr;
 
-        if (MockHttpRequest) {
-            xhr = MockHttpRequest;
+        try {
+            xhr = new window.XMLHttpRequest();
         }
-        else {
+        catch (e) {
+            logDebug('Error creating XMLHttpRequest object.');
+        }
+
+        if (xhr && cb && "withCredentials" in xhr) {
+            xhr.onreadystatechange = cb;
+        }
+        else if (typeof window.XDomainRequest != 'undefined') {
+            logDebug('Creating XDomainRequest object');
+
             try {
-                xhr = new window.XMLHttpRequest();
+                xhr = new window.XDomainRequest();
+                xhr.onload = cb;
             }
             catch (e) {
-                logDebug('Error creating XMLHttpRequest object.');
-            }
-
-            if (xhr && cb && "withCredentials" in xhr) {
-                xhr.onreadystatechange = cb;
-            }
-            else if (typeof window.XDomainRequest != 'undefined') {
-                logDebug('Creating XDomainRequest object');
-
-                try {
-                    xhr = new window.XDomainRequest();
-                    xhr.onload = cb;
-                }
-                catch (e) {
-                    logDebug('Error creating XDomainRequest object');
-                }
+                logDebug('Error creating XDomainRequest object');
             }
         }
 
@@ -580,9 +575,9 @@
 
     function parseResponse(responseText) {
         var now = new Date(),
-        settings,
-        prop,
-        fullProp;
+            settings,
+            prop,
+            fullProp;
 
         if (!responseText) {
             return;
@@ -1553,7 +1548,7 @@
             productsBags = {};
             cartProducts = [];
             serverSettings = {};
-            mergeConfig({ });
+            mergeConfig({});
             setCookie();
 
             isInitialized = false;
@@ -1996,11 +1991,6 @@
         // Check for any functions queued
         if (window.mParticle.config.rq) {
             readyQueue = window.mParticle.config.rq;
-        }
-
-        // Check for mock http request object - set when running unit tests
-        if (window.mParticle.config.mockHttpRequest) {
-            MockHttpRequest = window.mParticle.config.mockHttpRequest;
         }
     }
 

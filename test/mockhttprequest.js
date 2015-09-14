@@ -27,6 +27,7 @@ function MockHttpRequest () {
     this.responseHeaders = {};
 }
 MockHttpRequest.prototype = {
+    withCredentials: true,
 
     statusReasons: {
         100: 'Continue',
