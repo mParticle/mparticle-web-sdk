@@ -1470,13 +1470,51 @@
         Purchase: 7,
         Refund: 8,
         AddToWishlist: 9,
-        RemoveFromWishlist: 10,
+        RemoveFromWishlist: 10
+    };
+
+    ProductActionType.getName = function (id) {
+        switch(id) {
+            case ProductActionType.AddToCart:
+                return 'Add to Cart';
+            case ProductActionType.RemoveFromCart:
+                return 'Remove from Cart';
+            case ProductActionType.Checkout:
+                return 'Checkout';
+            case ProductActionType.CheckoutOption:
+                return 'Checkout Option';
+            case ProductActionType.Click:
+                return 'Click';
+            case ProductActionType.ViewDetail:
+                return 'View Detail';
+            case ProductActionType.Purchase:
+                return 'Purchase';
+            case ProductActionType.Refund:
+                return 'Refund';
+            case ProductActionType.AddToWishlist:
+                return 'Add to Wishlist';
+            case ProductActionType.RemoveFromWishlist:
+                return 'Remove from Wishlist';
+            default:
+                return 'Unknown';
+        }
     };
 
     var PromotionActionType = {
         Unknown: 0,
         PromotionView: 1,
         PromotionClick: 2,
+    };
+
+    PromotionActionType.getName = function(id) {
+        switch(id) {
+            case PromotionActionType.PromotionView:
+                return 'Promotion View';
+            case PromotionActionType.PromotionClick:
+                return 'Promotion Click';
+            default:
+                return 'Unknown';
+        }
     };
 
     var mParticle = {
