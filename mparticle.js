@@ -517,7 +517,10 @@
             hashedType = generateHash(event.EventCategory);
 
             for (var i = 0; i < forwarders.length; i++) {
-                if (event.Debug !== forwarders[i].isDebug) {
+                if (event.Debug === true && forwarders[i].isSandbox === false && forwarders[i].hasSandbox === true) {
+                    continue;
+                }
+                else if (event.Debug === false && forwarders[i].isSandbox === true) {
                     continue;
                 }
 
@@ -572,7 +575,9 @@
             });
 
             for (var i = 0; i < forwarders.length; i++) {
-                forwarders[i].init(forwarders[i].settings, sendForwardingStats, forwarders[i].id);
+                if (forwarders.isSandbox === mParticle.isSandbox) {
+                    forwarders[i].init(forwarders[i].settings, sendForwardingStats, forwarders[i].id);
+                }
             }
         }
     }
@@ -1070,6 +1075,9 @@
                 Config[prop] = config[prop];
             }
         }
+
+        mParticle.isDebug = Config.Debug;
+        mParticle.isSandbox = Config.Sandbox;
     }
 
     function canLog() {
@@ -1411,12 +1419,11 @@
         IncludeReferrer: true,			// Include user's referrer
         IncludeGoogleAdwords: true,		// Include utm_source and utm_properties
         Timeout: 300,					// Timeout in milliseconds for logging functions
-        SessionTimeout: 30				// Session timeout in minutes
+        SessionTimeout: 30,				// Session timeout in minutes
+        Sandbox: false                  // Events are marked as debug and only forwarded to debug forwarders
     };
 
-    var Config = {
-
-    };
+    var Config = {};
 
     var ErrorMessages = {
         NoToken: 'A token must be specified.',
@@ -1998,12 +2005,14 @@
             userIdentityFilters,
             userAttributeFilters,
             id,
-            isDebug) {
+            isSandbox,
+            hasSandbox) {
 
             for (var i = 0; i < forwarders.length; i++) {
                 if (forwarders[i].name == name) {
                     forwarders[i].id = id;
-                    forwarders[i].isDebug = isDebug;
+                    forwarders[i].isSandbox = isSandbox;
+                    forwarders[i].hasSandbox = hasSandbox;
                     forwarders[i].settings = settings;
 
                     forwarders[i].eventNameFilters = eventNameFilters;
