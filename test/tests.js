@@ -73,6 +73,7 @@ describe('mParticle Core SDK', function () {
             var self = this;
 
             this.id = 1;
+            this.isDebug = false;
             this.initCalled = false;
             this.processCalled = false;
             this.setUserIdentityCalled = false;
@@ -869,6 +870,39 @@ describe('mParticle Core SDK', function () {
 
         event.EventAttributes.should.not.have.property('hostname');
         event.EventAttributes.should.have.property('title');
+
+        done();
+    });
+
+    it('should not send non debug events to debug forwarders', function (done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+        mockForwarder.isDebug = true;
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mParticle.logEvent('Test');
+
+        var event = mockForwarder.receivedEvent;
+        Should(event).not.be.ok();
+
+        done();
+    });
+
+    it('should not send debug events to non debug forwarders', function (done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+        mockForwarder.isDebug = false;
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.isSandbox = true;
+
+        mParticle.logEvent('Test');
+
+        var event = mockForwarder.receivedEvent;
+        Should(event).not.be.ok();
 
         done();
     });

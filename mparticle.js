@@ -517,6 +517,10 @@
             hashedType = generateHash(event.EventCategory);
 
             for (var i = 0; i < forwarders.length; i++) {
+                if (event.Debug !== forwarders[i].isDebug) {
+                    continue;
+                }
+
                 // Clone the event object, as we could be sending different attributes to each forwarder
                 clonedEvent = {};
                 clonedEvent = extend(true, clonedEvent, event);
@@ -1993,11 +1997,13 @@
             pageViewAttributeFilters,
             userIdentityFilters,
             userAttributeFilters,
-            id) {
+            id,
+            isDebug) {
 
             for (var i = 0; i < forwarders.length; i++) {
                 if (forwarders[i].name == name) {
                     forwarders[i].id = id;
+                    forwarders[i].isDebug = isDebug;
                     forwarders[i].settings = settings;
 
                     forwarders[i].eventNameFilters = eventNameFilters;
