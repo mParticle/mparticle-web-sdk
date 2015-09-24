@@ -2044,11 +2044,11 @@
         }
 
         if (window.mParticle.config.hasOwnProperty('isDebug')) {
-            window.mParticle.isDebug = true;
+            window.mParticle.isDebug = window.mParticle.config.isDebug;
         }
 
         if (window.mParticle.config.hasOwnProperty('isSandbox')) {
-            window.mParticle.isSandbox = true;
+            window.mParticle.isSandbox = window.mParticle.config.isSandbox;;
         }
     }
 
