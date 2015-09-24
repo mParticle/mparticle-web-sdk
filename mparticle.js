@@ -16,6 +16,7 @@
         sessionAttributes = {},
         userAttributes = {},
         userIdentities = [],
+        forwarderConstructors = [],
         forwarders = [],
         sessionId,
         devToken,
@@ -1482,7 +1483,7 @@
     };
 
     ProductActionType.getName = function (id) {
-        switch(id) {
+        switch (id) {
             case ProductActionType.AddToCart:
                 return 'Add to Cart';
             case ProductActionType.RemoveFromCart:
@@ -1514,8 +1515,8 @@
         PromotionClick: 2,
     };
 
-    PromotionActionType.getName = function(id) {
-        switch(id) {
+    PromotionActionType.getName = function (id) {
+        switch (id) {
             case PromotionActionType.PromotionView:
                 return 'Promotion View';
             case PromotionActionType.PromotionClick:
@@ -1990,7 +1991,7 @@
             }
         },
         addForwarder: function (forwarderProcessor) {
-            forwarders.push(forwarderProcessor);
+            forwarderConstructors.push(forwarderProcessor);
         },
         configureForwarder: function (name,
             settings,
@@ -2005,22 +2006,30 @@
             isSandbox,
             hasSandbox) {
 
-            for (var i = 0; i < forwarders.length; i++) {
-                if (forwarders[i].name == name) {
-                    forwarders[i].id = id;
-                    forwarders[i].isSandbox = isSandbox;
-                    forwarders[i].hasSandbox = hasSandbox;
-                    forwarders[i].settings = settings;
+            var newForwarder = null;
 
-                    forwarders[i].eventNameFilters = eventNameFilters;
-                    forwarders[i].eventTypeFilters = eventTypeFilters;
-                    forwarders[i].attributeFilters = attributeFilters;
+            for (var i = 0; i < forwarderConstructors.length; i++) {
+                if (forwarderConstructors[i].name == name) {
+                    newForwarder = new forwarderConstructors[i].constructor();
 
-                    forwarders[i].pageViewFilters = pageViewFilters;
-                    forwarders[i].pageViewAttributeFilters = pageViewAttributeFilters;
+                    newForwarder.id = id;
+                    newForwarder.isSandbox = isSandbox;
+                    newForwarder.hasSandbox = hasSandbox;
+                    newForwarder.settings = settings;
 
-                    forwarders[i].userIdentityFilters = userIdentityFilters;
-                    forwarders[i].userAttributeFilters = userAttributeFilters;
+                    newForwarder.eventNameFilters = eventNameFilters;
+                    newForwarder.eventTypeFilters = eventTypeFilters;
+                    newForwarder.attributeFilters = attributeFilters;
+
+                    newForwarder.pageViewFilters = pageViewFilters;
+                    newForwarder.pageViewAttributeFilters = pageViewAttributeFilters;
+
+                    newForwarder.userIdentityFilters = userIdentityFilters;
+                    newForwarder.userAttributeFilters = userAttributeFilters;
+
+                    forwarders.push(newForwarder);
+
+                    break;
                 }
             }
         }
@@ -2048,7 +2057,7 @@
         }
 
         if (window.mParticle.config.hasOwnProperty('isSandbox')) {
-            window.mParticle.isSandbox = window.mParticle.config.isSandbox;;
+            window.mParticle.isSandbox = window.mParticle.config.isSandbox;
         }
     }
 
