@@ -1075,9 +1075,6 @@
                 Config[prop] = config[prop];
             }
         }
-
-        mParticle.isDebug = Config.Debug;
-        mParticle.isSandbox = Config.Sandbox;
     }
 
     function canLog() {
@@ -2044,6 +2041,14 @@
         // Check for any functions queued
         if (window.mParticle.config.rq) {
             readyQueue = window.mParticle.config.rq;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('isDebug')) {
+            window.mParticle.isDebug = true;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('isSandbox')) {
+            window.mParticle.isSandbox = true;
         }
     }
 
