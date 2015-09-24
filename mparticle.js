@@ -576,7 +576,7 @@
             });
 
             for (var i = 0; i < forwarders.length; i++) {
-                if (forwarders.isSandbox === mParticle.isSandbox) {
+                if (forwarders[i].isSandbox === mParticle.isSandbox) {
                     forwarders[i].init(forwarders[i].settings, sendForwardingStats, forwarders[i].id);
                 }
             }
@@ -1592,6 +1592,7 @@
             userAttributes = {};
             userIdentities = [];
             forwarders = [];
+            forwarderConstructors = [];
             productsBags = {};
             cartProducts = [];
             serverSettings = {};
