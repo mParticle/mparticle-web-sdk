@@ -131,6 +131,67 @@ describe('mParticle Core SDK', function () {
             this.configure = function () {
                 mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [], 1, false, false);
             };
+        },
+        mParticleAndroid = function () {
+            var self = this;
+
+            this.logEventCalled = false;
+            this.setUserIdentityCalled = false;
+            this.removeUserIdentityCalled = false;
+            this.setUserTagCalled = false;
+            this.removeUserTagCalled = false;
+            this.setUserAttributeCalled = false;
+            this.removeUserAttributeCalled = false;
+            this.setSessionAttributeCalled = false;
+            this.addToProductBagCalled = false;
+            this.removeFromProductBagCalled = false;
+            this.clearProductBagCalled = false;
+            this.addToCartCalled = false;
+            this.removeFromCartCalled = false;
+            this.clearCartCalled = false;
+
+            this.logEvent = function () {
+                self.logEventCalled = true;
+            };
+            this.setUserIdentity = function () {
+                self.setUserIdentityCalled = true;
+            };
+            this.removeUserIdentity = function () {
+                self.removeUserIdentityCalled = true;
+            };
+            this.setUserTag = function () {
+                self.setUserTagCalled = true;
+            };
+            this.removeUserTag = function () {
+                self.removeUserTagCalled = true;
+            };
+            this.setUserAttribute = function () {
+                self.setUserAttributeCalled = true;
+            };
+            this.removeUserAttribute = function () {
+                self.removeUserAttributeCalled = true;
+            };
+            this.setSessionAttribute = function () {
+                self.setSessionAttributeCalled = true;
+            };
+            this.addToProductBag = function () {
+                self.addToProductBagCalled = true;
+            };
+            this.removeFromProductBag = function () {
+                self.removeFromProductBagCalled = true;
+            };
+            this.clearProductBag = function () {
+                self.clearProductBagCalled = true;
+            };
+            this.addToCart = function () {
+                self.addToCartCalled = true;
+            };
+            this.removeFromCart = function () {
+                self.removeFromCartCalled = true;
+            };
+            this.clearCart = function () {
+                self.clearCartCalled = true;
+            };
         };
 
     before(function () {
@@ -890,6 +951,73 @@ describe('mParticle Core SDK', function () {
 
         event.EventAttributes.should.not.have.property('hostname');
         event.EventAttributes.should.have.property('title');
+
+        done();
+    });
+
+    it('should invoke native sdk method addToCart', function(done) {
+        mParticle.reset();
+        window.mParticleAndroid = new mParticleAndroid();
+
+        mParticle.eCommerce.Cart.add({});
+
+        window.mParticleAndroid.should.have.property('addToCartCalled', true);
+
+        done();
+    });
+
+    it('should invoke native sdk method removeFromCart', function(done) {
+        mParticle.reset();
+        window.mParticleAndroid = new mParticleAndroid();
+
+        mParticle.eCommerce.Cart.add({Sku: '12345'});
+        mParticle.eCommerce.Cart.remove({Sku: '12345'});
+
+        window.mParticleAndroid.should.have.property('removeFromCartCalled', true);
+
+        done();
+    });
+
+    it('should invoke native sdk method clearCart', function(done) {
+        mParticle.reset();
+        window.mParticleAndroid = new mParticleAndroid();
+
+        mParticle.eCommerce.Cart.clear();
+
+        window.mParticleAndroid.should.have.property('clearCartCalled', true);
+
+        done();
+    });
+
+    it('should invoke native sdk method addToProductBag', function (done) {
+        mParticle.reset();
+        window.mParticleAndroid = new mParticleAndroid();
+
+        mParticle.eCommerce.ProductBags.add('my bag', {});
+
+        window.mParticleAndroid.should.have.property('addToProductBagCalled', true);
+
+        done();
+    });
+
+    it('should invoke native sdk method removeFromProductBag', function(done) {
+        mParticle.reset();
+        window.mParticleAndroid = new mParticleAndroid();
+
+        mParticle.eCommerce.ProductBags.remove('my bag', {});
+
+        window.mParticleAndroid.should.have.property('removeFromProductBagCalled', true);
+
+        done();
+    });
+
+    it('should invoke native sdk method clearProductBag', function (done) {
+        mParticle.reset();
+        window.mParticleAndroid = new mParticleAndroid();
+
+        mParticle.eCommerce.ProductBags.clear('my bag');
+
+        window.mParticleAndroid.should.have.property('clearProductBagCalled', true);
 
         done();
     });

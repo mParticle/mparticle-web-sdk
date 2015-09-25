@@ -271,6 +271,7 @@
         if (window.mParticleAndroid) {
             logDebug(InformationMessages.SendAndroid + path);
             window.mParticleAndroid[path](value);
+
             return true;
         }
         else if (window.mParticle.isIOS || isUIWebView()) {
@@ -280,8 +281,10 @@
             document.documentElement.appendChild(iframe);
             iframe.parentNode.removeChild(iframe);
             iframe = null;
+
             return true;
         }
+
         return false;
     }
 
@@ -667,9 +670,10 @@
             ct: event.Timestamp,
             lc: event.Location,
             o: event.OptOut,
-            pb: event.ProductBags,
             eec: event.ExpandedEventCount
         };
+
+        dto.pb = convertProductBagToDTO();
 
         if (event.EventDataType == MessageType.Commerce) {
             dto.cu = currencyCode;
@@ -693,10 +697,6 @@
                     ts: event.ProductAction.ShippingAmount,
                     tt: event.ProductAction.TaxAmount
                 };
-
-                if (event.ProductAction.ProductList) {
-                    dto.pd.pl = convertProductListToDTO(event.ProductAction.ProductList);
-                }
             }
             else if (event.PromotionAction) {
                 dto.pm = {
@@ -808,7 +808,7 @@
                 Timestamp: lastEventSent.getTime(),
                 Location: currentPosition,
                 OptOut: optOut,
-                ProductBags: convertProductBagToDTO(),
+                ProductBags: productsBags,
                 ExpandedEventCount: 0
             };
         }
@@ -1017,6 +1017,12 @@
         if (canLog()) {
             if (!sessionId) {
                 mParticle.startNewSession();
+            }
+
+            if (isWebViewEmbedded()) {
+                // Don't send shopping cart or product bags to parent sdks
+                commerceEvent.ShoppingCart = {};
+                commerceEvent.ProductBags = {};
             }
 
             send(commerceEvent);
@@ -1465,7 +1471,13 @@
         RemoveUserTag: 'removeUserTag',
         SetUserAttribute: 'setUserAttribute',
         RemoveUserAttribute: 'removeUserAttribute',
-        SetSessionAttribute: 'setSessionAttribute'
+        SetSessionAttribute: 'setSessionAttribute',
+        AddToProductBag: 'addToProductBag',
+        RemoveFromProductBag: 'removeFromProductBag',
+        ClearProductBag: 'clearProductBag',
+        AddToCart: 'addToCart',
+        RemoveFromCart: 'removeFromCart',
+        ClearCart: 'clearCart'
     };
 
     var ProductActionType = {
@@ -1800,6 +1812,8 @@
                     }
 
                     productsBags[productBagName].push(product);
+
+                    tryNativeSdk(NativeSdkPaths.AddToProductBag, JSON.stringify(product));
                 },
                 remove: function (productBagName, product) {
                     var productIndex = -1;
@@ -1815,16 +1829,23 @@
                             productsBags[productBagName].splice(productIndex, 1);
                         }
                     }
+
+                    tryNativeSdk(NativeSdkPaths.RemoveFromProductBag, JSON.stringify(product));
                 },
                 clear: function (productBagName) {
                     productsBags[productBagName] = [];
+
+                    tryNativeSdk(NativeSdkPaths.ClearProductBag, productBagName);
                 }
             },
             Cart: {
                 add: function (product, logEvent) {
                     cartProducts.push(product);
 
-                    if (logEvent === true) {
+                    if (isWebViewEmbedded()) {
+                        tryNativeSdk(NativeSdkPaths.AddToCart, JSON.stringify(product));
+                    }
+                    else if (logEvent === true) {
                         logProductActionEvent(ProductActionType.AddToCart, product);
                     }
                 },
@@ -1843,7 +1864,10 @@
                         if (cartIndex > -1) {
                             cartProducts.splice(cartIndex, 1);
 
-                            if (logEvent === true) {
+                            if (isWebViewEmbedded()) {
+                                tryNativeSdk(NativeSdkPaths.RemoveFromCart, JSON.stringify(cartItem));
+                            }
+                            else if (logEvent === true) {
                                 logProductActionEvent(ProductActionType.RemoveFromCart, cartItem);
                             }
                         }
@@ -1851,6 +1875,7 @@
                 },
                 clear: function () {
                     cartProducts = [];
+                    tryNativeSdk(NativeSdkPaths.ClearCart);
                 }
             },
             setCurrencyCode: function (code) {
