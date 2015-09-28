@@ -204,6 +204,7 @@ describe('mParticle Core SDK', function () {
         server.handle = function () { };
         mParticle.reset();
         mParticle.init(apiKey);
+        window.mParticleAndroid = null;
     });
 
     it('should log an event', function (done) {
@@ -231,6 +232,7 @@ describe('mParticle Core SDK', function () {
 
         done();
     });
+
 
     it('should log a page view', function (done) {
         mParticle.logPageView();
@@ -1022,6 +1024,46 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
+    it('should fail to create product if name not specified', function(done) {
+        var product = mParticle.eCommerce.createProduct(null);
+
+        Should(product).not.be.ok();
+
+        done();
+    });
+
+    it('should fail to create product if sku not specified', function(done) {
+        var product = mParticle.eCommerce.createProduct('test', null);
+
+        Should(product).not.be.ok();
+
+        done();
+    });
+
+    it('should fail to create product if price not specified', function(done) {
+        var product = mParticle.eCommerce.createProduct('test', 'sku', null);
+
+        Should(product).not.be.ok();
+
+        done();
+    });
+
+    it('should fail to create impression if name is not specified', function(done) {
+        var impression = mParticle.eCommerce.createImpression(null);
+
+        Should(impression).not.be.ok();
+
+        done();
+    });
+
+    it('should fail to create impression if product is not specified', function(done) {
+        var impression = mParticle.eCommerce.createImpression('name', null);
+
+        Should(impression).not.be.ok();
+
+        done();
+    });
+
     /*
     it('should not send non debug events to debug forwarders', function (done) {
         mParticle.reset();
@@ -1056,6 +1098,118 @@ describe('mParticle Core SDK', function () {
 
         done();
     });*/
+
+    it('event type should return name', function(done) {
+        mParticle.EventType.getName(mParticle.EventType.Navigation).should.equal('Navigation');
+        mParticle.EventType.getName(mParticle.EventType.Location).should.equal('Location');
+        mParticle.EventType.getName(mParticle.EventType.Search).should.equal('Search');
+        mParticle.EventType.getName(mParticle.EventType.Transaction).should.equal('Transaction');
+        mParticle.EventType.getName(mParticle.EventType.UserContent).should.equal('User Content');
+        mParticle.EventType.getName(mParticle.EventType.UserPreference).should.equal('User Preference');
+        mParticle.EventType.getName(mParticle.EventType.Social).should.equal('Social');
+        mParticle.EventType.getName(mParticle.EventType.Media).should.equal('Media');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductAddToCart).should.equal('Product Added to Cart');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductAddToWishlist).should.equal('Product Added to Wishlist');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductCheckout).should.equal('Product Checkout');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductCheckoutOption).should.equal('Product Checkout Options');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductClick).should.equal('Product Click');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductImpression).should.equal('Product Impression');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductPurchase).should.equal('Product Purchased');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductRefund).should.equal('Product Refunded');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductRemoveFromCart).should.equal('Product Removed From Cart');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductRemoveFromWishlist).should.equal('Product Removed from Wishlist');
+        mParticle.EventType.getName(mParticle.CommerceEventType.ProductViewDetail).should.equal('Product View Details');
+        mParticle.EventType.getName(mParticle.CommerceEventType.PromotionClick).should.equal('Promotion Click');
+        mParticle.EventType.getName(mParticle.CommerceEventType.PromotionView).should.equal('Promotion View');
+        mParticle.EventType.getName(null).should.equal('Other');
+
+        done();
+    });
+
+    it('identity type should return name', function(done) {
+        mParticle.IdentityType.getName(mParticle.IdentityType.CustomerId).should.equal('Customer ID');
+        mParticle.IdentityType.getName(mParticle.IdentityType.Facebook).should.equal('Facebook ID');
+        mParticle.IdentityType.getName(mParticle.IdentityType.Twitter).should.equal('Twitter ID');
+        mParticle.IdentityType.getName(mParticle.IdentityType.Google).should.equal('Google ID');
+        mParticle.IdentityType.getName(mParticle.IdentityType.Microsoft).should.equal('Microsoft ID');
+        mParticle.IdentityType.getName(mParticle.IdentityType.Yahoo).should.equal('Yahoo ID');
+        mParticle.IdentityType.getName(mParticle.IdentityType.Email).should.equal('Email');
+        mParticle.IdentityType.getName(mParticle.IdentityType.Alias).should.equal('Alias ID');
+        mParticle.IdentityType.getName(mParticle.IdentityType.FacebookCustomAudienceId).should.equal('Facebook App User ID');
+        mParticle.IdentityType.getName(null).should.equal('Other ID');
+
+        done();
+    });
+
+    it('product action type should return name', function(done) {
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.AddToCart).should.equal('Add to Cart');
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.RemoveFromCart).should.equal('Remove from Cart');
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.Checkout).should.equal('Checkout');
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.CheckoutOption).should.equal('Checkout Option');
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.Click).should.equal('Click');
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.ViewDetail).should.equal('View Detail');
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.Purchase).should.equal('Purchase');
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.Refund).should.equal('Refund');
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.AddToWishlist).should.equal('Add to Wishlist');
+        mParticle.ProductActionType.getName(mParticle.ProductActionType.RemoveFromWishlist).should.equal('Remove from Wishlist');
+        mParticle.ProductActionType.getName(null).should.equal('Unknown');
+
+        done();
+    });
+
+    it('promotion action type should return name', function(done) {
+        mParticle.PromotionType.getName(mParticle.PromotionType.PromotionView).should.equal('Promotion View');
+        mParticle.PromotionType.getName(mParticle.PromotionType.PromotionClick).should.equal('Promotion Click');
+        mParticle.PromotionType.getName(null).should.equal('Unknown');
+
+        done();
+    });
+
+    it('should process ready queue when initialized', function(done) {
+        var readyFuncCalled = false;
+
+        mParticle.reset();
+        mParticle.ready(function() {readyFuncCalled = true;});
+        mParticle.init();
+
+        Should(readyFuncCalled).equal(true);
+
+        done();
+    });
+
+    it('log event requires name', function(done) {
+        mParticle.logEvent();
+
+        Should(server.requests).have.lengthOf(0);
+
+        done();
+    });
+
+    it('log event requires valid event type', function(done) {
+        mParticle.logEvent('test', 100);
+
+        Should(server.requests).have.lengthOf(0);
+
+        done();
+    });
+
+    it('event attributes must be object', function(done) {
+        mParticle.logEvent('test', null, 1);
+
+        Should(server.requests).have.lengthOf(0);
+
+        done();
+    });
+
+    it('opting out should prevent events being sent', function (done) {
+        mParticle.setOptOut(true);
+        server.requests = [];
+
+        mParticle.logEvent('test')
+        server.requests.should.have.lengthOf(0);
+
+        done();
+    });
 
     after(function () {
         server.stop();

@@ -1254,6 +1254,11 @@
     }
 
     function createImpression(name, product) {
+        if (!name) {
+            logDebug('Name is required when creating an impression.')
+            return null;
+        }
+
         if (!product) {
             logDebug('Product is required when creating an impression.');
             return null;
