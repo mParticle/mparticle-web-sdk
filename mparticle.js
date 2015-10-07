@@ -670,7 +670,8 @@
             ct: event.Timestamp,
             lc: event.Location,
             o: event.OptOut,
-            eec: event.ExpandedEventCount
+            eec: event.ExpandedEventCount,
+            flags: event.CustomFlags
         };
 
         dto.pb = convertProductBagToDTO();
@@ -787,7 +788,7 @@
         productAction.TaxAmount = transactionAttributes.Tax;
     }
 
-    function createEventObject(messageType, name, data, eventType) {
+    function createEventObject(messageType, name, data, eventType, customFlags) {
         var optOut = (messageType == MessageType.OptOut ? !isEnabled : null);
 
         if (sessionId || messageType == MessageType.OptOut) {
@@ -809,7 +810,8 @@
                 Location: currentPosition,
                 OptOut: optOut,
                 ProductBags: productsBags,
-                ExpandedEventCount: 0
+                ExpandedEventCount: 0,
+                CustomFlags: customFlags
             };
         }
 
@@ -995,7 +997,7 @@
         send(createEventObject(MessageType.OptOut, null, null, EventType.Other));
     }
 
-    function logEvent(type, name, data, category) {
+    function logEvent(type, name, data, category, cflags) {
         logDebug(InformationMessages.StartingLogEvent + ': ' + name);
 
         if (canLog()) {
@@ -1003,7 +1005,7 @@
                 mParticle.startNewSession();
             }
 
-            send(createEventObject(type, name, data, category));
+            send(createEventObject(type, name, data, category, cflags));
             setCookie();
         }
         else {
@@ -1739,7 +1741,7 @@
                 logDebug(InformationMessages.AbandonEndSession);
             }
         },
-        logEvent: function (eventName, eventType, eventInfo) {
+        logEvent: function (eventName, eventType, eventInfo, customFlags) {
             if (typeof (eventName) != 'string') {
                 logDebug(ErrorMessages.EventNameInvalidType);
                 return;
@@ -1772,7 +1774,7 @@
                 mParticle.startNewSession();
             }
 
-            logEvent(MessageType.PageEvent, eventName, eventInfo, eventType);
+            logEvent(MessageType.PageEvent, eventName, eventInfo, eventType, customFlags);
         },
         logError: function (error) {
             if (!error) {
