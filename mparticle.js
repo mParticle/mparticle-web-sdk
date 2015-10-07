@@ -538,6 +538,9 @@
                         || inFilteredList(forwarders[i].eventTypeFilters, hashedType))) {
                     continue;
                 }
+                else if(event.EventDataType == MessageType.Commerce && inFilteredList(forwarders[i].eventTypeFilters, hashedType)) {
+                    continue;
+                }
                 else if (event.EventDataType == MessageType.PageView && inFilteredList(forwarders[i].pageViewFilters, hashedName)) {
                     continue;
                 }
