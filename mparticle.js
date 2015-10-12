@@ -427,10 +427,14 @@
         }
     }
 
-    function sendForwardingStats(id, event) {
-        var xhr = createXHR(),
+    function sendForwardingStats(forwarder, event) {
+        var xhr,
+            forwardingStat;
+
+        if(forwarder && forwarder.isVisible) {
+            xhr = createXHR();
             forwardingStat = JSON.stringify({
-                mid: id,
+                mid: forwarder.id,
                 n: event.EventName,
                 attrs: event.EventAttributes,
                 sdk: event.SDKVersion,
@@ -441,13 +445,14 @@
                 eec: event.ExpandedEventCount
             });
 
-        if (xhr) {
-            try {
-                xhr.open('post', createServiceUrl() + '/Forwarding');
-                xhr.send(forwardingStat);
-            }
-            catch (e) {
-                logDebug('Error sending forwarding stats to mParticle servers.');
+            if (xhr) {
+                try {
+                    xhr.open('post', createServiceUrl() + '/Forwarding');
+                    xhr.send(forwardingStat);
+                }
+                catch (e) {
+                    logDebug('Error sending forwarding stats to mParticle servers.');
+                }
             }
         }
     }
@@ -593,7 +598,9 @@
 
             for (var i = 0; i < forwarders.length; i++) {
                 if (forwarders[i].isSandbox === mParticle.isSandbox) {
-                    forwarders[i].init(forwarders[i].settings, sendForwardingStats, forwarders[i].id);
+                    forwarders[i].init(forwarders[i].settings,
+                        sendForwardingStats,
+                        false);
                 }
             }
         }
@@ -2050,7 +2057,8 @@
             userAttributeFilters,
             id,
             isSandbox,
-            hasSandbox) {
+            hasSandbox,
+            isVisible) {
 
             var newForwarder = null;
 
@@ -2061,6 +2069,7 @@
                     newForwarder.id = id;
                     newForwarder.isSandbox = isSandbox;
                     newForwarder.hasSandbox = hasSandbox;
+                    newForwarder.isVisible = isVisible;
                     newForwarder.settings = settings;
 
                     newForwarder.eventNameFilters = eventNameFilters;

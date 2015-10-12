@@ -88,6 +88,7 @@ describe('mParticle Core SDK', function () {
                 this.userAttributeFilters = [];
                 this.setUserIdentityCalled = false;
                 this.receivedEvent = null;
+                this.isVisible = false;
 
                 this.init = function (settings, reportingService, id) {
                     self.reportingService = reportingService;
@@ -97,7 +98,7 @@ describe('mParticle Core SDK', function () {
                 this.process = function (event) {
                     self.processCalled = true;
                     this.receivedEvent = event;
-                    self.reportingService(1, event);
+                    self.reportingService(self, event);
                 };
 
                 this.setUserIdentity = function () {
@@ -125,11 +126,12 @@ describe('mParticle Core SDK', function () {
 
             this.name = 'MockForwarder';
             this.constructor = constructor;
+
             this.configureDebugAndSandbox = function (isDebug, isSandbox) {
-                mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [], 1, isDebug, isSandbox);
+                mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [], 1, isDebug, isSandbox, true);
             };
             this.configure = function () {
-                mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [], 1, false, false);
+                mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [], 1, false, false, true);
             };
         },
         mParticleAndroid = function () {
@@ -637,6 +639,25 @@ describe('mParticle Core SDK', function () {
         event.should.have.property('dbg', mParticle.isSandbox);
         event.should.have.property('ct');
         event.should.have.property('eec', 0);
+
+        done();
+    });
+
+    it('should not send forwarding stats to invisible forwarders', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mockForwarder.configure();
+        mParticle.init(apiKey);
+        mockForwarder.instance.isVisible = false;
+
+        mParticle.logEvent('send this event to forwarder',
+            mParticle.EventType.Navigation,
+            { 'my-key': 'my-value' });
+
+        var event = getEvent('send this event to forwarder', true);
+
+        Should(event).should.not.have.property('n');
 
         done();
     });
