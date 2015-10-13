@@ -597,7 +597,8 @@
             });
 
             for (var i = 0; i < forwarders.length; i++) {
-                if (forwarders[i].isSandbox === mParticle.isSandbox) {
+                if (forwarders[i].isSandbox === mParticle.isSandbox ||
+                    (!forwarders[i].isSandbox && !forwarders[i].hasSandbox)) {
                     forwarders[i].init(forwarders[i].settings,
                         sendForwardingStats,
                         false);
