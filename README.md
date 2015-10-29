@@ -1,8 +1,56 @@
-# mparticle-sdk-javascript
+<img src="https://www.mparticle.com/assets/img/logo.svg" width="280">
 
-mParticle Javascript SDK
+# mParticle Javascript SDK
 
-#License
+This is the initial open source release of the mParticle Javascript SDK.
+
+## Documentation
+
+Detailed documentation and other information about mParticle SDK can be found at: [http://docs.mparticle.com](http://docs.mparticle.com)
+
+## Author
+
+mParticle, Inc.
+
+## Support
+
+<support@mparticle.com>
+
+## Usage
+
+Once you have signed up to the mParticle platform and have a key for your App, you can begin to use the SDK by embedding the following
+script tag in your web page, replacing "YOUR_API_KEY" with your key.
+
+```groovy
+<script type="text/javascript">
+
+(function (apiKey) {
+    window.mParticle = window.mParticle || {};
+    window.mParticle.config = window.mParticle.config || {};
+    window.mParticle.config.rq = [];
+    window.mParticle.ready = function (f) {
+        window.mParticle.config.rq.push(f);
+    };
+    var mp = document.createElement('script');
+    mp.type = 'text/javascript';
+    mp.async = true;
+    mp.src = ('https:' == document.location.protocol ? 'https://jssdkcdns' : 'http://jssdkcdn') + '.mparticle.com/js/v1/' + apiKey + '/mparticle.js';
+    var s = document.getElementsByTagName('script')[0];
+    s.parentNode.insertBefore(mp, s);
+})('YOUR_API_KEY');
+
+</script>
+```
+
+You can then log events as follows:
+
+```groovy
+mParticle.logEvent('Play Movie', mParticle.EventType.Navigation, {'movie_length':'127 minutes','rating':'PG'});
+```
+
+For more detailed usage examples, including integrating with our iOS and Android SDKs, please see documentation at [http://docs.mparticle.com](http://docs.mparticle.com)
+
+## License
 
 Copyright 2015 mParticle, Inc.
 
