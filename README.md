@@ -50,6 +50,12 @@ mParticle.logEvent('Play Movie', mParticle.EventType.Navigation, {'movie_length'
 
 For more detailed usage examples, including integrating with our iOS and Android SDKs, please see documentation at [http://docs.mparticle.com](http://docs.mparticle.com)
 
+## Running the Tests
+
+A suite of test cases can be run by serving the /test directory from a web server (such as [serve](https://www.npmjs.com/package/serve)),
+and pointing a web browser to index.html. This will execute the tests and also display code coverage results. Note that serving the test
+directory from the file system directly will not work.
+
 ## License
 
 Copyright 2015 mParticle, Inc.
