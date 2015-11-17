@@ -6,7 +6,7 @@ This is the initial open source release of the mParticle Javascript SDK.
 
 ## Documentation
 
-Detailed documentation and other information about mParticle SDK can be found at: [http://docs.mparticle.com](http://docs.mparticle.com)
+Detailed documentation and other information about mParticle SDK can be found at [http://docs.mparticle.com](http://docs.mparticle.com)
 
 ## Author
 

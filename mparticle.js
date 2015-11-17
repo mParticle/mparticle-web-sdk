@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.3.0',
+        sdkVersion = '1.4.0',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -40,7 +40,9 @@
         productsBags = {},
         cartProducts = [],
         currencyCode = null,
-        MockHttpRequest = null;
+        MockHttpRequest = null,
+        appVersion = null,
+        appName = null;
 
     // forEach polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
@@ -333,13 +335,17 @@
                 obj = JSON.parse(result);
 
                 // Longer names are for backwards compatibility
-                sessionId = obj.sid || obj.SessionId;
+                sessionId = obj.sid || obj.SessionId || sessionId;
                 isEnabled = (typeof obj.ie != 'undefined') ? obj.ie : obj.IsEnabled;
-                sessionAttributes = obj.sa || obj.SessionAttributes;
-                userAttributes = obj.ua || obj.UserAttributes;
-                userIdentities = obj.ui || obj.UserIdentities;
-                serverSettings = obj.ss || obj.ServerSettings;
-                devToken = obj.dt || obj.DeveloperToken;
+                sessionAttributes = obj.sa || obj.SessionAttributes || sessionAttributes;
+                userAttributes = obj.ua || obj.UserAttributes || userAttributes;
+                userIdentities = obj.ui || obj.UserIdentities || userIdentities;
+                serverSettings = obj.ss || obj.ServerSettings || serverSettings;
+                devToken = obj.dt || obj.DeveloperToken || devToken;
+
+                if(isEnabled !== false || isEnabled !== true) {
+                    isEnabled = true;
+                }
 
                 if (obj.les) {
                     lastEventSent = new Date(obj.les);
@@ -365,7 +371,8 @@
                 ui: userIdentities,
                 ss: serverSettings,
                 dt: devToken,
-                les: lastEventSent ? lastEventSent.getTime() : null
+                les: lastEventSent ? lastEventSent.getTime() : null,
+                av: appVersion
             },
             expires = new Date(date.getTime() +
             (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
@@ -601,7 +608,12 @@
                     (!forwarders[i].isSandbox && !forwarders[i].hasSandbox)) {
                     forwarders[i].init(forwarders[i].settings,
                         sendForwardingStats,
-                        false);
+                        false,
+                        null,
+                        userAttributes,
+                        userIdentities,
+                        appVersion,
+                        appName);
                 }
             }
         }
@@ -692,7 +704,8 @@
             lc: event.Location,
             o: event.OptOut,
             eec: event.ExpandedEventCount,
-            flags: event.CustomFlags
+            flags: event.CustomFlags,
+            av: event.AppVersion
         };
 
         dto.pb = convertProductBagToDTO();
@@ -741,6 +754,9 @@
                     }
                 });
             }
+        }
+        else if(event.EventDataType == MessageType.Profile) {
+            dto.pet = event.ProfileMessageType;
         }
 
         return dto;
@@ -832,7 +848,8 @@
                 OptOut: optOut,
                 ProductBags: productsBags,
                 ExpandedEventCount: 0,
-                CustomFlags: customFlags
+                CustomFlags: customFlags,
+                AppVersion: appVersion
             };
         }
 
@@ -1050,6 +1067,29 @@
 
             send(commerceEvent);
             setCookie();
+        }
+        else {
+            logDebug(InformationMessages.AbandonLogEvent);
+        }
+    }
+
+    function logLogOutEvent() {
+        var evt;
+
+        logDebug(InformationMessages.StartingLogEvent + ': logOut');
+
+        if (canLog()) {
+            if (!sessionId) {
+                mParticle.startNewSession();
+            }
+
+            evt = createEventObject(MessageType.Profile);
+            evt.ProfileMessageType = ProfileMessageType.Logout;
+
+            send(evt);
+            setCookie();
+
+            return evt;
         }
         else {
             logDebug(InformationMessages.AbandonLogEvent);
@@ -1322,6 +1362,7 @@
         PageEvent: 4,
         CrashReport: 5,
         OptOut: 6,
+        Profile: 14,
         Commerce: 16
     };
 
@@ -1336,6 +1377,10 @@
         Social: 7,
         Other: 8,
         Media: 9
+    };
+
+    var ProfileMessageType = {
+        Logout: 3
     };
 
     EventType.getName = function (id) {
@@ -1452,7 +1497,8 @@
         IncludeGoogleAdwords: true,		// Include utm_source and utm_properties
         Timeout: 300,					// Timeout in milliseconds for logging functions
         SessionTimeout: 30,				// Session timeout in minutes
-        Sandbox: false                  // Events are marked as debug and only forwarded to debug forwarders
+        Sandbox: false,                 // Events are marked as debug and only forwarded to debug forwarders,
+        Version: null                   // The version of this website/app
     };
 
     var Config = {};
@@ -1505,7 +1551,8 @@
         ClearProductBag: 'clearProductBag',
         AddToCart: 'addToCart',
         RemoveFromCart: 'removeFromCart',
-        ClearCart: 'clearCart'
+        ClearCart: 'clearCart',
+        LogOut: 'logOut'
     };
 
     var ProductActionType = {
@@ -1582,6 +1629,11 @@
 
             logDebug(InformationMessages.StartingInitialization);
 
+            // Set configuration to default settings
+            mergeConfig({});
+            // Load any settings/identities/attributes from cookie
+            getCookie();
+
             if (arguments && arguments.length > 0) {
                 if (typeof arguments[0] == 'string') {
                     // This is the dev token
@@ -1628,6 +1680,8 @@
             stopTracking();
             devToken = null;
             sessionId = null;
+            appName = null;
+            appVersion = null;
             sessionAttributes = {};
             userAttributes = {};
             userIdentities = [];
@@ -1651,6 +1705,19 @@
         },
         getVersion: function () {
             return sdkVersion;
+        },
+        setAppVersion: function (version) {
+            appVersion = version;
+            setCookie();
+        },
+        getAppName: function () {
+            return appName;
+        },
+        setAppName: function (name) {
+            appName = name;
+        },
+        getAppVersion: function () {
+            return appVersion;
         },
         stopTrackingLocation: function () {
             stopTracking();
@@ -2011,7 +2078,19 @@
         },
         removeUserAttribute: function (key) {
             delete userAttributes[key];
-            tryNativeSdk(NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }));
+            if(!tryNativeSdk(NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }))) {
+                if (forwarders) {
+                    for (var i = 0; i < forwarders.length; i++) {
+                        if (forwarders[i].removeUserAttribute) {
+                            var result = forwarders[i].removeUserAttribute(key);
+
+                            if (result) {
+                                logDebug(result);
+                            }
+                        }
+                    }
+                }
+            }
             setCookie();
         },
         setSessionAttribute: function (key, value) {
@@ -2039,6 +2118,23 @@
 
                         if (result) {
                             logDebug(result);
+                        }
+                    }
+                }
+            }
+        },
+        logOut: function () {
+            var evt;
+
+            if (canLog()) {
+                if (!tryNativeSdk(NativeSdkPaths.LogOut)) {
+                    evt = logLogOutEvent();
+
+                    if (forwarders) {
+                        for (var i = 0; i < forwarders.length; i++) {
+                            if (forwarders[i].logOut) {
+                                forwarders[i].logOut(evt);
+                            }
                         }
                     }
                 }
@@ -2091,8 +2187,6 @@
         }
     };
 
-    getCookie();
-
     // Read existing configuration if present
     if (window.mParticle && window.mParticle.config) {
         if (window.mParticle.config.serviceUrl) {
@@ -2114,6 +2208,14 @@
 
         if (window.mParticle.config.hasOwnProperty('isSandbox')) {
             mParticle.isSandbox = window.mParticle.config.isSandbox;
+        }
+
+        if(window.mParticle.config.hasOwnProperty('appName')) {
+            appName = window.mParticle.config.appName;
+        }
+
+        if(window.mParticle.config.hasOwnProperty('appVersion')) {
+            appVersion = window.mParticle.config.appVersion;
         }
     }
 

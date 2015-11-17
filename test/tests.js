@@ -13,6 +13,18 @@ describe('mParticle Core SDK', function () {
 
             return requests;
         },
+        setCookie = function (data) {
+            var date = new Date(),
+                key = 'mprtcl-api',
+                value = data,
+                expires = new Date(date.getTime() +
+                (365 * 24 * 60 * 60 * 1000)).toGMTString();
+
+            window.document.cookie =
+                encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
+                ';expires=' + expires +
+                ';path=/';
+        },
         getEvent = function (eventName, isForwarding) {
             var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
                 matchedEvent = {};
@@ -27,6 +39,9 @@ describe('mParticle Core SDK', function () {
 
             return matchedEvent;
         },
+        ProfileMessageType = {
+            Logout: 3
+        },
         MessageType = {
             SessionStart: 1,
             SessionEnd: 2,
@@ -34,6 +49,7 @@ describe('mParticle Core SDK', function () {
             PageEvent: 4,
             CrashReport: 5,
             OptOut: 6,
+            Profile: 14,
             Commerce: 16
         },
         ProductActionType = {
@@ -89,10 +105,27 @@ describe('mParticle Core SDK', function () {
                 this.setUserIdentityCalled = false;
                 this.receivedEvent = null;
                 this.isVisible = false;
+                this.logOutCalled = false;
 
-                this.init = function (settings, reportingService, id) {
+                this.trackerId = null
+                this.userAttributes = null;
+                this.userIdentities = null;
+                this.appVersion = null;
+                this.appName = null;
+
+                this.logOut = function () {
+                    this.logOutCalled = true;
+                };
+
+                this.init = function (settings, reportingService, testMode, id, userAttributes, userIdentities, appVersion, appName) {
                     self.reportingService = reportingService;
                     self.initCalled = true;
+
+                    self.trackerId = id;
+                    self.userAttributes = userAttributes;
+                    self.userIdentities = userIdentities;
+                    self.appVersion = appVersion;
+                    self.appName = appName;
                 };
 
                 this.process = function (event) {
@@ -1228,6 +1261,126 @@ describe('mParticle Core SDK', function () {
 
         mParticle.logEvent('test')
         server.requests.should.have.lengthOf(0);
+
+        done();
+    });
+
+    it('should set app version', function(done) {
+        mParticle.setAppVersion('1.0');
+
+        window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation);
+        var data = getEvent('Test Event');
+
+        data.should.have.property('av', '1.0');
+
+        done();
+    });
+
+    it('should get app version', function(done) {
+        mParticle.setAppVersion('2.0')
+
+        var appVersion = mParticle.getAppVersion();
+
+        appVersion.should.equal('2.0');
+
+        done();
+    });
+
+    it('should log log out event', function(done) {
+        mParticle.logOut();
+
+        var data = getEvent(MessageType.Profile);
+
+        data.should.have.property('dt', MessageType.Profile);
+        data.should.have.property('pet', ProfileMessageType.Logout);
+
+        done();
+    });
+
+    it('should call logout on forwarder', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mockForwarder.configure();
+
+        mParticle.init(apiKey);
+        mParticle.logOut();
+
+        mockForwarder.instance.should.have.property('logOutCalled', true);
+
+        done();
+    });
+
+    it('should pass in app name to forwarder on initialize', function (done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mockForwarder.configure();
+
+        mParticle.setAppName('Unit Tests');
+        mParticle.init(apiKey);
+
+        mockForwarder.instance.should.have.property('appName', 'Unit Tests');
+
+        done();
+    });
+
+    it('should pass in app version to forwarder on initialize', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mockForwarder.configure();
+
+        mParticle.setAppVersion('3.0');
+        mParticle.init(apiKey);
+
+        mockForwarder.instance.should.have.property('appVersion', '3.0');
+
+        done();
+    });
+
+    it('should load cookie in initialize', function(done) {
+        mParticle.reset();
+
+        done();
+    });
+
+    it('should pass in user identities to forwarder on initialize', function(done) {
+        mParticle.reset();
+
+        setCookie({
+            ui: [{
+                Identity: 'testuser@mparticle.com',
+                Type: 1
+            }]
+        });
+
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mockForwarder.configure();
+        mParticle.init(apiKey);
+
+        mockForwarder.instance.should.have.property('userIdentities').with.lengthOf(1);
+
+        done();
+    });
+
+    it('should pass in user attributes to forwarder on initialize', function(done) {
+        mParticle.reset();
+
+        setCookie({
+            ua: {
+                color: 'blue'
+            }
+        });
+
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mockForwarder.configure();
+        mParticle.init(apiKey);
+
+        mockForwarder.instance.should.have.property('userAttributes');
+        mockForwarder.instance.userAttributes.should.have.property('color', 'blue');
 
         done();
     });
