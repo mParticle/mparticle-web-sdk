@@ -2,24 +2,15 @@
 
 # mParticle Javascript SDK
 
-This is the initial open source release of the mParticle Javascript SDK.
+Hello! This is the public repo of the mParticle Javascript SDK. We've built the mParticle platform to take a new approach to web and mobile app data and the platform has grown to support 50+ services and SDKs, including developer tools, analytics, attribution, messaging, and advertising services. mParticle is designed to serve as the connector between all of these services - check out [our site](www.mparticle.com), or hit us at dev@mparticle.com to learn more.
 
 ## Documentation
-
 Detailed documentation and other information about mParticle SDK can be found at [http://docs.mparticle.com](http://docs.mparticle.com)
-
-## Author
-
-mParticle, Inc.
-
-## Support
-
-<support@mparticle.com>
 
 ## Usage
 
 Once you have signed up to the mParticle platform and have a key for your App, you can begin to use the SDK by embedding the following
-script tag in your web page, replacing "YOUR_API_KEY" with your key.
+script tag in your web page, replacing `"YOUR_API_KEY"` with your key.
 
 ```groovy
 <script type="text/javascript">
@@ -42,19 +33,33 @@ script tag in your web page, replacing "YOUR_API_KEY" with your key.
 </script>
 ```
 
-You can then log events as follows:
+You can then log events, for example, as follows:
 
 ```groovy
 mParticle.logEvent('Play Movie', mParticle.EventType.Navigation, {'movie_length':'127 minutes','rating':'PG'});
 ```
 
-For more detailed usage examples, including integrating with our iOS and Android SDKs, please see documentation at [http://docs.mparticle.com](http://docs.mparticle.com)
+## Creating an Integration
+
+Similar to other mParticle SDKs, the Javascript SDK is able to automatically include, initialize, and delegate API calls to 3rd-party Javascript SDKs. If you would like to add your company as a new Javascript integration, reference the following integrations as examples:
+
+- [AdChemix](https://github.com/mParticle/integration-adchemix)
+- [Amplitude](https://github.com/mParticle/integration-amplitude)
+- [Google Analytics](https://github.com/mParticle/integration-google-analytics)
+- [Inspectlet](https://github.com/mParticle/integration-inspectlet)
+- [Kahuna](https://github.com/mParticle/integration-kahuna)
+- [KISSMetrics](https://github.com/mParticle/integration-kissmetrics)
+- [Optimizely](https://github.com/mParticle/integration-optimizely)
 
 ## Running the Tests
 
 A suite of test cases can be run by serving the /test directory from a web server (such as [serve](https://www.npmjs.com/package/serve)),
 and pointing a web browser to index.html. This will execute the tests and also display code coverage results. Note that serving the test
 directory from the file system directly will not work.
+
+## Support
+
+<support@mparticle.com>
 
 ## License
 
