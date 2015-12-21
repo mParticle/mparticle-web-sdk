@@ -1384,6 +1384,21 @@ describe('mParticle Core SDK', function () {
 
         done();
     });
+    
+    it('should pass custom flags in page views', function (done) {
+        mParticle.logPageView({
+            'MyCustom.Flag': 'Test'
+        });
+
+        var event = getEvent(window.location.pathname);
+
+        Should(event).be.ok();
+
+        event.should.have.property('flags');
+        event.flags.should.have.property('MyCustom.Flag', 'Test');
+
+        done();
+    });
 
     after(function () {
         server.stop();

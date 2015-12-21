@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.4.0',
+        sdkVersion = '1.5.0',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -42,7 +42,8 @@
         currencyCode = null,
         MockHttpRequest = null,
         appVersion = null,
-        appName = null;
+        appName = null,
+        customFlags = null;
 
     // forEach polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
@@ -613,7 +614,8 @@
                         userAttributes,
                         userIdentities,
                         appVersion,
-                        appName);
+                        appName,
+                        customFlags);
                 }
             }
         }
@@ -792,7 +794,7 @@
         var convertedBag = {},
             list;
 
-        for (prop in productsBags) {
+        for (var prop in productsBags) {
             if (!productsBags.hasOwnProperty(prop)) {
                 continue;
             }
@@ -1738,11 +1740,12 @@
         },
         setUserIdentity: function (id, type) {
             if (canLog()) {
-                userIdentity = {
+                var userIdentity = {
                     Identity: id,
                     Type: type
                 };
 
+                mParticle.removeUserIdentity(id);
                 userIdentities.push(userIdentity);
 
                 if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
@@ -1779,7 +1782,6 @@
         removeUserIdentity: function (id) {
             var i = 0;
 
-            // Bug: duplicate identities were being saved, so clean them up
             for (i = 0; i < userIdentities.length; i++) {
                 if (userIdentities[i].Identity === id) {
                     userIdentities.splice(i, 1);
@@ -1788,7 +1790,6 @@
             }
 
             tryNativeSdk(NativeSdkPaths.RemoveUserIdentity, id);
-
             setCookie();
         },
         startNewSession: function () {
@@ -1890,13 +1891,13 @@
         logForm: function (selector, eventName, eventType, eventInfo) {
             addEventHandler('submit', selector, eventName, eventInfo, eventType);
         },
-        logPageView: function () {
+        logPageView: function (customFlags) {
             if (canLog()) {
                 logEvent(MessageType.PageView,
                     window.location.pathname, {
                         hostname: window.location.hostname,
                         title: window.document.title
-                    }, EventType.Unknown);
+                    }, EventType.Unknown, customFlags);
             }
         },
         eCommerce: {
@@ -2027,7 +2028,7 @@
             affiliation,
             transactionId) {
 
-            attributes = {};
+            var attributes = {};
             attributes.$MethodName = 'LogEcommerceTransaction';
 
             attributes.ProductName = productName ? productName : '';
@@ -2216,6 +2217,11 @@
 
         if(window.mParticle.config.hasOwnProperty('appVersion')) {
             appVersion = window.mParticle.config.appVersion;
+        }
+        
+        // Some forwarders require custom flags on initialization, so allow them to be set using config object
+        if(window.mParticle.config.hasOwnProperty('customFlags')) {
+            customFlags = window.mParticle.config.customFlags;
         }
     }
 
