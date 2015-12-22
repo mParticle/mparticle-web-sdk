@@ -1399,6 +1399,29 @@ describe('mParticle Core SDK', function () {
 
         done();
     });
+    
+    it('should set product position to 0 if null', function (done) {
+        var product = mParticle.eCommerce.createProduct('iPhone',
+                '12345',
+                400,
+                2,
+                'Apple',
+                'Plus',
+                'Phones'),
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
+            'test-affiliation',
+            'coupon-code',
+            44334,
+            600,
+            200);
+
+        mParticle.eCommerce.logPurchase(transactionAttributes, product);
+        var data = getEvent(MessageType.Commerce);
+
+        data.pd.pl[0].should.have.property('ps', 0);
+
+        done();
+    });
 
     after(function () {
         server.stop();

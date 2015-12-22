@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.5.0',
+        sdkVersion = '1.5.1',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -743,7 +743,7 @@
                             id: promotion.Id,
                             nm: promotion.Name,
                             cr: promotion.Creative,
-                            ps: promotion.Position
+                            ps: promotion.Position == null ? 0 : promotion.Position
                         };
                     })
                 };
@@ -778,14 +778,14 @@
         return {
             id: product.Sku,
             nm: product.Name,
-            pr: product.Price,
-            qt: product.Quantity,
+            pr: product.Price == null ? 0 : product.Price,
+            qt: product.Quantity == null ? 0 : product.Quantity,
             br: product.Brand,
             va: product.Variant,
             ca: product.Category,
-            ps: product.Position,
+            ps: product.Position == null ? 0 : product.Position,
             cc: product.CouponCode,
-            tpa: product.TotalAmount,
+            tpa: product.TotalAmount == null ? 0 : product.TotalAmount,
             attrs: product.Attributes
         };
     }
