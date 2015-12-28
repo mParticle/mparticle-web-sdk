@@ -689,6 +689,36 @@
         }
     }
 
+    function convertCustomFlags(event, dto) {
+        var valueArray = [];
+        dto.flags = {};
+        
+        for(var prop in event.CustomFlags) {
+            valueArray = [];
+            
+            if(event.CustomFlags.hasOwnProperty(prop)) {
+                if(Array.isArray(event.CustomFlags[prop])) {
+                    for(var i = 0; i < event.CustomFlags[prop].length; i++) {
+                        if(typeof event.CustomFlags[prop][i] === 'number'
+                            || typeof event.CustomFlags[prop][i] === 'string'
+                            || typeof event.CustomFlags[prop][i] === 'boolean') {
+                                valueArray.push(event.CustomFlags[prop][i].toString());
+                            }
+                    }
+                }
+                else if(typeof event.CustomFlags[prop] === 'number' 
+                    || typeof event.CustomFlags[prop] === 'string'
+                    || typeof event.CustomFlags[prop] === 'boolean') {
+                    valueArray.push(event.CustomFlags[prop].toString());
+                }
+                
+                if(valueArray.length > 0) {
+                    dto.flags[prop] = valueArray;
+                }
+            }
+        }
+    }
+
     function convertEventToDTO(event) {
         var dto = {
             n: event.EventName,
@@ -706,9 +736,12 @@
             lc: event.Location,
             o: event.OptOut,
             eec: event.ExpandedEventCount,
-            flags: event.CustomFlags,
             av: event.AppVersion
         };
+
+        if(event.CustomFlags) {
+            convertCustomFlags(event, dto);
+        }
 
         dto.pb = convertProductBagToDTO();
 

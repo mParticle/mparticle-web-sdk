@@ -1395,7 +1395,30 @@ describe('mParticle Core SDK', function () {
         Should(event).be.ok();
 
         event.should.have.property('flags');
-        event.flags.should.have.property('MyCustom.Flag', 'Test');
+        event.flags.should.have.property('MyCustom.Flag', ['Test']);
+
+        done();
+    });
+    
+    it('should convert custom flag dictionary values to array', function(done) {
+        mParticle.logPageView({
+            'MyCustom.String': 'Test',
+            'MyCustom.Number': 1,
+            'MyCustom.Boolean': true,
+            'MyCustom.Object': {},
+            'MyCustom.Array': ['Blah', 'Hello', {}]
+        });
+
+        var event = getEvent(window.location.pathname);
+
+        Should(event).be.ok();
+
+        event.should.have.property('flags');
+        event.flags.should.have.property('MyCustom.String', ['Test']);
+        event.flags.should.have.property('MyCustom.Number', ['1']);
+        event.flags.should.have.property('MyCustom.Boolean', ['true']);
+        event.flags.should.not.have.property('MyCustom.Object');
+        event.flags.should.have.property('MyCustom.Array', ['Blah', 'Hello']);
 
         done();
     });
