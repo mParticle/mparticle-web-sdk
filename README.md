@@ -49,6 +49,7 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 - [Inspectlet](https://github.com/mParticle/integration-inspectlet)
 - [Kahuna](https://github.com/mParticle/integration-kahuna)
 - [KISSMetrics](https://github.com/mParticle/integration-kissmetrics)
+- [SimpleReach](https://github.com/mParticle/integration-simplereach)
 - [Optimizely](https://github.com/mParticle/integration-optimizely)
 
 ## Running the Tests
