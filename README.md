@@ -2,7 +2,7 @@
 
 # mParticle Javascript SDK
 
-Hello! This is the public repo of the mParticle Javascript SDK. We've built the mParticle platform to take a new approach to web and mobile app data and the platform has grown to support 50+ services and SDKs, including developer tools, analytics, attribution, messaging, and advertising services. mParticle is designed to serve as the connector between all of these services - check out [our site](www.mparticle.com), or hit us at dev@mparticle.com to learn more.
+Hello! This is the public repo of the mParticle Javascript SDK. We've built the mParticle platform to take a new approach to web and mobile app data and the platform has grown to support 50+ services and SDKs, including developer tools, analytics, attribution, messaging, and advertising services. mParticle is designed to serve as the connector between all of these services - check out [our site](http://mparticle.com), or hit us at dev@mparticle.com to learn more.
 
 ## Documentation
 Detailed documentation and other information about mParticle SDK can be found at [http://docs.mparticle.com](http://docs.mparticle.com)
@@ -45,6 +45,7 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 
 - [AdChemix](https://github.com/mParticle/integration-adchemix)
 - [Amplitude](https://github.com/mParticle/integration-amplitude)
+- [Appboy](https://github.com/mParticle/integration-appboy)
 - [Google Analytics](https://github.com/mParticle/integration-google-analytics)
 - [Inspectlet](https://github.com/mParticle/integration-inspectlet)
 - [Kahuna](https://github.com/mParticle/integration-kahuna)
