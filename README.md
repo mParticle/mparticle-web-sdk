@@ -48,6 +48,7 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 - [Appboy](https://github.com/mParticle/integration-appboy)
 - [Google Analytics](https://github.com/mParticle/integration-google-analytics)
 - [Inspectlet](https://github.com/mParticle/integration-inspectlet)
+- [Intercom](https://github.com/mParticle/integration-intercom)
 - [Kahuna](https://github.com/mParticle/integration-kahuna)
 - [KISSMetrics](https://github.com/mParticle/integration-kissmetrics)
 - [SimpleReach](https://github.com/mParticle/integration-simplereach)
