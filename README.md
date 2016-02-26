@@ -1,4 +1,4 @@
-<img src="https://www.mparticle.com/assets/img/logo.svg" width="280">
+<img src="https://www.mparticle.com/wp-content/themes/mparticle/images/logo.svg" width="280">
 
 # mParticle Javascript SDK
 
@@ -50,6 +50,7 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 - [Inspectlet](https://github.com/mParticle/integration-inspectlet)
 - [Kahuna](https://github.com/mParticle/integration-kahuna)
 - [KISSMetrics](https://github.com/mParticle/integration-kissmetrics)
+- [Mixpanel](https://github.com/mParticle/integration-mixpanel)
 - [SimpleReach](https://github.com/mParticle/integration-simplereach)
 - [Optimizely](https://github.com/mParticle/integration-optimizely)
 
