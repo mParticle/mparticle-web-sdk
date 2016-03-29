@@ -1,11 +1,11 @@
-describe('mParticle Core SDK', function () {
+describe('mParticle Core SDK', function() {
     var server,
         apiKey = 'test_key',
-        getRequests = function (path) {
+        getRequests = function(path) {
             var requests = [],
                 fullPath = '/v1/JS/' + apiKey + '/' + path;
 
-            server.requests.forEach(function (item) {
+            server.requests.forEach(function(item) {
                 if (item.urlParts.path == fullPath) {
                     requests.push(item);
                 }
@@ -13,23 +13,23 @@ describe('mParticle Core SDK', function () {
 
             return requests;
         },
-        setCookie = function (data) {
+        setCookie = function(data) {
             var date = new Date(),
                 key = 'mprtcl-api',
                 value = data,
                 expires = new Date(date.getTime() +
-                (365 * 24 * 60 * 60 * 1000)).toGMTString();
+                    (365 * 24 * 60 * 60 * 1000)).toGMTString();
 
             window.document.cookie =
                 encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
                 ';expires=' + expires +
                 ';path=/';
         },
-        getEvent = function (eventName, isForwarding) {
+        getEvent = function(eventName, isForwarding) {
             var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
                 matchedEvent = {};
 
-            requests.forEach(function (item) {
+            requests.forEach(function(item) {
                 var data = JSON.parse(item.requestText);
 
                 if (data.n === eventName) {
@@ -85,10 +85,10 @@ describe('mParticle Core SDK', function () {
             ProductRemoveFromWishlist: 21,
             ProductImpression: 22
         },
-        MockForwarder = function () {
+        MockForwarder = function() {
             var mockforwarder = this;
 
-            var constructor = function () {
+            var constructor = function() {
                 var self = this;
 
                 this.id = 1;
@@ -113,11 +113,11 @@ describe('mParticle Core SDK', function () {
                 this.appVersion = null;
                 this.appName = null;
 
-                this.logOut = function () {
+                this.logOut = function() {
                     this.logOutCalled = true;
                 };
 
-                this.init = function (settings, reportingService, testMode, id, userAttributes, userIdentities, appVersion, appName) {
+                this.init = function(settings, reportingService, testMode, id, userAttributes, userIdentities, appVersion, appName) {
                     self.reportingService = reportingService;
                     self.initCalled = true;
 
@@ -128,13 +128,13 @@ describe('mParticle Core SDK', function () {
                     self.appName = appName;
                 };
 
-                this.process = function (event) {
+                this.process = function(event) {
                     self.processCalled = true;
                     this.receivedEvent = event;
                     self.reportingService(self, event);
                 };
 
-                this.setUserIdentity = function () {
+                this.setUserIdentity = function() {
                     self.setUserIdentityCalled = true;
                 };
 
@@ -142,15 +142,15 @@ describe('mParticle Core SDK', function () {
                     PriorityValue: 1
                 };
 
-                this.setOptOut = function () {
+                this.setOptOut = function() {
                     this.setOptOutCalled = true;
                 };
 
-                this.setUserAttribute = function () {
+                this.setUserAttribute = function() {
                     this.setUserAttributeCalled = true;
                 };
 
-                this.setUserIdentity = function () {
+                this.setUserIdentity = function() {
                     this.setUserIdentityCalled = true;
                 };
 
@@ -160,14 +160,32 @@ describe('mParticle Core SDK', function () {
             this.name = 'MockForwarder';
             this.constructor = constructor;
 
-            this.configureDebugAndSandbox = function (isDebug, isSandbox) {
-                mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [], 1, isDebug, isSandbox, true);
+            this.configureDebugAndSandbox = function(isDebug, isSandbox) {
+                mParticle.configureForwarder();
             };
-            this.configure = function () {
-                mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [], 1, false, false, true);
+
+            this.configure = function(filteringEventAttributeRule) {
+                var config = {
+                    name: 'MockForwarder',
+                    settings: {},
+                    eventNameFilters: [],
+                    eventTypeFilters: [],
+                    attributeFilters: [],
+                    pageViewFilters: [],
+                    pageViewAttributeFilters: [],
+                    userIdentityFilters: [],
+                    userAttributeFilters: [],
+                    moduleId: 1,
+                    isSandbox: false,
+                    hasSandbox: false,
+                    isVisible: true,
+                    filteringEventAttributeRule: filteringEventAttributeRule
+                };
+
+                mParticle.configureForwarder(config);
             };
         },
-        mParticleAndroid = function () {
+        mParticleAndroid = function() {
             var self = this;
 
             this.logEventCalled = false;
@@ -185,64 +203,64 @@ describe('mParticle Core SDK', function () {
             this.removeFromCartCalled = false;
             this.clearCartCalled = false;
 
-            this.logEvent = function () {
+            this.logEvent = function() {
                 self.logEventCalled = true;
             };
-            this.setUserIdentity = function () {
+            this.setUserIdentity = function() {
                 self.setUserIdentityCalled = true;
             };
-            this.removeUserIdentity = function () {
+            this.removeUserIdentity = function() {
                 self.removeUserIdentityCalled = true;
             };
-            this.setUserTag = function () {
+            this.setUserTag = function() {
                 self.setUserTagCalled = true;
             };
-            this.removeUserTag = function () {
+            this.removeUserTag = function() {
                 self.removeUserTagCalled = true;
             };
-            this.setUserAttribute = function () {
+            this.setUserAttribute = function() {
                 self.setUserAttributeCalled = true;
             };
-            this.removeUserAttribute = function () {
+            this.removeUserAttribute = function() {
                 self.removeUserAttributeCalled = true;
             };
-            this.setSessionAttribute = function () {
+            this.setSessionAttribute = function() {
                 self.setSessionAttributeCalled = true;
             };
-            this.addToProductBag = function () {
+            this.addToProductBag = function() {
                 self.addToProductBagCalled = true;
             };
-            this.removeFromProductBag = function () {
+            this.removeFromProductBag = function() {
                 self.removeFromProductBagCalled = true;
             };
-            this.clearProductBag = function () {
+            this.clearProductBag = function() {
                 self.clearProductBagCalled = true;
             };
-            this.addToCart = function () {
+            this.addToCart = function() {
                 self.addToCartCalled = true;
             };
-            this.removeFromCart = function () {
+            this.removeFromCart = function() {
                 self.removeFromCartCalled = true;
             };
-            this.clearCart = function () {
+            this.clearCart = function() {
                 self.clearCartCalled = true;
             };
         };
 
-    before(function () {
+    before(function() {
         server = new MockHttpServer();
         server.start();
     });
 
-    beforeEach(function () {
+    beforeEach(function() {
         server.requests = [];
-        server.handle = function () { };
+        server.handle = function() { };
         mParticle.reset();
         mParticle.init(apiKey);
         window.mParticleAndroid = null;
     });
 
-    it('should log an event', function (done) {
+    it('should log an event', function(done) {
         window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation, { mykey: 'myvalue' });
         var data = getEvent('Test Event');
 
@@ -254,7 +272,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should log an error', function (done) {
+    it('should log an error', function(done) {
         mParticle.logError('my error');
 
         var data = getEvent('Error');
@@ -269,7 +287,7 @@ describe('mParticle Core SDK', function () {
     });
 
 
-    it('should log a page view', function (done) {
+    it('should log a page view', function(done) {
         mParticle.logPageView();
 
         var event = getEvent(window.location.pathname);
@@ -283,7 +301,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should create ecommerce product', function (done) {
+    it('should create ecommerce product', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2);
 
         product.should.have.property('Name', 'iPhone');
@@ -294,7 +312,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should create transaction attributes', function (done) {
+    it('should create transaction attributes', function(done) {
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
             'test-affiliation',
             'coupon-code',
@@ -312,23 +330,23 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should log ecommerce event', function (done) {
+    it('should log ecommerce event', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone',
-                '12345',
-                400,
-                2,
-                'Apple',
-                'Plus',
-                'Phones',
-                1,
-                'my-coupon-code',
-                {customkey: 'customvalue'}),
+            '12345',
+            400,
+            2,
+            'Apple',
+            'Plus',
+            'Phones',
+            1,
+            'my-coupon-code',
+            { customkey: 'customvalue' }),
             transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
-            'test-affiliation',
-            'coupon-code',
-            44334,
-            600,
-            200);
+                'test-affiliation',
+                'coupon-code',
+                44334,
+                600,
+                200);
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
         var data = getEvent(MessageType.Commerce);
@@ -360,7 +378,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should create promotion', function (done) {
+    it('should create promotion', function(done) {
         var promotion = mParticle.eCommerce.createPromotion('12345', 'my-creative', 'creative-name', 1);
 
         Should(promotion).be.ok();
@@ -373,7 +391,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it ('should log promotion click', function (done) {
+    it('should log promotion click', function(done) {
         var promotion = mParticle.eCommerce.createPromotion('12345', 'my-creative', 'creative-name', 1);
 
         mParticle.eCommerce.logPromotion(mParticle.PromotionType.PromotionClick, promotion);
@@ -394,7 +412,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should create impression', function (done) {
+    it('should create impression', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
             impression = mParticle.eCommerce.createImpression('impression-name', product);
 
@@ -405,7 +423,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should log impression event', function (done) {
+    it('should log impression event', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
             impression = mParticle.eCommerce.createImpression('impression-name', product);
 
@@ -423,7 +441,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should log ecommerce refund', function (done) {
+    it('should log ecommerce refund', function(done) {
         var transaction = mParticle.eCommerce.createTransactionAttributes('12345');
 
         mParticle.eCommerce.logRefund(transaction);
@@ -439,7 +457,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should add products to cart', function (done) {
+    it('should add products to cart', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
         mParticle.eCommerce.Cart.add(product, true);
@@ -454,7 +472,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should remove products to cart', function (done) {
+    it('should remove products to cart', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
         mParticle.eCommerce.Cart.add(product);
@@ -470,7 +488,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should add product to product bag', function (done) {
+    it('should add product to product bag', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
         mParticle.eCommerce.ProductBags.add('my bag', product);
@@ -490,7 +508,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should remove product from product bag', function (done) {
+    it('should remove product from product bag', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
         mParticle.eCommerce.ProductBags.add('my bag', product);
         mParticle.eCommerce.ProductBags.remove('my bag', product);
@@ -509,7 +527,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should clear product bag', function (done) {
+    it('should clear product bag', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
         mParticle.eCommerce.ProductBags.add('my bag', product);
         mParticle.eCommerce.ProductBags.clear('my bag');
@@ -528,7 +546,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should log checkout', function (done) {
+    it('should log checkout', function(done) {
         mParticle.eCommerce.logCheckout(1, 'Visa');
 
         var event = getEvent(MessageType.Commerce);
@@ -545,7 +563,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should log product action', function (done) {
+    it('should log product action', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
         mParticle.eCommerce.logProductAction(ProductActionType.ViewDetail, product);
@@ -563,7 +581,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should add user identities', function (done) {
+    it('should add user identities', function(done) {
         mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
 
         var identity = mParticle.getUserIdentity('test@mparticle.com');
@@ -574,7 +592,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should remove user identities', function (done) {
+    it('should remove user identities', function(done) {
         mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
         mParticle.removeUserIdentity('test@mparticle.com');
 
@@ -585,7 +603,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should invoke forwarder setIdentity', function (done) {
+    it('should invoke forwarder setIdentity', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -599,7 +617,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('starts new session', function (done) {
+    it('starts new session', function(done) {
         mParticle.startNewSession();
 
         var data = getEvent(MessageType.SessionStart);
@@ -611,7 +629,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('ends existing session', function (done) {
+    it('ends existing session', function(done) {
         mParticle.startNewSession();
         mParticle.endSession();
 
@@ -622,11 +640,26 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('initializes forwarder', function (done) {
+    it('initializes forwarder', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [], 1, false, false);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            id: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true
+        });
+
         mParticle.init(apiKey);
 
         mockForwarder.instance.should.have.property('initCalled', true);
@@ -634,7 +667,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('sends event to forwarder', function (done) {
+    it('sends event to forwarder', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -648,7 +681,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('sends forwarding stats', function (done) {
+    it('sends forwarding stats', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -695,7 +728,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should log opt out', function (done) {
+    it('should log opt out', function(done) {
         mParticle.setOptOut(true);
 
         var event = getEvent(MessageType.OptOut);
@@ -706,7 +739,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should invoke forwarder opt out', function (done) {
+    it('should invoke forwarder opt out', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
 
@@ -720,7 +753,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should add user attribute', function (done) {
+    it('should add user attribute', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
 
@@ -738,7 +771,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should remove user attribute', function (done) {
+    it('should remove user attribute', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
 
@@ -755,7 +788,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should set session attribute', function (done) {
+    it('should set session attribute', function(done) {
         mParticle.setSessionAttribute('name', 'test');
 
         mParticle.logEvent('test event');
@@ -768,7 +801,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should remove session attributes when session ends', function (done) {
+    it('should remove session attributes when session ends', function(done) {
         mParticle.startNewSession();
         mParticle.setSessionAttribute('name', 'test');
         mParticle.endSession();
@@ -782,7 +815,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should invoke forwarder setuserattribute', function (done) {
+    it('should invoke forwarder setuserattribute', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
 
@@ -796,7 +829,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should set and log position', function (done) {
+    it('should set and log position', function(done) {
         mParticle.setPosition(34.134103, -118.321694);
         mParticle.logEvent('test event');
 
@@ -809,7 +842,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should set user tag', function (done) {
+    it('should set user tag', function(done) {
         mParticle.setUserTag('test');
 
         mParticle.logEvent('test event');
@@ -822,7 +855,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should remove user tag', function (done) {
+    it('should remove user tag', function(done) {
         mParticle.setUserTag('test');
         mParticle.removeUserTag('test');
 
@@ -836,7 +869,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should log legacy ecommerce transaction', function (done) {
+    it('should log legacy ecommerce transaction', function(done) {
         mParticle.logEcommerceTransaction('iPhone',
             '12345',
             400,
@@ -870,8 +903,8 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should parse response after logging event', function (done) {
-        server.handle = function (request) {
+    it('should parse response after logging event', function(done) {
+        server.handle = function(request) {
             request.setResponseHeader("Content-Type", "application/json");
             request.receive(200, JSON.stringify({
                 Store: {
@@ -894,12 +927,27 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should filter user attributes from forwarder', function (done) {
+    it('should filter user attributes from forwarder', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [mParticle.generateHash('gender')], 1, false, false);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [mParticle.generateHash('gender')],
+            moduleId: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true
+        });
+
         mParticle.init(apiKey);
         mParticle.setUserAttribute('gender', 'male');
 
@@ -912,11 +960,27 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should filter user identities from forwarder', function (done) {
+    it('should filter user identities from forwarder', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [mParticle.IdentityType.Google], [mParticle.generateHash('gender')], 1, false, false);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [mParticle.IdentityType.Google],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true
+        });
+
         mParticle.init(apiKey);
         mParticle.setUserIdentity('test@gmail.com', mParticle.IdentityType.Google);
 
@@ -928,13 +992,29 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should filter event names', function (done) {
+    it('should filter event names', function(done) {
         mParticle.reset();
 
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder('MockForwarder', {}, [mParticle.generateHash(mParticle.EventType.Navigation + 'test event')], [], [], [], [], [], [], 1, false, false);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [mParticle.generateHash(mParticle.EventType.Navigation + 'test event')],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true
+        });
+
         mParticle.init(apiKey);
 
         mParticle.startNewSession();
@@ -951,12 +1031,28 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should filter page event names', function (done) {
+    it('should filter page event names', function(done) {
         mParticle.reset();
 
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder('MockForwarder', {}, [], [], [], [mParticle.generateHash(mParticle.EventType.Unknown + '/test/index.html')], [], [], [], 1, false, false);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [mParticle.generateHash(mParticle.EventType.Unknown + '/test/index.html')],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true
+        });
+
         mParticle.init(apiKey);
 
         mParticle.startNewSession();
@@ -969,12 +1065,28 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should filter event attributes', function (done) {
+    it('should filter event attributes', function(done) {
         mParticle.reset();
 
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder('MockForwarder', {}, [], [], [mParticle.generateHash(mParticle.EventType.Navigation + 'test event' + 'test attribute')], [], [], [], [], 1, false, false);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [mParticle.generateHash(mParticle.EventType.Navigation + 'test event' + 'test attribute')],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true
+        });
+
         mParticle.init(apiKey);
 
         mParticle.logEvent('test event', mParticle.EventType.Navigation, {
@@ -990,15 +1102,29 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should filter page event attributes', function (done) {
+    it('should filter page event attributes', function(done) {
         mParticle.reset();
 
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [mParticle.generateHash(mParticle.EventType.Unknown +
-            '/test/index.html' +
-            'hostname')], [], [], 1, false, false);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [mParticle.generateHash(mParticle.EventType.Navigation + 'test event' + 'test attribute')],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [mParticle.generateHash(mParticle.EventType.Unknown + '/test/index.html' + 'hostname')],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true
+        });
+
         mParticle.init(apiKey);
 
         mParticle.logPageView();
@@ -1026,8 +1152,8 @@ describe('mParticle Core SDK', function () {
         mParticle.reset();
         window.mParticleAndroid = new mParticleAndroid();
 
-        mParticle.eCommerce.Cart.add({Sku: '12345'});
-        mParticle.eCommerce.Cart.remove({Sku: '12345'});
+        mParticle.eCommerce.Cart.add({ Sku: '12345' });
+        mParticle.eCommerce.Cart.remove({ Sku: '12345' });
 
         window.mParticleAndroid.should.have.property('removeFromCartCalled', true);
 
@@ -1045,7 +1171,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should invoke native sdk method addToProductBag', function (done) {
+    it('should invoke native sdk method addToProductBag', function(done) {
         mParticle.reset();
         window.mParticleAndroid = new mParticleAndroid();
 
@@ -1067,7 +1193,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should invoke native sdk method clearProductBag', function (done) {
+    it('should invoke native sdk method clearProductBag', function(done) {
         mParticle.reset();
         window.mParticleAndroid = new mParticleAndroid();
 
@@ -1223,7 +1349,7 @@ describe('mParticle Core SDK', function () {
         var readyFuncCalled = false;
 
         mParticle.reset();
-        mParticle.ready(function() {readyFuncCalled = true;});
+        mParticle.ready(function() { readyFuncCalled = true; });
         mParticle.init();
 
         Should(readyFuncCalled).equal(true);
@@ -1255,7 +1381,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('opting out should prevent events being sent', function (done) {
+    it('opting out should prevent events being sent', function(done) {
         mParticle.setOptOut(true);
         server.requests = [];
 
@@ -1311,7 +1437,7 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    it('should pass in app name to forwarder on initialize', function (done) {
+    it('should pass in app name to forwarder on initialize', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -1384,8 +1510,8 @@ describe('mParticle Core SDK', function () {
 
         done();
     });
-    
-    it('should pass custom flags in page views', function (done) {
+
+    it('should pass custom flags in page views', function(done) {
         mParticle.logPageView({
             'MyCustom.Flag': 'Test'
         });
@@ -1399,7 +1525,7 @@ describe('mParticle Core SDK', function () {
 
         done();
     });
-    
+
     it('should convert custom flag dictionary values to array', function(done) {
         mParticle.logPageView({
             'MyCustom.String': 'Test',
@@ -1422,21 +1548,21 @@ describe('mParticle Core SDK', function () {
 
         done();
     });
-    
-    it('should set product position to 0 if null', function (done) {
+
+    it('should set product position to 0 if null', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone',
-                '12345',
-                400,
-                2,
-                'Apple',
-                'Plus',
-                'Phones'),
+            '12345',
+            400,
+            2,
+            'Apple',
+            'Plus',
+            'Phones'),
             transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
-            'test-affiliation',
-            'coupon-code',
-            44334,
-            600,
-            200);
+                'test-affiliation',
+                'coupon-code',
+                44334,
+                600,
+                200);
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
         var data = getEvent(MessageType.Commerce);
@@ -1446,7 +1572,142 @@ describe('mParticle Core SDK', function () {
         done();
     });
 
-    after(function () {
+    it('should not forward event if attribute forwarding rule is set', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true,
+            filteringEventAttributeValue: {
+                eventAttributeName: mParticle.generateHash('ForwardingRule'),
+                eventAttributeValue: mParticle.generateHash('Forward'),
+                includeOnMatch: false
+            }
+        });
+
+        mParticle.init(apiKey);
+
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            "ForwardingRule": "Forward"
+        });
+
+        var event = mockForwarder.instance.receivedEvent;
+
+        event.should.not.have.property('EventName', 'send this event to forwarder');
+
+        done();
+    });
+
+    it('should forward event if attribute forwarding rule is set', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true,
+            filteringEventAttributeValue: {
+                eventAttributeName: mParticle.generateHash('ForwardingRule'),
+                eventAttributeValue: mParticle.generateHash('Forward'),
+                includeOnMatch: true
+            }
+        });
+
+        mParticle.init(apiKey);
+
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            "ForwardingRule": "Forward"
+        });
+
+        var event = mockForwarder.instance.receivedEvent;
+
+        event.should.have.property('EventName', 'send this event to forwarder');
+
+        done();
+    });
+
+    it('should not forward event if attribute forwarding true rule is set', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isSandbox: false,
+            hasSandbox: false,
+            isVisible: true,
+            filteringEventAttributeValue: {
+                eventAttributeName: mParticle.generateHash('ForwardingRule'),
+                eventAttributeValue: mParticle.generateHash('Forward'),
+                includeOnMatch: true
+            }
+        });
+
+        mParticle.init(apiKey);
+
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            "Test": "Non-Matching"
+        });
+
+        var event = mockForwarder.instance.receivedEvent;
+
+        event.should.not.have.property('EventName', 'send this event to forwarder');
+
+        done();
+    });
+    
+    it('should support old configureForwarder function signature', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [mParticle.generateHash('gender')], 1, false, false);
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('gender', 'male');
+
+        mParticle.logEvent('test event');
+
+        var event = mockForwarder.instance.receivedEvent;
+        event.should.have.property('UserAttributes');
+        event.UserAttributes.should.not.have.property('gender');
+
+        done(); 
+    });
+
+    after(function() {
         server.stop();
     });
 });
