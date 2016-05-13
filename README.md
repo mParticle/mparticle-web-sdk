@@ -54,6 +54,8 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 - [Mixpanel](https://github.com/mParticle/integration-mixpanel)
 - [Optimizely](https://github.com/mParticle/integration-optimizely)
 - [SimpleReach](https://github.com/mParticle/integration-simplereach)
+- [Twitter](https://github.com/mParticle/integration-twitter)
+- [Facebook](https://github.com/mParticle/integration-facebook)
 
 ## Running the Tests
 
