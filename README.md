@@ -46,6 +46,7 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 - [AdChemix](https://github.com/mParticle/integration-adchemix)
 - [Amplitude](https://github.com/mParticle/integration-amplitude)
 - [Appboy](https://github.com/mParticle/integration-appboy)
+- [Facebook](https://github.com/mParticle/integration-facebook)
 - [Google Analytics](https://github.com/mParticle/integration-google-analytics)
 - [Inspectlet](https://github.com/mParticle/integration-inspectlet)
 - [Intercom](https://github.com/mParticle/integration-intercom)
@@ -55,7 +56,6 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 - [Optimizely](https://github.com/mParticle/integration-optimizely)
 - [SimpleReach](https://github.com/mParticle/integration-simplereach)
 - [Twitter](https://github.com/mParticle/integration-twitter)
-- [Facebook](https://github.com/mParticle/integration-facebook)
 
 ## Running the Tests
 
