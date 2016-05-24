@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.6.0',
+        sdkVersion = '1.6.1',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -123,6 +123,13 @@
             }
 
             return A;
+        };
+    }
+    
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
+    if (!Array.isArray) {
+        Array.isArray = function (arg) {
+            return Object.prototype.toString.call(arg) === '[object Array]';
         };
     }
 
@@ -1045,7 +1052,12 @@
             convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
 
             if (product) {
-                event.ProductAction.ProductList = [product];
+                if (Array.isArray(product)) {
+                    event.ProductAction.ProductList = product;
+                }
+                else {
+                    event.ProductAction.ProductList = [product];
+                }
             }
             else {
                 event.ProductAction.ProductList = event.ShoppingCart.ProductList;
