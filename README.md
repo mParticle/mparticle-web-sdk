@@ -52,6 +52,7 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 - [Intercom](https://github.com/mParticle/integration-intercom)
 - [Kahuna](https://github.com/mParticle/integration-kahuna)
 - [KISSMetrics](https://github.com/mParticle/integration-kissmetrics)
+- [Localytics](https://github.com/mParticle/integration-localytics)
 - [Mixpanel](https://github.com/mParticle/integration-mixpanel)
 - [Optimizely](https://github.com/mParticle/integration-optimizely)
 - [SimpleReach](https://github.com/mParticle/integration-simplereach)
