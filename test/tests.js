@@ -27,7 +27,7 @@ describe('mParticle Core SDK', function() {
         },
         getEvent = function(eventName, isForwarding) {
             var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
-                matchedEvent = {};
+                matchedEvent = null;
 
             requests.forEach(function(item) {
                 var data = JSON.parse(item.requestText);
@@ -376,6 +376,39 @@ describe('mParticle Core SDK', function() {
         data.pd.pl[0].attrs.should.have.property('customkey', 'customvalue');
 
         done();
+    });
+    
+    it('logPurchase should support array of products', function(done) {
+        var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
+            product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1),
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345');
+
+        mParticle.eCommerce.logPurchase(transactionAttributes, [product1, product2]);
+        var data = getEvent(MessageType.Commerce);
+        
+        data.should.have.property('pd');
+        data.pd.should.have.property('pl').with.lengthOf(2);
+        data.pd.pl[0].should.have.property('nm', 'iPhone');
+        data.pd.pl[1].should.have.property('nm', 'Android');
+        
+        done(); 
+    });
+    
+    it('logRefund should support array of products', function(done) {
+        var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
+            product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1),
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345');
+
+        mParticle.eCommerce.logRefund(transactionAttributes, [product1, product2]);
+        var data = getEvent(MessageType.Commerce);
+        
+        data.should.have.property('pd');
+        data.pd.should.have.property('an', ProductActionType.Refund);
+        data.pd.should.have.property('pl').with.lengthOf(2);
+        data.pd.pl[0].should.have.property('nm', 'iPhone');
+        data.pd.pl[1].should.have.property('nm', 'Android');
+        
+        done(); 
     });
 
     it('should create promotion', function(done) {
@@ -1704,6 +1737,46 @@ describe('mParticle Core SDK', function() {
         event.should.have.property('UserAttributes');
         event.UserAttributes.should.not.have.property('gender');
 
+        done(); 
+    });
+    
+    it('should support logLTVIncrease function', function(done) {
+        mParticle.logLTVIncrease(100, 'Bought Something');
+
+        var event = getEvent('Bought Something');
+
+        Should(event).be.ok();
+
+        event.should.have.property('dt', MessageType.PageEvent);
+        event.should.have.property('et', mParticle.EventType.Transaction);
+        
+        event.should.have.property('attrs');
+        event.attrs.should.have.property('$Amount', 100);
+        event.attrs.should.have.property('$MethodName', 'LogLTVIncrease');
+
+        done();
+    });
+    
+    it('should default logLTVIncrease event name', function(done) {
+        mParticle.logLTVIncrease(100);
+
+        var event = getEvent('Increase LTV');
+
+        Should(event).be.ok();
+        
+        event.should.have.property('attrs');
+        event.attrs.should.have.property('$Amount', 100);
+
+        done();
+    });
+    
+    it('should not logLTVIncrease when no amount is passed', function(done) {
+        mParticle.logLTVIncrease();
+
+        var event = getEvent('Increase LTV');
+
+        Should(event).not.be.ok();
+        
         done(); 
     });
 

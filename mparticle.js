@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.6.2',
+        sdkVersion = '1.7.0',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -43,7 +43,10 @@
         MockHttpRequest = null,
         appVersion = null,
         appName = null,
-        customFlags = null;
+        customFlags = null,
+        METHOD_NAME = '$MethodName',
+        LOG_LTV = 'LogLTVIncrease',
+        RESERVED_KEY_LTV = '$Amount'; 
 
     // forEach polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
@@ -2134,6 +2137,24 @@
             attributes.TransactionID = transactionId ? transactionId : generateUniqueId();
 
             logEvent(MessageType.PageEvent, 'Ecommerce', attributes, EventType.Transaction);
+        },
+        logLTVIncrease: function (amount, eventName, attributes) {
+            if(amount == null || typeof amount == "undefined") {
+                logDebug('A valid amount must be passed to logLTVIncrease.');
+                return;
+            }
+            
+            if(!attributes) {
+                attributes = {};
+            }
+            
+            attributes[RESERVED_KEY_LTV] = amount;
+            attributes[METHOD_NAME] = LOG_LTV;
+            
+            logEvent(MessageType.PageEvent, 
+                !eventName ? 'Increase LTV' : eventName,
+                attributes,
+                EventType.Transaction);
         },
         setUserTag: function(tagName) {
             window.mParticle.setUserAttribute(tagName, null);
