@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.6.1',
+        sdkVersion = '1.6.2',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -1048,20 +1048,9 @@
             event.ProductAction = {
                 ProductActionType: ProductActionType.Purchase
             };
+            event.ProductAction.ProductList = buildProductList(event, product);
 
             convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
-
-            if (product) {
-                if (Array.isArray(product)) {
-                    event.ProductAction.ProductList = product;
-                }
-                else {
-                    event.ProductAction.ProductList = [product];
-                }
-            }
-            else {
-                event.ProductAction.ProductList = event.ShoppingCart.ProductList;
-            }
 
             logCommerceEvent(event, attrs);
         }
@@ -1080,18 +1069,24 @@
             event.ProductAction = {
                 ProductActionType: ProductActionType.Refund
             };
+            event.ProductAction.ProductList = buildProductList(event, product);
 
             convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
 
-            if (product) {
-                event.ProductAction.ProductList = [product];
-            }
-            else {
-                event.ProductAction.ProductList = event.ShoppingCart.ProductList;
-            }
-
             logCommerceEvent(event, attrs);
         }
+    }
+    
+    function buildProductList(event, product) {
+        if (product) {
+            if (Array.isArray(product)) {
+                return product;
+            }
+             
+            return [product];
+        }
+        
+        return event.ShoppingCart.ProductList;
     }
 
     function logPromotionEvent(promotionType, promotion, attrs) {
