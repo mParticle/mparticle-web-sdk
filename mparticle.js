@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.7.0',
+        sdkVersion = '1.7.1',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -947,6 +947,43 @@
         return null;
     }
 
+    function getProductActionEventName(productActionType) {
+        switch (productActionType) {
+            case ProductActionType.AddToCart:
+                return 'AddToCart';
+            case ProductActionType.AddToWishlist:
+                return 'AddToWishlist';
+            case ProductActionType.Checkout:
+                return 'Checkout';
+            case ProductActionType.Click:
+                return 'Click';
+            case ProductActionType.Purchase:
+                return 'Purchase';
+            case ProductActionType.Refund:
+                return 'Refund';
+            case ProductActionType.RemoveFromCart:
+                return 'RemoveFromCart';
+            case ProductActionType.RemoveFromWishlist:
+                return 'RemoveFromWishlist';
+            case ProductActionType.ViewDetail:
+                return 'ViewDetail';
+            case ProductActionType.Unknown:
+            default:
+                return 'Unknown';
+        }
+    }
+    
+    function getPromotionActionEventName(promotionActionType) {
+        switch (promotionActionType) {
+            case PromotionActionType.PromotionClick:
+                return 'PromotionClick';
+            case PromotionActionType.PromotionView:
+                return 'PromotionView';
+            default:
+                return 'Unknown';
+        }
+    }
+
     function convertProductActionToEventType(productActionType) {
         switch (productActionType) {
             case ProductActionType.AddToCart:
@@ -998,7 +1035,7 @@
             }
 
             baseEvent = createEventObject(MessageType.Commerce);
-
+            baseEvent.EventName = 'eCommerce - ';
             baseEvent.CurrencyCode = currencyCode;
             baseEvent.ShoppingCart = {
                 ProductList: cartProducts
@@ -1017,6 +1054,7 @@
         var event = createCommerceEventObject();
 
         if (event) {
+            event.EventName += getProductActionEventName(ProductActionType.Checkout);
             event.EventCategory = CommerceEventType.ProductCheckout;
             event.ProductAction = {
                 ProductActionType: ProductActionType.Checkout,
@@ -1034,6 +1072,7 @@
 
         if (event) {
             event.EventCategory = convertProductActionToEventType(productActionType);
+            event.EventName += getProductActionEventName(productActionType);
             event.ProductAction = {
                 ProductActionType: productActionType,
                 ProductList: [product]
@@ -1047,6 +1086,7 @@
         var event = createCommerceEventObject();
 
         if (event) {
+            event.EventName += getProductActionEventName(ProductActionType.Purchase);
             event.EventCategory = CommerceEventType.ProductPurchase;
             event.ProductAction = {
                 ProductActionType: ProductActionType.Purchase
@@ -1068,6 +1108,7 @@
         var event = createCommerceEventObject();
 
         if (event) {
+            event.EventName += getProductActionEventName(ProductActionType.Refund);
             event.EventCategory = CommerceEventType.ProductRefund;
             event.ProductAction = {
                 ProductActionType: ProductActionType.Refund
@@ -1096,6 +1137,7 @@
         var event = createCommerceEventObject();
 
         if (event) {
+            event.EventName += getPromotionActionEventName(promotionType);
             event.EventCategory = convertPromotionActionToEventType(promotionType);
             event.PromotionAction = {
                 PromotionActionType: promotionType,
@@ -1110,6 +1152,7 @@
         var event = createCommerceEventObject();
 
         if (event) {
+            event.EventName += 'Impression';
             event.EventCategory = CommerceEventType.ProductImpression;
             event.ProductImpressions = [{
                 ProductImpressionList: impression.Name,

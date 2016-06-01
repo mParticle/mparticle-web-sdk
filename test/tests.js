@@ -349,7 +349,7 @@ describe('mParticle Core SDK', function() {
                 200);
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var data = getEvent(MessageType.Commerce);
+        var data = getEvent('eCommerce - Purchase');
 
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.Purchase);
@@ -384,7 +384,7 @@ describe('mParticle Core SDK', function() {
             transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345');
 
         mParticle.eCommerce.logPurchase(transactionAttributes, [product1, product2]);
-        var data = getEvent(MessageType.Commerce);
+        var data = getEvent('eCommerce - Purchase');
         
         data.should.have.property('pd');
         data.pd.should.have.property('pl').with.lengthOf(2);
@@ -400,7 +400,7 @@ describe('mParticle Core SDK', function() {
             transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345');
 
         mParticle.eCommerce.logRefund(transactionAttributes, [product1, product2]);
-        var data = getEvent(MessageType.Commerce);
+        var data = getEvent('eCommerce - Refund');
         
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.Refund);
@@ -429,7 +429,7 @@ describe('mParticle Core SDK', function() {
 
         mParticle.eCommerce.logPromotion(mParticle.PromotionType.PromotionClick, promotion);
 
-        var event = getEvent(MessageType.Commerce);
+        var event = getEvent('eCommerce - PromotionClick');
 
         Should(event).be.ok();
 
@@ -462,7 +462,7 @@ describe('mParticle Core SDK', function() {
 
         mParticle.eCommerce.logImpression(impression);
 
-        var event = getEvent(MessageType.Commerce);
+        var event = getEvent('eCommerce - Impression');
 
         Should(event).be.ok();
 
@@ -479,7 +479,7 @@ describe('mParticle Core SDK', function() {
 
         mParticle.eCommerce.logRefund(transaction);
 
-        var event = getEvent(MessageType.Commerce);
+        var event = getEvent('eCommerce - Refund');
 
         Should(event).be.ok();
 
@@ -495,7 +495,7 @@ describe('mParticle Core SDK', function() {
 
         mParticle.eCommerce.Cart.add(product, true);
 
-        var data = getEvent(MessageType.Commerce);
+        var data = getEvent('eCommerce - AddToCart');
 
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.AddToCart);
@@ -511,7 +511,7 @@ describe('mParticle Core SDK', function() {
         mParticle.eCommerce.Cart.add(product);
         mParticle.eCommerce.Cart.remove({ Sku: '12345' }, true);
 
-        var data = getEvent(MessageType.Commerce);
+        var data = getEvent('eCommerce - RemoveFromCart');
 
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.RemoveFromCart);
@@ -582,7 +582,7 @@ describe('mParticle Core SDK', function() {
     it('should log checkout', function(done) {
         mParticle.eCommerce.logCheckout(1, 'Visa');
 
-        var event = getEvent(MessageType.Commerce);
+        var event = getEvent('eCommerce - Checkout');
 
         Should(event).be.ok();
 
@@ -601,7 +601,7 @@ describe('mParticle Core SDK', function() {
 
         mParticle.eCommerce.logProductAction(ProductActionType.ViewDetail, product);
 
-        var event = getEvent(MessageType.Commerce);
+        var event = getEvent('eCommerce - ViewDetail');
 
         event.should.have.property('et', CommerceEventType.ProductViewDetail);
         event.should.have.property('pd');
@@ -1598,7 +1598,7 @@ describe('mParticle Core SDK', function() {
                 200);
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var data = getEvent(MessageType.Commerce);
+        var data = getEvent('eCommerce - Purchase');
 
         data.pd.pl[0].should.have.property('ps', 0);
 
