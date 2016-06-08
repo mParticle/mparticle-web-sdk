@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.7.1',
+        sdkVersion = '1.7.2',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -2358,8 +2358,8 @@
                     newForwarder = new forwarderConstructors[i].constructor();
 
                     newForwarder.id = config.moduleId;
-                    newForwarder.isSandbox = config.isSandbox;
-                    newForwarder.hasSandbox = config.hasSandbox;
+                    newForwarder.isSandbox = config.isDebug;
+                    newForwarder.hasSandbox = config.hasDebugString === 'true' ? true : false;
                     newForwarder.isVisible = config.isVisible;
                     newForwarder.settings = config.settings;
 

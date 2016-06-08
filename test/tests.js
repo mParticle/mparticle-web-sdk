@@ -176,8 +176,8 @@ describe('mParticle Core SDK', function() {
                     userIdentityFilters: [],
                     userAttributeFilters: [],
                     moduleId: 1,
-                    isSandbox: false,
-                    hasSandbox: false,
+                    isDebug: false,
+                    HasDebugString: 'false',
                     isVisible: true,
                     filteringEventAttributeRule: filteringEventAttributeRule
                 };
@@ -688,8 +688,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [],
             userAttributeFilters: [],
             id: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true
         });
 
@@ -976,8 +976,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [],
             userAttributeFilters: [mParticle.generateHash('gender')],
             moduleId: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true
         });
 
@@ -1009,8 +1009,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [mParticle.IdentityType.Google],
             userAttributeFilters: [],
             moduleId: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true
         });
 
@@ -1043,8 +1043,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [],
             userAttributeFilters: [],
             moduleId: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true
         });
 
@@ -1081,8 +1081,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [],
             userAttributeFilters: [],
             moduleId: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true
         });
 
@@ -1115,8 +1115,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [],
             userAttributeFilters: [],
             moduleId: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true
         });
 
@@ -1153,8 +1153,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [],
             userAttributeFilters: [],
             moduleId: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true
         });
 
@@ -1621,8 +1621,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [],
             userAttributeFilters: [],
             moduleId: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true,
             filteringEventAttributeValue: {
                 eventAttributeName: mParticle.generateHash('ForwardingRule'),
@@ -1660,8 +1660,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [],
             userAttributeFilters: [],
             moduleId: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true,
             filteringEventAttributeValue: {
                 eventAttributeName: mParticle.generateHash('ForwardingRule'),
@@ -1699,8 +1699,8 @@ describe('mParticle Core SDK', function() {
             userIdentityFilters: [],
             userAttributeFilters: [],
             moduleId: 1,
-            isSandbox: false,
-            hasSandbox: false,
+            isDebug: false,
+            hasDebugString: 'false',
             isVisible: true,
             filteringEventAttributeValue: {
                 eventAttributeName: mParticle.generateHash('ForwardingRule'),
@@ -1778,6 +1778,123 @@ describe('mParticle Core SDK', function() {
         Should(event).not.be.ok();
         
         done(); 
+    });
+
+    it('should not log prod event to debug forwarder', function (done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            hasDebugString: 'true',
+            isVisible: true
+        });
+
+        var instance1 = mockForwarder.instance;
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: true,
+            hasDebugString: 'true',
+            isVisible: true
+        });
+
+        var instance2 = mockForwarder.instance;
+
+        mParticle.init(apiKey);
+
+        mParticle.startNewSession();
+        
+        instance1.receivedEvent = null;
+        instance2.receivedEvent = null;
+
+        mParticle.logEvent('test event', mParticle.EventType.Navigation);
+
+        Should(instance1.receivedEvent).be.ok();
+        Should(instance2.receivedEvent).not.be.ok();
+
+        done();
+    });
+
+    it('should not log debug event to prod forwarder', function (done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            hasDebugString: 'true',
+            isVisible: true
+        });
+
+        var instance1 = mockForwarder.instance;
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: true,
+            hasDebugString: 'true',
+            isVisible: true
+        });
+
+        var instance2 = mockForwarder.instance;
+
+        mParticle.init(apiKey);
+        mParticle.isSandbox = true;
+
+        mParticle.startNewSession();
+        
+        instance1.receivedEvent = null;
+        instance2.receivedEvent = null;
+
+        mParticle.logEvent('test event', mParticle.EventType.Navigation);
+
+        Should(instance1.receivedEvent).not.be.ok();
+        Should(instance2.receivedEvent).be.ok();
+
+        done();
     });
 
     after(function() {
