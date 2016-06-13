@@ -301,6 +301,22 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    if('should log custom page view', function(done) {
+        mParticle.logPageView('My Page View', {'testattr': 1}, {
+            'MyCustom.Flag': 'Test'
+        });
+        
+        var event = getEvent('My Page View');
+
+        event.should.have.property('attrs');
+        event.attrs.should.have.property('testattr', 1);
+
+        event.should.have.property('flags');
+        event.flags.should.have.property('MyCustom.Flag', 'Test');
+
+        done();
+    });
+
     it('should create ecommerce product', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2);
 
@@ -689,7 +705,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             id: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true
         });
 

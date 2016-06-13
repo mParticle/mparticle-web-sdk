@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.7.2',
+        sdkVersion = '1.7.3',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -2027,13 +2027,35 @@
         logForm: function(selector, eventName, eventType, eventInfo) {
             addEventHandler('submit', selector, eventName, eventInfo, eventType);
         },
-        logPageView: function(customFlags) {
+        logPageView: function() {
+            var eventName = null,
+                attrs = null,
+                flags = null;
+
             if (canLog()) {
-                logEvent(MessageType.PageView,
-                    window.location.pathname, {
-                        hostname: window.location.hostname,
-                        title: window.document.title
-                    }, EventType.Unknown, customFlags);
+                if(arguments.length <= 1) {
+                    // Handle original function signature
+                    
+                    eventName = window.location.pathname;
+                    attrs = {
+                            hostname: window.location.hostname,
+                            title: window.document.title
+                    };
+
+                    if(arguments.length == 1) {
+                        flags = arguments[0];
+                    }
+                }
+                else if(arguments.length > 1) {
+                    eventName = arguments[0];
+                    attrs = arguments[1];
+
+                    if(arguments.length == 3) {
+                        flags = arguments[2];
+                    }
+                }
+
+                logEvent(MessageType.PageView, eventName, attrs, EventType.Unknown, flags);
             }
         },
         eCommerce: {
