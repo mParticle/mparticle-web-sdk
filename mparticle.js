@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.7.3',
+        sdkVersion = '1.8.0',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -480,11 +480,17 @@
         if (forwarders) {
             for (var i = 0; i < forwarders.length; i++) {
                 var forwarderFunction = forwarders[i][functionName];
+                
                 if (forwarderFunction) {
-                    var result = forwarderFunction.apply(forwarders[i], functionArgs);
+                    try {
+                        var result = forwarders[i][functionName](forwarders[i], functionArgs);
 
-                    if (result) {
-                        logDebug(result);
+                        if (result) {
+                            logDebug(result);
+                        }
+                    }
+                    catch(e) {
+                        logDebug(e);
                     }
                 }
             }
@@ -1493,6 +1499,40 @@
         };
     }
 
+    function callSetUserAttributeOnForwarders(key, value) {
+        if (forwarders) {
+            for (var i = 0; i < forwarders.length; i++) {
+                if (forwarders[i].setUserAttribute &&
+                    forwarders[i].userAttributeFilters &&
+                    !inArray(forwarders[i].userAttributeFilters, generateHash(key))) {
+
+                    try {
+                        var result = forwarders[i].setUserAttribute(key, value);
+
+                        if (result) {
+                            logDebug(result);
+                        }
+                    }
+                    catch (e) {
+                        logDebug(e);
+                    }
+                }
+            }
+        }
+    }
+
+    function findKeyInObject(obj, key) {
+        if(key && obj) {
+            for(var prop in obj) {
+                if(obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
+                    return prop;
+                }
+            }
+        }
+
+        return null;
+    }
+
     var MessageType = {
         SessionStart: 1,
         SessionEnd: 2,
@@ -1690,7 +1730,11 @@
         AddToCart: 'addToCart',
         RemoveFromCart: 'removeFromCart',
         ClearCart: 'clearCart',
-        LogOut: 'logOut'
+        LogOut: 'logOut',
+        SetUserAttributeList: 'setUserAttributeList',
+        RemoveAllUserAttributes: 'removeAllUserAttributes',
+        GetUserAttributesLists: 'getUserAttributesLists',
+        GetAllUserAttributes: 'getAllUserAttributes'
     };
 
     var ProductActionType = {
@@ -2225,6 +2269,12 @@
             window.mParticle.setUserAttribute(tagName, null);
         },
         removeUserTag: function(tagName) {
+            var existingProp = findKeyInObject(userAttributes, tagName);
+
+            if(existingProp != null) {
+                tagName = existingProp;
+            }
+
             delete userAttributes[tagName];
             tryNativeSdk(NativeSdkPaths.RemoveUserTag, JSON.stringify({ key: tagName, value: null }));
             setCookie();
@@ -2234,59 +2284,125 @@
             // And logs to in-memory object
             // Example: mParticle.setUserAttribute('email', 'tbreffni@mparticle.com');
             if (canLog()) {
+                var existingProp = findKeyInObject(userAttributes, key);
+
+                if(existingProp != null) {
+                    key = existingProp;
+                }
+
                 userAttributes[key] = value;
                 setCookie();
+
                 if (!tryNativeSdk(NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }))) {
-                    if (forwarders) {
-                        for (var i = 0; i < forwarders.length; i++) {
-                            if (forwarders[i].setUserAttribute &&
-                                forwarders[i].userAttributeFilters &&
-                                !inArray(forwarders[i].userAttributeFilters, generateHash(key))) {
-
-                                try {
-                                    var result = forwarders[i].setUserAttribute(key, value);
-
-                                    if (result) {
-                                        logDebug(result);
-                                    }
-                                }
-                                catch (e) {
-                                    logDebug(e);
-                                }
-                            }
-                        }
-                    }
+                    callSetUserAttributeOnForwarders(key, value);
                 }
             }
         },
         removeUserAttribute: function(key) {
+            var existingProp = findKeyInObject(userAttributes, key);
+
+            if(existingProp != null) {
+                key = existingProp;
+            }
+
             delete userAttributes[key];
+
             if (!tryNativeSdk(NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }))) {
-                if (forwarders) {
-                    for (var i = 0; i < forwarders.length; i++) {
-                        if (forwarders[i].removeUserAttribute) {
+                applyToForwarders('removeUserAttribute', key, null);
+            }
 
-                            try {
-                                var result = forwarders[i].removeUserAttribute(key);
+            setCookie();
+        },
+        setUserAttributeList: function(key, value) {
+            var arrayCopy = [];
 
-                                if (result) {
-                                    logDebug(result);
-                                }
-                            }
-                            catch (e) {
-                                logDebug(e);
-                            }
+            if(Array.isArray(value)) {
+                for(var i = 0; i < value.length; i++) {
+                    arrayCopy.push(value[i]);
+                }
+                
+                var existingProp = findKeyInObject(userAttributes, key);
+
+                if(existingProp != null) {
+                    key = existingProp;
+                }
+
+                userAttributes[key] = arrayCopy;
+                setCookie();
+
+                if(!tryNativeSdk(NativeSdkPaths.SetUserAttributeList, JSON.stringify({key: key, value: arrayCopy}))) {
+                    callSetUserAttributeOnForwarders(key, arrayCopy);
+                }
+            }
+        },
+        removeAllUserAttributes: function () {
+            if(!tryNativeSdk(NativeSdkPaths.RemoveAllUserAttributes)) {
+                if(userAttributes) {
+                    for(var prop in userAttributes) {
+                        if(userAttributes.hasOwnProperty(prop)) {
+                            applyToForwarders('removeUserAttribute', userAttributes[prop]);
                         }
                     }
                 }
             }
+
+            userAttributes = {};
             setCookie();
+        },
+        getUserAttributesLists: function () {
+            var userAttributeLists = {},
+                arrayCopy;
+
+            for(var key in userAttributes) {
+                if(userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
+                    arrayCopy = [];
+
+                    for(var i = 0; i < userAttributes[key].length; i++) {
+                        arrayCopy.push(userAttributes[key][i]);
+                    }
+
+                    userAttributeLists[key] = arrayCopy;
+                }
+            }
+
+            return userAttributeLists;
+        },
+        getAllUserAttributes: function() {
+            var userAttributesCopy = {},
+                arrayCopy;
+
+            if(userAttributes) {
+                for(var prop in userAttributes) {
+                    if(userAttributes.hasOwnProperty(prop)) {
+                        if(Array.isArray(userAttributes[prop])) {
+                            arrayCopy = [];
+
+                            for(var i = 0; i < userAttributes[prop].length; i++) {
+                                arrayCopy.push(userAttributes[prop][i]);
+                            }
+
+                            userAttributesCopy[prop] = arrayCopy;
+                        }
+                        else {
+                            userAttributesCopy[prop] = userAttributes[prop];
+                        }
+                    }
+                }
+            }
+
+            return userAttributesCopy;
         },
         setSessionAttribute: function(key, value) {
             // Logs to cookie
             // And logs to in-memory object
             // Example: mParticle.setSessionAttribute('location', '33431');
             if (canLog()) {
+                var existingProp = findKeyInObject(sessionAttributes, key);
+
+                if(existingProp != null) {
+                    key = existingProp;
+                }
+
                 sessionAttributes[key] = value;
                 setCookie();
                 if (!tryNativeSdk(NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }))) {

@@ -103,6 +103,7 @@ describe('mParticle Core SDK', function() {
                 this.name = 'MockForwarder';
                 this.userAttributeFilters = [];
                 this.setUserIdentityCalled = false;
+                this.removeUserAttributeCalled = false;
                 this.receivedEvent = null;
                 this.isVisible = false;
                 this.logOutCalled = false;
@@ -148,6 +149,10 @@ describe('mParticle Core SDK', function() {
 
                 this.setUserAttribute = function() {
                     this.setUserAttributeCalled = true;
+                };
+
+                this.removeUserAttribute = function () {
+                    this.removeUserAttributeCalled = true;
                 };
 
                 this.setUserIdentity = function() {
@@ -301,7 +306,7 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    if('should log custom page view', function(done) {
+    it('should log custom page view', function(done) {
         mParticle.logPageView('My Page View', {'testattr': 1}, {
             'MyCustom.Flag': 'Test'
         });
@@ -312,7 +317,7 @@ describe('mParticle Core SDK', function() {
         event.attrs.should.have.property('testattr', 1);
 
         event.should.have.property('flags');
-        event.flags.should.have.property('MyCustom.Flag', 'Test');
+        event.flags.should.have.property('MyCustom.Flag', ['Test']);
 
         done();
     });
@@ -802,7 +807,7 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should add user attribute', function(done) {
+    it('should set user attribute', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
 
@@ -816,6 +821,26 @@ describe('mParticle Core SDK', function() {
 
         event.should.have.property('ua');
         event.ua.should.have.property('gender', 'male');
+
+        done();
+    });
+
+    it('should set user attribute be case insensitive', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('Gender', 'male');
+        mParticle.setUserAttribute('gender', 'female');
+
+        mParticle.logEvent('test user attributes');
+
+        var event = getEvent('test user attributes');
+
+        event.should.have.property('ua');
+        event.ua.should.have.property('Gender', 'female');
+        event.ua.should.not.have.property('gender');
 
         done();
     });
@@ -837,6 +862,23 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should remove user attribute case insensitive', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('Gender', 'male');
+        mParticle.removeUserAttribute('gender');
+
+        mParticle.logEvent('test user attributes');
+
+        var event = getEvent('test user attributes');
+        event.should.not.have.property('Gender');
+
+        done();
+    });
+
     it('should set session attribute', function(done) {
         mParticle.setSessionAttribute('name', 'test');
 
@@ -846,6 +888,21 @@ describe('mParticle Core SDK', function() {
 
         event.should.have.property('sa');
         event.sa.should.have.property('name', 'test');
+
+        done();
+    });
+
+    it('should set session attribute case insensitive', function(done) {
+        mParticle.setSessionAttribute('name', 'test');
+        mParticle.setSessionAttribute('Name', 'test1');
+
+        mParticle.logEvent('test event');
+
+        var event = getEvent('test event');
+
+        event.should.have.property('sa');
+        event.sa.should.have.property('name', 'test1');
+        event.sa.should.not.have.property('Name');
 
         done();
     });
@@ -874,6 +931,35 @@ describe('mParticle Core SDK', function() {
         mParticle.setUserAttribute('gender', 'male');
 
         mockForwarder.instance.should.have.property('setUserAttributeCalled', true);
+
+        done();
+    });
+
+    it('should invoke forwarder setuserattribute when calling setUserAttributeList', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mockForwarder.configure();
+        mParticle.init(apiKey);
+        mParticle.setUserAttributeList('gender', ['male']);
+
+        mockForwarder.instance.should.have.property('setUserAttributeCalled', true);
+
+        done();
+    });
+
+    it('should invoke forwarder removeuserattribute', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mockForwarder.configure();
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('gender', 'male');
+        mParticle.removeUserAttribute('gender');
+
+        mockForwarder.instance.should.have.property('removeUserAttributeCalled', true);
 
         done();
     });
@@ -914,6 +1000,20 @@ describe('mParticle Core SDK', function() {
 
         event.should.have.property('ua');
         event.ua.should.not.have.property('test');
+
+        done();
+    });
+
+    it('should remove user tag case insensitive', function(done) {
+        mParticle.setUserTag('Test');
+        mParticle.removeUserTag('test');
+
+        mParticle.logEvent('test event');
+
+        var event = getEvent('test event');
+
+        event.should.have.property('ua');
+        event.ua.should.not.have.property('Test');
 
         done();
     });
@@ -993,7 +1093,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [mParticle.generateHash('gender')],
             moduleId: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true
         });
 
@@ -1026,7 +1126,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             moduleId: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true
         });
 
@@ -1060,7 +1160,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             moduleId: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true
         });
 
@@ -1098,7 +1198,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             moduleId: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true
         });
 
@@ -1132,7 +1232,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             moduleId: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true
         });
 
@@ -1170,7 +1270,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             moduleId: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true
         });
 
@@ -1638,7 +1738,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             moduleId: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true,
             filteringEventAttributeValue: {
                 eventAttributeName: mParticle.generateHash('ForwardingRule'),
@@ -1677,7 +1777,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             moduleId: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true,
             filteringEventAttributeValue: {
                 eventAttributeName: mParticle.generateHash('ForwardingRule'),
@@ -1716,7 +1816,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             moduleId: 1,
             isDebug: false,
-            hasDebugString: 'false',
+            HasDebugString: 'false',
             isVisible: true,
             filteringEventAttributeValue: {
                 eventAttributeName: mParticle.generateHash('ForwardingRule'),
@@ -1909,6 +2009,158 @@ describe('mParticle Core SDK', function() {
 
         Should(instance1.receivedEvent).not.be.ok();
         Should(instance2.receivedEvent).be.ok();
+
+        done();
+    });
+
+    it('should set user attribute list', function(done) {
+        mParticle.reset();
+
+        mParticle.init(apiKey);
+        mParticle.setUserAttributeList('numbers', [1,2,3,4,5]);
+
+        mParticle.logEvent('test user attributes');
+
+        var event = getEvent('test user attributes');
+
+        event.should.have.property('ua');
+        event.ua.should.have.property('numbers', [1,2,3,4,5]);
+
+        done();
+    });
+
+    it('should set user attribute list case insensitive', function(done) {
+        mParticle.reset();
+
+        mParticle.init(apiKey);
+        mParticle.setUserAttributeList('numbers', [1,2,3,4,5]);
+        mParticle.setUserAttributeList('Numbers', [1,2,3,4,5,6]);
+
+        mParticle.logEvent('test user attributes');
+
+        var event = getEvent('test user attributes');
+
+        event.should.have.property('ua');
+        event.ua.should.have.property('numbers', [1,2,3,4,5,6]);
+        event.ua.should.not.have.property('Numbers');
+
+        done();
+    });
+
+    it('should make a copy of user attribute list', function (done) {
+        var list = [1,2,3,4,5];
+
+        mParticle.reset();
+
+        mParticle.init(apiKey);
+        mParticle.setUserAttributeList('numbers', list);
+
+        list.push(6);
+
+        mParticle.logEvent('test user attributes');
+
+        var event = getEvent('test user attributes');
+
+        event.should.have.property('ua');
+        event.ua.should.have.property('numbers').with.lengthOf(5);
+
+        done();
+    });
+
+    it('should remove all user attributes', function(done) {
+        mParticle.reset();
+
+        mParticle.init(apiKey);
+        mParticle.setUserAttributeList('numbers', [1,2,3,4,5]);
+        mParticle.removeAllUserAttributes();
+
+        mParticle.logEvent('test user attributes');
+
+        var event = getEvent('test user attributes');
+
+        event.should.have.property('ua', {});
+
+        done();
+    });
+
+    it('should get user attribute lists', function(done) {
+        mParticle.reset();
+        
+        mParticle.init(apiKey);
+
+        mParticle.setUserAttribute('gender', 'male');
+        mParticle.setUserAttributeList('numbers', [1,2,3,4,5]);
+
+        var userAttributes = mParticle.getUserAttributesLists();
+
+        userAttributes.should.have.property('numbers');
+        userAttributes.should.not.have.property('gender');
+
+        done();
+    });
+
+    it('should copy when calling get user attribute lists', function(done) {
+        mParticle.reset();
+        mParticle.init(apiKey);
+
+        mParticle.setUserAttribute('gender', 'male');
+        mParticle.setUserAttributeList('numbers', [1,2,3,4,5]);
+
+        var userAttributes = mParticle.getUserAttributesLists();
+
+        userAttributes['numbers'].push(6);
+
+        var userAttributes1 = mParticle.getUserAttributesLists();;
+        userAttributes1['numbers'].should.have.lengthOf(5);
+
+        done();
+    });
+
+    it('should copy when calling get user attributes', function(done) {
+        mParticle.reset();
+        mParticle.init(apiKey);
+
+        mParticle.setUserAttribute('gender', 'male');
+        mParticle.setUserAttributeList('numbers', [1,2,3,4,5]);
+
+        var userAttributes = mParticle.getAllUserAttributes();
+
+        userAttributes.blah = 'test';
+        userAttributes['numbers'].push(6);
+
+        var userAttributes1 = mParticle.getAllUserAttributes();
+
+        userAttributes1['numbers'].should.have.lengthOf(5);
+        userAttributes1.should.not.have.property('blah');
+
+        done();
+    });
+
+    it('should get all user attributes', function(done) {
+        mParticle.reset();
+        
+        mParticle.init(apiKey);
+
+        mParticle.setUserAttribute('test', '123');
+        mParticle.setUserAttribute('another test', 'blah');
+        
+        var attrs = mParticle.getAllUserAttributes();
+
+        attrs.should.have.property('test', '123');
+        attrs.should.have.property('another test', 'blah');
+
+        done();
+    });
+
+    it('should not set user attribute list if value is not array', function(done) {
+        mParticle.reset();
+        mParticle.init(apiKey);
+
+        mParticle.setUserAttributeList('mykey', 1234);
+
+        var attrs = mParticle.getAllUserAttributes();
+        
+        attrs.should.not.have.property('mykey');
 
         done();
     });
