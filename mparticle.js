@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.8.0',
+        sdkVersion = '1.8.1',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -1081,7 +1081,7 @@
             event.EventName += getProductActionEventName(productActionType);
             event.ProductAction = {
                 ProductActionType: productActionType,
-                ProductList: [product]
+                ProductList: Array.isArray(product) ? product : [product]
             };
 
             logCommerceEvent(event, attrs);
@@ -2138,13 +2138,24 @@
             },
             Cart: {
                 add: function(product, logEvent) {
-                    cartProducts.push(product);
+                    var arrayCopy = [];
+
+                    if(Array.isArray(product)) {
+                        for(var i = 0; i < product.length; i++) {
+                            arrayCopy.push(product[i]);
+                        }
+                    }
+                    else {
+                        arrayCopy.push(product);
+                    }
+
+                    cartProducts = cartProducts.concat(arrayCopy);
 
                     if (isWebViewEmbedded()) {
-                        tryNativeSdk(NativeSdkPaths.AddToCart, JSON.stringify(product));
+                        tryNativeSdk(NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
                     }
                     else if (logEvent === true) {
-                        logProductActionEvent(ProductActionType.AddToCart, product);
+                        logProductActionEvent(ProductActionType.AddToCart, arrayCopy);
                     }
                 },
                 remove: function(product, logEvent) {

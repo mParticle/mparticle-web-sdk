@@ -2165,6 +2165,54 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should support array of products when adding to cart', function(done) {
+        mParticle.reset();
+        mParticle.init(apiKey);
+        
+        var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2),
+            product2 = mParticle.eCommerce.createProduct('Nexus', '67890', 300, 1);
+
+        mParticle.eCommerce.Cart.add([product1, product2], true);
+        
+        var event = getEvent('eCommerce - AddToCart');
+
+        Should(event).be.ok();
+
+        event.should.have.property('pd');
+        event.pd.should.have.property('an', ProductActionType.AddToCart);
+        event.pd.should.have.property('pl').with.lengthOf(2);
+
+        event.pd.pl[0].should.have.property('id', '12345');
+        event.pd.pl[0].should.have.property('nm', 'iPhone');
+
+        event.pd.pl[1].should.have.property('id', '67890');
+        event.pd.pl[1].should.have.property('nm', 'Nexus');
+
+        done();
+    });
+
+    it('should support a single product when adding to cart', function(done) {
+        mParticle.reset();
+        mParticle.init(apiKey);
+        
+        var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2);
+
+        mParticle.eCommerce.Cart.add(product1, true);
+        
+        var event = getEvent('eCommerce - AddToCart');
+
+        Should(event).be.ok();
+
+        event.should.have.property('pd');
+        event.pd.should.have.property('an', ProductActionType.AddToCart);
+        event.pd.should.have.property('pl').with.lengthOf(1);
+
+        event.pd.pl[0].should.have.property('id', '12345');
+        event.pd.pl[0].should.have.property('nm', 'iPhone');
+        
+        done();
+    });
+
     after(function() {
         server.stop();
     });
