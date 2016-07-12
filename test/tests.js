@@ -259,7 +259,13 @@ describe('mParticle Core SDK', function() {
 
     beforeEach(function() {
         server.requests = [];
-        server.handle = function() { };
+        server.handle = function(request) {
+            request.setResponseHeader("Content-Type", "application/json");
+            request.receive(200, JSON.stringify({
+                Store: {}
+            }));
+        };
+
         mParticle.reset();
         mParticle.init(apiKey);
         window.mParticleAndroid = null;

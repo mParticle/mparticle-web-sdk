@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.8.2',
+        sdkVersion = '1.8.3',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -30,7 +30,7 @@
         forwarders = [],
         sessionId,
         devToken,
-        serverSettings = {},
+        serverSettings = null,
         lastEventSent,
         currentPosition,
         isTracking = false,
@@ -46,7 +46,9 @@
         customFlags = null,
         METHOD_NAME = '$MethodName',
         LOG_LTV = 'LogLTVIncrease',
-        RESERVED_KEY_LTV = '$Amount'; 
+        RESERVED_KEY_LTV = '$Amount',
+        eventQueue = [],
+        processingQueue = false;
 
     // forEach polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
@@ -417,6 +419,18 @@
                     logDebug('Received ' + xhr.statusText + ' from server');
 
                     parseResponse(xhr.responseText);
+
+                    if (!processingQueue) {
+                        processingQueue = true;
+
+                        for(var i = 0; i < eventQueue.length; i++) {
+                            eventQueue[i].Store = serverSettings;
+                            send(eventQueue[i]);
+                        }
+
+                        eventQueue = [];
+                        processingQueue = false;
+                    }
                 }
             };
 
@@ -429,6 +443,15 @@
 
         if (!tryNativeSdk(NativeSdkPaths.LogEvent, JSON.stringify(event))) {
             logDebug(InformationMessages.SendHttp);
+
+            if(serverSettings === null 
+                && event.EventDataType !== MessageType.SessionStart
+                && event.EventDataType !== MessageType.OptOut) {
+                // There are no server settings yet, likely because response from session start has not been parsed yet.
+                // Store this event on queue, and it will be processed when session start is finished.
+                eventQueue.push(event);
+                return;
+            }
 
             xhr = createXHR(xhrCallback);
 
@@ -700,6 +723,10 @@
 
             if (settings && settings.Store) {
                 logDebug('Parsed store from response, updating local settings');
+
+                if(serverSettings === null) {
+                    serverSettings = {};
+                }
 
                 for (prop in settings.Store) {
                     if (!settings.Store.hasOwnProperty(prop)) {
@@ -1873,7 +1900,7 @@
             forwarderConstructors = [];
             productsBags = {};
             cartProducts = [];
-            serverSettings = {};
+            serverSettings = null;
             mergeConfig({});
             setCookie();
 
