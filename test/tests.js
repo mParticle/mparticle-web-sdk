@@ -2219,6 +2219,15 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should set client id', function(done) {
+        window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation);
+        var data = getEvent('Test Event');
+
+        data.should.have.property('cgid').with.lengthOf(36);
+        
+        done();
+    });
+
     after(function() {
         server.stop();
     });

@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.8.3',
+        sdkVersion = '1.8.4',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -29,6 +29,7 @@
         forwarderConstructors = [],
         forwarders = [],
         sessionId,
+        clientId,
         devToken,
         serverSettings = null,
         lastEventSent,
@@ -46,9 +47,7 @@
         customFlags = null,
         METHOD_NAME = '$MethodName',
         LOG_LTV = 'LogLTVIncrease',
-        RESERVED_KEY_LTV = '$Amount',
-        eventQueue = [],
-        processingQueue = false;
+        RESERVED_KEY_LTV = '$Amount';
 
     // forEach polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
@@ -357,6 +356,8 @@
                 serverSettings = obj.ss || obj.ServerSettings || serverSettings;
                 devToken = obj.dt || obj.DeveloperToken || devToken;
 
+                clientId = obj.cgid || generateUniqueId();
+
                 if (isEnabled !== false || isEnabled !== true) {
                     isEnabled = true;
                 }
@@ -386,7 +387,8 @@
                 ss: serverSettings,
                 dt: devToken,
                 les: lastEventSent ? lastEventSent.getTime() : null,
-                av: appVersion
+                av: appVersion,
+                cgid: clientId
             },
             expires = new Date(date.getTime() +
                 (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
@@ -419,18 +421,6 @@
                     logDebug('Received ' + xhr.statusText + ' from server');
 
                     parseResponse(xhr.responseText);
-
-                    if (!processingQueue) {
-                        processingQueue = true;
-
-                        for(var i = 0; i < eventQueue.length; i++) {
-                            eventQueue[i].Store = serverSettings;
-                            send(eventQueue[i]);
-                        }
-
-                        eventQueue = [];
-                        processingQueue = false;
-                    }
                 }
             };
 
@@ -443,16 +433,7 @@
 
         if (!tryNativeSdk(NativeSdkPaths.LogEvent, JSON.stringify(event))) {
             logDebug(InformationMessages.SendHttp);
-
-            if(serverSettings === null 
-                && event.EventDataType !== MessageType.SessionStart
-                && event.EventDataType !== MessageType.OptOut) {
-                // There are no server settings yet, likely because response from session start has not been parsed yet.
-                // Store this event on queue, and it will be processed when session start is finished.
-                eventQueue.push(event);
-                return;
-            }
-
+            
             xhr = createXHR(xhrCallback);
 
             if (xhr) {
@@ -827,7 +808,8 @@
             lc: event.Location,
             o: event.OptOut,
             eec: event.ExpandedEventCount,
-            av: event.AppVersion
+            av: event.AppVersion,
+            cgid: event.ClientGeneratedId
         };
 
         if (event.CustomFlags) {
@@ -975,7 +957,8 @@
                 ProductBags: productsBags,
                 ExpandedEventCount: 0,
                 CustomFlags: customFlags,
-                AppVersion: appVersion
+                AppVersion: appVersion,
+                ClientGeneratedId: clientId
             };
         }
 
@@ -1281,12 +1264,30 @@
         return s;
     }
 
-    function generateUniqueId() {
-        // See http://stackoverflow.com/a/2117523/637 for details
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
+    function generateRandomValue(a) {
+        if(crypto && crypto.getRandomValues) {
+            return (a ^ crypto.getRandomValues(new Uint8Array(1))[0] % 16 >> a/4).toString(16);
+        }
+
+        return (a ^ Math.random() * 16 >> a/4).toString(16);
+    }
+
+    function generateUniqueId(a) {
+        // https://gist.github.com/jed/982883
+        // Added support for crypto for better random
+
+        return a                            // if the placeholder was passed, return
+                ? generateRandomValue(a)    // a random number 
+                : (                         // or otherwise a concatenated string:
+                [1e7] +                     // 10000000 +
+                -1e3 +                      // -1000 +
+                -4e3 +                      // -4000 +
+                -8e3 +                      // -80000000 +
+                -1e11                       // -100000000000,
+                ).replace(                  // replacing
+                    /[018]/g,               // zeroes, ones, and eights with
+                    generateUniqueId        // random hex digits
+                );
     }
 
     function logDebug(msg) {
