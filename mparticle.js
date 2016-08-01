@@ -681,7 +681,8 @@
                         userIdentities,
                         appVersion,
                         appName,
-                        customFlags);
+                        customFlags,
+                        clientId);
                 }
             }
         }
