@@ -20,7 +20,7 @@
     var serviceUrl = "jssdk.mparticle.com/v1/JS/",
         secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.8.4',
+        sdkVersion = '1.8.5',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -1265,8 +1265,10 @@
     }
 
     function generateRandomValue(a) {
-        if(crypto && crypto.getRandomValues) {
-            return (a ^ crypto.getRandomValues(new Uint8Array(1))[0] % 16 >> a/4).toString(16);
+        if(window.hasOwnProperty('crypto')) {
+            if(window.crypto && window.crypto.getRandomValues) {
+                return (a ^ window.crypto.getRandomValues(new Uint8Array(1))[0] % 16 >> a/4).toString(16);
+            }
         }
 
         return (a ^ Math.random() * 16 >> a/4).toString(16);
