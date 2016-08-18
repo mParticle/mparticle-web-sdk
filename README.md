@@ -47,6 +47,7 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 - [Amplitude](https://github.com/mParticle/integration-amplitude)
 - [Appboy](https://github.com/mParticle/integration-appboy)
 - [BingAds](https://github.com/mParticle/integration-bingads)
+- [Device Match](https://github.com/mParticle/integration-device-match)
 - [Facebook](https://github.com/mParticle/integration-facebook)
 - [Google Analytics](https://github.com/mParticle/integration-google-analytics)
 - [Inspectlet](https://github.com/mParticle/integration-inspectlet)
