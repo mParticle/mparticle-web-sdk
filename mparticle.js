@@ -1043,6 +1043,192 @@
         }
     }
 
+
+    function expandProductAction(commerceEvent) {
+        var appEvents = [];
+        if (commerceEvent.ProductAction == null) {
+            return appEvents;
+        }
+        var shouldExtractActionAttributes = false;
+        if (commerceEvent.ProductAction.ProductActionType == ProductActionType.Purchase || 
+            commerceEvent.ProductAction.ProductActionType == ProductActionType.Refund) {
+            var attributes = commerceEvent.EventAttributes || {};
+            extractActionAttributes(attributes, commerceEvent.ProductAction);
+            if (commerceEvent.CurrencyCode != null) {
+                attributes['Currency Code'] = commerceEvent.CurrencyCode;
+            }
+            var plusOneEvent = createEventObject(MessageType.PageEvent,
+                generateExpandedEcommerceName(ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType), true),
+                attributes,
+                EventType.Transaction
+            );
+            appEvents.push(plusOneEvent);
+        } else {
+            shouldExtractActionAttributes = true;
+        }
+        var products = commerceEvent.ProductAction.ProductList;
+        if (products == null) {
+            return appEvents;
+        }
+        for (var i = 0; i < products.length; i++) {
+            var attributes = products[i].Attributes || {};
+            if (shouldExtractActionAttributes) {
+                extractActionAttributes(attributes, commerceEvent.ProductAction);
+            } else {
+                extractTransactionId(attributes, commerceEvent.ProductAction);
+            }
+            extractProductAttributes(attributes, products[i]);
+
+            var productEvent = createEventObject(MessageType.PageEvent,
+                generateExpandedEcommerceName(ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType)),
+                attributes,
+                EventType.Transaction
+            );
+            appEvents.push(productEvent);
+        }
+        return appEvents;
+    }
+
+    function extractProductAttributes(attributes, product) {
+        if (product.CouponCode != null)
+            attributes['Coupon Code'] = product.CouponCode;
+
+        if (product.Brand != null)
+            attributes['Brand'] = product.Brand;
+
+        if (product.Category != null)
+            attributes['Category'] = product.Category;
+
+        if (product.Name != null)
+            attributes['Name'] = product.Name;
+
+        if (product.Sku != null)
+            attributes['Id'] = product.Sku;
+
+        if (product.Price != null)
+            attributes['Item Price'] = product.Price;
+
+        if (product.Quantity != null)
+            attributes['Quantity'] = product.Quantity;
+
+        if (product.Position != null)
+            attributes['Position'] = product.Position;
+
+        if (product.Variant != null)
+            attributes['Variant'] = product.Variant;
+
+        attributes['Total Product Amount'] = product.TotalAmount != null ? product.TotalAmount : 0;
+
+    }
+
+    function extractTransactionId(attributes, productAction) {
+        if (productAction.TransactionId != null)
+            attributes['Transaction Id'] = productAction.TransactionId;
+    }
+
+    function extractActionAttributes(attributes, productAction) {
+        extractTransactionId(attributes, productAction);
+
+        if (productAction.Affiliation != null)
+            attributes['Affiliation'] = productAction.Affiliation;
+
+        if (productAction.CouponCode != null)
+            attributes['Coupon Code'] = productAction.CouponCode;
+        
+        if (productAction.TotalAmount != null)
+            attributes['Total Amount'] = productAction.TotalAmount;
+
+        if (productAction.ShippingAmount != null)
+            attributes['Shipping Amount'] = productAction.ShippingAmount;
+        
+        if (productAction.TaxAmount != null)
+            attributes['Tax Amount'] = productAction.TaxAmount;
+
+        if (productAction.CheckoutOptions != null)
+            attributes['Checkout Options'] = productAction.CheckoutOptions;
+
+        if (productAction.CheckoutStep != null)
+            attributes['Checkout Step'] = productAction.CheckoutStep;
+    }
+
+    function expandPromotionAction(commerceEvent) {
+        var appEvents = [];
+        if (commerceEvent.PromotionAction == null) {
+            return appEvents;
+        }
+        var promotions = commerceEvent.PromotionAction.PromotionList;
+        for (var i = 0; i < promotions.length; i++) {
+            var attributes = commerceEvent.EventAttributes || {};
+            extractPromotionAttributes(attributes, promotions[i]);
+
+            var appEvent = createEventObject(MessageType.PageEvent,
+                    generateExpandedEcommerceName(PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
+                    attributes,
+                    EventType.Transaction
+                );
+            appEvents.push(appEvent);
+        }
+        return appEvents;
+    }
+
+    function generateExpandedEcommerceName(eventName, plusOne) {
+        return 'eCommerce - ' + eventName + ' - ' + (plusOne ? "Total" : "Item");
+    }
+
+    function extractPromotionAttributes(attributes, promotion) {
+        if (promotion.Id != null)
+            attributes['Id'] = promotion.Id;
+
+        if (promotion.Creative != null) 
+            attributes['Creative'] = promotion.Creative;
+
+        if (promotion.Name != null)
+            attributes['Name'] = promotion.Name;
+
+        if (promotion.Position != null)
+            attributes['Position'] = promotion.Position;
+    }
+
+    function expandProductImpression(commerceEvent) {
+        var appEvents = [];
+        if (commerceEvent.ProductImpressions == null) {
+            return appEvents;
+        }
+        for (var i = 0; i < commerceEvent.ProductImpressions.length; i++) {
+            if (commerceEvent.ProductImpressions[i].ProductList != null) {
+                for (var productIndex = 0; productIndex < commerceEvent.ProductImpressions[i].ProductList.length; productIndex++) {
+                    var product = commerceEvent.ProductImpressions[i].ProductList[productIndex];
+                    var attributes = commerceEvent.EventAttributes || {};
+                    if (product.Attributes != null) {
+                        for (var attribute in product.Attributes) { 
+                            attributes[attribute] = product.Attributes[attribute]; 
+                        }
+                    }
+                    extractProductAttributes(attributes, product);
+                    if (commerceEvent.ProductImpressions[i].ProductImpressionList != null) {
+                        attributes['Product Impression List'] = commerceEvent.ProductImpressions[i].ProductImpressionList;
+                    }
+                    var appEvent = createEventObject(MessageType.PageEvent,
+                            generateExpandedEcommerceName('Impression'),
+                            attributes,
+                            EventType.Transaction
+                        );
+                    appEvents.push(appEvent)
+                }   
+            }
+        }
+        return appEvents;
+    }
+
+    function expandCommerceEvent(event) {
+        if (event == null) {
+            return null;
+        }
+        return expandProductAction(event)
+                .concat(expandPromotionAction(event))
+                .concat(expandProductImpression(event));
+    }
+
     function createCommerceEventObject() {
         var baseEvent;
 
@@ -1163,7 +1349,7 @@
                 PromotionList: [promotion]
             };
 
-            logCommerceEvent(event);
+            logCommerceEvent(event, attrs);
         }
     }
 
@@ -1532,6 +1718,7 @@
         };
     }
 
+
     function callSetUserAttributeOnForwarders(key, value) {
         if (forwarders) {
             for (var i = 0; i < forwarders.length; i++) {
@@ -1811,6 +1998,34 @@
         }
     };
 
+    //these are the action names used by server and mobile SDKs when expanding a CommerceEvent
+    ProductActionType.getExpansionName = function(id) {
+        switch (id) {
+            case ProductActionType.AddToCart:
+                return 'add_to_cart';
+            case ProductActionType.RemoveFromCart:
+                return 'remove_from_cart';
+            case ProductActionType.Checkout:
+                return 'checkout';
+            case ProductActionType.CheckoutOption:
+                return 'checkout_option';
+            case ProductActionType.Click:
+                return 'click';
+            case ProductActionType.ViewDetail:
+                return 'view_detail';
+            case ProductActionType.Purchase:
+                return 'purchase';
+            case ProductActionType.Refund:
+                return 'refund';
+            case ProductActionType.AddToWishlist:
+                return 'add_to_wishlist';
+            case ProductActionType.RemoveFromWishlist:
+                return 'remove_from_wishlist';
+            default:
+                return 'Unknown';
+        }
+    };
+
     var PromotionActionType = {
         Unknown: 0,
         PromotionView: 1,
@@ -1823,6 +2038,18 @@
                 return 'Promotion View';
             case PromotionActionType.PromotionClick:
                 return 'Promotion Click';
+            default:
+                return 'Unknown';
+        }
+    };
+
+    //these are the names that the server and mobile SDKs use while expanding CommerceEvent
+    PromotionActionType.getExpansionName = function(id) {
+        switch (id) {
+            case PromotionActionType.PromotionView:
+                return 'view';
+            case PromotionActionType.PromotionClick:
+                return 'click';
             default:
                 return 'Unknown';
         }
@@ -2249,7 +2476,7 @@
                 }
             },
             logPromotion: function(type, promotion, attrs) {
-                logPromotionEvent(type, promotion);
+                logPromotionEvent(type, promotion, attrs);
             },
             logImpression: function(impression, attrs) {
                 logImpressionEvent(impression, attrs);
@@ -2260,6 +2487,9 @@
                 if (clearCart === true) {
                     mParticle.eCommerce.Cart.clear();
                 }
+            },
+            expandCommerceEvent: function(event) {
+                return expandCommerceEvent(event);
             }
         },
         logEcommerceTransaction: function(productName,
