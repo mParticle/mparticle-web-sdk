@@ -30,6 +30,7 @@
 
             runner.on('end', function() {
                 blanket.onTestsDone();
+                window.testsComplete = true;
             });
 
             runner.on('suite', function() {

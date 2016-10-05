@@ -1,0 +1,10 @@
+language: node_js
+script:
+- npm install
+- npm install -g serve > /dev/null
+- serve > /dev/null &
+- sleep 1
+- curl -s -L https://github.com/paladox/phantomjs/releases/download/2.1.7/phantomjs-2.1.1-linux-x86_64.tar.bz2 > file.tar.bz2
+- bzip2 -d file.tar.bz2
+- tar -xf file.tar
+- ./phantomjs-2.1.1-linux-x86_64/bin/phantomjs test/phantom-runner.js
