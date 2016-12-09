@@ -1531,7 +1531,9 @@ describe('mParticle Core SDK', function() {
     it('event attributes must be object', function(done) {
         mParticle.logEvent('test', null, 1);
 
-        Should(server.requests).have.lengthOf(0);
+        var data = getEvent('test');
+
+        data.should.have.property('attrs', null);
 
         done();
     });
@@ -2567,6 +2569,52 @@ describe('mParticle Core SDK', function() {
         attributes.should.have.property('Position', 'foo-position');
         attributes.should.have.property('foo-attribute-key', 'foo-product-attribute-value');
         attributes.should.have.property('foo-event-attribute-key', 'foo-event-attribute-value');
+
+        done();
+    });
+
+    it('should sanitize event attributes', function(done) {
+        mParticle.logEvent('sanitized event', 1, {
+            'key1': 'value1',
+            'mydate': new Date(),
+            'ishouldberemoved': {
+                'test': 'test'
+            },
+            'ishouldalsoberemoved': ['test']
+        });
+
+        var event = getEvent('sanitized event');
+
+        event.attrs.should.have.property('key1', 'value1');
+        event.attrs.should.have.property('mydate');
+        event.attrs.should.not.have.property('ishouldberemoved');
+        event.attrs.should.not.have.property('ishouldalsoberemoved');
+
+        done();
+    });
+
+    it('should not set bad session attribute value', function(done) {
+        mParticle.setSessionAttribute('name', {'bad': 'bad'});
+
+        mParticle.logEvent('test event');
+
+        var event = getEvent('test event');
+
+        event.should.have.property('sa');
+        event.sa.should.not.have.property('name');
+
+        done();
+    });
+
+    it('should not set bad user attribute value', function(done) {
+        mParticle.setUserAttribute('gender', {'bad': 'bad'});
+
+        mParticle.logEvent('test bad user attributes');
+
+        var event = getEvent('test bad user attributes');
+
+        event.should.have.property('ua');
+        event.ua.should.not.have.property('gender');
 
         done();
     });

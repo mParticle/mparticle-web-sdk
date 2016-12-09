@@ -1382,6 +1382,10 @@
                 mParticle.startNewSession();
             }
 
+            if(data) {
+                data = sanitizeAttributes(data);
+            }
+
             send(createEventObject(type, name, data, category, cflags));
             setCookie();
         }
@@ -1753,6 +1757,27 @@
         return null;
     }
 
+    function isValidAttributeValue(value) {
+        return !isObject(value) && !Array.isArray(value);
+    }
+
+    function sanitizeAttributes(attrs) {
+        if(!attrs || !isObject(attrs)) {
+            return null;
+        }
+
+        var sanitizedAttrs = {};
+
+        for(var prop in attrs) {
+            // Make sure that attribute values are not objects or arrays, which are not valid
+            if(attrs.hasOwnProperty(prop) && isValidAttributeValue(attrs[prop])) {
+                sanitizedAttrs[prop] = attrs[prop];
+            }
+        }
+
+        return sanitizedAttrs;
+    }
+
     var MessageType = {
         SessionStart: 1,
         SessionEnd: 2,
@@ -1910,7 +1935,8 @@
         EventEmpty: 'Event object is null or undefined, cancelling send',
         NoEventType: 'Event type must be specified.',
         TransactionIdRequired: 'Transaction ID is required',
-        TransactionRequired: 'A transaction attributes object is required'
+        TransactionRequired: 'A transaction attributes object is required',
+        BadAttribute: 'Attribute value cannot be object or array'
     };
 
     var InformationMessages = {
@@ -2276,11 +2302,6 @@
                 return;
             }
 
-            if (eventInfo && !isObject(eventInfo)) {
-                logDebug(ErrorMessages.EventDataInvalidType);
-                return;
-            }
-
             if (!eventType) {
                 eventType = EventType.Unknown;
             }
@@ -2558,6 +2579,11 @@
             // And logs to in-memory object
             // Example: mParticle.setUserAttribute('email', 'tbreffni@mparticle.com');
             if (canLog()) {
+                if(!isValidAttributeValue(value)) {
+                    logDebug(ErrorMessages.BadAttribute);
+                    return;
+                }
+
                 var existingProp = findKeyInObject(userAttributes, key);
 
                 if(existingProp != null) {
@@ -2671,6 +2697,11 @@
             // And logs to in-memory object
             // Example: mParticle.setSessionAttribute('location', '33431');
             if (canLog()) {
+                if(!isValidAttributeValue(value)) {
+                    logDebug(ErrorMessages.BadAttribute);
+                    return;
+                }
+
                 var existingProp = findKeyInObject(sessionAttributes, key);
 
                 if(existingProp != null) {
