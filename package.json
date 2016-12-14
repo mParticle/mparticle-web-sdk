@@ -2,9 +2,13 @@
   "name": "mparticle-sdk-javascript",
   "description": "mParticle core Javascript SDK",
   "repository": "https://github.com/mParticle/mparticle-sdk-javascript",
+  "scripts": {
+    "test": "node test/runner.js"
+  },
   "devDependencies": {
     "blanket": "1.1.7",
-    "should": "^7.1.0",
-    "mocha": "^2.3.2"
+    "browser-sync": "^2.18.5",
+    "mocha": "^2.3.2",
+    "should": "^7.1.0"
   }
 }
