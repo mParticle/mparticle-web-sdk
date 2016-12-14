@@ -12,10 +12,9 @@ Detailed documentation and other information about mParticle SDK can be found at
 Once you have signed up to the mParticle platform and have a key for your App, you can begin to use the SDK by embedding the following
 script tag in your web page, replacing `"YOUR_API_KEY"` with your key.
 
-```groovy
+```html
 <script type="text/javascript">
-
-(function (apiKey) {
+  (function (apiKey) {
     window.mParticle = window.mParticle || {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
@@ -28,14 +27,13 @@ script tag in your web page, replacing `"YOUR_API_KEY"` with your key.
     mp.src = ('https:' == document.location.protocol ? 'https://jssdkcdns' : 'http://jssdkcdn') + '.mparticle.com/js/v1/' + apiKey + '/mparticle.js';
     var s = document.getElementsByTagName('script')[0];
     s.parentNode.insertBefore(mp, s);
-})('YOUR_API_KEY');
-
+  })('YOUR_API_KEY');
 </script>
 ```
 
 You can then log events, for example, as follows:
 
-```groovy
+```javascript
 mParticle.logEvent('Play Movie', mParticle.EventType.Navigation, {'movie_length':'127 minutes','rating':'PG'});
 ```
 
@@ -62,9 +60,22 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 
 ## Running the Tests
 
-A suite of test cases can be run by serving the /test directory from a web server (such as [serve](https://www.npmjs.com/package/serve)),
-and pointing a web browser to index.html. This will execute the tests and also display code coverage results. Note that serving the test
+Prior to running the tests please install all dev dependencies via an npm install:
+
+```bash
+$ npm install
+```
+
+A suite of test cases can be run by serving the `/test` directory from a web server (such as [serve](https://www.npmjs.com/package/serve)),
+and pointing a web browser to `index.html`. This will execute the tests and also display code coverage results. Note that serving the test
 directory from the file system directly will not work.
+
+You can also run the tests by executing the npm test script:
+
+```bash
+$ npm test
+```
+The test script will use the browser-sync module to serve `test/index.html`, open the tests in a browser, and auto-refresh when a change is made to `mparticle.js` or any of the test files.
 
 ## Support
 
