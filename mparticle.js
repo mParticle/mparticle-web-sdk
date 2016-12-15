@@ -207,7 +207,8 @@
             // Only deal with non-null/undefined values
             if ((options = arguments[i]) != null) {
                 // Extend the base object
-                for (name in options) {
+                for (name in options)
+                    if (options.hasOwnProperty(name)) {
                     src = target[name];
                     copy = options[name];
 
@@ -404,14 +405,11 @@
     }
 
     function isWebViewEmbedded() {
-        if ((window.external && typeof (window.external.Notify) === 'unknown')
+
+         return ((window.external && typeof (window.external.Notify) === 'unknown')
             || window.mParticleAndroid
             || isUIWebView()
-            || window.mParticle.isIOS) {
-            return true;
-        }
-
-        return false;
+            || window.mParticle.isIOS);
     }
 
     function send(event) {
@@ -763,7 +761,7 @@
     }
 
     function convertCustomFlags(event, dto) {
-        var valueArray = [];
+        var valueArray;
         dto.flags = {};
 
         for (var prop in event.CustomFlags) {
@@ -1200,8 +1198,10 @@
                     var product = commerceEvent.ProductImpressions[i].ProductList[productIndex];
                     var attributes = commerceEvent.EventAttributes || {};
                     if (product.Attributes != null) {
-                        for (var attribute in product.Attributes) { 
-                            attributes[attribute] = product.Attributes[attribute]; 
+                        for (var attribute in product.Attributes) {
+                            if (product.Attributes.hasOwnProperty(attribute)) {
+                                attributes[attribute] = product.Attributes[attribute];
+                            }
                         }
                     }
                     extractProductAttributes(attributes, product);
@@ -1253,7 +1253,7 @@
         }
 
         return null;
-    };
+    }
 
     function logCheckoutEvent(step, options, attrs) {
         var event = createCommerceEventObject();
@@ -1302,7 +1302,7 @@
 
             logCommerceEvent(event, attrs);
         }
-    };
+    }
 
     function logRefundEvent(transactionAttributes, product, attrs) {
         if (transactionAttributes == null || typeof transactionAttributes == 'undefined') {
@@ -1515,11 +1515,7 @@
     }
 
     function canLog() {
-        if (isEnabled && (devToken || isWebViewEmbedded())) {
-            return true;
-        }
-
-        return false;
+       return isEnabled && (devToken || isWebViewEmbedded())
     }
 
     function isObject(value) {
@@ -1603,7 +1599,7 @@
 
     function generateHash(name) {
         var hash = 0,
-            i = 0,
+            i,
             character;
 
         if (!name) {
@@ -1685,7 +1681,7 @@
 
     function createImpression(name, product) {
         if (!name) {
-            logDebug('Name is required when creating an impression.')
+            logDebug('Name is required when creating an impression.');
             return null;
         }
 
@@ -2055,7 +2051,7 @@
     var PromotionActionType = {
         Unknown: 0,
         PromotionView: 1,
-        PromotionClick: 2,
+        PromotionClick: 2
     };
 
     PromotionActionType.getName = function(id) {
@@ -2246,7 +2242,7 @@
             return foundIdentity;
         },
         removeUserIdentity: function(id) {
-            var i = 0;
+            var i;
 
             for (i = 0; i < userIdentities.length; i++) {
                 if (userIdentities[i].Identity === id) {
@@ -2802,7 +2798,7 @@
 
                     newForwarder.id = config.moduleId;
                     newForwarder.isSandbox = config.isDebug;
-                    newForwarder.hasSandbox = config.hasDebugString === 'true' ? true : false;
+                    newForwarder.hasSandbox = config.hasDebugString === 'true';
                     newForwarder.isVisible = config.isVisible;
                     newForwarder.settings = config.settings;
 
