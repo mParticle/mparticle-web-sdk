@@ -360,7 +360,7 @@ describe('mParticle Core SDK', function() {
     it('should log ecommerce event', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone',
             '12345',
-            400,
+            '400',
             2,
             'Apple',
             'Plus',
@@ -398,6 +398,54 @@ describe('mParticle Core SDK', function() {
         data.pd.pl[0].should.have.property('ps', 1);
         data.pd.pl[0].should.have.property('cc', 'my-coupon-code');
         data.pd.pl[0].should.have.property('tpa', 800);
+        data.pd.pl[0].should.have.property('attrs');
+
+        data.pd.pl[0].attrs.should.have.property('customkey', 'customvalue');
+
+        done();
+    });
+
+    it('should log badly formed ecommerce event', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone',
+            '12345',
+            Infinity,
+            '2-foo',
+            'Apple',
+            'Plus',
+            'Phones',
+            '1-foo',
+            'my-coupon-code',
+            { customkey: 'customvalue' }),
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
+                'test-affiliation',
+                'coupon-code',
+                '44334-foo',
+                '600-foo',
+                '200-foo');
+
+        mParticle.eCommerce.logPurchase(transactionAttributes, product);
+        var data = getEvent('eCommerce - Purchase');
+
+        data.should.have.property('pd');
+        data.pd.should.have.property('an', ProductActionType.Purchase);
+        data.pd.should.have.property('ti', '12345');
+        data.pd.should.have.property('ta', 'test-affiliation');
+        data.pd.should.have.property('tcc', 'coupon-code');
+        data.pd.should.have.property('tr', 0);
+        data.pd.should.have.property('ts', 0);
+        data.pd.should.have.property('tt', 0);
+        data.pd.should.have.property('pl').with.lengthOf(1);
+
+        data.pd.pl[0].should.have.property('id', '12345');
+        data.pd.pl[0].should.have.property('nm', 'iPhone');
+        data.pd.pl[0].should.have.property('pr', 0);
+        data.pd.pl[0].should.have.property('qt', 0);
+        data.pd.pl[0].should.have.property('br', 'Apple');
+        data.pd.pl[0].should.have.property('va', 'Plus');
+        data.pd.pl[0].should.have.property('ca', 'Phones');
+        data.pd.pl[0].should.have.property('ps', 0);
+        data.pd.pl[0].should.have.property('cc', 'my-coupon-code');
+        data.pd.pl[0].should.have.property('tpa', 0);
         data.pd.pl[0].should.have.property('attrs');
 
         data.pd.pl[0].attrs.should.have.property('customkey', 'customvalue');

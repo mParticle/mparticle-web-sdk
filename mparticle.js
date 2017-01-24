@@ -831,15 +831,15 @@
             if (event.ProductAction) {
                 dto.pd = {
                     an: event.ProductAction.ProductActionType,
-                    cs: event.ProductAction.CheckoutStep,
+                    cs: parseNumber(event.ProductAction.CheckoutStep),
                     co: event.ProductAction.CheckoutOptions,
                     pl: convertProductListToDTO(event.ProductAction.ProductList),
                     ti: event.ProductAction.TransactionId,
                     ta: event.ProductAction.Affiliation,
                     tcc: event.ProductAction.CouponCode,
-                    tr: event.ProductAction.TotalAmount,
-                    ts: event.ProductAction.ShippingAmount,
-                    tt: event.ProductAction.TaxAmount
+                    tr: parseNumber(event.ProductAction.TotalAmount),
+                    ts: parseNumber(event.ProductAction.ShippingAmount),
+                    tt: parseNumber(event.ProductAction.TaxAmount) 
                 };
             }
             else if (event.PromotionAction) {
@@ -885,16 +885,24 @@
         return {
             id: product.Sku,
             nm: product.Name,
-            pr: product.Price == null ? 0 : product.Price,
-            qt: product.Quantity == null ? 0 : product.Quantity,
+            pr: parseNumber(product.Price),
+            qt: parseNumber(product.Quantity),
             br: product.Brand,
             va: product.Variant,
             ca: product.Category,
-            ps: product.Position == null ? 0 : product.Position,
+            ps: parseNumber(product.Position),
             cc: product.CouponCode,
-            tpa: product.TotalAmount == null ? 0 : product.TotalAmount,
+            tpa: parseNumber(product.TotalAmount),
             attrs: product.Attributes
         };
+    }
+    
+    function parseNumber(value) {
+        if (isNaN(value) || !isFinite(value)) {
+            return 0;
+        }
+        var floatValue = parseFloat(value)
+        return isNaN(floatValue) ? 0 : floatValue;
     }
 
     function convertProductBagToDTO() {
