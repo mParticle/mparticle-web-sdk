@@ -2628,7 +2628,8 @@ describe('mParticle Core SDK', function() {
             'ishouldberemoved': {
                 'test': 'test'
             },
-            'ishouldalsoberemoved': ['test']
+            'ishouldalsoberemoved': ['test'],
+            'removeme': new Error()
         });
 
         var event = getEvent('sanitized event');
@@ -2637,6 +2638,7 @@ describe('mParticle Core SDK', function() {
         event.attrs.should.have.property('mydate');
         event.attrs.should.not.have.property('ishouldberemoved');
         event.attrs.should.not.have.property('ishouldalsoberemoved');
+        event.attrs.should.not.have.property('removeme');
 
         done();
     });

@@ -1531,7 +1531,10 @@
     }
 
     function isObject(value) {
-        return Object.prototype.toString.call(value) === "[object Object]";
+        var objType = Object.prototype.toString.call(value);
+
+        return objType === "[object Object]"
+            || objType === "[object Error]";
     }
 
     function addEventHandler(domEvent, selector, eventName, data, eventType) {
