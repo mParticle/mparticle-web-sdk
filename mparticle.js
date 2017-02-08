@@ -293,7 +293,7 @@
     }
 
     function tryNativeSdk(path, value) {
-        if (window.mParticleAndroid) {
+        if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
             logDebug(InformationMessages.SendAndroid + path);
             window.mParticleAndroid[path](value);
 
