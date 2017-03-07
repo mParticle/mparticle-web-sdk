@@ -17,8 +17,8 @@
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
 (function(window) {
-    var serviceUrl = "jssdk.mparticle.com/v1/JS/",
-        secureServiceUrl = "jssdks.mparticle.com/v1/JS/",
+    var serviceUrl = 'jssdk.mparticle.com/v1/JS/',
+        secureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
         serviceScheme = window.location.protocol + '//',
         sdkVersion = '1.8.7',
         isEnabled = true,
@@ -32,7 +32,7 @@
         clientId,
         devToken,
         serverSettings = null,
-        lastEventSent,
+        dateLastEventSent,
         currentPosition,
         isTracking = false,
         watchPositionId,
@@ -41,7 +41,6 @@
         productsBags = {},
         cartProducts = [],
         currencyCode = null,
-        MockHttpRequest = null,
         appVersion = null,
         appName = null,
         customFlags = null,
@@ -52,7 +51,7 @@
     // forEach polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
     // Reference: http://es5.github.io/#x15.4.4.18
-    // 
+    //
     if (!Array.prototype.forEach) {
         Array.prototype.forEach = function(callback, thisArg) {
             var T, k;
@@ -64,7 +63,7 @@
             var O = Object(this);
             var len = O.length >>> 0;
 
-            if (typeof callback !== "function") {
+            if (typeof callback !== 'function') {
                 throw new TypeError(callback + ' is not a function');
             }
 
@@ -92,14 +91,14 @@
             var T, A, k;
 
             if (this === null) {
-                throw new TypeError(" this is null or not defined");
+                throw new TypeError(' this is null or not defined');
             }
 
             var O = Object(this);
             var len = O.length >>> 0;
 
-            if (typeof callback !== "function") {
-                throw new TypeError(callback + " is not a function");
+            if (typeof callback !== 'function') {
+                throw new TypeError(callback + ' is not a function');
             }
 
             if (arguments.length > 1) {
@@ -111,28 +110,22 @@
             k = 0;
 
             while (k < len) {
-
                 var kValue, mappedValue;
-
                 if (k in O) {
-
                     kValue = O[k];
-
                     mappedValue = callback.call(T, kValue, k, O);
-
                     A[k] = mappedValue;
                 }
-
                 k++;
             }
 
             return A;
         };
     }
-    
+
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
     if (!Array.isArray) {
-        Array.isArray = function (arg) {
+        Array.isArray = function(arg) {
             return Object.prototype.toString.call(arg) === '[object Array]';
         };
     }
@@ -151,17 +144,17 @@
                 type: function(obj) {
                     return obj == null ?
                         String(obj) :
-                        objectHelper.class2type[Object.prototype.toString.call(obj)] || "object";
+                        objectHelper.class2type[Object.prototype.toString.call(obj)] || 'object';
                 },
                 isPlainObject: function(obj) {
-                    if (!obj || objectHelper.type(obj) !== "object" || obj.nodeType || objectHelper.isWindow(obj)) {
+                    if (!obj || objectHelper.type(obj) !== 'object' || obj.nodeType || objectHelper.isWindow(obj)) {
                         return false;
                     }
 
                     try {
                         if (obj.constructor &&
-                            !objectHelper.hasOwn.call(obj, "constructor") &&
-                            !objectHelper.hasOwn.call(obj.constructor.prototype, "isPrototypeOf")) {
+                            !objectHelper.hasOwn.call(obj, 'constructor') &&
+                            !objectHelper.hasOwn.call(obj.constructor.prototype, 'isPrototypeOf')) {
                             return false;
                         }
                     } catch (e) {
@@ -174,10 +167,10 @@
                     return key === undefined || objectHelper.hasOwn.call(obj, key);
                 },
                 isArray: Array.isArray || function(obj) {
-                    return objectHelper.type(obj) === "array";
+                    return objectHelper.type(obj) === 'array';
                 },
                 isFunction: function(obj) {
-                    return objectHelper.type(obj) === "function";
+                    return objectHelper.type(obj) === 'function';
                 },
                 isWindow: function(obj) {
                     return obj != null && obj == obj.window;
@@ -185,7 +178,7 @@
             };  // end of objectHelper
 
         // Handle a deep copy situation
-        if (typeof target === "boolean") {
+        if (typeof target === 'boolean') {
             deep = target;
             target = arguments[1] || {};
             // skip the boolean and the target
@@ -193,7 +186,7 @@
         }
 
         // Handle case when target is a string or something (possible in deep copy)
-        if (typeof target !== "object" && !objectHelper.isFunction(target)) {
+        if (typeof target !== 'object' && !objectHelper.isFunction(target)) {
             target = {};
         }
 
@@ -251,7 +244,7 @@
             logDebug('Error creating XMLHttpRequest object.');
         }
 
-        if (xhr && cb && "withCredentials" in xhr) {
+        if (xhr && cb && 'withCredentials' in xhr) {
             xhr.onreadystatechange = cb;
         }
         else if (typeof window.XDomainRequest != 'undefined') {
@@ -301,8 +294,8 @@
         }
         else if (window.mParticle.isIOS || isUIWebView()) {
             logDebug(InformationMessages.SendIOS + path);
-            var iframe = document.createElement("IFRAME");
-            iframe.setAttribute("src", 'mp-sdk://' + path + '/' + value);
+            var iframe = document.createElement('IFRAME');
+            iframe.setAttribute('src', 'mp-sdk://' + path + '/' + value);
             document.documentElement.appendChild(iframe);
             iframe.parentNode.removeChild(iframe);
             iframe = null;
@@ -363,10 +356,10 @@
                 }
 
                 if (obj.les) {
-                    lastEventSent = new Date(obj.les);
+                    dateLastEventSent = new Date(obj.les);
                 }
                 else if (obj.LastEventSent) {
-                    lastEventSent = new Date(obj.LastEventSent);
+                    dateLastEventSent = new Date(obj.LastEventSent);
                 }
             }
             catch (e) {
@@ -386,7 +379,7 @@
                 ui: userIdentities,
                 ss: serverSettings,
                 dt: devToken,
-                les: lastEventSent ? lastEventSent.getTime() : null,
+                les: dateLastEventSent ? dateLastEventSent.getTime() : null,
                 av: appVersion,
                 cgid: clientId
             },
@@ -433,7 +426,7 @@
 
         if (!tryNativeSdk(NativeSdkPaths.LogEvent, JSON.stringify(event))) {
             logDebug(InformationMessages.SendHttp);
-            
+
             xhr = createXHR(xhrCallback);
 
             if (xhr) {
@@ -482,12 +475,11 @@
 
     function applyToForwarders(functionName, functionArgs) {
         if (forwarders) {
-            for (var i = 0; i < forwarders.length; i++) {
-                var forwarderFunction = forwarders[i][functionName];
-                
+            forwarders.forEach(function(forwarder) {
+                var forwarderFunction = forwarder[functionName];
                 if (forwarderFunction) {
                     try {
-                        var result = forwarders[i][functionName](forwarders[i], functionArgs);
+                        var result = forwarder[functionName](forwarder, functionArgs);
 
                         if (result) {
                             logDebug(result);
@@ -497,7 +489,7 @@
                         logDebug(e);
                     }
                 }
-            }
+            });
         }
     }
 
@@ -522,15 +514,15 @@
             },
             filterUserIdentities = function(event, filterList) {
                 if (event.UserIdentities && event.UserIdentities.length > 0) {
-                    for (var i = 0; i < event.UserIdentities.length; i++) {
-                        if (inArray(filterList, event.UserIdentities[i].Type)) {
+                    event.UserIdentities.forEach(function(userIdentity, i) {
+                        if (inArray(filterList, userIdentity.Type)) {
                             event.UserIdentities.splice(i, 1);
 
                             if (i > 0) {
                                 i--;
                             }
                         }
-                    }
+                    });
                 }
             },
             filterAttributes = function(event, filterList) {
@@ -577,8 +569,8 @@
                     continue;
                 }
 
-                // Check attribute forwarding rule. This rule allows users to only forward an event if a 
-                // specific attribute exists and has a specific value. Alternatively, they can specify 
+                // Check attribute forwarding rule. This rule allows users to only forward an event if a
+                // specific attribute exists and has a specific value. Alternatively, they can specify
                 // that an event not be forwarded if the specified attribute name and value exists.
                 // The two cases are controlled by the "includeOnMatch" boolean value.
                 // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
@@ -670,10 +662,9 @@
                 return -1 * (x.settings.PriorityValue - y.settings.PriorityValue);
             });
 
-            for (var i = 0; i < forwarders.length; i++) {
-                if (forwarders[i].isSandbox === mParticle.isSandbox ||
-                    (!forwarders[i].isSandbox && !forwarders[i].hasSandbox)) {
-                    forwarders[i].init(forwarders[i].settings,
+            forwarders.forEach(function(forwarder) {
+                if (forwarder.isSandbox === mParticle.isSandbox || (!forwarder.isSandbox && !forwarder.hasSandbox)) {
+                    forwarder.init(forwarder.settings,
                         sendForwardingStats,
                         false,
                         null,
@@ -684,7 +675,7 @@
                         customFlags,
                         clientId);
                 }
-            }
+            });
         }
     }
 
@@ -735,13 +726,13 @@
             }
         }
         catch (e) {
-            logDebug("Error parsing JSON response from server: " + e.name);
+            logDebug('Error parsing JSON response from server: ' + e.name);
         }
     }
 
     function startTracking() {
         if (!isTracking) {
-            if ("geolocation" in navigator) {
+            if ('geolocation' in navigator) {
                 watchPositionId = navigator.geolocation.watchPosition(function(position) {
                     currentPosition = {
                         lat: position.coords.latitude,
@@ -771,13 +762,13 @@
 
             if (event.CustomFlags.hasOwnProperty(prop)) {
                 if (Array.isArray(event.CustomFlags[prop])) {
-                    for (var i = 0; i < event.CustomFlags[prop].length; i++) {
-                        if (typeof event.CustomFlags[prop][i] === 'number'
-                            || typeof event.CustomFlags[prop][i] === 'string'
-                            || typeof event.CustomFlags[prop][i] === 'boolean') {
-                            valueArray.push(event.CustomFlags[prop][i].toString());
+                    event.CustomFlags[prop].forEach(function(customFlagProperty) {
+                        if (typeof customFlagProperty === 'number'
+                            || typeof customFlagProperty === 'string'
+                            || typeof customFlagProperty === 'boolean') {
+                            valueArray.push(customFlagProperty.toString());
                         }
-                    }
+                    });
                 }
                 else if (typeof event.CustomFlags[prop] === 'number'
                     || typeof event.CustomFlags[prop] === 'string'
@@ -839,7 +830,7 @@
                     tcc: event.ProductAction.CouponCode,
                     tr: parseNumber(event.ProductAction.TotalAmount),
                     ts: parseNumber(event.ProductAction.ShippingAmount),
-                    tt: parseNumber(event.ProductAction.TaxAmount) 
+                    tt: parseNumber(event.ProductAction.TaxAmount)
                 };
             }
             else if (event.PromotionAction) {
@@ -896,7 +887,7 @@
             attrs: product.Attributes
         };
     }
-    
+
     function parseNumber(value) {
         if (isNaN(value) || !isFinite(value)) {
             return 0;
@@ -946,7 +937,7 @@
         var optOut = (messageType == MessageType.OptOut ? !isEnabled : null);
 
         if (sessionId || messageType == MessageType.OptOut) {
-            lastEventSent = new Date();
+            dateLastEventSent = new Date();
 
             return {
                 EventName: name ? name : messageType,
@@ -960,7 +951,7 @@
                 SessionId: sessionId,
                 EventDataType: messageType,
                 Debug: mParticle.isSandbox,
-                Timestamp: lastEventSent.getTime(),
+                Timestamp: dateLastEventSent.getTime(),
                 Location: currentPosition,
                 OptOut: optOut,
                 ProductBags: productsBags,
@@ -999,7 +990,7 @@
                 return 'Unknown';
         }
     }
-    
+
     function getPromotionActionEventName(promotionActionType) {
         switch (promotionActionType) {
             case PromotionActionType.PromotionClick:
@@ -1058,8 +1049,8 @@
             return appEvents;
         }
         var shouldExtractActionAttributes = false;
-        if (commerceEvent.ProductAction.ProductActionType == ProductActionType.Purchase || 
-            commerceEvent.ProductAction.ProductActionType == ProductActionType.Refund) {
+        if (commerceEvent.ProductAction.ProductActionType === ProductActionType.Purchase ||
+            commerceEvent.ProductAction.ProductActionType === ProductActionType.Refund) {
             var attributes = commerceEvent.EventAttributes || {};
             extractActionAttributes(attributes, commerceEvent.ProductAction);
             if (commerceEvent.CurrencyCode != null) {
@@ -1074,18 +1065,21 @@
         } else {
             shouldExtractActionAttributes = true;
         }
+
         var products = commerceEvent.ProductAction.ProductList;
+
         if (products == null) {
             return appEvents;
         }
-        for (var i = 0; i < products.length; i++) {
-            var attributes = products[i].Attributes || {};
+
+        products.forEach(function(product) {
+            var attributes = product.Attributes || {};
             if (shouldExtractActionAttributes) {
                 extractActionAttributes(attributes, commerceEvent.ProductAction);
             } else {
                 extractTransactionId(attributes, commerceEvent.ProductAction);
             }
-            extractProductAttributes(attributes, products[i]);
+            extractProductAttributes(attributes, product);
 
             var productEvent = createEventObject(MessageType.PageEvent,
                 generateExpandedEcommerceName(ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType)),
@@ -1093,7 +1087,8 @@
                 EventType.Transaction
             );
             appEvents.push(productEvent);
-        }
+        });
+
         return appEvents;
     }
 
@@ -1142,13 +1137,13 @@
 
         if (productAction.CouponCode != null)
             attributes['Coupon Code'] = productAction.CouponCode;
-        
+
         if (productAction.TotalAmount != null)
             attributes['Total Amount'] = productAction.TotalAmount;
 
         if (productAction.ShippingAmount != null)
             attributes['Shipping Amount'] = productAction.ShippingAmount;
-        
+
         if (productAction.TaxAmount != null)
             attributes['Tax Amount'] = productAction.TaxAmount;
 
@@ -1165,9 +1160,9 @@
             return appEvents;
         }
         var promotions = commerceEvent.PromotionAction.PromotionList;
-        for (var i = 0; i < promotions.length; i++) {
+        promotions.forEach(function(promotion) {
             var attributes = commerceEvent.EventAttributes || {};
-            extractPromotionAttributes(attributes, promotions[i]);
+            extractPromotionAttributes(attributes, promotion);
 
             var appEvent = createEventObject(MessageType.PageEvent,
                     generateExpandedEcommerceName(PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
@@ -1175,19 +1170,19 @@
                     EventType.Transaction
                 );
             appEvents.push(appEvent);
-        }
+        });
         return appEvents;
     }
 
     function generateExpandedEcommerceName(eventName, plusOne) {
-        return 'eCommerce - ' + eventName + ' - ' + (plusOne ? "Total" : "Item");
+        return 'eCommerce - ' + eventName + ' - ' + (plusOne ? 'Total' : 'Item');
     }
 
     function extractPromotionAttributes(attributes, promotion) {
         if (promotion.Id != null)
             attributes['Id'] = promotion.Id;
 
-        if (promotion.Creative != null) 
+        if (promotion.Creative != null)
             attributes['Creative'] = promotion.Creative;
 
         if (promotion.Name != null)
@@ -1202,19 +1197,18 @@
         if (commerceEvent.ProductImpressions == null) {
             return appEvents;
         }
-        for (var i = 0; i < commerceEvent.ProductImpressions.length; i++) {
-            if (commerceEvent.ProductImpressions[i].ProductList != null) {
-                for (var productIndex = 0; productIndex < commerceEvent.ProductImpressions[i].ProductList.length; productIndex++) {
-                    var product = commerceEvent.ProductImpressions[i].ProductList[productIndex];
+        commerceEvent.ProductImpressions.forEach(function(productImpression) {
+            if (productImpression.ProductList != null) {
+                productImpression.ProductList.forEach(function(product, i) {
                     var attributes = commerceEvent.EventAttributes || {};
                     if (product.Attributes != null) {
-                        for (var attribute in product.Attributes) { 
-                            attributes[attribute] = product.Attributes[attribute]; 
+                        for (var attribute in product.Attributes) {
+                            attributes[attribute] = product.Attributes[attribute];
                         }
                     }
                     extractProductAttributes(attributes, product);
-                    if (commerceEvent.ProductImpressions[i].ProductImpressionList != null) {
-                        attributes['Product Impression List'] = commerceEvent.ProductImpressions[i].ProductImpressionList;
+                    if (productImpression.ProductImpressionList != null) {
+                        attributes['Product Impression List'] = productImpression.ProductImpressionList;
                     }
                     var appEvent = createEventObject(MessageType.PageEvent,
                             generateExpandedEcommerceName('Impression'),
@@ -1222,9 +1216,10 @@
                             EventType.Transaction
                         );
                     appEvents.push(appEvent)
-                }   
+                });
             }
-        }
+        });
+
         return appEvents;
     }
 
@@ -1233,8 +1228,8 @@
             return null;
         }
         return expandProductAction(event)
-                .concat(expandPromotionAction(event))
-                .concat(expandProductImpression(event));
+            .concat(expandPromotionAction(event))
+            .concat(expandProductImpression(event));
     }
 
     function createCommerceEventObject() {
@@ -1333,16 +1328,16 @@
             logCommerceEvent(event, attrs);
         }
     }
-    
+
     function buildProductList(event, product) {
         if (product) {
             if (Array.isArray(product)) {
                 return product;
             }
-             
+
             return [product];
         }
-        
+
         return event.ShoppingCart.ProductList;
     }
 
@@ -1390,7 +1385,7 @@
                 mParticle.startNewSession();
             }
 
-            if(data) {
+            if (data) {
                 data = sanitizeAttributes(data);
             }
 
@@ -1478,7 +1473,7 @@
         // Added support for crypto for better random
 
         return a                            // if the placeholder was passed, return
-                ? generateRandomValue(a)    // a random number 
+                ? generateRandomValue(a)    // a random number
                 : (                         // or otherwise a concatenated string:
                 [1e7] +                     // 10000000 +
                 -1e3 +                      // -1000 +
@@ -1533,8 +1528,8 @@
     function isObject(value) {
         var objType = Object.prototype.toString.call(value);
 
-        return objType === "[object Object]"
-            || objType === "[object Error]";
+        return objType === '[object Object]'
+            || objType === '[object Error]';
     }
 
     function addEventHandler(domEvent, selector, eventName, data, eventType) {
@@ -1624,7 +1619,7 @@
         name = name.toString().toLowerCase();
 
         if (Array.prototype.reduce) {
-            return name.split("").reduce(function(a, b) { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
+            return name.split('').reduce(function(a, b) { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
         }
 
         if (name.length === 0) {
@@ -1736,13 +1731,13 @@
 
     function callSetUserAttributeOnForwarders(key, value) {
         if (forwarders) {
-            for (var i = 0; i < forwarders.length; i++) {
-                if (forwarders[i].setUserAttribute &&
-                    forwarders[i].userAttributeFilters &&
-                    !inArray(forwarders[i].userAttributeFilters, generateHash(key))) {
+            forwarders.forEach(function(forwarder) {
+                if (forwarder.setUserAttribute &&
+                    forwarder.userAttributeFilters &&
+                    !inArray(forwarder.userAttributeFilters, generateHash(key))) {
 
                     try {
-                        var result = forwarders[i].setUserAttribute(key, value);
+                        var result = forwarder.setUserAttribute(key, value);
 
                         if (result) {
                             logDebug(result);
@@ -1752,7 +1747,7 @@
                         logDebug(e);
                     }
                 }
-            }
+            });
         }
     }
 
@@ -2114,7 +2109,7 @@
             getCookie();
 
             if (arguments && arguments.length > 0) {
-                if (typeof arguments[0] == 'string') {
+                if (typeof arguments[0] === 'string') {
                     // This is the dev token
                     token = arguments[0];
 
@@ -2140,11 +2135,11 @@
 
             // Call any functions that are waiting for the library to be initialized
             if (readyQueue && readyQueue.length) {
-                for (var i = 0; i < readyQueue.length; i++) {
-                    if (typeof readyQueue[i] == 'function') {
-                        readyQueue[i]();
+                readyQueue.forEach(function(readyQueueItem) {
+                    if (typeof readyQueueItem == 'function') {
+                        readyQueueItem();
                     }
-                }
+                });
 
                 readyQueue = [];
             }
@@ -2154,7 +2149,6 @@
         },
         reset: function() {
             // Completely resets the state of the SDK. mParticle.init() will need to be called again.
-
             isEnabled = true;
             stopTracking();
             devToken = null;
@@ -2227,18 +2221,18 @@
 
                 if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
                     if (forwarders) {
-                        for (var i = 0; i < forwarders.length; i++) {
-                            if (forwarders[i].setUserIdentity &&
-                                (!forwarders[i].userIdentityFilters ||
-                                    !inArray(forwarders[i].userIdentityFilters, type))) {
+                        forwarders.forEach(function(forwarder) {
+                            if (forwarder.setUserIdentity &&
+                                (!forwarder.userIdentityFilters ||
+                                !inArray(forwarder.userIdentityFilters, type))) {
 
-                                var result = forwarders[i].setUserIdentity(id, type);
+                                var result = forwarder.setUserIdentity(id, type);
 
                                 if (result) {
                                     logDebug(result);
                                 }
                             }
-                        }
+                        });
                     }
                 }
 
@@ -2248,23 +2242,21 @@
         getUserIdentity: function(id) {
             var foundIdentity = null;
 
-            userIdentities.forEach(function(identity) {
-                if (identity.Identity === id) {
-                    foundIdentity = identity;
+            userIdentities.forEach(function(userIdentity) {
+                if (userIdentity.Identity === id) {
+                    foundIdentity = userIdentity
                 }
             });
 
             return foundIdentity;
         },
         removeUserIdentity: function(id) {
-            var i = 0;
-
-            for (i = 0; i < userIdentities.length; i++) {
-                if (userIdentities[i].Identity === id) {
+            userIdentities.forEach(function(userIdentity, i) {
+                if (userIdentity.Identity === id) {
                     userIdentities.splice(i, 1);
                     i--;
                 }
-            }
+            });
 
             tryNativeSdk(NativeSdkPaths.RemoveUserIdentity, id);
             setCookie();
@@ -2278,8 +2270,8 @@
                 mParticle.endSession();
                 sessionId = generateUniqueId();
 
-                if (!lastEventSent) {
-                    lastEventSent = new Date();
+                if (!dateLastEventSent) {
+                    dateLastEventSent = new Date();
                 }
 
                 logEvent(MessageType.SessionStart);
@@ -2327,10 +2319,10 @@
                 return;
             }
 
-            if (!lastEventSent) {
-                lastEventSent = new Date();
+            if (!dateLastEventSent) {
+                dateLastEventSent = new Date();
             }
-            else if (new Date() > new Date(lastEventSent.getTime() + Config.SessionTimeout * 60000)) {
+            else if (new Date() > new Date(dateLastEventSent.getTime() + Config.SessionTimeout * 60000)) {
                 // Session has timed out, start a new one
                 mParticle.startNewSession();
             }
@@ -2371,11 +2363,10 @@
             if (canLog()) {
                 if(arguments.length <= 1) {
                     // Handle original function signature
-                    
                     eventName = window.location.pathname;
                     attrs = {
-                            hostname: window.location.hostname,
-                            title: window.document.title
+                        hostname: window.location.hostname,
+                        title: window.document.title
                     };
 
                     if(arguments.length == 1) {
@@ -2409,9 +2400,9 @@
                     var productIndex = -1;
 
                     if (productsBags[productBagName]) {
-                        productsBags[productBagName].forEach(function(item, index) {
-                            if (item.sku === product.sku) {
-                                productIndex = index;
+                        productsBags[productBagName].forEach(function(productBagItem, i) {
+                            if (productBagItem.sku === product.sku) {
+                                productIndex = i;
                             }
                         });
 
@@ -2430,16 +2421,9 @@
             },
             Cart: {
                 add: function(product, logEvent) {
-                    var arrayCopy = [];
+                    var arrayCopy;
 
-                    if(Array.isArray(product)) {
-                        for(var i = 0; i < product.length; i++) {
-                            arrayCopy.push(product[i]);
-                        }
-                    }
-                    else {
-                        arrayCopy.push(product);
-                    }
+                    arrayCopy = Array.isArray(product) ? product.slice() : [product];
 
                     cartProducts = cartProducts.concat(arrayCopy);
 
@@ -2455,10 +2439,10 @@
                         cartItem = null;
 
                     if (cartProducts) {
-                        cartProducts.forEach(function(item, index) {
-                            if (item.Sku === product.Sku) {
-                                cartIndex = index;
-                                cartItem = item;
+                        cartProducts.forEach(function(cartProduct, i) {
+                            if (cartProduct.Sku === product.Sku) {
+                                cartIndex = i;
+                                cartItem = cartProduct;
                             }
                         });
 
@@ -2553,20 +2537,20 @@
 
             logEvent(MessageType.PageEvent, 'Ecommerce', attributes, EventType.Transaction);
         },
-        logLTVIncrease: function (amount, eventName, attributes) {
-            if(amount == null || typeof amount == "undefined") {
+        logLTVIncrease: function(amount, eventName, attributes) {
+            if(amount == null || typeof amount == 'undefined') {
                 logDebug('A valid amount must be passed to logLTVIncrease.');
                 return;
             }
-            
+
             if(!attributes) {
                 attributes = {};
             }
-            
+
             attributes[RESERVED_KEY_LTV] = amount;
             attributes[METHOD_NAME] = LOG_LTV;
-            
-            logEvent(MessageType.PageEvent, 
+
+            logEvent(MessageType.PageEvent,
                 !eventName ? 'Increase LTV' : eventName,
                 attributes,
                 EventType.Transaction);
@@ -2625,13 +2609,9 @@
             setCookie();
         },
         setUserAttributeList: function(key, value) {
-            var arrayCopy = [];
-
             if(Array.isArray(value)) {
-                for(var i = 0; i < value.length; i++) {
-                    arrayCopy.push(value[i]);
-                }
-                
+                var arrayCopy = value.slice();
+
                 var existingProp = findKeyInObject(userAttributes, key);
 
                 if(existingProp != null) {
@@ -2646,7 +2626,7 @@
                 }
             }
         },
-        removeAllUserAttributes: function () {
+        removeAllUserAttributes: function() {
             if(!tryNativeSdk(NativeSdkPaths.RemoveAllUserAttributes)) {
                 if(userAttributes) {
                     for(var prop in userAttributes) {
@@ -2660,39 +2640,25 @@
             userAttributes = {};
             setCookie();
         },
-        getUserAttributesLists: function () {
-            var userAttributeLists = {},
-                arrayCopy;
+        getUserAttributesLists: function() {
+            var userAttributeLists = {};
 
             for(var key in userAttributes) {
                 if(userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
-                    arrayCopy = [];
-
-                    for(var i = 0; i < userAttributes[key].length; i++) {
-                        arrayCopy.push(userAttributes[key][i]);
-                    }
-
-                    userAttributeLists[key] = arrayCopy;
+                    userAttributeLists[key] = userAttributes[key].slice();
                 }
             }
 
             return userAttributeLists;
         },
         getAllUserAttributes: function() {
-            var userAttributesCopy = {},
-                arrayCopy;
+            var userAttributesCopy = {};
 
             if(userAttributes) {
                 for(var prop in userAttributes) {
                     if(userAttributes.hasOwnProperty(prop)) {
                         if(Array.isArray(userAttributes[prop])) {
-                            arrayCopy = [];
-
-                            for(var i = 0; i < userAttributes[prop].length; i++) {
-                                arrayCopy.push(userAttributes[prop][i]);
-                            }
-
-                            userAttributesCopy[prop] = arrayCopy;
+                            userAttributesCopy[prop] = userAttributes[prop].slice();
                         }
                         else {
                             userAttributesCopy[prop] = userAttributes[prop];
@@ -2733,15 +2699,15 @@
             setCookie();
 
             if (forwarders) {
-                for (var i = 0; i < forwarders.length; i++) {
-                    if (forwarders[i].setOptOut) {
-                        var result = forwarders[i].setOptOut(isOptingOut);
+                forwarders.forEach(function(forwarder) {
+                    if (forwarder.setOptOut) {
+                        var result = forwarder.setOptOut(isOptingOut);
 
                         if (result) {
                             logDebug(result);
                         }
                     }
-                }
+                });
             }
         },
         logOut: function() {
@@ -2752,11 +2718,11 @@
                     evt = logLogOutEvent();
 
                     if (forwarders) {
-                        for (var i = 0; i < forwarders.length; i++) {
-                            if (forwarders[i].logOut) {
-                                forwarders[i].logOut(evt);
+                        forwarders.forEach(function(forwarder) {
+                            if (forwarder.logOut) {
+                                forwarder.logOut(evt);
                             }
-                        }
+                        });
                     }
                 }
             }
@@ -2774,8 +2740,8 @@
             else {
                 /*  Added for backwards compatibility
                     Old signature for reference:
-                
-                configureForwarder: function (name,
+
+                configureForwarder: function(name,
                     settings,
                     eventNameFilters,
                     eventTypeFilters,
