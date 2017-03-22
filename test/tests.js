@@ -316,7 +316,7 @@ describe('mParticle Core SDK', function() {
         mParticle.logPageView('My Page View', {'testattr': 1}, {
             'MyCustom.Flag': 'Test'
         });
-        
+
         var event = getEvent('My Page View');
 
         event.should.have.property('attrs');
@@ -452,7 +452,7 @@ describe('mParticle Core SDK', function() {
 
         done();
     });
-    
+
     it('logPurchase should support array of products', function(done) {
         var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1),
@@ -460,15 +460,15 @@ describe('mParticle Core SDK', function() {
 
         mParticle.eCommerce.logPurchase(transactionAttributes, [product1, product2]);
         var data = getEvent('eCommerce - Purchase');
-        
+
         data.should.have.property('pd');
         data.pd.should.have.property('pl').with.lengthOf(2);
         data.pd.pl[0].should.have.property('nm', 'iPhone');
         data.pd.pl[1].should.have.property('nm', 'Android');
-        
-        done(); 
+
+        done();
     });
-    
+
     it('logRefund should support array of products', function(done) {
         var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1),
@@ -476,14 +476,14 @@ describe('mParticle Core SDK', function() {
 
         mParticle.eCommerce.logRefund(transactionAttributes, [product1, product2]);
         var data = getEvent('eCommerce - Refund');
-        
+
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.Refund);
         data.pd.should.have.property('pl').with.lengthOf(2);
         data.pd.pl[0].should.have.property('nm', 'iPhone');
         data.pd.pl[1].should.have.property('nm', 'Android');
-        
-        done(); 
+
+        done();
     });
 
     it('should create promotion', function(done) {
@@ -1893,7 +1893,7 @@ describe('mParticle Core SDK', function() {
 
         done();
     });
-    
+
     it('should support old configureForwarder function signature', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
@@ -1909,9 +1909,9 @@ describe('mParticle Core SDK', function() {
         event.should.have.property('UserAttributes');
         event.UserAttributes.should.not.have.property('gender');
 
-        done(); 
+        done();
     });
-    
+
     it('should support logLTVIncrease function', function(done) {
         mParticle.logLTVIncrease(100, 'Bought Something');
 
@@ -1921,35 +1921,35 @@ describe('mParticle Core SDK', function() {
 
         event.should.have.property('dt', MessageType.PageEvent);
         event.should.have.property('et', mParticle.EventType.Transaction);
-        
+
         event.should.have.property('attrs');
         event.attrs.should.have.property('$Amount', 100);
         event.attrs.should.have.property('$MethodName', 'LogLTVIncrease');
 
         done();
     });
-    
+
     it('should default logLTVIncrease event name', function(done) {
         mParticle.logLTVIncrease(100);
 
         var event = getEvent('Increase LTV');
 
         Should(event).be.ok();
-        
+
         event.should.have.property('attrs');
         event.attrs.should.have.property('$Amount', 100);
 
         done();
     });
-    
+
     it('should not logLTVIncrease when no amount is passed', function(done) {
         mParticle.logLTVIncrease();
 
         var event = getEvent('Increase LTV');
 
         Should(event).not.be.ok();
-        
-        done(); 
+
+        done();
     });
 
     it('should not log prod event to debug forwarder', function (done) {
@@ -1998,7 +1998,7 @@ describe('mParticle Core SDK', function() {
         mParticle.init(apiKey);
 
         mParticle.startNewSession();
-        
+
         instance1.receivedEvent = null;
         instance2.receivedEvent = null;
 
@@ -2057,7 +2057,7 @@ describe('mParticle Core SDK', function() {
         mParticle.isSandbox = true;
 
         mParticle.startNewSession();
-        
+
         instance1.receivedEvent = null;
         instance2.receivedEvent = null;
 
@@ -2141,7 +2141,7 @@ describe('mParticle Core SDK', function() {
 
     it('should get user attribute lists', function(done) {
         mParticle.reset();
-        
+
         mParticle.init(apiKey);
 
         mParticle.setUserAttribute('gender', 'male');
@@ -2194,12 +2194,12 @@ describe('mParticle Core SDK', function() {
 
     it('should get all user attributes', function(done) {
         mParticle.reset();
-        
+
         mParticle.init(apiKey);
 
         mParticle.setUserAttribute('test', '123');
         mParticle.setUserAttribute('another test', 'blah');
-        
+
         var attrs = mParticle.getAllUserAttributes();
 
         attrs.should.have.property('test', '123');
@@ -2215,7 +2215,7 @@ describe('mParticle Core SDK', function() {
         mParticle.setUserAttributeList('mykey', 1234);
 
         var attrs = mParticle.getAllUserAttributes();
-        
+
         attrs.should.not.have.property('mykey');
 
         done();
@@ -2224,12 +2224,12 @@ describe('mParticle Core SDK', function() {
     it('should support array of products when adding to cart', function(done) {
         mParticle.reset();
         mParticle.init(apiKey);
-        
+
         var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2),
             product2 = mParticle.eCommerce.createProduct('Nexus', '67890', 300, 1);
 
         mParticle.eCommerce.Cart.add([product1, product2], true);
-        
+
         var event = getEvent('eCommerce - AddToCart');
 
         Should(event).be.ok();
@@ -2250,11 +2250,11 @@ describe('mParticle Core SDK', function() {
     it('should support a single product when adding to cart', function(done) {
         mParticle.reset();
         mParticle.init(apiKey);
-        
+
         var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2);
 
         mParticle.eCommerce.Cart.add(product1, true);
-        
+
         var event = getEvent('eCommerce - AddToCart');
 
         Should(event).be.ok();
@@ -2265,7 +2265,7 @@ describe('mParticle Core SDK', function() {
 
         event.pd.pl[0].should.have.property('id', '12345');
         event.pd.pl[0].should.have.property('nm', 'iPhone');
-        
+
         done();
     });
 
@@ -2274,7 +2274,7 @@ describe('mParticle Core SDK', function() {
         var data = getEvent('Test Event');
 
         data.should.have.property('cgid').with.lengthOf(36);
-        
+
         done();
     });
 
@@ -2305,9 +2305,9 @@ describe('mParticle Core SDK', function() {
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name', 
-                    'Foo sku', 
-                    100.00, 
+        var product = mParticle.eCommerce.createProduct('Foo name',
+                    'Foo sku',
+                    100.00,
                     4, 'foo-brand','foo-variant','foo-category', 'foo-position', 'foo-productcouponcode', productAttributes );
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
         mParticle.eCommerce.logPurchase(transactionAttributes, product, false, eventAttributes);
@@ -2377,9 +2377,9 @@ describe('mParticle Core SDK', function() {
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name', 
-                    'Foo sku', 
-                    100.00, 
+        var product = mParticle.eCommerce.createProduct('Foo name',
+                    'Foo sku',
+                    100.00,
                     4, 'foo-brand','foo-variant','foo-category', 'foo-position', 'foo-productcouponcode', productAttributes );
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
         mParticle.eCommerce.logRefund(transactionAttributes, product, false, eventAttributes);
@@ -2392,7 +2392,7 @@ describe('mParticle Core SDK', function() {
 
         var productEvent = expandedEvents[1];
         productEvent.should.have.property('EventName', 'eCommerce - refund - Item');
-      
+
 
         done();
     });
@@ -2423,9 +2423,9 @@ describe('mParticle Core SDK', function() {
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name', 
-                    'Foo sku', 
-                    100.00, 
+        var product = mParticle.eCommerce.createProduct('Foo name',
+                    'Foo sku',
+                    100.00,
                     4, 'foo-brand','foo-variant','foo-category', 'foo-position', 'foo-productcouponcode', productAttributes );
 
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.RemoveFromWishlist, product, eventAttributes);
@@ -2478,9 +2478,9 @@ describe('mParticle Core SDK', function() {
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name', 
-                    'Foo sku', 
-                    100.00, 
+        var product = mParticle.eCommerce.createProduct('Foo name',
+                    'Foo sku',
+                    100.00,
                     4, 'foo-brand','foo-variant','foo-category', 'foo-position', 'foo-productcouponcode', productAttributes );
 
 
@@ -2589,9 +2589,9 @@ describe('mParticle Core SDK', function() {
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name', 
-                    'Foo sku', 
-                    100.00, 
+        var product = mParticle.eCommerce.createProduct('Foo name',
+                    'Foo sku',
+                    100.00,
                     4, 'foo-brand','foo-variant','foo-category', 'foo-position', 'foo-productcouponcode', productAttributes );
 
         var impression = mParticle.eCommerce.createImpression('suggested products list', product);
@@ -2665,6 +2665,18 @@ describe('mParticle Core SDK', function() {
 
         event.should.have.property('ua');
         event.ua.should.not.have.property('gender');
+
+        done();
+    });
+
+    it('should return false for an invalid identity type and true for a valid identity type', function(done) {
+        var invalidResult1 = mParticle.IdentityType.isValid(11);
+        var invalidResult2 = mParticle.IdentityType.isValid('5');
+        var validResult = mParticle.IdentityType.isValid(1);
+
+        invalidResult1.should.be.false;
+        invalidResult2.should.be.false;
+        validResult.should.be.true;
 
         done();
     });

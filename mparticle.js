@@ -437,7 +437,7 @@
                     sendEventToForwarders(event);
                 }
                 catch (e) {
-                    logDebug('Error sending event to mParticle servers.');
+                    logDebug('Error sending event to mParticle servers. ' + e);
                 }
             }
         }
@@ -784,6 +784,14 @@
     }
 
     function convertEventToDTO(event) {
+        if (event.UserIdentities.length) {
+            event.UserIdentities.forEach(function(userIdentity) {
+                if (!IdentityType.isValid(userIdentity.Type)) {
+                    throw new Error('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
+                }
+            });
+        }
+
         var dto = {
             n: event.EventName,
             et: event.EventCategory,
@@ -1891,6 +1899,20 @@
         FacebookCustomAudienceId: 9
     };
 
+    IdentityType.isValid = function(identityType) {
+        if (typeof identityType === 'number') {
+            for (var prop in IdentityType) {
+                if (IdentityType.hasOwnProperty(prop)) {
+                    if (IdentityType[prop] === identityType) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    };
+
     IdentityType.getName = function(identityType) {
         switch (identityType) {
             case window.mParticle.IdentityType.CustomerId:
@@ -2211,32 +2233,37 @@
         },
         setUserIdentity: function(id, type) {
             if (canLog()) {
-                var userIdentity = {
-                    Identity: id,
-                    Type: type
-                };
+                if (IdentityType.isValid(type)) {
+                    var userIdentity = {
+                        Identity: id,
+                        Type: type
+                    };
 
-                mParticle.removeUserIdentity(id);
-                userIdentities.push(userIdentity);
+                    mParticle.removeUserIdentity(id);
+                    userIdentities.push(userIdentity);
 
-                if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
-                    if (forwarders) {
-                        forwarders.forEach(function(forwarder) {
-                            if (forwarder.setUserIdentity &&
-                                (!forwarder.userIdentityFilters ||
-                                !inArray(forwarder.userIdentityFilters, type))) {
+                    if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
+                        if (forwarders) {
+                            forwarders.forEach(function(forwarder) {
+                                if (forwarder.setUserIdentity &&
+                                    (!forwarder.userIdentityFilters ||
+                                    !inArray(forwarder.userIdentityFilters, type))) {
 
-                                var result = forwarder.setUserIdentity(id, type);
+                                    var result = forwarder.setUserIdentity(id, type);
 
-                                if (result) {
-                                    logDebug(result);
+                                    if (result) {
+                                        logDebug(result);
+                                    }
                                 }
-                            }
-                        });
+                            });
+                        }
                     }
+
+                    setCookie();
+                } else {
+                    logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
                 }
 
-                setCookie();
             }
         },
         getUserIdentity: function(id) {
