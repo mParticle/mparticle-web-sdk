@@ -286,6 +286,9 @@
     }
 
     function tryNativeSdk(path, value) {
+        if (!mParticle.useNativeSdk) {
+            return false;
+        }
         if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
             logDebug(InformationMessages.SendAndroid + path);
             window.mParticleAndroid[path](value);
@@ -397,6 +400,9 @@
     }
 
     function isWebViewEmbedded() {
+        if (!mParticle.useNativeSdk) {
+            return false;
+        }
         if (window.mParticleAndroid
             || isUIWebView()
             || window.mParticle.isIOS) {
@@ -2123,6 +2129,7 @@
     };
 
     var mParticle = {
+        useNativeSdk: true,
         isIOS: false,
         isDebug: false,
         isSandbox: false,
@@ -2864,6 +2871,10 @@
 
         if (window.mParticle.config.hasOwnProperty('isSandbox')) {
             mParticle.isSandbox = window.mParticle.config.isSandbox;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('useNativeSdk')) {
+            mParticle.useNativeSdk = window.mParticle.config.useNativeSdk;
         }
 
         if (window.mParticle.config.hasOwnProperty('appName')) {
