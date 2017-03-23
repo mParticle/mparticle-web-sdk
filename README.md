@@ -77,6 +77,9 @@ $ npm test
 ```
 The test script will use the browser-sync module to serve `test/index.html`, open the tests in a browser, and auto-refresh when a change is made to `mparticle.js` or any of the test files.
 
+## Development Notes
+This package comes with the NPM package [pre-commit](https://www.npmjs.com/package/pre-commit), which will run [ESLint](http://eslint.org/) when you try to commit.
+
 ## Support
 
 <support@mparticle.com>

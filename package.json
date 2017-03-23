@@ -3,12 +3,18 @@
   "description": "mParticle core Javascript SDK",
   "repository": "https://github.com/mParticle/mparticle-sdk-javascript",
   "scripts": {
-    "test": "node test/runner.js"
+    "test": "node test/runner.js",
+    "lint": "eslint mparticle.js test/tests.js"
   },
+  "pre-commit": [
+    "lint"
+  ],
   "devDependencies": {
     "blanket": "1.1.7",
     "browser-sync": "^2.18.5",
+    "eslint": "^3.17.1",
     "mocha": "^2.3.2",
+    "pre-commit": "^1.2.2",
     "should": "^7.1.0"
   }
 }
