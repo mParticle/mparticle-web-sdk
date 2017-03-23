@@ -784,10 +784,13 @@
     }
 
     function convertEventToDTO(event) {
+        var validUserIdentities;
         if (event.UserIdentities.length) {
-            event.UserIdentities.forEach(function(userIdentity) {
+            validUserIdentities = event.UserIdentities.map(function(userIdentity) {
                 if (!IdentityType.isValid(userIdentity.Type)) {
-                    throw new Error('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
+                    logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
+                } else {
+                    return userIdentity;
                 }
             });
         }
@@ -797,7 +800,7 @@
             et: event.EventCategory,
             ua: event.UserAttributes,
             sa: event.SessionAttributes,
-            ui: event.UserIdentities,
+            ui: validUserIdentities,
             str: event.Store,
             attrs: event.EventAttributes,
             sdk: event.SDKVersion,
