@@ -10,7 +10,7 @@ Detailed documentation and other information about mParticle SDK can be found at
 ## Usage
 
 Once you have signed up to the mParticle platform and have a key for your App, you can begin to use the SDK by embedding the following
-script tag in your web page, replacing `"YOUR_API_KEY"` with your key.
+script tag in your web page, replacing `"YOUR_API_KEY"` with your key. Note that the mParticle JS SDK and all mParticle integrations will be minified when served.
 
 ```html
 <script type="text/javascript">
