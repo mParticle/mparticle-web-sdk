@@ -2321,6 +2321,7 @@ describe('mParticle Core SDK', function() {
         plusOneEvent.should.have.property('EventName', 'eCommerce - purchase - Total');
         plusOneEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
         var attributes = plusOneEvent.EventAttributes;
+        attributes.should.have.property('Transaction Id', 'foo-transaction-id');
         attributes.should.have.property('Affiliation', 'foo-affiliation');
         attributes.should.have.property('Coupon Code', 'foo-couponcode');
         attributes.should.have.property('Total Amount', 400);
@@ -2337,8 +2338,7 @@ describe('mParticle Core SDK', function() {
         attributes.should.not.have.property('Total Amount');
         attributes.should.not.have.property('Shipping Amount');
         attributes.should.not.have.property('Tax Amount');
-        attributes.should.not.have.property('foo-event-attribute-key');
-
+        attributes.should.have.property('foo-event-attribute-key');
         attributes.should.have.property('Coupon Code', 'foo-productcouponcode');
         attributes.should.have.property('Brand', 'foo-brand');
         attributes.should.have.property('Category', 'foo-category');

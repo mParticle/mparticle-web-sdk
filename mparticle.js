@@ -1066,7 +1066,7 @@
         var shouldExtractActionAttributes = false;
         if (commerceEvent.ProductAction.ProductActionType === ProductActionType.Purchase ||
             commerceEvent.ProductAction.ProductActionType === ProductActionType.Refund) {
-            var attributes = commerceEvent.EventAttributes || {};
+            var attributes = extend(false, {}, commerceEvent.EventAttributes);
             extractActionAttributes(attributes, commerceEvent.ProductAction);
             if (commerceEvent.CurrencyCode) {
                 attributes['Currency Code'] = commerceEvent.CurrencyCode;
@@ -1089,7 +1089,7 @@
         }
 
         products.forEach(function(product) {
-            var attributes = product.Attributes || {};
+            var attributes = extend(false, commerceEvent.EventAttributes, product.Attributes);
             if (shouldExtractActionAttributes) {
                 extractActionAttributes(attributes, commerceEvent.ProductAction);
             }
@@ -1186,7 +1186,7 @@
         }
         var promotions = commerceEvent.PromotionAction.PromotionList;
         promotions.forEach(function(promotion) {
-            var attributes = commerceEvent.EventAttributes || {};
+            var attributes = extend(false, {}, commerceEvent.EventAttributes);
             extractPromotionAttributes(attributes, promotion);
 
             var appEvent = createEventObject(MessageType.PageEvent,
@@ -1229,7 +1229,7 @@
         commerceEvent.ProductImpressions.forEach(function(productImpression) {
             if (productImpression.ProductList) {
                 productImpression.ProductList.forEach(function(product) {
-                    var attributes = commerceEvent.EventAttributes || {};
+                    var attributes = extend(false, {}, commerceEvent.EventAttributes);
                     if (product.Attributes) {
                         for (var attribute in product.Attributes) {
                             attributes[attribute] = product.Attributes[attribute];
