@@ -51,7 +51,7 @@
     // forEach polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.18
     // Reference: http://es5.github.io/#x15.4.4.18
-    //
+
     if (!Array.prototype.forEach) {
         Array.prototype.forEach = function(callback, thisArg) {
             var T, k;
@@ -84,6 +84,7 @@
         };
     }
 
+    // map polyfill
     // Production steps of ECMA-262, Edition 5, 15.4.4.19
     // Reference: http://es5.github.io/#x15.4.4.19
     if (!Array.prototype.map) {
@@ -120,6 +121,38 @@
             }
 
             return A;
+        };
+    }
+
+    // filter polyfill
+    // Prodcution steps of ECMA-262, Edition 5
+    // Reference: http://es5.github.io/#x15.4.4.20
+    if (!Array.prototype.filter) {
+        Array.prototype.filter = function(fun/*, thisArg*/) {
+            'use strict';
+
+            if (this === void 0 || this === null) {
+                throw new TypeError();
+            }
+
+            var t = Object(this);
+            var len = t.length >>> 0;
+            if (typeof fun !== 'function') {
+                throw new TypeError();
+            }
+
+            var res = [];
+            var thisArg = arguments.length >= 2 ? arguments[1] : void 0;
+            for (var i = 0; i < len; i++) {
+                if (i in t) {
+                    var val = t[i];
+                    if (fun.call(thisArg, val, i, t)) {
+                        res.push(val);
+                    }
+                }
+            }
+
+            return res;
         };
     }
 
@@ -2252,6 +2285,11 @@
             }
         },
         setUserIdentity: function(id, type) {
+            if (!type) {
+                logDebug('You must include a type to set a user identity');
+                return;
+            }
+
             if (canLog()) {
                 if (IdentityType.isValid(type)) {
                     var userIdentity = {
@@ -2259,7 +2297,10 @@
                         Type: type
                     };
 
-                    mParticle.removeUserIdentity(id);
+                    mParticle.removeUserIdentity(id, type);
+                    if (id === null) {
+                        return;
+                    }
                     userIdentities.push(userIdentity);
 
                     if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
@@ -2297,15 +2338,27 @@
 
             return foundIdentity;
         },
-        removeUserIdentity: function(id) {
-            userIdentities.forEach(function(userIdentity, i) {
-                if (userIdentity.Identity === id) {
-                    userIdentities.splice(i, 1);
-                    i--;
-                }
-            });
+        removeUserIdentity: function(id, type) {
+            if (id === undefined) {
+                logDebug('Please include an id to remove');
+                return;
+            } else if (id) {
+                userIdentities = userIdentities.filter(function(userIdentity) {
+                    return userIdentity.Identity !== id;
+                });
+            }
+
+            // Below includes times where id === null
+            if (type && IdentityType.isValid(type)) {
+                userIdentities = userIdentities.filter(function(userIdentity) {
+                    return userIdentity.Type !== type;
+                });
+            } else {
+                logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
+            }
 
             tryNativeSdk(NativeSdkPaths.RemoveUserIdentity, id);
+
             setCookie();
         },
         startNewSession: function() {

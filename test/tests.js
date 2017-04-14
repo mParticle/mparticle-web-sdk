@@ -26,6 +26,18 @@ describe('mParticle Core SDK', function() {
                 ';expires=' + expires +
                 ';path=/';
         },
+        expireCookie = function() {
+            var date = new Date(),
+                key = 'mprtcl-api',
+                value = {expire: 'me'},
+                expires = new Date(date.getTime() +
+                    (-365 * 24 * 60 * 60 * 1000)).toGMTString();
+
+            window.document.cookie =
+                encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
+                ';expires=' + expires +
+                ';path=/';
+        },
         getEvent = function(eventName, isForwarding) {
             var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
                 matchedEvent = null;
@@ -268,6 +280,7 @@ describe('mParticle Core SDK', function() {
         };
 
         mParticle.reset();
+        expireCookie();
         mParticle.init(apiKey);
         window.mParticleAndroid = null;
     });
@@ -701,10 +714,68 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should remove user identities', function(done) {
+    it('should remove user identities by id', function(done) {
         mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
         mParticle.removeUserIdentity('test@mparticle.com');
 
+        var identity = mParticle.getUserIdentity('test@mparticle.com');
+
+        Should(identity).not.be.ok();
+
+        done();
+    });
+
+    it('should replace existing userIdentities of the same type', function(done) {
+        mParticle.reset();
+
+        setCookie({
+            ui: [{Identity: 123, Type: 0}, {Identity:123, Type: 2}]
+        });
+
+        mParticle.init(apiKey);
+
+        mParticle.setUserIdentity(123, mParticle.IdentityType.CustomerId);
+
+        var identity = mParticle.getUserIdentity(123);
+
+        identity.should.have.property('Type', 1);
+        identity.should.have.property('Identity', 123);
+
+        done();
+    });
+
+    it('should replace previous userIdentities when setting multiple identities of the same type', function(done) {
+        mParticle.setUserIdentity('user1@mparticle.com', mParticle.IdentityType.CustomerId);
+        mParticle.setUserIdentity('user2@mparticle.com', mParticle.IdentityType.CustomerId);
+
+        var identity1 = mParticle.getUserIdentity('user1@mparticle.com');
+        var identity2 = mParticle.getUserIdentity('user2@mparticle.com');
+
+        Should(identity1).not.be.ok();
+        Should(identity2).be.ok();
+
+        done();
+    });
+
+    it('should remove userIdentity of specified type when null is passed in as id', function(done) {
+        mParticle.reset();
+
+        mParticle.init(apiKey);
+
+        mParticle.setUserIdentity('facebookid', mParticle.IdentityType.Facebook);
+        var identity1 = mParticle.getUserIdentity('facebook');
+
+        mParticle.setUserIdentity(null, mParticle.IdentityType.Facebook);
+        var identity2 = mParticle.getUserIdentity('facebook');
+
+        Should(identity2).not.be.ok();
+        Should(identity1).not.be.ok();
+
+        done();
+    });
+
+    it('should not create a userIdentity when only an id is passed', function(done) {
+        mParticle.setUserIdentity('test@mparticle.com');
         var identity = mParticle.getUserIdentity('test@mparticle.com');
 
         Should(identity).not.be.ok();
