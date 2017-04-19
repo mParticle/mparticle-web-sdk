@@ -20,7 +20,7 @@
     var serviceUrl = 'jssdk.mparticle.com/v1/JS/',
         secureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.9.0',
+        sdkVersion = '1.10.0',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -342,39 +342,114 @@
         return false;
     }
 
-    function getCookie() {
-        var cookies = window.document.cookie.split('; '),
-            key = Config.CookieName,
-            i,
-            l,
-            parts,
-            name,
-            cookie,
-            obj,
-            result = key ? undefined : {};
+    var persistence = {
+        isLocalStorageAvailable: null,
 
-        logDebug(InformationMessages.CookieSearch);
+        initializeStorage: function() {
+            var cookies,
+                storage,
+                localStorageData;
+            // Check to see if localStorage is available and if not, always use cookies
+            this.isLocalStorageAvailable = persistence.determineLocalStorageAvailability();
 
-        for (i = 0, l = cookies.length; i < l; i++) {
-            parts = cookies[i].split('=');
-            name = decoded(parts.shift());
-            cookie = decoded(parts.join('='));
-
-            if (key && key === name) {
-                result = converted(cookie);
-                break;
+            if (this.isLocalStorageAvailable) {
+                storage = window.localStorage;
+                if (mParticle.useCookieStorage) {
+                    // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
+                    // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
+                    localStorageData = storage.getItem(DefaultConfig.LocalStorageName);
+                    if (localStorageData) {
+                        this.storeDataInMemory(this.getLocalStorage());
+                        storage.removeItem(DefaultConfig.LocalStorageName);
+                        this.update();
+                    } else {
+                        this.storeDataInMemory(this.getCookie());
+                    }
+                }
+                else {
+                    cookies = this.getCookie();
+                    // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
+                    // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
+                    if (cookies) {
+                        this.storeDataInMemory(cookies);
+                        this.expireCookies();
+                        this.update();
+                    } else if (this.isLocalStorageAvailable) {
+                        this.storeDataInMemory(this.getLocalStorage());
+                    }
+                }
+            } else {
+                this.storeDataInMemory(this.getCookie());
             }
+        },
 
-            if (!key) {
-                result[name] = converted(cookie);
+        update: function() {
+            if (mParticle.useCookieStorage || !this.isLocalStorageAvailable) {
+                this.setCookie();
+            } else {
+                this.setLocalStorage();
             }
-        }
+        },
 
-        if (result) {
-            logDebug(InformationMessages.CookieFound);
+        determineLocalStorageAvailability: function() {
+            var storage, result;
+            try {
+                (storage = window.localStorage).setItem('mparticle', 'test');
+                result = storage.getItem('mparticle') === 'test';
+                storage.removeItem('mparticle');
+                return result && storage;
+            }
+            catch (e) {
+                return false;
+            }
+        },
+
+        setLocalStorage: function() {
+            var key = Config.LocalStorageName,
+                value = {
+                    sid: sessionId,
+                    ie: isEnabled,
+                    sa: sessionAttributes,
+                    ua: userAttributes,
+                    ui: userIdentities,
+                    ss: serverSettings,
+                    dt: devToken,
+                    les: dateLastEventSent ? dateLastEventSent.getTime() : null,
+                    av: appVersion,
+                    cgid: clientId
+                };
 
             try {
-                obj = JSON.parse(result);
+                window.localStorage.setItem(encodeURIComponent(key), encodeURIComponent(JSON.stringify(value)));
+            }
+            catch (e) {
+                logDebug('Error with setting localStorage item.');
+            }
+        },
+
+        getLocalStorage: function() {
+            var key = Config.LocalStorageName,
+                localStorageData = JSON.parse(decodeURIComponent(window.localStorage.getItem(encodeURIComponent(key)))),
+                obj = {},
+                j;
+
+            for (j in localStorageData) {
+                if (localStorageData.hasOwnProperty(j)) {
+                    obj[j] = localStorageData[j];
+                }
+            }
+
+            if (Object.keys(obj).length) {
+                return obj;
+            }
+
+            return null;
+        },
+
+        storeDataInMemory: function(result) {
+            var obj;
+            try {
+                obj = typeof result === 'string' ? JSON.parse(result) : result;
 
                 // Longer names are for backwards compatibility
                 sessionId = obj.sid || obj.SessionId || sessionId;
@@ -401,36 +476,80 @@
             catch (e) {
                 logDebug(ErrorMessages.CookieParseError);
             }
+        },
+
+        expireCookies: function() {
+            var date = new Date(),
+                expires;
+
+            date.setTime(date.getTime() - (24 * 60 * 60 * 1000));
+            expires = '; expires=' + date.toUTCString();
+            document.cookie = DefaultConfig.CookieName + '=' + '' + expires + '; path=/';
+        },
+
+        getCookie: function() {
+            var cookies = window.document.cookie.split('; '),
+                key = Config.CookieName,
+                i,
+                l,
+                parts,
+                name,
+                cookie,
+                result = key ? undefined : {};
+
+            logDebug(InformationMessages.CookieSearch);
+
+            for (i = 0, l = cookies.length; i < l; i++) {
+                parts = cookies[i].split('=');
+                name = decoded(parts.shift());
+                cookie = decoded(parts.join('='));
+
+                if (key && key === name) {
+                    result = converted(cookie);
+                    break;
+                }
+
+                if (!key) {
+                    result[name] = converted(cookie);
+                }
+            }
+
+            if (result) {
+                logDebug(InformationMessages.CookieFound);
+                return result;
+            } else {
+                return null;
+            }
+        },
+
+        setCookie: function() {
+            var date = new Date(),
+                key = Config.CookieName,
+                value = {
+                    sid: sessionId,
+                    ie: isEnabled,
+                    sa: sessionAttributes,
+                    ua: userAttributes,
+                    ui: userIdentities,
+                    ss: serverSettings,
+                    dt: devToken,
+                    les: dateLastEventSent ? dateLastEventSent.getTime() : null,
+                    av: appVersion,
+                    cgid: clientId
+                },
+                expires = new Date(date.getTime() +
+                    (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
+                domain = Config.CookieDomain ? ';domain=' + Config.CookieDomain : '';
+
+            logDebug(InformationMessages.CookieSet);
+
+            window.document.cookie =
+                encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
+                ';expires=' + expires +
+                ';path=/' +
+                domain;
         }
-    }
-
-    function setCookie() {
-        var date = new Date(),
-            key = Config.CookieName,
-            value = {
-                sid: sessionId,
-                ie: isEnabled,
-                sa: sessionAttributes,
-                ua: userAttributes,
-                ui: userIdentities,
-                ss: serverSettings,
-                dt: devToken,
-                les: dateLastEventSent ? dateLastEventSent.getTime() : null,
-                av: appVersion,
-                cgid: clientId
-            },
-            expires = new Date(date.getTime() +
-                (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
-            domain = Config.CookieDomain ? ';domain=' + Config.CookieDomain : '';
-
-        logDebug(InformationMessages.CookieSet);
-
-        window.document.cookie =
-            encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
-            ';expires=' + expires +
-            ';path=/' +
-            domain;
-    }
+    };
 
     function isWebViewEmbedded() {
         if (!mParticle.useNativeSdk) {
@@ -754,12 +873,11 @@
                     }
                     else {
                         // This is a valid setting
-
                         serverSettings[prop] = fullProp;
                     }
                 }
 
-                setCookie();
+                persistence.update();
             }
         }
         catch (e) {
@@ -1452,7 +1570,7 @@
             }
 
             send(createEventObject(type, name, data, category, cflags));
-            setCookie();
+            persistence.update();
         }
         else {
             logDebug(InformationMessages.AbandonLogEvent);
@@ -1478,7 +1596,7 @@
             }
 
             send(commerceEvent);
-            setCookie();
+            persistence.update();
         }
         else {
             logDebug(InformationMessages.AbandonLogEvent);
@@ -1499,7 +1617,7 @@
             evt.ProfileMessageType = ProfileMessageType.Logout;
 
             send(evt);
-            setCookie();
+            persistence.update();
 
             return evt;
         }
@@ -1991,6 +2109,7 @@
     };
 
     var DefaultConfig = {
+        LocalStorageName: 'mprtcl-api', // Name of the mP localstorage data stored on the user's machine
         CookieName: 'mprtcl-api',       // Name of the cookie stored on the user's machine
         CookieDomain: null, 			// If null, defaults to current location.host
         Debug: false,					// If true, will print debug messages to browser console
@@ -2167,6 +2286,7 @@
         isDebug: false,
         isSandbox: false,
         generateHash: generateHash,
+        persistence: persistence,
         IdentityType: IdentityType,
         EventType: EventType,
         CommerceEventType: CommerceEventType,
@@ -2180,8 +2300,9 @@
 
             // Set configuration to default settings
             mergeConfig({});
-            // Load any settings/identities/attributes from cookie
-            getCookie();
+
+            // Load any settings/identities/attributes from cookie or localStorage
+            persistence.initializeStorage();
 
             if (arguments && arguments.length) {
                 if (typeof arguments[0] === 'string') {
@@ -2219,7 +2340,7 @@
                 readyQueue = [];
             }
 
-            setCookie();
+            persistence.update();
             isInitialized = true;
         },
         reset: function() {
@@ -2239,7 +2360,7 @@
             cartProducts = [];
             serverSettings = null;
             mergeConfig({});
-            setCookie();
+            persistence.update();
 
             isInitialized = false;
         },
@@ -2256,7 +2377,7 @@
         },
         setAppVersion: function(version) {
             appVersion = version;
-            setCookie();
+            persistence.update();
         },
         getAppName: function() {
             return appName;
@@ -2320,7 +2441,7 @@
                         }
                     }
 
-                    setCookie();
+                    persistence.update();
                 } else {
                     logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
                 }
@@ -2359,7 +2480,7 @@
 
             tryNativeSdk(NativeSdkPaths.RemoveUserIdentity, id);
 
-            setCookie();
+            persistence.update();
         },
         startNewSession: function() {
             // Ends the current session if one is in progress
@@ -2667,7 +2788,7 @@
 
             delete userAttributes[tagName];
             tryNativeSdk(NativeSdkPaths.RemoveUserTag, JSON.stringify({ key: tagName, value: null }));
-            setCookie();
+            persistence.update();
         },
         setUserAttribute: function(key, value) {
             // Logs to cookie
@@ -2686,7 +2807,7 @@
                 }
 
                 userAttributes[key] = value;
-                setCookie();
+                persistence.update();
 
                 if (!tryNativeSdk(NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }))) {
                     callSetUserAttributeOnForwarders(key, value);
@@ -2706,7 +2827,7 @@
                 applyToForwarders('removeUserAttribute', key, null);
             }
 
-            setCookie();
+            persistence.update();
         },
         setUserAttributeList: function(key, value) {
             if (Array.isArray(value)) {
@@ -2719,7 +2840,7 @@
                 }
 
                 userAttributes[key] = arrayCopy;
-                setCookie();
+                persistence.update();
 
                 if (!tryNativeSdk(NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }))) {
                     callSetUserAttributeOnForwarders(key, arrayCopy);
@@ -2738,7 +2859,7 @@
             }
 
             userAttributes = {};
-            setCookie();
+            persistence.update();
         },
         getUserAttributesLists: function() {
             var userAttributeLists = {};
@@ -2786,7 +2907,7 @@
                 }
 
                 sessionAttributes[key] = value;
-                setCookie();
+                persistence.update();
                 if (!tryNativeSdk(NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }))) {
                     applyToForwarders('setSessionAttribute', [key, value]);
                 }
@@ -2796,7 +2917,7 @@
             isEnabled = !isOptingOut;
 
             logOptOut();
-            setCookie();
+            persistence.update();
 
             if (forwarders) {
                 forwarders.forEach(function(forwarder) {
@@ -2928,6 +3049,10 @@
 
         if (window.mParticle.config.hasOwnProperty('useNativeSdk')) {
             mParticle.useNativeSdk = window.mParticle.config.useNativeSdk;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('useCookieStorage')) {
+            mParticle.useCookieStorage = window.mParticle.config.useCookieStorage;
         }
 
         if (window.mParticle.config.hasOwnProperty('appName')) {

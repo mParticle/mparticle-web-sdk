@@ -2,6 +2,18 @@
 describe('mParticle Core SDK', function() {
     var server,
         apiKey = 'test_key',
+        key = 'mprtcl-api',
+        pluses = /\+/g,
+        decoded = function(s) {
+            return decodeURIComponent(s.replace(pluses, ' '));
+        },
+        converted = function(s) {
+            if (s.indexOf('"') === 0) {
+                s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            }
+
+            return s;
+        },
         getRequests = function(path) {
             var requests = [],
                 fullPath = '/v1/JS/' + apiKey + '/' + path;
@@ -16,7 +28,6 @@ describe('mParticle Core SDK', function() {
         },
         setCookie = function(data) {
             var date = new Date(),
-                key = 'mprtcl-api',
                 value = data,
                 expires = new Date(date.getTime() +
                     (365 * 24 * 60 * 60 * 1000)).toGMTString();
@@ -25,6 +36,35 @@ describe('mParticle Core SDK', function() {
                 encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
                 ';expires=' + expires +
                 ';path=/';
+        },
+        getCookie = function() {
+            var cookies = window.document.cookie.split('; '),
+                i,
+                l,
+                parts,
+                name,
+                cookie,
+                result = key ? undefined : {};
+
+            for (i = 0, l = cookies.length; i < l; i++) {
+                parts = cookies[i].split('=');
+                name = decoded(parts.shift());
+                cookie = decoded(parts.join('='));
+
+                if (key && key === name) {
+                    result = converted(cookie);
+                    break;
+                }
+
+                if (!key) {
+                    result[name] = converted(cookie);
+                }
+            }
+            if (result) {
+                return result;
+            } else {
+                return null;
+            }
         },
         expireCookie = function() {
             var date = new Date(),
@@ -310,7 +350,6 @@ describe('mParticle Core SDK', function() {
 
         done();
     });
-
 
     it('should log a page view', function(done) {
         mParticle.logPageView();
@@ -2750,6 +2789,154 @@ describe('mParticle Core SDK', function() {
         invalidResult1.should.be.false;
         invalidResult2.should.be.false;
         validResult.should.be.true;
+
+        done();
+    });
+
+    it('should move data from cookies to localStorage with useCookieStorage = false', function(done) {
+        setCookie({ui: [{Identity: 123, Type: 1}]});
+        var beforeInitCookieData = JSON.parse(getCookie());
+
+        mParticle.useCookieStorage = false;
+        mParticle.init(apiKey);
+
+
+        mParticle.setUserAttribute('gender', 'male');
+
+        var localStorageData = JSON.parse(decodeURIComponent(localStorage.getItem('mprtcl-api')));
+        var afterInitCookieData = getCookie();
+
+        beforeInitCookieData.ui[0].should.have.property('Identity', 123);
+        localStorageData.ua.should.have.property('gender', 'male');
+        localStorageData.ui[0].should.have.property('Identity', 123);
+        localStorageData.ui[0].should.have.property('Type', 1);
+        Should(afterInitCookieData).not.be.ok();
+
+        done();
+    });
+
+    it('should move data from localStorage to cookies with useCookieStorage = true', function(done) {
+        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({ui: [{Identity: 123, Type: 1}]})));
+
+        mParticle.useCookieStorage = true;
+        mParticle.init(apiKey);
+
+        mParticle.setUserAttribute('gender', 'male');
+
+        var localStorageData = localStorage.getItem('mprtcl-api');
+        var cookieData = JSON.parse(getCookie());
+
+        Should(localStorageData).not.be.ok();
+
+        cookieData.ua.should.have.property('gender', 'male');
+        cookieData.ui[0].should.have.property('Identity', 123);
+
+        done();
+    });
+
+    it('puts data into cookies when running initializeStorage with useCookieStorage = true', function(done) {
+        window.mParticle.useCookieStorage = true;
+        mParticle.persistence.initializeStorage();
+
+        cookieData = mParticle.persistence.getCookie();
+
+        var cookieDataType = typeof cookieData;
+        var localStorageData = mParticle.persistence.getLocalStorage();
+        var parsedCookie = JSON.parse(cookieData);
+
+        cookieDataType.should.be.type('string');
+        parsedCookie.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
+        Should(localStorageData).not.be.ok();
+
+        done();
+    });
+
+    it('puts data into localStorage when running initializeStorage with useCookieStorage = false', function(done) {
+        window.mParticle.useCookieStorage = false;
+        mParticle.persistence.initializeStorage();
+
+        cookieData = mParticle.persistence.getCookie();
+
+        var localStorageData = mParticle.persistence.getLocalStorage();
+
+        localStorageData.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
+        Should(cookieData).not.be.ok();
+
+        done();
+    });
+
+    it('puts data into cookies when updating persistence with useCookieStorage = true', function(done) {
+        var cookieData, cookieDataType, parsedCookie, localStorageData;
+        // Flush out anything in localStorage before updating in order to silo testing persistence.update()
+        window.localStorage.removeItem('mprtcl-api');
+
+        window.mParticle.useCookieStorage = true;
+        mParticle.persistence.update();
+
+        cookieData = mParticle.persistence.getCookie();
+        cookieDataType = typeof cookieData;
+        parsedCookie = JSON.parse(cookieData);
+        localStorageData = mParticle.persistence.getLocalStorage();
+
+        cookieDataType.should.be.type('string');
+        parsedCookie.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
+        Should(localStorageData).not.be.ok();
+
+        done();
+    });
+
+    it('puts data into localStorage when updating persistence with useCookieStorage = false', function(done) {
+        var localStorageData, cookieData;
+        // Flush out anything in expire before updating in order to silo testing persistence.update()
+        expireCookie();
+        window.mParticle.useCookieStorage = false;
+        mParticle.persistence.update();
+
+        localStorageData = mParticle.persistence.getLocalStorage();
+        cookieData = mParticle.persistence.getCookie();
+        localStorageData.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
+        Should(cookieData).not.be.ok();
+
+        done();
+    });
+
+    it('stores data in memory both when the result is passed in as a string or as an object', function(done) {
+        var objData = {
+            ui: [{
+                Identity: 'objData',
+                Type: 1
+            }]
+        };
+        mParticle.persistence.storeDataInMemory(objData);
+
+        var userIdentity1 = mParticle.getUserIdentity('objData');
+
+        userIdentity1.should.have.property('Type', 1);
+        userIdentity1.should.have.property('Identity', 'objData');
+
+        var stringData = '{"ui":[{"Identity":"stringData","Type":2}]}';
+        mParticle.persistence.storeDataInMemory(stringData);
+
+        var userIdentity2 = mParticle.getUserIdentity('stringData');
+
+        userIdentity2.should.have.property('Type', 2);
+        userIdentity2.should.have.property('Identity', 'stringData');
+
+        done();
+    });
+
+    it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
+        window.localStorage.setItem = null;
+
+        mParticle.useCookieStorage = false;
+
+        mParticle.init(apiKey);
+
+        mParticle.setUserAttribute('gender', 'male');
+
+        var cookieData = JSON.parse(getCookie());
+
+        cookieData.ua.should.have.property('gender', 'male');
 
         done();
     });
