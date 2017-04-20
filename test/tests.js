@@ -822,7 +822,7 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should invoke forwarder setIdentity', function(done) {
+    it('should invoke forwarder setIdentity on initialized forwarders (debug = false)', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -859,8 +859,36 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('initializes forwarder', function(done) {
+    it('does not initialize a forwarder when forwarder\'s isDebug != mParticle.isSandbox', function(done) {
         mParticle.reset();
+        mParticle.isSandbox = false;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true
+        });
+
+        mParticle.init(apiKey);
+        Should(mockForwarder.instance).not.be.ok();
+
+        done();
+    });
+
+    it('initializes forwarder with isDebug = false && mParticle.isSandbox = false', function(done) {
+        mParticle.reset();
+        mParticle.isSandbox = false;
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mParticle.configureForwarder({
@@ -875,7 +903,7 @@ describe('mParticle Core SDK', function() {
             userAttributeFilters: [],
             id: 1,
             isDebug: false,
-            HasDebugString: 'false',
+            hasDebugString: 'false',
             isVisible: true
         });
 
@@ -886,8 +914,64 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('sends event to forwarder', function(done) {
+    it('creates a forwarder when forwarder\'s isDebug = mParticle.isSandbox', function(done) {
         mParticle.reset();
+        mParticle.isSandbox = true;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true
+        });
+
+        mParticle.init(apiKey);
+        mockForwarder.instance.should.have.property('initCalled', true);
+
+        done();
+    });
+
+    it('sends events to forwarder when forwarder\'s isDebug = mParticle.isSandbox ', function(done) {
+        mParticle.reset();
+        mParticle.isSandbox = true;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true
+        });
+
+        mParticle.init(apiKey);
+        mParticle.logEvent('send this event to forwarder');
+        mockForwarder.instance.should.have.property('processCalled', true);
+
+        done();
+    });
+
+    it('sends events to forwarder when mParticle.isSandbox = config.isDebug = false', function(done) {
+        mParticle.reset();
+        mParticle.isSandbox = false;
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
@@ -1558,41 +1642,6 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    /*
-    it('should not send non debug events to debug forwarders', function (done) {
-        mParticle.reset();
-
-        var mockForwarder = new MockForwarder();
-        mockForwarder.isDebug = true;
-        mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
-
-        mParticle.logEvent('Test');
-
-        var event = mockForwarder.instance.receivedEvent;
-        Should(event).not.be.ok();
-
-        done();
-    });
-
-    it('should not send debug events to non debug forwarders', function (done) {
-        mParticle.reset();
-
-        var mockForwarder = new MockForwarder();
-        mockForwarder.isDebug = false;
-        mParticle.addForwarder(mockForwarder);
-        mockForwarder.configure();
-        mParticle.init(apiKey);
-        mParticle.isSandbox = true;
-
-        mParticle.logEvent('Test');
-
-        var event = mockForwarder.instance.receivedEvent;
-        Should(event).not.be.ok();
-
-        done();
-    });*/
-
     it('event type should return name', function(done) {
         mParticle.EventType.getName(mParticle.EventType.Navigation).should.equal('Navigation');
         mParticle.EventType.getName(mParticle.EventType.Location).should.equal('Location');
@@ -2013,7 +2062,6 @@ describe('mParticle Core SDK', function() {
         mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [mParticle.generateHash('gender')], 1, false, false);
         mParticle.init(apiKey);
         mParticle.setUserAttribute('gender', 'male');
-
         mParticle.logEvent('test event');
 
         var event = mockForwarder.instance.receivedEvent;
@@ -2059,123 +2107,6 @@ describe('mParticle Core SDK', function() {
         var event = getEvent('Increase LTV');
 
         Should(event).not.be.ok();
-
-        done();
-    });
-
-    it('should not log prod event to debug forwarder', function (done) {
-        mParticle.reset();
-
-        var mockForwarder = new MockForwarder();
-
-        mParticle.addForwarder(mockForwarder);
-
-        mParticle.configureForwarder({
-            name: 'MockForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            pageViewFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            hasDebugString: 'true',
-            isVisible: true
-        });
-
-        var instance1 = mockForwarder.instance;
-
-        mParticle.configureForwarder({
-            name: 'MockForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            pageViewFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: true,
-            hasDebugString: 'true',
-            isVisible: true
-        });
-
-        var instance2 = mockForwarder.instance;
-
-        mParticle.init(apiKey);
-
-        mParticle.startNewSession();
-
-        instance1.receivedEvent = null;
-        instance2.receivedEvent = null;
-
-        mParticle.logEvent('test event', mParticle.EventType.Navigation);
-
-        Should(instance1.receivedEvent).be.ok();
-        Should(instance2.receivedEvent).not.be.ok();
-
-        done();
-    });
-
-    it('should not log debug event to prod forwarder', function (done) {
-        mParticle.reset();
-
-        var mockForwarder = new MockForwarder();
-
-        mParticle.addForwarder(mockForwarder);
-
-        mParticle.configureForwarder({
-            name: 'MockForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            pageViewFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            hasDebugString: 'true',
-            isVisible: true
-        });
-
-        var instance1 = mockForwarder.instance;
-
-        mParticle.configureForwarder({
-            name: 'MockForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            pageViewFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: true,
-            hasDebugString: 'true',
-            isVisible: true
-        });
-
-        var instance2 = mockForwarder.instance;
-
-        mParticle.init(apiKey);
-        mParticle.isSandbox = true;
-
-        mParticle.startNewSession();
-
-        instance1.receivedEvent = null;
-        instance2.receivedEvent = null;
-
-        mParticle.logEvent('test event', mParticle.EventType.Navigation);
-
-        Should(instance1.receivedEvent).not.be.ok();
-        Should(instance2.receivedEvent).be.ok();
 
         done();
     });

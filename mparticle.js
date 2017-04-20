@@ -631,7 +631,7 @@
     }
 
     function applyToForwarders(functionName, functionArgs) {
-        if (forwarders) {
+        if (forwarders.length) {
             forwarders.forEach(function(forwarder) {
                 var forwarderFunction = forwarder[functionName];
                 if (forwarderFunction) {
@@ -719,13 +719,6 @@
             hashedType = generateHash(event.EventCategory);
 
             for (var i = 0; i < forwarders.length; i++) {
-                if (event.Debug === true && forwarders[i].isSandbox === false && forwarders[i].hasSandbox === true) {
-                    continue;
-                }
-                else if (event.Debug === false && forwarders[i].isSandbox === true) {
-                    continue;
-                }
-
                 // Check attribute forwarding rule. This rule allows users to only forward an event if a
                 // specific attribute exists and has a specific value. Alternatively, they can specify
                 // that an event not be forwarded if the specified attribute name and value exists.
@@ -819,18 +812,16 @@
             });
 
             forwarders.forEach(function(forwarder) {
-                if (forwarder.isSandbox === mParticle.isSandbox || (!forwarder.isSandbox && !forwarder.hasSandbox)) {
-                    forwarder.init(forwarder.settings,
-                        sendForwardingStats,
-                        false,
-                        null,
-                        userAttributes,
-                        userIdentities,
-                        appVersion,
-                        appName,
-                        customFlags,
-                        clientId);
-                }
+                forwarder.init(forwarder.settings,
+                    sendForwardingStats,
+                    false,
+                    null,
+                    userAttributes,
+                    userIdentities,
+                    appVersion,
+                    appName,
+                    customFlags,
+                    clientId);
             });
         }
     }
@@ -1908,7 +1899,7 @@
 
 
     function callSetUserAttributeOnForwarders(key, value) {
-        if (forwarders) {
+        if (forwarders.length) {
             forwarders.forEach(function(forwarder) {
                 if (forwarder.setUserAttribute &&
                     forwarder.userAttributeFilters &&
@@ -2425,12 +2416,11 @@
                     userIdentities.push(userIdentity);
 
                     if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
-                        if (forwarders) {
+                        if (forwarders.length) {
                             forwarders.forEach(function(forwarder) {
                                 if (forwarder.setUserIdentity &&
                                     (!forwarder.userIdentityFilters ||
                                     !inArray(forwarder.userIdentityFilters, type))) {
-
                                     var result = forwarder.setUserIdentity(id, type);
 
                                     if (result) {
@@ -2919,7 +2909,7 @@
             logOptOut();
             persistence.update();
 
-            if (forwarders) {
+            if (forwarders.length) {
                 forwarders.forEach(function(forwarder) {
                     if (forwarder.setOptOut) {
                         var result = forwarder.setOptOut(isOptingOut);
@@ -2938,7 +2928,7 @@
                 if (!tryNativeSdk(NativeSdkPaths.LogOut)) {
                     evt = logLogOutEvent();
 
-                    if (forwarders) {
+                    if (forwarders.length) {
                         forwarders.forEach(function(forwarder) {
                             if (forwarder.logOut) {
                                 forwarder.logOut(evt);
@@ -2996,29 +2986,30 @@
 
             for (var i = 0; i < forwarderConstructors.length; i++) {
                 if (forwarderConstructors[i].name == config.name) {
-                    newForwarder = new forwarderConstructors[i].constructor();
+                    if (config.isDebug === mParticle.isSandbox || config.isSandbox === mParticle.isSandbox) {
+                        newForwarder = new forwarderConstructors[i].constructor();
 
-                    newForwarder.id = config.moduleId;
-                    newForwarder.isSandbox = config.isDebug;
-                    newForwarder.hasSandbox = config.hasDebugString === 'true';
-                    newForwarder.isVisible = config.isVisible;
-                    newForwarder.settings = config.settings;
+                        newForwarder.id = config.moduleId;
+                        newForwarder.isSandbox = config.isDebug || config.isSandbox;
+                        newForwarder.hasSandbox = config.hasDebugString === 'true';
+                        newForwarder.isVisible = config.isVisible;
+                        newForwarder.settings = config.settings;
 
-                    newForwarder.eventNameFilters = config.eventNameFilters;
-                    newForwarder.eventTypeFilters = config.eventTypeFilters;
-                    newForwarder.attributeFilters = config.attributeFilters;
+                        newForwarder.eventNameFilters = config.eventNameFilters;
+                        newForwarder.eventTypeFilters = config.eventTypeFilters;
+                        newForwarder.attributeFilters = config.attributeFilters;
 
-                    newForwarder.pageViewFilters = config.pageViewFilters;
-                    newForwarder.pageViewAttributeFilters = config.pageViewAttributeFilters;
+                        newForwarder.pageViewFilters = config.pageViewFilters;
+                        newForwarder.pageViewAttributeFilters = config.pageViewAttributeFilters;
 
-                    newForwarder.userIdentityFilters = config.userIdentityFilters;
-                    newForwarder.userAttributeFilters = config.userAttributeFilters;
+                        newForwarder.userIdentityFilters = config.userIdentityFilters;
+                        newForwarder.userAttributeFilters = config.userAttributeFilters;
 
-                    newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
+                        newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
 
-                    forwarders.push(newForwarder);
-
-                    break;
+                        forwarders.push(newForwarder);
+                        break;
+                    }
                 }
             }
         }
