@@ -2276,6 +2276,7 @@
         isIOS: false,
         isDebug: false,
         isSandbox: false,
+        useCookieStorage: false,
         generateHash: generateHash,
         persistence: persistence,
         IdentityType: IdentityType,
