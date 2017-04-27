@@ -1,5 +1,9 @@
 ## Releases
 --
+#### 1.11.0 - 2017-04-27
+*  Add new session management.
+*  Fixed a bug where the same sessionId may be associated with events over several days.
+
 #### 1.10.0 - 2017-04-20
 *  Added config option for useCookieStorage to allow use of either cookies or localStorage. By default, localStorage is used (useCookieStorage = false). If localStorage not available, reverts to cookie use.
 *  Fixed a bug where `forwarders` contained a mix of both initialized and uninitialized forwarders. `forwarders` now only contains initialized forwarders.
