@@ -1314,6 +1314,7 @@ describe('mParticle Core SDK', function() {
             }));
         };
 
+        mParticle.logEvent('test event2');
         mParticle.logEvent('test event');
 
         var event = getEvent('test event');
@@ -1721,7 +1722,9 @@ describe('mParticle Core SDK', function() {
     });
 
     it('log event requires name', function(done) {
+        server.requests = [];
         mParticle.logEvent();
+
 
         Should(server.requests).have.lengthOf(0);
 
@@ -1729,6 +1732,7 @@ describe('mParticle Core SDK', function() {
     });
 
     it('log event requires valid event type', function(done) {
+        server.requests = [];
         mParticle.logEvent('test', 100);
 
         Should(server.requests).have.lengthOf(0);
@@ -2868,6 +2872,31 @@ describe('mParticle Core SDK', function() {
         var cookieData = JSON.parse(getCookie());
 
         cookieData.ua.should.have.property('gender', 'male');
+
+        done();
+    });
+
+    it('creates a new session when elapsed time between actions is greater than session timeout', function(done) {
+        mParticle.init(apiKey, {SessionTimeout: .0000001});
+        mParticle.logEvent('Test Event');
+        var data = getEvent('Test Event');
+
+        setTimeout(function() {
+            mParticle.logEvent('Test Event2');
+            data2 = getEvent('Test Event2');
+            data.sid.should.not.equal(data2.sid);
+            mParticle.sessionManager.clearSessionTimeout();
+            done();
+        }, 1000);
+    });
+
+    it('should get sessionId', function(done) {
+        mParticle.logEvent('Test Event');
+        var data = getEvent('Test Event');
+
+        var sessionId = mParticle.sessionManager.getSession();
+
+        data.sid.should.equal(sessionId);
 
         done();
     });

@@ -44,6 +44,7 @@
         appVersion = null,
         appName = null,
         customFlags = null,
+        globalTimer,
         METHOD_NAME = '$MethodName',
         LOG_LTV = 'LogLTVIncrease',
         RESERVED_KEY_LTV = '$Amount';
@@ -1094,7 +1095,9 @@
         var optOut = (messageType == MessageType.OptOut ? !isEnabled : null);
 
         if (sessionId || messageType == MessageType.OptOut) {
-            dateLastEventSent = new Date();
+            if (messageType !== MessageType.SessionEnd) {
+                dateLastEventSent = new Date();
+            }
 
             return {
                 EventName: name || messageType,
@@ -1409,9 +1412,6 @@
         logDebug(InformationMessages.StartingLogCommerceEvent);
 
         if (canLog()) {
-            if (!sessionId) {
-                mParticle.startNewSession();
-            }
 
             baseEvent = createEventObject(MessageType.Commerce);
             baseEvent.EventName = 'eCommerce - ';
@@ -1572,10 +1572,6 @@
         logDebug(InformationMessages.StartingLogCommerceEvent);
 
         if (canLog()) {
-            if (!sessionId) {
-                mParticle.startNewSession();
-            }
-
             if (isWebViewEmbedded()) {
                 // Don't send shopping cart or product bags to parent sdks
                 commerceEvent.ShoppingCart = {};
@@ -1598,12 +1594,7 @@
         var evt;
 
         logDebug(InformationMessages.StartingLogEvent + ': logOut');
-
         if (canLog()) {
-            if (!sessionId) {
-                mParticle.startNewSession();
-            }
-
             evt = createEventObject(MessageType.Profile);
             evt.ProfileMessageType = ProfileMessageType.Logout;
 
@@ -2271,6 +2262,81 @@
         }
     };
 
+    var sessionManager = {
+        initialize: function() {
+            if (sessionId) {
+                var sessionTimeoutInSeconds = Config.SessionTimeout * 60000;
+
+                if (new Date() > new Date(dateLastEventSent.getTime() + sessionTimeoutInSeconds)) {
+                    this.endSession();
+                    this.startNewSession();
+                }
+            } else {
+                this.startNewSession();
+            }
+        },
+        getSession: function() {
+            return sessionId;
+        },
+        startNewSession: function() {
+            logDebug(InformationMessages.StartingNewSession);
+
+            if (canLog()) {
+                sessionId = generateUniqueId();
+
+                if (!dateLastEventSent) {
+                    dateLastEventSent = new Date();
+                }
+
+                mParticle.sessionManager.setSessionTimer();
+
+                logEvent(MessageType.SessionStart);
+            }
+            else {
+                logDebug(InformationMessages.AbandonStartSession);
+            }
+        },
+        endSession: function() {
+            logDebug(InformationMessages.StartingEndSession);
+
+            if (canLog()) {
+                if (!sessionId) {
+                    logDebug(InformationMessages.NoSessionToEnd);
+                    return;
+                }
+
+                logEvent(MessageType.SessionEnd);
+
+                sessionId = null;
+                dateLastEventSent = null;
+                sessionAttributes = {};
+                persistence.update();
+            }
+            else {
+                logDebug(InformationMessages.AbandonEndSession);
+            }
+        },
+        setSessionTimer: function() {
+            var sessionTimeoutInSeconds = Config.SessionTimeout * 60000;
+
+            globalTimer = window.setTimeout(function() {
+                mParticle.sessionManager.endSession();
+            }, sessionTimeoutInSeconds);
+        },
+
+        resetSessionTimer: function() {
+            if (!sessionId) {
+                this.startNewSession();
+            }
+            this.clearSessionTimeout();
+            this.setSessionTimer();
+        },
+
+        clearSessionTimeout: function() {
+            clearTimeout(globalTimer);
+        }
+    };
+
     var mParticle = {
         useNativeSdk: true,
         isIOS: false,
@@ -2278,6 +2344,7 @@
         isSandbox: false,
         useCookieStorage: false,
         generateHash: generateHash,
+        sessionManager: sessionManager,
         persistence: persistence,
         IdentityType: IdentityType,
         EventType: EventType,
@@ -2285,8 +2352,7 @@
         PromotionType: PromotionActionType,
         ProductActionType: ProductActionType,
         init: function() {
-            var token,
-                config;
+            var config;
 
             logDebug(InformationMessages.StartingInitialization);
 
@@ -2299,12 +2365,7 @@
             if (arguments && arguments.length) {
                 if (typeof arguments[0] === 'string') {
                     // This is the dev token
-                    token = arguments[0];
-
-                    if (devToken !== token) {
-                        mParticle.endSession();
-                        devToken = token;
-                    }
+                    devToken = arguments[0];
 
                     initForwarders();
                 }
@@ -2321,6 +2382,7 @@
                 }
             }
 
+            mParticle.sessionManager.initialize();
             // Call any functions that are waiting for the library to be initialized
             if (readyQueue && readyQueue.length) {
                 readyQueue.forEach(function(readyQueueItem) {
@@ -2334,6 +2396,7 @@
 
             persistence.update();
             isInitialized = true;
+
         },
         reset: function() {
             // Completely resets the state of the SDK. mParticle.init() will need to be called again.
@@ -2353,6 +2416,7 @@
             serverSettings = null;
             mergeConfig({});
             persistence.update();
+            mParticle.sessionManager.resetSessionTimer();
 
             isInitialized = false;
         },
@@ -2381,12 +2445,15 @@
             return appVersion;
         },
         stopTrackingLocation: function() {
+            mParticle.sessionManager.resetSessionTimer();
             stopTracking();
         },
         startTrackingLocation: function() {
+            mParticle.sessionManager.resetSessionTimer();
             startTracking();
         },
         setPosition: function(lat, lng) {
+            mParticle.sessionManager.resetSessionTimer();
             if (typeof lat === 'number' && typeof lng === 'number') {
                 currentPosition = {
                     lat: lat,
@@ -2398,6 +2465,7 @@
             }
         },
         setUserIdentity: function(id, type) {
+            mParticle.sessionManager.resetSessionTimer();
             if (!type) {
                 logDebug('You must include a type to set a user identity');
                 return;
@@ -2440,6 +2508,7 @@
             }
         },
         getUserIdentity: function(id) {
+            mParticle.sessionManager.resetSessionTimer();
             var foundIdentity = null;
 
             userIdentities.forEach(function(userIdentity) {
@@ -2451,6 +2520,7 @@
             return foundIdentity;
         },
         removeUserIdentity: function(id, type) {
+            mParticle.sessionManager.resetSessionTimer();
             if (id === undefined) {
                 logDebug('Please include an id to remove');
                 return;
@@ -2474,44 +2544,13 @@
             persistence.update();
         },
         startNewSession: function() {
-            // Ends the current session if one is in progress
-
-            logDebug(InformationMessages.StartingNewSession);
-
-            if (canLog()) {
-                mParticle.endSession();
-                sessionId = generateUniqueId();
-
-                if (!dateLastEventSent) {
-                    dateLastEventSent = new Date();
-                }
-
-                logEvent(MessageType.SessionStart);
-            }
-            else {
-                logDebug(InformationMessages.AbandonStartSession);
-            }
+            sessionManager.startNewSession();
         },
         endSession: function() {
-            logDebug(InformationMessages.StartingEndSession);
-
-            // Ends the current session.
-            if (canLog()) {
-                if (!sessionId) {
-                    logDebug(InformationMessages.NoSessionToEnd);
-                    return;
-                }
-
-                logEvent(MessageType.SessionEnd);
-
-                sessionId = null;
-                sessionAttributes = {};
-            }
-            else {
-                logDebug(InformationMessages.AbandonEndSession);
-            }
+            sessionManager.endSession();
         },
         logEvent: function(eventName, eventType, eventInfo, customFlags) {
+            mParticle.sessionManager.resetSessionTimer();
             if (typeof (eventName) != 'string') {
                 logDebug(ErrorMessages.EventNameInvalidType);
                 return;
@@ -2531,17 +2570,10 @@
                 return;
             }
 
-            if (!dateLastEventSent) {
-                dateLastEventSent = new Date();
-            }
-            else if (new Date() > new Date(dateLastEventSent.getTime() + (Config.SessionTimeout * 60000))) {
-                // Session has timed out, start a new one
-                mParticle.startNewSession();
-            }
-
             logEvent(MessageType.PageEvent, eventName, eventInfo, eventType, customFlags);
         },
         logError: function(error) {
+            mParticle.sessionManager.resetSessionTimer();
             if (!error) {
                 return;
             }
@@ -2562,12 +2594,15 @@
                 EventType.Other);
         },
         logLink: function(selector, eventName, eventType, eventInfo) {
+            mParticle.sessionManager.resetSessionTimer();
             addEventHandler('click', selector, eventName, eventInfo, eventType);
         },
         logForm: function(selector, eventName, eventType, eventInfo) {
+            mParticle.sessionManager.resetSessionTimer();
             addEventHandler('submit', selector, eventName, eventInfo, eventType);
         },
         logPageView: function() {
+            mParticle.sessionManager.resetSessionTimer();
             var eventName = null,
                 attrs = null,
                 flags = null;
@@ -2600,6 +2635,7 @@
         eCommerce: {
             ProductBags: {
                 add: function(productBagName, product) {
+                    mParticle.sessionManager.resetSessionTimer();
                     if (!productsBags[productBagName]) {
                         productsBags[productBagName] = [];
                     }
@@ -2609,6 +2645,7 @@
                     tryNativeSdk(NativeSdkPaths.AddToProductBag, JSON.stringify(product));
                 },
                 remove: function(productBagName, product) {
+                    mParticle.sessionManager.resetSessionTimer();
                     var productIndex = -1;
 
                     if (productsBags[productBagName]) {
@@ -2626,6 +2663,7 @@
                     tryNativeSdk(NativeSdkPaths.RemoveFromProductBag, JSON.stringify(product));
                 },
                 clear: function(productBagName) {
+                    mParticle.sessionManager.resetSessionTimer();
                     productsBags[productBagName] = [];
 
                     tryNativeSdk(NativeSdkPaths.ClearProductBag, productBagName);
@@ -2633,6 +2671,7 @@
             },
             Cart: {
                 add: function(product, logEvent) {
+                    mParticle.sessionManager.resetSessionTimer();
                     var arrayCopy;
 
                     arrayCopy = Array.isArray(product) ? product.slice() : [product];
@@ -2647,6 +2686,7 @@
                     }
                 },
                 remove: function(product, logEvent) {
+                    mParticle.sessionManager.resetSessionTimer();
                     var cartIndex = -1,
                         cartItem = null;
 
@@ -2671,32 +2711,41 @@
                     }
                 },
                 clear: function() {
+                    mParticle.sessionManager.resetSessionTimer();
                     cartProducts = [];
                     tryNativeSdk(NativeSdkPaths.ClearCart);
                 }
             },
             setCurrencyCode: function(code) {
+                mParticle.sessionManager.resetSessionTimer();
                 currencyCode = code;
             },
             createProduct: function(name, sku, price, quantity, variant, category, brand, position, coupon, attributes) {
+                mParticle.sessionManager.resetSessionTimer();
                 return createProduct(name, sku, price, quantity, variant, category, brand, position, coupon, attributes);
             },
             createPromotion: function(id, creative, name, position) {
+                mParticle.sessionManager.resetSessionTimer();
                 return createPromotion(id, creative, name, position);
             },
             createImpression: function(name, product) {
+                mParticle.sessionManager.resetSessionTimer();
                 return createImpression(name, product);
             },
             createTransactionAttributes: function(id, affiliation, couponCode, revenue, shipping, tax) {
+                mParticle.sessionManager.resetSessionTimer();
                 return createTransactionAttributes(id, affiliation, couponCode, revenue, shipping, tax);
             },
             logCheckout: function(step, paymentMethod, attrs) {
+                mParticle.sessionManager.resetSessionTimer();
                 logCheckoutEvent(step, paymentMethod, attrs);
             },
             logProductAction: function(productActionType, product, attrs) {
+                mParticle.sessionManager.resetSessionTimer();
                 logProductActionEvent(productActionType, product, attrs);
             },
             logPurchase: function(transactionAttributes, product, clearCart, attrs) {
+                mParticle.sessionManager.resetSessionTimer();
                 logPurchaseEvent(transactionAttributes, product, attrs);
 
                 if (clearCart === true) {
@@ -2704,12 +2753,15 @@
                 }
             },
             logPromotion: function(type, promotion, attrs) {
+                mParticle.sessionManager.resetSessionTimer();
                 logPromotionEvent(type, promotion, attrs);
             },
             logImpression: function(impression, attrs) {
+                mParticle.sessionManager.resetSessionTimer();
                 logImpressionEvent(impression, attrs);
             },
             logRefund: function(transactionAttributes, product, clearCart, attrs) {
+                mParticle.sessionManager.resetSessionTimer();
                 logRefundEvent(transactionAttributes, product, attrs);
 
                 if (clearCart === true) {
@@ -2717,6 +2769,7 @@
                 }
             },
             expandCommerceEvent: function(event) {
+                mParticle.sessionManager.resetSessionTimer();
                 return expandCommerceEvent(event);
             }
         },
@@ -2731,6 +2784,7 @@
             currencyCode,
             affiliation,
             transactionId) {
+            mParticle.sessionManager.resetSessionTimer();
 
             var attributes = {};
             attributes.$MethodName = 'LogEcommerceTransaction';
@@ -2750,6 +2804,8 @@
             logEvent(MessageType.PageEvent, 'Ecommerce', attributes, EventType.Transaction);
         },
         logLTVIncrease: function(amount, eventName, attributes) {
+            mParticle.sessionManager.resetSessionTimer();
+
             if (!amount) {
                 logDebug('A valid amount must be passed to logLTVIncrease.');
                 return;
@@ -2768,9 +2824,11 @@
                 EventType.Transaction);
         },
         setUserTag: function(tagName) {
+            mParticle.sessionManager.resetSessionTimer();
             window.mParticle.setUserAttribute(tagName, null);
         },
         removeUserTag: function(tagName) {
+            mParticle.sessionManager.resetSessionTimer();
             var existingProp = findKeyInObject(userAttributes, tagName);
 
             if (existingProp) {
@@ -2782,6 +2840,7 @@
             persistence.update();
         },
         setUserAttribute: function(key, value) {
+            mParticle.sessionManager.resetSessionTimer();
             // Logs to cookie
             // And logs to in-memory object
             // Example: mParticle.setUserAttribute('email', 'tbreffni@mparticle.com');
@@ -2806,6 +2865,7 @@
             }
         },
         removeUserAttribute: function(key) {
+            mParticle.sessionManager.resetSessionTimer();
             var existingProp = findKeyInObject(userAttributes, key);
 
             if (existingProp) {
@@ -2821,6 +2881,7 @@
             persistence.update();
         },
         setUserAttributeList: function(key, value) {
+            mParticle.sessionManager.resetSessionTimer();
             if (Array.isArray(value)) {
                 var arrayCopy = value.slice();
 
@@ -2839,6 +2900,7 @@
             }
         },
         removeAllUserAttributes: function() {
+            mParticle.sessionManager.resetSessionTimer();
             if (!tryNativeSdk(NativeSdkPaths.RemoveAllUserAttributes)) {
                 if (userAttributes) {
                     for (var prop in userAttributes) {
@@ -2882,6 +2944,7 @@
             return userAttributesCopy;
         },
         setSessionAttribute: function(key, value) {
+            mParticle.sessionManager.resetSessionTimer();
             // Logs to cookie
             // And logs to in-memory object
             // Example: mParticle.setSessionAttribute('location', '33431');
@@ -2905,6 +2968,7 @@
             }
         },
         setOptOut: function(isOptingOut) {
+            mParticle.sessionManager.resetSessionTimer();
             isEnabled = !isOptingOut;
 
             logOptOut();
@@ -2923,6 +2987,7 @@
             }
         },
         logOut: function() {
+            mParticle.sessionManager.resetSessionTimer();
             var evt;
 
             if (canLog()) {
@@ -3053,6 +3118,10 @@
 
         if (window.mParticle.config.hasOwnProperty('appVersion')) {
             appVersion = window.mParticle.config.appVersion;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('sessionTimeout')) {
+            Config.SessionTimeout = window.mParticle.config.sessionTimeout;
         }
 
         // Some forwarders require custom flags on initialization, so allow them to be set using config object
