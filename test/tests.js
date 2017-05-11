@@ -2728,6 +2728,63 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should return the deviceId when provided with serverSettings', function(done) {
+        var serverSettings = {
+            uid: {
+                Expires: '2027-05-09T02:03:06.368056Z',
+                Value: 'u=6100647832327797727&cr=3869403&g=7b0a8d4e-b144-4259-b491-1b3cf76af453&ls=3870112&lbe=3870112'
+            }
+        };
+
+        var deviceId = mParticle.persistence.parseDeviceId(serverSettings);
+        deviceId.should.equal('7b0a8d4e-b144-4259-b491-1b3cf76af453');
+
+        done();
+    });
+
+    it('should create a deviceId when there are no serverSettings', function(done) {
+        var serverSettings = null;
+
+        var deviceId = mParticle.persistence.parseDeviceId(serverSettings);
+
+        Should(deviceId).be.ok();
+
+        done();
+    });
+
+    it('should not generate a new device ID if a deviceId exists in localStorage', function(done) {
+        mParticle.reset();
+
+        var guid = '7b0a8d4e-b144-4259-b491-1b3cf76af453';
+        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({das: guid})));
+        mParticle.init();
+
+        var deviceId = mParticle.getDeviceId();
+
+        deviceId.should.equal(guid);
+
+        done();
+    });
+
+    it('should send das with each event logged', function(done) {
+        window.mParticle.logEvent('Test Event');
+        var data = getEvent('Test Event');
+
+        data.should.have.property('das');
+        (data.das.length).should.equal(36);
+
+        done();
+    });
+
+    it('should return the deviceId when requested', function(done) {
+        var deviceId = mParticle.getDeviceId();
+
+        Should(deviceId).be.ok();
+        deviceId.length.should.equal(36);
+
+        done();
+    });
+
     it('should move data from cookies to localStorage with useCookieStorage = false', function(done) {
         setCookie({ui: [{Identity: 123, Type: 1}]});
         var beforeInitCookieData = JSON.parse(getCookie());

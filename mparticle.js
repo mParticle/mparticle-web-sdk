@@ -30,6 +30,7 @@
         forwarders = [],
         sessionId,
         clientId,
+        deviceId,
         devToken,
         serverSettings = null,
         dateLastEventSent,
@@ -417,7 +418,8 @@
                     dt: devToken,
                     les: dateLastEventSent ? dateLastEventSent.getTime() : null,
                     av: appVersion,
-                    cgid: clientId
+                    cgid: clientId,
+                    das: deviceId
                 };
 
             try {
@@ -463,6 +465,8 @@
 
                 clientId = obj.cgid || generateUniqueId();
 
+                deviceId = obj.das || null;
+
                 if (isEnabled !== false || isEnabled !== true) {
                     isEnabled = true;
                 }
@@ -476,6 +480,37 @@
             }
             catch (e) {
                 logDebug(ErrorMessages.CookieParseError);
+            }
+        },
+
+        retrieveDeviceId: function() {
+            if (deviceId) {
+                return deviceId;
+            } else {
+                return this.parseDeviceId(serverSettings);
+            }
+        },
+
+        parseDeviceId: function(serverSettings) {
+            try {
+                var paramsObj = {},
+                    parts;
+
+                if (serverSettings && serverSettings.uid && serverSettings.uid.Value) {
+                    serverSettings.uid.Value.split('&').forEach(function(param) {
+                        parts = param.split('=');
+                        paramsObj[parts[0]] = parts[1];
+                    });
+
+                    if (paramsObj['g']) {
+                        return paramsObj['g'];
+                    }
+                }
+
+                return generateUniqueId();
+            }
+            catch (e) {
+                return generateUniqueId();
             }
         },
 
@@ -536,7 +571,8 @@
                     dt: devToken,
                     les: dateLastEventSent ? dateLastEventSent.getTime() : null,
                     av: appVersion,
-                    cgid: clientId
+                    cgid: clientId,
+                    das: deviceId
                 },
                 expires = new Date(date.getTime() +
                     (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
@@ -959,7 +995,8 @@
             o: event.OptOut,
             eec: event.ExpandedEventCount,
             av: event.AppVersion,
-            cgid: event.ClientGeneratedId
+            cgid: event.ClientGeneratedId,
+            das: event.DeviceId
         };
 
         if (event.CustomFlags) {
@@ -1118,7 +1155,8 @@
                 ExpandedEventCount: 0,
                 CustomFlags: customFlags,
                 AppVersion: appVersion,
-                ClientGeneratedId: clientId
+                ClientGeneratedId: clientId,
+                DeviceId: deviceId
             };
         }
 
@@ -2337,12 +2375,17 @@
         }
     };
 
+    function getDeviceId() {
+        return deviceId;
+    }
+
     var mParticle = {
         useNativeSdk: true,
         isIOS: false,
         isDebug: false,
         isSandbox: false,
         useCookieStorage: false,
+        getDeviceId: getDeviceId,
         generateHash: generateHash,
         sessionManager: sessionManager,
         persistence: persistence,
@@ -2361,6 +2404,7 @@
 
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
+            deviceId = persistence.retrieveDeviceId();
 
             if (arguments && arguments.length) {
                 if (typeof arguments[0] === 'string') {
