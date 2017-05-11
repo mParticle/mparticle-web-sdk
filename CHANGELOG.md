@@ -1,5 +1,9 @@
 ## Releases
 --
+
+#### 1.12.0 - 2017-05-11
+*  Add deviceId, and deviceId retrieval via `mParticle.getDeviceId()`.
+
 #### 1.11.0 - 2017-04-27
 *  Add new session management.
 *  Fixed a bug where the same sessionId may be associated with events over several days.
