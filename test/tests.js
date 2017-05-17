@@ -848,15 +848,36 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('ends existing session', function(done) {
+    it('ends existing session with an event that includes SessionLength', function(done) {
         mParticle.startNewSession();
         mParticle.endSession();
 
-        var data = getEvent(MessageType.SessionStart);
+        var data = getEvent(MessageType.SessionEnd);
 
         Should(data).be.ok();
+        data.should.have.property('sl');
 
         done();
+    });
+
+    it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', function(done) {
+        mParticle.logEvent('Test Event1');
+        var data1 = getEvent('Test Event1');
+
+        setTimeout(function() {
+            mParticle.logEvent('Test Event2');
+            var data2 = getEvent('Test Event2');
+
+            mParticle.endSession();
+            var data3 = getEvent(MessageType.SessionEnd);
+
+            var result1 = data1.ct === data2.ct;
+            var result2 = data2.ct === data3.ct;
+
+            Should(result1).not.be.ok();
+            Should(result2).be.ok();
+            done();
+        }, 5);
     });
 
     it('does not initialize a forwarder when forwarder\'s isDebug != mParticle.isSandbox', function(done) {

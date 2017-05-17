@@ -988,6 +988,7 @@
             attrs: event.EventAttributes,
             sdk: event.SDKVersion,
             sid: event.SessionId,
+            sl: event.SessionLength,
             dt: event.EventDataType,
             dbg: event.Debug,
             ct: event.Timestamp,
@@ -1129,14 +1130,11 @@
     }
 
     function createEventObject(messageType, name, data, eventType, customFlags) {
-        var optOut = (messageType == MessageType.OptOut ? !isEnabled : null);
+        var eventObject,
+            optOut = (messageType === MessageType.OptOut ? !isEnabled : null);
 
-        if (sessionId || messageType == MessageType.OptOut) {
-            if (messageType !== MessageType.SessionEnd) {
-                dateLastEventSent = new Date();
-            }
-
-            return {
+        if (sessionId || messageType === MessageType.OptOut) {
+            eventObject = {
                 EventName: name || messageType,
                 EventCategory: eventType,
                 UserAttributes: userAttributes,
@@ -1148,7 +1146,6 @@
                 SessionId: sessionId,
                 EventDataType: messageType,
                 Debug: mParticle.isSandbox,
-                Timestamp: dateLastEventSent.getTime(),
                 Location: currentPosition,
                 OptOut: optOut,
                 ProductBags: productsBags,
@@ -1158,6 +1155,16 @@
                 ClientGeneratedId: clientId,
                 DeviceId: deviceId
             };
+
+            if (messageType === MessageType.SessionEnd) {
+                eventObject.SessionLength = new Date().getTime() - dateLastEventSent.getTime();
+            } else {
+                dateLastEventSent = new Date();
+            }
+
+            eventObject.Timestamp = dateLastEventSent.getTime();
+
+            return eventObject;
         }
 
         return null;
