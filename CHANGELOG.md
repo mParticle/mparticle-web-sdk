@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.13.0 - 2017-05-18
+*  Send sessionLength to server when sessionEnd is called.
+
 #### 1.12.0 - 2017-05-11
 *  Add deviceId, and deviceId retrieval via `mParticle.getDeviceId()`.
 
