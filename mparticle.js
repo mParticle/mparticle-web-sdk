@@ -29,6 +29,7 @@
         forwarderConstructors = [],
         forwarders = [],
         sessionId,
+        isFirstRun,
         clientId,
         deviceId,
         devToken,
@@ -359,7 +360,7 @@
                 if (mParticle.useCookieStorage) {
                     // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
                     // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
-                    localStorageData = storage.getItem(DefaultConfig.LocalStorageName);
+                    localStorageData = this.getLocalStorage();
                     if (localStorageData) {
                         this.storeDataInMemory(this.getLocalStorage());
                         storage.removeItem(DefaultConfig.LocalStorageName);
@@ -640,7 +641,9 @@
                     xhr.open('post', createServiceUrl() + '/Events');
                     xhr.send(JSON.stringify(convertEventToDTO(event)));
 
-                    sendEventToForwarders(event);
+                    if (event.EventName !== MessageType.AppStateTransition) {
+                        sendEventToForwarders(event);
+                    }
                 }
                 catch (e) {
                     logDebug('Error sending event to mParticle servers. ' + e);
@@ -1012,6 +1015,14 @@
             das: event.DeviceId
         };
 
+        if (event.EventDataType === MessageType.AppStateTransition) {
+            dto.fr = isFirstRun;
+            dto.iu = false;
+            dto.at = ApplicationTransitionType.AppInit;
+            dto.lr = document.referrer || null;
+            dto.attrs = null;
+        }
+
         if (event.CustomFlags) {
             convertCustomFlags(event, dto);
         }
@@ -1145,7 +1156,11 @@
         var eventObject,
             optOut = (messageType === MessageType.OptOut ? !isEnabled : null);
 
-        if (sessionId || messageType === MessageType.OptOut) {
+        if (sessionId || messageType == MessageType.OptOut) {
+            if (messageType !== MessageType.SessionEnd) {
+                dateLastEventSent = new Date();
+            }
+
             eventObject = {
                 EventName: name || messageType,
                 EventCategory: eventType,
@@ -1605,6 +1620,10 @@
         send(createEventObject(MessageType.OptOut, null, null, EventType.Other));
     }
 
+    function logAST() {
+        logEvent(MessageType.AppStateTransition);
+    }
+
     function logEvent(type, name, data, category, cflags) {
         logDebug(InformationMessages.StartingLogEvent + ': ' + name);
 
@@ -2008,6 +2027,7 @@
         PageEvent: 4,
         CrashReport: 5,
         OptOut: 6,
+        AppStateTransition: 10,
         Profile: 14,
         Commerce: 16
     };
@@ -2027,6 +2047,10 @@
 
     var ProfileMessageType = {
         Logout: 3
+    };
+
+    var ApplicationTransitionType = {
+        AppInit: 1
     };
 
     EventType.getName = function(id) {
@@ -2421,6 +2445,13 @@
             // Set configuration to default settings
             mergeConfig({});
 
+            // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
+            if (persistence.getCookie() === null && persistence.getLocalStorage() === null) {
+                isFirstRun = true;
+            } else {
+                isFirstRun = false;
+            }
+
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
             deviceId = persistence.retrieveDeviceId();
@@ -2457,6 +2488,7 @@
                 readyQueue = [];
             }
 
+            logAST();
             persistence.update();
             isInitialized = true;
 
@@ -2464,6 +2496,7 @@
         reset: function() {
             // Completely resets the state of the SDK. mParticle.init() will need to be called again.
             isEnabled = true;
+            isFirstRun = null;
             stopTracking();
             devToken = null;
             sessionId = null;

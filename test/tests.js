@@ -102,6 +102,7 @@ describe('mParticle Core SDK', function() {
             PageEvent: 4,
             CrashReport: 5,
             OptOut: 6,
+            AppStateTransition: 10,
             Profile: 14,
             Commerce: 16
         },
@@ -321,6 +322,7 @@ describe('mParticle Core SDK', function() {
 
         mParticle.reset();
         expireCookie();
+        localStorage.removeItem('mprtcl-api');
         mParticle.init(apiKey);
         window.mParticleAndroid = null;
     });
@@ -373,6 +375,31 @@ describe('mParticle Core SDK', function() {
         data.should.have.property('n', 'Error');
         data.should.have.property('attrs');
         data.attrs.should.have.property('m', 'my error');
+
+        done();
+    });
+
+    it('should log an AST with firstRun = true when first visiting a page', function(done) {
+        var data = getEvent(MessageType.AppStateTransition);
+        data.should.have.property('at', 1);
+        data.should.have.property('fr', true);
+        data.should.have.property('iu', false);
+
+        var lr = data.lr === null || data.lr === 'http://localhost:3000/test/index.html';
+        Should(lr).be.ok();
+
+        done();
+    });
+
+    it('should log an AST on init with firstRun = false when cookies already exist', function(done) {
+        mParticle.reset();
+        server.requests = [];
+
+        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({cookie: 'test'})));
+        mParticle.init(apiKey);
+
+        var data2 = getEvent(MessageType.AppStateTransition);
+        data2.should.have.property('fr', false);
 
         done();
     });
@@ -776,7 +803,7 @@ describe('mParticle Core SDK', function() {
 
         identity.should.have.property('Identity', 'test@mparticle.com');
         identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
-        
+
         identity = mParticle.getUserIdentity(123456);
 
         identity.should.have.property('Identity', 123456);
