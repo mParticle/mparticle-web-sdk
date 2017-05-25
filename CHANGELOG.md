@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 1.13.1 - 2017-05-25
+*  Fix for removing duplicate user identities where ID is missing, allow ID to be `undefined`
+*  Fix for creating CGID on initial load
+
 #### 1.13.0 - 2017-05-18
 *  Send sessionLength to server when sessionEnd is called.
 
