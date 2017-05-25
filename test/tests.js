@@ -325,6 +325,19 @@ describe('mParticle Core SDK', function() {
         window.mParticleAndroid = null;
     });
 
+    it('should filter out any multiple UIs with no IDs', function(done) {
+        mParticle.reset();
+
+        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({ui: [{Identity: 123, Type: 1}, {Type: 1}, {Type: 1}, {Type: 1}]})));
+
+        mParticle.init(apiKey);
+
+        var localStorageData = mParticle.persistence.getLocalStorage();
+        localStorageData.ui.length.should.equal(1);
+
+        done();
+    });
+
     it('should log an event', function(done) {
         window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation, { mykey: 'myvalue' });
         var data = getEvent('Test Event');

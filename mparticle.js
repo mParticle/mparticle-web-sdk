@@ -464,11 +464,20 @@
                 if (!obj) {
                     clientId = generateUniqueId();
                 } else {
+                    // Longer names are for backwards compatibility
                     sessionId = obj.sid || obj.SessionId || sessionId;
                     isEnabled = (typeof obj.ie != 'undefined') ? obj.ie : obj.IsEnabled;
                     sessionAttributes = obj.sa || obj.SessionAttributes || sessionAttributes;
                     userAttributes = obj.ua || obj.UserAttributes || userAttributes;
                     userIdentities = obj.ui || obj.UserIdentities || userIdentities;
+
+                    // from a bug where UIs were being added without ids (safe to remove on 5/24/2018)
+                    // https://github.com/mParticle/mparticle-sdk-javascript-private/blob/f608042e5535b665e45760a67ce38ba061743c9a/mparticle.js#L2532-L2535
+                    // https://github.com/mParticle/mparticle-sdk-javascript-private/blob/f608042e5535b665e45760a67ce38ba061743c9a/mparticle.js#L2575-L2577
+
+                    userIdentities = userIdentities.filter(function(ui) {
+                        return ui.hasOwnProperty('Identity');
+                    });
                     serverSettings = obj.ss || obj.ServerSettings || serverSettings;
                     devToken = obj.dt || obj.DeveloperToken || devToken;
                     clientId = obj.cgid || generateUniqueId();
@@ -480,8 +489,6 @@
                         dateLastEventSent = new Date(obj.LastEventSent);
                     }
                 }
-                // Longer names are for backwards compatibility
-
                 if (isEnabled !== false || isEnabled !== true) {
                     isEnabled = true;
                 }
@@ -2539,9 +2546,11 @@
                     };
 
                     mParticle.removeUserIdentity(id, type);
-                    if (id === null) {
+
+                    if (id === null || id === undefined) {
                         return;
                     }
+
                     userIdentities.push(userIdentity);
 
                     if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
@@ -2581,16 +2590,13 @@
         },
         removeUserIdentity: function(id, type) {
             mParticle.sessionManager.resetSessionTimer();
-            if (id === undefined) {
-                logDebug('Please include an id to remove');
-                return;
-            } else if (id) {
+            if (id) {
                 userIdentities = userIdentities.filter(function(userIdentity) {
                     return userIdentity.Identity !== id;
                 });
             }
 
-            // Below includes times where id === null
+            // Below includes times where id === null || id === undefined
             if (type && IdentityType.isValid(type)) {
                 userIdentities = userIdentities.filter(function(userIdentity) {
                     return userIdentity.Type !== type;
