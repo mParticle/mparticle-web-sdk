@@ -2847,6 +2847,23 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('will create a cgid when no previous cgid exists after initializing storage, and no sid', function(done) {
+        mParticle.reset();
+        expireCookie();
+        window.mParticle.useCookieStorage = true;
+
+        mParticle.persistence.initializeStorage();
+        mParticle.persistence.update();
+
+        var cookieData = mParticle.persistence.getCookie();
+        var parsedCookie = JSON.parse(cookieData);
+
+        parsedCookie.should.have.properties(['cgid']);
+        parsedCookie.should.have.property('sid', null);
+
+        done();
+    });
+
     it('puts data into cookies when running initializeStorage with useCookieStorage = true', function(done) {
         window.mParticle.useCookieStorage = true;
         mParticle.persistence.initializeStorage();

@@ -395,11 +395,17 @@
 
         determineLocalStorageAvailability: function() {
             var storage, result;
+
             try {
                 (storage = window.localStorage).setItem('mparticle', 'test');
                 result = storage.getItem('mparticle') === 'test';
                 storage.removeItem('mparticle');
-                return result && storage;
+
+                if (result && storage) {
+                    return true;
+                } else {
+                    return false;
+                }
             }
             catch (e) {
                 return false;
@@ -451,32 +457,35 @@
 
         storeDataInMemory: function(result) {
             var obj;
+
             try {
                 obj = typeof result === 'string' ? JSON.parse(result) : result;
 
+                if (!obj) {
+                    clientId = generateUniqueId();
+                } else {
+                    sessionId = obj.sid || obj.SessionId || sessionId;
+                    isEnabled = (typeof obj.ie != 'undefined') ? obj.ie : obj.IsEnabled;
+                    sessionAttributes = obj.sa || obj.SessionAttributes || sessionAttributes;
+                    userAttributes = obj.ua || obj.UserAttributes || userAttributes;
+                    userIdentities = obj.ui || obj.UserIdentities || userIdentities;
+                    serverSettings = obj.ss || obj.ServerSettings || serverSettings;
+                    devToken = obj.dt || obj.DeveloperToken || devToken;
+                    clientId = obj.cgid || generateUniqueId();
+                    deviceId = obj.das || null;
+                    if (obj.les) {
+                        dateLastEventSent = new Date(obj.les);
+                    }
+                    else if (obj.LastEventSent) {
+                        dateLastEventSent = new Date(obj.LastEventSent);
+                    }
+                }
                 // Longer names are for backwards compatibility
-                sessionId = obj.sid || obj.SessionId || sessionId;
-                isEnabled = (typeof obj.ie != 'undefined') ? obj.ie : obj.IsEnabled;
-                sessionAttributes = obj.sa || obj.SessionAttributes || sessionAttributes;
-                userAttributes = obj.ua || obj.UserAttributes || userAttributes;
-                userIdentities = obj.ui || obj.UserIdentities || userIdentities;
-                serverSettings = obj.ss || obj.ServerSettings || serverSettings;
-                devToken = obj.dt || obj.DeveloperToken || devToken;
-
-                clientId = obj.cgid || generateUniqueId();
-
-                deviceId = obj.das || null;
 
                 if (isEnabled !== false || isEnabled !== true) {
                     isEnabled = true;
                 }
 
-                if (obj.les) {
-                    dateLastEventSent = new Date(obj.les);
-                }
-                else if (obj.LastEventSent) {
-                    dateLastEventSent = new Date(obj.LastEventSent);
-                }
             }
             catch (e) {
                 logDebug(ErrorMessages.CookieParseError);
