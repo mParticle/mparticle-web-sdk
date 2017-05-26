@@ -471,12 +471,8 @@
                     userAttributes = obj.ua || obj.UserAttributes || userAttributes;
                     userIdentities = obj.ui || obj.UserIdentities || userIdentities;
 
-                    // from a bug where UIs were being added without ids (safe to remove on 5/24/2018)
-                    // https://github.com/mParticle/mparticle-sdk-javascript-private/blob/f608042e5535b665e45760a67ce38ba061743c9a/mparticle.js#L2532-L2535
-                    // https://github.com/mParticle/mparticle-sdk-javascript-private/blob/f608042e5535b665e45760a67ce38ba061743c9a/mparticle.js#L2575-L2577
-
                     userIdentities = userIdentities.filter(function(ui) {
-                        return ui.hasOwnProperty('Identity');
+                        return ui.hasOwnProperty('Identity') && (typeof(ui.Identity) === 'string' || typeof(ui.Identity) === 'number');
                     });
                     serverSettings = obj.ss || obj.ServerSettings || serverSettings;
                     devToken = obj.dt || obj.DeveloperToken || devToken;
@@ -2540,6 +2536,12 @@
 
             if (canLog()) {
                 if (IdentityType.isValid(type)) {
+
+                    if (id && (typeof(id) !== 'string' && typeof(id) !== 'number')) {
+                        logDebug('User identities passed to setUserIdentity must be strings');
+                        return;
+                    }
+
                     var userIdentity = {
                         Identity: id,
                         Type: type

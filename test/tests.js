@@ -325,6 +325,19 @@ describe('mParticle Core SDK', function() {
         window.mParticleAndroid = null;
     });
 
+    it('should filter out any non string or number ids', function(done) {
+        mParticle.reset();
+
+        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}, {Identity: [], Type: 1}, {Identity: {}, Type: 1}]})));
+
+        mParticle.init(apiKey);
+
+        var localStorageData = mParticle.persistence.getLocalStorage();
+        localStorageData.ui.length.should.equal(2);
+
+        done();
+    });
+
     it('should filter out any multiple UIs with no IDs', function(done) {
         mParticle.reset();
 
@@ -755,13 +768,53 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should add user identities', function(done) {
+    it('should add string or number user identities', function(done) {
+        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
+        mParticle.setUserIdentity(123456, mParticle.IdentityType.Email);
+
+        var identity = mParticle.getUserIdentity('test@mparticle.com');
+
+        identity.should.have.property('Identity', 'test@mparticle.com');
+        identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
+        
+        identity = mParticle.getUserIdentity(123456);
+
+        identity.should.have.property('Identity', 123456);
+        identity.should.have.property('Type', mParticle.IdentityType.Email);
+
+        done();
+    });
+
+    it('should ignore object user identities', function(done) {
         mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
 
         var identity = mParticle.getUserIdentity('test@mparticle.com');
 
         identity.should.have.property('Identity', 'test@mparticle.com');
         identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
+
+
+        mParticle.setUserIdentity({}, mParticle.IdentityType.CustomerId);
+        identity = mParticle.getUserIdentity('test@mparticle.com');
+
+        identity.should.have.property('Identity', 'test@mparticle.com');
+
+        done();
+    });
+
+    it('should ignore array user identities', function(done) {
+        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
+
+        var identity = mParticle.getUserIdentity('test@mparticle.com');
+
+        identity.should.have.property('Identity', 'test@mparticle.com');
+        identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
+
+
+        mParticle.setUserIdentity([], mParticle.IdentityType.CustomerId);
+        identity = mParticle.getUserIdentity('test@mparticle.com');
+
+        identity.should.have.property('Identity', 'test@mparticle.com');
 
         done();
     });
