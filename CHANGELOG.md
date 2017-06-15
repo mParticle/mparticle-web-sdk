@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 1.14.0 - 2017-06-15
+*  Support for cookie-syncing. Cookie-syncing enables the optional collection of 3rd-party IDs to enable enhanced audience sharing with advertising platforms such as DoubleClick, Adobe, and AppNexus
+*  Add application state transition to mParticle initialization
+
 #### 1.13.1 - 2017-05-25
 *  Fix for removing duplicate user identities where ID is missing, allow ID to be `undefined`
 *  Fix for creating CGID on initial load
