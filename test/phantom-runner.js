@@ -6,7 +6,7 @@ page.onConsoleMessage = function(msg) {
 
 page.open("http://localhost:3000/test/index.html", function(status) {
     if (status === "success") {
-        var maxtimeOutMillis = 10000,
+        var maxtimeOutMillis = 30000,
         start = new Date().getTime(),
         condition = false,
         interval = setInterval(function() {

@@ -16,7 +16,7 @@
     "browserify": "^14.3.0",
     "eslint": "^3.17.1",
     "mocha": "^2.3.2",
-    "phantomjs": "^2.1.7",
+    "phantomjs-prebuilt": "^2.1.14",
     "pre-commit": "^1.2.2",
     "should": "^7.1.0",
     "sinon-browser-only": "^1.12.1"
