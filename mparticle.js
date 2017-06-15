@@ -32,9 +32,12 @@
         isFirstRun,
         clientId,
         deviceId,
+        mpid,
         devToken,
+        pixelConfigurations = [],
         serverSettings = null,
         dateLastEventSent,
+        cookieSyncDates = {},
         currentPosition,
         isTracking = false,
         watchPositionId,
@@ -426,7 +429,9 @@
                     les: dateLastEventSent ? dateLastEventSent.getTime() : null,
                     av: appVersion,
                     cgid: clientId,
-                    das: deviceId
+                    das: deviceId,
+                    csd: cookieSyncDates,
+                    mpid: mpid
                 };
 
             try {
@@ -464,6 +469,7 @@
 
                 if (!obj) {
                     clientId = generateUniqueId();
+                    logDebug(InformationMessages.CookieNotFound);
                 } else {
                     // Longer names are for backwards compatibility
                     sessionId = obj.sid || obj.SessionId || sessionId;
@@ -479,17 +485,22 @@
                     devToken = obj.dt || obj.DeveloperToken || devToken;
                     clientId = obj.cgid || generateUniqueId();
                     deviceId = obj.das || null;
+                    mpid = obj.mpid || null;
+
                     if (obj.les) {
                         dateLastEventSent = new Date(obj.les);
                     }
                     else if (obj.LastEventSent) {
                         dateLastEventSent = new Date(obj.LastEventSent);
                     }
+
+                    if (obj.csd) {
+                        cookieSyncDates = obj.csd;
+                    }
                 }
                 if (isEnabled !== false || isEnabled !== true) {
                     isEnabled = true;
                 }
-
             }
             catch (e) {
                 logDebug(ErrorMessages.CookieParseError);
@@ -585,7 +596,9 @@
                     les: dateLastEventSent ? dateLastEventSent.getTime() : null,
                     av: appVersion,
                     cgid: clientId,
-                    das: deviceId
+                    das: deviceId,
+                    csd: cookieSyncDates,
+                    mpid: mpid
                 },
                 expires = new Date(date.getTime() +
                     (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
@@ -881,6 +894,7 @@
     function parseResponse(responseText) {
         var now = new Date(),
             settings,
+            previousMPID = null,
             prop,
             fullProp;
 
@@ -892,6 +906,14 @@
             logDebug('Parsing response from server');
 
             settings = JSON.parse(responseText);
+
+            if (!isFirstRun && mpid) {
+                previousMPID = mpid;
+            }
+
+            mpid = settings.mpid ? settings.mpid : null;
+
+            cookieSyncManager.attemptCookieSync(previousMPID, mpid);
 
             if (settings && settings.Store) {
                 logDebug('Parsed store from response, updating local settings');
@@ -2204,7 +2226,9 @@
     var InformationMessages = {
         CookieSearch: 'Searching for cookie',
         CookieFound: 'Cookie found, parsing values',
+        CookieNotFound: 'Cookies not found',
         CookieSet: 'Setting cookie',
+        CookieSync: 'Performing cookie sync',
         SendBegin: 'Starting to send event',
         SendWindowsPhone: 'Sending event to Windows Phone container',
         SendIOS: 'Calling iOS path: ',
@@ -2343,6 +2367,64 @@
         }
     };
 
+    var cookieSyncManager = {
+        attemptCookieSync: function(previousMPID, mpid) {
+            var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
+            if (mpid && !isWebViewEmbedded()) {
+                if (previousMPID && previousMPID !== mpid) {
+                    cookieSyncManager.performCookieSync();
+                }
+                else {
+                    pixelConfigurations.forEach(function(pixelSettings) {
+                        pixelConfig = {
+                            name: pixelSettings.name,
+                            moduleId: pixelSettings.moduleId,
+                            esId: pixelSettings.esId,
+                            isDebug: pixelSettings.isDebug,
+                            isProduction: pixelSettings.isProduction,
+                            settings: pixelSettings.settings,
+                            frequencyCap: pixelSettings.frequencyCap,
+                            pixelUrl: cookieSyncManager.replaceAmp(pixelSettings.pixelUrl),
+                            redirectUrl: pixelSettings.redirectUrl ? cookieSyncManager.replaceAmp(pixelSettings.redirectUrl) : null
+                        };
+
+                        lastSyncDateForModule = cookieSyncDates[(pixelConfig.moduleId).toString()] ? cookieSyncDates[(pixelConfig.moduleId).toString()] : null;
+                        url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
+                        redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
+                        urlWithRedirect = url + encodeURIComponent(redirect);
+
+                        if (lastSyncDateForModule) {
+                            // Check to see if we need to refresh cookieSync
+                            if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
+                                cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                            }
+                        } else {
+                            cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                        }
+                    });
+                }
+            }
+        },
+
+        performCookieSync: function(url, moduleId) {
+            var img = document.createElement('img');
+
+            logDebug(InformationMessages.CookieSync);
+
+            img.src = url;
+            cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
+            persistence.update();
+        },
+
+        replaceMPID: function(string, mpid) {
+            return string.replace('%%mpid%%', mpid);
+        },
+
+        replaceAmp: function(string) {
+            return string.replace(/&amp;/g, '&');
+        }
+    };
+
     var sessionManager = {
         initialize: function() {
             if (sessionId) {
@@ -2431,6 +2513,7 @@
         getDeviceId: getDeviceId,
         generateHash: generateHash,
         sessionManager: sessionManager,
+        cookieSyncManager: cookieSyncManager,
         persistence: persistence,
         IdentityType: IdentityType,
         EventType: EventType,
@@ -2444,7 +2527,6 @@
 
             // Set configuration to default settings
             mergeConfig({});
-
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
             if (persistence.getCookie() === null && persistence.getLocalStorage() === null) {
                 isFirstRun = true;
@@ -2491,7 +2573,6 @@
             logAST();
             persistence.update();
             isInitialized = true;
-
         },
         reset: function() {
             // Completely resets the state of the SDK. mParticle.init() will need to be called again.
@@ -2505,6 +2586,7 @@
             sessionAttributes = {};
             userAttributes = {};
             userIdentities = [];
+            cookieSyncDates = {};
             forwarders = [];
             forwarderConstructors = [];
             productsBags = {};
@@ -3179,6 +3261,9 @@
                     }
                 }
             }
+        },
+        configurePixel: function(settings) {
+            pixelConfigurations.push(settings);
         }
     };
 

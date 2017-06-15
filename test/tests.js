@@ -2,6 +2,7 @@
 describe('mParticle Core SDK', function() {
     var server,
         apiKey = 'test_key',
+        testMPID = 'testMPID',
         key = 'mprtcl-api',
         pluses = /\+/g,
         decoded = function(s) {
@@ -77,6 +78,13 @@ describe('mParticle Core SDK', function() {
                 encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
                 ';expires=' + expires +
                 ';path=/';
+        },
+        setLocalStorage = function(data) {
+            localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify(data)));
+        },
+
+        removeLocalStorageFiles = function() {
+            localStorage.removeItem('mprtcl-api');
         },
         getEvent = function(eventName, isForwarding) {
             var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
@@ -316,21 +324,25 @@ describe('mParticle Core SDK', function() {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify({
-                Store: {}
+                Store: {},
+                mpid: testMPID
             }));
         };
 
         mParticle.reset();
         expireCookie();
-        localStorage.removeItem('mprtcl-api');
+        removeLocalStorageFiles();
         mParticle.init(apiKey);
         window.mParticleAndroid = null;
+        window.mParticle.isIOS = null;
     });
 
     it('should filter out any non string or number ids', function(done) {
         mParticle.reset();
 
-        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}, {Identity: [], Type: 1}, {Identity: {}, Type: 1}]})));
+        setLocalStorage({
+            ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}, {Identity: [], Type: 1}, {Identity: {}, Type: 1}]
+        });
 
         mParticle.init(apiKey);
 
@@ -343,7 +355,9 @@ describe('mParticle Core SDK', function() {
     it('should filter out any multiple UIs with no IDs', function(done) {
         mParticle.reset();
 
-        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({ui: [{Identity: 123, Type: 1}, {Type: 1}, {Type: 1}, {Type: 1}]})));
+        setLocalStorage({
+            ui: [{Identity: 123, Type: 1}, {Type: 1}, {Type: 1}, {Type: 1}]
+        });
 
         mParticle.init(apiKey);
 
@@ -395,7 +409,8 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         server.requests = [];
 
-        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({cookie: 'test'})));
+        setLocalStorage({cookie: 'test'});
+
         mParticle.init(apiKey);
 
         var data2 = getEvent(MessageType.AppStateTransition);
@@ -2555,7 +2570,6 @@ describe('mParticle Core SDK', function() {
         var productEvent = expandedEvents[1];
         productEvent.should.have.property('EventName', 'eCommerce - refund - Item');
 
-
         done();
     });
 
@@ -2870,12 +2884,159 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
 
         var guid = '7b0a8d4e-b144-4259-b491-1b3cf76af453';
-        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({das: guid})));
+        setLocalStorage({das: guid});
         mParticle.init();
 
         var deviceId = mParticle.getDeviceId();
 
         deviceId.should.equal(guid);
+        done();
+    });
+
+    it('should sync cookies when there was not a previous cookie-sync', function(done) {
+        mParticle.reset();
+        var pixelSettings = {
+            name: 'AdobeEventForwarder',
+            moduleId: 5,
+            esId: 24053,
+            isDebug: true,
+            isProduction: true,
+            settings: {},
+            frequencyCap: 14,
+            pixelUrl:'http://www.yahoo.com',
+            redirectUrl:''
+        };
+        mParticle.configurePixel(pixelSettings);
+        mParticle.cookieSyncManager.attemptCookieSync(null, 'mpid123');
+
+        setTimeout(function() {
+            var data = JSON.parse(decodeURIComponent(localStorage.getItem('mprtcl-api')));
+            data.csd.should.have.property('5');
+
+            done();
+        }, 50);
+    });
+
+    it('should sync cookies when current date is beyond the frequency cap and the MPID has not changed', function(done) {
+        mParticle.reset();
+        var pixelSettings = {
+            name: 'AdobeEventForwarder',
+            moduleId: 5,
+            esId: 24053,
+            isDebug: true,
+            isProduction: true,
+            settings: {},
+            frequencyCap: 14,
+            pixelUrl:'http://www.yahoo.com',
+            redirectUrl:''
+        };
+        mParticle.configurePixel(pixelSettings);
+
+        setLocalStorage({
+            mpid: testMPID,
+            csd: { 5: (new Date(500)).getTime() }
+        });
+
+        mParticle.cookieSyncManager.attemptCookieSync(testMPID, testMPID);
+
+        setTimeout(function() {
+            var data = JSON.parse(decodeURIComponent(localStorage.getItem('mprtcl-api')));
+            var updated = data.csd['5']>500;
+            Should(updated).be.ok();
+
+            done();
+        }, 50);
+    });
+
+    it('should not sync cookies when last date is within frequencyCap', function(done) {
+        mParticle.reset();
+        var pixelSettings = {
+            name: 'AdobeEventForwarder',
+            moduleId: 5,
+            esId: 24053,
+            isDebug: true,
+            isProduction: true,
+            settings: {},
+            frequencyCap: 14,
+            pixelUrl:'http://www.yahoo.com',
+            redirectUrl:''
+        };
+        mParticle.configurePixel(pixelSettings);
+
+        var lastCookieSyncTime = (new Date().getTime())-5000;
+        setLocalStorage({
+            mpid: testMPID,
+            csd: { 5: lastCookieSyncTime }
+        });
+        mParticle.init(apiKey);
+        server.requests = [];
+
+        var data = JSON.parse(decodeURIComponent(localStorage.getItem('mprtcl-api')));
+
+        data.csd.should.have.property(5, lastCookieSyncTime);
+
+        done();
+    });
+
+    it('should not sync cookies when in a mobile web view', function(done) {
+        var pixelSettings = {
+            name: 'AdobeEventForwarder',
+            moduleId: 5,
+            esId: 24053,
+            isDebug: true,
+            isProduction: true,
+            settings: {},
+            frequencyCap: 14,
+            pixelUrl:'http://www.yahoo.com',
+            redirectUrl:''
+        };
+        mParticle.reset();
+        mParticle.configurePixel(pixelSettings);
+
+        window.mParticleAndroid = true;
+        mParticle.init(apiKey);
+
+        var data1 = JSON.parse(decodeURIComponent(localStorage.getItem('mprtcl-api')));
+
+        mParticle.reset();
+
+        window.mParticleAndroid = null;
+        window.mParticle.isIOS = true;
+        mParticle.init(apiKey);
+
+        var data2 = JSON.parse(decodeURIComponent(localStorage.getItem('mprtcl-api')));
+
+        Object.keys(data1.csd).length.should.equal(0);
+        Object.keys(data2.csd).length.should.equal(0);
+
+        done();
+    });
+
+    it('should sync cookies when mpid changes', function(done) {
+        var pixelSettings = {
+            name: 'AdobeEventForwarder',
+            moduleId: 5,
+            esId: 24053,
+            isDebug: true,
+            isProduction: true,
+            settings: {},
+            frequencyCap: 14,
+            pixelUrl:'http://www.yahoo.com',
+            redirectUrl:''
+        };
+        mParticle.reset();
+        mParticle.configurePixel(pixelSettings);
+
+        setLocalStorage({
+            mpid: 'differentMPID'
+        });
+
+        mParticle.init(apiKey);
+
+        var data1 = JSON.parse(decodeURIComponent(localStorage.getItem('mprtcl-api')));
+
+        mParticle.init(apiKey);
+        data1.csd.should.have.property(5);
 
         done();
     });
@@ -2886,6 +3047,13 @@ describe('mParticle Core SDK', function() {
 
         data.should.have.property('das');
         (data.das.length).should.equal(36);
+        done();
+    });
+
+    it('should replace mpID properly', function(done) {
+        var result = mParticle.cookieSyncManager.replaceMPID('www.google.com?mpid=%%mpid%%?foo=bar', 123);
+
+        result.should.equal('www.google.com?mpid=123?foo=bar');
 
         done();
     });
@@ -2899,7 +3067,16 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should remove \'amp;\' from the URLs', function(done) {
+        var result = mParticle.cookieSyncManager.replaceAmp('www.google.com?mpid=%%mpid%%&amp;foo=bar');
+
+        result.should.equal('www.google.com?mpid=%%mpid%%&foo=bar');
+
+        done();
+    });
+
     it('should move data from cookies to localStorage with useCookieStorage = false', function(done) {
+        mParticle.reset();
         setCookie({ui: [{Identity: 123, Type: 1}]});
         var beforeInitCookieData = JSON.parse(getCookie());
 
@@ -2922,7 +3099,10 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should move data from localStorage to cookies with useCookieStorage = true', function(done) {
-        localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify({ui: [{Identity: 123, Type: 1}]})));
+        mParticle.reset();
+        setLocalStorage({
+            ui: [{Identity: 123, Type: 1}]
+        });
 
         mParticle.useCookieStorage = true;
         mParticle.init(apiKey);
@@ -3049,6 +3229,7 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
+        mParticle.reset();
         window.localStorage.setItem = null;
 
         mParticle.useCookieStorage = false;
@@ -3065,6 +3246,7 @@ describe('mParticle Core SDK', function() {
     });
 
     it('creates a new session when elapsed time between actions is greater than session timeout', function(done) {
+        mParticle.reset();
         mParticle.init(apiKey, {SessionTimeout: .0000001});
         mParticle.logEvent('Test Event');
         var data = getEvent('Test Event');
@@ -3075,7 +3257,7 @@ describe('mParticle Core SDK', function() {
             data.sid.should.not.equal(data2.sid);
             mParticle.sessionManager.clearSessionTimeout();
             done();
-        }, 1000);
+        }, 10);
     });
 
     it('should get sessionId', function(done) {
