@@ -2589,6 +2589,7 @@
             cookieSyncDates = {};
             forwarders = [];
             forwarderConstructors = [];
+            pixelConfigurations = [];
             productsBags = {};
             cartProducts = [];
             serverSettings = null;
@@ -3263,7 +3264,9 @@
             }
         },
         configurePixel: function(settings) {
-            pixelConfigurations.push(settings);
+            if (settings.isDebug === mParticle.isSandbox || settings.isProduction !== mParticle.isSandbox) {
+                pixelConfigurations.push(settings);
+            }
         }
     };
 
