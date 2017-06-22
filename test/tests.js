@@ -218,10 +218,6 @@ describe('mParticle Core SDK', function() {
                     this.removeUserAttributeCalled = true;
                 };
 
-                this.setUserIdentity = function() {
-                    this.setUserIdentityCalled = true;
-                };
-
                 mockforwarder.instance = this;
             };
 
@@ -881,6 +877,25 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should not add products to invalid productBags', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
+        mParticle.eCommerce.ProductBags.add(null, product);
+        mParticle.eCommerce.ProductBags.add(undefined, product);
+        mParticle.eCommerce.ProductBags.add({key: 'value'}, product);
+        mParticle.eCommerce.ProductBags.add([1, 2, 3], product);
+
+        mParticle.logEvent('my event');
+
+        var event = getEvent('my event');
+
+        Should(event).be.ok();
+
+        event.should.have.property('pb');
+        Object.keys(event.pb).length.should.equal(0);
+
+        done();
+    });
+
     it('should log checkout', function(done) {
         mParticle.eCommerce.logCheckout(1, 'Visa');
 
@@ -941,7 +956,6 @@ describe('mParticle Core SDK', function() {
         identity.should.have.property('Identity', 'test@mparticle.com');
         identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
 
-
         mParticle.setUserIdentity({}, mParticle.IdentityType.CustomerId);
         identity = mParticle.getUserIdentity('test@mparticle.com');
 
@@ -958,8 +972,23 @@ describe('mParticle Core SDK', function() {
         identity.should.have.property('Identity', 'test@mparticle.com');
         identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
 
-
         mParticle.setUserIdentity([], mParticle.IdentityType.CustomerId);
+        identity = mParticle.getUserIdentity('test@mparticle.com');
+
+        identity.should.have.property('Identity', 'test@mparticle.com');
+
+        done();
+    });
+
+    it('should ignore boolean user identities', function(done) {
+        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
+
+        var identity = mParticle.getUserIdentity('test@mparticle.com');
+
+        identity.should.have.property('Identity', 'test@mparticle.com');
+        identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
+
+        mParticle.setUserIdentity(false, mParticle.IdentityType.CustomerId);
         identity = mParticle.getUserIdentity('test@mparticle.com');
 
         identity.should.have.property('Identity', 'test@mparticle.com');
@@ -1387,6 +1416,21 @@ describe('mParticle Core SDK', function() {
         event.should.have.property('sa');
         event.sa.should.have.property('name', 'test1');
         event.sa.should.not.have.property('Name');
+
+        done();
+    });
+
+    it('should not set a session attribute\'s key as an object or array)', function(done) {
+        mParticle.setSessionAttribute({key: 'value'}, 'test');
+        mParticle.logEvent('test event');
+        var event1 = getEvent('test event');
+
+        mParticle.setSessionAttribute(['test'], 'test');
+        mParticle.logEvent('test event2');
+        var event2 = getEvent('test event2');
+
+        Object.keys(event1.sa).length.should.equal(0);
+        Object.keys(event2.sa).length.should.equal(0);
 
         done();
     });
@@ -1838,26 +1882,46 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should fail to create product if name not specified', function(done) {
+    it('should fail to create product if name not a string', function(done) {
         var product = mParticle.eCommerce.createProduct(null);
+        var product2 = mParticle.eCommerce.createProduct(undefined);
+        var product3 = mParticle.eCommerce.createProduct(['product']);
+        var product4 = mParticle.eCommerce.createProduct(123);
+        var product5 = mParticle.eCommerce.createProduct({key: 'value'});
 
         Should(product).not.be.ok();
+        Should(product2).not.be.ok();
+        Should(product3).not.be.ok();
+        Should(product4).not.be.ok();
+        Should(product5).not.be.ok();
 
         done();
     });
 
-    it('should fail to create product if sku not specified', function(done) {
+    it('should fail to create product if sku not a string or a number', function(done) {
         var product = mParticle.eCommerce.createProduct('test', null);
+        var product2 = mParticle.eCommerce.createProduct('test', {key: 'value'});
+        var product3 = mParticle.eCommerce.createProduct('test', []);
+        var product4 = mParticle.eCommerce.createProduct('test', undefined);
 
         Should(product).not.be.ok();
+        Should(product2).not.be.ok();
+        Should(product3).not.be.ok();
+        Should(product4).not.be.ok();
 
         done();
     });
 
-    it('should fail to create product if price not specified', function(done) {
+    it('should fail to create product if price not a string or number', function(done) {
         var product = mParticle.eCommerce.createProduct('test', 'sku', null);
+        var product2 = mParticle.eCommerce.createProduct('test', 'sku', null);
+        var product3 = mParticle.eCommerce.createProduct('test', 'sku', null);
+        var product4 = mParticle.eCommerce.createProduct('test', 'sku', null);
 
         Should(product).not.be.ok();
+        Should(product2).not.be.ok();
+        Should(product3).not.be.ok();
+        Should(product4).not.be.ok();
 
         done();
     });
@@ -2340,12 +2404,15 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should not logLTVIncrease when no amount is passed', function(done) {
+    it('should not logLTVIncrease when no amount or an invalid amount is passed', function(done) {
         mParticle.logLTVIncrease();
-
         var event = getEvent('Increase LTV');
 
+        mParticle.logLTVIncrease('error');
+        var event2 = getEvent('Increase LTV');
+
         Should(event).not.be.ok();
+        Should(event2).not.be.ok();
 
         done();
     });
@@ -2937,15 +3004,48 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should not set bad user attribute value', function(done) {
+    it('should not set a bad user attribute key or value', function(done) {
         mParticle.setUserAttribute('gender', { bad: 'bad' });
+        mParticle.logEvent('test bad user attributes1');
+        var event1 = getEvent('test bad user attributes1');
 
-        mParticle.logEvent('test bad user attributes');
+        mParticle.setUserAttribute('gender', ['bad', 'bad', 'bad']);
+        mParticle.logEvent('test bad user attributes2');
+        var event2 = getEvent('test bad user attributes2');
 
-        var event = getEvent('test bad user attributes');
+        mParticle.setUserAttribute({ bad: 'bad' }, 'male');
+        mParticle.logEvent('test bad user attributes3');
+        var event3 = getEvent('test bad user attributes3');
 
-        event.should.have.property('ua');
-        event.ua.should.not.have.property('gender');
+        mParticle.setUserAttribute(['bad', 'bad', 'bad'], 'female');
+        mParticle.logEvent('test bad user attributes4');
+        var event4 = getEvent('test bad user attributes4');
+
+        mParticle.setUserAttribute(null, 'female');
+        mParticle.logEvent('test bad user attributes5');
+        var event5 = getEvent('test bad user attributes5');
+
+        mParticle.setUserAttribute(undefined, 'female');
+        mParticle.logEvent('test bad user attributes6');
+        var event6 = getEvent('test bad user attributes6');
+
+        event1.should.have.property('ua');
+        event1.ua.should.not.have.property('gender');
+
+        event2.should.have.property('ua');
+        event2.ua.should.not.have.property('gender');
+
+        event3.should.have.property('ua');
+        event3.ua.should.not.have.property('gender');
+
+        event4.should.have.property('ua');
+        event4.ua.should.not.have.property('gender');
+
+        event5.should.have.property('ua');
+        event5.ua.should.not.have.property('gender');
+
+        event6.should.have.property('ua');
+        event6.ua.should.not.have.property('gender');
 
         done();
     });
@@ -3428,6 +3528,60 @@ describe('mParticle Core SDK', function() {
         var sessionId = mParticle.sessionManager.getSession();
 
         data.sid.should.equal(sessionId);
+
+        done();
+    });
+
+    it('should correctly validate an attribute value', function(done) {
+        var validatedString = mParticle.Validators.isValidAttributeValue('testValue1');
+        var validatedNumber = mParticle.Validators.isValidAttributeValue(1);
+        var validatedNull = mParticle.Validators.isValidAttributeValue(null);
+        var validatedObject = mParticle.Validators.isValidAttributeValue({});
+        var validatedArray = mParticle.Validators.isValidAttributeValue([]);
+        var validatedUndefined = mParticle.Validators.isValidAttributeValue(undefined);
+
+        validatedString.should.be.ok();
+        validatedNumber.should.be.ok();
+        validatedNull.should.be.ok();
+        validatedObject.should.not.be.ok();
+        validatedArray.should.not.be.ok();
+        validatedUndefined.should.not.be.ok();
+
+        done();
+    });
+
+    it('should correctly validate a key value', function(done) {
+        var validatedString = mParticle.Validators.isValidKeyValue('testValue1');
+        var validatedNumber = mParticle.Validators.isValidKeyValue(1);
+        var validatedNull = mParticle.Validators.isValidKeyValue(null);
+        var validatedObject = mParticle.Validators.isValidKeyValue({});
+        var validatedArray = mParticle.Validators.isValidKeyValue([]);
+        var validatedUndefined = mParticle.Validators.isValidKeyValue(undefined);
+
+        validatedString.should.be.ok();
+        validatedNumber.should.be.ok();
+        validatedNull.should.not.be.ok();
+        validatedObject.should.not.be.ok();
+        validatedArray.should.not.be.ok();
+        validatedUndefined.should.not.be.ok();
+
+        done();
+    });
+
+    it('should correctly validate a string or number', function(done) {
+        var validatedString = mParticle.Validators.isStringOrNumber('testValue1');
+        var validatedNumber = mParticle.Validators.isStringOrNumber(1);
+        var validatedNull = mParticle.Validators.isStringOrNumber(null);
+        var validatedObject = mParticle.Validators.isStringOrNumber({});
+        var validatedArray = mParticle.Validators.isStringOrNumber([]);
+        var validatedUndefined = mParticle.Validators.isStringOrNumber(undefined);
+
+        validatedString.should.be.ok();
+        validatedNumber.should.be.ok();
+        validatedNull.should.not.be.ok();
+        validatedObject.should.not.be.ok();
+        validatedArray.should.not.be.ok();
+        validatedUndefined.should.not.be.ok();
 
         done();
     });

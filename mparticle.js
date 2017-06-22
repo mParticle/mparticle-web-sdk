@@ -1,5 +1,5 @@
 //
-//  Copyright 2015 mParticle, Inc.
+//  Copyright 2017 mParticle, Inc.
 //
 //  Licensed under the Apache License, Version 2.0 (the "License");
 //  you may not use this file except in compliance with the License.
@@ -286,7 +286,7 @@
         if (xhr && cb && 'withCredentials' in xhr) {
             xhr.onreadystatechange = cb;
         }
-        else if (typeof window.XDomainRequest != 'undefined') {
+        else if (typeof window.XDomainRequest !== 'undefined') {
             logDebug('Creating XDomainRequest object');
 
             try {
@@ -489,7 +489,7 @@
                 } else {
                     // Longer names are for backwards compatibility
                     sessionId = obj.sid || obj.SessionId || sessionId;
-                    isEnabled = (typeof obj.ie != 'undefined') ? obj.ie : obj.IsEnabled;
+                    isEnabled = (typeof obj.ie !== 'undefined') ? obj.ie : obj.IsEnabled;
                     sessionAttributes = obj.sa || obj.SessionAttributes || sessionAttributes;
                     userAttributes = obj.ua || obj.UserAttributes || userAttributes;
                     userIdentities = obj.ui || obj.UserIdentities || userIdentities;
@@ -806,7 +806,7 @@
                         for (var prop in event.EventAttributes) {
                             hashedName = generateHash(prop);
 
-                            if (hashedName == forwarders[i].filteringEventAttributeValue.eventAttributeName) {
+                            if (hashedName === forwarders[i].filteringEventAttributeValue.eventAttributeName) {
                                 foundProp = {
                                     name: hashedName,
                                     value: generateHash(event.EventAttributes[prop])
@@ -817,11 +817,9 @@
                         }
                     }
 
-                    var isMatch = foundProp != null
-                        && foundProp.value == forwarders[i].filteringEventAttributeValue.eventAttributeValue;
+                    var isMatch = foundProp !== null && foundProp.value === forwarders[i].filteringEventAttributeValue.eventAttributeValue;
 
-                    var shouldInclude =
-                        forwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
+                    var shouldInclude = forwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
 
                     if (!shouldInclude) {
                         continue;
@@ -833,24 +831,24 @@
                 clonedEvent = extend(true, clonedEvent, event);
 
                 // Check event filtering rules
-                if (event.EventDataType == MessageType.PageEvent
+                if (event.EventDataType === MessageType.PageEvent
                     && (inFilteredList(forwarders[i].eventNameFilters, hashedName)
                         || inFilteredList(forwarders[i].eventTypeFilters, hashedType))) {
                     continue;
                 }
-                else if (event.EventDataType == MessageType.Commerce && inFilteredList(forwarders[i].eventTypeFilters, hashedType)) {
+                else if (event.EventDataType === MessageType.Commerce && inFilteredList(forwarders[i].eventTypeFilters, hashedType)) {
                     continue;
                 }
-                else if (event.EventDataType == MessageType.PageView && inFilteredList(forwarders[i].pageViewFilters, hashedName)) {
+                else if (event.EventDataType === MessageType.PageView && inFilteredList(forwarders[i].pageViewFilters, hashedName)) {
                     continue;
                 }
 
                 // Check attribute filtering rules
                 if (clonedEvent.EventAttributes) {
-                    if (event.EventDataType == MessageType.PageEvent) {
+                    if (event.EventDataType === MessageType.PageEvent) {
                         filterAttributes(clonedEvent, forwarders[i].attributeFilters);
                     }
-                    else if (event.EventDataType == MessageType.PageView) {
+                    else if (event.EventDataType === MessageType.PageView) {
                         filterAttributes(clonedEvent, forwarders[i].pageViewAttributeFilters);
                     }
                 }
@@ -1055,7 +1053,7 @@
 
         dto.pb = convertProductBagToDTO();
 
-        if (event.EventDataType == MessageType.Commerce) {
+        if (event.EventDataType === MessageType.Commerce) {
             dto.cu = currencyCode;
 
             if (event.ShoppingCart) {
@@ -1100,7 +1098,7 @@
                 });
             }
         }
-        else if (event.EventDataType == MessageType.Profile) {
+        else if (event.EventDataType === MessageType.Profile) {
             dto.pet = event.ProfileMessageType;
         }
 
@@ -1814,7 +1812,7 @@
                     eventType || EventType.Other);
 
                 // TODO: Handle middle-clicks and special keys (ctrl, alt, etc)
-                if ((element.href && element.target != '_blank') || element.submit) {
+                if ((element.href && element.target !== '_blank') || element.submit) {
                     // Give xmlhttprequest enough time to execute before navigating a link or submitting form
 
                     if (e.preventDefault) {
@@ -1908,18 +1906,18 @@
         couponCode,
         attributes) {
 
-        if (!name) {
+        if (typeof name !== 'string') {
             logDebug('Name is required when creating a product');
             return null;
         }
 
-        if (!sku) {
-            logDebug('SKU is required when creating a product');
+        if (!Validators.isStringOrNumber(sku)) {
+            logDebug('SKU is required when creating a product, and must be a string or a number');
             return null;
         }
 
-        if (!price) {
-            logDebug('Price is required when creating a product');
+        if (!Validators.isStringOrNumber(price)) {
+            logDebug('Price is required when creating a product, and must be a string or a number');
             return null;
         }
 
@@ -1943,6 +1941,11 @@
     }
 
     function createPromotion(id, creative, name, position) {
+        if (!Validators.isStringOrNumber(id)) {
+            logDebug(ErrorMessages.PromotionIdRequired);
+            return null;
+        }
+
         return {
             Id: id,
             Creative: creative,
@@ -1952,7 +1955,7 @@
     }
 
     function createImpression(name, product) {
-        if (!name) {
+        if (typeof name !== 'string') {
             logDebug('Name is required when creating an impression.');
             return null;
         }
@@ -1975,7 +1978,7 @@
         shipping,
         tax) {
 
-        if (!id) {
+        if (!Validators.isStringOrNumber(id)) {
             logDebug(ErrorMessages.TransactionIdRequired);
             return null;
         }
@@ -1989,7 +1992,6 @@
             Tax: tax
         };
     }
-
 
     function callSetUserAttributeOnForwarders(key, value) {
         if (forwarders.length) {
@@ -2025,10 +2027,6 @@
         return null;
     }
 
-    function isValidAttributeValue(value) {
-        return !isObject(value) && !Array.isArray(value);
-    }
-
     function sanitizeAttributes(attrs) {
         if (!attrs || !isObject(attrs)) {
             return null;
@@ -2038,7 +2036,7 @@
 
         for (var prop in attrs) {
             // Make sure that attribute values are not objects or arrays, which are not valid
-            if (attrs.hasOwnProperty(prop) && isValidAttributeValue(attrs[prop])) {
+            if (attrs.hasOwnProperty(prop) && Validators.isValidAttributeValue(attrs[prop])) {
                 sanitizedAttrs[prop] = attrs[prop];
             }
         }
@@ -2225,7 +2223,10 @@
         NoEventType: 'Event type must be specified.',
         TransactionIdRequired: 'Transaction ID is required',
         TransactionRequired: 'A transaction attributes object is required',
-        BadAttribute: 'Attribute value cannot be object or array'
+        PromotionIdRequired: 'Promotion ID is required',
+        BadAttribute: 'Attribute value cannot be object or array',
+        BadKey: 'Key value cannot be object or array',
+        BadLogPurchase: 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions'
     };
 
     var InformationMessages = {
@@ -2426,6 +2427,22 @@
         }
     };
 
+    var Validators = {
+        // Null can be a valid attribute while undefined cannot
+        isValidAttributeValue: function(value) {
+            return value !== undefined && !isObject(value) && !Array.isArray(value);
+        },
+
+        // Neither null nor undefined can be a valid Key
+        isValidKeyValue: function(key) {
+            return Boolean(key && !isObject(key) && !Array.isArray(key));
+        },
+
+        isStringOrNumber: function(value) {
+            return (typeof value === 'string' || typeof value === 'number');
+        }
+    };
+
     var sessionManager = {
         initialize: function() {
             if (sessionId) {
@@ -2517,6 +2534,7 @@
         sessionManager: sessionManager,
         cookieSyncManager: cookieSyncManager,
         persistence: persistence,
+        Validators: Validators,
         IdentityType: IdentityType,
         EventType: EventType,
         CommerceEventType: CommerceEventType,
@@ -2548,10 +2566,10 @@
                     initForwarders();
                 }
 
-                if (typeof arguments[0] == 'object') {
+                if (typeof arguments[0] === 'object') {
                     config = arguments[0];
                 }
-                else if (arguments.length > 1 && typeof arguments[1] == 'object') {
+                else if (arguments.length > 1 && typeof arguments[1] === 'object') {
                     config = arguments[1];
                 }
 
@@ -2564,7 +2582,7 @@
             // Call any functions that are waiting for the library to be initialized
             if (readyQueue && readyQueue.length) {
                 readyQueue.forEach(function(readyQueueItem) {
-                    if (typeof readyQueueItem == 'function') {
+                    if (typeof readyQueueItem === 'function') {
                         readyQueueItem();
                     }
                 });
@@ -2602,7 +2620,7 @@
             isInitialized = false;
         },
         ready: function(f) {
-            if (isInitialized && typeof f == 'function') {
+            if (isInitialized && typeof f === 'function') {
                 f();
             }
             else {
@@ -2646,54 +2664,48 @@
             }
         },
         setUserIdentity: function(id, type) {
+            var userIdentity;
             mParticle.sessionManager.resetSessionTimer();
-            if (!type) {
-                logDebug('You must include a type to set a user identity');
-                return;
-            }
 
             if (canLog()) {
                 if (IdentityType.isValid(type)) {
+                    if (id === null || id === undefined || Validators.isStringOrNumber(id)) {
+                        mParticle.removeUserIdentity(id, type);
 
-                    if (id && (typeof(id) !== 'string' && typeof(id) !== 'number')) {
-                        logDebug('User identities passed to setUserIdentity must be strings');
-                        return;
-                    }
-
-                    var userIdentity = {
-                        Identity: id,
-                        Type: type
-                    };
-
-                    mParticle.removeUserIdentity(id, type);
-
-                    if (id === null || id === undefined) {
-                        return;
-                    }
-
-                    userIdentities.push(userIdentity);
-
-                    if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
-                        if (forwarders.length) {
-                            forwarders.forEach(function(forwarder) {
-                                if (forwarder.setUserIdentity &&
-                                    (!forwarder.userIdentityFilters ||
-                                    !inArray(forwarder.userIdentityFilters, type))) {
-                                    var result = forwarder.setUserIdentity(id, type);
-
-                                    if (result) {
-                                        logDebug(result);
-                                    }
-                                }
-                            });
+                        if (id === null || id === undefined) {
+                            return;
                         }
-                    }
 
-                    persistence.update();
+                        userIdentity = {
+                            Identity: id,
+                            Type: type
+                        };
+                        userIdentities.push(userIdentity);
+
+                        if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
+                            if (forwarders.length) {
+                                forwarders.forEach(function(forwarder) {
+                                    if (forwarder.setUserIdentity &&
+                                        (!forwarder.userIdentityFilters ||
+                                        !inArray(forwarder.userIdentityFilters, type))) {
+                                        var result = forwarder.setUserIdentity(id, type);
+
+                                        if (result) {
+                                            logDebug(result);
+                                        }
+                                    }
+                                });
+                            }
+                        }
+
+                        persistence.update();
+                    } else {
+                        logDebug('User identities passed to setUserIdentity must be strings or numbers');
+                        return;
+                    }
                 } else {
                     logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
                 }
-
             }
         },
         getUserIdentity: function(id) {
@@ -2737,7 +2749,7 @@
         },
         logEvent: function(eventName, eventType, eventInfo, customFlags) {
             mParticle.sessionManager.resetSessionTimer();
-            if (typeof (eventName) != 'string') {
+            if (typeof (eventName) !== 'string') {
                 logDebug(ErrorMessages.EventNameInvalidType);
                 return;
             }
@@ -2764,7 +2776,7 @@
                 return;
             }
 
-            if (typeof error == 'string') {
+            if (typeof error === 'string') {
                 error = {
                     message: error
                 };
@@ -2821,6 +2833,10 @@
         eCommerce: {
             ProductBags: {
                 add: function(productBagName, product) {
+                    if (!Validators.isStringOrNumber(productBagName)) {
+                        logDebug('ProductBagName is required and must be a string or number');
+                        return;
+                    }
                     mParticle.sessionManager.resetSessionTimer();
                     if (!productsBags[productBagName]) {
                         productsBags[productBagName] = [];
@@ -2916,6 +2932,10 @@
                 }
             },
             setCurrencyCode: function(code) {
+                if (typeof code !== 'string') {
+                    logDebug('Code must be a string');
+                    return;
+                }
                 mParticle.sessionManager.resetSessionTimer();
                 currencyCode = code;
             },
@@ -2944,6 +2964,10 @@
                 logProductActionEvent(productActionType, product, attrs);
             },
             logPurchase: function(transactionAttributes, product, clearCart, attrs) {
+                if (!transactionAttributes || !product) {
+                    logDebug(ErrorMessages.BadLogPurchase);
+                    return;
+                }
                 mParticle.sessionManager.resetSessionTimer();
                 logPurchaseEvent(transactionAttributes, product, attrs);
 
@@ -3005,7 +3029,7 @@
         logLTVIncrease: function(amount, eventName, attributes) {
             mParticle.sessionManager.resetSessionTimer();
 
-            if (!amount) {
+            if (typeof amount !== 'number') {
                 logDebug('A valid amount must be passed to logLTVIncrease.');
                 return;
             }
@@ -3018,25 +3042,29 @@
             attributes[METHOD_NAME] = LOG_LTV;
 
             logEvent(MessageType.PageEvent,
-                !eventName ? 'Increase LTV' : eventName,
+                eventName || 'Increase LTV',
                 attributes,
                 EventType.Transaction);
         },
         setUserTag: function(tagName) {
             mParticle.sessionManager.resetSessionTimer();
+
+            if (!Validators.isValidKeyValue(tagName)) {
+                logDebug(ErrorMessages.BadKey);
+                return;
+            }
+
             window.mParticle.setUserAttribute(tagName, null);
         },
         removeUserTag: function(tagName) {
             mParticle.sessionManager.resetSessionTimer();
-            var existingProp = findKeyInObject(userAttributes, tagName);
 
-            if (existingProp) {
-                tagName = existingProp;
+            if (!Validators.isValidKeyValue(tagName)) {
+                logDebug(ErrorMessages.BadKey);
+                return;
             }
 
-            delete userAttributes[tagName];
-            tryNativeSdk(NativeSdkPaths.RemoveUserTag, JSON.stringify({ key: tagName, value: null }));
-            persistence.update();
+            window.mParticle.removeUserAttribute(tagName);
         },
         setUserAttribute: function(key, value) {
             mParticle.sessionManager.resetSessionTimer();
@@ -3044,8 +3072,13 @@
             // And logs to in-memory object
             // Example: mParticle.setUserAttribute('email', 'tbreffni@mparticle.com');
             if (canLog()) {
-                if (!isValidAttributeValue(value)) {
+                if (!Validators.isValidAttributeValue(value)) {
                     logDebug(ErrorMessages.BadAttribute);
+                    return;
+                }
+
+                if (!Validators.isValidKeyValue(key)) {
+                    logDebug(ErrorMessages.BadKey);
                     return;
                 }
 
@@ -3065,6 +3098,12 @@
         },
         removeUserAttribute: function(key) {
             mParticle.sessionManager.resetSessionTimer();
+
+            if (!Validators.isValidKeyValue(key)) {
+                logDebug(ErrorMessages.BadKey);
+                return;
+            }
+
             var existingProp = findKeyInObject(userAttributes, key);
 
             if (existingProp) {
@@ -3074,13 +3113,19 @@
             delete userAttributes[key];
 
             if (!tryNativeSdk(NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }))) {
-                applyToForwarders('removeUserAttribute', key, null);
+                applyToForwarders('removeUserAttribute', key);
             }
 
             persistence.update();
         },
         setUserAttributeList: function(key, value) {
             mParticle.sessionManager.resetSessionTimer();
+
+            if (!Validators.isValidKeyValue(key)) {
+                logDebug(ErrorMessages.BadKey);
+                return;
+            }
+
             if (Array.isArray(value)) {
                 var arrayCopy = value.slice();
 
@@ -3148,8 +3193,13 @@
             // And logs to in-memory object
             // Example: mParticle.setSessionAttribute('location', '33431');
             if (canLog()) {
-                if (!isValidAttributeValue(value)) {
+                if (!Validators.isValidAttributeValue(value)) {
                     logDebug(ErrorMessages.BadAttribute);
+                    return;
+                }
+
+                if (!Validators.isValidKeyValue(key)) {
+                    logDebug(ErrorMessages.BadKey);
                     return;
                 }
 
@@ -3250,7 +3300,7 @@
             }
 
             for (var i = 0; i < forwarderConstructors.length; i++) {
-                if (forwarderConstructors[i].name == config.name) {
+                if (forwarderConstructors[i].name === config.name) {
                     if (config.isDebug === mParticle.isSandbox || config.isSandbox === mParticle.isSandbox) {
                         newForwarder = new forwarderConstructors[i].constructor();
 
