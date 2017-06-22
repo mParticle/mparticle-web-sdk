@@ -5,6 +5,7 @@ describe('mParticle Core SDK', function() {
         testMPID = 'testMPID',
         key = 'mprtcl-api',
         pluses = /\+/g,
+        ProductBag = 'my bag',
         decoded = function(s) {
             return decodeURIComponent(s.replace(pluses, ' '));
         },
@@ -717,10 +718,63 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should update cart products in cookies after adding/removing product to/from a cart and clearing cart', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
+        mParticle.eCommerce.Cart.add(product);
+        var cookiesAfterAdding1 = mParticle.persistence.getLocalStorage();
+
+        cookiesAfterAdding1.cp[0].should.have.properties(['Name', 'Sku', 'Price']);
+
+        mParticle.eCommerce.Cart.remove(product);
+        var cookiesAfterRemoving = mParticle.persistence.getLocalStorage();
+
+        cookiesAfterRemoving.cp.length.should.equal(0);
+
+        mParticle.eCommerce.Cart.add(product);
+        var cookiesAfterAdding2 = mParticle.persistence.getLocalStorage();
+
+        cookiesAfterAdding2.cp[0].should.have.properties(['Name', 'Sku', 'Price']);
+
+        mParticle.eCommerce.Cart.clear(ProductBag);
+        var cookiesAfterClearing = mParticle.persistence.getLocalStorage();
+
+        cookiesAfterClearing.cp.length.should.equal(0);
+
+        done();
+    });
+
+    it('should not add the (mParticle.maxProducts + 1st) item to cookie cartItems, but still persist all items in memory for logging', function(done) {
+        var product = mParticle.eCommerce.createProduct('Product', '12345', 400);
+        for (var i = 0; i < mParticle.maxProducts; i++) {
+            mParticle.eCommerce.Cart.add(product);
+        }
+
+        mParticle.eCommerce.Cart.add(mParticle.eCommerce.createProduct('Product21', '12345', 400));
+        var cookiesAfterAdding = mParticle.persistence.getLocalStorage();
+        var foundProductInCookies = cookiesAfterAdding.cp.filter(function(product) {
+            return product.Name === 'Product21';
+        })[0];
+
+        cookiesAfterAdding.cp.length.should.equal(20);
+        Should(foundProductInCookies).not.be.ok();
+
+        // Events log with in memory data, so product bag has 21 and product is found in memory
+        mParticle.eCommerce.logCheckout();
+        var event = getEvent('eCommerce - Checkout');
+        var foundProductInMemory = event.pd.pl.filter(function(product) {
+            return product.nm === 'Product21';
+        })[0];
+
+        event.pd.pl.length.should.equal(21);
+        foundProductInMemory.nm.should.equal('Product21');
+
+        done();
+    });
+
     it('should add product to product bag', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
-        mParticle.eCommerce.ProductBags.add('my bag', product);
+        mParticle.eCommerce.ProductBags.add(ProductBag, product);
 
         mParticle.logEvent('my event');
 
@@ -730,17 +784,17 @@ describe('mParticle Core SDK', function() {
 
         event.should.have.property('pb');
 
-        event.pb.should.have.property('my bag');
-        event.pb['my bag'].should.have.property('pl').with.lengthOf(1);
-        event.pb['my bag'].pl[0].should.have.property('id', '12345');
+        event.pb.should.have.property(ProductBag);
+        event.pb[ProductBag].should.have.property('pl').with.lengthOf(1);
+        event.pb[ProductBag].pl[0].should.have.property('id', '12345');
 
         done();
     });
 
     it('should remove product from product bag', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-        mParticle.eCommerce.ProductBags.add('my bag', product);
-        mParticle.eCommerce.ProductBags.remove('my bag', product);
+        mParticle.eCommerce.ProductBags.add(ProductBag, product);
+        mParticle.eCommerce.ProductBags.remove(ProductBag, product);
 
         mParticle.logEvent('my event');
 
@@ -750,16 +804,16 @@ describe('mParticle Core SDK', function() {
 
         event.should.have.property('pb');
 
-        event.pb.should.have.property('my bag');
-        event.pb['my bag'].should.have.property('pl').with.lengthOf(0);
+        event.pb.should.have.property(ProductBag);
+        event.pb[ProductBag].should.have.property('pl').with.lengthOf(0);
 
         done();
     });
 
     it('should clear product bag', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-        mParticle.eCommerce.ProductBags.add('my bag', product);
-        mParticle.eCommerce.ProductBags.clear('my bag');
+        mParticle.eCommerce.ProductBags.add(ProductBag, product);
+        mParticle.eCommerce.ProductBags.clear(ProductBag);
 
         mParticle.logEvent('my event');
 
@@ -769,8 +823,60 @@ describe('mParticle Core SDK', function() {
 
         event.should.have.property('pb');
 
-        event.pb.should.have.property('my bag');
-        event.pb['my bag'].should.have.property('pl').with.lengthOf(0);
+        event.pb.should.have.property(ProductBag);
+        event.pb[ProductBag].should.have.property('pl').with.lengthOf(0);
+
+        done();
+    });
+
+    it('should update product bags in storage after adding/removing product to/from a product bag and clearing product bag', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
+        mParticle.eCommerce.ProductBags.add(ProductBag, product);
+        var cookiesAfterAdding1 = mParticle.persistence.getLocalStorage();
+
+        cookiesAfterAdding1.pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
+
+        mParticle.eCommerce.ProductBags.remove(ProductBag, product);
+        var cookiesAfterRemoving = mParticle.persistence.getLocalStorage();
+
+        Object.keys(cookiesAfterRemoving.pb[ProductBag]).length.should.equal(0);
+
+        mParticle.eCommerce.ProductBags.add(ProductBag, product);
+        var cookiesAfterAdding2 = mParticle.persistence.getLocalStorage();
+
+        cookiesAfterAdding2.pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
+
+        mParticle.eCommerce.ProductBags.clear(ProductBag);
+        var cookiesAfterClearing = mParticle.persistence.getLocalStorage();
+
+        Object.keys(cookiesAfterClearing.pb[ProductBag]).length.should.equal(0);
+
+        done();
+    });
+
+    it('should not add the (mParticle.maxProducts + 1st) item to productBags, but still persist all items in memory for logging', function(done) {
+        var product = mParticle.eCommerce.createProduct('Product', '12345', 400);
+        for (var i = 0; i < mParticle.maxProducts; i++) {
+            mParticle.eCommerce.ProductBags.add(ProductBag, product);
+        }
+        mParticle.eCommerce.ProductBags.add(ProductBag, mParticle.eCommerce.createProduct('Product21', '54321', 100));
+        var cookiesAfterAdding = mParticle.persistence.getLocalStorage();
+        var foundProductInCookies = cookiesAfterAdding.pb[ProductBag].filter(function(product) {
+            return product.Name === 'Product21';
+        })[0];
+
+        cookiesAfterAdding.pb[ProductBag].length.should.equal(20);
+        Should(foundProductInCookies).not.be.ok();
+
+        // Events log with in memory data, so in memory productBag should have 21 and product is found in memory
+        mParticle.eCommerce.logCheckout();
+        var event = getEvent('eCommerce - Checkout');
+        var foundProductInMemory = event.pb[ProductBag].pl.filter(function(product) {
+            return product.nm === 'Product21';
+        })[0];
+
+        event.pb[ProductBag].pl.length.should.equal(21);
+        foundProductInMemory.nm.should.equal('Product21');
 
         done();
     });
@@ -1703,7 +1809,7 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         window.mParticleAndroid = new mParticleAndroid();
 
-        mParticle.eCommerce.ProductBags.add('my bag', {});
+        mParticle.eCommerce.ProductBags.add(ProductBag, {});
 
         window.mParticleAndroid.should.have.property('addToProductBagCalled', true);
 
@@ -1714,7 +1820,7 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         window.mParticleAndroid = new mParticleAndroid();
 
-        mParticle.eCommerce.ProductBags.remove('my bag', {});
+        mParticle.eCommerce.ProductBags.remove(ProductBag, {});
 
         window.mParticleAndroid.should.have.property('removeFromProductBagCalled', true);
 
@@ -1725,7 +1831,7 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         window.mParticleAndroid = new mParticleAndroid();
 
-        mParticle.eCommerce.ProductBags.clear('my bag');
+        mParticle.eCommerce.ProductBags.clear(ProductBag);
 
         window.mParticleAndroid.should.have.property('clearProductBagCalled', true);
 
@@ -3203,7 +3309,7 @@ describe('mParticle Core SDK', function() {
         var parsedCookie = JSON.parse(cookieData);
 
         cookieDataType.should.be.type('string');
-        parsedCookie.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
+        parsedCookie.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
         Should(localStorageData).not.be.ok();
 
         done();
@@ -3217,7 +3323,7 @@ describe('mParticle Core SDK', function() {
 
         var localStorageData = mParticle.persistence.getLocalStorage();
 
-        localStorageData.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
+        localStorageData.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
         Should(cookieData).not.be.ok();
 
         done();
@@ -3237,7 +3343,7 @@ describe('mParticle Core SDK', function() {
         localStorageData = mParticle.persistence.getLocalStorage();
 
         cookieDataType.should.be.type('string');
-        parsedCookie.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
+        parsedCookie.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
         Should(localStorageData).not.be.ok();
 
         done();
@@ -3252,7 +3358,7 @@ describe('mParticle Core SDK', function() {
 
         localStorageData = mParticle.persistence.getLocalStorage();
         cookieData = mParticle.persistence.getCookie();
-        localStorageData.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
+        localStorageData.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
         Should(cookieData).not.be.ok();
 
         done();

@@ -416,23 +416,39 @@
             }
         },
 
+        convertInMemoryData: function() {
+            var inMemoryData = {
+                sid: sessionId,
+                ie: isEnabled,
+                sa: sessionAttributes,
+                ua: userAttributes,
+                ui: userIdentities,
+                ss: serverSettings,
+                dt: devToken,
+                les: dateLastEventSent ? dateLastEventSent.getTime() : null,
+                av: appVersion,
+                cgid: clientId,
+                das: deviceId,
+                csd: cookieSyncDates,
+                mpid: mpid,
+                cp: cartProducts.length <= mParticle.maxProducts ? cartProducts : cartProducts.slice(0, mParticle.maxProducts),
+                pb: {}
+            };
+
+            for (var bag in productsBags) {
+                if (productsBags[bag].length > mParticle.maxProducts) {
+                    inMemoryData.pb[bag] = productsBags[bag].slice(0, mParticle.maxProducts);
+                } else {
+                    inMemoryData.pb[bag] = productsBags[bag];
+                }
+            }
+
+            return inMemoryData;
+        },
+
         setLocalStorage: function() {
             var key = Config.LocalStorageName,
-                value = {
-                    sid: sessionId,
-                    ie: isEnabled,
-                    sa: sessionAttributes,
-                    ua: userAttributes,
-                    ui: userIdentities,
-                    ss: serverSettings,
-                    dt: devToken,
-                    les: dateLastEventSent ? dateLastEventSent.getTime() : null,
-                    av: appVersion,
-                    cgid: clientId,
-                    das: deviceId,
-                    csd: cookieSyncDates,
-                    mpid: mpid
-                };
+                value = this.convertInMemoryData();
 
             try {
                 window.localStorage.setItem(encodeURIComponent(key), encodeURIComponent(JSON.stringify(value)));
@@ -486,6 +502,8 @@
                     clientId = obj.cgid || generateUniqueId();
                     deviceId = obj.das || null;
                     mpid = obj.mpid || null;
+                    cartProducts = obj.cp || [];
+                    productsBags = obj.pb || {};
 
                     if (obj.les) {
                         dateLastEventSent = new Date(obj.les);
@@ -585,21 +603,7 @@
         setCookie: function() {
             var date = new Date(),
                 key = Config.CookieName,
-                value = {
-                    sid: sessionId,
-                    ie: isEnabled,
-                    sa: sessionAttributes,
-                    ua: userAttributes,
-                    ui: userIdentities,
-                    ss: serverSettings,
-                    dt: devToken,
-                    les: dateLastEventSent ? dateLastEventSent.getTime() : null,
-                    av: appVersion,
-                    cgid: clientId,
-                    das: deviceId,
-                    csd: cookieSyncDates,
-                    mpid: mpid
-                },
+                value = this.convertInMemoryData(),
                 expires = new Date(date.getTime() +
                     (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
                 domain = Config.CookieDomain ? ';domain=' + Config.CookieDomain : '';
@@ -2205,7 +2209,8 @@
         Timeout: 300,					// Timeout in milliseconds for logging functions
         SessionTimeout: 30,				// Session timeout in minutes
         Sandbox: false,                 // Events are marked as debug and only forwarded to debug forwarders,
-        Version: null                   // The version of this website/app
+        Version: null,                  // The version of this website/app
+        MaxProducts: 20     // Number of products persisted in
     };
 
     var Config = {};
@@ -2506,6 +2511,7 @@
         isDebug: false,
         isSandbox: false,
         useCookieStorage: false,
+        maxProducts: DefaultConfig.MaxProducts,
         getDeviceId: getDeviceId,
         generateHash: generateHash,
         sessionManager: sessionManager,
@@ -2822,6 +2828,11 @@
 
                     productsBags[productBagName].push(product);
 
+                    if (productsBags[productBagName].length > mParticle.maxProducts) {
+                        logDebug(productBagName + ' contains ' + productsBags[productBagName].length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
+                    }
+                    persistence.update();
+
                     tryNativeSdk(NativeSdkPaths.AddToProductBag, JSON.stringify(product));
                 },
                 remove: function(productBagName, product) {
@@ -2838,13 +2849,14 @@
                         if (productIndex > -1) {
                             productsBags[productBagName].splice(productIndex, 1);
                         }
+                        persistence.update();
                     }
-
                     tryNativeSdk(NativeSdkPaths.RemoveFromProductBag, JSON.stringify(product));
                 },
                 clear: function(productBagName) {
                     mParticle.sessionManager.resetSessionTimer();
                     productsBags[productBagName] = [];
+                    persistence.update();
 
                     tryNativeSdk(NativeSdkPaths.ClearProductBag, productBagName);
                 }
@@ -2858,12 +2870,17 @@
 
                     cartProducts = cartProducts.concat(arrayCopy);
 
+                    if (cartProducts.length > mParticle.maxProducts) {
+                        logDebug('The cart contains ' + cartProducts.length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
+                    }
+
                     if (isWebViewEmbedded()) {
                         tryNativeSdk(NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
                     }
                     else if (logEvent === true) {
                         logProductActionEvent(ProductActionType.AddToCart, arrayCopy);
                     }
+                    persistence.update();
                 },
                 remove: function(product, logEvent) {
                     mParticle.sessionManager.resetSessionTimer();
@@ -2889,11 +2906,13 @@
                             }
                         }
                     }
+                    persistence.update();
                 },
                 clear: function() {
                     mParticle.sessionManager.resetSessionTimer();
                     cartProducts = [];
                     tryNativeSdk(NativeSdkPaths.ClearCart);
+                    persistence.update();
                 }
             },
             setCurrencyCode: function(code) {
@@ -3295,6 +3314,10 @@
 
         if (window.mParticle.config.hasOwnProperty('useCookieStorage')) {
             mParticle.useCookieStorage = window.mParticle.config.useCookieStorage;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('maxProducts')) {
+            mParticle.maxProducts = window.mParticle.config.maxProducts;
         }
 
         if (window.mParticle.config.hasOwnProperty('appName')) {
