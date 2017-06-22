@@ -2371,27 +2371,23 @@
         attemptCookieSync: function(previousMPID, mpid) {
             var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
             if (mpid && !isWebViewEmbedded()) {
-                if (previousMPID && previousMPID !== mpid) {
-                    cookieSyncManager.performCookieSync();
-                }
-                else {
-                    pixelConfigurations.forEach(function(pixelSettings) {
-                        pixelConfig = {
-                            name: pixelSettings.name,
-                            moduleId: pixelSettings.moduleId,
-                            esId: pixelSettings.esId,
-                            isDebug: pixelSettings.isDebug,
-                            isProduction: pixelSettings.isProduction,
-                            settings: pixelSettings.settings,
-                            frequencyCap: pixelSettings.frequencyCap,
-                            pixelUrl: cookieSyncManager.replaceAmp(pixelSettings.pixelUrl),
-                            redirectUrl: pixelSettings.redirectUrl ? cookieSyncManager.replaceAmp(pixelSettings.redirectUrl) : null
-                        };
+                pixelConfigurations.forEach(function(pixelSettings) {
+                    pixelConfig = {
+                        moduleId: pixelSettings.moduleId,
+                        frequencyCap: pixelSettings.frequencyCap,
+                        pixelUrl: cookieSyncManager.replaceAmp(pixelSettings.pixelUrl),
+                        redirectUrl: pixelSettings.redirectUrl ? cookieSyncManager.replaceAmp(pixelSettings.redirectUrl) : null
+                    };
 
+                    url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
+                    redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
+                    urlWithRedirect = url + encodeURIComponent(redirect);
+
+                    if (previousMPID && previousMPID !== mpid) {
+                        cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                        return;
+                    } else {
                         lastSyncDateForModule = cookieSyncDates[(pixelConfig.moduleId).toString()] ? cookieSyncDates[(pixelConfig.moduleId).toString()] : null;
-                        url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
-                        redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
-                        urlWithRedirect = url + encodeURIComponent(redirect);
 
                         if (lastSyncDateForModule) {
                             // Check to see if we need to refresh cookieSync
@@ -2401,8 +2397,8 @@
                         } else {
                             cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
                         }
-                    });
-                }
+                    }
+                });
             }
         },
 

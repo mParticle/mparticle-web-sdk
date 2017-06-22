@@ -2907,7 +2907,7 @@ describe('mParticle Core SDK', function() {
             redirectUrl:''
         };
         mParticle.configurePixel(pixelSettings);
-        mParticle.cookieSyncManager.attemptCookieSync(null, 'mpid123');
+        mParticle.init(apiKey);
 
         setTimeout(function() {
             var data = mParticle.persistence.getLocalStorage();
@@ -2937,7 +2937,7 @@ describe('mParticle Core SDK', function() {
             csd: { 5: (new Date(500)).getTime() }
         });
 
-        mParticle.cookieSyncManager.attemptCookieSync(testMPID, testMPID);
+        mParticle.init(apiKey);
 
         setTimeout(function() {
             var data = mParticle.persistence.getLocalStorage();
@@ -3027,16 +3027,17 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         mParticle.configurePixel(pixelSettings);
 
+        mParticle.init(apiKey);
+        var data1 = mParticle.persistence.getLocalStorage();
+
         setLocalStorage({
             mpid: 'differentMPID'
         });
 
         mParticle.init(apiKey);
+        var data2 = mParticle.persistence.getLocalStorage();
 
-        var data1 = mParticle.persistence.getLocalStorage();
-
-        mParticle.init(apiKey);
-        data1.csd.should.have.property(5);
+        data1.csd[5].should.not.equal(data2.csd[5]);
 
         done();
     });
