@@ -90,10 +90,8 @@ describe('mParticle Core SDK', function() {
         getEvent = function(eventName, isForwarding) {
             var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
                 matchedEvent = null;
-
             requests.forEach(function(item) {
                 var data = JSON.parse(item.requestText);
-
                 if (data.n === eventName) {
                     matchedEvent = data;
                 }
@@ -344,7 +342,8 @@ describe('mParticle Core SDK', function() {
         mParticle.init(apiKey);
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-        localStorageData.ui.length.should.equal(2);
+
+        localStorageData[testMPID].ui.length.should.equal(2);
 
         done();
     });
@@ -359,7 +358,7 @@ describe('mParticle Core SDK', function() {
         mParticle.init(apiKey);
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-        localStorageData.ui.length.should.equal(1);
+        localStorageData[testMPID].ui.length.should.equal(1);
 
         done();
     });
@@ -718,23 +717,19 @@ describe('mParticle Core SDK', function() {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
         mParticle.eCommerce.Cart.add(product);
         var cookiesAfterAdding1 = mParticle.persistence.getLocalStorage();
-
-        cookiesAfterAdding1.cp[0].should.have.properties(['Name', 'Sku', 'Price']);
+        cookiesAfterAdding1[testMPID].cp[0].should.have.properties(['Name', 'Sku', 'Price']);
 
         mParticle.eCommerce.Cart.remove(product);
         var cookiesAfterRemoving = mParticle.persistence.getLocalStorage();
-
-        cookiesAfterRemoving.cp.length.should.equal(0);
+        cookiesAfterRemoving[testMPID].cp.length.should.equal(0);
 
         mParticle.eCommerce.Cart.add(product);
         var cookiesAfterAdding2 = mParticle.persistence.getLocalStorage();
-
-        cookiesAfterAdding2.cp[0].should.have.properties(['Name', 'Sku', 'Price']);
+        cookiesAfterAdding2[testMPID].cp[0].should.have.properties(['Name', 'Sku', 'Price']);
 
         mParticle.eCommerce.Cart.clear(ProductBag);
         var cookiesAfterClearing = mParticle.persistence.getLocalStorage();
-
-        cookiesAfterClearing.cp.length.should.equal(0);
+        cookiesAfterClearing[testMPID].cp.length.should.equal(0);
 
         done();
     });
@@ -747,11 +742,12 @@ describe('mParticle Core SDK', function() {
 
         mParticle.eCommerce.Cart.add(mParticle.eCommerce.createProduct('Product21', '12345', 400));
         var cookiesAfterAdding = mParticle.persistence.getLocalStorage();
-        var foundProductInCookies = cookiesAfterAdding.cp.filter(function(product) {
-            return product.Name === 'Product21';
+
+        var foundProductInCookies = cookiesAfterAdding[testMPID].cp.filter(function(product) {
+            return product.Name === 'Product1';
         })[0];
 
-        cookiesAfterAdding.cp.length.should.equal(20);
+        cookiesAfterAdding[testMPID].cp.length.should.equal(20);
         Should(foundProductInCookies).not.be.ok();
 
         // Events log with in memory data, so product bag has 21 and product is found in memory
@@ -829,23 +825,19 @@ describe('mParticle Core SDK', function() {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
         mParticle.eCommerce.ProductBags.add(ProductBag, product);
         var cookiesAfterAdding1 = mParticle.persistence.getLocalStorage();
-
-        cookiesAfterAdding1.pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
+        cookiesAfterAdding1[testMPID].pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
 
         mParticle.eCommerce.ProductBags.remove(ProductBag, product);
         var cookiesAfterRemoving = mParticle.persistence.getLocalStorage();
-
-        Object.keys(cookiesAfterRemoving.pb[ProductBag]).length.should.equal(0);
+        Object.keys(cookiesAfterRemoving[testMPID].pb[ProductBag]).length.should.equal(0);
 
         mParticle.eCommerce.ProductBags.add(ProductBag, product);
         var cookiesAfterAdding2 = mParticle.persistence.getLocalStorage();
-
-        cookiesAfterAdding2.pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
+        cookiesAfterAdding2[testMPID].pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
 
         mParticle.eCommerce.ProductBags.clear(ProductBag);
         var cookiesAfterClearing = mParticle.persistence.getLocalStorage();
-
-        Object.keys(cookiesAfterClearing.pb[ProductBag]).length.should.equal(0);
+        Object.keys(cookiesAfterClearing[testMPID].pb[ProductBag]).length.should.equal(0);
 
         done();
     });
@@ -857,11 +849,12 @@ describe('mParticle Core SDK', function() {
         }
         mParticle.eCommerce.ProductBags.add(ProductBag, mParticle.eCommerce.createProduct('Product21', '54321', 100));
         var cookiesAfterAdding = mParticle.persistence.getLocalStorage();
-        var foundProductInCookies = cookiesAfterAdding.pb[ProductBag].filter(function(product) {
-            return product.Name === 'Product21';
+
+        var foundProductInCookies = cookiesAfterAdding[testMPID].pb[ProductBag].filter(function(product) {
+            return product.Name === 'Product1';
         })[0];
 
-        cookiesAfterAdding.pb[ProductBag].length.should.equal(20);
+        cookiesAfterAdding[testMPID].pb[ProductBag].length.should.equal(20);
         Should(foundProductInCookies).not.be.ok();
 
         // Events log with in memory data, so in memory productBag should have 21 and product is found in memory
@@ -1119,6 +1112,7 @@ describe('mParticle Core SDK', function() {
 
             Should(result1).not.be.ok();
             Should(result2).be.ok();
+
             done();
         }, 5);
     });
@@ -1595,7 +1589,6 @@ describe('mParticle Core SDK', function() {
 
         mParticle.logEvent('test event2');
         mParticle.logEvent('test event');
-
         var event = getEvent('test event');
 
         event.should.have.property('str');
@@ -2023,7 +2016,6 @@ describe('mParticle Core SDK', function() {
     it('log event requires name', function(done) {
         server.requests = [];
         mParticle.logEvent();
-
 
         Should(server.requests).have.lengthOf(0);
 
@@ -3117,7 +3109,7 @@ describe('mParticle Core SDK', function() {
 
         setTimeout(function() {
             var data = mParticle.persistence.getLocalStorage();
-            data.csd.should.have.property('5');
+            data[testMPID].csd.should.have.property('5');
 
             done();
         }, 50);
@@ -3147,7 +3139,8 @@ describe('mParticle Core SDK', function() {
 
         setTimeout(function() {
             var data = mParticle.persistence.getLocalStorage();
-            var updated = data.csd['5']>500;
+            var updated = data[testMPID].csd['5']>500;
+
             Should(updated).be.ok();
 
             done();
@@ -3155,6 +3148,7 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should not sync cookies when last date is within frequencyCap', function(done) {
+        //TODO: CHECK THIS TEST WITH CSD
         mParticle.reset();
         var pixelSettings = {
             name: 'AdobeEventForwarder',
@@ -3179,7 +3173,7 @@ describe('mParticle Core SDK', function() {
 
         var data = mParticle.persistence.getLocalStorage();
 
-        data.csd.should.have.property(5, lastCookieSyncTime);
+        data[testMPID].csd.should.have.property(5, lastCookieSyncTime);
 
         done();
     });
@@ -3212,8 +3206,8 @@ describe('mParticle Core SDK', function() {
 
         var data2 = mParticle.persistence.getLocalStorage();
 
-        Object.keys(data1.csd).length.should.equal(0);
-        Object.keys(data2.csd).length.should.equal(0);
+        Object.keys(data1[testMPID].csd).length.should.equal(0);
+        Object.keys(data2[testMPID].csd).length.should.equal(0);
 
         done();
     });
@@ -3236,14 +3230,18 @@ describe('mParticle Core SDK', function() {
         mParticle.init(apiKey);
         var data1 = mParticle.persistence.getLocalStorage();
 
-        setLocalStorage({
-            mpid: 'differentMPID'
-        });
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'otherMPID'
+            }));
+        };
 
-        mParticle.init(apiKey);
+        mParticle.logEvent('test event');
         var data2 = mParticle.persistence.getLocalStorage();
-
-        data1.csd[5].should.not.equal(data2.csd[5]);
+        data1[testMPID].csd[5].should.be.ok();
+        data2['otherMPID'].csd[5].should.be.ok();
 
         done();
     });
@@ -3268,9 +3266,7 @@ describe('mParticle Core SDK', function() {
 
         var data1 = mParticle.persistence.getLocalStorage();
 
-        mParticle.init(apiKey);
-
-        Object.keys(data1.csd).should.not.have.property(5);
+        Object.keys(data1[testMPID].csd).should.not.have.property(5);
 
         done();
     });
@@ -3295,9 +3291,7 @@ describe('mParticle Core SDK', function() {
 
         var data1 = mParticle.persistence.getLocalStorage();
 
-        mParticle.init(apiKey);
-
-        Object.keys(data1.csd).should.not.have.property(5);
+        data1[testMPID].csd.should.not.have.property(5);
 
         done();
     });
@@ -3338,22 +3332,28 @@ describe('mParticle Core SDK', function() {
 
     it('should move data from cookies to localStorage with useCookieStorage = false', function(done) {
         mParticle.reset();
-        setCookie({ui: [{Identity: 123, Type: 1}]});
+        setCookie({
+            testMPID: {
+                ui: [{Identity: 123, Type: 1}]
+            },
+            currentUserMPID: testMPID
+        });
         var beforeInitCookieData = JSON.parse(getCookie());
 
         mParticle.useCookieStorage = false;
-        mParticle.init(apiKey);
 
+        mParticle.init(apiKey);
 
         mParticle.setUserAttribute('gender', 'male');
 
         var localStorageData = mParticle.persistence.getLocalStorage();
+
         var afterInitCookieData = getCookie();
 
-        beforeInitCookieData.ui[0].should.have.property('Identity', 123);
-        localStorageData.ua.should.have.property('gender', 'male');
-        localStorageData.ui[0].should.have.property('Identity', 123);
-        localStorageData.ui[0].should.have.property('Type', 1);
+        beforeInitCookieData[testMPID].ui[0].should.have.property('Identity', 123);
+        localStorageData[testMPID].ua.should.have.property('gender', 'male');
+        localStorageData[testMPID].ui[0].should.have.property('Identity', 123);
+        localStorageData[testMPID].ui[0].should.have.property('Type', 1);
         Should(afterInitCookieData).not.be.ok();
 
         done();
@@ -3375,8 +3375,8 @@ describe('mParticle Core SDK', function() {
 
         Should(localStorageData).not.be.ok();
 
-        cookieData.ua.should.have.property('gender', 'male');
-        cookieData.ui[0].should.have.property('Identity', 123);
+        cookieData[testMPID].ua.should.have.property('gender', 'male');
+        cookieData[testMPID].ui[0].should.have.property('Identity', 123);
 
         done();
     });
@@ -3392,8 +3392,217 @@ describe('mParticle Core SDK', function() {
         var cookieData = mParticle.persistence.getCookie();
         var parsedCookie = JSON.parse(cookieData);
 
-        parsedCookie.should.have.properties(['cgid']);
-        parsedCookie.should.have.property('sid', null);
+        parsedCookie[testMPID].should.have.properties(['cgid']);
+        parsedCookie[testMPID].should.have.property('sid', null);
+        window.mParticle.useCookieStorage = false;
+
+        done();
+    });
+
+    it('should not do an identity swap if it is the first run', function(done) {
+        var cookiesBefore = mParticle.persistence.getLocalStorage();
+        mParticle.Identity.checkIdentitySwap(testMPID, 'currentMPID', true);
+        mParticle.logEvent('test test');
+        mParticle.persistence.update();
+
+        var cookiesAfter = mParticle.persistence.getLocalStorage();
+
+        cookiesBefore.currentUserMPID.should.equal(cookiesAfter.currentUserMPID);
+
+        done();
+    });
+
+    it('should do an identity swap if there is an MPID change', function(done) {
+        var cookiesBefore = mParticle.persistence.getLocalStorage();
+
+        mParticle.Identity.checkIdentitySwap(testMPID, 'currentMPID', false);
+
+        var cookiesAfter = mParticle.persistence.getLocalStorage();
+        cookiesBefore.currentUserMPID.should.equal(testMPID);
+
+        cookiesAfter.currentUserMPID.should.equal('currentMPID');
+
+        done();
+    });
+
+    it('localStorage - should key cookies on mpid on first run', function(done) {
+        var cookies1 = mParticle.persistence.getLocalStorage();
+
+        cookies1.should.not.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies1.should.have.property('currentUserMPID', testMPID);
+        cookies1.should.have.property(testMPID);
+        cookies1[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'otherMPID'
+            }));
+        };
+
+        mParticle.logEvent('test event');
+        var cookies2 = mParticle.persistence.getLocalStorage();
+
+        cookies2.should.have.property('currentUserMPID', 'otherMPID');
+        cookies2[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies2.otherMPID.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+
+        done();
+    });
+
+    it('cookies - should key cookies on mpid when there are no cookies yet', function(done) {
+        mParticle.reset();
+        removeLocalStorageFiles();
+        window.mParticle.useCookieStorage = true;
+        mParticle.init(apiKey);
+
+        var cookies1 = JSON.parse(getCookie());
+        cookies1.should.not.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies1.should.have.property('currentUserMPID', testMPID);
+        cookies1.should.have.property(testMPID);
+        cookies1[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'otherMPID'
+            }));
+        };
+
+        mParticle.logEvent('test event');
+        var cookies2 = JSON.parse(getCookie());
+
+        cookies2.should.have.property('currentUserMPID', 'otherMPID');
+        cookies2[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies2.otherMPID.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        window.mParticle.useCookieStorage = false;
+
+        done();
+    });
+
+    it('localStorage - should migrate previous cookies into new schema', function(done) {
+        mParticle.reset();
+        window.mParticle.useCookieStorage = false;
+        removeLocalStorageFiles();
+        var cookiesAfterReset = mParticle.persistence.getLocalStorage();
+        Should(cookiesAfterReset).not.be.ok();
+
+        setLocalStorage({
+            mpid: testMPID,
+            cgid: 'cgidTEST'
+        });
+        mParticle.init(apiKey);
+
+        var cookiesAfterInit = mParticle.persistence.getLocalStorage();
+
+        cookiesAfterInit.should.not.have.properties(['cgid', 'mpid']);
+        cookiesAfterInit.should.have.properties([testMPID, 'currentUserMPID']);
+        cookiesAfterInit.should.have.property(testMPID);
+        cookiesAfterInit[testMPID].should.have.property('cgid', 'cgidTEST');
+        cookiesAfterInit[testMPID].should.have.properties('ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp');
+
+        done();
+    });
+
+    it('cookies - should migrate previous cookies into new schema', function(done) {
+        mParticle.reset();
+        removeLocalStorageFiles();
+        window.mParticle.useCookieStorage = true;
+
+        var cookiesAfterReset = JSON.parse(getCookie());
+        Should(cookiesAfterReset).not.be.ok();
+
+        setLocalStorage({
+            mpid: testMPID,
+            cgid: 'cgidTEST',
+            ui: [{
+                Identity: 'objData',
+                Type: 1
+            }]
+        });
+        mParticle.init(apiKey);
+
+        var cookiesAfterInit = JSON.parse(getCookie());
+        cookiesAfterInit.should.not.have.properties(['cgid', 'mpid']);
+        cookiesAfterInit.should.have.properties([testMPID, 'currentUserMPID']);
+        cookiesAfterInit[testMPID].should.have.property('cgid', 'cgidTEST');
+        cookiesAfterInit[testMPID].ui[0].should.have.property('Identity', 'objData');
+        cookiesAfterInit[testMPID].should.have.properties('ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp');
+
+        done();
+    });
+
+    it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', function(done) {
+        mParticle.reset();
+        removeLocalStorageFiles();
+        window.mParticle.useCookieStorage = false;
+
+        setLocalStorage({
+            testMPID: {
+                csd: { 10: 500 }
+            },
+            currentUserMPID: 'testMPID'
+        });
+        mParticle.init(apiKey);
+
+        var cookies1 = mParticle.persistence.getLocalStorage();
+        cookies1.currentUserMPID.should.equal(testMPID);
+        cookies1[testMPID].should.have.property('csd');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'otherMPID'
+            }));
+        };
+
+        mParticle.logEvent('TestEvent');
+        var cookiesAfterMPIDChange = mParticle.persistence.getLocalStorage();
+        cookiesAfterMPIDChange.should.have.properties(['currentUserMPID', 'otherMPID', testMPID]);
+        cookiesAfterMPIDChange.should.have.property('currentUserMPID', 'otherMPID');
+        cookiesAfterMPIDChange.otherMPID.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookiesAfterMPIDChange[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+
+        done();
+    });
+
+    it('cookies - should switch user cookies to new mpid details from cookies when a new mpid is provided', function(done) {
+        mParticle.reset();
+        removeLocalStorageFiles();
+        window.mParticle.useCookieStorage = true;
+
+        setLocalStorage({
+            mpid: testMPID,
+            cgid: 'cgidTEST'
+        });
+        mParticle.init(apiKey);
+
+        var cookiesAfterInit = JSON.parse(getCookie());
+        cookiesAfterInit.should.not.have.properties(['mpid', 'ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookiesAfterInit.should.have.property(testMPID);
+        cookiesAfterInit[testMPID].should.have.property('cgid', 'cgidTEST');
+        cookiesAfterInit[testMPID].should.have.properties('ui', 'ua', 'les');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'otherMPID'
+            }));
+        };
+
+        mParticle.logEvent('Test event');
+
+        var cookiesAfterMPIDChange = JSON.parse(getCookie());
+        cookiesAfterMPIDChange.should.have.properties(['currentUserMPID', 'otherMPID', testMPID]);
+        cookiesAfterMPIDChange.should.have.property('currentUserMPID', 'otherMPID');
+        cookiesAfterMPIDChange.otherMPID.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookiesAfterMPIDChange[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        window.mParticle.useCookieStorage = false;
+
 
         done();
     });
@@ -3409,8 +3618,10 @@ describe('mParticle Core SDK', function() {
         var parsedCookie = JSON.parse(cookieData);
 
         cookieDataType.should.be.type('string');
-        parsedCookie.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        parsedCookie[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
         Should(localStorageData).not.be.ok();
+
+        window.mParticle.useCookieStorage = false;
 
         done();
     });
@@ -3422,8 +3633,7 @@ describe('mParticle Core SDK', function() {
         cookieData = mParticle.persistence.getCookie();
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-
-        localStorageData.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        localStorageData[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
         Should(cookieData).not.be.ok();
 
         done();
@@ -3443,8 +3653,10 @@ describe('mParticle Core SDK', function() {
         localStorageData = mParticle.persistence.getLocalStorage();
 
         cookieDataType.should.be.type('string');
-        parsedCookie.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        parsedCookie[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
         Should(localStorageData).not.be.ok();
+
+        window.mParticle.useCookieStorage = true;
 
         done();
     });
@@ -3458,7 +3670,7 @@ describe('mParticle Core SDK', function() {
 
         localStorageData = mParticle.persistence.getLocalStorage();
         cookieData = mParticle.persistence.getCookie();
-        localStorageData.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        localStorageData[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
         Should(cookieData).not.be.ok();
 
         done();
@@ -3501,7 +3713,7 @@ describe('mParticle Core SDK', function() {
 
         var cookieData = JSON.parse(getCookie());
 
-        cookieData.ua.should.have.property('gender', 'male');
+        cookieData[testMPID].ua.should.have.property('gender', 'male');
 
         done();
     });

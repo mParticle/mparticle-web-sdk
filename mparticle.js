@@ -349,24 +349,26 @@
     }
 
     var persistence = {
+        useLocalStorage: function() {
+            return (!mParticle.useCookieStorage && persistence.isLocalStorageAvailable);
+        },
+
         isLocalStorageAvailable: null,
 
         initializeStorage: function() {
             var cookies,
-                storage,
                 localStorageData;
             // Check to see if localStorage is available and if not, always use cookies
             this.isLocalStorageAvailable = persistence.determineLocalStorageAvailability();
 
             if (this.isLocalStorageAvailable) {
-                storage = window.localStorage;
                 if (mParticle.useCookieStorage) {
                     // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
                     // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
                     localStorageData = this.getLocalStorage();
                     if (localStorageData) {
-                        this.storeDataInMemory(this.getLocalStorage());
-                        storage.removeItem(DefaultConfig.LocalStorageName);
+                        this.storeDataInMemory(localStorageData);
+                        this.removeLocalStorage();
                         this.update();
                     } else {
                         this.storeDataInMemory(this.getCookie());
@@ -380,7 +382,7 @@
                         this.storeDataInMemory(cookies);
                         this.expireCookies();
                         this.update();
-                    } else if (this.isLocalStorageAvailable) {
+                    } else {
                         this.storeDataInMemory(this.getLocalStorage());
                     }
                 }
@@ -417,7 +419,7 @@
         },
 
         convertInMemoryData: function() {
-            var inMemoryData = {
+            var mpidData = {
                 sid: sessionId,
                 ie: isEnabled,
                 sa: sessionAttributes,
@@ -437,21 +439,27 @@
 
             for (var bag in productsBags) {
                 if (productsBags[bag].length > mParticle.maxProducts) {
-                    inMemoryData.pb[bag] = productsBags[bag].slice(0, mParticle.maxProducts);
+                    mpidData.pb[bag] = productsBags[bag].slice(0, mParticle.maxProducts);
                 } else {
-                    inMemoryData.pb[bag] = productsBags[bag];
+                    mpidData.pb[bag] = productsBags[bag];
                 }
             }
 
-            return inMemoryData;
+            return mpidData;
         },
 
         setLocalStorage: function() {
             var key = Config.LocalStorageName,
-                value = this.convertInMemoryData();
+                currentMPIDData = this.convertInMemoryData(),
+                localStorageData = this.getLocalStorage() || {};
+
+            if (mpid) {
+                localStorageData[mpid] = currentMPIDData;
+                localStorageData.currentUserMPID = mpid;
+            }
 
             try {
-                window.localStorage.setItem(encodeURIComponent(key), encodeURIComponent(JSON.stringify(value)));
+                window.localStorage.setItem(encodeURIComponent(key), encodeURIComponent(JSON.stringify(localStorageData)));
             }
             catch (e) {
                 logDebug('Error with setting localStorage item.');
@@ -477,7 +485,11 @@
             return null;
         },
 
-        storeDataInMemory: function(result) {
+        removeLocalStorage: function() {
+            localStorage.removeItem(DefaultConfig.LocalStorageName);
+        },
+
+        storeDataInMemory: function(result, newMPID) {
             var obj;
 
             try {
@@ -487,6 +499,15 @@
                     clientId = generateUniqueId();
                     logDebug(InformationMessages.CookieNotFound);
                 } else {
+                    // Set MPID first, then change object to match MPID data
+                    if (newMPID) {
+                        mpid = newMPID;
+                    } else {
+                        mpid = obj.currentUserMPID || null;
+                    }
+
+                    obj = obj.currentUserMPID ? obj[obj.currentUserMPID] : obj;
+
                     // Longer names are for backwards compatibility
                     sessionId = obj.sid || obj.SessionId || sessionId;
                     isEnabled = (typeof obj.ie !== 'undefined') ? obj.ie : obj.IsEnabled;
@@ -501,7 +522,6 @@
                     devToken = obj.dt || obj.DeveloperToken || devToken;
                     clientId = obj.cgid || generateUniqueId();
                     deviceId = obj.das || null;
-                    mpid = obj.mpid || null;
                     cartProducts = obj.cp || [];
                     productsBags = obj.pb || {};
 
@@ -511,7 +531,6 @@
                     else if (obj.LastEventSent) {
                         dateLastEventSent = new Date(obj.LastEventSent);
                     }
-
                     if (obj.csd) {
                         cookieSyncDates = obj.csd;
                     }
@@ -603,15 +622,21 @@
         setCookie: function() {
             var date = new Date(),
                 key = Config.CookieName,
-                value = this.convertInMemoryData(),
+                currentMPIDData = this.convertInMemoryData(),
                 expires = new Date(date.getTime() +
                     (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
-                domain = Config.CookieDomain ? ';domain=' + Config.CookieDomain : '';
+                domain = Config.CookieDomain ? ';domain=' + Config.CookieDomain : '',
+                cookies = JSON.parse(this.getCookie()) || {};
+
+            if (mpid) {
+                cookies[mpid] = currentMPIDData;
+                cookies.currentUserMPID = mpid;
+            }
 
             logDebug(InformationMessages.CookieSet);
 
             window.document.cookie =
-                encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
+                encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(cookies)) +
                 ';expires=' + expires +
                 ';path=/' +
                 domain;
@@ -906,16 +931,15 @@
 
         try {
             logDebug('Parsing response from server');
-
             settings = JSON.parse(responseText);
-
             if (!isFirstRun && mpid) {
                 previousMPID = mpid;
             }
 
             mpid = settings.mpid ? settings.mpid : null;
-
             cookieSyncManager.attemptCookieSync(previousMPID, mpid);
+
+            Identity.checkIdentitySwap(previousMPID, mpid);
 
             if (settings && settings.Store) {
                 logDebug('Parsed store from response, updating local settings');
@@ -1184,7 +1208,6 @@
             if (messageType !== MessageType.SessionEnd) {
                 dateLastEventSent = new Date();
             }
-
             eventObject = {
                 EventName: name || messageType,
                 EventCategory: eventType,
@@ -1209,8 +1232,6 @@
 
             if (messageType === MessageType.SessionEnd) {
                 eventObject.SessionLength = new Date().getTime() - dateLastEventSent.getTime();
-            } else {
-                dateLastEventSent = new Date();
             }
 
             eventObject.Timestamp = dateLastEventSent.getTime();
@@ -2195,6 +2216,29 @@
         }
     };
 
+    var Identity = {
+        checkIdentitySwap: function(previousMPID, currentMPID) {
+            var cookies = (persistence.isLocalStorageAvailable && !mParticle.useCookieStorage) ? persistence.getLocalStorage() : persistence.getCookie();
+
+            if (previousMPID && currentMPID && previousMPID !== currentMPID) {
+                persistence.storeDataInMemory(cookies, currentMPID);
+                persistence.update();
+            }
+        },
+        migrate: function(isFirstRun) {
+            var cookies = persistence.useLocalStorage ? persistence.getLocalStorage() : JSON.parse(persistence.getCookie());
+            // migration occurs when it is not the first run and there is no currentUserMPID on the cookie
+            if (!isFirstRun && cookies && !cookies.currentUserMPID) {
+                if (persistence.useLocalStorage) {
+                    persistence.removeLocalStorage();
+                } else {
+                    persistence.expireCookies();
+                }
+                persistence.update();
+            }
+        }
+    };
+
     var DefaultConfig = {
         LocalStorageName: 'mprtcl-api', // Name of the mP localstorage data stored on the user's machine
         CookieName: 'mprtcl-api',       // Name of the cookie stored on the user's machine
@@ -2208,7 +2252,7 @@
         SessionTimeout: 30,				// Session timeout in minutes
         Sandbox: false,                 // Events are marked as debug and only forwarded to debug forwarders,
         Version: null,                  // The version of this website/app
-        MaxProducts: 20     // Number of products persisted in
+        MaxProducts: 20                 // Number of products persisted in
     };
 
     var Config = {};
@@ -2535,6 +2579,7 @@
         cookieSyncManager: cookieSyncManager,
         persistence: persistence,
         Validators: Validators,
+        Identity: Identity,
         IdentityType: IdentityType,
         EventType: EventType,
         CommerceEventType: CommerceEventType,
@@ -2548,7 +2593,7 @@
             // Set configuration to default settings
             mergeConfig({});
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
-            if (persistence.getCookie() === null && persistence.getLocalStorage() === null) {
+            if (!persistence.getCookie() && !persistence.getLocalStorage()) {
                 isFirstRun = true;
             } else {
                 isFirstRun = false;
@@ -2556,6 +2601,25 @@
 
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
+
+            /* Previous cookies only contained data from 1 MPID. New schema now holds multiple MPIDs and keys in memory data off latest MPID
+            Previous cookie schema: { ui: [], ua: {} ...}
+            Current cookie schema: {
+                currentUserMPID: 'mpid1',
+                mpid1: {
+                    ui: [],
+                    ua: {},
+                    ...
+                },
+                mpid2: {
+                    ui: [],
+                    ua: {},
+                    ...
+                },
+            }
+            */
+            Identity.migrate(isFirstRun);
+
             deviceId = persistence.retrieveDeviceId();
 
             if (arguments && arguments.length) {
