@@ -3798,6 +3798,65 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should correctly validate the options object', function(done) {
+        var correctOptions = {
+            apiKey: apiKey,
+            initialIdentity: {
+                userIdentities: {
+                    5: 'test123',
+                    6: 'foo@bar.com'
+                },
+                copyUserAttributes: true
+            }
+        };
+        var correctOptionsResult = mParticle.Validators.validateOptions(correctOptions);
+
+        correctOptionsResult.valid.should.equal(true);
+
+        var optionsNoApiKey = {
+            initialIdentity: {
+                userIdentities: {
+                    0: 'test123',
+                    1: 'foo@bar.com'
+                },
+                copyUserAttributes: true
+            }
+        };
+
+        optionsNoApiKeyResult = mParticle.Validators.validateOptions(optionsNoApiKey);
+        optionsNoApiKeyResult.valid.should.equal(false);
+        optionsNoApiKeyResult.error.should.equal('The options object requires the key, \'apiKey\'');
+
+        var optionsInvalidUserIdentity = {
+            apiKey: apiKey,
+            initialIdentity: {
+                userIdentities: {
+                    0: 'test123',
+                    email: 'foo@bar.com'
+                },
+                copyUserAttributes: false
+            }
+        };
+        var optionsInvalidUserIdentityResult = mParticle.Validators.validateOptions(optionsInvalidUserIdentity);
+        optionsInvalidUserIdentityResult.valid.should.equal(false);
+        optionsInvalidUserIdentityResult.error.should.equal('IdentityType key on initialIdentity is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
+
+        var validOptionsNoCopyUserAttributes = {
+            apiKey: apiKey,
+            initialIdentity: {
+                userIdentities: {
+                    0: 'test123',
+                    1: 'foo@bar.com'
+                }
+            }
+        };
+        var validOptionsNoCopyUserAttributesResult = mParticle.Validators.validateOptions(validOptionsNoCopyUserAttributes);
+        validOptionsNoCopyUserAttributesResult.valid.should.equal(true);
+        validOptionsNoCopyUserAttributesResult.warning.should.equal('Warning: By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the initialIdentity object');
+
+        done();
+    });
+
     after(function() {
         server.stop();
     });

@@ -50,6 +50,7 @@
         appName = null,
         customFlags = null,
         globalTimer,
+        IdentityCallback,
         METHOD_NAME = '$MethodName',
         LOG_LTV = 'LogLTVIncrease',
         RESERVED_KEY_LTV = '$Amount';
@@ -347,6 +348,193 @@
 
         return false;
     }
+
+    function identitySend(identityApiRequest, method) {
+        logDebug('Sending Identity Request of ' + identityApiRequest + 'to /' + method);
+        //TODO
+    }
+
+    var IdentityAPI = {
+        logout: function(identityApiRequest, callback) {
+            logDebug('logging out...');
+
+            mParticle.sessionManager.resetSessionTimer();
+            identitySend(identityApiRequest, 'logout', callback);
+        },
+        login: function(identityApiRequest, callBack) {
+            logDebug('logging in...');
+            identitySend(identityApiRequest, 'login', callBack);
+        },
+        modify: function(identityApiRequest, callback) {
+            logDebug('modifying...');
+            identitySend(identityApiRequest, 'modify', callback);
+        },
+        // optional callback for when there is an identity update/failure
+        addIdentityCallback: function(fn) {
+            IdentityCallback = fn;
+        }
+    };
+
+    var mParticleUser = {
+        getCurrentUser: function() {
+            var currentUserIdentities = {};
+            if (Array.isArray(userIdentities)) {
+                userIdentities.map(function(identity) {
+                    currentUserIdentities[identity.type] = identity.id;
+                });
+            } else {
+                currentUserIdentities = userIdentities;
+            }
+            return {
+                userIdentities: currentUserIdentities
+            };
+        },
+
+        getMPID: function() {
+            return mpid;
+        },
+        setUserTag: function(tagName) {
+            mParticle.sessionManager.resetSessionTimer();
+
+            if (!Validators.isValidKeyValue(tagName)) {
+                logDebug(ErrorMessages.BadKey);
+                return;
+            }
+
+            window.mParticle.mParticleUser.setUserAttribute(tagName, null);
+        },
+        removeUserTag: function(tagName) {
+            mParticle.sessionManager.resetSessionTimer();
+
+            if (!Validators.isValidKeyValue(tagName)) {
+                logDebug(ErrorMessages.BadKey);
+                return;
+            }
+
+            window.mParticle.mParticleUser.removeUserAttribute(tagName);
+        },
+        setUserAttribute: function(key, value) {
+            mParticle.sessionManager.resetSessionTimer();
+            // Logs to cookie
+            // And logs to in-memory object
+            // Example: mParticle.mParticleUser.setUserAttribute('email', 'tbreffni@mparticle.com');
+            if (canLog()) {
+                if (!Validators.isValidAttributeValue(value)) {
+                    logDebug(ErrorMessages.BadAttribute);
+                    return;
+                }
+
+                if (!Validators.isValidKeyValue(key)) {
+                    logDebug(ErrorMessages.BadKey);
+                    return;
+                }
+
+                var existingProp = findKeyInObject(userAttributes, key);
+
+                if (existingProp) {
+                    key = existingProp;
+                }
+
+                userAttributes[key] = value;
+                persistence.update();
+
+                if (!tryNativeSdk(NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }))) {
+                    callSetUserAttributeOnForwarders(key, value);
+                }
+            }
+        },
+        removeUserAttribute: function(key) {
+            mParticle.sessionManager.resetSessionTimer();
+
+            if (!Validators.isValidKeyValue(key)) {
+                logDebug(ErrorMessages.BadKey);
+                return;
+            }
+
+            var existingProp = findKeyInObject(userAttributes, key);
+
+            if (existingProp) {
+                key = existingProp;
+            }
+
+            delete userAttributes[key];
+
+            if (!tryNativeSdk(NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }))) {
+                applyToForwarders('removeUserAttribute', key);
+            }
+
+            persistence.update();
+        },
+        setUserAttributeList: function(key, value) {
+            mParticle.sessionManager.resetSessionTimer();
+
+            if (!Validators.isValidKeyValue(key)) {
+                logDebug(ErrorMessages.BadKey);
+                return;
+            }
+
+            if (Array.isArray(value)) {
+                var arrayCopy = value.slice();
+
+                var existingProp = findKeyInObject(userAttributes, key);
+
+                if (existingProp) {
+                    key = existingProp;
+                }
+
+                userAttributes[key] = arrayCopy;
+                persistence.update();
+
+                if (!tryNativeSdk(NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }))) {
+                    callSetUserAttributeOnForwarders(key, arrayCopy);
+                }
+            }
+        },
+        removeAllUserAttributes: function() {
+            mParticle.sessionManager.resetSessionTimer();
+            if (!tryNativeSdk(NativeSdkPaths.RemoveAllUserAttributes)) {
+                if (userAttributes) {
+                    for (var prop in userAttributes) {
+                        if (userAttributes.hasOwnProperty(prop)) {
+                            applyToForwarders('removeUserAttribute', userAttributes[prop]);
+                        }
+                    }
+                }
+            }
+
+            userAttributes = {};
+            persistence.update();
+        },
+        getUserAttributesLists: function() {
+            var userAttributeLists = {};
+
+            for (var key in userAttributes) {
+                if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
+                    userAttributeLists[key] = userAttributes[key].slice();
+                }
+            }
+
+            return userAttributeLists;
+        },
+        getAllUserAttributes: function() {
+            var userAttributesCopy = {};
+
+            if (userAttributes) {
+                for (var prop in userAttributes) {
+                    if (userAttributes.hasOwnProperty(prop)) {
+                        if (Array.isArray(userAttributes[prop])) {
+                            userAttributesCopy[prop] = userAttributes[prop].slice();
+                        }
+                        else {
+                            userAttributesCopy[prop] = userAttributes[prop];
+                        }
+                    }
+                }
+            }
+
+            return userAttributesCopy;
+        }
+    };
 
     var persistence = {
         useLocalStorage: function() {
@@ -1319,7 +1507,6 @@
         }
     }
 
-
     function expandProductAction(commerceEvent) {
         var appEvents = [];
         if (!commerceEvent.ProductAction) {
@@ -1711,6 +1898,7 @@
         }
     }
 
+    //TODO: refactor into Identity.logout?
     function logLogOutEvent() {
         var evt;
 
@@ -1768,7 +1956,7 @@
     }
 
     function logDebug(msg) {
-        if (mParticle.isDebug && window.console && window.console.log) {
+        if (mParticle.isDevelopmentMode && window.console && window.console.log) {
             window.console.log(msg);
         }
     }
@@ -2174,7 +2362,12 @@
         Yahoo: 6,
         Email: 7,
         Alias: 8,
-        FacebookCustomAudienceId: 9
+        FacebookCustomAudienceId: 9,
+        // TODO: Change when we finalize the 'other' pattern
+        Other1: 10,
+        Other2: 11,
+        Other3: 12,
+        Other4: 13
     };
 
     IdentityType.isValid = function(identityType) {
@@ -2484,6 +2677,51 @@
 
         isStringOrNumber: function(value) {
             return (typeof value === 'string' || typeof value === 'number');
+        },
+
+        validateOptions: function(options) {
+            if (options) {
+                if (options.apiKey) {
+                    devToken = options.apiKey;
+                } else {
+                    return {
+                        valid: false,
+                        error: 'The options object requires the key, \'apiKey\''
+                    };
+                }
+                if (options.initialIdentity) {
+                    if (options.initialIdentity.userIdentities) {
+                        for (var key in options.initialIdentity.userIdentities) {
+                            // test key for if it is a non number string, and keys that are stringified numbers must be passed to IdentityType.isValid as a number
+                            if (isNaN(key) || !IdentityType.isValid(parseFloat(key))) {
+                                return {
+                                    valid: false,
+                                    error: 'IdentityType key on initialIdentity is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity'
+                                };
+                            }
+                        }
+                    } else {
+                        return {
+                            valid: false,
+                            error: 'When including an `initialIdentity` object within options, a `userIdentities` object within `initialIdentity` containing keys from http://docs.mparticle.com/#user-identity and the associated ID as the value is required.'
+                        };
+                    }
+                    if (!options.initialIdentity.hasOwnProperty('copyUserAttributes')) {
+                        return {
+                            valid: true,
+                            warning: 'Warning: By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the initialIdentity object'
+                        };
+                    }
+                }
+
+                return {
+                    valid: true
+                };
+            }
+            else {
+                logDebug('Initializiation failed. You must pass an options object into mParticle.init()');
+                return;
+            }
         }
     };
 
@@ -2569,8 +2807,7 @@
     var mParticle = {
         useNativeSdk: true,
         isIOS: false,
-        isDebug: false,
-        isSandbox: false,
+        isDevelopmentMode: false,
         useCookieStorage: false,
         maxProducts: DefaultConfig.MaxProducts,
         getDeviceId: getDeviceId,
@@ -2578,6 +2815,8 @@
         sessionManager: sessionManager,
         cookieSyncManager: cookieSyncManager,
         persistence: persistence,
+        IdentityAPI: IdentityAPI,
+        mParticleUser: mParticleUser,
         Validators: Validators,
         Identity: Identity,
         IdentityType: IdentityType,
@@ -2585,8 +2824,19 @@
         CommerceEventType: CommerceEventType,
         PromotionType: PromotionActionType,
         ProductActionType: ProductActionType,
-        init: function() {
-            var config;
+        init: function(options) {
+            var config,
+                initialIdentity,
+                validatedOptions = Validators.validateOptions(options);
+
+            if (!validatedOptions.valid) {
+                logDebug(validatedOptions.error);
+            } else if (validatedOptions.warning) {
+                logDebug(validatedOptions.warning);
+            }
+
+            devToken = options.apiKey;
+            initialIdentity = options.initialIdentity;
 
             logDebug(InformationMessages.StartingInitialization);
 
@@ -2622,6 +2872,7 @@
 
             deviceId = persistence.retrieveDeviceId();
 
+            // TODO: tweak this codeblock to remove arguments, devtoken, etc
             if (arguments && arguments.length) {
                 if (typeof arguments[0] === 'string') {
                     // This is the dev token
@@ -2726,84 +2977,6 @@
             else {
                 logDebug('Position latitude and/or longitude are invalid');
             }
-        },
-        setUserIdentity: function(id, type) {
-            var userIdentity;
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (canLog()) {
-                if (IdentityType.isValid(type)) {
-                    if (id === null || id === undefined || Validators.isStringOrNumber(id)) {
-                        mParticle.removeUserIdentity(id, type);
-
-                        if (id === null || id === undefined) {
-                            return;
-                        }
-
-                        userIdentity = {
-                            Identity: id,
-                            Type: type
-                        };
-                        userIdentities.push(userIdentity);
-
-                        if (!tryNativeSdk(NativeSdkPaths.SetUserIdentity, JSON.stringify(userIdentity))) {
-                            if (forwarders.length) {
-                                forwarders.forEach(function(forwarder) {
-                                    if (forwarder.setUserIdentity &&
-                                        (!forwarder.userIdentityFilters ||
-                                        !inArray(forwarder.userIdentityFilters, type))) {
-                                        var result = forwarder.setUserIdentity(id, type);
-
-                                        if (result) {
-                                            logDebug(result);
-                                        }
-                                    }
-                                });
-                            }
-                        }
-
-                        persistence.update();
-                    } else {
-                        logDebug('User identities passed to setUserIdentity must be strings or numbers');
-                        return;
-                    }
-                } else {
-                    logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
-                }
-            }
-        },
-        getUserIdentity: function(id) {
-            mParticle.sessionManager.resetSessionTimer();
-            var foundIdentity = null;
-
-            userIdentities.forEach(function(userIdentity) {
-                if (userIdentity.Identity === id) {
-                    foundIdentity = userIdentity;
-                }
-            });
-
-            return foundIdentity;
-        },
-        removeUserIdentity: function(id, type) {
-            mParticle.sessionManager.resetSessionTimer();
-            if (id) {
-                userIdentities = userIdentities.filter(function(userIdentity) {
-                    return userIdentity.Identity !== id;
-                });
-            }
-
-            // Below includes times where id === null || id === undefined
-            if (type && IdentityType.isValid(type)) {
-                userIdentities = userIdentities.filter(function(userIdentity) {
-                    return userIdentity.Type !== type;
-                });
-            } else {
-                logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
-            }
-
-            tryNativeSdk(NativeSdkPaths.RemoveUserIdentity, id);
-
-            persistence.update();
         },
         startNewSession: function() {
             sessionManager.startNewSession();
@@ -3110,147 +3283,6 @@
                 attributes,
                 EventType.Transaction);
         },
-        setUserTag: function(tagName) {
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (!Validators.isValidKeyValue(tagName)) {
-                logDebug(ErrorMessages.BadKey);
-                return;
-            }
-
-            window.mParticle.setUserAttribute(tagName, null);
-        },
-        removeUserTag: function(tagName) {
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (!Validators.isValidKeyValue(tagName)) {
-                logDebug(ErrorMessages.BadKey);
-                return;
-            }
-
-            window.mParticle.removeUserAttribute(tagName);
-        },
-        setUserAttribute: function(key, value) {
-            mParticle.sessionManager.resetSessionTimer();
-            // Logs to cookie
-            // And logs to in-memory object
-            // Example: mParticle.setUserAttribute('email', 'tbreffni@mparticle.com');
-            if (canLog()) {
-                if (!Validators.isValidAttributeValue(value)) {
-                    logDebug(ErrorMessages.BadAttribute);
-                    return;
-                }
-
-                if (!Validators.isValidKeyValue(key)) {
-                    logDebug(ErrorMessages.BadKey);
-                    return;
-                }
-
-                var existingProp = findKeyInObject(userAttributes, key);
-
-                if (existingProp) {
-                    key = existingProp;
-                }
-
-                userAttributes[key] = value;
-                persistence.update();
-
-                if (!tryNativeSdk(NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }))) {
-                    callSetUserAttributeOnForwarders(key, value);
-                }
-            }
-        },
-        removeUserAttribute: function(key) {
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (!Validators.isValidKeyValue(key)) {
-                logDebug(ErrorMessages.BadKey);
-                return;
-            }
-
-            var existingProp = findKeyInObject(userAttributes, key);
-
-            if (existingProp) {
-                key = existingProp;
-            }
-
-            delete userAttributes[key];
-
-            if (!tryNativeSdk(NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }))) {
-                applyToForwarders('removeUserAttribute', key);
-            }
-
-            persistence.update();
-        },
-        setUserAttributeList: function(key, value) {
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (!Validators.isValidKeyValue(key)) {
-                logDebug(ErrorMessages.BadKey);
-                return;
-            }
-
-            if (Array.isArray(value)) {
-                var arrayCopy = value.slice();
-
-                var existingProp = findKeyInObject(userAttributes, key);
-
-                if (existingProp) {
-                    key = existingProp;
-                }
-
-                userAttributes[key] = arrayCopy;
-                persistence.update();
-
-                if (!tryNativeSdk(NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }))) {
-                    callSetUserAttributeOnForwarders(key, arrayCopy);
-                }
-            }
-        },
-        removeAllUserAttributes: function() {
-            mParticle.sessionManager.resetSessionTimer();
-            if (!tryNativeSdk(NativeSdkPaths.RemoveAllUserAttributes)) {
-                if (userAttributes) {
-                    for (var prop in userAttributes) {
-                        if (userAttributes.hasOwnProperty(prop)) {
-                            applyToForwarders('removeUserAttribute', userAttributes[prop]);
-                        }
-                    }
-                }
-            }
-
-            userAttributes = {};
-            persistence.update();
-        },
-        getUserAttributesLists: function() {
-            var userAttributeLists = {};
-
-            for (var key in userAttributes) {
-                if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
-                    userAttributeLists[key] = userAttributes[key].slice();
-                }
-            }
-
-            return userAttributeLists;
-        },
-        getAllUserAttributes: function() {
-            var userAttributesCopy = {};
-
-            if (userAttributes) {
-                for (var prop in userAttributes) {
-                    if (userAttributes.hasOwnProperty(prop)) {
-                        if (Array.isArray(userAttributes[prop])) {
-                            userAttributesCopy[prop] = userAttributes[prop].slice();
-                        }
-                        else {
-                            userAttributesCopy[prop] = userAttributes[prop];
-                        }
-                    }
-                }
-            }
-
-            return userAttributesCopy;
-        },
         setSessionAttribute: function(key, value) {
             mParticle.sessionManager.resetSessionTimer();
             // Logs to cookie
@@ -3297,24 +3329,6 @@
                         }
                     }
                 });
-            }
-        },
-        logOut: function() {
-            mParticle.sessionManager.resetSessionTimer();
-            var evt;
-
-            if (canLog()) {
-                if (!tryNativeSdk(NativeSdkPaths.LogOut)) {
-                    evt = logLogOutEvent();
-
-                    if (forwarders.length) {
-                        forwarders.forEach(function(forwarder) {
-                            if (forwarder.logOut) {
-                                forwarder.logOut(evt);
-                            }
-                        });
-                    }
-                }
             }
         },
         addForwarder: function(forwarderProcessor) {
@@ -3365,7 +3379,7 @@
 
             for (var i = 0; i < forwarderConstructors.length; i++) {
                 if (forwarderConstructors[i].name === config.name) {
-                    if (config.isDebug === mParticle.isSandbox || config.isSandbox === mParticle.isSandbox) {
+                    if (config.isDebug === mParticle.isDevelopmentMode || config.isSandbox === mParticle.isDevelopmentMode) {
                         newForwarder = new forwarderConstructors[i].constructor();
 
                         newForwarder.id = config.moduleId;
@@ -3393,7 +3407,7 @@
             }
         },
         configurePixel: function(settings) {
-            if (settings.isDebug === mParticle.isSandbox || settings.isProduction !== mParticle.isSandbox) {
+            if (settings.isDebug === mParticle.isDevelopmentMode || settings.isProduction !== mParticle.isDevelopmentMode) {
                 pixelConfigurations.push(settings);
             }
         }
@@ -3414,12 +3428,8 @@
             readyQueue = window.mParticle.config.rq;
         }
 
-        if (window.mParticle.config.hasOwnProperty('isDebug')) {
-            mParticle.isDebug = window.mParticle.config.isDebug;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('isSandbox')) {
-            mParticle.isSandbox = window.mParticle.config.isSandbox;
+        if (window.mParticle.config.hasOwnProperty('isDevelopmentMode')) {
+            mParticle.isDevelopmentMode = window.mParticle.config.isDevelopmentMode;
         }
 
         if (window.mParticle.config.hasOwnProperty('useNativeSdk')) {
