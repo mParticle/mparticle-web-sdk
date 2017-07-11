@@ -6,6 +6,16 @@ describe('mParticle Core SDK', function() {
         key = 'mprtcl-api',
         pluses = /\+/g,
         ProductBag = 'my bag',
+        validOptions = {
+            apiKey: apiKey,
+            initialIdentity: {
+                userIdentities: {
+                    5: 'test123',
+                    6: 'foo@bar.com'
+                },
+                copyUserAttributes: true
+            }
+        },
         decoded = function(s) {
             return decodeURIComponent(s.replace(pluses, ' '));
         },
@@ -19,6 +29,18 @@ describe('mParticle Core SDK', function() {
         getRequests = function(path) {
             var requests = [],
                 fullPath = '/v1/JS/' + apiKey + '/' + path;
+
+            server.requests.forEach(function(item) {
+                if (item.urlParts.path == fullPath) {
+                    requests.push(item);
+                }
+            });
+
+            return requests;
+        },
+        getIdentityRequests = function(path) {
+            var requests = [],
+                fullPath = '/v1/' + path;
 
             server.requests.forEach(function(item) {
                 if (item.urlParts.path == fullPath) {
@@ -99,8 +121,10 @@ describe('mParticle Core SDK', function() {
 
             return matchedEvent;
         },
-        ProfileMessageType = {
-            Logout: 3
+        getIdentityEvent = function(endpoint) {
+            var requests = getIdentityRequests(endpoint);
+
+            return JSON.parse(requests[0].requestText);
         },
         MessageType = {
             SessionStart: 1,
@@ -327,7 +351,7 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         expireCookie();
         removeLocalStorageFiles();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
         window.mParticleAndroid = null;
         window.mParticle.isIOS = null;
     });
@@ -339,11 +363,10 @@ describe('mParticle Core SDK', function() {
             ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}, {Identity: [], Type: 1}, {Identity: {}, Type: 1}]
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-
-        localStorageData[testMPID].ui.length.should.equal(2);
+        Object.keys(localStorageData[testMPID].ui).length.should.equal(2);
 
         done();
     });
@@ -355,10 +378,10 @@ describe('mParticle Core SDK', function() {
             ui: [{Identity: 123, Type: 1}, {Type: 1}, {Type: 1}, {Type: 1}]
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-        localStorageData[testMPID].ui.length.should.equal(1);
+        Object.keys(localStorageData[testMPID].ui).length.should.equal(1);
 
         done();
     });
@@ -370,6 +393,7 @@ describe('mParticle Core SDK', function() {
         data.should.have.property('n', 'Test Event');
         data.should.have.property('et', mParticle.EventType.Navigation);
         data.should.have.property('attrs');
+        data.should.have.property('mpid', testMPID);
         data.attrs.should.have.property('mykey', 'myvalue');
 
         done();
@@ -407,7 +431,7 @@ describe('mParticle Core SDK', function() {
 
         setLocalStorage({cookie: 'test'});
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var data2 = getEvent(MessageType.AppStateTransition);
         data2.should.have.property('fr', false);
@@ -924,153 +948,105 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should add string or number user identities', function(done) {
-        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
-        mParticle.setUserIdentity(123456, mParticle.IdentityType.Email);
+    // it('should add string or number user identities', function(done) {
+    //     mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
+    //     mParticle.setUserIdentity(123456, mParticle.IdentityType.Email);
+    //
+    //     var identity = mParticle.getUserIdentity('test@mparticle.com');
+    //
+    //     identity.should.have.property('Identity', 'test@mparticle.com');
+    //     identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
+    //
+    //     identity = mParticle.getUserIdentity(123456);
+    //
+    //     identity.should.have.property('Identity', 123456);
+    //     identity.should.have.property('Type', mParticle.IdentityType.Email);
+    //
+    //     done();
+    // });
 
-        var identity = mParticle.getUserIdentity('test@mparticle.com');
-
-        identity.should.have.property('Identity', 'test@mparticle.com');
-        identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
-
-        identity = mParticle.getUserIdentity(123456);
-
-        identity.should.have.property('Identity', 123456);
-        identity.should.have.property('Type', mParticle.IdentityType.Email);
-
-        done();
-    });
-
-    it('should ignore object user identities', function(done) {
-        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
-
-        var identity = mParticle.getUserIdentity('test@mparticle.com');
-
-        identity.should.have.property('Identity', 'test@mparticle.com');
-        identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
-
-        mParticle.setUserIdentity({}, mParticle.IdentityType.CustomerId);
-        identity = mParticle.getUserIdentity('test@mparticle.com');
-
-        identity.should.have.property('Identity', 'test@mparticle.com');
-
-        done();
-    });
-
-    it('should ignore array user identities', function(done) {
-        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
-
-        var identity = mParticle.getUserIdentity('test@mparticle.com');
-
-        identity.should.have.property('Identity', 'test@mparticle.com');
-        identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
-
-        mParticle.setUserIdentity([], mParticle.IdentityType.CustomerId);
-        identity = mParticle.getUserIdentity('test@mparticle.com');
-
-        identity.should.have.property('Identity', 'test@mparticle.com');
-
-        done();
-    });
-
-    it('should ignore boolean user identities', function(done) {
-        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
-
-        var identity = mParticle.getUserIdentity('test@mparticle.com');
-
-        identity.should.have.property('Identity', 'test@mparticle.com');
-        identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
-
-        mParticle.setUserIdentity(false, mParticle.IdentityType.CustomerId);
-        identity = mParticle.getUserIdentity('test@mparticle.com');
-
-        identity.should.have.property('Identity', 'test@mparticle.com');
-
-        done();
-    });
-
-    it('should remove user identities by id', function(done) {
-        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
-        mParticle.removeUserIdentity('test@mparticle.com');
-
-        var identity = mParticle.getUserIdentity('test@mparticle.com');
-
-        Should(identity).not.be.ok();
-
-        done();
-    });
-
-    it('should replace existing userIdentities of the same type', function(done) {
-        mParticle.reset();
-
-        setCookie({
-            ui: [{Identity: 123, Type: 0}, {Identity:123, Type: 2}]
-        });
-
-        mParticle.init(apiKey);
-
-        mParticle.setUserIdentity(123, mParticle.IdentityType.CustomerId);
-
-        var identity = mParticle.getUserIdentity(123);
-
-        identity.should.have.property('Type', 1);
-        identity.should.have.property('Identity', 123);
-
-        done();
-    });
-
-    it('should replace previous userIdentities when setting multiple identities of the same type', function(done) {
-        mParticle.setUserIdentity('user1@mparticle.com', mParticle.IdentityType.CustomerId);
-        mParticle.setUserIdentity('user2@mparticle.com', mParticle.IdentityType.CustomerId);
-
-        var identity1 = mParticle.getUserIdentity('user1@mparticle.com');
-        var identity2 = mParticle.getUserIdentity('user2@mparticle.com');
-
-        Should(identity1).not.be.ok();
-        Should(identity2).be.ok();
-
-        done();
-    });
-
-    it('should remove userIdentity of specified type when null is passed in as id', function(done) {
-        mParticle.reset();
-
-        mParticle.init(apiKey);
-
-        mParticle.setUserIdentity('facebookid', mParticle.IdentityType.Facebook);
-        var identity1 = mParticle.getUserIdentity('facebook');
-
-        mParticle.setUserIdentity(null, mParticle.IdentityType.Facebook);
-        var identity2 = mParticle.getUserIdentity('facebook');
-
-        Should(identity2).not.be.ok();
-        Should(identity1).not.be.ok();
-
-        done();
-    });
-
-    it('should not create a userIdentity when only an id is passed', function(done) {
-        mParticle.setUserIdentity('test@mparticle.com');
-        var identity = mParticle.getUserIdentity('test@mparticle.com');
-
-        Should(identity).not.be.ok();
-
-        done();
-    });
-
-    it('should invoke forwarder setIdentity on initialized forwarders (debug = false)', function(done) {
-        mParticle.reset();
-        var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-        mockForwarder.configure();
-        mParticle.init(apiKey);
-
-        mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
-
-        mockForwarder.instance.should.have.property('setUserIdentityCalled', true);
-
-        done();
-    });
+    // it('should remove user identities by id', function(done) {
+    //     mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
+    //     mParticle.removeUserIdentity('test@mparticle.com');
+    //
+    //     var identity = mParticle.getUserIdentity('test@mparticle.com');
+    //
+    //     Should(identity).not.be.ok();
+    //
+    //     done();
+    // });
+    //
+    // it('should replace existing userIdentities of the same type', function(done) {
+    //     mParticle.reset();
+    //
+    //     setCookie({
+    //         ui: [{Identity: 123, Type: 0}, {Identity:123, Type: 2}]
+    //     });
+    //
+    //     mParticle.init(validOptions);
+    //
+    //     mParticle.setUserIdentity(123, mParticle.IdentityType.CustomerId);
+    //
+    //     var identity = mParticle.getUserIdentity(123);
+    //
+    //     identity.should.have.property('Type', 1);
+    //     identity.should.have.property('Identity', 123);
+    //
+    //     done();
+    // });
+    //
+    // it('should replace previous userIdentities when setting multiple identities of the same type', function(done) {
+    //     mParticle.setUserIdentity('user1@mparticle.com', mParticle.IdentityType.CustomerId);
+    //     mParticle.setUserIdentity('user2@mparticle.com', mParticle.IdentityType.CustomerId);
+    //
+    //     var identity1 = mParticle.getUserIdentity('user1@mparticle.com');
+    //     var identity2 = mParticle.getUserIdentity('user2@mparticle.com');
+    //
+    //     Should(identity1).not.be.ok();
+    //     Should(identity2).be.ok();
+    //
+    //     done();
+    // });
+    //
+    // it('should remove userIdentity of specified type when null is passed in as id', function(done) {
+    //     mParticle.reset();
+    //
+    //     mParticle.init(validOptions);
+    //
+    //     mParticle.setUserIdentity('facebookid', mParticle.IdentityType.Facebook);
+    //     var identity1 = mParticle.getUserIdentity('facebook');
+    //
+    //     mParticle.setUserIdentity(null, mParticle.IdentityType.Facebook);
+    //     var identity2 = mParticle.getUserIdentity('facebook');
+    //
+    //     Should(identity2).not.be.ok();
+    //     Should(identity1).not.be.ok();
+    //
+    //     done();
+    // });
+    //
+    // it('should not create a userIdentity when only an id is passed', function(done) {
+    //     mParticle.setUserIdentity('test@mparticle.com');
+    //     var identity = mParticle.getUserIdentity('test@mparticle.com');
+    //
+    //     Should(identity).not.be.ok();
+    //
+    //     done();
+    // });
+    //
+    // it('should invoke forwarder setIdentity on initialized forwarders (debug = false)', function(done) {
+    //     mParticle.reset();
+    //     var mockForwarder = new MockForwarder();
+    //     mParticle.addForwarder(mockForwarder);
+    //     mockForwarder.configure();
+    //     mParticle.init(validOptions);
+    //
+    //     mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
+    //
+    //     mockForwarder.instance.should.have.property('setUserIdentityCalled', true);
+    //
+    //     done();
+    // });
 
     it('starts new session', function(done) {
         mParticle.startNewSession();
@@ -1138,7 +1114,7 @@ describe('mParticle Core SDK', function() {
             isVisible: true
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
         Should(mockForwarder.instance).not.be.ok();
 
         done();
@@ -1165,16 +1141,16 @@ describe('mParticle Core SDK', function() {
             isVisible: true
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mockForwarder.instance.should.have.property('initCalled', true);
 
         done();
     });
 
-    it('creates a forwarder when forwarder\'s isDebug = mParticle.isSandbox', function(done) {
+    it('creates a forwarder when forwarder\'s isDebug = mParticle.isDevelopmentMode', function(done) {
         mParticle.reset();
-        mParticle.isSandbox = true;
+        mParticle.isDevelopmentMode = true;
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mParticle.configureForwarder({
@@ -1193,47 +1169,47 @@ describe('mParticle Core SDK', function() {
             isVisible: true
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
         mockForwarder.instance.should.have.property('initCalled', true);
 
         done();
     });
 
-    it('sends events to forwarder when forwarder\'s isDebug = mParticle.isSandbox ', function(done) {
-        mParticle.reset();
-        mParticle.isSandbox = true;
-        var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder({
-            name: 'MockForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            pageViewFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            id: 1,
-            isDebug: true,
-            hasDebugString: false,
-            isVisible: true
-        });
-
-        mParticle.init(apiKey);
-        mParticle.logEvent('send this event to forwarder');
-        mockForwarder.instance.should.have.property('processCalled', true);
-
-        done();
-    });
+    // it('sends events to forwarder when forwarder\'s isDebug = mParticle.isSandbox ', function(done) {
+    //     mParticle.reset();
+    //     mParticle.isSandbox = true;
+    //     var mockForwarder = new MockForwarder();
+    //     mParticle.addForwarder(mockForwarder);
+    //     mParticle.configureForwarder({
+    //         name: 'MockForwarder',
+    //         settings: {},
+    //         eventNameFilters: [],
+    //         eventTypeFilters: [],
+    //         attributeFilters: [],
+    //         pageViewFilters: [],
+    //         pageViewAttributeFilters: [],
+    //         userIdentityFilters: [],
+    //         userAttributeFilters: [],
+    //         id: 1,
+    //         isDebug: true,
+    //         hasDebugString: false,
+    //         isVisible: true
+    //     });
+    //
+    //     mParticle.init(validOptions);
+    //     mParticle.logEvent('send this event to forwarder');
+    //     mockForwarder.instance.should.have.property('processCalled', true);
+    //
+    //     done();
+    // });
 
     it('sends events to forwarder when mParticle.isSandbox = config.isDebug = false', function(done) {
         mParticle.reset();
-        mParticle.isSandbox = false;
+        mParticle.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mParticle.logEvent('send this event to forwarder');
 
@@ -1247,7 +1223,7 @@ describe('mParticle Core SDK', function() {
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mParticle.logEvent('send this event to forwarder',
             mParticle.EventType.Navigation,
@@ -1275,7 +1251,7 @@ describe('mParticle Core SDK', function() {
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
         mockForwarder.instance.isVisible = false;
 
         mParticle.logEvent('send this event to forwarder',
@@ -1306,7 +1282,7 @@ describe('mParticle Core SDK', function() {
 
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
         mParticle.setOptOut(true);
 
         mockForwarder.instance.should.have.property('setOptOutCalled', true);
@@ -1319,8 +1295,8 @@ describe('mParticle Core SDK', function() {
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
-        mParticle.setUserAttribute('gender', 'male');
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         mParticle.logEvent('test user attributes');
 
@@ -1337,9 +1313,9 @@ describe('mParticle Core SDK', function() {
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
-        mParticle.setUserAttribute('Gender', 'male');
-        mParticle.setUserAttribute('gender', 'female');
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
 
         mParticle.logEvent('test user attributes');
 
@@ -1357,9 +1333,9 @@ describe('mParticle Core SDK', function() {
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
-        mParticle.setUserAttribute('gender', 'male');
-        mParticle.removeUserAttribute('gender');
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
 
         mParticle.logEvent('test user attributes');
 
@@ -1374,9 +1350,9 @@ describe('mParticle Core SDK', function() {
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
-        mParticle.setUserAttribute('Gender', 'male');
-        mParticle.removeUserAttribute('gender');
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
+        mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
 
         mParticle.logEvent('test user attributes');
 
@@ -1449,8 +1425,8 @@ describe('mParticle Core SDK', function() {
 
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
-        mParticle.init(apiKey);
-        mParticle.setUserAttribute('gender', 'male');
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         mockForwarder.instance.should.have.property('setUserAttributeCalled', true);
 
@@ -1463,8 +1439,8 @@ describe('mParticle Core SDK', function() {
 
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
-        mParticle.init(apiKey);
-        mParticle.setUserAttributeList('gender', ['male']);
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('gender', ['male']);
 
         mockForwarder.instance.should.have.property('setUserAttributeCalled', true);
 
@@ -1477,9 +1453,9 @@ describe('mParticle Core SDK', function() {
 
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
-        mParticle.init(apiKey);
-        mParticle.setUserAttribute('gender', 'male');
-        mParticle.removeUserAttribute('gender');
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
 
         mockForwarder.instance.should.have.property('removeUserAttributeCalled', true);
 
@@ -1500,7 +1476,7 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should set user tag', function(done) {
-        mParticle.setUserTag('test');
+        mParticle.Identity.getCurrentUser().setUserTag('test');
 
         mParticle.logEvent('test event');
 
@@ -1513,8 +1489,8 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should remove user tag', function(done) {
-        mParticle.setUserTag('test');
-        mParticle.removeUserTag('test');
+        mParticle.Identity.getCurrentUser().setUserTag('test');
+        mParticle.Identity.getCurrentUser().removeUserTag('test');
 
         mParticle.logEvent('test event');
 
@@ -1527,8 +1503,8 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should remove user tag case insensitive', function(done) {
-        mParticle.setUserTag('Test');
-        mParticle.removeUserTag('test');
+        mParticle.Identity.getCurrentUser().setUserTag('Test');
+        mParticle.Identity.getCurrentUser().removeUserTag('test');
 
         mParticle.logEvent('test event');
 
@@ -1619,8 +1595,8 @@ describe('mParticle Core SDK', function() {
             isVisible: true
         });
 
-        mParticle.init(apiKey);
-        mParticle.setUserAttribute('gender', 'male');
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         mParticle.logEvent('test event');
 
@@ -1631,37 +1607,37 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should filter user identities from forwarder', function(done) {
-        mParticle.reset();
-        var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-
-        mParticle.configureForwarder({
-            name: 'MockForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            pageViewFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [mParticle.IdentityType.Google],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        });
-
-        mParticle.init(apiKey);
-        mParticle.setUserIdentity('test@gmail.com', mParticle.IdentityType.Google);
-
-        mParticle.logEvent('test event');
-
-        var event = mockForwarder.instance.receivedEvent;
-        event.should.have.property('UserIdentities').with.lengthOf(0);
-
-        done();
-    });
+    // it('should filter user identities from forwarder', function(done) {
+    //     mParticle.reset();
+    //     var mockForwarder = new MockForwarder();
+    //     mParticle.addForwarder(mockForwarder);
+    //
+    //     mParticle.configureForwarder({
+    //         name: 'MockForwarder',
+    //         settings: {},
+    //         eventNameFilters: [],
+    //         eventTypeFilters: [],
+    //         attributeFilters: [],
+    //         pageViewFilters: [],
+    //         pageViewAttributeFilters: [],
+    //         userIdentityFilters: [mParticle.IdentityType.Google],
+    //         userAttributeFilters: [],
+    //         moduleId: 1,
+    //         isDebug: false,
+    //         HasDebugString: 'false',
+    //         isVisible: true
+    //     });
+    //
+    //     mParticle.init(validOptions);
+    //     mParticle.setUserIdentity('test@gmail.com', mParticle.IdentityType.Google);
+    //
+    //     mParticle.logEvent('test event');
+    //
+    //     var event = mockForwarder.instance.receivedEvent;
+    //     event.should.have.property('UserIdentities').with.lengthOf(0);
+    //
+    //     done();
+    // });
 
     it('should filter event names', function(done) {
         mParticle.reset();
@@ -1686,7 +1662,7 @@ describe('mParticle Core SDK', function() {
             isVisible: true
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mParticle.startNewSession();
         mockForwarder.instance.receivedEvent = null;
@@ -1724,7 +1700,7 @@ describe('mParticle Core SDK', function() {
             isVisible: true
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mParticle.startNewSession();
         mockForwarder.instance.receivedEvent = null;
@@ -1758,7 +1734,7 @@ describe('mParticle Core SDK', function() {
             isVisible: true
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mParticle.logEvent('test event', mParticle.EventType.Navigation, {
             'test attribute': 'test value',
@@ -1796,7 +1772,7 @@ describe('mParticle Core SDK', function() {
             isVisible: true
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mParticle.logPageView();
 
@@ -1970,7 +1946,7 @@ describe('mParticle Core SDK', function() {
         mParticle.IdentityType.getName(mParticle.IdentityType.Microsoft).should.equal('Microsoft ID');
         mParticle.IdentityType.getName(mParticle.IdentityType.Yahoo).should.equal('Yahoo ID');
         mParticle.IdentityType.getName(mParticle.IdentityType.Email).should.equal('Email');
-        mParticle.IdentityType.getName(mParticle.IdentityType.Alias).should.equal('Alias ID');
+        // mParticle.IdentityType.getName(mParticle.IdentityType.Alias).should.equal('Alias ID');
         mParticle.IdentityType.getName(mParticle.IdentityType.FacebookCustomAudienceId).should.equal('Facebook App User ID');
         mParticle.IdentityType.getName(null).should.equal('Other ID');
 
@@ -2006,7 +1982,7 @@ describe('mParticle Core SDK', function() {
 
         mParticle.reset();
         mParticle.ready(function() { readyFuncCalled = true; });
-        mParticle.init();
+        mParticle.init(validOptions);
 
         Should(readyFuncCalled).equal(true);
 
@@ -2072,13 +2048,26 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should log log out event', function(done) {
-        mParticle.logOut();
+    it('should log logout event', function(done) {
+        mParticle.Identity.logout();
+        var data = getIdentityEvent('logout');
+        data.should.have.properties('client_sdk', 'environment', 'previous_mpid', 'request_id', 'request_timestamp_ms', 'context');
 
-        var data = getEvent(MessageType.Profile);
+        done();
+    });
 
-        data.should.have.property('dt', MessageType.Profile);
-        data.should.have.property('pet', ProfileMessageType.Logout);
+    it('should log login event', function(done) {
+        mParticle.Identity.login();
+        var data = getIdentityEvent('login');
+        data.should.have.properties('client_sdk', 'environment', 'previous_mpid', 'request_id', 'request_timestamp_ms', 'context');
+
+        done();
+    });
+
+    it('modify', function(done) {
+        mParticle.Identity.modify();
+        var data = getIdentityEvent('modify');
+        data.should.have.properties('client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms', 'context');
 
         done();
     });
@@ -2089,8 +2078,8 @@ describe('mParticle Core SDK', function() {
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
 
-        mParticle.init(apiKey);
-        mParticle.logOut();
+        mParticle.init(validOptions);
+        mParticle.Identity.logout();
 
         mockForwarder.instance.should.have.property('logOutCalled', true);
 
@@ -2104,7 +2093,7 @@ describe('mParticle Core SDK', function() {
         mockForwarder.configure();
 
         mParticle.setAppName('Unit Tests');
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mockForwarder.instance.should.have.property('appName', 'Unit Tests');
 
@@ -2118,7 +2107,7 @@ describe('mParticle Core SDK', function() {
         mockForwarder.configure();
 
         mParticle.setAppVersion('3.0');
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mockForwarder.instance.should.have.property('appVersion', '3.0');
 
@@ -2144,14 +2133,14 @@ describe('mParticle Core SDK', function() {
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
-        mockForwarder.instance.should.have.property('userIdentities').with.lengthOf(1);
+        Object.keys(mockForwarder.instance.userIdentities).length.should.equal(1);
 
         done();
     });
 
-    it('should pass in user attributes to forwarder on initialize', function(done) {
+    it('should pass in user attributes to forwarder on initialize if copyUserAttributes is true', function(done) {
         mParticle.reset();
 
         setCookie({
@@ -2163,11 +2152,33 @@ describe('mParticle Core SDK', function() {
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mockForwarder.instance.should.have.property('userAttributes');
         mockForwarder.instance.userAttributes.should.have.property('color', 'blue');
 
+        done();
+    });
+
+    it('should not pass in user attributes to forwarder on initialize if copyUserAttributes is false', function(done) {
+        mParticle.reset();
+
+        setCookie({
+            ua: {
+                color: 'blue'
+            }
+        });
+
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mockForwarder.configure();
+        validOptions.initialIdentity.copyUserAttributes = false;
+        mParticle.init(validOptions);
+
+        mockForwarder.instance.should.have.property('userAttributes');
+        mockForwarder.instance.userAttributes.should.not.have.property('color');
+
+        validOptions.initialIdentity.copyUserAttributes = true;
         done();
     });
 
@@ -2258,7 +2269,7 @@ describe('mParticle Core SDK', function() {
             }
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
             ForwardingRule: 'Forward'
@@ -2297,7 +2308,7 @@ describe('mParticle Core SDK', function() {
             }
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
             ForwardingRule: 'Forward'
@@ -2336,7 +2347,7 @@ describe('mParticle Core SDK', function() {
             }
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
             Test: 'Non-Matching'
@@ -2355,8 +2366,8 @@ describe('mParticle Core SDK', function() {
 
         mParticle.addForwarder(mockForwarder);
         mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [mParticle.generateHash('gender')], 1, false, false);
-        mParticle.init(apiKey);
-        mParticle.setUserAttribute('gender', 'male');
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.logEvent('test event');
 
         var event = mockForwarder.instance.receivedEvent;
@@ -2412,8 +2423,8 @@ describe('mParticle Core SDK', function() {
     it('should set user attribute list', function(done) {
         mParticle.reset();
 
-        mParticle.init(apiKey);
-        mParticle.setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
 
         mParticle.logEvent('test user attributes');
 
@@ -2428,9 +2439,9 @@ describe('mParticle Core SDK', function() {
     it('should set user attribute list case insensitive', function(done) {
         mParticle.reset();
 
-        mParticle.init(apiKey);
-        mParticle.setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
-        mParticle.setUserAttributeList('Numbers', [1, 2, 3, 4, 5, 6]);
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('Numbers', [1, 2, 3, 4, 5, 6]);
 
         mParticle.logEvent('test user attributes');
 
@@ -2448,8 +2459,8 @@ describe('mParticle Core SDK', function() {
 
         mParticle.reset();
 
-        mParticle.init(apiKey);
-        mParticle.setUserAttributeList('numbers', list);
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', list);
 
         list.push(6);
 
@@ -2466,9 +2477,9 @@ describe('mParticle Core SDK', function() {
     it('should remove all user attributes', function(done) {
         mParticle.reset();
 
-        mParticle.init(apiKey);
-        mParticle.setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
-        mParticle.removeAllUserAttributes();
+        mParticle.init(validOptions);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().removeAllUserAttributes();
 
         mParticle.logEvent('test user attributes');
 
@@ -2482,12 +2493,12 @@ describe('mParticle Core SDK', function() {
     it('should get user attribute lists', function(done) {
         mParticle.reset();
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
-        mParticle.setUserAttribute('gender', 'male');
-        mParticle.setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
 
-        var userAttributes = mParticle.getUserAttributesLists();
+        var userAttributes = mParticle.Identity.getCurrentUser().getUserAttributesLists();
 
         userAttributes.should.have.property('numbers');
         userAttributes.should.not.have.property('gender');
@@ -2497,16 +2508,16 @@ describe('mParticle Core SDK', function() {
 
     it('should copy when calling get user attribute lists', function(done) {
         mParticle.reset();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
-        mParticle.setUserAttribute('gender', 'male');
-        mParticle.setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
 
-        var userAttributes = mParticle.getUserAttributesLists();
+        var userAttributes = mParticle.Identity.getCurrentUser().getUserAttributesLists();
 
         userAttributes['numbers'].push(6);
 
-        var userAttributes1 = mParticle.getUserAttributesLists();
+        var userAttributes1 = mParticle.Identity.getCurrentUser().getUserAttributesLists();
         userAttributes1['numbers'].should.have.lengthOf(5);
 
         done();
@@ -2514,17 +2525,17 @@ describe('mParticle Core SDK', function() {
 
     it('should copy when calling get user attributes', function(done) {
         mParticle.reset();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
-        mParticle.setUserAttribute('gender', 'male');
-        mParticle.setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
 
-        var userAttributes = mParticle.getAllUserAttributes();
+        var userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
         userAttributes.blah = 'test';
         userAttributes['numbers'].push(6);
 
-        var userAttributes1 = mParticle.getAllUserAttributes();
+        var userAttributes1 = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
         userAttributes1['numbers'].should.have.lengthOf(5);
         userAttributes1.should.not.have.property('blah');
@@ -2535,12 +2546,12 @@ describe('mParticle Core SDK', function() {
     it('should get all user attributes', function(done) {
         mParticle.reset();
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
-        mParticle.setUserAttribute('test', '123');
-        mParticle.setUserAttribute('another test', 'blah');
+        mParticle.Identity.getCurrentUser().setUserAttribute('test', '123');
+        mParticle.Identity.getCurrentUser().setUserAttribute('another test', 'blah');
 
-        var attrs = mParticle.getAllUserAttributes();
+        var attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
         attrs.should.have.property('test', '123');
         attrs.should.have.property('another test', 'blah');
@@ -2550,11 +2561,11 @@ describe('mParticle Core SDK', function() {
 
     it('should not set user attribute list if value is not array', function(done) {
         mParticle.reset();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
-        mParticle.setUserAttributeList('mykey', 1234);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('mykey', 1234);
 
-        var attrs = mParticle.getAllUserAttributes();
+        var attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
         attrs.should.not.have.property('mykey');
 
@@ -2563,7 +2574,7 @@ describe('mParticle Core SDK', function() {
 
     it('should support array of products when adding to cart', function(done) {
         mParticle.reset();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2),
             product2 = mParticle.eCommerce.createProduct('Nexus', '67890', 300, 1);
@@ -2589,7 +2600,7 @@ describe('mParticle Core SDK', function() {
 
     it('should support a single product when adding to cart', function(done) {
         mParticle.reset();
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2);
 
@@ -2637,7 +2648,7 @@ describe('mParticle Core SDK', function() {
             HasDebugString: 'false',
             isVisible: true
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
         mParticle.eCommerce.setCurrencyCode('foo-currency');
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
@@ -2710,7 +2721,7 @@ describe('mParticle Core SDK', function() {
             HasDebugString: 'false',
             isVisible: true
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
@@ -2757,7 +2768,7 @@ describe('mParticle Core SDK', function() {
             HasDebugString: 'false',
             isVisible: true
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
@@ -2811,7 +2822,7 @@ describe('mParticle Core SDK', function() {
             HasDebugString: 'false',
             isVisible: true
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
@@ -2869,7 +2880,7 @@ describe('mParticle Core SDK', function() {
             HasDebugString: 'false',
             isVisible: true
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
@@ -2921,7 +2932,7 @@ describe('mParticle Core SDK', function() {
             HasDebugString: 'false',
             isVisible: true
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
@@ -2997,27 +3008,27 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should not set a bad user attribute key or value', function(done) {
-        mParticle.setUserAttribute('gender', { bad: 'bad' });
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', { bad: 'bad' });
         mParticle.logEvent('test bad user attributes1');
         var event1 = getEvent('test bad user attributes1');
 
-        mParticle.setUserAttribute('gender', ['bad', 'bad', 'bad']);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', ['bad', 'bad', 'bad']);
         mParticle.logEvent('test bad user attributes2');
         var event2 = getEvent('test bad user attributes2');
 
-        mParticle.setUserAttribute({ bad: 'bad' }, 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute({ bad: 'bad' }, 'male');
         mParticle.logEvent('test bad user attributes3');
         var event3 = getEvent('test bad user attributes3');
 
-        mParticle.setUserAttribute(['bad', 'bad', 'bad'], 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(['bad', 'bad', 'bad'], 'female');
         mParticle.logEvent('test bad user attributes4');
         var event4 = getEvent('test bad user attributes4');
 
-        mParticle.setUserAttribute(null, 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(null, 'female');
         mParticle.logEvent('test bad user attributes5');
         var event5 = getEvent('test bad user attributes5');
 
-        mParticle.setUserAttribute(undefined, 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(undefined, 'female');
         mParticle.logEvent('test bad user attributes6');
         var event6 = getEvent('test bad user attributes6');
 
@@ -3083,7 +3094,7 @@ describe('mParticle Core SDK', function() {
 
         var guid = '7b0a8d4e-b144-4259-b491-1b3cf76af453';
         setLocalStorage({das: guid});
-        mParticle.init();
+        mParticle.init(validOptions);
 
         var deviceId = mParticle.getDeviceId();
 
@@ -3105,7 +3116,7 @@ describe('mParticle Core SDK', function() {
             redirectUrl:''
         };
         mParticle.configurePixel(pixelSettings);
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         setTimeout(function() {
             var data = mParticle.persistence.getLocalStorage();
@@ -3135,7 +3146,7 @@ describe('mParticle Core SDK', function() {
             csd: { 5: (new Date(500)).getTime() }
         });
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         setTimeout(function() {
             var data = mParticle.persistence.getLocalStorage();
@@ -3168,7 +3179,7 @@ describe('mParticle Core SDK', function() {
             mpid: testMPID,
             csd: { 5: lastCookieSyncTime }
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
         server.requests = [];
 
         var data = mParticle.persistence.getLocalStorage();
@@ -3194,7 +3205,7 @@ describe('mParticle Core SDK', function() {
         mParticle.configurePixel(pixelSettings);
 
         window.mParticleAndroid = true;
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var data1 = mParticle.persistence.getLocalStorage();
 
@@ -3202,7 +3213,7 @@ describe('mParticle Core SDK', function() {
 
         window.mParticleAndroid = null;
         window.mParticle.isIOS = true;
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var data2 = mParticle.persistence.getLocalStorage();
 
@@ -3227,7 +3238,7 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         mParticle.configurePixel(pixelSettings);
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
         var data1 = mParticle.persistence.getLocalStorage();
 
         server.handle = function(request) {
@@ -3262,7 +3273,7 @@ describe('mParticle Core SDK', function() {
         mParticle.isSandbox = true;
         mParticle.configurePixel(pixelSettings);
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var data1 = mParticle.persistence.getLocalStorage();
 
@@ -3287,7 +3298,7 @@ describe('mParticle Core SDK', function() {
         mParticle.isSandbox = false;
         mParticle.configurePixel(pixelSettings);
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var data1 = mParticle.persistence.getLocalStorage();
 
@@ -3342,18 +3353,16 @@ describe('mParticle Core SDK', function() {
 
         mParticle.useCookieStorage = false;
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
-        mParticle.setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         var localStorageData = mParticle.persistence.getLocalStorage();
 
         var afterInitCookieData = getCookie();
-
         beforeInitCookieData[testMPID].ui[0].should.have.property('Identity', 123);
         localStorageData[testMPID].ua.should.have.property('gender', 'male');
-        localStorageData[testMPID].ui[0].should.have.property('Identity', 123);
-        localStorageData[testMPID].ui[0].should.have.property('Type', 1);
+        localStorageData[testMPID].ui.should.have.property('1', 123);
         Should(afterInitCookieData).not.be.ok();
 
         done();
@@ -3366,9 +3375,9 @@ describe('mParticle Core SDK', function() {
         });
 
         mParticle.useCookieStorage = true;
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
-        mParticle.setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         var localStorageData = localStorage.getItem('mprtcl-api');
         var cookieData = JSON.parse(getCookie());
@@ -3376,7 +3385,7 @@ describe('mParticle Core SDK', function() {
         Should(localStorageData).not.be.ok();
 
         cookieData[testMPID].ua.should.have.property('gender', 'male');
-        cookieData[testMPID].ui[0].should.have.property('Identity', 123);
+        cookieData[testMPID].ui.should.have.property('1', 123);
 
         done();
     });
@@ -3401,7 +3410,7 @@ describe('mParticle Core SDK', function() {
 
     it('should not do an identity swap if it is the first run', function(done) {
         var cookiesBefore = mParticle.persistence.getLocalStorage();
-        mParticle.Identity.checkIdentitySwap(testMPID, 'currentMPID', true);
+        mParticle._Identity.checkIdentitySwap(testMPID, 'currentMPID', true);
         mParticle.logEvent('test test');
         mParticle.persistence.update();
 
@@ -3415,7 +3424,7 @@ describe('mParticle Core SDK', function() {
     it('should do an identity swap if there is an MPID change', function(done) {
         var cookiesBefore = mParticle.persistence.getLocalStorage();
 
-        mParticle.Identity.checkIdentitySwap(testMPID, 'currentMPID', false);
+        mParticle._Identity.checkIdentitySwap(testMPID, 'currentMPID', false);
 
         var cookiesAfter = mParticle.persistence.getLocalStorage();
         cookiesBefore.currentUserMPID.should.equal(testMPID);
@@ -3425,13 +3434,34 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should store all MPIDs associated with a sessionId, then clear sessionIds when a new session starts', function(done) {
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'otherMPID'
+            }));
+        };
+
+        mParticle.logEvent('test event');
+        var localStorageDataBeforeSessionEnd = mParticle.persistence.getLocalStorage();
+        localStorageDataBeforeSessionEnd.currentSessionMPIDs.length.should.equal(2);
+
+        mParticle.endSession();
+        mParticle.logEvent('new session');
+        var localStorageDataAfterSessionEnd = mParticle.persistence.getLocalStorage();
+        localStorageDataAfterSessionEnd.currentSessionMPIDs.length.should.equal(1);
+
+        done();
+    });
+
     it('localStorage - should key cookies on mpid on first run', function(done) {
         var cookies1 = mParticle.persistence.getLocalStorage();
 
-        cookies1.should.not.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies1.should.not.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
         cookies1.should.have.property('currentUserMPID', testMPID);
         cookies1.should.have.property(testMPID);
-        cookies1[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies1[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -3445,8 +3475,8 @@ describe('mParticle Core SDK', function() {
         var cookies2 = mParticle.persistence.getLocalStorage();
 
         cookies2.should.have.property('currentUserMPID', 'otherMPID');
-        cookies2[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
-        cookies2.otherMPID.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies2[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
+        cookies2.otherMPID.should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
 
         done();
     });
@@ -3455,13 +3485,13 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         removeLocalStorageFiles();
         window.mParticle.useCookieStorage = true;
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var cookies1 = JSON.parse(getCookie());
-        cookies1.should.not.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies1.should.not.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
         cookies1.should.have.property('currentUserMPID', testMPID);
         cookies1.should.have.property(testMPID);
-        cookies1[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies1[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -3475,8 +3505,8 @@ describe('mParticle Core SDK', function() {
         var cookies2 = JSON.parse(getCookie());
 
         cookies2.should.have.property('currentUserMPID', 'otherMPID');
-        cookies2[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
-        cookies2.otherMPID.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookies2[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
+        cookies2.otherMPID.should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
         window.mParticle.useCookieStorage = false;
 
         done();
@@ -3493,15 +3523,15 @@ describe('mParticle Core SDK', function() {
             mpid: testMPID,
             cgid: 'cgidTEST'
         });
-        mParticle.init(apiKey);
 
+        mParticle.init(validOptions);
         var cookiesAfterInit = mParticle.persistence.getLocalStorage();
 
         cookiesAfterInit.should.not.have.properties(['cgid', 'mpid']);
         cookiesAfterInit.should.have.properties([testMPID, 'currentUserMPID']);
         cookiesAfterInit.should.have.property(testMPID);
         cookiesAfterInit[testMPID].should.have.property('cgid', 'cgidTEST');
-        cookiesAfterInit[testMPID].should.have.properties('ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp');
+        cookiesAfterInit[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
 
         done();
     });
@@ -3522,14 +3552,14 @@ describe('mParticle Core SDK', function() {
                 Type: 1
             }]
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var cookiesAfterInit = JSON.parse(getCookie());
         cookiesAfterInit.should.not.have.properties(['cgid', 'mpid']);
         cookiesAfterInit.should.have.properties([testMPID, 'currentUserMPID']);
         cookiesAfterInit[testMPID].should.have.property('cgid', 'cgidTEST');
-        cookiesAfterInit[testMPID].ui[0].should.have.property('Identity', 'objData');
-        cookiesAfterInit[testMPID].should.have.properties('ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp');
+        cookiesAfterInit[testMPID].ui.should.have.property(1, 'objData');
+        cookiesAfterInit[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
 
         done();
     });
@@ -3545,7 +3575,7 @@ describe('mParticle Core SDK', function() {
             },
             currentUserMPID: 'testMPID'
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var cookies1 = mParticle.persistence.getLocalStorage();
         cookies1.currentUserMPID.should.equal(testMPID);
@@ -3563,8 +3593,8 @@ describe('mParticle Core SDK', function() {
         var cookiesAfterMPIDChange = mParticle.persistence.getLocalStorage();
         cookiesAfterMPIDChange.should.have.properties(['currentUserMPID', 'otherMPID', testMPID]);
         cookiesAfterMPIDChange.should.have.property('currentUserMPID', 'otherMPID');
-        cookiesAfterMPIDChange.otherMPID.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
-        cookiesAfterMPIDChange[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookiesAfterMPIDChange.otherMPID.should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
+        cookiesAfterMPIDChange[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
 
         done();
     });
@@ -3578,13 +3608,13 @@ describe('mParticle Core SDK', function() {
             mpid: testMPID,
             cgid: 'cgidTEST'
         });
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
         var cookiesAfterInit = JSON.parse(getCookie());
         cookiesAfterInit.should.not.have.properties(['mpid', 'ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
         cookiesAfterInit.should.have.property(testMPID);
         cookiesAfterInit[testMPID].should.have.property('cgid', 'cgidTEST');
-        cookiesAfterInit[testMPID].should.have.properties('ui', 'ua', 'les');
+        cookiesAfterInit[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -3599,8 +3629,8 @@ describe('mParticle Core SDK', function() {
         var cookiesAfterMPIDChange = JSON.parse(getCookie());
         cookiesAfterMPIDChange.should.have.properties(['currentUserMPID', 'otherMPID', testMPID]);
         cookiesAfterMPIDChange.should.have.property('currentUserMPID', 'otherMPID');
-        cookiesAfterMPIDChange.otherMPID.should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
-        cookiesAfterMPIDChange[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        cookiesAfterMPIDChange.otherMPID.should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
+        cookiesAfterMPIDChange[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
         window.mParticle.useCookieStorage = false;
 
 
@@ -3618,7 +3648,7 @@ describe('mParticle Core SDK', function() {
         var parsedCookie = JSON.parse(cookieData);
 
         cookieDataType.should.be.type('string');
-        parsedCookie[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        parsedCookie[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
         Should(localStorageData).not.be.ok();
 
         window.mParticle.useCookieStorage = false;
@@ -3633,7 +3663,7 @@ describe('mParticle Core SDK', function() {
         cookieData = mParticle.persistence.getCookie();
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-        localStorageData[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        localStorageData[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
         Should(cookieData).not.be.ok();
 
         done();
@@ -3653,7 +3683,7 @@ describe('mParticle Core SDK', function() {
         localStorageData = mParticle.persistence.getLocalStorage();
 
         cookieDataType.should.be.type('string');
-        parsedCookie[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        parsedCookie[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
         Should(localStorageData).not.be.ok();
 
         window.mParticle.useCookieStorage = true;
@@ -3670,7 +3700,7 @@ describe('mParticle Core SDK', function() {
 
         localStorageData = mParticle.persistence.getLocalStorage();
         cookieData = mParticle.persistence.getCookie();
-        localStorageData[testMPID].should.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp']);
+        localStorageData[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
         Should(cookieData).not.be.ok();
 
         done();
@@ -3685,18 +3715,14 @@ describe('mParticle Core SDK', function() {
         };
         mParticle.persistence.storeDataInMemory(objData);
 
-        var userIdentity1 = mParticle.getUserIdentity('objData');
-
-        userIdentity1.should.have.property('Type', 1);
-        userIdentity1.should.have.property('Identity', 'objData');
-
+        var userIdentity1 = mParticle.Identity.getCurrentUser().getUserIdentities();
+        userIdentity1.userIdentities.should.have.property('1', 'objData');
         var stringData = '{"ui":[{"Identity":"stringData","Type":2}]}';
         mParticle.persistence.storeDataInMemory(stringData);
 
-        var userIdentity2 = mParticle.getUserIdentity('stringData');
+        var userIdentity2 = mParticle.Identity.getCurrentUser().getUserIdentities();
 
-        userIdentity2.should.have.property('Type', 2);
-        userIdentity2.should.have.property('Identity', 'stringData');
+        userIdentity2.userIdentities.should.have.property('2', 'stringData');
 
         done();
     });
@@ -3707,9 +3733,9 @@ describe('mParticle Core SDK', function() {
 
         mParticle.useCookieStorage = false;
 
-        mParticle.init(apiKey);
+        mParticle.init(validOptions);
 
-        mParticle.setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         var cookieData = JSON.parse(getCookie());
 
@@ -3720,7 +3746,8 @@ describe('mParticle Core SDK', function() {
 
     it('creates a new session when elapsed time between actions is greater than session timeout', function(done) {
         mParticle.reset();
-        mParticle.init(apiKey, {SessionTimeout: .0000001});
+        validOptions.config = { SessionTimeout: .0000001 };
+        mParticle.init(validOptions);
         mParticle.logEvent('Test Event');
         var data = getEvent('Test Event');
 
@@ -3853,6 +3880,244 @@ describe('mParticle Core SDK', function() {
         var validOptionsNoCopyUserAttributesResult = mParticle.Validators.validateOptions(validOptionsNoCopyUserAttributes);
         validOptionsNoCopyUserAttributesResult.valid.should.equal(true);
         validOptionsNoCopyUserAttributesResult.warning.should.equal('Warning: By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the initialIdentity object');
+
+        done();
+    });
+
+    it('should create a proper identity request', function(done) {
+        var data = {userIdentities: {}};
+        data.userIdentities[mParticle.IdentityType.Other] = 'id1';
+        data.userIdentities[mParticle.IdentityType.CustomerId] = 'id2';
+        data.userIdentities[mParticle.IdentityType.Facebook] = 'id3';
+        data.userIdentities[mParticle.IdentityType.Twitter] = 'id4';
+        data.userIdentities[mParticle.IdentityType.Google] = 'id5';
+        data.userIdentities[mParticle.IdentityType.Microsoft] = 'id6';
+        data.userIdentities[mParticle.IdentityType.Yahoo] = 'id7';
+        data.userIdentities[mParticle.IdentityType.Email] = 'id8';
+        data.userIdentities[mParticle.IdentityType.FacebookCustomAudienceId] = 'id9';
+        data.userIdentities[mParticle.IdentityType.Other1] = 'id10';
+        data.userIdentities[mParticle.IdentityType.Other2] = 'id11';
+        data.userIdentities[mParticle.IdentityType.Other3] = 'id12';
+        data.userIdentities[mParticle.IdentityType.Other4] = 'id13';
+
+        var identityRequest = mParticle._IdentityRequest.createIdentityRequest(data);
+
+        identityRequest.should.have.properties(['client_sdk', 'environment', 'context', 'known_identities', 'previous_mpid', 'request_id', 'request_timestamp_ms']);
+        identityRequest.client_sdk.should.have.properties(['platform', 'sdk_vendor', 'sdk_version']);
+        identityRequest.client_sdk.platform.should.equal('js');
+        identityRequest.client_sdk.sdk_vendor.should.equal('mparticle');
+        identityRequest.environment.should.equal('production');
+        identityRequest.previous_mpid.should.equal(testMPID);
+        identityRequest.known_identities.should.have.properties(['other', 'customerid', 'facebook', 'twitter', 'google', 'microsoft', 'yahoo', 'email', 'facebookcustomaudienceid', 'other1', 'other2', 'other3', 'other4']);
+        identityRequest.known_identities.other.should.equal('id1');
+        identityRequest.known_identities.customerid.should.equal('id2');
+        identityRequest.known_identities.facebook.should.equal('id3');
+        identityRequest.known_identities.twitter.should.equal('id4');
+        identityRequest.known_identities.google.should.equal('id5');
+        identityRequest.known_identities.microsoft.should.equal('id6');
+        identityRequest.known_identities.yahoo.should.equal('id7');
+        identityRequest.known_identities.email.should.equal('id8');
+        identityRequest.known_identities.facebookcustomaudienceid.should.equal('id9');
+        identityRequest.known_identities.other1.should.equal('id10');
+        identityRequest.known_identities.other2.should.equal('id11');
+        identityRequest.known_identities.other3.should.equal('id12');
+        identityRequest.known_identities.other4.should.equal('id13');
+
+        done();
+    });
+
+    it('should create a proper modify identity request', function(done) {
+        var oldIdentities = {};
+        oldIdentities[mParticle.IdentityType.Other] = 'id1';
+        oldIdentities[mParticle.IdentityType.CustomerId] = 'id2';
+        oldIdentities[mParticle.IdentityType.Facebook] = 'id3';
+        oldIdentities[mParticle.IdentityType.Twitter] = 'id4';
+        oldIdentities[mParticle.IdentityType.Google] = 'id5';
+        oldIdentities[mParticle.IdentityType.Microsoft] = 'id6';
+        oldIdentities[mParticle.IdentityType.Yahoo] = 'id7';
+        oldIdentities[mParticle.IdentityType.Email] = 'id8';
+        oldIdentities[mParticle.IdentityType.FacebookCustomAudienceId] = 'id9';
+        oldIdentities[mParticle.IdentityType.Other1] = 'id10';
+        oldIdentities[mParticle.IdentityType.Other2] = 'id11';
+        oldIdentities[mParticle.IdentityType.Other3] = 'id12';
+        oldIdentities[mParticle.IdentityType.Other4] = 'id13';
+        var newIdentities = {};
+        newIdentities[mParticle.IdentityType.Other] = 'id14';
+        newIdentities[mParticle.IdentityType.CustomerId] = 'id15';
+        newIdentities[mParticle.IdentityType.Facebook] = 'id16';
+        newIdentities[mParticle.IdentityType.Twitter] = 'id17';
+        newIdentities[mParticle.IdentityType.Google] = 'id18';
+        newIdentities[mParticle.IdentityType.Microsoft] = 'id19';
+        newIdentities[mParticle.IdentityType.Yahoo] = 'id20';
+        newIdentities[mParticle.IdentityType.Email] = 'id21';
+        newIdentities[mParticle.IdentityType.FacebookCustomAudienceId] = 'id22';
+        newIdentities[mParticle.IdentityType.Other1] = 'id23';
+        newIdentities[mParticle.IdentityType.Other2] = 'id24';
+        newIdentities[mParticle.IdentityType.Other3] = 'id25';
+        newIdentities[mParticle.IdentityType.Other4] = 'id26';
+
+        var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(oldIdentities, newIdentities);
+        identityRequest.should.have.properties(['client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms']);
+        identityRequest.client_sdk.should.have.properties(['platform', 'sdk_vendor', 'sdk_version']);
+        identityRequest.client_sdk.platform.should.equal('js');
+        identityRequest.client_sdk.sdk_vendor.should.equal('mparticle');
+        identityRequest.environment.should.equal('production');
+        identityRequest.identity_changes[0].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[0].old_value.should.equal('id1');
+        identityRequest.identity_changes[0].identity_type.should.equal('other');
+        identityRequest.identity_changes[0].new_value.should.equal('id14');
+
+        identityRequest.identity_changes[1].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[1].old_value.should.equal('id2');
+        identityRequest.identity_changes[1].identity_type.should.equal('customerid');
+        identityRequest.identity_changes[1].new_value.should.equal('id15');
+
+        identityRequest.identity_changes[2].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[2].old_value.should.equal('id3');
+        identityRequest.identity_changes[2].identity_type.should.equal('facebook');
+        identityRequest.identity_changes[2].new_value.should.equal('id16');
+
+        identityRequest.identity_changes[3].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[3].old_value.should.equal('id4');
+        identityRequest.identity_changes[3].identity_type.should.equal('twitter');
+        identityRequest.identity_changes[3].new_value.should.equal('id17');
+
+        identityRequest.identity_changes[4].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[4].old_value.should.equal('id5');
+        identityRequest.identity_changes[4].identity_type.should.equal('google');
+        identityRequest.identity_changes[4].new_value.should.equal('id18');
+
+        identityRequest.identity_changes[5].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[5].old_value.should.equal('id6');
+        identityRequest.identity_changes[5].identity_type.should.equal('microsoft');
+        identityRequest.identity_changes[5].new_value.should.equal('id19');
+
+        identityRequest.identity_changes[6].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[6].old_value.should.equal('id7');
+        identityRequest.identity_changes[6].identity_type.should.equal('yahoo');
+        identityRequest.identity_changes[6].new_value.should.equal('id20');
+
+        identityRequest.identity_changes[7].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[7].old_value.should.equal('id8');
+        identityRequest.identity_changes[7].identity_type.should.equal('email');
+        identityRequest.identity_changes[7].new_value.should.equal('id21');
+
+        identityRequest.identity_changes[8].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[8].old_value.should.equal('id9');
+        identityRequest.identity_changes[8].identity_type.should.equal('facebookcustomaudienceid');
+        identityRequest.identity_changes[8].new_value.should.equal('id22');
+
+        identityRequest.identity_changes[9].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[9].old_value.should.equal('id10');
+        identityRequest.identity_changes[9].identity_type.should.equal('other1');
+        identityRequest.identity_changes[9].new_value.should.equal('id23');
+
+        identityRequest.identity_changes[10].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[10].old_value.should.equal('id11');
+        identityRequest.identity_changes[10].identity_type.should.equal('other2');
+        identityRequest.identity_changes[10].new_value.should.equal('id24');
+
+        identityRequest.identity_changes[11].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[11].old_value.should.equal('id12');
+        identityRequest.identity_changes[11].identity_type.should.equal('other3');
+        identityRequest.identity_changes[11].new_value.should.equal('id25');
+
+        identityRequest.identity_changes[12].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[12].old_value.should.equal('id13');
+        identityRequest.identity_changes[12].identity_type.should.equal('other4');
+        identityRequest.identity_changes[12].new_value.should.equal('id26');
+
+        done();
+    });
+
+    it('should have old_value === null when there is no previous identity of a certain type and a new identity of that type', function(done) {
+        var oldIdentities = {};
+        oldIdentities[mParticle.IdentityType.Facebook] = 'old_facebook_id';
+        var newIdentities = {};
+        newIdentities[mParticle.IdentityType.Other] = 'new_other_id';
+        newIdentities[mParticle.IdentityType.Facebook] = 'new_facebook_id';
+
+        var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(oldIdentities, newIdentities);
+
+        identityRequest.identity_changes[0].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[0].should.have.property('old_value', null);
+        identityRequest.identity_changes[0].identity_type.should.equal('other');
+        identityRequest.identity_changes[0].new_value.should.equal('new_other_id');
+
+        identityRequest.identity_changes[1].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[1].should.have.property('old_value', 'old_facebook_id');
+        identityRequest.identity_changes[1].identity_type.should.equal('facebook');
+        identityRequest.identity_changes[1].new_value.should.equal('new_facebook_id');
+
+        done();
+    });
+
+    it('should have new_value === null when there is a previous identity of a certain type and no new identity of that type', function(done) {
+        var oldIdentities = {};
+        oldIdentities[mParticle.IdentityType.Other] = 'old_other_id';
+        oldIdentities[mParticle.IdentityType.Facebook] = 'old_facebook_id';
+        var newIdentities = {};
+        newIdentities[mParticle.IdentityType.Facebook] = 'new_facebook_id';
+
+        var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(oldIdentities, newIdentities);
+        identityRequest.identity_changes[0].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[0].old_value.should.equal('old_facebook_id');
+        identityRequest.identity_changes[0].identity_type.should.equal('facebook');
+        identityRequest.identity_changes[0].new_value.should.equal('new_facebook_id');
+
+        identityRequest.identity_changes[1].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[1].old_value.should.equal('old_other_id');
+        identityRequest.identity_changes[1].identity_type.should.equal('other');
+        identityRequest.identity_changes[1].should.have.property('new_value', null);
+
+        done();
+    });
+
+    it('queue events when MPID is 0, and then flush events once MPID changes', function(done) {
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 0
+            }));
+        };
+
+        mParticle.logEvent('Test1');
+        var event = getEvent('Test1');
+
+        Should(event).be.ok();
+
+        server.requests = [];
+
+        mParticle.logEvent('Test2');
+        var event2 = getEvent('Test2');
+        Should(event2).not.be.ok();
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'otherMPID'
+            }));
+        };
+
+        mParticle.logEvent('Test3');
+        var event3 = getEvent('Test3');
+        Should(event3).not.be.ok();
+
+        mParticle.Identity.login();
+
+        server.requests.length.should.equal(3);
+        var event2After = getEvent('Test2');
+        var event3After = getEvent('Test3');
+
+        Should(event2After).should.be.ok();
+        Should(event3After).should.be.ok();
+
+        event2After.n.should.equal('Test2');
+        event2After.mpid.should.equal('otherMPID');
+        event3After.n.should.equal('Test3');
+        event3After.mpid.should.equal('otherMPID');
 
         done();
     });
