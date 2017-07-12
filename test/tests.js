@@ -1516,40 +1516,6 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should log legacy ecommerce transaction', function(done) {
-        mParticle.logEcommerceTransaction('iPhone',
-            '12345',
-            400,
-            1,
-            'Phone',
-            500,
-            50,
-            50,
-            'USD',
-            'affiliation',
-            '11223344');
-
-        var event = getEvent('Ecommerce');
-
-        event.should.have.property('dt', MessageType.PageEvent);
-        event.should.have.property('et', mParticle.EventType.Transaction);
-
-        event.attrs.should.have.property('$MethodName', 'LogEcommerceTransaction');
-        event.attrs.should.have.property('ProductName', 'iPhone');
-        event.attrs.should.have.property('ProductSKU', '12345');
-        event.attrs.should.have.property('ProductUnitPrice', 400);
-        event.attrs.should.have.property('ProductQuantity', 1);
-        event.attrs.should.have.property('ProductCategory', 'Phone');
-        event.attrs.should.have.property('RevenueAmount', 500);
-        event.attrs.should.have.property('TaxAmount', 50);
-        event.attrs.should.have.property('ShippingAmount', 50);
-        event.attrs.should.have.property('CurrencyCode', 'USD');
-        event.attrs.should.have.property('TransactionAffiliation', 'affiliation');
-        event.attrs.should.have.property('TransactionID', '11223344');
-
-        done();
-    });
-
     it('should parse response after logging event', function(done) {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -2356,23 +2322,6 @@ describe('mParticle Core SDK', function() {
         var event = mockForwarder.instance.receivedEvent;
 
         event.should.not.have.property('EventName', 'send this event to forwarder');
-
-        done();
-    });
-
-    it('should support old configureForwarder function signature', function(done) {
-        mParticle.reset();
-        var mockForwarder = new MockForwarder();
-
-        mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder('MockForwarder', {}, [], [], [], [], [], [], [mParticle.generateHash('gender')], 1, false, false);
-        mParticle.init(validOptions);
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-        mParticle.logEvent('test event');
-
-        var event = mockForwarder.instance.receivedEvent;
-        event.should.have.property('UserAttributes');
-        event.UserAttributes.should.not.have.property('gender');
 
         done();
     });

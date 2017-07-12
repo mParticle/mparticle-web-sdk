@@ -3474,36 +3474,6 @@
                 return expandCommerceEvent(event);
             }
         },
-        logEcommerceTransaction: function(productName,
-            productSKU,
-            productUnitPrice,
-            productQuantity,
-            productCategory,
-            revenueAmount,
-            taxAmount,
-            shippingAmount,
-            currencyCode,
-            affiliation,
-            transactionId) {
-            mParticle.sessionManager.resetSessionTimer();
-
-            var attributes = {};
-            attributes.$MethodName = 'LogEcommerceTransaction';
-
-            attributes.ProductName = productName || '';
-            attributes.ProductSKU = productSKU || '';
-            attributes.ProductUnitPrice = productUnitPrice || 0;
-            attributes.ProductQuantity = productQuantity || 0;
-            attributes.ProductCategory = productCategory || '';
-            attributes.RevenueAmount = revenueAmount || 0;
-            attributes.TaxAmount = taxAmount || 0;
-            attributes.ShippingAmount = shippingAmount || 0;
-            attributes.CurrencyCode = currencyCode || 'USD';
-            attributes.TransactionAffiliation = affiliation || '';
-            attributes.TransactionID = transactionId || generateUniqueId();
-
-            logEvent(MessageType.PageEvent, 'Ecommerce', attributes, EventType.Transaction);
-        },
         logLTVIncrease: function(amount, eventName, attributes) {
             mParticle.sessionManager.resetSessionTimer();
 
@@ -3575,48 +3545,9 @@
         addForwarder: function(forwarderProcessor) {
             forwarderConstructors.push(forwarderProcessor);
         },
-        configureForwarder: function() {
+        configureForwarder: function(configuration) {
             var newForwarder = null,
-                config = null;
-
-            if (arguments.length === 1) {
-                config = arguments[0];
-            }
-            else {
-                /*  Added for backwards compatibility
-                    Old signature for reference:
-
-                configureForwarder: function(name,
-                    settings,
-                    eventNameFilters,
-                    eventTypeFilters,
-                    attributeFilters,
-                    pageViewFilters,
-                    pageViewAttributeFilters,
-                    userIdentityFilters,
-                    userAttributeFilters,
-                    id,
-                    isSandbox,
-                    hasSandbox,
-                    isVisible)
-                */
-                config = {
-                    name: arguments[0],
-                    settings: arguments[1],
-                    eventNameFilters: arguments[2],
-                    eventTypeFilters: arguments[3],
-                    attributeFilters: arguments[4],
-                    pageViewFilters: arguments[5],
-                    pageViewAttributeFilters: arguments[6],
-                    userIdentityFilters: arguments[7],
-                    userAttributeFilters: arguments[8],
-                    moduleId: arguments[9],
-                    isSandbox: arguments[10],
-                    hasSandbox: arguments[11],
-                    isVisible: arguments[12],
-                    filteringEventAttributeValue: null
-                };
-            }
+                config = configuration;
 
             for (var i = 0; i < forwarderConstructors.length; i++) {
                 if (forwarderConstructors[i].name === config.name) {
