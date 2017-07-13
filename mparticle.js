@@ -362,13 +362,13 @@
 
     var _IdentityRequest = {
         createKnownIdentities: function(identityApiData) {
-            if (identityApiData) {
-                var identitiesResult = {};
+            var identitiesResult = {};
+            if (identityApiData && identityApiData.userIdentities && isObject(identityApiData.userIdentities)) {
                 for (var identity in identityApiData.userIdentities) {
                     identitiesResult[this.getIdentityName(parseFloat(identity))] = identityApiData.userIdentities[identity];
                 }
-                return identitiesResult;
             }
+            return identitiesResult;
         },
 
         getIdentityName: function(identityType) {
@@ -438,7 +438,7 @@
         createIdentityChanges: function(previousIdentities, newIdentities) {
             var identityChanges = [];
             var key;
-            if (newIdentities) {
+            if (newIdentities && isObject(newIdentities) && previousIdentities && isObject(previousIdentities)) {
                 for (key in newIdentities) {
                     identityChanges.push({
                         old_value: previousIdentities[key] || null,
@@ -456,7 +456,6 @@
                         });
                     }
                 }
-
             }
 
             return identityChanges;
@@ -573,6 +572,8 @@
 
     var IdentityAPI = {
         logout: function(identityApiData, callback) {
+            var identityValidationResult = Validators.validateIdentities(identityApiData);
+
             if (callback && !Validators.isFunction(callback)) {
                 logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
             }
@@ -602,15 +603,18 @@
             else {
                 logDebug(InformationMessages.AbandonLogEvent);
             }
+            if (identityValidationResult.error || identityValidationResult.warning) {
+                logDebug(identityValidationResult.error || identityValidationResult.warning);
+            }
         },
         login: function(identityApiData, callback) {
+            var identityValidationResult = Validators.validateIdentities(identityApiData);
             if (callback && !Validators.isFunction(callback)) {
                 logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
             }
 
             var identityApiRequest = _IdentityRequest.createIdentityRequest(identityApiData),
                 copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
-
             logDebug(InformationMessages.StartingLogEvent + ': login');
             mParticle.sessionManager.resetSessionTimer();
 
@@ -622,8 +626,14 @@
             else {
                 logDebug(InformationMessages.AbandonLogEvent);
             }
+
+            if (identityValidationResult.error || identityValidationResult.warning) {
+                logDebug(identityValidationResult.error || identityValidationResult.warning);
+            }
         },
         modify: function(identityApiData, callback) {
+            var identityValidationResult = Validators.validateIdentities(identityApiData);
+
             if (callback && !Validators.isFunction(callback)) {
                 logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
             }
@@ -640,6 +650,9 @@
             }
             else {
                 logDebug(InformationMessages.AbandonLogEvent);
+            }
+            if (identityValidationResult.error || identityValidationResult.warning) {
+                logDebug(identityValidationResult.error || identityValidationResult.warning);
             }
         },
         // optional callback for when there is an identity update/failure
@@ -2965,6 +2978,7 @@
         },
 
         validateOptions: function(options) {
+            var validatedIdentityResult;
             if (options) {
                 if (options.apiKey) {
                     devToken = options.apiKey;
@@ -2974,27 +2988,18 @@
                         error: 'The options object requires the key, \'apiKey\''
                     };
                 }
+
                 if (options.initialIdentity) {
-                    if (options.initialIdentity.userIdentities) {
-                        for (var key in options.initialIdentity.userIdentities) {
-                            // test key for if it is a non number string, and keys that are stringified numbers must be passed to IdentityType.isValid as a number
-                            if (isNaN(key) || !IdentityType.isValid(parseFloat(key))) {
-                                return {
-                                    valid: false,
-                                    error: 'IdentityType key on initialIdentity is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity'
-                                };
-                            }
-                        }
-                    } else {
+                    validatedIdentityResult = this.validateIdentities(options.initialIdentity);
+                    if (validatedIdentityResult.error) {
                         return {
-                            valid: false,
-                            error: 'When including an `initialIdentity` object within options, a `userIdentities` object within `initialIdentity` containing keys from http://docs.mparticle.com/#user-identity and the associated ID as the value is required.'
+                            valid: validatedIdentityResult.valid,
+                            error: validatedIdentityResult.error
                         };
-                    }
-                    if (!options.initialIdentity.hasOwnProperty('copyUserAttributes')) {
+                    } else if (validatedIdentityResult.warning) {
                         return {
-                            valid: true,
-                            warning: 'Warning: By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the initialIdentity object'
+                            valid: validatedIdentityResult.valid,
+                            warning: validatedIdentityResult.warning
                         };
                     }
                 }
@@ -3007,6 +3012,35 @@
                 logDebug('Initializiation failed. You must pass an options object into mParticle.init()');
                 return;
             }
+        },
+        validateIdentities: function(identityApiData) {
+            if (identityApiData) {
+                if (identityApiData.userIdentities) {
+                    for (var key in identityApiData.userIdentities) {
+                        // test key for if it is a non number string, and keys that are stringified numbers must be passed to IdentityType.isValid as a number
+                        if (isNaN(key) || !IdentityType.isValid(parseFloat(key))) {
+                            return {
+                                valid: false,
+                                error: 'IdentityType key on initialIdentity is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity'
+                            };
+                        }
+                    }
+                } else {
+                    return {
+                        valid: false,
+                        error: 'When including an `initialIdentity` object within options, a `userIdentities` object within `initialIdentity` containing keys from http://docs.mparticle.com/#user-identity and the associated ID as the value is required.'
+                    };
+                }
+                if (!identityApiData.hasOwnProperty('copyUserAttributes')) {
+                    return {
+                        valid: true,
+                        warning: 'Warning: By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the initialIdentity object'
+                    };
+                }
+            }
+            return {
+                valid: true
+            };
         }
     };
 

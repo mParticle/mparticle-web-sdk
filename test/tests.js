@@ -3839,7 +3839,7 @@ describe('mParticle Core SDK', function() {
             }
         };
 
-        optionsNoApiKeyResult = mParticle.Validators.validateOptions(optionsNoApiKey);
+        var optionsNoApiKeyResult = mParticle.Validators.validateOptions(optionsNoApiKey);
         optionsNoApiKeyResult.valid.should.equal(false);
         optionsNoApiKeyResult.error.should.equal('The options object requires the key, \'apiKey\'');
 
@@ -4015,6 +4015,183 @@ describe('mParticle Core SDK', function() {
         identityRequest.identity_changes[12].old_value.should.equal('id13');
         identityRequest.identity_changes[12].identity_type.should.equal('other4');
         identityRequest.identity_changes[12].new_value.should.equal('id26');
+
+        done();
+    });
+
+    it('should send known_identities as an empty object when invalid requests are sent to login', function(done) {
+        var identityAPIRequest1 = {
+            userIdentities: 'badUserIdentitiesString',
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.login(identityAPIRequest1);
+
+        var badData1 = getIdentityEvent('login');
+        badData1.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData1.known_identities).length).not.be.ok();
+
+        var identityAPIRequest2 = {
+            userIdentities: ['bad', 'user', 'identities', 'array'],
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.login(identityAPIRequest2);
+
+        var badData2 = getIdentityEvent('login');
+        badData2.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData2.known_identities).length).not.be.ok();
+
+        var identityAPIRequest3 = {
+            userIdentities: null,
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.login(identityAPIRequest3);
+
+        var badData3 = getIdentityEvent('login');
+        badData3.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData3.known_identities).length).not.be.ok();
+
+        var identityAPIRequest4 = {
+            userIdentities: undefined,
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.login(identityAPIRequest4);
+
+        var badData4 = getIdentityEvent('login');
+        badData4.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData4.known_identities).length).not.be.ok();
+
+        var identityAPIRequest5 = {
+            userIdentities: true,
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.login(identityAPIRequest5);
+
+        var badData5 = getIdentityEvent('login');
+        badData5.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData5.known_identities).length).not.be.ok();
+
+        done();
+    });
+
+    it('should send known_identities as an empty object when invalid requests are sent to logout', function(done) {
+        var identityAPIRequest1 = {
+            userIdentities: 'badUserIdentitiesString',
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.logout(identityAPIRequest1);
+
+        var badData1 = getIdentityEvent('logout');
+        badData1.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData1.known_identities).length).not.be.ok();
+
+        var identityAPIRequest2 = {
+            userIdentities: ['bad', 'user', 'identities', 'array'],
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.logout(identityAPIRequest2);
+
+        var badData2 = getIdentityEvent('logout');
+        badData2.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData2.known_identities).length).not.be.ok();
+
+        var identityAPIRequest3 = {
+            userIdentities: null,
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.logout(identityAPIRequest3);
+
+        var badData3 = getIdentityEvent('logout');
+        badData3.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData3.known_identities).length).not.be.ok();
+
+        var identityAPIRequest4 = {
+            userIdentities: undefined,
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.logout(identityAPIRequest4);
+
+        var badData4 = getIdentityEvent('logout');
+        badData4.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData4.known_identities).length).not.be.ok();
+
+        var identityAPIRequest5 = {
+            userIdentities: true,
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.logout(identityAPIRequest5);
+
+        var badData5 = getIdentityEvent('logout');
+        badData5.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData5.known_identities).length).not.be.ok();
+
+        done();
+    });
+
+    it('should send identity_changes as an empty object when invalid requests are sent to modify', function(done) {
+        var identityAPIRequest1 = {
+            userIdentities: 'badUserIdentitiesString',
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.modify(identityAPIRequest1);
+
+        var badData1 = getIdentityEvent('modify');
+        badData1.should.have.properties('client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData1.identity_changes).length).not.be.ok();
+
+        var identityAPIRequest2 = {
+            userIdentities: ['bad', 'user', 'identities', 'array'],
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.modify(identityAPIRequest2);
+
+        var badData2 = getIdentityEvent('modify');
+        badData2.should.have.properties('client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData2.identity_changes).length).not.be.ok();
+
+        var identityAPIRequest3 = {
+            userIdentities: null,
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.modify(identityAPIRequest3);
+
+        var badData3 = getIdentityEvent('modify');
+        badData3.should.have.properties('client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData3.identity_changes).length).not.be.ok();
+
+        var identityAPIRequest4 = {
+            userIdentities: undefined,
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.modify(identityAPIRequest4);
+
+        var badData4 = getIdentityEvent('modify');
+        badData4.should.have.properties('client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData4.identity_changes).length).not.be.ok();
+
+        var identityAPIRequest5 = {
+            userIdentities: true,
+            copyUserAttributes: true
+        };
+        server.requests = [];
+        mParticle.Identity.modify(identityAPIRequest5);
+
+        var badData5 = getIdentityEvent('modify');
+        badData5.should.have.properties('client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms', 'context');
+        Should(Object.keys(badData5.identity_changes).length).not.be.ok();
 
         done();
     });
