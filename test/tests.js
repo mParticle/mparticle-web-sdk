@@ -52,11 +52,19 @@ describe('mParticle Core SDK', function() {
             var requests = [],
                 fullPath = '/v1/' + path;
 
-            server.requests.forEach(function(item) {
-                if (item.urlParts.path == fullPath) {
-                    requests.push(item);
-                }
-            });
+            if (path !== 'modify') {
+                server.requests.forEach(function(item) {
+                    if (item.urlParts.path === fullPath) {
+                        requests.push(item);
+                    }
+                });
+            } else {
+                server.requests.forEach(function(item) {
+                    if (item.urlParts.path.slice(-6) === 'modify') {
+                        requests.push(item);
+                    }
+                });
+            }
 
             return requests;
         },
@@ -3375,6 +3383,7 @@ describe('mParticle Core SDK', function() {
         cookieData[testMPID].ua.should.have.property('gender', 'male');
         cookieData[testMPID].ui.should.have.property('1', 123);
 
+        window.mParticle.useCookieStorage = false;
         done();
     });
 
@@ -3396,10 +3405,10 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should not do an identity swap if it is the first run', function(done) {
+    it('should not do an identity swap if there is no MPID change', function(done) {
         var cookiesBefore = mParticle.persistence.getLocalStorage();
-        mParticle._Identity.checkIdentitySwap(testMPID, 'currentMPID', true);
-        mParticle.Identity.modify();
+        mParticle._Identity.checkIdentitySwap(testMPID, testMPID);
+
         mParticle.persistence.update();
 
         var cookiesAfter = mParticle.persistence.getLocalStorage();
@@ -3412,7 +3421,7 @@ describe('mParticle Core SDK', function() {
     it('should do an identity swap if there is an MPID change', function(done) {
         var cookiesBefore = mParticle.persistence.getLocalStorage();
 
-        mParticle._Identity.checkIdentitySwap(testMPID, 'currentMPID', false);
+        mParticle._Identity.checkIdentitySwap(testMPID, 'currentMPID');
 
         var cookiesAfter = mParticle.persistence.getLocalStorage();
         cookiesBefore.currentUserMPID.should.equal(testMPID);
@@ -3675,7 +3684,7 @@ describe('mParticle Core SDK', function() {
         parsedCookie[testMPID].should.have.properties(['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c']);
         Should(localStorageData).not.be.ok();
 
-        window.mParticle.useCookieStorage = true;
+        window.mParticle.useCookieStorage = false;
 
         done();
     });
@@ -3712,23 +3721,6 @@ describe('mParticle Core SDK', function() {
         var userIdentity2 = mParticle.Identity.getCurrentUser().getUserIdentities();
 
         userIdentity2.userIdentities.should.have.property('2', 'stringData');
-
-        done();
-    });
-
-    it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
-        mParticle.reset();
-        window.localStorage.setItem = null;
-
-        mParticle.useCookieStorage = false;
-
-        mParticle.init(validOptionsWithInitialIdentity);
-
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-
-        var cookieData = JSON.parse(getCookie());
-
-        cookieData[testMPID].ua.should.have.property('gender', 'male');
 
         done();
     });
@@ -3795,6 +3787,7 @@ describe('mParticle Core SDK', function() {
 
         done();
     });
+
 
     it('should correctly validate a string or number', function(done) {
         var validatedString = mParticle.Validators.isStringOrNumber('testValue1');
@@ -4255,14 +4248,14 @@ describe('mParticle Core SDK', function() {
     });
 
     it('queue events when MPID is 0, and then flush events once MPID changes', function(done) {
+        mParticle.reset();
+        removeLocalStorageFiles();
+
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 0
-            }));
+            request.receive(200, JSON.stringify({}));
         };
-
-        mParticle.Identity.modify();
+        mParticle.init(validOptionsWithInitialIdentity);
 
         server.requests = [];
         mParticle.logEvent('Test1');
@@ -4279,14 +4272,40 @@ describe('mParticle Core SDK', function() {
         mParticle.Identity.login();
 
         mParticle.logEvent('Test2');
-        server.requests.length.should.equal(3);
+        // server requests will have AST, sessionStart, Test1, Test2, and login
+        server.requests.length.should.equal(5);
         event1 = getEvent('Test1');
         var event2 = getEvent('Test2');
+        var identityEvent1 = getIdentityEvent('login');
+        var event3 = getEvent(10);
+        var event4 = getEvent(1);
         Should(event1).be.ok();
         Should(event2).be.ok();
+        Should(event3).be.ok();
+        Should(event4).be.ok();
+        Should(identityEvent1).be.ok();
 
         done();
     });
+
+    it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
+        mParticle.reset();
+        window.localStorage.setItem = null;
+
+        mParticle.useCookieStorage = false;
+
+        mParticle.init(validOptionsWithInitialIdentity);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+
+        var cookieData = JSON.parse(getCookie());
+
+        cookieData[testMPID].ua.should.have.property('gender', 'male');
+
+        done();
+    });
+
+
 
     after(function() {
         server.stop();

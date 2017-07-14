@@ -17,12 +17,19 @@
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
 (function(window) {
+    //TODO: revert serviceURL and secureServiceURL when pushing to master
     var serviceUrl = function(version) {
-            return 'jssdk.mparticle.com/' + version + '/JS/';
+            return 'api-qa.mparticle.com/' + version + '/JS/';
         },
         secureServiceUrl = function(version) {
-            return 'jssdks.mparticle.com/' + version + '/JS/';
+            return 'api-qa.mparticle.com/' + version + '/JS/';
         },
+    // var serviceUrl = function(version) {
+    //         return 'jssdk.mparticle.com/' + version + '/JS/';
+    //     },
+    //     secureServiceUrl = function(version) {
+    //         return 'jssdks.mparticle.com/' + version + '/JS/';
+    //     },
         // TODO: Update this when final http api is done
         identityUrl = 'https://identity.qa.corp.mparticle.com/v1/',
         serviceScheme = window.location.protocol + '//',
@@ -546,9 +553,12 @@
                 if (!isFirstRun && mpid) {
                     previousMPID = mpid;
                 }
-                // Set MPID = 0 when Identity request is in flight
-                mpid = 0;
-                xhr.open('post', identityUrl + method);
+
+                if (method === 'modify') {
+                    xhr.open('post', identityUrl + mpid + '/' + method);
+                } else {
+                    xhr.open('post', identityUrl + method);
+                }
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.setRequestHeader('x-mp-key', devToken);
                 xhr.send(JSON.stringify(identityApiRequest));
@@ -982,12 +992,13 @@
                 if (!obj) {
                     clientId = generateUniqueId();
                     logDebug(InformationMessages.CookieNotFound);
+                    mpid = 0;
                 } else {
                     // Set MPID first, then change object to match MPID data
                     if (newMPID) {
                         mpid = newMPID;
                     } else {
-                        mpid = obj.currentUserMPID || null;
+                        mpid = obj.currentUserMPID || 0;
                     }
 
                     currentSessionMPIDs = obj.currentSessionMPIDs || [];
@@ -1169,7 +1180,7 @@
 
         logDebug(InformationMessages.SendBegin);
 
-        // When MPID = 0, identity request is in flight and has not returned an MPID yet
+        // When MPID = 0, we queue events until we have a valid MPID
         if (mpid === 0) {
             eventQueue.push(event);
         } else {
@@ -1185,6 +1196,7 @@
 
                 if (xhr) {
                     try {
+                        //TODO: change to v2 when v2 is up
                         xhr.open('post', createServiceUrl('v2') + '/Events');
                         xhr.send(JSON.stringify(convertEventToDTO(event)));
 
