@@ -4239,6 +4239,21 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should create a proper send request when passing identities to modify', function(done) {
+        var identityAPIData = {
+            userIdentities: {
+                5: 'rob@gmail.com'
+            }
+        };
+        mParticle.Identity.modify(identityAPIData);
+        var data = getIdentityEvent('modify');
+        data.identity_changes.length.should.equal(1);
+        data.identity_changes[0].should.have.properties('old_value', 'new_value', 'identity_type');
+        data.identity_changes[0].should.have.properties('old_value', 'new_value', 'identity_type');
+
+        done();
+    });
+
     it('queue events when MPID is 0, and then flush events once MPID changes', function(done) {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');

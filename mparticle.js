@@ -632,7 +632,8 @@
             }
         },
         modify: function(identityApiData, callback) {
-            var identityValidationResult = Validators.validateIdentities(identityApiData);
+            var identityValidationResult = Validators.validateIdentities(identityApiData),
+                newUserIdentities = (identityApiData && identityApiData.userIdentities) ? identityApiData.userIdentities : {};
 
             if (callback && !Validators.isFunction(callback)) {
                 logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
@@ -640,8 +641,7 @@
 
             mParticle.sessionManager.resetSessionTimer();
             logDebug(InformationMessages.StartingLogEvent + ': modify');
-
-            var identityApiRequest = _IdentityRequest.createModifyIdentityRequest(userIdentities, identityApiData);
+            var identityApiRequest = _IdentityRequest.createModifyIdentityRequest(userIdentities, newUserIdentities);
 
             if (canLog()) {
                 if (!tryNativeSdk(NativeSdkPaths.Modify, JSON.stringify(event))) {
@@ -3242,7 +3242,7 @@
             context = null,
             sessionAttributes = {};
             userAttributes = {};
-            userIdentities = [];
+            userIdentities = {};
             cookieSyncDates = {};
             forwarders = [];
             forwarderConstructors = [];
