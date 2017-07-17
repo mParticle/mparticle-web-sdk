@@ -3890,7 +3890,7 @@ describe('mParticle Core SDK', function() {
         identityRequest.client_sdk.sdk_vendor.should.equal('mparticle');
         identityRequest.environment.should.equal('production');
         identityRequest.previous_mpid.should.equal(testMPID);
-        identityRequest.known_identities.should.have.properties(['other', 'customerid', 'facebook', 'twitter', 'google', 'microsoft', 'yahoo', 'email', 'facebookcustomaudienceid', 'other1', 'other2', 'other3', 'other4']);
+        identityRequest.known_identities.should.have.properties(['other', 'customerid', 'facebook', 'twitter', 'google', 'microsoft', 'yahoo', 'email', 'facebookcustomaudienceid', 'other1', 'other2', 'other3', 'other4', 'device_application_stamp']);
         identityRequest.known_identities.other.should.equal('id1');
         identityRequest.known_identities.customerid.should.equal('id2');
         identityRequest.known_identities.facebook.should.equal('id3');
@@ -4012,7 +4012,7 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should send known_identities as an empty object when invalid requests are sent to login', function(done) {
+    it('should include only device_application_stamp in known_identities when receiving invalid with user identities to login', function(done) {
         var identityAPIRequest1 = {
             userIdentities: 'badUserIdentitiesString',
             copyUserAttributes: true
@@ -4022,7 +4022,8 @@ describe('mParticle Core SDK', function() {
 
         var badData1 = getIdentityEvent('login');
         badData1.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData1.known_identities).length).not.be.ok();
+        Should(Object.keys(badData1.known_identities).length).equal(1);
+        badData1.known_identities.should.have.property('device_application_stamp');
 
         var identityAPIRequest2 = {
             userIdentities: ['bad', 'user', 'identities', 'array'],
@@ -4033,7 +4034,8 @@ describe('mParticle Core SDK', function() {
 
         var badData2 = getIdentityEvent('login');
         badData2.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData2.known_identities).length).not.be.ok();
+        Should(Object.keys(badData2.known_identities).length).equal(1);
+        badData2.known_identities.should.have.property('device_application_stamp');
 
         var identityAPIRequest3 = {
             userIdentities: null,
@@ -4044,7 +4046,8 @@ describe('mParticle Core SDK', function() {
 
         var badData3 = getIdentityEvent('login');
         badData3.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData3.known_identities).length).not.be.ok();
+        Should(Object.keys(badData3.known_identities).length).equal(1);
+        badData3.known_identities.should.have.property('device_application_stamp');
 
         var identityAPIRequest4 = {
             userIdentities: undefined,
@@ -4055,7 +4058,8 @@ describe('mParticle Core SDK', function() {
 
         var badData4 = getIdentityEvent('login');
         badData4.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData4.known_identities).length).not.be.ok();
+        Should(Object.keys(badData4.known_identities).length).equal(1);
+        badData4.known_identities.should.have.property('device_application_stamp');
 
         var identityAPIRequest5 = {
             userIdentities: true,
@@ -4066,7 +4070,8 @@ describe('mParticle Core SDK', function() {
 
         var badData5 = getIdentityEvent('login');
         badData5.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData5.known_identities).length).not.be.ok();
+        Should(Object.keys(badData5.known_identities).length).equal(1);
+        badData5.known_identities.should.have.property('device_application_stamp');
 
         done();
     });
@@ -4081,7 +4086,8 @@ describe('mParticle Core SDK', function() {
 
         var badData1 = getIdentityEvent('logout');
         badData1.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData1.known_identities).length).not.be.ok();
+        Should(Object.keys(badData1.known_identities).length).equal(1);
+        badData1.known_identities.should.have.property('device_application_stamp');
 
         var identityAPIRequest2 = {
             userIdentities: ['bad', 'user', 'identities', 'array'],
@@ -4092,7 +4098,8 @@ describe('mParticle Core SDK', function() {
 
         var badData2 = getIdentityEvent('logout');
         badData2.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData2.known_identities).length).not.be.ok();
+        Should(Object.keys(badData2.known_identities).length).equal(1);
+        badData2.known_identities.should.have.property('device_application_stamp');
 
         var identityAPIRequest3 = {
             userIdentities: null,
@@ -4103,7 +4110,8 @@ describe('mParticle Core SDK', function() {
 
         var badData3 = getIdentityEvent('logout');
         badData3.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData3.known_identities).length).not.be.ok();
+        Should(Object.keys(badData3.known_identities).length).equal(1);
+        badData3.known_identities.should.have.property('device_application_stamp');
 
         var identityAPIRequest4 = {
             userIdentities: undefined,
@@ -4114,7 +4122,8 @@ describe('mParticle Core SDK', function() {
 
         var badData4 = getIdentityEvent('logout');
         badData4.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData4.known_identities).length).not.be.ok();
+        Should(Object.keys(badData4.known_identities).length).equal(1);
+        badData4.known_identities.should.have.property('device_application_stamp');
 
         var identityAPIRequest5 = {
             userIdentities: true,
@@ -4125,7 +4134,8 @@ describe('mParticle Core SDK', function() {
 
         var badData5 = getIdentityEvent('logout');
         badData5.should.have.properties('client_sdk', 'environment', 'known_identities', 'request_id', 'request_timestamp_ms', 'context');
-        Should(Object.keys(badData5.known_identities).length).not.be.ok();
+        Should(Object.keys(badData5.known_identities).length).equal(1);
+        badData5.known_identities.should.have.property('device_application_stamp');
 
         done();
     });

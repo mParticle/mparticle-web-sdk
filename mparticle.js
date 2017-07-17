@@ -375,6 +375,8 @@
                     identitiesResult[this.getIdentityName(parseFloat(identity))] = identityApiData.userIdentities[identity];
                 }
             }
+            identitiesResult.device_application_stamp = deviceId;
+
             return identitiesResult;
         },
 
