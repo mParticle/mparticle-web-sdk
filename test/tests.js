@@ -28,10 +28,16 @@ describe('mParticle Core SDK', function() {
         },
         getRequests = function(path) {
             var requests = [],
-                fullPath = '/v1/JS/' + apiKey + '/' + path;
+                fullPath = function(path) {
+                    if (path === 'Forwarding') {
+                        return '/v1/JS/' + apiKey + '/' + 'Forwarding';
+                    } else {
+                        return '/v2/JS/' + apiKey + '/' + 'Events';
+                    }
+                };
 
             server.requests.forEach(function(item) {
-                if (item.urlParts.path == fullPath) {
+                if (item.urlParts.path == fullPath(path)) {
                     requests.push(item);
                 }
             });
@@ -948,6 +954,23 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should migrate previous user identity schema (array) to current schema (object)', function(done) {
+        mParticle.reset();
+        var userIdentities = [{Type: 1, Identity: 'id1'}, {Type: 7, Identity: 'email@domain.com'}];
+        setLocalStorage({ui: userIdentities});
+
+        mParticle.init({apiKey: apiKey});
+
+        var localStorageData = mParticle.persistence.getLocalStorage();
+
+        localStorageData.testMPID.should.have.property('ui');
+        localStorageData.testMPID.ui['1'].should.equal('id1');
+        localStorageData.testMPID.ui['7'].should.equal('email@domain.com');
+
+
+        done();
+    });
+
     // it('should add string or number user identities', function(done) {
     //     mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
     //     mParticle.setUserIdentity(123456, mParticle.IdentityType.Email);
@@ -1093,9 +1116,9 @@ describe('mParticle Core SDK', function() {
         }, 5);
     });
 
-    it('does not initialize a forwarder when forwarder\'s isDebug != mParticle.isSandbox', function(done) {
+    it('does not initialize a forwarder when forwarder\'s isDebug != mParticle.isDevelopment', function(done) {
         mParticle.reset();
-        mParticle.isSandbox = false;
+        mParticle.isDevelopment = false;
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mParticle.configureForwarder({
@@ -1120,9 +1143,9 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('initializes forwarder with isDebug = false && mParticle.isSandbox = false', function(done) {
+    it('initializes forwarder with isDebug = false && mParticle.isDevelopment = false', function(done) {
         mParticle.reset();
-        mParticle.isSandbox = false;
+        mParticle.isDevelopment = false;
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mParticle.configureForwarder({
@@ -1175,35 +1198,35 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    // it('sends events to forwarder when forwarder\'s isDebug = mParticle.isSandbox ', function(done) {
-    //     mParticle.reset();
-    //     mParticle.isSandbox = true;
-    //     var mockForwarder = new MockForwarder();
-    //     mParticle.addForwarder(mockForwarder);
-    //     mParticle.configureForwarder({
-    //         name: 'MockForwarder',
-    //         settings: {},
-    //         eventNameFilters: [],
-    //         eventTypeFilters: [],
-    //         attributeFilters: [],
-    //         pageViewFilters: [],
-    //         pageViewAttributeFilters: [],
-    //         userIdentityFilters: [],
-    //         userAttributeFilters: [],
-    //         id: 1,
-    //         isDebug: true,
-    //         hasDebugString: false,
-    //         isVisible: true
-    //     });
-    //
-    //     mParticle.init(validOptions);
-    //     mParticle.logEvent('send this event to forwarder');
-    //     mockForwarder.instance.should.have.property('processCalled', true);
-    //
-    //     done();
-    // });
+    it('sends events to forwarder when forwarder\'s isDebug = mParticle.isDevelopmentMode ', function(done) {
+        mParticle.reset();
+        mParticle.isDevelopmentMode = true;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true
+        });
 
-    it('sends events to forwarder when mParticle.isSandbox = config.isDebug = false', function(done) {
+        mParticle.init(validOptions);
+        mParticle.logEvent('send this event to forwarder');
+        mockForwarder.instance.should.have.property('processCalled', true);
+
+        done();
+    });
+
+    it('sends events to forwarder when mParticle.isDevelopmentMode = config.isDebug = false', function(done) {
         mParticle.reset();
         mParticle.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
@@ -1239,7 +1262,7 @@ describe('mParticle Core SDK', function() {
         event.should.have.property('sdk', mParticle.getVersion());
         event.should.have.property('dt', MessageType.PageEvent);
         event.should.have.property('et', mParticle.EventType.Navigation);
-        event.should.have.property('dbg', mParticle.isSandbox);
+        event.should.have.property('dbg', mParticle.isDevelopmentMode);
         event.should.have.property('ct');
         event.should.have.property('eec', 0);
 
@@ -3198,7 +3221,7 @@ describe('mParticle Core SDK', function() {
             }));
         };
 
-        mParticle.logEvent('test event');
+        mParticle.Identity.modify();
         var data2 = mParticle.persistence.getLocalStorage();
         data1[testMPID].csd[5].should.be.ok();
         data2['otherMPID'].csd[5].should.be.ok();
@@ -3206,7 +3229,7 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should not sync cookies when pixelSettings.isDebug is false, pixelSettings.isProduction is true, and mParticle.isSandbox is true', function(done) {
+    it('should not sync cookies when pixelSettings.isDebug is false, pixelSettings.isProduction is true, and mParticle.isDevelopment is true', function(done) {
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -3219,7 +3242,7 @@ describe('mParticle Core SDK', function() {
             redirectUrl:''
         };
         mParticle.reset();
-        mParticle.isSandbox = true;
+        mParticle.isDevelopment = true;
         mParticle.configurePixel(pixelSettings);
 
         mParticle.init(validOptions);
@@ -3231,7 +3254,7 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should not sync cookies when pixelSettings.isDebug is true, pixelSettings.isProduction is false, and mParticle.isSandbox is false', function(done) {
+    it('should not sync cookies when pixelSettings.isDebug is true, pixelSettings.isProduction is false, and mParticle.isDevelopment is false', function(done) {
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -3244,7 +3267,7 @@ describe('mParticle Core SDK', function() {
             redirectUrl:''
         };
         mParticle.reset();
-        mParticle.isSandbox = false;
+        mParticle.isDevelopment = false;
         mParticle.configurePixel(pixelSettings);
 
         mParticle.init(validOptions);
@@ -3360,7 +3383,7 @@ describe('mParticle Core SDK', function() {
     it('should not do an identity swap if it is the first run', function(done) {
         var cookiesBefore = mParticle.persistence.getLocalStorage();
         mParticle._Identity.checkIdentitySwap(testMPID, 'currentMPID', true);
-        mParticle.logEvent('test test');
+        mParticle.Identity.modify();
         mParticle.persistence.update();
 
         var cookiesAfter = mParticle.persistence.getLocalStorage();
@@ -3387,19 +3410,23 @@ describe('mParticle Core SDK', function() {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify({
-                Store: {},
                 mpid: 'otherMPID'
             }));
         };
 
-        mParticle.logEvent('test event');
+        mParticle.Identity.login();
         var localStorageDataBeforeSessionEnd = mParticle.persistence.getLocalStorage();
-        localStorageDataBeforeSessionEnd.currentSessionMPIDs.length.should.equal(2);
+        localStorageDataBeforeSessionEnd.currentSessionMPIDs.length.should.equal(1);
 
         mParticle.endSession();
-        mParticle.logEvent('new session');
-        var localStorageDataAfterSessionEnd = mParticle.persistence.getLocalStorage();
-        localStorageDataAfterSessionEnd.currentSessionMPIDs.length.should.equal(1);
+        var localStorageDataAfterSessionEnd1 = mParticle.persistence.getLocalStorage();
+        localStorageDataAfterSessionEnd1.currentSessionMPIDs.length.should.equal(0);
+
+        mParticle.logEvent('hi');
+        mParticle.Identity.login();
+
+        var localStorageAfterLoggingEvent = mParticle.persistence.getLocalStorage();
+        localStorageAfterLoggingEvent.currentSessionMPIDs.length.should.equal(1);
 
         done();
     });
@@ -3415,12 +3442,11 @@ describe('mParticle Core SDK', function() {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify({
-                Store: {},
                 mpid: 'otherMPID'
             }));
         };
 
-        mParticle.logEvent('test event');
+        mParticle.Identity.login();
         var cookies2 = mParticle.persistence.getLocalStorage();
 
         cookies2.should.have.property('currentUserMPID', 'otherMPID');
@@ -3445,12 +3471,11 @@ describe('mParticle Core SDK', function() {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify({
-                Store: {},
                 mpid: 'otherMPID'
             }));
         };
 
-        mParticle.logEvent('test event');
+        mParticle.Identity.modify();
         var cookies2 = JSON.parse(getCookie());
 
         cookies2.should.have.property('currentUserMPID', 'otherMPID');
@@ -3533,12 +3558,11 @@ describe('mParticle Core SDK', function() {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify({
-                Store: {},
                 mpid: 'otherMPID'
             }));
         };
 
-        mParticle.logEvent('TestEvent');
+        mParticle.Identity.modify();
         var cookiesAfterMPIDChange = mParticle.persistence.getLocalStorage();
         cookiesAfterMPIDChange.should.have.properties(['currentUserMPID', 'otherMPID', testMPID]);
         cookiesAfterMPIDChange.should.have.property('currentUserMPID', 'otherMPID');
@@ -3573,7 +3597,7 @@ describe('mParticle Core SDK', function() {
             }));
         };
 
-        mParticle.logEvent('Test event');
+        mParticle.Identity.modify();
 
         var cookiesAfterMPIDChange = JSON.parse(getCookie());
         cookiesAfterMPIDChange.should.have.properties(['currentUserMPID', 'otherMPID', testMPID]);
@@ -3853,7 +3877,7 @@ describe('mParticle Core SDK', function() {
 
         identityRequest.should.have.properties(['client_sdk', 'environment', 'context', 'known_identities', 'previous_mpid', 'request_id', 'request_timestamp_ms']);
         identityRequest.client_sdk.should.have.properties(['platform', 'sdk_vendor', 'sdk_version']);
-        identityRequest.client_sdk.platform.should.equal('js');
+        identityRequest.client_sdk.platform.should.equal('web');
         identityRequest.client_sdk.sdk_vendor.should.equal('mparticle');
         identityRequest.environment.should.equal('production');
         identityRequest.previous_mpid.should.equal(testMPID);
@@ -3908,7 +3932,7 @@ describe('mParticle Core SDK', function() {
         var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(oldIdentities, newIdentities);
         identityRequest.should.have.properties(['client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms']);
         identityRequest.client_sdk.should.have.properties(['platform', 'sdk_vendor', 'sdk_version']);
-        identityRequest.client_sdk.platform.should.equal('js');
+        identityRequest.client_sdk.platform.should.equal('web');
         identityRequest.client_sdk.sdk_vendor.should.equal('mparticle');
         identityRequest.environment.should.equal('production');
         identityRequest.identity_changes[0].should.have.properties(['identity_type', 'new_value', 'old_value']);
@@ -4026,47 +4050,32 @@ describe('mParticle Core SDK', function() {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify({
-                Store: {},
                 mpid: 0
             }));
         };
 
-        mParticle.logEvent('Test1');
-        var event = getEvent('Test1');
-
-        Should(event).be.ok();
+        mParticle.Identity.modify();
 
         server.requests = [];
-
-        mParticle.logEvent('Test2');
-        var event2 = getEvent('Test2');
-        Should(event2).not.be.ok();
+        mParticle.logEvent('Test1');
+        var event1 = getEvent('Test1');
+        Should(event1).not.be.ok();
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify({
-                Store: {},
                 mpid: 'otherMPID'
             }));
         };
 
-        mParticle.logEvent('Test3');
-        var event3 = getEvent('Test3');
-        Should(event3).not.be.ok();
-
         mParticle.Identity.login();
 
+        mParticle.logEvent('Test2');
         server.requests.length.should.equal(3);
-        var event2After = getEvent('Test2');
-        var event3After = getEvent('Test3');
-
-        Should(event2After).should.be.ok();
-        Should(event3After).should.be.ok();
-
-        event2After.n.should.equal('Test2');
-        event2After.mpid.should.equal('otherMPID');
-        event3After.n.should.equal('Test3');
-        event3After.mpid.should.equal('otherMPID');
+        event1 = getEvent('Test1');
+        var event2 = getEvent('Test2');
+        Should(event1).be.ok();
+        Should(event2).be.ok();
 
         done();
     });

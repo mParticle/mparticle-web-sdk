@@ -17,14 +17,18 @@
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
 (function(window) {
-    var serviceUrl = 'jssdk.mparticle.com/v1/JS/',
-        secureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
+    var serviceUrl = function(version) {
+            return 'jssdk.mparticle.com/' + version + '/JS/';
+        },
+        secureServiceUrl = function(version) {
+            return 'jssdks.mparticle.com/' + version + '/JS/';
+        },
         // TODO: Update this when final http api is done
         identityUrl = 'https://identity.qa.corp.mparticle.com/v1/',
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '1.14.1',
+        sdkVersion = '2.0.0',
         sdkVendor = 'mparticle',
-        platform = 'js',
+        platform = 'web',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -309,8 +313,8 @@
         return xhr;
     }
 
-    function createServiceUrl() {
-        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+    function createServiceUrl(version) {
+        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl(version) : serviceUrl(version)) + devToken;
     }
 
     function inArray(items, name) {
@@ -455,21 +459,33 @@
             return identityChanges;
         },
 
-        parseIdentityResponse: function(xhr, copyAttributes, callback) {
+        parseIdentityResponse: function(xhr, copyAttributes, previousMPID, callback) {
             try {
                 logDebug('Parsing identity response from server');
 
                 var identityApiResult = JSON.parse(xhr.responseText);
-
                 if (identityApiResult && identityApiResult.mpid) {
-                    if (callback) {
-                        callback(null, identityApiResult);
-                    }
+                    logDebug('Successfully parsed Identity Response');
+
                     if (identityApiResult.mpid !== mpid) {
                         mpid = identityApiResult.mpid;
                         if (!copyAttributes) {
-                            userAttributes = [];
+                            userAttributes = {};
                         }
+                    }
+
+                    if (sessionId && mpid && previousMPID !== mpid && currentSessionMPIDs.indexOf(mpid) < 0) {
+                        currentSessionMPIDs.push(mpid);
+                        // need to update currentSessionMPIDs in memory before checkingIdentitySwap otherwise previous obj.currentSessionMPIDs is used in checkIdentitySwap's persistence.update()
+                        persistence.update();
+                    }
+
+                    cookieSyncManager.attemptCookieSync(previousMPID, mpid);
+
+                    _Identity.checkIdentitySwap(previousMPID, mpid);
+
+                    if (callback) {
+                        callback(null, identityApiResult);
                     }
 
                     context = identityApiResult.context || context;
@@ -481,16 +497,20 @@
                             send(event);
                         });
                     }
+
                     persistence.update();
                 }
                 else {
+                    logDebug('Received HTTP response code of ' + xhr.status);
                     if (callback) {
                         callback(identityApiResult);
                     }
                 }
             }
             catch (e) {
-                callback(e);
+                if (callback) {
+                    callback(e);
+                }
                 logDebug('Error parsing JSON response from Identity server: ' + e);
             }
         },
@@ -500,12 +520,12 @@
     };
 
     function sendIdentityRequest(identityApiRequest, method, callback, copyAttributes) {
-        var xhr,
+        var xhr, previousMPID,
             xhrCallback = function() {
                 if (xhr.readyState === 4) {
                     logDebug('Received ' + xhr.statusText + ' from server');
 
-                    _IdentityRequest.parseIdentityResponse(xhr, copyAttributes, callback);
+                    _IdentityRequest.parseIdentityResponse(xhr, copyAttributes, previousMPID, callback);
                 }
             };
 
@@ -515,58 +535,55 @@
             logDebug(ErrorMessages.APIRequestEmpty);
             return;
         }
-        if (!tryNativeSdk(NativeSdkPaths.LogEvent, JSON.stringify(event))) {
-            logDebug(InformationMessages.SendIdentityHttp);
 
-            xhr = createXHR(xhrCallback);
+        logDebug(InformationMessages.SendIdentityHttp);
+        xhr = createXHR(xhrCallback);
 
-            if (xhr) {
-                try {
-                    xhr.open('post', identityUrl + method);
-                    xhr.setRequestHeader('Content-Type', 'application/json');
-                    xhr.setRequestHeader('x-mp-key', devToken);
-                    xhr.send(JSON.stringify(identityApiRequest));
+        if (xhr) {
+            try {
+                if (!isFirstRun && mpid) {
+                    previousMPID = mpid;
                 }
-                catch (e) {
+                // Set MPID = 0 when Identity request is in flight
+                mpid = 0;
+                xhr.open('post', identityUrl + method);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('x-mp-key', devToken);
+                xhr.send(JSON.stringify(identityApiRequest));
+            }
+            catch (e) {
+                if (callback) {
                     callback(e);
-                    logDebug('Error sending identity request to servers. ' + e);
                 }
+                logDebug('Error sending identity request to servers. ' + e);
             }
         }
-
     }
 
     function identify(identityApiData) {
         logDebug('Initiating identify request');
-        var identityApiRequest,
+        var identityApiRequest = _IdentityRequest.createIdentityRequest(identityApiData),
             copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
-
-
-        if (identityApiData && identityApiData.userIdentities && identityApiData.copyUserAttributes) {
-            copyAttributes = identityApiData.copyUserAttributes;
-        } else {
-            copyAttributes = false;
-        }
-
-        identityApiRequest = _IdentityRequest.createIdentityRequest(identityApiData);
 
         sendIdentityRequest(identityApiRequest, 'identify', identityCallback, copyAttributes);
     }
 
     var IdentityAPI = {
         logout: function(identityApiData, callback) {
-            logDebug(InformationMessages.StartingLogEvent + ': logout');
+            if (callback && !Validators.isFunction(callback)) {
+                logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
+            }
 
-            var identityApiRequest = _IdentityRequest.createIdentityRequest(identityApiData),
+            var evt,
+                identityApiRequest = _IdentityRequest.createIdentityRequest(identityApiData),
                 copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
 
+            logDebug(InformationMessages.StartingLogEvent + ': logout');
             mParticle.sessionManager.resetSessionTimer();
-            sendIdentityRequest(identityApiRequest, 'logout', callback, copyAttributes);
-
-            var evt;
 
             if (canLog()) {
-                if (!tryNativeSdk(NativeSdkPaths.LogOut)) {
+                if (!tryNativeSdk(NativeSdkPaths.Logout, JSON.stringify(event))) {
+                    sendIdentityRequest(identityApiRequest, 'logout', callback, copyAttributes);
                     evt = createEventObject(MessageType.Profile);
                     evt.ProfileMessageType = ProfileMessageType.Logout;
 
@@ -583,25 +600,52 @@
                 logDebug(InformationMessages.AbandonLogEvent);
             }
         },
-        login: function(identityApiData, callBack) {
-            logDebug(InformationMessages.StartingLogEvent + ': login');
+        login: function(identityApiData, callback) {
+            if (callback && !Validators.isFunction(callback)) {
+                logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
+            }
 
             var identityApiRequest = _IdentityRequest.createIdentityRequest(identityApiData),
                 copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
 
+            logDebug(InformationMessages.StartingLogEvent + ': login');
+            mParticle.sessionManager.resetSessionTimer();
 
-            sendIdentityRequest(identityApiRequest, 'login', callBack, copyAttributes);
+            if (canLog()) {
+                if (!tryNativeSdk(NativeSdkPaths.Login, JSON.stringify(event))) {
+                    sendIdentityRequest(identityApiRequest, 'login', callback, copyAttributes);
+                }
+            }
+            else {
+                logDebug(InformationMessages.AbandonLogEvent);
+            }
         },
         modify: function(identityApiData, callback) {
+            if (callback && !Validators.isFunction(callback)) {
+                logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
+            }
+
+            mParticle.sessionManager.resetSessionTimer();
             logDebug(InformationMessages.StartingLogEvent + ': modify');
 
             var identityApiRequest = _IdentityRequest.createModifyIdentityRequest(userIdentities, identityApiData);
 
-            sendIdentityRequest(identityApiRequest, 'modify', callback);
+            if (canLog()) {
+                if (!tryNativeSdk(NativeSdkPaths.Modify, JSON.stringify(event))) {
+                    sendIdentityRequest(identityApiRequest, 'modify', callback);
+                }
+            }
+            else {
+                logDebug(InformationMessages.AbandonLogEvent);
+            }
         },
         // optional callback for when there is an identity update/failure
         setIdentityCallback: function(fn) {
-            identityCallback = fn;
+            if (typeof fn !== 'function') {
+                logDebug('The IdentityCallback must be a function. You tried entering a ' + typeof fn);
+            } else {
+                identityCallback = fn;
+            }
         },
         getCurrentUser: function() {
             return mParticleUser;
@@ -1125,7 +1169,7 @@
 
                 if (xhr) {
                     try {
-                        xhr.open('post', createServiceUrl() + '/Events');
+                        xhr.open('post', createServiceUrl('v2') + '/Events');
                         xhr.send(JSON.stringify(convertEventToDTO(event)));
 
                         if (event.EventName !== MessageType.AppStateTransition) {
@@ -1160,7 +1204,7 @@
 
             if (xhr) {
                 try {
-                    xhr.open('post', createServiceUrl() + '/Forwarding');
+                    xhr.open('post', createServiceUrl('v1') + '/Forwarding');
                     xhr.send(forwardingStat);
                 }
                 catch (e) {
@@ -1367,7 +1411,6 @@
     function parseResponse(responseText) {
         var now = new Date(),
             settings,
-            previousMPID = null,
             prop,
             fullProp;
 
@@ -1378,20 +1421,6 @@
         try {
             logDebug('Parsing response from server');
             settings = JSON.parse(responseText);
-            if (!isFirstRun && mpid) {
-                previousMPID = mpid;
-            }
-
-            mpid = (settings.mpid || settings.mpid === 0) ? settings.mpid : null;
-
-            if (sessionId && previousMPID !== mpid && currentSessionMPIDs.indexOf(mpid) < 0) {
-                currentSessionMPIDs.push(mpid);
-                // need to update currentSessionMPIDs in memory before checkingIdentitySwap otherwise previous obj.currentSessionMPIDs is used in checkIdentitySwap's persistence.update()
-                persistence.update();
-            }
-            cookieSyncManager.attemptCookieSync(previousMPID, mpid);
-
-            _Identity.checkIdentitySwap(previousMPID, mpid);
 
             if (settings && settings.Store) {
                 logDebug('Parsed store from response, updating local settings');
@@ -2756,7 +2785,11 @@
         SetUserAttributeList: 'setUserAttributeList',
         RemoveAllUserAttributes: 'removeAllUserAttributes',
         GetUserAttributesLists: 'getUserAttributesLists',
-        GetAllUserAttributes: 'getAllUserAttributes'
+        GetAllUserAttributes: 'getAllUserAttributes',
+        Identify: 'identify',
+        Logout: 'logout',
+        Login: 'login',
+        Modify: 'modify'
     };
 
     var ProductActionType = {
@@ -2926,6 +2959,10 @@
             return (typeof value === 'string' || typeof value === 'number');
         },
 
+        isFunction: function(fn) {
+            return typeof fn !== 'function';
+        },
+
         validateOptions: function(options) {
             if (options) {
                 if (options.apiKey) {
@@ -3076,13 +3113,14 @@
                 initialIdentity,
                 validatedOptions = Validators.validateOptions(options);
 
-            if (!validatedOptions.valid) {
-                logDebug(validatedOptions.error);
-            } else if (validatedOptions.warning) {
-                logDebug(validatedOptions.warning);
+            if (validatedOptions) {
+                if (!validatedOptions.valid) {
+                    logDebug(validatedOptions.error);
+                } else if (validatedOptions.warning) {
+                    logDebug(validatedOptions.warning);
+                }
+                devToken = options.apiKey || null;
             }
-
-            devToken = options.apiKey || null;
 
             logDebug(InformationMessages.StartingInitialization);
 
@@ -3094,8 +3132,7 @@
             } else {
                 isFirstRun = false;
             }
-            initialIdentity = options.initialIdentity || userIdentities || null;
-
+            initialIdentity = options ? options.initialIdentity : Object.keys(userIdentities).length ? userIdentities : null;
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
 
@@ -3124,9 +3161,6 @@
 
             if (options && options.config) {
                 config = options.config;
-            }
-
-            if (config) {
                 mergeConfig(config);
             }
 
