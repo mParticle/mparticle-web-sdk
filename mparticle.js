@@ -438,22 +438,25 @@
         createIdentityChanges: function(previousIdentities, newIdentities) {
             var identityChanges = [];
             var key;
-            for (key in newIdentities) {
-                identityChanges.push({
-                    old_value: previousIdentities[key] || null,
-                    new_value: newIdentities[key] || null,
-                    identity_type: this.getIdentityName(parseFloat(key))
-                });
-            }
-
-            for (key in previousIdentities) {
-                if (!newIdentities[key]) {
+            if (newIdentities) {
+                for (key in newIdentities) {
                     identityChanges.push({
                         old_value: previousIdentities[key] || null,
-                        new_value: null,
+                        new_value: newIdentities[key] || null,
                         identity_type: this.getIdentityName(parseFloat(key))
                     });
                 }
+
+                for (key in previousIdentities) {
+                    if (!newIdentities[key]) {
+                        identityChanges.push({
+                            old_value: previousIdentities[key] || null,
+                            new_value: null,
+                            identity_type: this.getIdentityName(parseFloat(key))
+                        });
+                    }
+                }
+
             }
 
             return identityChanges;
@@ -1254,16 +1257,14 @@
                 }
             },
             filterUserIdentities = function(event, filterList) {
-                if (event.UserIdentities && event.UserIdentities.length) {
-                    event.UserIdentities.forEach(function(userIdentity, i) {
-                        if (inArray(filterList, userIdentity.Type)) {
-                            event.UserIdentities.splice(i, 1);
-
-                            if (i > 0) {
-                                i--;
+                if (event.UserIdentities) {
+                    for (var attrName in event.UserIdentities) {
+                        if (event.UserIdentities.hasOwnProperty(attrName)) {
+                            if (inArray(filterList, parseFloat(attrName))) {
+                                delete event.UserIdentities[attrName];
                             }
                         }
-                    });
+                    }
                 }
             },
             filterAttributes = function(event, filterList) {
@@ -3110,7 +3111,7 @@
         ProductActionType: ProductActionType,
         init: function(options) {
             var config,
-                initialIdentity,
+                initialIdentity = null,
                 validatedOptions = Validators.validateOptions(options);
 
             if (validatedOptions) {
@@ -3132,9 +3133,21 @@
             } else {
                 isFirstRun = false;
             }
-            initialIdentity = options ? options.initialIdentity : Object.keys(userIdentities).length ? userIdentities : null;
+
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
+
+            // if userIdentities exist on initialIdentity, update userIdentities for persistence, otherwise use what is currently in persistence
+            if (options && options.initialIdentity && options.initialIdentity.userIdentities && Object.keys(options.initialIdentity.userIdentities).length) {
+                userIdentities = options.initialIdentity.userIdentities;
+                initialIdentity = options.initialIdentity;
+            } else {
+                userIdentities = userIdentities || {};
+                initialIdentity = {
+                    userIdentities: userIdentities || {},
+                    copyUserAttributes: options.initialIdentity ? options.initialIdentity.copyUserAttributes : false
+                };
+            }
 
             /* Previous cookies only contained data from 1 MPID. New schema now holds multiple MPIDs and keys in memory data off latest MPID
             Previous cookie schema: { ui: [], ua: {} ...}
