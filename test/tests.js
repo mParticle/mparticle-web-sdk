@@ -4229,15 +4229,13 @@ describe('mParticle Core SDK', function() {
         newIdentities[mParticle.IdentityType.Facebook] = 'new_facebook_id';
 
         var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(oldIdentities, newIdentities);
+
         identityRequest.identity_changes[0].should.have.properties(['identity_type', 'new_value', 'old_value']);
         identityRequest.identity_changes[0].old_value.should.equal('old_facebook_id');
         identityRequest.identity_changes[0].identity_type.should.equal('facebook');
         identityRequest.identity_changes[0].new_value.should.equal('new_facebook_id');
 
-        identityRequest.identity_changes[1].should.have.properties(['identity_type', 'new_value', 'old_value']);
-        identityRequest.identity_changes[1].old_value.should.equal('old_other_id');
-        identityRequest.identity_changes[1].identity_type.should.equal('other');
-        identityRequest.identity_changes[1].should.have.property('new_value', null);
+        identityRequest.identity_changes.length.should.equal(1);
 
         done();
     });
@@ -4315,7 +4313,19 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should create a new modified user identity object', function(done) {
+        var previousIdentities = { 1:1, 2:2, 3:3 };
+        var newIdentities = { 2:3, 3:5 };
 
+        var modifiedUserIdentities = mParticle._IdentityRequest.modifyUserIdentities(previousIdentities, newIdentities);
+
+        modifiedUserIdentities.should.have.properties([1, 2, 3]);
+        modifiedUserIdentities[1].should.equal(1);
+        modifiedUserIdentities[2].should.equal(3);
+        modifiedUserIdentities[3].should.equal(5);
+
+        done();
+    });
 
     after(function() {
         server.stop();

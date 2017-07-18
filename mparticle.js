@@ -17,21 +17,13 @@
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
 (function(window) {
-    //TODO: revert serviceURL and secureServiceURL when pushing to master
     var serviceUrl = function(version) {
-            return 'api-qa.mparticle.com/' + version + '/JS/';
+            return 'jssdk.mparticle.com/' + version + '/JS/';
         },
         secureServiceUrl = function(version) {
-            return 'api-qa.mparticle.com/' + version + '/JS/';
+            return 'jssdks.mparticle.com/' + version + '/JS/';
         },
-    // var serviceUrl = function(version) {
-    //         return 'jssdk.mparticle.com/' + version + '/JS/';
-    //     },
-    //     secureServiceUrl = function(version) {
-    //         return 'jssdks.mparticle.com/' + version + '/JS/';
-    //     },
-        // TODO: Update this when final http api is done
-        identityUrl = 'https://identity.qa.corp.mparticle.com/v1/',
+        identityUrl = 'https://identity.mparticle.com/v1/', //prod
         serviceScheme = window.location.protocol + '//',
         sdkVersion = '2.0.0',
         sdkVendor = 'mparticle',
@@ -370,9 +362,12 @@
     var _IdentityRequest = {
         createKnownIdentities: function(identityApiData) {
             var identitiesResult = {};
+
             if (identityApiData && identityApiData.userIdentities && isObject(identityApiData.userIdentities)) {
                 for (var identity in identityApiData.userIdentities) {
-                    identitiesResult[this.getIdentityName(parseFloat(identity))] = identityApiData.userIdentities[identity];
+                    if (this.getIdentityName(parseFloat(identity))) {
+                        identitiesResult[this.getIdentityName(parseFloat(identity))] = identityApiData.userIdentities[identity];
+                    }
                 }
             }
             identitiesResult.device_application_stamp = deviceId;
@@ -451,19 +446,9 @@
                 for (key in newIdentities) {
                     identityChanges.push({
                         old_value: previousIdentities[key] || null,
-                        new_value: newIdentities[key] || null,
+                        new_value: newIdentities[key],
                         identity_type: this.getIdentityName(parseFloat(key))
                     });
-                }
-
-                for (key in previousIdentities) {
-                    if (!newIdentities[key]) {
-                        identityChanges.push({
-                            old_value: previousIdentities[key] || null,
-                            new_value: null,
-                            identity_type: this.getIdentityName(parseFloat(key))
-                        });
-                    }
                 }
             }
 
@@ -507,6 +492,7 @@
                             event.MPID = mpid;
                             send(event);
                         });
+                        eventQueue = [];
                     }
 
                     persistence.update();
@@ -527,6 +513,21 @@
         },
         returnCopyAttributes: function(identityApiData) {
             return (identityApiData && identityApiData.copyUserAttributes);
+        },
+        modifyUserIdentities: function(previousUserIdentities, newUserIdentities) {
+            var modifiedUserIdentities = {};
+
+            for (var key in newUserIdentities) {
+                modifiedUserIdentities[key] = newUserIdentities[key];
+            }
+
+            for (key in previousUserIdentities) {
+                if (!modifiedUserIdentities[key]) {
+                    modifiedUserIdentities[key] = previousUserIdentities[key];
+                }
+            }
+
+            return modifiedUserIdentities;
         }
     };
 
@@ -585,7 +586,9 @@
     var IdentityAPI = {
         logout: function(identityApiData, callback) {
             var identityValidationResult = Validators.validateIdentities(identityApiData);
-
+            if (identityValidationResult.valid) {
+                userIdentities = identityApiData ? identityApiData.userIdentities : {};
+            }
             if (callback && !Validators.isFunction(callback)) {
                 logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
             }
@@ -624,6 +627,9 @@
             if (callback && !Validators.isFunction(callback)) {
                 logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
             }
+            if (identityValidationResult.valid) {
+                userIdentities = identityApiData ? identityApiData.userIdentities : {};
+            }
 
             var identityApiRequest = _IdentityRequest.createIdentityRequest(identityApiData),
                 copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
@@ -655,6 +661,9 @@
             logDebug(InformationMessages.StartingLogEvent + ': modify');
             var identityApiRequest = _IdentityRequest.createModifyIdentityRequest(userIdentities, newUserIdentities);
 
+            // set new useridentity combo
+            userIdentities = _IdentityRequest.modifyUserIdentities(userIdentities, newUserIdentities);
+            persistence.update();
             if (canLog()) {
                 if (!tryNativeSdk(NativeSdkPaths.Modify, JSON.stringify(event))) {
                     sendIdentityRequest(identityApiRequest, 'modify', callback);
@@ -1000,7 +1009,7 @@
                     if (newMPID) {
                         mpid = newMPID;
                     } else {
-                        mpid = obj.currentUserMPID || 0;
+                        mpid = obj.mpid || obj.currentUserMPID || 0;
                     }
 
                     currentSessionMPIDs = obj.currentSessionMPIDs || [];
@@ -1013,7 +1022,6 @@
                     sessionAttributes = obj.sa || obj.SessionAttributes || sessionAttributes;
                     userAttributes = obj.ua || obj.UserAttributes || userAttributes;
                     userIdentities = obj.ui || obj.UserIdentities || userIdentities;
-
                     // Migrate from v1 where userIdentities was an array to v2 where it is an object
                     if (Array.isArray(userIdentities)) {
                         var arrayToObjectUIMigration = {};
@@ -1198,7 +1206,6 @@
 
                 if (xhr) {
                     try {
-                        //TODO: change to v2 when v2 is up
                         xhr.open('post', createServiceUrl('v2') + '/Events');
                         xhr.send(JSON.stringify(convertEventToDTO(event)));
 
@@ -1539,15 +1546,14 @@
     }
 
     function convertEventToDTO(event) {
-        var validUserIdentities;
-        if (event.UserIdentities.length) {
-            validUserIdentities = event.UserIdentities.map(function(userIdentity) {
-                if (!IdentityType.isValid(userIdentity.Type)) {
-                    logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
-                } else {
-                    return userIdentity;
-                }
-            });
+        var validUserIdentities = [];
+        if (isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
+            for (var key in event.UserIdentities) {
+                var userIdentity = {};
+                userIdentity.Type = key;
+                userIdentity.Identity = event.UserIdentities[key];
+                validUserIdentities.push(userIdentity);
+            }
         }
 
         var dto = {
@@ -3042,7 +3048,7 @@
                 } else {
                     return {
                         valid: false,
-                        error: 'When including an `initialIdentity` object within options, a `userIdentities` object within `initialIdentity` containing keys from http://docs.mparticle.com/#user-identity and the associated ID as the value is required.'
+                        error: 'When including an `initialIdentity` object within options, a `userIdentities` object within `initialIdentity` containing keys from http://docs.mparticle.com/#user-identity and the associated ID as the value is required. User Identities are not being uploaded to the server.'
                     };
                 }
                 if (!identityApiData.hasOwnProperty('copyUserAttributes')) {
@@ -3213,10 +3219,10 @@
                 },
             }
             */
+            deviceId = persistence.retrieveDeviceId();
+
             _Identity.migrate(isFirstRun);
             identify(initialIdentity);
-
-            deviceId = persistence.retrieveDeviceId();
 
             initForwarders();
 
