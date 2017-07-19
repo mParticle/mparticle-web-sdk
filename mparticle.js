@@ -481,7 +481,7 @@
                     _Identity.checkIdentitySwap(previousMPID, mpid);
 
                     if (callback) {
-                        callback(null, identityApiResult);
+                        callback({httpCode: xhr.status, body: identityApiResult});
                     }
 
                     context = identityApiResult.context || context;
@@ -498,15 +498,15 @@
                     persistence.update();
                 }
                 else {
-                    logDebug('Received HTTP response code of ' + xhr.status);
+                    logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
                     if (callback) {
-                        callback(identityApiResult);
+                        callback({httpCode: xhr.status, body: identityApiResult});
                     }
                 }
             }
             catch (e) {
                 if (callback) {
-                    callback(e);
+                    callback({httpCode: xhr.status, body: identityApiResult});
                 }
                 logDebug('Error parsing JSON response from Identity server: ' + e);
             }
@@ -536,7 +536,6 @@
             xhrCallback = function() {
                 if (xhr.readyState === 4) {
                     logDebug('Received ' + xhr.statusText + ' from server');
-
                     _IdentityRequest.parseIdentityResponse(xhr, copyAttributes, previousMPID, callback);
                 }
             };
@@ -568,9 +567,9 @@
             }
             catch (e) {
                 if (callback) {
-                    callback(e);
+                    callback({httpCode: -1, body: e});
                 }
-                logDebug('Error sending identity request to servers. ' + e);
+                logDebug('Error sending identity request to servers with status code . ' + xhr.status + ' - ' + e);
             }
         }
     }
@@ -674,14 +673,6 @@
             }
             if (identityValidationResult.error || identityValidationResult.warning) {
                 logDebug(identityValidationResult.error || identityValidationResult.warning);
-            }
-        },
-        // optional callback for when there is an identity update/failure
-        setIdentityCallback: function(fn) {
-            if (typeof fn !== 'function') {
-                logDebug('The IdentityCallback must be a function. You tried entering a ' + typeof fn);
-            } else {
-                identityCallback = fn;
             }
         },
         getCurrentUser: function() {
