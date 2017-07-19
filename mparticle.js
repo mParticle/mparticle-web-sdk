@@ -3050,7 +3050,7 @@
                         };
                     }
                 }
-                if (isObject(identityApiData.userIdentities) && method !== 'modify') {
+                if (isObject(identityApiData.userIdentities)) {
                     for (var key in identityApiData.userIdentities) {
                         if (_IdentityRequest.getIdentityType(key) === false) {
                             return {
@@ -3067,7 +3067,7 @@
                 if (!identityApiData.hasOwnProperty('copyUserAttributes')) {
                     return {
                         valid: true,
-                        warning: 'By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the initialIdentity object. Request sent to server.'
+                        warning: 'By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the identifyRequest object. Request sent to server.'
                     };
                 }
             }
@@ -3162,7 +3162,7 @@
         isDevelopmentMode: false,
         useCookieStorage: false,
         maxProducts: DefaultConfig.MaxProducts,
-        initialIdentity: {},
+        identifyRequest: {},
         getDeviceId: getDeviceId,
         generateHash: generateHash,
         sessionManager: sessionManager,
@@ -3179,7 +3179,7 @@
         ProductActionType: ProductActionType,
         init: function(apiKey) {
             var config,
-                initialIdentity = mParticle.initialIdentity;
+                identifyRequest = mParticle.identifyRequest;
             devToken = apiKey || null;
 
             logDebug(InformationMessages.StartingInitialization);
@@ -3195,14 +3195,14 @@
 
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
-            // if userIdentities exist on initialIdentity, update userIdentities for persistence, otherwise use what is currently in persistence
-            if (initialIdentity && isObject(initialIdentity.userIdentities) && Object.keys(initialIdentity.userIdentities).length) {
-                userIdentities = initialIdentity.userIdentities;
+            // if userIdentities exist on identifyRequest, update userIdentities for persistence, otherwise use what is currently in persistence
+            if (identifyRequest && isObject(identifyRequest.userIdentities) && Object.keys(identifyRequest.userIdentities).length) {
+                userIdentities = identifyRequest.userIdentities;
             } else {
                 userIdentities = userIdentities || {};
-                initialIdentity = {
+                identifyRequest = {
                     userIdentities: userIdentities || {},
-                    copyUserAttributes: initialIdentity ? initialIdentity.copyUserAttributes : false
+                    copyUserAttributes: identifyRequest ? identifyRequest.copyUserAttributes : false
                 };
             }
 
@@ -3225,7 +3225,7 @@
             deviceId = persistence.retrieveDeviceId();
 
             _Identity.migrate(isFirstRun);
-            identify(initialIdentity);
+            identify(identifyRequest);
 
             initForwarders();
 
@@ -3730,8 +3730,8 @@
             appName = window.mParticle.config.appName;
         }
 
-        if (window.mParticle.config.hasOwnProperty('initialIdentity')) {
-            mParticle.initialIdentity = window.mParticle.config.initialIdentity;
+        if (window.mParticle.config.hasOwnProperty('identifyRequest')) {
+            mParticle.identifyRequest = window.mParticle.config.identifyRequest;
         }
 
         if (window.mParticle.config.hasOwnProperty('identityCallback')) {
