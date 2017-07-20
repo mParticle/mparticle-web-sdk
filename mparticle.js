@@ -1232,6 +1232,8 @@
                 validUserIdentities.push(userIdentity);
             }
             event.UserIdentities = validUserIdentities;
+        } else {
+            event.UserIdentities = [];
         }
 
         // When MPID = 0, we queue events until we have a valid MPID
@@ -3191,6 +3193,7 @@
 
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
+
             // if userIdentities exist on identifyRequest, update userIdentities for persistence, otherwise use what is currently in persistence
             if (identifyRequest && isObject(identifyRequest.userIdentities) && Object.keys(identifyRequest.userIdentities).length) {
                 userIdentities = identifyRequest.userIdentities;

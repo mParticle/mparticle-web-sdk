@@ -4243,6 +4243,17 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should convert user identities object to an array if no identityRequest is passed through', function(done) {
+        mParticle.reset();
+        server.requests = [];
+        mParticle.init(apiKey);
+
+        var data = getEvent(1);
+
+        Array.isArray(data.ui).should.equal(true);
+        done();
+    });
+
     after(function() {
         server.stop();
     });
