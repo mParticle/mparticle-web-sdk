@@ -535,7 +535,6 @@
                             userAttributes = {};
                         }
                     }
-
                     if (sessionId && mpid && previousMPID !== mpid && currentSessionMPIDs.indexOf(mpid) < 0) {
                         currentSessionMPIDs.push(mpid);
                         // need to update currentSessionMPIDs in memory before checkingIdentitySwap otherwise previous obj.currentSessionMPIDs is used in checkIdentitySwap's persistence.update()
@@ -1025,7 +1024,7 @@
             localStorage.removeItem(DefaultConfig.LocalStorageName);
         },
 
-        storeDataInMemory: function(result, newMPID) {
+        storeDataInMemory: function(result, currentMPID) {
             var obj;
 
             try {
@@ -1037,16 +1036,19 @@
                     mpid = 0;
                 } else {
                     // Set MPID first, then change object to match MPID data
-                    if (newMPID) {
-                        mpid = newMPID;
+                    if (currentMPID) {
+                        mpid = currentMPID;
                     } else {
                         mpid = obj.mpid || obj.currentUserMPID || 0;
                     }
 
                     currentSessionMPIDs = obj.currentSessionMPIDs || [];
 
-                    obj = obj.currentUserMPID ? obj[obj.currentUserMPID] : obj;
-
+                    if (currentMPID) {
+                        obj = obj[currentMPID] ? obj[currentMPID] : obj;
+                    } else {
+                        obj = obj[obj.currentUserMPID] ? obj[obj.currentUserMPID] : obj;
+                    }
                     // Longer names are for backwards compatibility
                     sessionId = obj.sid || obj.SessionId || sessionId;
                     isEnabled = (typeof obj.ie !== 'undefined') ? obj.ie : obj.IsEnabled;
@@ -2759,7 +2761,7 @@
     var _Identity = {
         checkIdentitySwap: function(previousMPID, currentMPID) {
             if (previousMPID && currentMPID && previousMPID !== currentMPID) {
-                var cookies = (persistence.isLocalStorageAvailable && !mParticle.useCookieStorage) ? persistence.getLocalStorage() : persistence.getCookie();
+                var cookies = persistence.useLocalStorage() ? persistence.getLocalStorage() : persistence.getCookie();
                 persistence.storeDataInMemory(cookies, currentMPID);
                 persistence.update();
             }

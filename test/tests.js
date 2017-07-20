@@ -3323,11 +3323,34 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should move data from cookies to localStorage with useCookieStorage = false', function(done) {
+    it('should move old schema from cookies to localStorage with useCookieStorage = false', function(done) {
+        mParticle.reset();
+        setCookie({
+            ui: [{Identity: '123', Type: 1}]
+        });
+        var beforeInitCookieData = JSON.parse(getCookie());
+
+        mParticle.useCookieStorage = false;
+
+        mParticle.init(apiKey);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+
+        var localStorageData = mParticle.persistence.getLocalStorage();
+        var afterInitCookieData = getCookie();
+        beforeInitCookieData.ui[0].should.have.property('Identity', '123');
+        localStorageData[testMPID].ua.should.have.property('gender', 'male');
+        localStorageData[testMPID].ui.should.have.property('customerid', '123');
+        Should(afterInitCookieData).not.be.ok();
+
+        done();
+    });
+
+    it('should move new schema from cookies to localStorage with useCookieStorage = false', function(done) {
         mParticle.reset();
         setCookie({
             testMPID: {
-                ui: [{Identity: 123, Type: 1}]
+                ui: { customerid: '123' }
             },
             currentUserMPID: testMPID
         });
@@ -3340,17 +3363,16 @@ describe('mParticle Core SDK', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-
         var afterInitCookieData = getCookie();
-        beforeInitCookieData[testMPID].ui[0].should.have.property('Identity', 123);
+        beforeInitCookieData[testMPID].ui.should.have.property('customerid', '123');
         localStorageData[testMPID].ua.should.have.property('gender', 'male');
-        localStorageData[testMPID].ui.should.have.property('customerid', 123);
+        localStorageData[testMPID].ui.should.have.property('customerid', '123');
         Should(afterInitCookieData).not.be.ok();
 
         done();
     });
 
-    it('should move data from localStorage to cookies with useCookieStorage = true', function(done) {
+    it('should move old schema from localStorage to cookies with useCookieStorage = true', function(done) {
         mParticle.reset();
         setLocalStorage({
             ui: [{Identity: 123, Type: 1}]
@@ -3369,6 +3391,33 @@ describe('mParticle Core SDK', function() {
 
         cookieData[testMPID].ua.should.have.property('gender', 'male');
         cookieData[testMPID].ui.should.have.property('customerid', 123);
+
+        window.mParticle.useCookieStorage = false;
+        done();
+    });
+
+    it('should move new schema from localStorage to cookies with useCookieStorage = true', function(done) {
+        mParticle.reset();
+        setLocalStorage({
+            testMPID: {
+                ui: { customerid: '123' }
+            },
+            currentUserMPID: testMPID
+        });
+
+        mParticle.useCookieStorage = true;
+        apiKey.identifyRequest = { copyUserAttributes: true};
+        mParticle.init(apiKey);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+
+        var localStorageData = localStorage.getItem('mprtcl-api');
+        var cookieData = JSON.parse(getCookie());
+
+        Should(localStorageData).not.be.ok();
+
+        cookieData[testMPID].ua.should.have.property('gender', 'male');
+        cookieData[testMPID].ui.should.have.property('customerid', '123');
 
         window.mParticle.useCookieStorage = false;
         done();
@@ -4212,20 +4261,81 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
+    it('should only update its own cookies, not any other mpids when initializing with a different set of credentials', function(done) {
         mParticle.reset();
-        window.localStorage.setItem = null;
 
-        mParticle.useCookieStorage = false;
+        var user1 = {
+            userIdentities: {
+                customerid: 123,
+                email: 123
+            }
+        };
 
-        mParticle.init(apiKey);
+        var user2 = {
+            userIdentities: {
+                customerid: 123,
+                email: 123
+            }
+        };
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        var user3 = {
+            userIdentities: {
+                customerid: 123,
+                email: 123
+            }
+        };
 
-        var cookieData = JSON.parse(getCookie());
+        // get user 1 into cookies
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'user1'
+            }));
+        };
 
-        cookieData[testMPID].ua.should.have.property('gender', 'male');
+        mParticle.init(user1);
+        mParticle.Identity.getCurrentUser().setUserAttribute('user', 'user1');
 
+        // get user 2 into cookies
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'user2'
+            }));
+        };
+
+        mParticle.Identity.login(user2);
+        mParticle.Identity.getCurrentUser().setUserAttribute('user', 'user2');
+
+        // get user 3 into cookies
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'user3'
+            }));
+        };
+
+        mParticle.Identity.login(user3);
+        mParticle.Identity.getCurrentUser().setUserAttribute('user', 'user3');
+
+        // init again using user 1
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'user1'
+            }));
+        };
+
+        mParticle.init(user1);
+
+        var localStorage = mParticle.persistence.getLocalStorage();
+        localStorage.user1.ua.user.should.equal('user1');
+        localStorage.user2.ua.user.should.equal('user2');
+        localStorage.user3.ua.user.should.equal('user3');
         done();
     });
 
@@ -4251,6 +4361,23 @@ describe('mParticle Core SDK', function() {
         var data = getEvent(1);
 
         Array.isArray(data.ui).should.equal(true);
+        done();
+    });
+
+    it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
+        mParticle.reset();
+        window.localStorage.setItem = null;
+
+        mParticle.useCookieStorage = false;
+
+        mParticle.init(apiKey);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+
+        var cookieData = JSON.parse(getCookie());
+
+        cookieData[testMPID].ua.should.have.property('gender', 'male');
+
         done();
     });
 
