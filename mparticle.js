@@ -17,12 +17,8 @@
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
 (function(window) {
-    var serviceUrl = function(version) {
-            return 'jssdk.mparticle.com/' + version + '/JS/';
-        },
-        secureServiceUrl = function(version) {
-            return 'jssdks.mparticle.com/' + version + '/JS/';
-        },
+    var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
+        secureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
         identityUrl = 'https://identity.mparticle.com/v1/', //prod
         serviceScheme = window.location.protocol + '//',
         sdkVersion = '2.0.0',
@@ -312,8 +308,8 @@
         return xhr;
     }
 
-    function createServiceUrl(version) {
-        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl(version) : serviceUrl(version)) + devToken;
+    function createServiceUrl() {
+        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
     }
 
     function inArray(items, name) {
@@ -1255,7 +1251,7 @@
 
                 if (xhr) {
                     try {
-                        xhr.open('post', createServiceUrl('v2') + '/Events');
+                        xhr.open('post', createServiceUrl() + '/Events');
                         xhr.send(JSON.stringify(convertEventToDTO(event)));
 
                         if (event.EventName !== MessageType.AppStateTransition) {
@@ -1290,7 +1286,7 @@
 
             if (xhr) {
                 try {
-                    xhr.open('post', createServiceUrl('v1') + '/Forwarding');
+                    xhr.open('post', createServiceUrl() + '/Forwarding');
                     xhr.send(forwardingStat);
                 }
                 catch (e) {

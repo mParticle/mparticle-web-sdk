@@ -7,14 +7,29 @@ Hello! This is the public repo of the mParticle Javascript SDK. We've built the 
 ## Documentation
 Detailed documentation and other information about mParticle SDK can be found at [http://docs.mparticle.com](http://docs.mparticle.com)
 
-## Usage
+## Include and Initialize the SDK
 
-Once you have signed up to the mParticle platform and have a key for your App, you can begin to use the SDK by embedding the following
-script tag in your web page, replacing `"YOUR_API_KEY"` with your key. Note that the mParticle JS SDK and all mParticle integrations will be minified when served.
+### 1. Customize the SDK
 
-```html
+You can customize the SDK by setting the `mParticle.config` object prior to the SDK-download snippet.
+
+```javascript
+mParticle.config = {
+   isDevelopmentMode: true,
+   identifyRequest: {
+      userIdentities: { email: 'email@example.com', customerid: '123456' }
+   },
+   identityCallback: myIdentityCallback
+}
+```
+
+### 2. Include the SDK
+
+To integrate the SDK add the following snippet to your site after customizing `mParticle.config`, ideally in the `<head>` element. Replace `YOUR_API_KEY` with the API key for your mParticle Web workspace.
+
+```javascript
 <script type="text/javascript">
-  (function (apiKey) {
+ (function (apiKey) {
     window.mParticle = window.mParticle || {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
@@ -24,10 +39,10 @@ script tag in your web page, replacing `"YOUR_API_KEY"` with your key. Note that
     var mp = document.createElement('script');
     mp.type = 'text/javascript';
     mp.async = true;
-    mp.src = ('https:' == document.location.protocol ? 'https://jssdkcdns' : 'http://jssdkcdn') + '.mparticle.com/js/v1/' + apiKey + '/mparticle.js';
+    mp.src = ('https:' == document.location.protocol ? 'https://jssdkcdns' : 'http://jssdkcdn') + '.mparticle.com/js/v2/' + apiKey + '/mparticle.js';
     var s = document.getElementsByTagName('script')[0];
     s.parentNode.insertBefore(mp, s);
-  })('YOUR_API_KEY');
+})('YOUR_API_KEY');
 </script>
 ```
 

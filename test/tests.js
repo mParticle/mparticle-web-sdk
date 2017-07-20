@@ -18,16 +18,10 @@ describe('mParticle Core SDK', function() {
         },
         getRequests = function(path) {
             var requests = [],
-                fullPath = function(path) {
-                    if (path === 'Forwarding') {
-                        return '/v1/JS/' + apiKey + '/' + 'Forwarding';
-                    } else {
-                        return '/v2/JS/' + apiKey + '/' + 'Events';
-                    }
-                };
+                fullPath = '/v2/JS/' + apiKey + '/' + path;
 
             server.requests.forEach(function(item) {
-                if (item.urlParts.path == fullPath(path)) {
+                if (item.urlParts.path == fullPath) {
                     requests.push(item);
                 }
             });
