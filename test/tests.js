@@ -4440,6 +4440,80 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should find the related MPID\'s cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies', function(done) {
+        mParticle.reset();
+        var user1 = {
+            userIdentities: {
+                customerid: '1'
+            }
+        };
+
+        var user1modified = {
+            userIdentities: {
+                email: '2'
+            }
+        };
+
+        mParticle.identifyRequest = user1;
+
+        mParticle.init(apiKey);
+
+        mParticle.Identity.modify(user1modified);
+        mParticle.Identity.getCurrentUser().setUserAttribute('foo1', 'bar1');
+
+        mParticle.logEvent('test event1');
+        var event1 = getEvent('test event1');
+
+        event1.ua.should.have.property('foo1', 'bar1');
+        event1.ui[0].should.have.property('Type', 7);
+        event1.ui[0].should.have.property('Identity', '2');
+        event1.ui[1].should.have.property('Type', 1);
+        event1.ui[1].should.have.property('Identity', '1');
+
+        var user2 = {
+            userIdentities: {
+                customerid: '2'
+            }
+        };
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'otherMPID'
+            }));
+        };
+
+        mParticle.Identity.logout(user2);
+        mParticle.logEvent('test event 2');
+        var event2 = getEvent('test event 2');
+
+        Object.keys(event2.ua).length.should.equal(0);
+        event2.ui[0].should.have.property('Type', 1);
+        event2.ui[0].should.have.property('Identity', '2');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'testMPID'
+            }));
+        };
+
+        mParticle.Identity.login(user1);
+        mParticle.logEvent('test event3');
+        var event3 = getEvent('test event3');
+
+        event3.ua.should.have.property('foo1', 'bar1');
+        event3.ui.length.should.equal(2);
+        event3.ui[0].should.have.property('Type', 7);
+        event3.ui[0].should.have.property('Identity', '2');
+        event3.ui[1].should.have.property('Type', 1);
+        event3.ui[1].should.have.property('Identity', '1');
+
+        done();
+    });
+
     it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
         mParticle.reset();
         window.localStorage.setItem = null;

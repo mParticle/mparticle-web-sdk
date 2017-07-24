@@ -429,12 +429,6 @@
                 };
             }
 
-
-            // update userIdentities in memory/storage to reflect what was passed in for all methods except modify
-            if (identityValidationResult.valid && method !== 'modify') {
-                userIdentities = identityApiData && Object.keys(identityApiData.userIdentities).length ? identityApiData.userIdentities : userIdentities || {};
-                persistence.update();
-            }
             mParticle.sessionManager.resetSessionTimer();
 
             return {
@@ -524,7 +518,7 @@
             return identityChanges;
         },
 
-        parseIdentityResponse: function(xhr, copyAttributes, previousMPID, callback) {
+        parseIdentityResponse: function(xhr, copyAttributes, previousMPID, callback, identityApiData, method) {
             try {
                 logDebug('Parsing identity response from server');
 
@@ -539,6 +533,7 @@
                             userAttributes = {};
                         }
                     }
+
                     if (sessionId && mpid && previousMPID !== mpid && currentSessionMPIDs.indexOf(mpid) < 0) {
                         currentSessionMPIDs.push(mpid);
                         // need to update currentSessionMPIDs in memory before checkingIdentitySwap otherwise previous obj.currentSessionMPIDs is used in checkIdentitySwap's persistence.update()
@@ -548,6 +543,7 @@
                     cookieSyncManager.attemptCookieSync(previousMPID, mpid);
 
                     _Identity.checkIdentitySwap(previousMPID, mpid);
+
 
                     if (callback) {
                         callback({httpCode: xhr.status, body: identityApiResult});
@@ -562,6 +558,14 @@
                             send(event);
                         });
                         eventQueue = [];
+                    }
+
+                    // update userIdentities in memory/storage to reflect what was passed in
+                    if (method === 'modify') {
+                        userIdentities = _IdentityRequest.modifyUserIdentities(userIdentities, identityApiData.userIdentities);
+                    } else {
+                        userIdentities = identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length ? identityApiData.userIdentities : userIdentities || {};
+                        persistence.swapCookies(identityApiData);
                     }
 
                     persistence.update();
@@ -600,12 +604,12 @@
         }
     };
 
-    function sendIdentityRequest(identityApiRequest, method, callback, copyAttributes) {
+    function sendIdentityRequest(identityApiRequest, method, callback, copyAttributes, originalIdentityApiData) {
         var xhr, previousMPID,
             xhrCallback = function() {
                 if (xhr.readyState === 4) {
                     logDebug('Received ' + xhr.statusText + ' from server');
-                    _IdentityRequest.parseIdentityResponse(xhr, copyAttributes, previousMPID, callback);
+                    _IdentityRequest.parseIdentityResponse(xhr, copyAttributes, previousMPID, callback, originalIdentityApiData, method);
                 }
             };
 
@@ -649,7 +653,7 @@
             var identityApiRequest = _IdentityRequest.createIdentityRequest(identityApiData),
                 copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
 
-            sendIdentityRequest(identityApiRequest, 'identify', identityCallback, copyAttributes);
+            sendIdentityRequest(identityApiRequest, 'identify', identityCallback, copyAttributes, identityApiData);
         } else {
             if (identityCallback) {
                 identityCallback(preProcessResult);
@@ -668,7 +672,7 @@
 
                 if (canLog()) {
                     if (!tryNativeSdk(NativeSdkPaths.Logout, JSON.stringify(event))) {
-                        sendIdentityRequest(identityApiRequest, 'logout', callback, copyAttributes);
+                        sendIdentityRequest(identityApiRequest, 'logout', callback, copyAttributes, identityApiData);
                         evt = createEventObject(MessageType.Profile);
                         evt.ProfileMessageType = ProfileMessageType.Logout;
 
@@ -701,7 +705,7 @@
 
                 if (canLog()) {
                     if (!tryNativeSdk(NativeSdkPaths.Login, JSON.stringify(event))) {
-                        sendIdentityRequest(identityApiRequest, 'login', callback, copyAttributes);
+                        sendIdentityRequest(identityApiRequest, 'login', callback, copyAttributes, identityApiData);
                     }
                 }
                 else {
@@ -721,13 +725,9 @@
             if (preProcessResult.valid) {
                 var identityApiRequest = _IdentityRequest.createModifyIdentityRequest(userIdentities, newUserIdentities);
 
-                // set new useridentity combo
-                userIdentities = _IdentityRequest.modifyUserIdentities(userIdentities, newUserIdentities);
-                persistence.update();
-
                 if (canLog()) {
                     if (!tryNativeSdk(NativeSdkPaths.Modify, JSON.stringify(event))) {
-                        sendIdentityRequest(identityApiRequest, 'modify', callback);
+                        sendIdentityRequest(identityApiRequest, 'modify', callback, null, identityApiData);
                     }
                 }
                 else {
@@ -1225,6 +1225,34 @@
                 ';expires=' + expires +
                 ';path=/' +
                 domain;
+        },
+
+        swapCookies: function(identityApiData) {
+            var cookies = JSON.parse(this.getCookie()) || this.getLocalStorage();
+            var matchedUser;
+
+            if (identityApiData) {
+                for (var requestedIdentityType in identityApiData.userIdentities) {
+                    if (Object.keys(cookies).length) {
+                        for (var key in cookies) {
+                            // any value in cookies that has an MPID key will be an MPID to search through - other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
+                            if (cookies[key].mpid) {
+                                var cookieUIs = cookies[key].ui;
+                                for (var cookieUIType in cookieUIs) {
+                                    if (requestedIdentityType === cookieUIType && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
+                                        matchedUser = key;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (matchedUser) {
+                persistence.storeDataInMemory(cookies, matchedUser);
+            }
         }
     };
 
@@ -3230,7 +3258,6 @@
             var config,
                 identifyRequest = mParticle.identifyRequest;
             devToken = apiKey || null;
-
             logDebug(InformationMessages.StartingInitialization);
 
             // Set configuration to default settings
