@@ -361,7 +361,6 @@ describe('mParticle Core SDK', function() {
         setLocalStorage({
             ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}, {Identity: [], Type: 1}, {Identity: {}, Type: 1}]
         });
-
         mParticle.init(apiKey);
 
         var localStorageData = mParticle.persistence.getLocalStorage();
@@ -2161,7 +2160,7 @@ describe('mParticle Core SDK', function() {
     it('should not pass in user attributes to forwarder on initialize if copyUserAttributes is false', function(done) {
         mParticle.reset();
 
-        setCookie({
+        setLocalStorage({
             ua: {
                 color: 'blue'
             }
@@ -2171,13 +2170,19 @@ describe('mParticle Core SDK', function() {
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
 
-        window.mParticle.identifyRequest.copyUserAttributes = false;
+        window.mParticle.identifyRequest = {
+            userIdentities: {
+                email: 'test@gmail.com'
+            },
+            copyUserAttributes: false};
+
         mParticle.init(apiKey);
 
         mockForwarder.instance.should.have.property('userAttributes');
         mockForwarder.instance.userAttributes.should.not.have.property('color');
 
-        window.mParticle.identifyRequest.copyUserAttributes = true;
+        window.mParticle.identifyRequest = {};
+
         done();
     });
 
@@ -4510,6 +4515,98 @@ describe('mParticle Core SDK', function() {
         event3.ui[0].should.have.property('Identity', '2');
         event3.ui[1].should.have.property('Type', 1);
         event3.ui[1].should.have.property('Identity', '1');
+
+        done();
+    });
+
+    it('Should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous one', function(done) {
+        mParticle.reset();
+        var user1 = {
+            userIdentities: {
+                customerid: '1'
+            }
+        };
+
+        var user2 = {
+            userIdentities: {
+                customerid: '2'
+            }
+        };
+
+        var user3 = {
+            userIdentities: {
+                customerid: '3'
+            }
+        };
+
+        var user4 = {
+            userIdentities: {
+                customerid: '4'
+            }
+        };
+
+        mParticle.identifyRequest = user1;
+
+        mParticle.init(apiKey);
+        var user1UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
+
+        user1UIs.userIdentities.customerid.should.equal('1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'mpid2'
+            }));
+        };
+
+        mParticle.Identity.login(user2);
+        var user2UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
+        user2UIs.userIdentities.customerid.should.equal('2');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'mpid3'
+            }));
+        };
+
+        mParticle.Identity.login(user3);
+        var user3UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
+        user3UIs.userIdentities.customerid.should.equal('3');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'mpid4'
+            }));
+        };
+
+        mParticle.Identity.login(user4);
+        var user4UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
+        user4UIs.userIdentities.customerid.should.equal('4');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: testMPID
+            }));
+        };
+
+        mParticle.init(apiKey);
+
+        var user5UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
+        user5UIs.userIdentities.customerid.should.equal('1');
+
+        var data = mParticle.persistence.getLocalStorage();
+
+        data.testMPID.ui.customerid.should.equal('1');
+        data.mpid2.ui.customerid.should.equal('2');
+        data.mpid3.ui.customerid.should.equal('3');
+        data.mpid4.ui.customerid.should.equal('4');
 
         done();
     });

@@ -544,7 +544,6 @@
 
                     _Identity.checkIdentitySwap(previousMPID, mpid);
 
-
                     if (callback) {
                         callback({httpCode: xhr.status, body: identityApiResult});
                     }
@@ -3118,35 +3117,42 @@
                         }
                     }
                 }
-                if (!isObject(identityApiData.userIdentities)) {
+                if (Object.keys(identityApiData).length === 0) {
                     return {
-                        valid: false,
-                        error: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.'
+                        valid: true
                     };
-                }
-                if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
-                    for (var identityType in identityApiData.userIdentities) {
-                        if (_IdentityRequest.getIdentityType(identityType) === false) {
-                            return {
-                                valid: false,
-                                error: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.'
-                            };
-                        }
-                        if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
-                            return {
-                                valid: false,
-                                error: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
-                            };
+                } else {
+                    if (!isObject(identityApiData.userIdentities)) {
+                        return {
+                            valid: false,
+                            error: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.'
+                        };
+                    }
+                    if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
+                        for (var identityType in identityApiData.userIdentities) {
+                            if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
+                                if (_IdentityRequest.getIdentityType(identityType) === false) {
+                                    return {
+                                        valid: false,
+                                        error: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.'
+                                    };
+                                }
+                                if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
+                                    return {
+                                        valid: false,
+                                        error: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
+                                    };
+                                }
+                            }
                         }
                     }
+                    if (!identityApiData.hasOwnProperty('copyUserAttributes')) {
+                        return {
+                            valid: true,
+                            warning: 'By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the identifyRequest object. Request sent to server.'
+                        };
+                    }
                 }
-                if (!identityApiData.hasOwnProperty('copyUserAttributes')) {
-                    return {
-                        valid: true,
-                        warning: 'By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the identifyRequest object. Request sent to server.'
-                    };
-                }
-
             }
             return {
                 valid: true
@@ -3271,16 +3277,6 @@
 
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
-            // if userIdentities exist on identifyRequest, update userIdentities for persistence, otherwise use what is currently in persistence
-            if (identifyRequest && isObject(identifyRequest.userIdentities) && Object.keys(identifyRequest.userIdentities).length) {
-                userIdentities = identifyRequest.userIdentities;
-            } else {
-                userIdentities = userIdentities || {};
-                identifyRequest = {
-                    userIdentities: userIdentities || {},
-                    copyUserAttributes: identifyRequest ? identifyRequest.copyUserAttributes : false
-                };
-            }
 
             /* Previous cookies only contained data from 1 MPID. New schema now holds multiple MPIDs and keys in memory data off latest MPID
             Previous cookie schema: { ui: [], ua: {} ...}
@@ -3329,7 +3325,6 @@
             }
 
             logAST();
-            persistence.update();
             isInitialized = true;
         },
         reset: function() {
