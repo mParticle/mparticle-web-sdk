@@ -3390,7 +3390,7 @@ describe('mParticle Core SDK', function() {
         Should(localStorageData).not.be.ok();
 
         cookieData[testMPID].ua.should.have.property('gender', 'male');
-        cookieData[testMPID].ui.should.have.property('customerid', 123);
+        cookieData[testMPID].ui.should.have.property('customerid', '123');
 
         window.mParticle.useCookieStorage = false;
         done();
@@ -4266,22 +4266,22 @@ describe('mParticle Core SDK', function() {
 
         var user1 = {
             userIdentities: {
-                customerid: 123,
-                email: 123
+                customerid: '123',
+                email: '123'
             }
         };
 
         var user2 = {
             userIdentities: {
-                customerid: 123,
-                email: 123
+                customerid: '123',
+                email: '123'
             }
         };
 
         var user3 = {
             userIdentities: {
-                customerid: 123,
-                email: 123
+                customerid: '123',
+                email: '123'
             }
         };
 
@@ -4378,6 +4378,118 @@ describe('mParticle Core SDK', function() {
 
         cookieData[testMPID].ua.should.have.property('gender', 'male');
 
+        done();
+    });
+
+    it('should properly validate identityApiRequest values', function(done) {
+        var badUserIdentitiesArray = {
+            userIdentities: {
+                customerid: []
+            }
+        };
+
+        var badUserIdentitiesObject = {
+            userIdentities: {
+                customerid: {}
+            }
+        };
+
+        var badUserIdentitiesBoolean = {
+            userIdentities: {
+                customerid: false
+            }
+        };
+
+        var badUserIdentitiesUndefined = {
+            userIdentities: {
+                customerid: undefined
+            }
+        };
+
+        var validUserIdentitiesString = {
+            userIdentities: {
+                customerid: '123'
+            }
+        };
+
+        var validUserIdentitiesNull = {
+            userIdentities: {
+                customerid: null
+            }
+        };
+
+        var invalidUserIdentitiesCombo = {
+            userIdentities: {
+                customerid: '123',
+                email: undefined
+            }
+        };
+
+        var badUserIdentitiesArrayResult = mParticle.Validators.validateIdentities(badUserIdentitiesArray);
+        var badUserIdentitiesObjectResult = mParticle.Validators.validateIdentities(badUserIdentitiesObject);
+        var badUserIdentitiesBooleanResult = mParticle.Validators.validateIdentities(badUserIdentitiesBoolean);
+        var badUserIdentitiesUndefinedResult = mParticle.Validators.validateIdentities(badUserIdentitiesUndefined);
+        var validUserIdentitiesNullResult = mParticle.Validators.validateIdentities(validUserIdentitiesNull);
+        var validUserIdentitiesStringResult = mParticle.Validators.validateIdentities(validUserIdentitiesString);
+        var invalidUserIdentitiesComboResult = mParticle.Validators.validateIdentities(invalidUserIdentitiesCombo);
+
+        badUserIdentitiesArrayResult.valid.should.equal(false);
+        badUserIdentitiesObjectResult.valid.should.equal(false);
+        badUserIdentitiesBooleanResult.valid.should.equal(false);
+        badUserIdentitiesUndefinedResult.valid.should.equal(false);
+        validUserIdentitiesNullResult.valid.should.equal(true);
+        validUserIdentitiesStringResult.valid.should.equal(true);
+        invalidUserIdentitiesComboResult.valid.should.equal(false);
+
+        done();
+    });
+
+    it('should not send requests to the server with invalid userIdentity values', function(done) {
+        server.requests = [];
+        var badUserIdentitiesArray = {
+            userIdentities: {
+                customerid: []
+            }
+        };
+
+        var badUserIdentitiesObject = {
+            userIdentities: {
+                customerid: {}
+            }
+        };
+
+        var badUserIdentitiesBoolean = {
+            userIdentities: {
+                customerid: false
+            }
+        };
+
+        var badUserIdentitiesUndefined = {
+            userIdentities: {
+                customerid: undefined
+            }
+        };
+
+        var validUserIdentitiesString = {
+            userIdentities: {
+                customerid: '123'
+            }
+        };
+
+        var validUserIdentitiesNull = {
+            userIdentities: {
+                customerid: null
+            }
+        };
+
+        mParticle.Identity.login(badUserIdentitiesArray);
+        mParticle.Identity.login(badUserIdentitiesObject);
+        mParticle.Identity.login(badUserIdentitiesBoolean);
+        mParticle.Identity.login(badUserIdentitiesUndefined);
+        mParticle.Identity.login(validUserIdentitiesString);
+        mParticle.Identity.login(validUserIdentitiesNull);
+
+        server.requests.length.should.equal(2);
         done();
     });
 

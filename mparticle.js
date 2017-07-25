@@ -1062,9 +1062,12 @@
                             return ui.hasOwnProperty('Identity') && (typeof(ui.Identity) === 'string' || typeof(ui.Identity) === 'number');
                         });
                         userIdentities.forEach(function(identity) {
+                            if (typeof identity.Identity === 'number') {
+                                // convert to string
+                                identity.Identity = '' + identity.Identity;
+                            }
                             arrayToObjectUIMigration[_IdentityRequest.getIdentityName(identity.Type)] = identity.Identity;
                         });
-
                         userIdentities = arrayToObjectUIMigration;
                     }
 
@@ -3058,6 +3061,12 @@
                                 error: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.'
                             };
                         }
+                        if (!(typeof identityApiData.userIdentities[key] === 'string' || identityApiData.userIdentities[key] === null)) {
+                            return {
+                                valid: false,
+                                error: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
+                            };
+                        }
                     }
                 } else {
                     return {
@@ -3070,6 +3079,7 @@
                         warning: 'By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the identifyRequest object. Request sent to server.'
                     };
                 }
+
             }
             return {
                 valid: true
@@ -3195,7 +3205,6 @@
 
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
-
             // if userIdentities exist on identifyRequest, update userIdentities for persistence, otherwise use what is currently in persistence
             if (identifyRequest && isObject(identifyRequest.userIdentities) && Object.keys(identifyRequest.userIdentities).length) {
                 userIdentities = identifyRequest.userIdentities;
