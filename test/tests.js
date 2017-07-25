@@ -4364,6 +4364,82 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should reject a callback that is not a function', function(done) {
+        var identityRequest = {
+            userIdentities: {
+                customerid: 123
+            }
+        };
+        var badCallback = 'string';
+        server.requests = [];
+        mParticle.Identity.login(identityRequest, badCallback);
+
+        server.requests.length.should.equal(0);
+
+        done();
+    });
+
+    it('should call the callback when a validation is not valid', function(done) {
+        var callbackCalledResult1;
+        var callbackCalledResult2;
+        var callbackCalledResult3;
+        var callbackCalledResult4;
+
+        var identityRequest1 = {
+            customerid: 123
+        };
+
+        var callback1 = function(data) {
+            callbackCalledResult1 = data;
+        };
+
+        mParticle.Identity.login(identityRequest1, callback1);
+
+        callbackCalledResult1.should.have.property('error', 'There is an invalid key on your identityRequest object. It can only contain a userIdentities object and copyUserAttributes boolean. Request not sent to server. Please fix and try again.');
+        callbackCalledResult1.should.have.property('valid', false);
+
+        var identityRequest2 = {};
+
+        var callback2 = function(data) {
+            callbackCalledResult2 = data;
+        };
+
+        mParticle.Identity.modify(identityRequest2, callback2);
+
+        callbackCalledResult2.should.have.property('error', 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again.');
+        callbackCalledResult2.should.have.property('valid', false);
+
+        var identityRequest3 = {
+            userIdentities:  {
+                customerId: 123
+            }
+        };
+
+        var callback3 = function(data) {
+            callbackCalledResult3 = data;
+        };
+
+        mParticle.Identity.login(identityRequest3, callback3);
+
+        callbackCalledResult3.should.have.property('error', 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.');
+        callbackCalledResult3.should.have.property('valid', false);
+
+        var identityRequest4 = {
+            userIdentities: 'string'
+        };
+
+        var callback4 = function(data) {
+            callbackCalledResult4 = data;
+        };
+
+        mParticle.Identity.login(identityRequest4, callback4);
+
+        callbackCalledResult4.should.have.property('error', 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.');
+        callbackCalledResult4.should.have.property('valid', false);
+
+        done();
+    });
+
     it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
         mParticle.reset();
         window.localStorage.setItem = null;

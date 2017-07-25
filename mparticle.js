@@ -407,24 +407,28 @@
 
             if (!identityValidationResult.valid) {
                 logDebug('ERROR: ' + identityValidationResult.error);
-                if (callback) {
-                    callback(identityValidationResult);
-                }
                 return {
-                    valid: false
+                    valid: false,
+                    error: identityValidationResult.error
+                };
+            }
+
+            if (callback && !Validators.isFunction(callback)) {
+                logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof fn);
+                return {
+                    valid: false,
+                    error: 'The optional callback must be a function. You tried entering a(n) ' + typeof fn
                 };
             }
 
             if (identityValidationResult.warning) {
                 logDebug('WARNING:' + identityValidationResult.warning);
-            }
-
-            if (callback && !Validators.isFunction(callback)) {
-                logDebug('The optional callback must be a function. You tried entering a ' + typeof fn);
                 return {
-                    valid: false
+                    valid: true,
+                    error: identityValidationResult.warning
                 };
             }
+
 
             // update userIdentities in memory/storage to reflect what was passed in for all methods except modify
             if (identityValidationResult.valid && method !== 'modify') {
@@ -646,6 +650,10 @@
                 copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
 
             sendIdentityRequest(identityApiRequest, 'identify', identityCallback, copyAttributes);
+        } else {
+            if (identityCallback) {
+                identityCallback(preProcessResult);
+            }
         }
     }
 
@@ -676,10 +684,17 @@
                 else {
                     logDebug(InformationMessages.AbandonLogEvent);
                 }
+            } else {
+                if (Validators.isFunction(callback)) {
+                    callback(preProcessResult);
+                } else {
+                    logDebug(preProcessResult);
+                }
             }
         },
         login: function(identityApiData, callback) {
             var preProcessResult = _IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'login');
+
             if (preProcessResult.valid) {
                 var identityApiRequest = _IdentityRequest.createIdentityRequest(identityApiData),
                     copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
@@ -691,6 +706,12 @@
                 }
                 else {
                     logDebug(InformationMessages.AbandonLogEvent);
+                }
+            } else {
+                if (Validators.isFunction(callback)) {
+                    callback(preProcessResult);
+                } else {
+                    logDebug(preProcessResult);
                 }
             }
         },
@@ -711,6 +732,12 @@
                 }
                 else {
                     logDebug(InformationMessages.AbandonLogEvent);
+                }
+            } else {
+                if (Validators.isFunction(callback)) {
+                    callback(preProcessResult);
+                } else {
+                    logDebug(preProcessResult);
                 }
             }
         },
@@ -3036,7 +3063,7 @@
         },
 
         isFunction: function(fn) {
-            return typeof fn !== 'function';
+            return typeof fn === 'function';
         },
 
         validateIdentities: function(identityApiData, method) {
@@ -3053,25 +3080,37 @@
                         };
                     }
                 }
-                if (isObject(identityApiData.userIdentities)) {
-                    for (var key in identityApiData.userIdentities) {
-                        if (_IdentityRequest.getIdentityType(key) === false) {
+                for (var key in identityApiData) {
+                    if (identityApiData.hasOwnProperty(key)) {
+                        if (!(key === 'userIdentities' || key === 'copyUserAttributes')) {
+                            return {
+                                valid: false,
+                                error: 'There is an invalid key on your identityRequest object. It can only contain a userIdentities object and copyUserAttributes boolean. Request not sent to server. Please fix and try again.'
+                            };
+                        }
+                    }
+                }
+                if (!isObject(identityApiData.userIdentities)) {
+                    return {
+                        valid: false,
+                        error: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.'
+                    };
+                }
+                if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
+                    for (var identityType in identityApiData.userIdentities) {
+                        if (_IdentityRequest.getIdentityType(identityType) === false) {
                             return {
                                 valid: false,
                                 error: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.'
                             };
                         }
-                        if (!(typeof identityApiData.userIdentities[key] === 'string' || identityApiData.userIdentities[key] === null)) {
+                        if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
                             return {
                                 valid: false,
                                 error: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
                             };
                         }
                     }
-                } else {
-                    return {
-                        valid: false
-                    };
                 }
                 if (!identityApiData.hasOwnProperty('copyUserAttributes')) {
                     return {
@@ -3747,10 +3786,10 @@
         if (window.mParticle.config.hasOwnProperty('identityCallback')) {
             var callback = window.mParticle.config.identityCallback;
             if (callback && !Validators.isFunction(callback)) {
-                logDebug('The optional callback must be a function. You tried entering a ' + typeof fn, ' . Callback not set. Please set your callback again.');
-                return;
+                logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof fn, ' . Callback not set. Please set your callback again.');
+            } else {
+                identityCallback = window.mParticle.config.identityCallback;
             }
-            identityCallback = window.mParticle.config.identityCallback;
         }
 
         if (window.mParticle.config.hasOwnProperty('appVersion')) {
