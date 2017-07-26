@@ -38,6 +38,7 @@
         deviceId,
         mpid,
         devToken,
+        migrationData = {},
         pixelConfigurations = [],
         serverSettings = null,
         dateLastEventSent,
@@ -520,6 +521,7 @@
 
         parseIdentityResponse: function(xhr, copyAttributes, previousMPID, callback, identityApiData, method) {
             var identityApiResult;
+
             try {
                 logDebug('Parsing identity response from server');
                 if (xhr.responseText) {
@@ -527,58 +529,71 @@
                 }
 
                 if (xhr.status === 200) {
-                    logDebug('Successfully parsed Identity Response');
-
-                    if (identityApiResult && identityApiResult.mpid && identityApiResult.mpid !== mpid) {
-                        mpid = identityApiResult.mpid;
-                        if (!copyAttributes) {
-                            userAttributes = {};
-                        }
-                    }
-
-                    if (sessionId && mpid && previousMPID !== mpid && currentSessionMPIDs.indexOf(mpid) < 0) {
-                        currentSessionMPIDs.push(mpid);
-                        // need to update currentSessionMPIDs in memory before checkingIdentitySwap otherwise previous obj.currentSessionMPIDs is used in checkIdentitySwap's persistence.update()
-                        persistence.update();
-                    }
-
-                    cookieSyncManager.attemptCookieSync(previousMPID, mpid);
-
-                    _Identity.checkIdentitySwap(previousMPID, mpid);
-
-                    if (callback) {
-                        callback({httpCode: xhr.status, body: identityApiResult || {}});
-                    }
-
-                    context = identityApiResult && identityApiResult.context ? identityApiResult.context : context;
-                    // events exist in the eventQueue because they were triggered when the identityAPI request was in flight
-                    // once API request returns, eventQueue items are reassigned with the returned MPID and flushed
-                    if (eventQueue.length && mpid !==0) {
-                        eventQueue.forEach(function(event) {
-                            event.MPID = mpid;
-                            send(event);
-                        });
-                        eventQueue = [];
-                    }
-
-                    // update userIdentities in memory/storage to reflect what was passed in
                     if (method === 'modify') {
                         userIdentities = _IdentityRequest.modifyUserIdentities(userIdentities, identityApiData.userIdentities);
                     } else {
-                        userIdentities = identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length ? identityApiData.userIdentities : userIdentities || {};
-                        persistence.swapCookies(identityApiData);
-                    }
+                        identityApiResult = JSON.parse(xhr.responseText);
 
-                    persistence.update();
+                        logDebug('Successfully parsed Identity Response');
+                        if (identityApiResult.mpid && identityApiResult.mpid !== mpid) {
+                            mpid = identityApiResult.mpid;
+                            if (!copyAttributes) {
+                                userAttributes = {};
+                            } else {
+                                for (var key in userAttributes) {
+                                    if (userAttributes.hasOwnProperty(key)) {
+                                        IdentityAPI.getCurrentUser().setUserAttribute(key, userAttributes[key]);
+                                    }
+                                }
+                            }
+                        }
+
+                        this.checkCookieForMPID(mpid);
+
+                        if (sessionId && mpid && previousMPID !== mpid && currentSessionMPIDs.indexOf(mpid) < 0) {
+                            currentSessionMPIDs.push(mpid);
+                            // need to update currentSessionMPIDs in memory before checkingIdentitySwap otherwise previous obj.currentSessionMPIDs is used in checkIdentitySwap's persistence.update()
+                            persistence.update();
+                        }
+
+                        cookieSyncManager.attemptCookieSync(previousMPID, mpid);
+
+                        _Identity.checkIdentitySwap(previousMPID, mpid);
+
+                        // events exist in the eventQueue because they were triggered when the identityAPI request was in flight
+                        // once API request returns, eventQueue items are reassigned with the returned MPID and flushed
+                        if (eventQueue.length && mpid !==0) {
+                            eventQueue.forEach(function(event) {
+                                event.MPID = mpid;
+                                send(event);
+                            });
+                            eventQueue = [];
+                        }
+
+                        //if there is any previous migration data
+                        if (Object.keys(migrationData).length) {
+                            userIdentities = migrationData.userIdentities || {};
+                            userAttributes = migrationData.userAttributes || {};
+                            cartProducts = migrationData.cartProducts || [];
+                            productsBags = migrationData.productsBags || {};
+                            cookieSyncDates = migrationData.cookieSyncDates || {};
+                        } else {
+                            if (identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length) {
+                                userIdentities = _IdentityRequest.modifyUserIdentities(userIdentities, identityApiData.userIdentities);
+                            }
+                        }
+                        persistence.update();
+                        persistence.findPrevCookiesBasedOnUI(identityApiData);
+
+                        context = identityApiResult.context || context;
+                    }
                 }
-                else {
+
+                if (callback) {
+                    callback({httpCode: xhr.status, body: identityApiResult || null});
+                } else {
                     if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
                         logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
-                    } else {
-                        logDebug('Received HTTP response code of ' + xhr.status);
-                    }
-                    if (callback) {
-                        callback({httpCode: xhr.status, body: identityApiResult || {}});
                     }
                 }
             }
@@ -606,6 +621,19 @@
             }
 
             return modifiedUserIdentities;
+        },
+
+        checkCookieForMPID: function (currentMPID) {
+            var cookies = persistence.getCookie() || persistence.getLocalStorage();
+            if (cookies && !cookies[currentMPID]) {
+                persistence.storeDataInMemory(null, currentMPID);
+            } else if (cookies) {
+                userIdentities = cookies[currentMPID].ui ? cookies[currentMPID].ui : userIdentities;
+                userAttributes = cookies[currentMPID].ua ? cookies[currentMPID].ua : userAttributes;
+                cartProducts = cookies[currentMPID].cp ? cookies[currentMPID].cp : cartProducts;
+                productsBags = cookies[currentMPID].pb ? cookies[currentMPID].pb : productsBags;
+                cookieSyncDates = cookies[currentMPID].csd ? cookies[currentMPID].csd : cookieSyncDates;
+            }
         }
     };
 
@@ -630,9 +658,7 @@
 
         if (xhr) {
             try {
-                if (!isFirstRun && mpid) {
-                    previousMPID = mpid;
-                }
+                previousMPID = (!isFirstRun && mpid) ? mpid : null;
 
                 if (method === 'modify') {
                     xhr.open('post', identityUrl + mpid + '/' + method);
@@ -983,22 +1009,12 @@
 
         convertInMemoryDataToPersistence: function() {
             var mpidData = {
-                sid: sessionId,
-                ie: isEnabled,
-                sa: sessionAttributes,
                 ua: userAttributes,
                 ui: userIdentities,
-                ss: serverSettings,
-                dt: devToken,
-                les: dateLastEventSent ? dateLastEventSent.getTime() : null,
-                av: appVersion,
-                cgid: clientId,
-                das: deviceId,
                 csd: cookieSyncDates,
                 mpid: mpid,
                 cp: cartProducts.length <= mParticle.maxProducts ? cartProducts : cartProducts.slice(0, mParticle.maxProducts),
-                pb: {},
-                c: context
+                pb: {}
             };
 
             for (var bag in productsBags) {
@@ -1016,8 +1032,11 @@
             var key = Config.LocalStorageName,
                 currentMPIDData = this.convertInMemoryDataToPersistence(),
                 localStorageData = this.getLocalStorage() || {};
+
+            localStorageData.globalSettings = localStorageData.globalSettings || {};
+
             if (sessionId) {
-                localStorageData.currentSessionMPIDs = currentSessionMPIDs;
+                localStorageData.globalSettings.currentSessionMPIDs = currentSessionMPIDs;
             }
 
             if (mpid) {
@@ -1025,12 +1044,29 @@
                 localStorageData.currentUserMPID = mpid;
             }
 
+            localStorageData = this.setGlobalStorageAttributes(localStorageData);
+
             try {
                 window.localStorage.setItem(encodeURIComponent(key), encodeURIComponent(JSON.stringify(localStorageData)));
             }
             catch (e) {
                 logDebug('Error with setting localStorage item.');
             }
+        },
+
+        setGlobalStorageAttributes: function(data) {
+            data.globalSettings.sid = sessionId;
+            data.globalSettings.ie = isEnabled;
+            data.globalSettings.sa = sessionAttributes;
+            data.globalSettings.ss = serverSettings;
+            data.globalSettings.dt = devToken;
+            data.globalSettings.les = dateLastEventSent ? dateLastEventSent.getTime() : null;
+            data.globalSettings.av = appVersion;
+            data.globalSettings.cgid = clientId;
+            data.globalSettings.das = deviceId;
+            data.globalSettings.c = context;
+
+            return data;
         },
 
         getLocalStorage: function() {
@@ -1063,9 +1099,13 @@
                 obj = typeof result === 'string' ? JSON.parse(result) : result;
 
                 if (!obj) {
-                    clientId = generateUniqueId();
                     logDebug(InformationMessages.CookieNotFound);
-                    mpid = 0;
+                    clientId = generateUniqueId();
+                    userAttributes = {};
+                    userIdentities = {};
+                    cartProducts = [];
+                    productsBags = {};
+                    cookieSyncDates = {};
                 } else {
                     // Set MPID first, then change object to match MPID data
                     if (currentMPID) {
@@ -1074,19 +1114,41 @@
                         mpid = obj.mpid || obj.currentUserMPID || 0;
                     }
 
-                    currentSessionMPIDs = obj.currentSessionMPIDs || [];
+                    // Longer names are for backwards compatibility
+                    // obj with no globalSettings are for migration purposes, setting globalSettings default of {} for migration purposes
+                    obj.globalSettings = obj.globalSettings || {};
+
+                    sessionId = obj.globalSettings.sid || obj.sid || obj.SessionId || sessionId;
+                    isEnabled = (typeof obj.ie !== 'undefined' || typeof obj.globalSettings.ie !== 'undefined') ? (obj.ie || obj.globalSettings.ie) : obj.IsEnabled;
+                    sessionAttributes = obj.globalSettings.sa || obj.sa || obj.SessionAttributes || sessionAttributes;
+                    serverSettings = obj.globalSettings.ss || obj.ss || obj.ServerSettings || serverSettings;
+                    devToken = obj.globalSettings.dt || obj.dt || obj.DeveloperToken || devToken;
+                    clientId = obj.globalSettings.cgid || obj.cgid || clientId || generateUniqueId();
+                    deviceId = obj.globalSettings.das || obj.das || deviceId || generateUniqueId();
+                    // context and currentSessionMPIDs are new to version 2 and don't need migrating
+                    context = obj.globalSettings.c || '';
+                    currentSessionMPIDs = obj.globalSettings.currentSessionMPIDs || currentSessionMPIDs;
+
+                    if (obj.les || obj.globalSettings.les) {
+                        dateLastEventSent = new Date(obj.globalSettings.les);
+                    }
+                    else if (obj.LastEventSent || obj.globalSettings.LastEventSent) {
+                        dateLastEventSent = new Date(obj.globalSettings.LastEventSent);
+                    }
 
                     if (currentMPID) {
                         obj = obj[currentMPID] ? obj[currentMPID] : obj;
                     } else {
                         obj = obj[obj.currentUserMPID] ? obj[obj.currentUserMPID] : obj;
                     }
-                    // Longer names are for backwards compatibility
-                    sessionId = obj.sid || obj.SessionId || sessionId;
-                    isEnabled = (typeof obj.ie !== 'undefined') ? obj.ie : obj.IsEnabled;
-                    sessionAttributes = obj.sa || obj.SessionAttributes || sessionAttributes;
                     userAttributes = obj.ua || obj.UserAttributes || userAttributes;
                     userIdentities = obj.ui || obj.UserIdentities || userIdentities;
+                    cartProducts = obj.cp || [];
+                    productsBags = obj.pb || {};
+
+                    if (obj.csd) {
+                        cookieSyncDates = obj.csd;
+                    }
                     // Migrate from v1 where userIdentities was an array to v2 where it is an object
                     if (Array.isArray(userIdentities)) {
                         var arrayToObjectUIMigration = {};
@@ -1101,25 +1163,17 @@
                             arrayToObjectUIMigration[_IdentityRequest.getIdentityName(identity.Type)] = identity.Identity;
                         });
                         userIdentities = arrayToObjectUIMigration;
+
+                        migrationData = {
+                            userIdentities: arrayToObjectUIMigration,
+                            userAttributes: userAttributes,
+                            cartProducts: cartProducts,
+                            productsBags: productsBags,
+                            cookieSyncDates: cookieSyncDates
+                        };
                     }
 
-                    serverSettings = obj.ss || obj.ServerSettings || serverSettings;
-                    devToken = obj.dt || obj.DeveloperToken || devToken;
-                    clientId = obj.cgid || generateUniqueId();
-                    deviceId = obj.das || null;
-                    cartProducts = obj.cp || [];
-                    productsBags = obj.pb || {};
-                    context = obj.c || '';
 
-                    if (obj.les) {
-                        dateLastEventSent = new Date(obj.les);
-                    }
-                    else if (obj.LastEventSent) {
-                        dateLastEventSent = new Date(obj.LastEventSent);
-                    }
-                    if (obj.csd) {
-                        cookieSyncDates = obj.csd;
-                    }
                 }
                 if (isEnabled !== false || isEnabled !== true) {
                     isEnabled = true;
@@ -1199,7 +1253,7 @@
 
             if (result) {
                 logDebug(InformationMessages.CookieFound);
-                return result;
+                return JSON.parse(result);
             } else {
                 return null;
             }
@@ -1212,16 +1266,20 @@
                 expires = new Date(date.getTime() +
                     (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
                 domain = Config.CookieDomain ? ';domain=' + Config.CookieDomain : '',
-                cookies = JSON.parse(this.getCookie()) || {};
+                cookies = this.getCookie() || {};
+
+            cookies.globalSettings = cookies.globalSettings || {};
 
             if (sessionId) {
-                cookies.currentSessionMPIDs = currentSessionMPIDs;
+                cookies.globalSettings.currentSessionMPIDs = currentSessionMPIDs;
             }
 
             if (mpid) {
                 cookies[mpid] = currentMPIDData;
                 cookies.currentUserMPID = mpid;
             }
+
+            cookies = this.setGlobalStorageAttributes(cookies);
 
             logDebug(InformationMessages.CookieSet);
 
@@ -1232,8 +1290,8 @@
                 domain;
         },
 
-        swapCookies: function(identityApiData) {
-            var cookies = JSON.parse(this.getCookie()) || this.getLocalStorage();
+        findPrevCookiesBasedOnUI: function(identityApiData) {
+            var cookies = this.getCookie() || this.getLocalStorage();
             var matchedUser;
 
             if (identityApiData) {
@@ -2829,7 +2887,7 @@
             }
         },
         migrate: function(isFirstRun) {
-            var cookies = persistence.useLocalStorage ? persistence.getLocalStorage() : JSON.parse(persistence.getCookie());
+            var cookies = persistence.useLocalStorage ? persistence.getLocalStorage() : persistence.getCookie();
             // migration occurs when it is not the first run and there is no currentUserMPID on the cookie
             if (!isFirstRun && cookies && !cookies.currentUserMPID) {
                 if (persistence.useLocalStorage) {
@@ -3276,13 +3334,13 @@
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
             if (!persistence.getCookie() && !persistence.getLocalStorage()) {
                 isFirstRun = true;
+                mpid = 0;
             } else {
                 isFirstRun = false;
             }
 
             // Load any settings/identities/attributes from cookie or localStorage
             persistence.initializeStorage();
-
             /* Previous cookies only contained data from 1 MPID. New schema now holds multiple MPIDs and keys in memory data off latest MPID
             Previous cookie schema: { ui: [], ua: {} ...}
             Current cookie schema: {
@@ -3334,6 +3392,7 @@
         },
         reset: function() {
             // Completely resets the state of the SDK. mParticle.init() will need to be called again.
+            sessionAttributes = {};
             isEnabled = true;
             isFirstRun = null;
             stopTracking();
@@ -3343,9 +3402,8 @@
             appVersion = null;
             currentSessionMPIDs = [],
             eventQueue = [];
-            identityCallback = null,
-            context = null,
-            sessionAttributes = {};
+            identityCallback = null;
+            context = null;
             userAttributes = {};
             userIdentities = {};
             cookieSyncDates = {};
@@ -3355,8 +3413,20 @@
             productsBags = {};
             cartProducts = [];
             serverSettings = null;
+            mpid = null;
+            customFlags = null;
+            currencyCode;
+            clientId = null;
+            deviceId = null;
+            dateLastEventSent = null;
+            watchPositionId = null;
+            readyQueue = [];
             mergeConfig({});
-            persistence.update();
+            migrationData = {};
+            persistence.expireCookies();
+            if (persistence.isLocalStorageAvailable) {
+                localStorage.removeItem('mprtcl-api');
+            }
             mParticle.sessionManager.resetSessionTimer();
 
             isInitialized = false;
