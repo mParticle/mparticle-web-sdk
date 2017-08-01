@@ -519,15 +519,17 @@
         },
 
         parseIdentityResponse: function(xhr, copyAttributes, previousMPID, callback, identityApiData, method) {
+            var identityApiResult;
             try {
                 logDebug('Parsing identity response from server');
-
-                var identityApiResult = JSON.parse(xhr.responseText);
+                if (xhr.responseText) {
+                    identityApiResult = JSON.parse(xhr.responseText);
+                }
 
                 if (xhr.status === 200) {
                     logDebug('Successfully parsed Identity Response');
 
-                    if (identityApiResult.mpid && identityApiResult.mpid !== mpid) {
+                    if (identityApiResult && identityApiResult.mpid && identityApiResult.mpid !== mpid) {
                         mpid = identityApiResult.mpid;
                         if (!copyAttributes) {
                             userAttributes = {};
@@ -545,10 +547,10 @@
                     _Identity.checkIdentitySwap(previousMPID, mpid);
 
                     if (callback) {
-                        callback({httpCode: xhr.status, body: identityApiResult});
+                        callback({httpCode: xhr.status, body: identityApiResult || {}});
                     }
 
-                    context = identityApiResult.context || context;
+                    context = identityApiResult && identityApiResult.context ? identityApiResult.context : context;
                     // events exist in the eventQueue because they were triggered when the identityAPI request was in flight
                     // once API request returns, eventQueue items are reassigned with the returned MPID and flushed
                     if (eventQueue.length && mpid !==0) {
@@ -570,9 +572,13 @@
                     persistence.update();
                 }
                 else {
-                    logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
+                    if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
+                        logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
+                    } else {
+                        logDebug('Received HTTP response code of ' + xhr.status);
+                    }
                     if (callback) {
-                        callback({httpCode: xhr.status, body: identityApiResult});
+                        callback({httpCode: xhr.status, body: identityApiResult || {}});
                     }
                 }
             }
@@ -670,7 +676,7 @@
                     copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
 
                 if (canLog()) {
-                    if (!tryNativeSdk(NativeSdkPaths.Logout, JSON.stringify(event))) {
+                    if (!tryNativeSdk(NativeSdkPaths.Logout)) {
                         sendIdentityRequest(identityApiRequest, 'logout', callback, copyAttributes, identityApiData);
                         evt = createEventObject(MessageType.Profile);
                         evt.ProfileMessageType = ProfileMessageType.Logout;
@@ -703,7 +709,7 @@
                     copyAttributes = _IdentityRequest.returnCopyAttributes(identityApiData);
 
                 if (canLog()) {
-                    if (!tryNativeSdk(NativeSdkPaths.Login, JSON.stringify(event))) {
+                    if (!tryNativeSdk(NativeSdkPaths.Login)) {
                         sendIdentityRequest(identityApiRequest, 'login', callback, copyAttributes, identityApiData);
                     }
                 }
@@ -725,7 +731,7 @@
                 var identityApiRequest = _IdentityRequest.createModifyIdentityRequest(userIdentities, newUserIdentities);
 
                 if (canLog()) {
-                    if (!tryNativeSdk(NativeSdkPaths.Modify, JSON.stringify(event))) {
+                    if (!tryNativeSdk(NativeSdkPaths.Modify)) {
                         sendIdentityRequest(identityApiRequest, 'modify', callback, null, identityApiData);
                     }
                 }
