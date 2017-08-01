@@ -3244,6 +3244,9 @@
 
             if (canLog()) {
                 sessionId = generateUniqueId();
+                if (mpid) {
+                    currentSessionMPIDs = [mpid];
+                }
 
                 if (!dateLastEventSent) {
                     dateLastEventSent = new Date();
@@ -3358,6 +3361,15 @@
             }
             */
             deviceId = persistence.retrieveDeviceId();
+
+            // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
+            if ((isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
+                identifyRequest = {
+                    userIdentities: userIdentities
+                };
+            } else {
+                identifyRequest = mParticle.identifyRequest;
+            }
 
             _Identity.migrate(isFirstRun);
             identify(identifyRequest);
