@@ -829,7 +829,6 @@
                 // Clone the event object, as we could be sending different attributes to each forwarder
                 clonedEvent = {};
                 clonedEvent = extend(true, clonedEvent, event);
-
                 // Check event filtering rules
                 if (event.EventDataType === MessageType.PageEvent
                     && (inFilteredList(forwarders[i].eventNameFilters, hashedName)
@@ -839,7 +838,7 @@
                 else if (event.EventDataType === MessageType.Commerce && inFilteredList(forwarders[i].eventTypeFilters, hashedType)) {
                     continue;
                 }
-                else if (event.EventDataType === MessageType.PageView && inFilteredList(forwarders[i].pageViewFilters, hashedName)) {
+                else if (event.EventDataType === MessageType.PageView && inFilteredList(forwarders[i].screenNameFilters, hashedName)) {
                     continue;
                 }
 
@@ -3272,7 +3271,7 @@
                     eventNameFilters,
                     eventTypeFilters,
                     attributeFilters,
-                    pageViewFilters,
+                    screenNameFilters,
                     pageViewAttributeFilters,
                     userIdentityFilters,
                     userAttributeFilters,
@@ -3287,7 +3286,7 @@
                     eventNameFilters: arguments[2],
                     eventTypeFilters: arguments[3],
                     attributeFilters: arguments[4],
-                    pageViewFilters: arguments[5],
+                    screenNameFilters: arguments[5],
                     pageViewAttributeFilters: arguments[6],
                     userIdentityFilters: arguments[7],
                     userAttributeFilters: arguments[8],
@@ -3314,7 +3313,8 @@
                         newForwarder.eventTypeFilters = config.eventTypeFilters;
                         newForwarder.attributeFilters = config.attributeFilters;
 
-                        newForwarder.pageViewFilters = config.pageViewFilters;
+                        newForwarder.screenNameFilters = config.screenNameFilters;
+                        newForwarder.screenNameFilters = config.screenNameFilters;
                         newForwarder.pageViewAttributeFilters = config.pageViewAttributeFilters;
 
                         newForwarder.userIdentityFilters = config.userIdentityFilters;
