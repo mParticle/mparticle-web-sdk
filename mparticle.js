@@ -21,7 +21,7 @@
         secureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
         identityUrl = 'https://identity.mparticle.com/v1/', //prod
         serviceScheme = window.location.protocol + '//',
-        sdkVersion = '2.0.4',
+        sdkVersion = '2.0.5',
         sdkVendor = 'mparticle',
         platform = 'web',
         isEnabled = true,
