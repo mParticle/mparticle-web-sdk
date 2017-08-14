@@ -2597,7 +2597,7 @@ describe('mParticle Core SDK', function() {
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(2);
 
         var plusOneEvent = expandedEvents[0];
-        plusOneEvent.should.have.property('EventName', 'eCommerce - purchase - Total');
+        plusOneEvent.should.have.property('EventName', 'eCommerce - Purchase - Total');
         plusOneEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
         var attributes = plusOneEvent.EventAttributes;
         attributes.should.have.property('Transaction Id', 'foo-transaction-id');
@@ -2605,12 +2605,13 @@ describe('mParticle Core SDK', function() {
         attributes.should.have.property('Coupon Code', 'foo-couponcode');
         attributes.should.have.property('Total Amount', 400);
         attributes.should.have.property('Shipping Amount', 10);
+        attributes.should.have.property('Product Count', 1);
         attributes.should.have.property('Tax Amount', 8);
         attributes.should.have.property('Currency Code', 'foo-currency');
         attributes.should.have.property('foo-event-attribute-key', 'foo-event-attribute-value');
 
         var productEvent = expandedEvents[1];
-        productEvent.should.have.property('EventName', 'eCommerce - purchase - Item');
+        productEvent.should.have.property('EventName', 'eCommerce - Purchase - Item');
         productEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
         attributes = productEvent.EventAttributes;
         attributes.should.not.have.property('Affiliation');
@@ -2670,10 +2671,12 @@ describe('mParticle Core SDK', function() {
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(2);
 
         var plusOneEvent = expandedEvents[0];
-        plusOneEvent.should.have.property('EventName', 'eCommerce - refund - Total');
+        plusOneEvent.should.have.property('EventName', 'eCommerce - Refund - Total');
+        var attributes = plusOneEvent.EventAttributes;
+        attributes.should.have.property('Product Count', 1);
 
         var productEvent = expandedEvents[1];
-        productEvent.should.have.property('EventName', 'eCommerce - refund - Item');
+        productEvent.should.have.property('EventName', 'eCommerce - Refund - Item');
 
         done();
     });
@@ -2715,7 +2718,7 @@ describe('mParticle Core SDK', function() {
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var productEvent = expandedEvents[0];
-        productEvent.should.have.property('EventName', 'eCommerce - remove_from_wishlist - Item');
+        productEvent.should.have.property('EventName', 'eCommerce - RemoveFromWishlist - Item');
         productEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
         var attributes = productEvent.EventAttributes;
 
@@ -2771,7 +2774,7 @@ describe('mParticle Core SDK', function() {
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var productEvent = expandedEvents[0];
-        productEvent.should.have.property('EventName', 'eCommerce - checkout - Item');
+        productEvent.should.have.property('EventName', 'eCommerce - Checkout - Item');
         productEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
         var attributes = productEvent.EventAttributes;
 
@@ -2879,6 +2882,7 @@ describe('mParticle Core SDK', function() {
         mParticle.eCommerce.logImpression(impression, eventAttributes);
         mockForwarder.instance.receivedEvent.should.have.property('ProductImpressions');
         var expandedEvents = mParticle.eCommerce.expandCommerceEvent(mockForwarder.instance.receivedEvent);
+
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var impressionEvent = expandedEvents[0];
