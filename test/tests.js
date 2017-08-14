@@ -1531,49 +1531,37 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    // TODO: Fix Test
-    // it('should filter user identities from forwarder', function(done) {
-    //     mParticle.reset();
-    //     var mockForwarder = new MockForwarder();
-    //     mParticle.addForwarder(mockForwarder);
-    //
-    //     server.handle = function(request) {
-    //         request.setResponseHeader('Content-Type', 'application/json');
-    //         request.receive(200, JSON.stringify({
-    //             matched_identities: {
-    //                 google: 'asdf@gmail.com',
-    //                 microsoft: 'test123',
-    //                 yahoo: 'foo@bar.com'
-    //             },
-    //             mpid: testMPID
-    //         }));
-    //     };
-    //
-    //     mParticle.configureForwarder({
-    //         name: 'MockForwarder',
-    //         settings: {},
-    //         eventNameFilters: [],
-    //         eventTypeFilters: [],
-    //         attributeFilters: [],
-    //         pageViewFilters: [],
-    //         pageViewAttributeFilters: [],
-    //         userIdentityFilters: [mParticle.IdentityType.Google],
-    //         userAttributeFilters: [],
-    //         moduleId: 1,
-    //         isDebug: false,
-    //         HasDebugString: 'false',
-    //         isVisible: true
-    //     });
-    //     mParticle.init(apiKey);
-    //     mParticle.logEvent('test event');
-    //
-    //     var event = mockForwarder.instance.receivedEvent;
-    //
-    //     (Object.keys(event.UserIdentities).length).should.equal(2);
-    //     Should(event.UserIdentities[mParticle.IdentityType.Google]).not.be.ok();
-    //
-    //     done();
-    // });
+    it('should filter user identities from forwarder', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [mParticle.IdentityType.Google],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        });
+        mParticle.init(apiKey);
+
+        mParticle.Identity.modify({userIdentities: {google: 'test@google.com', customerid: '123'}});
+        mParticle.logEvent('test event');
+        var event = mockForwarder.instance.receivedEvent;
+
+        Object.keys(event.UserIdentities).length.should.equal(1);
+        Should(event.UserIdentities[mParticle.IdentityType.Google]).not.be.ok();
+
+        done();
+    });
 
     it('should filter event names', function(done) {
         mParticle.reset();

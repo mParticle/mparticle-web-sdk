@@ -1461,16 +1461,19 @@
                 }
             },
             filterUserIdentities = function(event, filterList) {
-                if (event.UserIdentities) {
-                    for (var attrName in event.UserIdentities) {
-                        if (event.UserIdentities.hasOwnProperty(attrName)) {
-                            if (inArray(filterList, parseFloat(attrName))) {
-                                delete event.UserIdentities[attrName];
+                if (event.UserIdentities && event.UserIdentities.length) {
+                    event.UserIdentities.forEach(function(userIdentity, i) {
+                        if (inArray(filterList, userIdentity.Type)) {
+                            event.UserIdentities.splice(i, 1);
+
+                            if (i > 0) {
+                                i--;
                             }
                         }
-                    }
+                    });
                 }
             },
+
             filterAttributes = function(event, filterList) {
                 var hash;
 
