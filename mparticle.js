@@ -1307,6 +1307,7 @@
         if (commerceEvent.ProductAction.ProductActionType === ProductActionType.Purchase ||
             commerceEvent.ProductAction.ProductActionType === ProductActionType.Refund) {
             var attributes = extend(false, {}, commerceEvent.EventAttributes);
+            attributes['Product Count'] = commerceEvent.ProductAction.ProductList ? commerceEvent.ProductAction.ProductList.length : 0;
             extractActionAttributes(attributes, commerceEvent.ProductAction);
             if (commerceEvent.CurrencyCode) {
                 attributes['Currency Code'] = commerceEvent.CurrencyCode;
@@ -2319,25 +2320,25 @@
     ProductActionType.getExpansionName = function(id) {
         switch (id) {
             case ProductActionType.AddToCart:
-                return 'add_to_cart';
+                return 'AddToCart';
             case ProductActionType.RemoveFromCart:
-                return 'remove_from_cart';
+                return 'RemoveFromCart';
             case ProductActionType.Checkout:
-                return 'checkout';
+                return 'Checkout';
             case ProductActionType.CheckoutOption:
-                return 'checkout_option';
+                return 'CheckoutOption';
             case ProductActionType.Click:
-                return 'click';
+                return 'Click';
             case ProductActionType.ViewDetail:
-                return 'view_detail';
+                return 'ViewDetail';
             case ProductActionType.Purchase:
-                return 'purchase';
+                return 'Purchase';
             case ProductActionType.Refund:
-                return 'refund';
+                return 'Refund';
             case ProductActionType.AddToWishlist:
-                return 'add_to_wishlist';
+                return 'AddToWishlist';
             case ProductActionType.RemoveFromWishlist:
-                return 'remove_from_wishlist';
+                return 'RemoveFromWishlist';
             default:
                 return 'Unknown';
         }
