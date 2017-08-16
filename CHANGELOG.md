@@ -1,6 +1,13 @@
 ## Releases
 --
 
+#### 1.14.3 - 2017-08-16
+*  Change case for product expansion labels, add product count to purchase and refund ProductActions
+*  Replace current userAttribute key with most recent differently cased userAttribute key; no longer persists previous case
+
+#### 1.14.2 - 2017-08-2
+*  Fix for filtering screen views
+
 #### 1.14.1 - 2017-06-22
 *  Fixes for cookie syncing. Properly cookie sync when MPID changes, and only perform a cookie sync when debug modes for defined pixel and mParticle match
 *  Store productsBags and cartProducts to cookies, with config option to change number of products allowed in each (config.maxProducts = 20 by default)
