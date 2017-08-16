@@ -833,7 +833,7 @@
                 var existingProp = findKeyInObject(userAttributes, key);
 
                 if (existingProp) {
-                    key = existingProp;
+                    delete userAttributes[existingProp];
                 }
 
                 userAttributes[key] = value;
@@ -880,7 +880,7 @@
                 var existingProp = findKeyInObject(userAttributes, key);
 
                 if (existingProp) {
-                    key = existingProp;
+                    delete userAttributes[existingProp];
                 }
 
                 userAttributes[key] = arrayCopy;

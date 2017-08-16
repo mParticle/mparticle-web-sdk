@@ -1280,8 +1280,15 @@ describe('mParticle Core SDK', function() {
         var event = getEvent('test user attributes');
 
         event.should.have.property('ua');
-        event.ua.should.have.property('Gender', 'female');
-        event.ua.should.not.have.property('gender');
+        event.ua.should.have.property('gender', 'female');
+        event.ua.should.not.have.property('Gender');
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
+
+        mParticle.logEvent('test user attributes2');
+        var event2 = getEvent('test user attributes2');
+        event2.ua.should.have.property('Gender', 'male');
+        event2.ua.should.not.have.property('gender');
 
         done();
     });
@@ -1442,6 +1449,21 @@ describe('mParticle Core SDK', function() {
 
         event.should.have.property('ua');
         event.ua.should.have.property('test', null);
+
+        done();
+    });
+
+    it('should remove user tag case insensitive', function(done) {
+        mParticle.Identity.getCurrentUser().setUserTag('Test');
+        mParticle.Identity.getCurrentUser().setUserTag('test');
+
+        mParticle.logEvent('test event');
+
+        var event = getEvent('test event');
+
+        event.should.have.property('ua');
+        event.ua.should.not.have.property('Test');
+        event.ua.should.have.property('test');
 
         done();
     });
@@ -2365,8 +2387,16 @@ describe('mParticle Core SDK', function() {
         var event = getEvent('test user attributes');
 
         event.should.have.property('ua');
-        event.ua.should.have.property('numbers', [1, 2, 3, 4, 5, 6]);
-        event.ua.should.not.have.property('Numbers');
+        event.ua.should.have.property('Numbers', [1, 2, 3, 4, 5, 6]);
+        event.ua.should.not.have.property('numbers');
+
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+
+        mParticle.logEvent('test user attributes2');
+        var event2 = getEvent('test user attributes2');
+
+        event2.ua.should.have.property('numbers', [1, 2, 3, 4, 5]);
+        event2.ua.should.not.have.property('Numbers');
 
         done();
     });
