@@ -58,6 +58,7 @@
         globalTimer,
         identityCallback,
         context = '',
+        initialIdentifyRequest = null,
         METHOD_NAME = '$MethodName',
         LOG_LTV = 'LogLTVIncrease',
         RESERVED_KEY_LTV = '$Amount';
@@ -429,8 +430,6 @@
                     error: identityValidationResult.warning
                 };
             }
-
-            mParticle.sessionManager.resetSessionTimer();
 
             return {
                 valid: true
@@ -3247,6 +3246,7 @@
             logDebug(InformationMessages.StartingNewSession);
 
             if (canLog()) {
+                identify(initialIdentifyRequest);
                 sessionId = generateUniqueId();
                 if (mpid) {
                     currentSessionMPIDs = [mpid];
@@ -3331,8 +3331,8 @@
         PromotionType: PromotionActionType,
         ProductActionType: ProductActionType,
         init: function(apiKey) {
-            var config,
-                identifyRequest = mParticle.identifyRequest;
+            var config;
+            initialIdentifyRequest = mParticle.identifyRequest;
             devToken = apiKey || null;
             logDebug(InformationMessages.StartingInitialization);
 
@@ -3368,17 +3368,15 @@
 
             // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
             if ((isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
-                identifyRequest = {
+                initialIdentifyRequest = {
                     userIdentities: userIdentities
                 };
             } else {
-                identifyRequest = mParticle.identifyRequest;
+                initialIdentifyRequest = mParticle.identifyRequest;
             }
 
             _Identity.migrate(isFirstRun);
-            identify(identifyRequest);
-
-            initForwarders();
+            mParticle.sessionManager.initialize();
 
             if (arguments && arguments.length) {
                 if (arguments.length > 1 && typeof arguments[1] === 'object') {
@@ -3390,8 +3388,6 @@
             }
 
             initForwarders();
-
-            mParticle.sessionManager.initialize();
             // Call any functions that are waiting for the library to be initialized
             if (readyQueue && readyQueue.length) {
                 readyQueue.forEach(function(readyQueueItem) {

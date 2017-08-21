@@ -3112,7 +3112,6 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should not sync cookies when last date is within frequencyCap', function(done) {
-        //TODO: CHECK THIS TEST WITH CSD
         mParticle.reset();
         var pixelSettings = {
             name: 'AdobeEventForwarder',
@@ -3389,6 +3388,7 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should move old schema from cookies to localStorage with useCookieStorage = false', function(done) {
+        mParticle.reset();
         setCookie({
             ui: [{Identity: '123', Type: 1}]
         });
@@ -4545,7 +4545,7 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('Should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous one will set ', function(done) {
+    it('Should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous one will keep the last MPID ', function(done) {
         mParticle.reset();
         var user1 = {
             userIdentities: {
@@ -4625,12 +4625,12 @@ describe('mParticle Core SDK', function() {
         mParticle.init(apiKey);
 
         var user5 = mParticle.Identity.getCurrentUser();
-        user5.getUserIdentities().userIdentities.customerid.should.equal('1');
-        user5.getMPID().should.equal(testMPID);
+        user5.getUserIdentities().userIdentities.customerid.should.equal('4');
+        user5.getMPID().should.equal('mpid4');
 
         var data = mParticle.persistence.getLocalStorage();
 
-        data.currentUserMPID.should.equal(testMPID);
+        data.currentUserMPID.should.equal('mpid4');
         data.testMPID.ui.customerid.should.equal('1');
         data.mpid2.ui.customerid.should.equal('2');
         data.mpid3.ui.customerid.should.equal('3');
