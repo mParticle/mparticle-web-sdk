@@ -58,6 +58,7 @@
         globalTimer,
         identityCallback,
         context = '',
+        identityCallInFlight = false,
         initialIdentifyRequest = null,
         METHOD_NAME = '$MethodName',
         LOG_LTV = 'LogLTVIncrease',
@@ -520,6 +521,7 @@
 
         parseIdentityResponse: function(xhr, copyAttributes, previousMPID, callback, identityApiData, method) {
             var identityApiResult;
+            identityCallInFlight = false;
 
             try {
                 logDebug('Parsing identity response from server');
@@ -657,18 +659,23 @@
 
         if (xhr) {
             try {
-                previousMPID = (!isFirstRun && mpid) ? mpid : null;
-
-                if (method === 'modify') {
-                    xhr.open('post', identityUrl + mpid + '/' + method);
+                if (!identityCallInFlight) {
+                    previousMPID = (!isFirstRun && mpid) ? mpid : null;
+                    if (method === 'modify') {
+                        xhr.open('post', identityUrl + mpid + '/' + method);
+                    } else {
+                        xhr.open('post', identityUrl + method);
+                    }
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.setRequestHeader('x-mp-key', devToken);
+                    identityCallInFlight = true;
+                    xhr.send(JSON.stringify(identityApiRequest));
                 } else {
-                    xhr.open('post', identityUrl + method);
+                    callback({httpCode: -2, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
                 }
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.setRequestHeader('x-mp-key', devToken);
-                xhr.send(JSON.stringify(identityApiRequest));
             }
             catch (e) {
+                identityCallInFlight = false;
                 if (callback) {
                     callback({httpCode: -1, body: e});
                 }
@@ -3435,6 +3442,9 @@
             readyQueue = [];
             mergeConfig({});
             migrationData = {};
+            identityCallInFlight = false,
+            initialIdentifyRequest = null,
+
             persistence.expireCookies();
             if (persistence.isLocalStorageAvailable) {
                 localStorage.removeItem('mprtcl-api');
