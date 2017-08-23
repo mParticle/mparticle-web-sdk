@@ -163,7 +163,9 @@ describe('mParticle Core SDK', function() {
                     self.reportingService(self, event);
                 };
 
-                this.setUserIdentity = function() {
+                this.setUserIdentity = function(a, b) {
+                    this.userIdentities = {};
+                    this.userIdentities[b] = a;
                     self.setUserIdentityCalled = true;
                 };
 
@@ -906,105 +908,30 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    // it('should add string or number user identities', function(done) {
-    //     mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
-    //     mParticle.setUserIdentity(123456, mParticle.IdentityType.Email);
-    //
-    //     var identity = mParticle.getUserIdentity('test@mparticle.com');
-    //
-    //     identity.should.have.property('Identity', 'test@mparticle.com');
-    //     identity.should.have.property('Type', mParticle.IdentityType.CustomerId);
-    //
-    //     identity = mParticle.getUserIdentity(123456);
-    //
-    //     identity.should.have.property('Identity', 123456);
-    //     identity.should.have.property('Type', mParticle.IdentityType.Email);
-    //
-    //     done();
-    // });
+    it('should invoke forwarder setIdentity on initialized forwarders (debug = false)', function(done) {
+        mParticle.reset();
+        window.mParticle.identifyRequest = {
+            userIdentities: {
+                google: 'google123'
+            },
+            copyUserAttributes: false
+        };
 
-    // it('should remove user identities by id', function(done) {
-    //     mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
-    //     mParticle.removeUserIdentity('test@mparticle.com');
-    //
-    //     var identity = mParticle.getUserIdentity('test@mparticle.com');
-    //
-    //     Should(identity).not.be.ok();
-    //
-    //     done();
-    // });
-    //
-    // it('should replace existing userIdentities of the same type', function(done) {
-    //     mParticle.reset();
-    //
-    //     setCookie({
-    //         ui: [{Identity: 123, Type: 0}, {Identity:123, Type: 2}]
-    //     });
-    //
-    //     mParticle.init(apiKey);
-    //
-    //     mParticle.setUserIdentity(123, mParticle.IdentityType.CustomerId);
-    //
-    //     var identity = mParticle.getUserIdentity(123);
-    //
-    //     identity.should.have.property('Type', 1);
-    //     identity.should.have.property('Identity', 123);
-    //
-    //     done();
-    // });
-    //
-    // it('should replace previous userIdentities when setting multiple identities of the same type', function(done) {
-    //     mParticle.setUserIdentity('user1@mparticle.com', mParticle.IdentityType.CustomerId);
-    //     mParticle.setUserIdentity('user2@mparticle.com', mParticle.IdentityType.CustomerId);
-    //
-    //     var identity1 = mParticle.getUserIdentity('user1@mparticle.com');
-    //     var identity2 = mParticle.getUserIdentity('user2@mparticle.com');
-    //
-    //     Should(identity1).not.be.ok();
-    //     Should(identity2).be.ok();
-    //
-    //     done();
-    // });
-    //
-    // it('should remove userIdentity of specified type when null is passed in as id', function(done) {
-    //     mParticle.reset();
-    //
-    //     mParticle.init(apiKey);
-    //
-    //     mParticle.setUserIdentity('facebookid', mParticle.IdentityType.Facebook);
-    //     var identity1 = mParticle.getUserIdentity('facebook');
-    //
-    //     mParticle.setUserIdentity(null, mParticle.IdentityType.Facebook);
-    //     var identity2 = mParticle.getUserIdentity('facebook');
-    //
-    //     Should(identity2).not.be.ok();
-    //     Should(identity1).not.be.ok();
-    //
-    //     done();
-    // });
-    //
-    // it('should not create a userIdentity when only an id is passed', function(done) {
-    //     mParticle.setUserIdentity('test@mparticle.com');
-    //     var identity = mParticle.getUserIdentity('test@mparticle.com');
-    //
-    //     Should(identity).not.be.ok();
-    //
-    //     done();
-    // });
-    //
-    // it('should invoke forwarder setIdentity on initialized forwarders (debug = false)', function(done) {
-    //     mParticle.reset();
-    //     var mockForwarder = new MockForwarder();
-    //     mParticle.addForwarder(mockForwarder);
-    //     mockForwarder.configure();
-    //     mParticle.init(apiKey);
-    //
-    //     mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
-    //
-    //     mockForwarder.instance.should.have.property('setUserIdentityCalled', true);
-    //
-    //     done();
-    // });
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        mockForwarder.configure();
+
+        mParticle.init(apiKey);
+
+        mockForwarder.instance.should.have.property('setUserIdentityCalled', true);
+
+        mockForwarder.instance.userIdentities.should.have.property('4', 'google123');
+
+        window.mParticle.identifyRequest = {};
+
+        done();
+    });
 
     it('starts new session', function(done) {
         mParticle.startNewSession();
@@ -1892,7 +1819,6 @@ describe('mParticle Core SDK', function() {
         mParticle.IdentityType.getName(mParticle.IdentityType.Microsoft).should.equal('Microsoft ID');
         mParticle.IdentityType.getName(mParticle.IdentityType.Yahoo).should.equal('Yahoo ID');
         mParticle.IdentityType.getName(mParticle.IdentityType.Email).should.equal('Email');
-        // mParticle.IdentityType.getName(mParticle.IdentityType.Alias).should.equal('Alias ID');
         mParticle.IdentityType.getName(mParticle.IdentityType.FacebookCustomAudienceId).should.equal('Facebook App User ID');
         mParticle.IdentityType.getName(null).should.equal('Other ID');
 
@@ -2106,32 +2032,6 @@ describe('mParticle Core SDK', function() {
         mockForwarder.instance.userAttributes.should.have.property('color', 'blue');
 
         window.mParticle.identifyRequest.copyUserAttributes = false;
-        done();
-    });
-
-    it('should not pass in user attributes to forwarder on initialize if copyUserAttributes is false', function(done) {
-        mParticle.reset();
-
-        setLocalStorage({
-            ua: {
-                color: 'blue'
-            }
-        });
-
-        var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-        mockForwarder.configure();
-
-        window.mParticle.identifyRequest = {
-            userIdentities: {
-                email: 'test@gmail.com'
-            },
-            copyUserAttributes: false};
-
-        mParticle.init(apiKey);
-
-        mockForwarder.instance.should.have.property('userAttributes');
-        mockForwarder.instance.userAttributes.should.not.have.property('color');
 
         window.mParticle.identifyRequest = {};
 

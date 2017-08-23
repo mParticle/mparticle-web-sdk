@@ -588,6 +588,8 @@
 
                         context = identityApiResult.context || context;
                     }
+
+                    _Identity.setForwarderUserIdentities(identityApiData.userIdentities);
                 }
 
                 if (callback) {
@@ -637,6 +639,26 @@
             }
         }
     };
+
+    function filterUserIdentities(userIdentitiesObject, filterList) {
+        var filteredUserIdentities = [];
+
+        if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
+            for (var userIdentityName in userIdentitiesObject) {
+                if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
+                    var userIdentityType = _IdentityRequest.getIdentityType(userIdentityName);
+                    if (!inArray(filterList, userIdentityType)) {
+                        filteredUserIdentities.push({
+                            Type: userIdentityType,
+                            Identity: userIdentitiesObject[userIdentityName]
+                        });
+                    }
+                }
+            }
+        }
+
+        return filteredUserIdentities;
+    }
 
     function sendIdentityRequest(identityApiRequest, method, callback, copyAttributes, originalIdentityApiData) {
         var xhr, previousMPID,
@@ -1597,7 +1619,7 @@
         }
     }
 
-    function initForwarders() {
+    function initForwarders(identifyRequest) {
         if (!isWebViewEmbedded() && forwarders) {
             // Some js libraries require that they be loaded first, or last, etc
             forwarders.sort(function(x, y) {
@@ -1607,12 +1629,14 @@
             });
 
             forwarders.forEach(function(forwarder) {
+                var filteredUserIdentities = filterUserIdentities(identifyRequest.userIdentities, forwarder.userIdentityFilters);
+
                 forwarder.init(forwarder.settings,
                     sendForwardingStats,
                     false,
                     null,
                     userAttributes,
-                    userIdentities,
+                    filteredUserIdentities,
                     appVersion,
                     appName,
                     customFlags,
@@ -2907,6 +2931,19 @@
                 }
                 persistence.update();
             }
+        },
+        setForwarderUserIdentities: function(userIdentities) {
+            forwarders.forEach(function(forwarder) {
+                var filteredUserIdentities = filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
+                if (forwarder.setUserIdentity) {
+                    filteredUserIdentities.forEach(function(identity) {
+                        var result = forwarder.setUserIdentity(identity.Identity, identity.Type);
+                        if (result) {
+                            logDebug(result);
+                        }
+                    });
+                }
+            });
         }
     };
 
@@ -3382,8 +3419,8 @@
                 initialIdentifyRequest = mParticle.identifyRequest;
             }
 
+            initForwarders(initialIdentifyRequest);
             _Identity.migrate(isFirstRun);
-            mParticle.sessionManager.initialize();
 
             if (arguments && arguments.length) {
                 if (arguments.length > 1 && typeof arguments[1] === 'object') {
@@ -3394,7 +3431,7 @@
                 }
             }
 
-            initForwarders();
+            mParticle.sessionManager.initialize();
             // Call any functions that are waiting for the library to be initialized
             if (readyQueue && readyQueue.length) {
                 readyQueue.forEach(function(readyQueueItem) {
