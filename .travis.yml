@@ -1,9 +1,13 @@
 language: node_js
 node_js:
-  - node
+  - "7"
+dist: trusty
+sudo: false
+addons:
+  chrome: stable
+cache:
+  directories:
+    - node_modules
 script:
-- npm install
-- npm install -g serve > /dev/null
-- serve -p 3000 > /dev/null &
-- sleep 1
-- ./node_modules/phantomjs-prebuilt/bin/phantomjs test/phantom-runner.js
+  - npm install
+  - npm run testChrome

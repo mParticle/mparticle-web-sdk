@@ -325,7 +325,6 @@ describe('mParticle Core SDK', function() {
                 mpid: testMPID
             }));
         };
-
         mParticle.reset();
         expireCookie();
         removeLocalStorageFiles();
@@ -395,9 +394,9 @@ describe('mParticle Core SDK', function() {
         data.should.have.property('at', 1);
         data.should.have.property('fr', true);
         data.should.have.property('iu', false);
-
-        var lr = data.lr === null || data.lr === 'http://localhost:3000/test/index.html';
-        Should(lr).be.ok();
+        if (document.referrer && document.referrer.length > 0) {
+            data.should.have.property('lr', document.referrer);
+        }
 
         done();
     });
@@ -1744,7 +1743,7 @@ describe('mParticle Core SDK', function() {
             eventNameFilters: [],
             eventTypeFilters: [],
             attributeFilters: [],
-            screenNameFilters: [mParticle.generateHash(mParticle.EventType.Unknown + '/test/index.html')],
+            screenNameFilters: [mParticle.generateHash(mParticle.EventType.Unknown + window.location.pathname)],
             pageViewAttributeFilters: [],
             userIdentityFilters: [],
             userAttributeFilters: [],
@@ -1817,7 +1816,7 @@ describe('mParticle Core SDK', function() {
             eventTypeFilters: [],
             attributeFilters: [mParticle.generateHash(mParticle.EventType.Navigation + 'test event' + 'test attribute')],
             screenNameFilters: [],
-            pageViewAttributeFilters: [mParticle.generateHash(mParticle.EventType.Unknown + '/test/index.html' + 'hostname')],
+            pageViewAttributeFilters: [mParticle.generateHash(mParticle.EventType.Unknown + window.location.pathname + 'hostname')],
             userIdentityFilters: [],
             userAttributeFilters: [],
             moduleId: 1,
