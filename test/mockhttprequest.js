@@ -468,3 +468,5 @@ MockHttpServer.prototype = {
         // Instances should override this.
     }
 };
+
+module.exports = MockHttpServer
