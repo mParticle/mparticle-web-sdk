@@ -666,6 +666,27 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should log multiple impression when an array of impressions is passed', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
+            impression = mParticle.eCommerce.createImpression('impression-name1', product),
+            product2 = mParticle.eCommerce.createProduct('Android', '23456', 200),
+            impression2 = mParticle.eCommerce.createImpression('impression-name2', product2);
+
+        mParticle.eCommerce.logImpression([impression, impression2]);
+        var event1 = getEvent('eCommerce - Impression');
+
+        event1.should.have.property('pi').with.lengthOf(2);
+        event1.pi[0].should.have.property('pil', 'impression-name1');
+        event1.pi[0].should.have.property('pl').with.lengthOf(1);
+        event1.pi[0].pl[0].should.have.property('id', '12345');
+
+        event1.pi[1].should.have.property('pil', 'impression-name2');
+        event1.pi[1].should.have.property('pl').with.lengthOf(1);
+        event1.pi[1].pl[0].should.have.property('id', '23456');
+
+        done();
+    });
+
     it('should log ecommerce refund', function(done) {
         var transaction = mParticle.eCommerce.createTransactionAttributes('12345');
 
