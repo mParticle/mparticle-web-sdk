@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.14.5 - 2017-09-13
+*  Reduce the size of persistence by removing any keys that have no value attached, and by removing server settings that are not being used
+
 #### 1.14.4 - 2017-09-13
 *  Support for Chrome headless testing
 *  Allow logging of multiple impressions at once as an array
