@@ -378,7 +378,8 @@
                     // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
                     if (cookies) {
                         this.storeDataInMemory(cookies);
-                        this.expireCookies();
+                        this.expireCookies(Config.CookieName);
+                        this.expireCookies(Config.CookieNameV2);
                         this.update();
                     } else if (this.isLocalStorageAvailable) {
                         this.storeDataInMemory(this.getLocalStorage());
@@ -391,10 +392,30 @@
 
         update: function() {
             if (mParticle.useCookieStorage || !this.isLocalStorageAvailable) {
-                this.setCookie();
-            } else {
-                this.setLocalStorage();
+                // regardless of if we set data on cookies, we place productBags and cartProducts in localStorage
+                var date = new Date(),
+                    cookieKey = Config.CookieNameV2,
+                    cookieValue = this.convertInMemoryDataForCookie(),
+                    expires = new Date(date.getTime() +
+                        (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
+                    domain;
+                // determine domain on which to place cookie
+                if (Config.CookieDomain) {
+                    domain = ';domain=' + Config.CookieDomain;
+                } else if (this.getDomain(document, location.hostname) === '') {
+                    domain = '';
+                } else {
+                    domain = ';domain=.' + this.getDomain(document, location.host);
+                }
+                logDebug(InformationMessages.CookieSet);
+
+                window.document.cookie =
+                    encodeURIComponent(cookieKey) + '=' + encodeURIComponent(JSON.stringify(cookieValue)) +
+                    ';expires=' + expires +
+                    ';path=/' + domain;
             }
+
+            this.setLocalStorage();
         },
 
         determineLocalStorageAvailability: function() {
@@ -416,8 +437,8 @@
             }
         },
 
-        convertInMemoryData: function() {
-            var inMemoryData = {
+        convertInMemoryDataForCookie: function() {
+            var inMemoryDataForCookie = {
                 sid: sessionId,
                 ie: isEnabled,
                 sa: sessionAttributes,
@@ -430,28 +451,38 @@
                 cgid: clientId,
                 das: deviceId,
                 csd: cookieSyncDates,
-                mpid: mpid,
+                mpid: mpid
+            };
+
+            return inMemoryDataForCookie;
+        },
+
+        convertInMemoryDataForLocalStorage: function() {
+            var inMemoryDataForLocalStorage = {
                 cp: cartProducts.length <= mParticle.maxProducts ? cartProducts : cartProducts.slice(0, mParticle.maxProducts),
                 pb: {}
             };
 
             for (var bag in productsBags) {
                 if (productsBags[bag].length > mParticle.maxProducts) {
-                    inMemoryData.pb[bag] = productsBags[bag].slice(0, mParticle.maxProducts);
+                    inMemoryDataForLocalStorage.pb[bag] = productsBags[bag].slice(0, mParticle.maxProducts);
                 } else {
-                    inMemoryData.pb[bag] = productsBags[bag];
+                    inMemoryDataForLocalStorage.pb[bag] = productsBags[bag];
                 }
             }
 
-            return inMemoryData;
+            return inMemoryDataForLocalStorage;
         },
 
         setLocalStorage: function() {
             var key = Config.LocalStorageName,
-                value = this.convertInMemoryData();
+                allPersistenceData = this.convertInMemoryDataForLocalStorage();
+            if (!mParticle.useCookieStorage) {
+                allPersistenceData = extend(allPersistenceData, this.convertInMemoryDataForCookie());
+            }
 
             try {
-                window.localStorage.setItem(encodeURIComponent(key), encodeURIComponent(JSON.stringify(value)));
+                window.localStorage.setItem(encodeURIComponent(key), encodeURIComponent(JSON.stringify(allPersistenceData)));
             }
             catch (e) {
                 logDebug('Error with setting localStorage item.');
@@ -502,8 +533,8 @@
                     clientId = obj.cgid || generateUniqueId();
                     deviceId = obj.das || null;
                     mpid = obj.mpid || null;
-                    cartProducts = obj.cp || [];
-                    productsBags = obj.pb || {};
+                    cartProducts = obj.cp || cartProducts || [];
+                    productsBags = obj.pb || productsBags || {};
 
                     if (obj.les) {
                         dateLastEventSent = new Date(obj.les);
@@ -556,24 +587,26 @@
             }
         },
 
-        expireCookies: function() {
+        expireCookies: function(cookieName) {
             var date = new Date(),
                 expires;
 
             date.setTime(date.getTime() - (24 * 60 * 60 * 1000));
             expires = '; expires=' + date.toUTCString();
-            document.cookie = DefaultConfig.CookieName + '=' + '' + expires + '; path=/';
+            document.cookie = cookieName + '=' + '' + expires + '; path=/';
         },
 
         getCookie: function() {
             var cookies = window.document.cookie.split('; '),
-                key = Config.CookieName,
+                v1KeyName = Config.CookieName,
+                v2KeyName = Config.CookieNameV2,
+                v1Cookie,
+                v2Cookie,
                 i,
                 l,
                 parts,
                 name,
-                cookie,
-                result = key ? undefined : {};
+                cookie;
 
             logDebug(InformationMessages.CookieSearch);
 
@@ -582,39 +615,46 @@
                 name = decoded(parts.shift());
                 cookie = decoded(parts.join('='));
 
-                if (key && key === name) {
-                    result = converted(cookie);
-                    break;
+                if (v1KeyName && v1KeyName === name) {
+                    v1Cookie = converted(cookie);
                 }
 
-                if (!key) {
-                    result[name] = converted(cookie);
+                if (v2KeyName && v2KeyName === name) {
+                    v2Cookie = converted(cookie);
                 }
             }
 
-            if (result) {
+            if (v2Cookie) {
+                if (v1Cookie) {
+                    this.expireCookies(v1KeyName);
+                }
                 logDebug(InformationMessages.CookieFound);
-                return result;
+                return v2Cookie;
+            } else if (v1Cookie) {
+                return v1Cookie;
             } else {
                 return null;
             }
         },
-
-        setCookie: function() {
-            var date = new Date(),
-                key = Config.CookieName,
-                value = this.convertInMemoryData(),
-                expires = new Date(date.getTime() +
-                    (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
-                domain = Config.CookieDomain ? ';domain=' + Config.CookieDomain : '';
-
-            logDebug(InformationMessages.CookieSet);
-
-            window.document.cookie =
-                encodeURIComponent(key) + '=' + encodeURIComponent(JSON.stringify(value)) +
-                ';expires=' + expires +
-                ';path=/' +
-                domain;
+        // This function loops through the parts of a full hostname, attempting to set a cookie on that domain. It will set a cookie at the highest level possible.
+        // For example subdomain.domain.co.uk would try the following combinations:
+        // "co.uk" -> fail
+        // "domain.co.uk" -> success, return
+        // "subdomain.domain.co.uk" -> skipped, because already found
+        getDomain: function(doc, locationHostname) {
+            var i,
+                testParts,
+                mpTest = 'mptest=cookie',
+                hostname = locationHostname.split('.');
+            for (i = hostname.length - 1; i >= 0; i--) {
+                testParts = hostname.slice(i).join('.');
+                doc.cookie = mpTest + ';domain=.' + testParts + ';';
+                if (doc.cookie.indexOf(mpTest) > -1){
+                    doc.cookie = mpTest.split('=')[0] + '=;domain=.' + testParts + ';expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+                    return testParts;
+                }
+            }
+            return '';
         }
     };
 
@@ -2206,6 +2246,7 @@
     var DefaultConfig = {
         LocalStorageName: 'mprtcl-api', // Name of the mP localstorage data stored on the user's machine
         CookieName: 'mprtcl-api',       // Name of the cookie stored on the user's machine
+        CookieNameV2: 'mprtcl-v2',       // Name of top level domain for cookie storage
         CookieDomain: null, 			// If null, defaults to current location.host
         Debug: false,					// If true, will print debug messages to browser console
         CookieExpiration: 365,			// Cookie expiration time in days
@@ -2622,7 +2663,13 @@
             cartProducts = [];
             serverSettings = null;
             mergeConfig({});
-            persistence.update();
+            persistence.expireCookies(DefaultConfig.CookieName);
+            persistence.expireCookies(DefaultConfig.CookieNameV2);
+
+            if (persistence.isLocalStorageAvailable) {
+                localStorage.removeItem(DefaultConfig.LocalStorageName);
+            }
+
             mParticle.sessionManager.resetSessionTimer();
 
             isInitialized = false;
