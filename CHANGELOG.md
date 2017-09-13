@@ -1,6 +1,11 @@
 ## Releases
 --
 
+#### 1.14.4 - 2017-09-13
+*  Support for Chrome headless testing
+*  Allow logging of multiple impressions at once as an array
+*  Move cartProducts and productBags to localStorage
+
 #### 1.14.3 - 2017-08-16
 *  Change case for product expansion labels, add product count to purchase and refund ProductActions
 *  Replace current userAttribute key with most recent differently cased userAttribute key; no longer persists previous case
