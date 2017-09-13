@@ -454,6 +454,18 @@
                 mpid: mpid
             };
 
+            for (var key in inMemoryDataForCookie) {
+                if (inMemoryDataForCookie.hasOwnProperty(key)) {
+                    if ((!inMemoryDataForCookie[key]) ||
+                        (typeof inMemoryDataForCookie[key] === 'string' && inMemoryDataForCookie[key].length === 0) ||
+                        (isObject(inMemoryDataForCookie[key]) && Object.keys(inMemoryDataForCookie[key]).length === 0) ||
+                        (Array.isArray(inMemoryDataForCookie[key]) && inMemoryDataForCookie[key].length === 0)) {
+
+                        delete inMemoryDataForCookie[key];
+                    }
+                }
+            }
+
             return inMemoryDataForCookie;
         },
 
@@ -469,6 +481,14 @@
                 } else {
                     inMemoryDataForLocalStorage.pb[bag] = productsBags[bag];
                 }
+            }
+
+            if (inMemoryDataForLocalStorage.cp.length === 0) {
+                delete inMemoryDataForLocalStorage['cp'];
+            }
+
+            if (Object.keys(inMemoryDataForLocalStorage.pb).length === 0) {
+                delete inMemoryDataForLocalStorage['pb'];
             }
 
             return inMemoryDataForLocalStorage;
@@ -959,27 +979,25 @@
             if (settings && settings.Store) {
                 logDebug('Parsed store from response, updating local settings');
 
-                if (!serverSettings) {
-                    serverSettings = {};
-                }
+                serverSettings = {};
 
                 for (prop in settings.Store) {
-                    if (!settings.Store.hasOwnProperty(prop)) {
-                        continue;
-                    }
+                    if (prop === 'uid') {
+                        if (settings.Store.hasOwnProperty(prop)) {
+                            fullProp = settings.Store[prop];
 
-                    fullProp = settings.Store[prop];
+                            if (!fullProp.Value || new Date(fullProp.Expires) < now) {
+                                // This setting should be deleted from the local store if it exists
 
-                    if (!fullProp.Value || new Date(fullProp.Expires) < now) {
-                        // This setting should be deleted from the local store if it exists
-
-                        if (serverSettings.hasOwnProperty(prop)) {
-                            delete serverSettings[prop];
+                                if (serverSettings.hasOwnProperty(prop)) {
+                                    delete serverSettings[prop];
+                                }
+                            }
+                            else {
+                                // This is a valid setting
+                                serverSettings[prop] = fullProp;
+                            }
                         }
-                    }
-                    else {
-                        // This is a valid setting
-                        serverSettings[prop] = fullProp;
                     }
                 }
 
