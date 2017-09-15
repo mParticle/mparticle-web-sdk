@@ -1100,7 +1100,7 @@
             dto.fr = isFirstRun;
             dto.iu = false;
             dto.at = ApplicationTransitionType.AppInit;
-            dto.lr = document.referrer || null;
+            dto.lr = window.location.href || null;
             dto.attrs = null;
         }
 
