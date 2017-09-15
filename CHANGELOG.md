@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.14.6 - 2017-09-15
+*  Update the Application State Transition message to include the initial site location
+
 #### 1.14.5 - 2017-09-13
 *  Reduce the size of persistence by removing any keys that have no value attached, and by removing server settings that are not being used
 
