@@ -3706,7 +3706,7 @@ describe('mParticle Core SDK', function() {
 
     it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
         mParticle.reset();
-        window.localStorage.setItem = null;
+        mParticle.persistence.determineLocalStorageAvailability = function() { return false; };
 
         mParticle.useCookieStorage = false;
 

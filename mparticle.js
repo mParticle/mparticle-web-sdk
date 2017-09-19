@@ -390,6 +390,19 @@
             }
         },
 
+        getCookieDomain: function() {
+            if (Config.CookieDomain) {
+                return Config.CookieDomain;
+            } else {
+                var rootDomain = this.getDomain(document, location.hostname); 
+                if (rootDomain === '') {
+                    return '';
+                } else {
+                    return '.' + rootDomain;
+                }
+            }
+        },
+
         update: function() {
             if (mParticle.useCookieStorage || !this.isLocalStorageAvailable) {
                 // regardless of if we set data on cookies, we place productBags and cartProducts in localStorage
@@ -400,12 +413,11 @@
                         (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
                     domain;
                 // determine domain on which to place cookie
-                if (Config.CookieDomain) {
-                    domain = ';domain=' + Config.CookieDomain;
-                } else if (this.getDomain(document, location.hostname) === '') {
+                var cookieDomain = this.getCookieDomain();
+                if (cookieDomain === '') {
                     domain = '';
                 } else {
-                    domain = ';domain=.' + this.getDomain(document, location.host);
+                    domain = ';domain=' + cookieDomain;
                 }
                 logDebug(InformationMessages.CookieSet);
 
@@ -609,11 +621,22 @@
 
         expireCookies: function(cookieName) {
             var date = new Date(),
-                expires;
+                expires,
+                domain;
 
             date.setTime(date.getTime() - (24 * 60 * 60 * 1000));
             expires = '; expires=' + date.toUTCString();
             document.cookie = cookieName + '=' + '' + expires + '; path=/';
+
+            var cookieDomain = this.getCookieDomain();
+            if (cookieDomain === '') {
+                domain = '';
+            } else {
+                domain = ';domain=' + cookieDomain;
+            }
+
+            document.cookie = cookieName + '=' + '' + expires + '; path=/' + domain;
+
         },
 
         getCookie: function() {
