@@ -5,9 +5,10 @@ dist: trusty
 sudo: false
 addons:
   chrome: stable
+  firefox: latest
 cache:
   directories:
     - node_modules
 script:
   - npm install
-  - npm run testChrome
+  - npm run testKarma -- --single-run=true --browsers=ChromeHeadless,FirefoxHeadless
