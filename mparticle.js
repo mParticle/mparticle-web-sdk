@@ -394,7 +394,7 @@
             if (Config.CookieDomain) {
                 return Config.CookieDomain;
             } else {
-                var rootDomain = this.getDomain(document, location.hostname); 
+                var rootDomain = this.getDomain(document, location.hostname);
                 if (rootDomain === '') {
                     return '';
                 } else {
@@ -1309,6 +1309,8 @@
                 return 'AddToWishlist';
             case ProductActionType.Checkout:
                 return 'Checkout';
+            case ProductActionType.CheckoutOption:
+                return 'CheckoutOption';
             case ProductActionType.Click:
                 return 'Click';
             case ProductActionType.Purchase:
@@ -1346,6 +1348,8 @@
                 return CommerceEventType.ProductAddToWishlist;
             case ProductActionType.Checkout:
                 return CommerceEventType.ProductCheckout;
+            case ProductActionType.CheckoutOption:
+                return CommerceEventType.ProductCheckoutOption;
             case ProductActionType.Click:
                 return CommerceEventType.ProductClick;
             case ProductActionType.Purchase:

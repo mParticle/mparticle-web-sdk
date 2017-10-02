@@ -1100,6 +1100,23 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should log checkout option', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
+        server.requests = [];
+        mParticle.eCommerce.logProductAction(ProductActionType.CheckoutOption, product, {color: 'blue'});
+
+        var event = getEvent('eCommerce - CheckoutOption');
+
+        Should(event).be.ok();
+
+        event.should.have.property('et', CommerceEventType.ProductCheckoutOption);
+        event.should.have.property('pd');
+
+        event.pd.should.have.property('an', ProductActionType.CheckoutOption);
+        event.attrs.should.have.property('color', 'blue');
+        done();
+    });
+
     it('should log product action', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
