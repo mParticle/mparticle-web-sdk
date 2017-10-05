@@ -1,6 +1,11 @@
 ## Releases
 --
 
+#### 1.14.7 - 2017-10-05
+*  Update testing suite
+*  Bugfix - Add CheckoutOption to ProductAction-related switch statements
+*  Ensure cookies are cleared for all domains
+
 #### 1.14.6 - 2017-09-15
 *  Update the Application State Transition message to include the initial site location
 
