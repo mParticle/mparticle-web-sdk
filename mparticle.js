@@ -1260,6 +1260,8 @@
         var eventObject,
             optOut = (messageType === MessageType.OptOut ? !isEnabled : null);
 
+        data = sanitizeAttributes(data);
+
         if (sessionId || messageType == MessageType.OptOut) {
             if (messageType !== MessageType.SessionEnd) {
                 dateLastEventSent = new Date();
@@ -1764,6 +1766,8 @@
     function logCommerceEvent(commerceEvent, attrs) {
         logDebug(InformationMessages.StartingLogCommerceEvent);
 
+        attrs = sanitizeAttributes(attrs);
+
         if (canLog()) {
             if (isWebViewEmbedded()) {
                 // Don't send shopping cart or product bags to parent sdks
@@ -1999,6 +2003,8 @@
         couponCode,
         attributes) {
 
+        attributes = sanitizeAttributes(attributes);
+
         if (typeof name !== 'string') {
             logDebug('Name is required when creating a product');
             return null;
@@ -2131,6 +2137,8 @@
             // Make sure that attribute values are not objects or arrays, which are not valid
             if (attrs.hasOwnProperty(prop) && Validators.isValidAttributeValue(attrs[prop])) {
                 sanitizedAttrs[prop] = attrs[prop];
+            } else {
+                logDebug('The attribute key of ' + prop + ' must be a string, number, boolean, or null.');
             }
         }
 
@@ -2981,6 +2989,8 @@
                 add: function(product, logEvent) {
                     mParticle.sessionManager.resetSessionTimer();
                     var arrayCopy;
+
+                    product.Attributes = sanitizeAttributes(product.Attributes);
 
                     arrayCopy = Array.isArray(product) ? product.slice() : [product];
 

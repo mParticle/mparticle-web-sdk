@@ -276,6 +276,62 @@ describe('mParticle Core SDK', function() {
         window.mParticle.useCookieStorage = false;
     });
 
+    it('sanitizes attributes when attrs are provided', function(done) {
+        var attrs = {
+            valid: '123',
+            invalid: ['123', '345']
+        };
+        var product = mParticle.eCommerce.createProduct('name', 'sku', 100, 1, 'variant', 'category', 'brand', 'position', 'coupon', attrs);
+        product.Attributes.should.not.have.property('invalid');
+        product.Attributes.should.have.property('valid');
+
+        mParticle.eCommerce.logCheckout(1, 'visa', attrs);
+        var event = getEvent('eCommerce - Checkout');
+        event.attrs.should.not.have.property('invalid');
+        event.attrs.should.have.property('valid');
+
+        server.requests = [];
+        mParticle.eCommerce.logProductAction(1, product, attrs);
+        event = getEvent('eCommerce - AddToCart');
+        event.attrs.should.not.have.property('invalid');
+        event.attrs.should.have.property('valid');
+
+        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
+            'test-affiliation',
+            'coupon-code',
+            44334,
+            600,
+            200);
+
+        server.requests = [];
+        mParticle.eCommerce.logPurchase(transactionAttributes, product, false, attrs);
+        event = getEvent('eCommerce - Purchase');
+        event.attrs.should.not.have.property('invalid');
+        event.attrs.should.have.property('valid');
+
+        var promotion = mParticle.eCommerce.createPromotion('id', 'creative', 'name', 'position');
+
+        server.requests = [];
+        mParticle.eCommerce.logPromotion(1, promotion, attrs);
+        event = getEvent('eCommerce - PromotionView');
+        event.attrs.should.not.have.property('invalid');
+        event.attrs.should.have.property('valid');
+
+        server.requests = [];
+        mParticle.eCommerce.logRefund(transactionAttributes, product, false, attrs);
+        event = getEvent('eCommerce - Refund');
+        event.attrs.should.not.have.property('invalid');
+        event.attrs.should.have.property('valid');
+
+        server.requests = [];
+        mParticle.logLTVIncrease(100, 'logLTVIncrease', attrs);
+        event = getEvent('logLTVIncrease');
+        event.attrs.should.not.have.property('invalid');
+        event.attrs.should.have.property('valid');
+
+        done();
+    });
+
     it('removes any keys from persistence that do not have data', function(done) {
         var data = mParticle.persistence.getLocalStorage();
         data.should.not.have.properties(['ui', 'ua', 'av', 'pb', 'cp']);
