@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.14.8 - 2017-10-05
+*  Apply sanitizeAttributes more broadly to other event types
+
 #### 1.14.7 - 2017-10-05
 *  Update testing suite
 *  Bugfix - Add CheckoutOption to ProductAction-related switch statements
