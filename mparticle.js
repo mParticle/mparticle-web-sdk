@@ -2166,8 +2166,7 @@
         UserContent: 5,
         UserPreference: 6,
         Social: 7,
-        Other: 8,
-        Media: 9
+        Other: 8
     };
 
     var ProfileMessageType = {
@@ -2194,8 +2193,6 @@
                 return 'User Preference';
             case EventType.Social:
                 return 'Social';
-            case EventType.Media:
-                return 'Media';
             case CommerceEventType.ProductAddToCart:
                 return 'Product Added to Cart';
             case CommerceEventType.ProductAddToWishlist:
