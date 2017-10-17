@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.0.10 - 2017-10-17
+*  Bugfix - Execute useLocalStorage method
+
 #### 1.14.1 - 2017-06-22
 *  Fixes for cookie syncing. Properly cookie sync when MPID changes, and only perform a cookie sync when debug modes for defined pixel and mParticle match
 *  Store productsBags and cartProducts to cookies, with config option to change number of products allowed in each (config.maxProducts = 20 by default)
