@@ -2921,10 +2921,10 @@
             }
         },
         migrate: function(isFirstRun) {
-            var cookies = persistence.useLocalStorage ? persistence.getLocalStorage() : persistence.getCookie();
+            var cookies = persistence.useLocalStorage() ? persistence.getLocalStorage() : persistence.getCookie();
             // migration occurs when it is not the first run and there is no currentUserMPID on the cookie
             if (!isFirstRun && cookies && !cookies.currentUserMPID) {
-                if (persistence.useLocalStorage) {
+                if (persistence.useLocalStorage()) {
                     persistence.removeLocalStorage();
                 } else {
                     persistence.expireCookies();
