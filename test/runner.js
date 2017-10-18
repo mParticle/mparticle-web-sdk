@@ -1,6 +1,6 @@
 const browserSync = require('browser-sync').create();
 
-browserSync.watch('mparticle.js').on('change', browserSync.reload);
+browserSync.watch('build/mParticle.js').on('change', browserSync.reload);
 browserSync.watch('test/*.js').on('change', browserSync.reload);
 browserSync.watch('test/index.html').on('change', browserSync.reload);
 

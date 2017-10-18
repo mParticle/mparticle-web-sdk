@@ -90,7 +90,12 @@ You can also run the tests by executing the npm test script:
 ```bash
 $ npm test
 ```
-The test script will use the browser-sync module to serve `test/index.html`, open the tests in a browser, and auto-refresh when a change is made to `mparticle.js` or any of the test files.
+The test script will run all tests using Karma and ChromeHeadless by default. To run tests using a different browser, use the command:
+
+```
+$ BROWSER=[browserBrand] npm run testBrowser
+```
+where browserBrand can be Safari, Firefox, Edge, or IE.
 
 ## Development Notes
 This package comes with the NPM package [pre-commit](https://www.npmjs.com/package/pre-commit), which will run [ESLint](http://eslint.org/) when you try to commit.

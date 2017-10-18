@@ -1,6 +1,11 @@
 {
     "env": {
-        "browser": true
+        "browser": true,
+        "node": true
+
+    },
+    "globals": {
+        "mParticle": true
     },
     "extends": "eslint:recommended",
     "rules": {

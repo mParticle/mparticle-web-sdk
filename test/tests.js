@@ -304,6 +304,7 @@ describe('mParticle Core SDK', function() {
         setLocalStorage({
             ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}, {Identity: [], Type: 1}, {Identity: {}, Type: 1}]
         });
+
         mParticle.init(apiKey);
 
         var localStorageData = mParticle.persistence.getLocalStorage();
@@ -1791,7 +1792,6 @@ describe('mParticle Core SDK', function() {
         mParticle.EventType.getName(mParticle.EventType.UserContent).should.equal('User Content');
         mParticle.EventType.getName(mParticle.EventType.UserPreference).should.equal('User Preference');
         mParticle.EventType.getName(mParticle.EventType.Social).should.equal('Social');
-        mParticle.EventType.getName(mParticle.EventType.Media).should.equal('Media');
         mParticle.EventType.getName(mParticle.CommerceEventType.ProductAddToCart).should.equal('Product Added to Cart');
         mParticle.EventType.getName(mParticle.CommerceEventType.ProductAddToWishlist).should.equal('Product Added to Wishlist');
         mParticle.EventType.getName(mParticle.CommerceEventType.ProductCheckout).should.equal('Product Checkout');
@@ -3749,7 +3749,7 @@ describe('mParticle Core SDK', function() {
 
         var count = 0;
         for (var key in data.userIdentities) {
-            mParticle._IdentityRequest.getIdentityType(key).should.equal(count);
+            mParticle.IdentityType.getIdentityType(key).should.equal(count);
             count++;
             // 8 is alias, which was removed
             if (count === 8) {
@@ -3761,7 +3761,13 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should create a proper identity request', function(done) {
-        var data = {userIdentities: {}, copyUserAttributes: true};
+        var data = {userIdentities: {}, copyUserAttributes: true},
+            platform = 'web',
+            sdkVendor = 'mparticle',
+            sdkVersion = '1.0.0',
+            deviceId = 'abc',
+            context = null;
+
         data.userIdentities.other = 'id1';
         data.userIdentities.customerid = 'id2';
         data.userIdentities.facebook = 'id3';
@@ -3776,11 +3782,11 @@ describe('mParticle Core SDK', function() {
         data.userIdentities.other3 = 'id12';
         data.userIdentities.other4 = 'id13';
 
-        var identityRequest = mParticle._IdentityRequest.createIdentityRequest(data);
+        var identityRequest = mParticle._IdentityRequest.createIdentityRequest(data, platform, sdkVendor, sdkVersion, deviceId, context, testMPID);
         identityRequest.should.have.properties(['client_sdk', 'environment', 'context', 'known_identities', 'previous_mpid', 'request_id', 'request_timestamp_ms']);
         identityRequest.client_sdk.should.have.properties(['platform', 'sdk_vendor', 'sdk_version']);
-        identityRequest.client_sdk.platform.should.equal('web');
-        identityRequest.client_sdk.sdk_vendor.should.equal('mparticle');
+        identityRequest.client_sdk.platform.should.equal(platform);
+        identityRequest.client_sdk.sdk_vendor.should.equal(sdkVendor);
         identityRequest.environment.should.equal('production');
         identityRequest.previous_mpid.should.equal(testMPID);
         identityRequest.known_identities.should.have.properties(['other', 'customerid', 'facebook', 'twitter', 'google', 'microsoft', 'yahoo', 'email', 'facebookcustomaudienceid', 'other1', 'other2', 'other3', 'other4', 'device_application_stamp']);
@@ -3802,7 +3808,13 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should create a proper modify identity request', function(done) {
-        var oldIdentities = {};
+        var oldIdentities = {},
+            platform = 'web',
+            sdkVendor = 'mparticle',
+            sdkVersion = '1.0.0',
+            deviceId = 'abc',
+            context = null;
+
         oldIdentities.other = 'id1';
         oldIdentities.customerid = 'id2';
         oldIdentities.facebook = 'id3';
@@ -3831,7 +3843,7 @@ describe('mParticle Core SDK', function() {
         newIdentities.other3 = 'id25';
         newIdentities.other4 = 'id26';
 
-        var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(oldIdentities, newIdentities);
+        var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(oldIdentities, newIdentities, platform, sdkVendor, sdkVersion, deviceId, context, testMPID);
         identityRequest.should.have.properties(['client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms']);
         identityRequest.client_sdk.should.have.properties(['platform', 'sdk_vendor', 'sdk_version']);
         identityRequest.client_sdk.platform.should.equal('web');
@@ -4901,16 +4913,18 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         window.localStorage.setItem = null;
 
-        mParticle.useCookieStorage = false;
+        // Setting localStorage.setItem to null works on Chrome but not Firefox
+        if (!window.localStorage.setItem) {
+            mParticle.useCookieStorage = false;
 
-        mParticle.init(apiKey);
+            mParticle.init(apiKey);
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+            mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
-        var cookieData = mParticle.persistence.getCookie();
+            var cookieData = mParticle.persistence.getCookie();
 
-        cookieData[testMPID].ua.should.have.property('gender', 'male');
-
+            cookieData[testMPID].ua.should.have.property('gender', 'male');
+        }
         done();
     });
 
