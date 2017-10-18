@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.15.0 - 2017-10-18
+*  Reduce cookie size further by encoding certain keys to base64
+
 #### 1.14.8 - 2017-10-05
 *  Apply sanitizeAttributes more broadly to other event types
 
