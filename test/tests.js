@@ -3,8 +3,40 @@ describe('mParticle Core SDK', function() {
     var server,
         apiKey = 'test_key',
         testMPID = 'testMPID',
-        v1CookieKey = 'mprtcl-api',
+        v1CookieKey = v1localStorageKey = 'mprtcl-api',
+        v2CookieKey = 'mprtcl-v2',
+        currentCookieVersion = 'mprtcl-v3',
+        currentLSKey = 'mprtcl-v3',
         ProductBag = 'my bag',
+        pluses = /\+/g,
+        decoded = function decoded(s) {
+            return decodeURIComponent(s.replace(pluses, ' '));
+        },
+        converted = function (s) {
+            if (s.indexOf('"') === 0) {
+                s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            }
+
+            return s;
+        },
+        findCookie = function(cookieName) {
+            if (cookieName === currentCookieVersion) {
+                return mParticle.persistence.getCookie();
+            } else {
+                return findEncodedCookie(cookieName);
+            }
+        },
+        findEncodedCookie = function(cookieName) {
+            var cookies = document.cookie.split('; ');
+            for (i = 0, l = cookies.length; i < l; i++) {
+                var parts = cookies[i].split('=');
+                var name = decoded(parts.shift());
+                var cookie = decoded(parts.join('='));
+                if (cookieName === name) {
+                    return mParticle.persistence.replacePipesWithCommas(converted(cookie));
+                }
+            }
+        },
         getRequests = function(path) {
             var requests = [],
                 fullPath = '/v1/JS/' + apiKey + '/' + path;
@@ -17,19 +49,35 @@ describe('mParticle Core SDK', function() {
 
             return requests;
         },
-        setCookie = function(data) {
+        setCookie = function(cname, data) {
             var date = new Date(),
-                value = data,
+                value = JSON.stringify(data),
                 expires = new Date(date.getTime() +
                     (365 * 24 * 60 * 60 * 1000)).toGMTString();
-
+            if (cname === currentCookieVersion) {
+                value = mParticle.replaceCommasWithPipes(value);
+            }
             window.document.cookie =
-                encodeURIComponent(v1CookieKey) + '=' + encodeURIComponent(JSON.stringify(value)) +
+                encodeURIComponent(cname) + '=' + value +
                 ';expires=' + expires +
                 ';path=/';
         },
-        setLocalStorage = function(data) {
-            localStorage.setItem(encodeURIComponent('mprtcl-api'), encodeURIComponent(JSON.stringify(data)));
+        setLocalStorage = function(name, data) {
+            if (name === v1localStorageKey) {
+                localStorage.setItem(encodeURIComponent(name), encodeURIComponent(JSON.stringify(data)));
+            } else if (name === currentLSKey) {
+                localStorage.setItem(encodeURIComponent(name), JSON.stringify(data));
+            }
+        },
+        getLocalStorage = function(name) {
+            if (name === v1localStorageKey) {
+                return findEncodedLocalStorage(name);
+            } else if (name === currentLSKey) {
+                return mParticle.persistence.getLocalStorage();
+            }
+        },
+        findEncodedLocalStorage = function(name) {
+            return JSON.parse(mParticle.persistence.replacePipesWithCommas(decodeURIComponent(localStorage.getItem(encodeURIComponent(name)))));
         },
         getEvent = function(eventName, isForwarding) {
             var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
@@ -332,6 +380,319 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('properly converts userIdentities from an array to an object', function(done) {
+        var data = {ui: [{Identity: 'test@test.com', Type: 5}, {Identity: '123', Type: 3}, {Identity: 'abc', Type: 7}]};
+
+        var UIObject = mParticle.persistence.convertUIFromArrayToObject(data);
+
+        UIObject.ui.should.have.property('5', 'test@test.com');
+        UIObject.ui.should.have.property('7', 'abc');
+        UIObject.ui.should.have.property('3', '123');
+
+        done();
+    });
+
+    it('properly replaces commas with pipes, and pipes with commas', function(done) {
+        var pipes = '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+        var commas = '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+
+        mParticle.persistence.replaceCommasWithPipes(commas).should.equal(pipes);
+        mParticle.persistence.replacePipesWithCommas(pipes).should.equal(commas);
+
+        done();
+    });
+
+    it('removes v1 cookie if v3 cookie is found', function(done) {
+        mParticle.reset();
+        var v1Cookies = {
+            cgid:   'a99cd390-ac20-4cc8-989a-1c8752400eba',
+            das:    '4a9f015a-b23e-4d21-94cf-604c6aecc5f2',
+            dt:     'beab3f4d34281d45bfcdbbd7eb21c083',
+            ie:     true,
+            les:    1505932333024,
+            sid:    '490d3ac1-7959-48fe-9aee-92f5893370e1'
+        };
+        setCookie(v1CookieKey, v1Cookies);
+        var v1CookiesBeforeInit = findCookie('mprtcl-api');
+
+        var v3CookiesBeforeInit = findCookie('mprtcl-v3');
+        v1CookiesBeforeInit.should.be.ok();
+        Should(v3CookiesBeforeInit).not.be.ok();
+
+        mParticle.useCookieStorage = true;
+        mParticle.init(apiKey);
+
+        var v1CookiesAfterInit = findCookie('mprtcl-v1');
+        var v3CookiesAfterInit = findCookie('mprtcl-v3');
+
+        Should(v1CookiesAfterInit).not.be.ok();
+        v3CookiesAfterInit.should.be.ok();
+        done();
+    });
+
+    it('removes v2 cookie if v3 cookie is found', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+
+        var v2Cookies = {
+            cgid:   'a99cd390-ac20-4cc8-989a-1c8752400eba',
+            das:    '4a9f015a-b23e-4d21-94cf-604c6aecc5f2',
+            dt:     'beab3f4d34281d45bfcdbbd7eb21c083',
+            ie:     true,
+            les:    1505932333024,
+            sid:    '490d3ac1-7959-48fe-9aee-92f5893370e1',
+            ua:     {gender: 'male', age: 31},
+            ui:     [{Identity: 'test@test.com', Type: 5}, {Identity: '123', Type: 3}]
+        };
+        setCookie(v2CookieKey, v2Cookies);
+
+        var v2CookiesBeforeInit = findCookie('mprtcl-v2');
+        var v3CookiesBeforeInit = findCookie('mprtcl-v3');
+
+        v2CookiesBeforeInit.should.be.ok();
+        Should(v3CookiesBeforeInit).not.be.ok();
+
+        mParticle.init(apiKey);
+
+        var v2CookiesAfterInit = findCookie('mprtcl-v2');
+        var v3CookiesAfterInit = findCookie('mprtcl-v3');
+
+        Should(v2CookiesAfterInit).not.be.ok();
+        v3CookiesAfterInit.should.be.ok();
+
+        done();
+    });
+
+    it('migrates cookies from v1 to current version', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+
+        var ss = { uid: {
+            Expires:'2027-09-11T20:53:40.544516Z',
+            Value:'u=-2968710958423250133&cr=4050533&ls=4050534&lbe=4050534'
+        }};
+
+        var v1Cookies = {
+            cgid:   'a99cd390-ac20-4cc8-989a-1c8752400eba',
+            das:    '4a9f015a-b23e-4d21-94cf-604c6aecc5f2',
+            dt:     'beab3f4d34281d45bfcdbbd7eb21c083',
+            ss:     ss,
+            sa:     {},
+            ie:     true,
+            les:    1505932333024,
+            sid:    '490d3ac1-7959-48fe-9aee-92f5893370e1',
+            ua:     {gender: 'male', age: 31},
+            ui:     [{Identity: 'test@test.com', Type: 5}, {Identity: '123', Type: 3}]
+        };
+
+        setCookie(v1CookieKey, v1Cookies);
+
+        var v1CookiesBefore = JSON.parse(findCookie(v1CookieKey));
+        mParticle.persistence.migrateCookies();
+
+        var v1CookiesAfter = findCookie(v1CookieKey);
+        var currentCookies = JSON.parse(findCookie(currentCookieVersion));
+        Should(v1CookiesAfter).not.be.ok();
+        currentCookies.cgid.should.equal(v1Cookies.cgid);
+        currentCookies.das.should.equal(v1Cookies.das);
+        currentCookies.dt.should.equal(v1Cookies.dt);
+        currentCookies.ie.should.equal(v1Cookies.ie);
+        currentCookies.les.should.equal(v1Cookies.les);
+        currentCookies.sid.should.equal(v1Cookies.sid);
+        Should(currentCookies.sa).not.be.ok();
+        currentCookies.ua.gender.should.equal(v1Cookies.ua.gender);
+        currentCookies.ua.age.should.equal(v1Cookies.ua.age);
+        currentCookies.ss.uid.Expires.should.equal(v1Cookies.ss.uid.Expires);
+        currentCookies.ss.uid.Value.should.equal(v1Cookies.ss.uid.Value);
+        Array.isArray(currentCookies.ui).should.equal(true);
+
+        // test empty object
+        mParticle.reset();
+        v1Cookies = {};
+        setCookie(v1CookieKey, v1Cookies);
+
+        v1CookiesBefore = JSON.parse(findCookie(v1CookieKey));
+        Object.keys(v1CookiesBefore).length.should.equal(0);
+        mParticle.persistence.migrateCookies();
+
+        v1CookiesAfter = findCookie(v1CookieKey);
+        currentCookies = JSON.parse(findCookie(currentCookieVersion));
+
+        Should(v1CookiesAfter).not.be.ok();
+        Object.keys(currentCookies).length.should.equal(0);
+
+        // test with null
+        mParticle.reset();
+        v1Cookies = null;
+        setCookie(v1CookieKey, v1Cookies);
+
+        v1CookiesBefore = JSON.parse(findCookie(v1CookieKey));
+        (v1CookiesBefore === null).should.equal(true);
+
+        mParticle.persistence.migrateCookies();
+
+        v1CookiesAfter = findCookie(v1CookieKey);
+        currentCookies = JSON.parse(findCookie(currentCookieVersion));
+
+        Should(v1CookiesAfter).not.be.ok();
+        (currentCookies === null).should.equal(true);
+
+        done();
+    });
+
+    it('migrates cookies from v2 to current version', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        var ss = { uid: {
+            Expires:'2027-09-11T20:53:40.544516Z',
+            Value:'u=-2968710958423250133&cr=4050533&ls=4050534&lbe=4050534'
+        }};
+
+        var v2Cookies = {
+            cgid:   'a99cd390-ac20-4cc8-989a-1c8752400eba',
+            das:    '4a9f015a-b23e-4d21-94cf-604c6aecc5f2',
+            dt:     'beab3f4d34281d45bfcdbbd7eb21c083',
+            ss:     ss,
+            ie:     true,
+            les:    1505932333024,
+            sid:    '490d3ac1-7959-48fe-9aee-92f5893370e1',
+            ua:     {gender: 'male', age: 31},
+            ui:     [{Identity: 'test@test.com', Type: 5}, {Identity: '123', Type: 3}]
+        };
+        setCookie(v2CookieKey, v2Cookies);
+
+        var v2CookiesBefore = JSON.parse(findCookie(v2CookieKey));
+        v2CookiesBefore.cgid.should.equal(v2Cookies.cgid);
+
+        mParticle.persistence.migrateCookies();
+
+        var v2CookiesAfter = findCookie(v2CookieKey);
+        var currentCookies = JSON.parse(findCookie(currentCookieVersion));
+
+        Should(v2CookiesAfter).not.be.ok();
+        currentCookies.cgid.should.equal(v2Cookies.cgid);
+        currentCookies.das.should.equal(v2Cookies.das);
+        currentCookies.dt.should.equal(v2Cookies.dt);
+        currentCookies.ie.should.equal(v2Cookies.ie);
+        currentCookies.les.should.equal(v2Cookies.les);
+        currentCookies.sid.should.equal(v2Cookies.sid);
+        currentCookies.ua.gender.should.equal(v2Cookies.ua.gender);
+        currentCookies.ua.age.should.equal(v2Cookies.ua.age);
+        currentCookies.ss.uid.Expires.should.equal(v2Cookies.ss.uid.Expires);
+        currentCookies.ss.uid.Value.should.equal(v2Cookies.ss.uid.Value);
+        Array.isArray(currentCookies.ui).should.equal(true);
+
+        // test with empty object
+        mParticle.reset();
+        v2Cookies = {};
+        setCookie(v2CookieKey, v2Cookies);
+
+        v2CookiesBefore = JSON.parse(findCookie(v2CookieKey));
+        Object.keys(v2CookiesBefore).length.should.equal(0);
+
+        mParticle.persistence.migrateCookies();
+
+        v2CookiesAfter = findCookie(v2CookieKey);
+        currentCookies = JSON.parse(findCookie(currentCookieVersion));
+
+        Should(v2CookiesAfter).not.be.ok();
+        Object.keys(currentCookies).length.should.equal(0);
+
+        // test with null
+        mParticle.reset();
+        v2Cookies = null;
+        setCookie(v2CookieKey, v2Cookies);
+
+        v2CookiesBefore = JSON.parse(findCookie(v2CookieKey));
+        (v2CookiesBefore === null).should.equal(true);
+
+        mParticle.persistence.migrateCookies();
+
+        v2CookiesAfter = findCookie(v2CookieKey);
+        currentCookies = JSON.parse(findCookie(currentCookieVersion));
+
+        Should(v2CookiesAfter).not.be.ok();
+        (currentCookies === null).should.equal(true);
+
+        done();
+    });
+
+    it('migrates localStorage from v1 to current version', function(done) {
+        mParticle.reset();
+        var ss = { uid: {
+            Expires:'2027-09-11T20:53:40.544516Z',
+            Value:'u=-2968710958423250133&cr=4050533&ls=4050534&lbe=4050534'
+        }};
+
+        var v1LS = {
+            cgid:   'a99cd390-ac20-4cc8-989a-1c8752400eba',
+            das:    '4a9f015a-b23e-4d21-94cf-604c6aecc5f2',
+            dt:     'beab3f4d34281d45bfcdbbd7eb21c083',
+            ss:     ss,
+            ie:     true,
+            les:    1505932333024,
+            sid:    '490d3ac1-7959-48fe-9aee-92f5893370e1',
+            ua:     {gender: 'male', age: 31},
+            ui:     [{Identity: 'test@test.com', Type: 5}, {Identity: '123', Type: 3}]
+        };
+        setLocalStorage(v1localStorageKey, v1LS);
+
+        var v1localStorageBefore = getLocalStorage(v1localStorageKey);
+        mParticle.persistence.migrateLocalStorage();
+
+        var v1localStorageAfter = getLocalStorage(v1localStorageKey);
+        var currentLS = getLocalStorage(currentLSKey);
+
+        Should(v1localStorageAfter).not.be.ok();
+        currentLS.cgid.should.equal(v1LS.cgid);
+        currentLS.das.should.equal(v1LS.das);
+        currentLS.dt.should.equal(v1LS.dt);
+        currentLS.ie.should.equal(v1LS.ie);
+        currentLS.les.should.equal(v1LS.les);
+        currentLS.sid.should.equal(v1LS.sid);
+        currentLS.ua.gender.should.equal(v1LS.ua.gender);
+        currentLS.ua.age.should.equal(v1LS.ua.age);
+        currentLS.ss.uid.Expires.should.equal(v1LS.ss.uid.Expires);
+        currentLS.ss.uid.Value.should.equal(v1LS.ss.uid.Value);
+        Array.isArray(currentLS.ui).should.equal(true);
+
+        // test with empty object
+        mParticle.reset();
+        v1LS = {};
+        setLocalStorage(v1localStorageKey, v1LS);
+
+        v1localStorageBefore = getLocalStorage(v1localStorageKey);
+        Object.keys(v1localStorageBefore).length.should.equal(0);
+
+        mParticle.persistence.migrateLocalStorage();
+
+        v1localStorageAfter = getLocalStorage(v1localStorageKey);
+        currentLS = getLocalStorage(currentLSKey);
+
+        Should(v1localStorageAfter).not.be.ok();
+        Should(currentLS).not.be.ok();
+
+        // test with null
+        mParticle.reset();
+        v1LS = null;
+
+        setLocalStorage(v1localStorageKey, v1LS);
+
+        v1localStorageBefore = getLocalStorage(v1localStorageKey);
+        (v1localStorageBefore === null).should.equal(true);
+
+        mParticle.persistence.migrateLocalStorage();
+
+        v1localStorageAfter = getLocalStorage(v1localStorageKey);
+        currentLS = getLocalStorage(currentLSKey);
+
+        Should(v1localStorageAfter).not.be.ok();
+        (currentLS === null).should.equal(true);
+
+
+        done();
+    });
+
     it('removes any keys from persistence that do not have data', function(done) {
         var data = mParticle.persistence.getLocalStorage();
         data.should.not.have.properties(['ui', 'ua', 'av', 'pb', 'cp']);
@@ -392,6 +753,146 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('localstorage is properly base64 encoded', function(done) {
+        var ss = { uid: {
+            Expires:'2027-09-11T20:53:40.544516Z',
+            Value:'u=-2968710958423250133&cr=4050533&ls=4050534&lbe=4050534'
+        }};
+        mParticle.reset();
+
+        var cookies = {
+            cgid:   'a99cd390-ac20-4cc8-989a-1c8752400eba',
+            das:    '4a9f015a-b23e-4d21-94cf-604c6aecc5f2',
+            dt:     'test_key',
+            ie:     true,
+            les:    new Date().getTime(),
+            sid:    '490d3ac1-7959-48fe-9aee-92f5893370e1',
+            ua:     {gender: 'male', age: 31},
+            ui:     [{Identity: 'test@test.com', Type: 5}, {Identity: '123', Type: 3}, {Identity: 'abc', Type: 7}]
+        };
+        setLocalStorage(v1localStorageKey, cookies);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: apiKey,
+                Store: ss
+            }));
+        };
+
+        mParticle.init(apiKey);
+
+        var parsedV3CookiesAfterInit = findEncodedLocalStorage(currentLSKey);
+        parsedV3CookiesAfterInit.cgid.should.equal(cookies.cgid);
+        parsedV3CookiesAfterInit.das.should.equal(cookies.das);
+        parsedV3CookiesAfterInit.dt.should.equal(cookies.dt);
+        parsedV3CookiesAfterInit.ie.should.equal(1);
+        parsedV3CookiesAfterInit.dt.should.equal(cookies.dt);
+        parsedV3CookiesAfterInit.sid.should.equal(cookies.sid);
+        atob(parsedV3CookiesAfterInit.ua).should.equal(JSON.stringify(cookies.ua));
+        Object.keys(JSON.parse(atob(parsedV3CookiesAfterInit.ui))).length.should.equal(3);
+        (Array.isArray(JSON.parse(atob(parsedV3CookiesAfterInit.ui)))).should.equal(false);
+        atob(parsedV3CookiesAfterInit.ss).should.equal(JSON.stringify(ss));
+
+        (typeof JSON.parse(atob(parsedV3CookiesAfterInit.ua))).should.equal('object');
+        (typeof JSON.parse(atob(parsedV3CookiesAfterInit.ss))).should.equal('object');
+        done();
+    });
+
+    it('should encode cookie values to base64 properly', function(done) {
+        var ss = { uid: {
+            Expires:'2027-09-11T20:53:40.544516Z',
+            Value:'u=-2968710958423250133&cr=4050533&ls=4050534&lbe=4050534'
+        }};
+
+        var cookies = {
+            cgid:   'a99cd390-ac20-4cc8-989a-1c8752400eba',
+            das:    '4a9f015a-b23e-4d21-94cf-604c6aecc5f2',
+            dt:     'beab3f4d34281d45bfcdbbd7eb21c083',
+            ie:     true,
+            les:    1505932333024,
+            sid:    '490d3ac1-7959-48fe-9aee-92f5893370e1',
+            ua:     {gender: 'male', age: 31},
+            ui:     [{Identity: 'test@test.com', Type: 5}, {Identity: '123', Type: 3}],
+            uid:    {
+                Expires:'2027-09-11T20:53:40.544516Z',
+                Value:'u=-2968710958423250133&cr=4050533&ls=4050534&lbe=4050534'
+            },
+            ss:     ss
+        };
+
+        encodedCookieResult = JSON.parse(mParticle.persistence.encodeCookies(JSON.stringify(cookies)));
+        encodedCookieResult.cgid.should.equal(cookies.cgid);
+        encodedCookieResult.das.should.equal(cookies.das);
+        encodedCookieResult.dt.should.equal(cookies.dt);
+        encodedCookieResult.ie.should.equal(1);
+        encodedCookieResult.les.should.equal(cookies.les);
+        encodedCookieResult.sid.should.equal(cookies.sid);
+
+        atob(encodedCookieResult.ua).should.equal(JSON.stringify(cookies.ua));
+        Object.keys(JSON.parse(atob(encodedCookieResult.ui))).length.should.equal(2);
+        (Array.isArray(JSON.parse(atob(encodedCookieResult.ui)))).should.equal(false);
+        atob(encodedCookieResult.ss).should.equal(JSON.stringify(ss));
+
+        (typeof JSON.parse(atob(encodedCookieResult.ua))).should.equal('object');
+        (typeof JSON.parse(atob(encodedCookieResult.ss))).should.equal('object');
+        done();
+    });
+
+    it('should decode cookie values from base64 properly', function(done) {
+        var encodedCookie = {
+            cgid:   'a99cd390-ac20-4cc8-989a-1c8752400eba',
+            das:    '4a9f015a-b23e-4d21-94cf-604c6aecc5f2',
+            dt:     'beab3f4d34281d45bfcdbbd7eb21c083',
+            ie:     1,
+            les:    1505932333024,
+            sid:    '490d3ac1-7959-48fe-9aee-92f5893370e1',
+            ua:     btoa(JSON.stringify({gender: 'male', age: 31})),
+            ui:     btoa(JSON.stringify([{Identity: 'test@test.com', Type: 5}, {Identity: '123', Type: 3}])),
+            ss:     btoa(JSON.stringify({
+                uid:{
+                    Expires:'2027-09-11T20:53:40.544516Z',
+                    Value:'u=-2968710958423250133&cr=4050533&ls=4050534&lbe=4050534'
+                }
+            }))
+        };
+
+        var cookieExpected = {
+            cgid:   'a99cd390-ac20-4cc8-989a-1c8752400eba',
+            das:    '4a9f015a-b23e-4d21-94cf-604c6aecc5f2',
+            dt:     'beab3f4d34281d45bfcdbbd7eb21c083',
+            ie:     true,
+            les:    1505932333024,
+            sid:    '490d3ac1-7959-48fe-9aee-92f5893370e1',
+            ua:     {gender: 'male', age: 31},
+            ui:     [{Identity: 'test@test.com', Type: 5}, {Identity: '123', Type: 3}],
+            ss:     {
+                uid:{
+                    Expires:'2027-09-11T20:53:40.544516Z',
+                    Value:'u=-2968710958423250133&cr=4050533&ls=4050534&lbe=4050534'
+                }
+            }
+        };
+
+        decodedCookieResult = JSON.parse(mParticle.persistence.decodeCookies(JSON.stringify(encodedCookie)));
+
+        decodedCookieResult.cgid.should.equal(cookieExpected.cgid);
+        decodedCookieResult.das.should.equal(cookieExpected.das);
+        decodedCookieResult.dt.should.equal(cookieExpected.dt);
+        decodedCookieResult.ie.should.equal(true);
+        decodedCookieResult.les.should.equal(cookieExpected.les);
+        decodedCookieResult.sid.should.equal(cookieExpected.sid);
+        decodedCookieResult.ua.gender.should.equal('male');
+        decodedCookieResult.ua.age.should.equal(31);
+        decodedCookieResult.ui[0].Identity.should.equal(cookieExpected.ui[0].Identity);
+        decodedCookieResult.ui[0].Type.should.equal(cookieExpected.ui[0].Type);
+        decodedCookieResult.ui[1].Identity.should.equal(cookieExpected.ui[1].Identity);
+        decodedCookieResult.ui[1].Type.should.equal(cookieExpected.ui[1].Type);
+        Object.keys(decodedCookieResult.ui).length.should.equal(2);
+
+        done();
+    });
+
     it('should remove all server settings except for uid', function(done) {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -429,15 +930,16 @@ describe('mParticle Core SDK', function() {
         var product3 = mParticle.eCommerce.createProduct('Product3', '3', 300);
         mParticle.reset();
 
-        setLocalStorage({
+        setLocalStorage(v1localStorageKey, {
             ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}],
             cp: [product, product2],
-            pb: {default: [product3]}
+            pb: {default: [product3]},
+            ie: true
         });
 
         mParticle.init(apiKey);
 
-        var localStorage = mParticle.persistence.getLocalStorage();
+        var localStorage = getLocalStorage(currentLSKey);
 
         localStorage.should.have.properties(['ui', 'les', 'sid', 'ie', 'dt', 'cp', 'pb']);
         localStorage.cp.should.have.length(2);
@@ -457,15 +959,16 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         mParticle.useCookieStorage = true;
 
-        setLocalStorage({
+        setLocalStorage(v1localStorageKey, {
             ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}],
             cp: [product, product2],
-            pb: {default: [product3]}
+            pb: {default: [product3]},
+            ie: true
         });
 
         mParticle.init(apiKey);
 
-        var cookies = JSON.parse(mParticle.persistence.getCookie());
+        var cookies = JSON.parse(findCookie(currentCookieVersion));
 
         var localStorage = mParticle.persistence.getLocalStorage();
 
@@ -481,7 +984,8 @@ describe('mParticle Core SDK', function() {
         localStorage.should.not.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
         cookies.should.have.properties(['ui', 'les', 'sid', 'ie', 'dt']);
         cookies.should.not.have.properties(['pb', 'cp']);
-        cookies.ui.should.have.length(2);
+
+        Object.keys(cookies.ui).should.have.length(2);
 
         done();
     });
@@ -493,14 +997,16 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         mParticle.useCookieStorage = true;
 
-        setCookie({
+        setCookie(v1CookieKey, {
             ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}],
             cp: [product, product2],
-            pb: {default: [product3]}
+            pb: {default: [product3]},
+            ie: true
         });
+
         mParticle.init(apiKey);
 
-        var cookies = JSON.parse(mParticle.persistence.getCookie());
+        var cookies = JSON.parse(findCookie(currentCookieVersion));
 
         var localStorage = mParticle.persistence.getLocalStorage();
 
@@ -528,15 +1034,16 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         mParticle.useCookieStorage = true;
 
-        setLocalStorage({
+        setLocalStorage(v1localStorageKey, {
             ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}],
             cp: [product, product2],
-            pb: {default: [product3]}
+            pb: {default: [product3]},
+            ie: true
         });
 
         mParticle.init(apiKey);
 
-        var cookies = JSON.parse(mParticle.persistence.getCookie());
+        var cookies = JSON.parse(findCookie(currentCookieVersion));
 
         var localStorage = mParticle.persistence.getLocalStorage();
 
@@ -559,14 +1066,14 @@ describe('mParticle Core SDK', function() {
     it('should filter out any non string or number ids', function(done) {
         mParticle.reset();
 
-        setLocalStorage({
+        setLocalStorage(v1localStorageKey, {
             ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}, {Identity: [], Type: 1}, {Identity: {}, Type: 1}]
         });
-
         mParticle.init(apiKey);
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-        localStorageData.ui.length.should.equal(2);
+
+        Object.keys(localStorageData.ui).length.should.equal(2);
 
         done();
     });
@@ -574,14 +1081,14 @@ describe('mParticle Core SDK', function() {
     it('should filter out any multiple UIs with no IDs', function(done) {
         mParticle.reset();
 
-        setLocalStorage({
+        setLocalStorage(v1localStorageKey, {
             ui: [{Identity: 123, Type: 1}, {Type: 1}, {Type: 1}, {Type: 1}]
         });
 
         mParticle.init(apiKey);
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-        localStorageData.ui.length.should.equal(1);
+        Object.keys(localStorageData.ui).length.should.equal(1);
 
         done();
     });
@@ -628,7 +1135,7 @@ describe('mParticle Core SDK', function() {
         mParticle.reset();
         server.requests = [];
 
-        setLocalStorage({cookie: 'test'});
+        setLocalStorage(v1localStorageKey, {cookie: 'test', ie: true});
 
         mParticle.init(apiKey);
 
@@ -1270,10 +1777,10 @@ describe('mParticle Core SDK', function() {
     it('should replace existing userIdentities of the same type', function(done) {
         mParticle.reset();
 
-        setCookie({
-            ui: [{Identity: 123, Type: 0}, {Identity:123, Type: 2}]
+        setCookie(v1CookieKey, {
+            ui: [{Identity: 123, Type: 0}, {Identity:123, Type: 2}],
+            ie: true
         });
-
         mParticle.init(apiKey);
 
         mParticle.setUserIdentity(123, mParticle.IdentityType.CustomerId);
@@ -2425,7 +2932,7 @@ describe('mParticle Core SDK', function() {
     it('should pass in user identities to forwarder on initialize', function(done) {
         mParticle.reset();
 
-        setCookie({
+        setCookie(v1CookieKey, {
             ui: [{
                 Identity: 'testuser@mparticle.com',
                 Type: 1
@@ -2445,7 +2952,7 @@ describe('mParticle Core SDK', function() {
     it('should pass in user attributes to forwarder on initialize', function(done) {
         mParticle.reset();
 
-        setCookie({
+        setCookie(v1CookieKey, {
             ua: {
                 color: 'blue'
             }
@@ -3384,7 +3891,7 @@ describe('mParticle Core SDK', function() {
     it('should not generate a new device ID if a deviceId exists in localStorage', function(done) {
         mParticle.reset();
         var guid = '7b0a8d4e-b144-4259-b491-1b3cf76af453';
-        setLocalStorage({das: guid});
+        setLocalStorage(v1localStorageKey, {das: guid});
         mParticle.init(apiKey);
 
         var deviceId = mParticle.getDeviceId();
@@ -3432,9 +3939,10 @@ describe('mParticle Core SDK', function() {
         };
         mParticle.configurePixel(pixelSettings);
 
-        setLocalStorage({
+        setLocalStorage(v1localStorageKey, {
             mpid: testMPID,
-            csd: { 5: (new Date(500)).getTime() }
+            csd: { 5: (new Date(500)).getTime() },
+            ie: true
         });
 
         mParticle.init(apiKey);
@@ -3464,7 +3972,7 @@ describe('mParticle Core SDK', function() {
         mParticle.configurePixel(pixelSettings);
 
         var lastCookieSyncTime = (new Date().getTime())-5000;
-        setLocalStorage({
+        setLocalStorage(v1localStorageKey, {
             mpid: testMPID,
             csd: { 5: lastCookieSyncTime }
         });
@@ -3530,12 +4038,13 @@ describe('mParticle Core SDK', function() {
         mParticle.init(apiKey);
         var data1 = mParticle.persistence.getLocalStorage();
 
-        setLocalStorage({
-            mpid: 'differentMPID'
+        setLocalStorage(currentLSKey, {
+            mpid: btoa('differentMPID'),
+            ie: true
         });
 
         mParticle.init(apiKey);
-        var data2 = mParticle.persistence.getLocalStorage();
+        var data2 = mParticle.persistence.getLocalStorage(currentLSKey);
 
         data1.csd[5].should.not.equal(data2.csd[5]);
 
@@ -3633,21 +4142,19 @@ describe('mParticle Core SDK', function() {
 
     it('should move data from cookies to localStorage with useCookieStorage = false', function(done) {
         mParticle.reset();
-        setCookie({ui: [{Identity: 123, Type: 1}]});
-        var beforeInitCookieData = JSON.parse(mParticle.persistence.getCookie());
-
+        setCookie(v1CookieKey, {ui: [{Identity: 123, Type: 1}], ie: true});
+        var beforeInitCookieData = JSON.parse(findCookie(v1CookieKey));
         mParticle.init(apiKey);
 
         mParticle.setUserAttribute('gender', 'male');
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-        var afterInitCookieData = JSON.parse(mParticle.persistence.getCookie());
+        var afterInitCookieData = findCookie(currentCookieVersion);
 
         beforeInitCookieData.ui[0].should.have.property('Identity', 123);
         localStorageData.ua.should.have.property('gender', 'male');
-
         localStorageData.ui[0].should.have.property('Identity', 123);
-        localStorageData.ui[0].should.have.property('Type', 1);
+
         Should(afterInitCookieData).not.be.ok();
 
         done();
@@ -3655,19 +4162,22 @@ describe('mParticle Core SDK', function() {
 
     it('should move data from localStorage to cookies with useCookieStorage = true', function(done) {
         mParticle.reset();
-        setLocalStorage({
-            ui: [{Identity: 123, Type: 1}]
+        setLocalStorage(v1localStorageKey, {
+            ui: [{Identity: 123, Type: 1}],
+            ie: true
         });
 
         mParticle.useCookieStorage = true;
+
         mParticle.init(apiKey);
 
         mParticle.setUserAttribute('gender', 'male');
 
         var localStorageData = mParticle.persistence.getLocalStorage();
-        var cookieData = JSON.parse(mParticle.persistence.getCookie());
+        var cookieData = JSON.parse(findCookie(currentCookieVersion));
 
         Should(localStorageData).not.be.ok();
+
         cookieData.ua.should.have.property('gender', 'male');
         cookieData.ui[0].should.have.property('Identity', 123);
 
@@ -3787,7 +4297,7 @@ describe('mParticle Core SDK', function() {
 
         mParticle.setUserAttribute('gender', 'male');
 
-        var cookieData = JSON.parse(mParticle.persistence.getCookie());
+        var cookieData = JSON.parse(findCookie(currentCookieVersion));
 
         cookieData.ua.should.have.property('gender', 'male');
 

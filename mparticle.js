@@ -366,8 +366,7 @@
                     localStorageData = this.getLocalStorage();
                     if (localStorageData) {
                         this.storeDataInMemory(this.getLocalStorage());
-                        storage.removeItem(DefaultConfig.LocalStorageName);
-                        this.update();
+                        storage.removeItem(DefaultConfig.LocalStorageNameV3);
                     } else {
                         this.storeDataInMemory(this.getCookie());
                     }
@@ -378,9 +377,7 @@
                     // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
                     if (cookies) {
                         this.storeDataInMemory(cookies);
-                        this.expireCookies(Config.CookieName);
-                        this.expireCookies(Config.CookieNameV2);
-                        this.update();
+                        this.expireCookies(Config.CookieNameV3);
                     } else if (this.isLocalStorageAvailable) {
                         this.storeDataInMemory(this.getLocalStorage());
                     }
@@ -388,6 +385,7 @@
             } else {
                 this.storeDataInMemory(this.getCookie());
             }
+            this.update();
         },
 
         getCookieDomain: function() {
@@ -405,9 +403,8 @@
 
         update: function() {
             if (mParticle.useCookieStorage || !this.isLocalStorageAvailable) {
-                // regardless of if we set data on cookies, we place productBags and cartProducts in localStorage
                 var date = new Date(),
-                    cookieKey = Config.CookieNameV2,
+                    cookieKey = Config.CookieNameV3,
                     cookieValue = this.convertInMemoryDataForCookie(),
                     expires = new Date(date.getTime() +
                         (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
@@ -422,11 +419,12 @@
                 logDebug(InformationMessages.CookieSet);
 
                 window.document.cookie =
-                    encodeURIComponent(cookieKey) + '=' + encodeURIComponent(JSON.stringify(cookieValue)) +
+                    encodeURIComponent(cookieKey) + '=' + this.replaceCommasWithPipes(cookieValue) +
                     ';expires=' + expires +
                     ';path=/' + domain;
             }
 
+            // regardless of if we set data on cookies, we place productBags and cartProducts in localStorage
             this.setLocalStorage();
         },
 
@@ -466,19 +464,22 @@
                 mpid: mpid
             };
 
+            // for any key that has no value, remove in order to save space
             for (var key in inMemoryDataForCookie) {
                 if (inMemoryDataForCookie.hasOwnProperty(key)) {
+                    // ie will be 1 or 0, so keep it as is
+                    // if (key !== 'ie') {
                     if ((!inMemoryDataForCookie[key]) ||
-                        (typeof inMemoryDataForCookie[key] === 'string' && inMemoryDataForCookie[key].length === 0) ||
-                        (isObject(inMemoryDataForCookie[key]) && Object.keys(inMemoryDataForCookie[key]).length === 0) ||
-                        (Array.isArray(inMemoryDataForCookie[key]) && inMemoryDataForCookie[key].length === 0)) {
-
+                    (typeof inMemoryDataForCookie[key] === 'string' && inMemoryDataForCookie[key].length === 0) ||
+                    (isObject(inMemoryDataForCookie[key]) && Object.keys(inMemoryDataForCookie[key]).length === 0) ||
+                    (Array.isArray(inMemoryDataForCookie[key]) && inMemoryDataForCookie[key].length === 0)) {
                         delete inMemoryDataForCookie[key];
                     }
+                    // }
                 }
             }
 
-            return inMemoryDataForCookie;
+            return this.encodeCookies(JSON.stringify(inMemoryDataForCookie));
         },
 
         convertInMemoryDataForLocalStorage: function() {
@@ -507,29 +508,35 @@
         },
 
         setLocalStorage: function() {
-            var key = Config.LocalStorageName,
+            var key = Config.LocalStorageNameV3,
                 allPersistenceData = this.convertInMemoryDataForLocalStorage();
             if (!mParticle.useCookieStorage) {
-                allPersistenceData = extend(allPersistenceData, this.convertInMemoryDataForCookie());
+                allPersistenceData = extend(allPersistenceData, JSON.parse(this.convertInMemoryDataForCookie()));
             }
 
-            try {
-                window.localStorage.setItem(encodeURIComponent(key), encodeURIComponent(JSON.stringify(allPersistenceData)));
-            }
-            catch (e) {
-                logDebug('Error with setting localStorage item.');
+            // do not set localStorage if no keys exist
+            if (isObject(allPersistenceData) && Object.keys(allPersistenceData).length) {
+                try {
+                    window.localStorage.setItem(encodeURIComponent(key), this.replaceCommasWithPipes(JSON.stringify(allPersistenceData)));
+                }
+                catch (e) {
+                    logDebug('Error with setting localStorage item.');
+                }
             }
         },
 
         getLocalStorage: function() {
-            var key = Config.LocalStorageName,
-                localStorageData = JSON.parse(decodeURIComponent(window.localStorage.getItem(encodeURIComponent(key)))),
+            var key = Config.LocalStorageNameV3,
+                localStorageData = window.localStorage.getItem(encodeURIComponent(key)),
                 obj = {},
                 j;
 
-            for (j in localStorageData) {
-                if (localStorageData.hasOwnProperty(j)) {
-                    obj[j] = localStorageData[j];
+            if (localStorageData) {
+                localStorageData = JSON.parse(this.decodeCookies(this.replacePipesWithCommas(localStorageData)));
+                for (j in localStorageData) {
+                    if (localStorageData.hasOwnProperty(j)) {
+                        obj[j] = localStorageData[j];
+                    }
                 }
             }
 
@@ -556,10 +563,6 @@
                     sessionAttributes = obj.sa || obj.SessionAttributes || sessionAttributes;
                     userAttributes = obj.ua || obj.UserAttributes || userAttributes;
                     userIdentities = obj.ui || obj.UserIdentities || userIdentities;
-
-                    userIdentities = userIdentities.filter(function(ui) {
-                        return ui.hasOwnProperty('Identity') && (typeof(ui.Identity) === 'string' || typeof(ui.Identity) === 'number');
-                    });
                     serverSettings = obj.ss || obj.ServerSettings || serverSettings;
                     devToken = obj.dt || obj.DeveloperToken || devToken;
                     clientId = obj.cgid || generateUniqueId();
@@ -578,9 +581,6 @@
                     if (obj.csd) {
                         cookieSyncDates = obj.csd;
                     }
-                }
-                if (isEnabled !== false || isEnabled !== true) {
-                    isEnabled = true;
                 }
             }
             catch (e) {
@@ -641,10 +641,8 @@
 
         getCookie: function() {
             var cookies = window.document.cookie.split('; '),
-                v1KeyName = Config.CookieName,
-                v2KeyName = Config.CookieNameV2,
-                v1Cookie,
-                v2Cookie,
+                v3KeyName = Config.CookieNameV3,
+                decodedCookie,
                 i,
                 l,
                 parts,
@@ -655,30 +653,73 @@
 
             for (i = 0, l = cookies.length; i < l; i++) {
                 parts = cookies[i].split('=');
-                name = decoded(parts.shift());
-                cookie = decoded(parts.join('='));
+                name = parts.shift();
+                cookie = parts.join('=');
 
-                if (v1KeyName && v1KeyName === name) {
-                    v1Cookie = converted(cookie);
-                }
-
-                if (v2KeyName && v2KeyName === name) {
-                    v2Cookie = converted(cookie);
+                if (v3KeyName && v3KeyName === name) {
+                    decodedCookie = this.decodeCookies(this.replacePipesWithCommas(converted(cookie)));
                 }
             }
 
-            if (v2Cookie) {
-                if (v1Cookie) {
-                    this.expireCookies(v1KeyName);
-                }
+            if (decodedCookie) {
                 logDebug(InformationMessages.CookieFound);
-                return v2Cookie;
-            } else if (v1Cookie) {
-                return v1Cookie;
+                return decodedCookie;
             } else {
                 return null;
             }
         },
+
+        encodeCookies: function(cookie) {
+            cookie = persistence.convertUIFromArrayToObject(JSON.parse(cookie));
+            for (var key in cookie) {
+                if (cookie.hasOwnProperty(key)) {
+                    // base64 encode any value that is an object
+                    if (Base64CookieKeys[key]) {
+                        if (Object.keys(cookie[key]).length) {
+                            cookie[key] = Base64.encode(JSON.stringify(cookie[key]));
+                        } else {
+                            delete cookie[key];
+                        }
+                        // encoding as 0 or 1 saves a few bytes over true/false
+                    } else if (key === 'ie') {
+                        cookie[key] = cookie[key] ? 1 : 0;
+                    }
+                }
+            }
+
+            return JSON.stringify(cookie);
+        },
+
+        decodeCookies: function(cookie) {
+            var convertedUserIdentities = [];
+            cookie = JSON.parse(cookie);
+            if (isObject(cookie) && Object.keys(cookie).length) {
+                for (var key in cookie) {
+                    if (cookie.hasOwnProperty(key)) {
+                        if (Base64CookieKeys[key]) {
+                            cookie[key] = JSON.parse(Base64.decode(cookie[key]));
+                        } else if (key === 'ie') {
+                            cookie[key] = Boolean(cookie[key]);
+                        }
+                    }
+                }
+                if (cookie.ui && isObject(cookie.ui)) {
+                    for (var type in cookie.ui) {
+                        if (cookie.ui.hasOwnProperty(type)) {
+                            convertedUserIdentities.push({Identity: cookie.ui[type], Type: parseNumber(type)});
+                        }
+                    }
+                    if (convertedUserIdentities.length) {
+                        cookie.ui = convertedUserIdentities;
+                    } else {
+                        cookie.ui = [];
+                    }
+                }
+            }
+
+            return JSON.stringify(cookie);
+        },
+
         // This function loops through the parts of a full hostname, attempting to set a cookie on that domain. It will set a cookie at the highest level possible.
         // For example subdomain.domain.co.uk would try the following combinations:
         // "co.uk" -> fail
@@ -698,6 +739,118 @@
                 }
             }
             return '';
+        },
+
+        migratePersistence: function() {
+            this.migrateCookies();
+            this.migrateLocalStorage();
+        },
+
+        migrateCookies: function() {
+            var cookies = window.document.cookie.split('; '),
+                foundCookie,
+                i,
+                l,
+                parts,
+                name,
+                cookie,
+                date,
+                expires,
+                cookieDomain,
+                domain;
+
+            logDebug(InformationMessages.CookieSearch);
+
+            for (i = 0, l = cookies.length; i < l; i++) {
+                parts = cookies[i].split('=');
+                name = decoded(parts.shift());
+                cookie = decoded(parts.join('=')),
+                foundCookie;
+
+                // When migrating to new version in the future, use
+                if (Config.CookieNameV3 && Config.CookieNameV3 === name) {
+                    foundCookie = converted(cookie);
+                    break;
+                } else if (Config.CookieName && Config.CookieName === name) {
+                    foundCookie = converted(cookie);
+                    finishCookieMigration(foundCookie, Config.CookieName);
+                    break;
+                } else if (Config.CookieNameV2 && Config.CookieNameV2 === name) {
+                    foundCookie = converted(cookie);
+                    finishCookieMigration(foundCookie, Config.CookieNameV2);
+                    break;
+                }
+            }
+
+            function finishCookieMigration(cookie, cookieName) {
+                var encodedCookie = persistence.encodeCookies(cookie);
+                date = new Date();
+                expires = new Date(date.getTime() +
+                (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString();
+                cookieDomain = persistence.getCookieDomain();
+                if (cookieDomain === '') {
+                    domain = '';
+                } else {
+                    domain = ';domain=' + cookieDomain;
+                }
+                logDebug(InformationMessages.CookieSet);
+
+                window.document.cookie =
+                encodeURIComponent(Config.CookieNameV3) + '=' + persistence.replaceCommasWithPipes(encodedCookie) +
+                ';expires=' + expires +
+                ';path=/' + domain;
+
+                persistence.expireCookies(cookieName);
+            }
+        },
+
+        migrateLocalStorage: function() {
+            var currentVersionLSName = Config.LocalStorageNameV3,
+                v1LSName = Config.LocalStorageName,
+                currentVersionLSData = window.localStorage.getItem(currentVersionLSName),
+                v1LSData;
+
+            if (!currentVersionLSData) {
+                v1LSData = JSON.parse(decodeURIComponent(window.localStorage.getItem(v1LSName)));
+                if (isObject(v1LSData) && Object.keys(v1LSData).length) {
+                    finishLSMigration(JSON.stringify(v1LSData), v1LSName);
+                }
+                window.localStorage.removeItem(encodeURIComponent(v1LSName));
+            }
+
+            function finishLSMigration(data) {
+                data = persistence.encodeCookies(data);
+                try {
+                    window.localStorage.setItem(encodeURIComponent(Config.LocalStorageNameV3), persistence.replaceCommasWithPipes(data));
+                }
+                catch (e) {
+                    logDebug('Error with setting localStorage item.');
+                }
+            }
+        },
+
+        // replace commas in favor of pipes - cookies cannot have commas, whitespace, or semicolons - https://developer.mozilla.org/en-US/docs/Web/API/Document/cookie
+        replaceCommasWithPipes: function(string) {
+            return string.replace(/,/g, '|');
+        },
+
+        replacePipesWithCommas: function(string) {
+            return string.replace(/\|/g, ',');
+        },
+
+        // previously stored UI as an array [{Identity: 'abc@test.com', Type: 1}, {Identity: 'ABCD1234', Type: 2}]
+        // now storing as an object {1: 'abc@test.com', 2: 'ABCD1234'} to save space
+        convertUIFromArrayToObject: function(cookie) {
+            if (cookie && cookie.ui && Array.isArray(cookie.ui)) {
+                cookie.ui = cookie.ui.reduce(function(obj, ui) {
+                    if (ui.hasOwnProperty('Identity') && Validators.isStringOrNumber(ui.Identity)) {
+                        obj[ui.Type] = ui.Identity;
+                    }
+                    return obj;
+                }, {});
+            }
+
+            return cookie;
         }
     };
 
@@ -2145,6 +2298,143 @@
         return sanitizedAttrs;
     }
 
+    // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
+
+    var Base64 = {
+        _keyStr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
+
+        // Input must be a string
+        encode: function encode(input) {
+            try {
+                if (window.btoa && window.atob) {
+                    return window.btoa(input);
+                }
+            } catch (e) {
+                logDebug('Error encoding cookie values into Base64:' + e);
+            }
+            return Base64._encode(input);
+        },
+
+        _encode: function _encode(input) {
+            var output = '';
+            var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
+            var i = 0;
+
+            input = UTF8.encode(input);
+
+            while (i < input.length) {
+                chr1 = input.charCodeAt(i++);
+                chr2 = input.charCodeAt(i++);
+                chr3 = input.charCodeAt(i++);
+
+                enc1 = chr1 >> 2;
+                enc2 = (chr1 & 3) << 4 | chr2 >> 4;
+                enc3 = (chr2 & 15) << 2 | chr3 >> 6;
+                enc4 = chr3 & 63;
+
+                if (isNaN(chr2)) {
+                    enc3 = enc4 = 64;
+                } else if (isNaN(chr3)) {
+                    enc4 = 64;
+                }
+
+                output = output + Base64._keyStr.charAt(enc1) + Base64._keyStr.charAt(enc2) + Base64._keyStr.charAt(enc3) + Base64._keyStr.charAt(enc4);
+            }
+            return output;
+        },
+
+        decode: function decode(input) {
+            try {
+                if (window.btoa && window.atob) {
+                    return decodeURIComponent(escape(window.atob(input)));
+                }
+            } catch (e) {
+                //log(e);
+            }
+            return Base64._decode(input);
+        },
+
+        _decode: function _decode(input) {
+            var output = '';
+            var chr1, chr2, chr3;
+            var enc1, enc2, enc3, enc4;
+            var i = 0;
+
+            input = input.replace(/[^A-Za-z0-9\+\/\=]/g, '');
+
+            while (i < input.length) {
+                enc1 = Base64._keyStr.indexOf(input.charAt(i++));
+                enc2 = Base64._keyStr.indexOf(input.charAt(i++));
+                enc3 = Base64._keyStr.indexOf(input.charAt(i++));
+                enc4 = Base64._keyStr.indexOf(input.charAt(i++));
+
+                chr1 = enc1 << 2 | enc2 >> 4;
+                chr2 = (enc2 & 15) << 4 | enc3 >> 2;
+                chr3 = (enc3 & 3) << 6 | enc4;
+
+                output = output + String.fromCharCode(chr1);
+
+                if (enc3 !== 64) {
+                    output = output + String.fromCharCode(chr2);
+                }
+                if (enc4 !== 64) {
+                    output = output + String.fromCharCode(chr3);
+                }
+            }
+            output = UTF8.decode(output);
+            return output;
+        }
+    };
+
+
+    var UTF8 = {
+        encode: function encode(s) {
+            var utftext = '';
+
+            for (var n = 0; n < s.length; n++) {
+                var c = s.charCodeAt(n);
+
+                if (c < 128) {
+                    utftext += String.fromCharCode(c);
+                } else if (c > 127 && c < 2048) {
+                    utftext += String.fromCharCode(c >> 6 | 192);
+                    utftext += String.fromCharCode(c & 63 | 128);
+                } else {
+                    utftext += String.fromCharCode(c >> 12 | 224);
+                    utftext += String.fromCharCode(c >> 6 & 63 | 128);
+                    utftext += String.fromCharCode(c & 63 | 128);
+                }
+            }
+            return utftext;
+        },
+
+        decode: function decode(utftext) {
+            var s = '';
+            var i = 0;
+            var c = 0,
+                c1 = 0,
+                c2 = 0;
+
+            while (i < utftext.length) {
+                c = utftext.charCodeAt(i);
+                if (c < 128) {
+                    s += String.fromCharCode(c);
+                    i++;
+                } else if (c > 191 && c < 224) {
+                    c1 = utftext.charCodeAt(i + 1);
+                    s += String.fromCharCode((c & 31) << 6 | c1 & 63);
+                    i += 2;
+                } else {
+                    c1 = utftext.charCodeAt(i + 1);
+                    c2 = utftext.charCodeAt(i + 2);
+                    s += String.fromCharCode((c & 15) << 12 | (c1 & 63) << 6 | c2 & 63);
+                    i += 3;
+                }
+            }
+            return s;
+        }
+    };
+
     var MessageType = {
         SessionStart: 1,
         SessionEnd: 2,
@@ -2294,20 +2584,22 @@
     };
 
     var DefaultConfig = {
-        LocalStorageName: 'mprtcl-api', // Name of the mP localstorage data stored on the user's machine
-        CookieName: 'mprtcl-api',       // Name of the cookie stored on the user's machine
-        CookieNameV2: 'mprtcl-v2',       // Name of top level domain for cookie storage
-        CookieDomain: null, 			// If null, defaults to current location.host
-        Debug: false,					// If true, will print debug messages to browser console
-        CookieExpiration: 365,			// Cookie expiration time in days
-        Verbose: false,					// Whether the server will return verbose responses
-        IncludeReferrer: true,			// Include user's referrer
-        IncludeGoogleAdwords: true,		// Include utm_source and utm_properties
-        Timeout: 300,					// Timeout in milliseconds for logging functions
-        SessionTimeout: 30,				// Session timeout in minutes
-        Sandbox: false,                 // Events are marked as debug and only forwarded to debug forwarders,
-        Version: null,                  // The version of this website/app
-        MaxProducts: 20     // Number of products persisted in
+        LocalStorageName: 'mprtcl-api',     // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
+        LocalStorageNameV3: 'mprtcl-v3',    // v2 Name of the mP localstorage (Base64 encoded cp and pb)
+        CookieName: 'mprtcl-api',           // Name of the cookie stored on the user's machine
+        CookieNameV2: 'mprtcl-v2',          // v2 Name of the cookie stored on the user's machine. Removed keys with no values, moved cartProducts and productBags to localStorage.
+        CookieNameV3: 'mprtcl-v3',          // v3 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object.
+        CookieDomain: null, 			    // If null, defaults to current location.host
+        Debug: false,					    // If true, will print debug messages to browser console
+        CookieExpiration: 365,			    // Cookie expiration time in days
+        Verbose: false,					    // Whether the server will return verbose responses
+        IncludeReferrer: true,			    // Include user's referrer
+        IncludeGoogleAdwords: true,		    // Include utm_source and utm_properties
+        Timeout: 300,					    // Timeout in milliseconds for logging functions
+        SessionTimeout: 30,				    // Session timeout in minutes
+        Sandbox: false,                     // Events are marked as debug and only forwarded to debug forwarders,
+        Version: null,                      // The version of this website/app
+        MaxProducts: 20                     // Number of products persisted in
     };
 
     var Config = {};
@@ -2386,6 +2678,14 @@
         Refund: 8,
         AddToWishlist: 9,
         RemoveFromWishlist: 10
+    };
+
+    var Base64CookieKeys = {
+        ss: 1,
+        ui: 1,
+        ua: 1,
+        sa: 1,
+        csd: 1
     };
 
     ProductActionType.getName = function(id) {
@@ -2546,7 +2846,6 @@
         initialize: function() {
             if (sessionId) {
                 var sessionTimeoutInSeconds = Config.SessionTimeout * 60000;
-
                 if (new Date() > new Date(dateLastEventSent.getTime() + sessionTimeoutInSeconds)) {
                     this.endSession();
                     this.startNewSession();
@@ -2646,6 +2945,9 @@
 
             // Set configuration to default settings
             mergeConfig({});
+
+            persistence.migratePersistence();
+
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
             if (persistence.getCookie() === null && persistence.getLocalStorage() === null) {
                 isFirstRun = true;
@@ -2653,7 +2955,7 @@
                 isFirstRun = false;
             }
 
-            // Load any settings/identities/attributes from cookie or localStorage
+            // Load any settings/identities/attributes from persistence
             persistence.initializeStorage();
             deviceId = persistence.retrieveDeviceId();
 
@@ -2700,6 +3002,7 @@
             stopTracking();
             devToken = null;
             sessionId = null;
+            dateLastEventSent = null;
             appName = null;
             appVersion = null;
             sessionAttributes = {};
@@ -2715,15 +3018,18 @@
             mergeConfig({});
             persistence.expireCookies(DefaultConfig.CookieName);
             persistence.expireCookies(DefaultConfig.CookieNameV2);
+            persistence.expireCookies(DefaultConfig.CookieNameV3);
 
             if (persistence.isLocalStorageAvailable) {
                 localStorage.removeItem(DefaultConfig.LocalStorageName);
+                localStorage.removeItem(DefaultConfig.LocalStorageNameV3);
             }
 
             mParticle.sessionManager.resetSessionTimer();
 
             isInitialized = false;
         },
+
         ready: function(f) {
             if (isInitialized && typeof f === 'function') {
                 f();
