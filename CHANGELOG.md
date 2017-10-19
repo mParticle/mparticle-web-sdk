@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.0.11 - 2017-10-19
+*  Modularize Types, Constants, Helpers, DTO, Identity, Ecommerce
+*  Reorganize tests
+
 #### 2.0.10 - 2017-10-17
 *  Bugfix - Execute useLocalStorage method
 
