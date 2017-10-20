@@ -352,38 +352,48 @@
         isLocalStorageAvailable: null,
 
         initializeStorage: function() {
-            var cookies,
-                storage,
-                localStorageData;
+            var storage;
             // Check to see if localStorage is available and if not, always use cookies
             this.isLocalStorageAvailable = persistence.determineLocalStorageAvailability();
 
             if (this.isLocalStorageAvailable) {
+                var localStorageData = this.getLocalStorage(),
+                    cookieString = this.getCookie(),
+                    allData;
+
                 storage = window.localStorage;
                 if (mParticle.useCookieStorage) {
                     // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
                     // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
-                    localStorageData = this.getLocalStorage();
                     if (localStorageData) {
-                        this.storeDataInMemory(this.getLocalStorage());
+                        if (cookieString) {
+                            allData = extend(false, localStorageData, JSON.parse(cookieString));
+                        } else {
+                            allData = localStorageData;
+                        }
                         storage.removeItem(DefaultConfig.LocalStorageNameV3);
-                    } else {
-                        this.storeDataInMemory(this.getCookie());
+                    } else if (cookieString) {
+                        allData = JSON.parse(cookieString);
                     }
+                    this.storeDataInMemory(allData);
                 }
                 else {
-                    cookies = this.getCookie();
                     // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
                     // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
-                    if (cookies) {
-                        this.storeDataInMemory(cookies);
+                    if (cookieString) {
+                        if (localStorageData) {
+                            allData = extend(false, localStorageData, JSON.parse(cookieString));
+                        } else {
+                            allData = JSON.parse(cookieString);
+                        }
+                        this.storeDataInMemory(allData);
                         this.expireCookies(Config.CookieNameV3);
-                    } else if (this.isLocalStorageAvailable) {
-                        this.storeDataInMemory(this.getLocalStorage());
+                    } else {
+                        this.storeDataInMemory(localStorageData);
                     }
                 }
             } else {
-                this.storeDataInMemory(this.getCookie());
+                this.storeDataInMemory(JSON.parse(this.getCookie()));
             }
             this.update();
         },
@@ -547,19 +557,15 @@
             return null;
         },
 
-        storeDataInMemory: function(result) {
-            var obj;
-
+        storeDataInMemory: function(obj) {
             try {
-                obj = typeof result === 'string' ? JSON.parse(result) : result;
-
                 if (!obj) {
                     clientId = generateUniqueId();
                     logDebug(InformationMessages.CookieNotFound);
                 } else {
                     // Longer names are for backwards compatibility
                     sessionId = obj.sid || obj.SessionId || sessionId;
-                    isEnabled = (typeof obj.ie !== 'undefined') ? obj.ie : obj.IsEnabled;
+                    isEnabled = (typeof obj.ie !== 'undefined') ? obj.ie : obj.IsEnabled || isEnabled;
                     sessionAttributes = obj.sa || obj.SessionAttributes || sessionAttributes;
                     userAttributes = obj.ua || obj.UserAttributes || userAttributes;
                     userIdentities = obj.ui || obj.UserIdentities || userIdentities;

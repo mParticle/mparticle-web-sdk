@@ -2740,7 +2740,6 @@ describe('mParticle Core SDK', function() {
         mParticle.EventType.getName(mParticle.EventType.UserContent).should.equal('User Content');
         mParticle.EventType.getName(mParticle.EventType.UserPreference).should.equal('User Preference');
         mParticle.EventType.getName(mParticle.EventType.Social).should.equal('Social');
-        mParticle.EventType.getName(mParticle.EventType.Media).should.equal('Media');
         mParticle.EventType.getName(mParticle.CommerceEventType.ProductAddToCart).should.equal('Product Added to Cart');
         mParticle.EventType.getName(mParticle.CommerceEventType.ProductAddToWishlist).should.equal('Product Added to Wishlist');
         mParticle.EventType.getName(mParticle.CommerceEventType.ProductCheckout).should.equal('Product Checkout');
@@ -4275,14 +4274,6 @@ describe('mParticle Core SDK', function() {
 
         userIdentity1.should.have.property('Type', 1);
         userIdentity1.should.have.property('Identity', 'objData');
-
-        var stringData = '{"ui":[{"Identity":"stringData","Type":2}]}';
-        mParticle.persistence.storeDataInMemory(stringData);
-
-        var userIdentity2 = mParticle.getUserIdentity('stringData');
-
-        userIdentity2.should.have.property('Type', 2);
-        userIdentity2.should.have.property('Identity', 'stringData');
 
         done();
     });
