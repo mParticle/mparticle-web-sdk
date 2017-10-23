@@ -461,7 +461,7 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should keep localStorage where it is if ', function(done) {
+    it('should properly encode and decode cookies with quotes or apostrophes in them', function(done) {
         mParticle.reset();
         mParticle.useCookieStorage = true;
         var ss = JSON.parse('{"uid":{"Expires":"2027-10-18T15:46:16.050348Z","Value":"g=6fec7bbe-49d6-4f7c-a55e-3928e10cb88a&u=-6701723382044991600&cr=4103506"}}');
@@ -485,34 +485,17 @@ describe('mParticle Core SDK', function() {
             mpid:'test_key'
         };
 
-        window.document.cookie = 'mprtcl-v3=' + mParticle.persistence.replaceCommasWithPipes(JSON.stringify(cookie)) + ';path=/;domain=;';
+        window.document.cookie = 'mprtcl-v3=' + mParticle.persistence.replaceCommasWithPipes(JSON.stringify(cookie)) + ';path=/;domain=".localhost";';
 
         mParticle.init(apiKey);
+        mParticle.setUserAttribute('motto', '\"great!');
+        mParticle.setUserIdentity('\'bob', 1);
+        mParticle.setSessionAttribute('color', '\'green');
+        var cookies = JSON.parse(mParticle.persistence.getCookie());
+        cookies.ua.motto.should.equal('\"great!');
+        cookies.ui[0].Identity.should.equal('\'bob');
+        cookies.sa.color.should.equal('\'green');
 
-        var product = mParticle.eCommerce.createProduct('Product', '1', 100);
-        var product2 = mParticle.eCommerce.createProduct('Product2', '2', 200);
-
-        mParticle.eCommerce.Cart.add(product);
-        mParticle.eCommerce.ProductBags.add('bag1', product2);
-        mParticle.init(apiKey);
-        var localStorageAfter = getLocalStorage(currentLSKey);
-
-        cookiesAfter2 = findCookieFromWindow(currentCookieVersion);
-
-        cookiesAfter2.indexOf('"').should.equal(-1);
-        cookiesAfter2.indexOf('\'').should.equal(1);
-        var cookiesAfter2Parsed = JSON.parse(findCookie(currentCookieVersion));
-
-        cookiesAfter2Parsed.sid.should.equal(cookie.sid);
-        cookiesAfter2Parsed.ie.should.equal(true);
-        btoa(JSON.stringify(cookiesAfter2Parsed.ss)).should.equal(cookie.ss);
-        cookiesAfter2Parsed.dt.should.equal(cookie.dt);
-        cookiesAfter2Parsed.cgid.should.equal(cookie.cgid);
-        cookiesAfter2Parsed.das.should.equal(cookie.das);
-        cookiesAfter2Parsed.mpid.should.equal(cookie.mpid);
-
-        localStorageAfter.cp[0].Name.should.equal(product.Name);
-        localStorageAfter.pb.bag1[0].Name.should.equal(product2.Name);
         done();
     });
 
@@ -914,6 +897,7 @@ describe('mParticle Core SDK', function() {
     });
 
     it('should encode cookie values to base64 properly', function(done) {
+        var mp = mParticle.persistence;
         var ss = { uid: {
             Expires:'2027-09-11T20:53:40.544516Z',
             Value:'u=-2968710958423250133&cr=4050533&ls=4050534&lbe=4050534'
@@ -935,7 +919,8 @@ describe('mParticle Core SDK', function() {
             ss:     ss
         };
 
-        encodedCookieResult = JSON.parse(mParticle.persistence.encodeCookies(JSON.stringify(cookies)));
+        encodedCookieResult = JSON.parse(mp.replacePipesWithCommas(mp.replaceApostrophesWithQuotes(mp.encodeCookies(JSON.stringify(cookies)))));
+
         encodedCookieResult.cgid.should.equal(cookies.cgid);
         encodedCookieResult.das.should.equal(cookies.das);
         encodedCookieResult.dt.should.equal(cookies.dt);
@@ -1202,6 +1187,7 @@ describe('mParticle Core SDK', function() {
         cookies2.cgid.should.equal(cookies1.cgid);
         cookies2.das.should.equal(cookies1.das);
         cookies2.mpid.should.equal(cookies1.mpid);
+        cookies2.ie.should.equal(cookies1.ie);
         localStorage2.cp[0].Name.should.equal(product.Name);
 
         done();
