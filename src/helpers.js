@@ -1,5 +1,6 @@
-var Messages = require('./constants').Messages,
-    Types = require('./types'),
+var Types = require('./types'),
+    Constants = require('./constants'),
+    Messages = Constants.Messages,
     MP = require('./mp'),
     pluses = /\+/g,
     serviceScheme = window.location.protocol + '//';
@@ -351,6 +352,20 @@ function sanitizeAttributes(attrs) {
     return sanitizedAttrs;
 }
 
+function mergeConfig(config) {
+    logDebug(Messages.InformationMessages.LoadingConfig);
+
+    for (var prop in Constants.DefaultConfig) {
+        if (Constants.DefaultConfig.hasOwnProperty(prop)) {
+            MP.Config[prop] = Constants.DefaultConfig[prop];
+        }
+
+        if (config.hasOwnProperty(prop)) {
+            MP.Config[prop] = config[prop];
+        }
+    }
+}
+
 var Validators = {
     isValidAttributeValue: function(value) {
         return value !== undefined && !isObject(value) && !Array.isArray(value);
@@ -455,5 +470,6 @@ module.exports = {
     parseNumber: parseNumber,
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
+    mergeConfig:mergeConfig,
     Validators: Validators
 };

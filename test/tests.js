@@ -641,7 +641,9 @@ describe('mParticle', function() {
 
         it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
             mParticle.reset();
-            mParticle.persistence.determineLocalStorageAvailability = function() { return false; };
+            mParticle.persistence.determineLocalStorageAvailability = function() {
+                return false;
+            };
 
             mParticle.useCookieStorage = false;
 
@@ -894,25 +896,6 @@ describe('mParticle', function() {
             user1RelogInData.mpid1.ua.should.have.property('test2', 'test2');
             user1RelogInData.mpid1.ua.should.have.property('test3', 'test3');
 
-
-            done();
-        });
-
-        it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', function(done) {
-            mParticle.reset();
-            mParticle.persistence.determineLocalStorageAvailability = function() { return false; };
-
-            mParticle.useCookieStorage = false;
-
-            mParticle.init(apiKey);
-
-            mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-
-            var cookieData = mParticle.persistence.getCookie();
-
-            cookieData[testMPID].ua.should.have.property('gender', 'male');
-
-            mParticle.persistence.determineLocalStorageAvailability = function() { return true; };
 
             done();
         });
