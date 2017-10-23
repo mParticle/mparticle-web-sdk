@@ -5,8 +5,10 @@ describe('mParticle Core SDK', function() {
         testMPID = 'testMPID',
         v1CookieKey = v1localStorageKey = 'mprtcl-api',
         v2CookieKey = 'mprtcl-v2',
-        currentCookieVersion = 'mprtcl-v3',
-        currentLSKey = 'mprtcl-v3',
+        v3CookieKey = 'mprtcl-v3',
+        v3LSKey = 'mprtcl-v3',
+        currentCookieVersion = v3CookieKey,
+        currentLSKey = v3LSKey,
         ProductBag = 'my bag',
         pluses = /\+/g,
         decoded = function decoded(s) {
@@ -23,10 +25,10 @@ describe('mParticle Core SDK', function() {
             if (cookieName === currentCookieVersion) {
                 return mParticle.persistence.getCookie();
             } else {
-                return findEncodedCookie(cookieName);
+                return findCookieFromWindow(cookieName);
             }
         },
-        findEncodedCookie = function(cookieName) {
+        findCookieFromWindow = function(cookieName) {
             var cookies = document.cookie.split('; ');
             for (i = 0, l = cookies.length; i < l; i++) {
                 var parts = cookies[i].split('=');
@@ -77,7 +79,7 @@ describe('mParticle Core SDK', function() {
             }
         },
         findEncodedLocalStorage = function(name) {
-            return JSON.parse(mParticle.persistence.replacePipesWithCommas(decodeURIComponent(localStorage.getItem(encodeURIComponent(name)))));
+            return JSON.parse(mParticle.persistence.replacePipesWithCommas(mParticle.persistence.replaceApostrophesWithQuotes(decodeURIComponent(localStorage.getItem(encodeURIComponent(name))))));
         },
         getEvent = function(eventName, isForwarding) {
             var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
@@ -399,6 +401,118 @@ describe('mParticle Core SDK', function() {
         mParticle.persistence.replaceCommasWithPipes(commas).should.equal(pipes);
         mParticle.persistence.replacePipesWithCommas(pipes).should.equal(commas);
 
+        done();
+    });
+
+    it('properly replaces quotes with apostrophes, and apostrophes with quotes', function(done) {
+        var quotes = '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+        var apostrophes = '{\'cgid\':\'abc\'|\'das\':\'def\'|\'dt\':\'hij\'|\'ie\':true|\'les\':1505932333024|\'sid\':\'klm\'}';
+
+        mParticle.persistence.replaceApostrophesWithQuotes(apostrophes).should.equal(quotes);
+        mParticle.persistence.replaceQuotesWithApostrophes(quotes).should.equal(apostrophes);
+
+        done();
+    });
+
+    it('should properly migrate cookies with quotes to cookies with apostrophes', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        var ss = JSON.parse('{"uid":{"Expires":"2027-10-18T15:46:16.050348Z","Value":"g=6fec7bbe-49d6-4f7c-a55e-3928e10cb88a&u=-6701723382044991600&cr=4103506"}}');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: apiKey,
+                Store: ss
+            }));
+        };
+
+        var cookie = {
+            sid:'af559317-7e88-491f-9e4a-2d493dedcefc',
+            ie:1,
+            ss:'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTAtMThUMTU6NDY6MTYuMDUwMzQ4WiIsIlZhbHVlIjoiZz02ZmVjN2JiZS00OWQ2LTRmN2MtYTU1ZS0zOTI4ZTEwY2I4OGEmdT0tNjcwMTcyMzM4MjA0NDk5MTYwMCZjcj00MTAzNTA2In19',
+            dt:'test_key',
+            les:new Date().getTime(),
+            cgid:'17e7ab9e-8e13-4481-a3a0-ca85fb8189a1',
+            das:'6fec7bbe-49d6-4f7c-a55e-3928e10cb88a',
+            mpid:'test_key'
+        };
+
+        window.document.cookie = 'mprtcl-v3=' + mParticle.persistence.replaceCommasWithPipes(JSON.stringify(cookie)) + ';path=/;domain=;';
+
+        // set cookies with quotes directly on window.  should not have apostrophes.
+        var cookiesBefore = findCookieFromWindow(currentCookieVersion);
+        cookiesBefore.indexOf('"').should.equal(1);
+        cookiesBefore.indexOf('\'').should.equal(-1);
+        mParticle.init(apiKey);
+
+        // after init, quotes should be turned into apostrophes
+        var cookiesAfter = findCookieFromWindow(currentCookieVersion);
+        cookiesAfter.indexOf('"').should.equal(-1);
+        cookiesAfter.indexOf('\'').should.equal(1);
+        var cookiesAfterParsed = JSON.parse(findCookie(currentCookieVersion));
+        cookiesAfterParsed.sid.should.equal(cookie.sid);
+        cookiesAfterParsed.ie.should.equal(true);
+        btoa(JSON.stringify(cookiesAfterParsed.ss)).should.equal(cookie.ss);
+        cookiesAfterParsed.dt.should.equal(cookie.dt);
+        cookiesAfterParsed.cgid.should.equal(cookie.cgid);
+        cookiesAfterParsed.das.should.equal(cookie.das);
+        cookiesAfterParsed.mpid.should.equal(cookie.mpid);
+        done();
+    });
+
+    it('should keep localStorage where it is if ', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        var ss = JSON.parse('{"uid":{"Expires":"2027-10-18T15:46:16.050348Z","Value":"g=6fec7bbe-49d6-4f7c-a55e-3928e10cb88a&u=-6701723382044991600&cr=4103506"}}');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: apiKey,
+                Store: ss
+            }));
+        };
+
+        var cookie = {
+            sid:'af559317-7e88-491f-9e4a-2d493dedcefc',
+            ie:1,
+            ss:'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTAtMThUMTU6NDY6MTYuMDUwMzQ4WiIsIlZhbHVlIjoiZz02ZmVjN2JiZS00OWQ2LTRmN2MtYTU1ZS0zOTI4ZTEwY2I4OGEmdT0tNjcwMTcyMzM4MjA0NDk5MTYwMCZjcj00MTAzNTA2In19',
+            dt:'test_key',
+            les:new Date().getTime(),
+            cgid:'17e7ab9e-8e13-4481-a3a0-ca85fb8189a1',
+            das:'6fec7bbe-49d6-4f7c-a55e-3928e10cb88a',
+            mpid:'test_key'
+        };
+
+        window.document.cookie = 'mprtcl-v3=' + mParticle.persistence.replaceCommasWithPipes(JSON.stringify(cookie)) + ';path=/;domain=;';
+
+        mParticle.init(apiKey);
+
+        var product = mParticle.eCommerce.createProduct('Product', '1', 100);
+        var product2 = mParticle.eCommerce.createProduct('Product2', '2', 200);
+
+        mParticle.eCommerce.Cart.add(product);
+        mParticle.eCommerce.ProductBags.add('bag1', product2);
+        mParticle.init(apiKey);
+        var localStorageAfter = getLocalStorage(currentLSKey);
+
+        cookiesAfter2 = findCookieFromWindow(currentCookieVersion);
+
+        cookiesAfter2.indexOf('"').should.equal(-1);
+        cookiesAfter2.indexOf('\'').should.equal(1);
+        var cookiesAfter2Parsed = JSON.parse(findCookie(currentCookieVersion));
+
+        cookiesAfter2Parsed.sid.should.equal(cookie.sid);
+        cookiesAfter2Parsed.ie.should.equal(true);
+        btoa(JSON.stringify(cookiesAfter2Parsed.ss)).should.equal(cookie.ss);
+        cookiesAfter2Parsed.dt.should.equal(cookie.dt);
+        cookiesAfter2Parsed.cgid.should.equal(cookie.cgid);
+        cookiesAfter2Parsed.das.should.equal(cookie.das);
+        cookiesAfter2Parsed.mpid.should.equal(cookie.mpid);
+
+        localStorageAfter.cp[0].Name.should.equal(product.Name);
+        localStorageAfter.pb.bag1[0].Name.should.equal(product2.Name);
         done();
     });
 
@@ -1059,6 +1173,36 @@ describe('mParticle Core SDK', function() {
         localStorage.should.not.have.properties(['ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss']);
         cookies.should.have.properties(['ui', 'les', 'sid', 'ie', 'dt']);
         cookies.should.not.have.properties(['pb', 'cp']);
+
+        done();
+    });
+
+    it('should retain all cookie and local storage data when refreshing with localStorage data', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        mParticle.init(apiKey);
+
+        var cookies1 = JSON.parse(mParticle.persistence.getCookie());
+
+        var localStorage1 = mParticle.persistence.getLocalStorage();
+
+        Should(cookies1).be.ok();
+        Should(localStorage1).not.be.ok();
+        var product = mParticle.eCommerce.createProduct('Product', '1', 100);
+        mParticle.setUserAttribute('gender', 'female');
+        mParticle.setUserIdentity('asdf', 1);
+        mParticle.eCommerce.Cart.add(product);
+        mParticle.init(apiKey);
+
+        var cookies2 = JSON.parse(mParticle.persistence.getCookie());
+        var localStorage2 = mParticle.persistence.getLocalStorage();
+
+        cookies2.sid.should.equal(cookies1.sid);
+        cookies2.dt.should.equal(cookies1.dt);
+        cookies2.cgid.should.equal(cookies1.cgid);
+        cookies2.das.should.equal(cookies1.das);
+        cookies2.mpid.should.equal(cookies1.mpid);
+        localStorage2.cp[0].Name.should.equal(product.Name);
 
         done();
     });

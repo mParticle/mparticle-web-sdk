@@ -429,7 +429,7 @@
                 logDebug(InformationMessages.CookieSet);
 
                 window.document.cookie =
-                    encodeURIComponent(cookieKey) + '=' + this.replaceCommasWithPipes(cookieValue) +
+                    encodeURIComponent(cookieKey) + '=' + this.replaceCommasWithPipes(this.replaceQuotesWithApostrophes(cookieValue)) +
                     ';expires=' + expires +
                     ';path=/' + domain;
             }
@@ -527,7 +527,7 @@
             // do not set localStorage if no keys exist
             if (isObject(allPersistenceData) && Object.keys(allPersistenceData).length) {
                 try {
-                    window.localStorage.setItem(encodeURIComponent(key), this.replaceCommasWithPipes(JSON.stringify(allPersistenceData)));
+                    window.localStorage.setItem(encodeURIComponent(key), this.replaceCommasWithPipes(this.replaceQuotesWithApostrophes(JSON.stringify(allPersistenceData))));
                 }
                 catch (e) {
                     logDebug('Error with setting localStorage item.');
@@ -542,7 +542,7 @@
                 j;
 
             if (localStorageData) {
-                localStorageData = JSON.parse(this.decodeCookies(this.replacePipesWithCommas(localStorageData)));
+                localStorageData = JSON.parse(this.decodeCookies(this.replacePipesWithCommas(this.replaceApostrophesWithQuotes(localStorageData))));
                 for (j in localStorageData) {
                     if (localStorageData.hasOwnProperty(j)) {
                         obj[j] = localStorageData[j];
@@ -663,7 +663,7 @@
                 cookie = parts.join('=');
 
                 if (v3KeyName && v3KeyName === name) {
-                    decodedCookie = this.decodeCookies(this.replacePipesWithCommas(converted(cookie)));
+                    decodedCookie = this.decodeCookies(this.replacePipesWithCommas(this.replaceApostrophesWithQuotes(converted(cookie))));
                 }
             }
 
@@ -763,6 +763,7 @@
                 date,
                 expires,
                 cookieDomain,
+                encode = true,
                 domain;
 
             logDebug(InformationMessages.CookieSearch);
@@ -775,21 +776,28 @@
 
                 // When migrating to new version in the future, use
                 if (Config.CookieNameV3 && Config.CookieNameV3 === name) {
-                    foundCookie = converted(cookie);
+                    if (cookie.indexOf('"') !== -1) {
+                        encode = false;
+                        foundCookie = persistence.replacePipesWithCommas(cookie);
+                        finishCookieMigration(foundCookie, encode);
+                    }
                     break;
                 } else if (Config.CookieName && Config.CookieName === name) {
                     foundCookie = converted(cookie);
-                    finishCookieMigration(foundCookie, Config.CookieName);
+                    finishCookieMigration(foundCookie, encode, Config.CookieName);
                     break;
                 } else if (Config.CookieNameV2 && Config.CookieNameV2 === name) {
                     foundCookie = converted(cookie);
-                    finishCookieMigration(foundCookie, Config.CookieNameV2);
+                    finishCookieMigration(foundCookie, encode, Config.CookieNameV2);
                     break;
                 }
             }
 
-            function finishCookieMigration(cookie, cookieName) {
-                var encodedCookie = persistence.encodeCookies(cookie);
+            function finishCookieMigration(cookie, encode, cookieName) {
+                var encodedCookie = cookie;
+                if (encode) {
+                    encodedCookie = persistence.encodeCookies(cookie);
+                }
                 date = new Date();
                 expires = new Date(date.getTime() +
                 (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString();
@@ -801,12 +809,14 @@
                 }
                 logDebug(InformationMessages.CookieSet);
 
-                window.document.cookie =
-                encodeURIComponent(Config.CookieNameV3) + '=' + persistence.replaceCommasWithPipes(encodedCookie) +
+                window.document.cookie = Config.CookieNameV3 + '=' +
+                persistence.replaceCommasWithPipes(persistence.replaceQuotesWithApostrophes(encodedCookie)) +
                 ';expires=' + expires +
                 ';path=/' + domain;
 
-                persistence.expireCookies(cookieName);
+                if (cookieName) {
+                    persistence.expireCookies(cookieName);
+                }
             }
         },
 
@@ -827,7 +837,7 @@
             function finishLSMigration(data) {
                 data = persistence.encodeCookies(data);
                 try {
-                    window.localStorage.setItem(encodeURIComponent(Config.LocalStorageNameV3), persistence.replaceCommasWithPipes(data));
+                    window.localStorage.setItem(encodeURIComponent(Config.LocalStorageNameV3), persistence.replaceCommasWithPipes(persistence.replaceQuotesWithApostrophes(data)));
                 }
                 catch (e) {
                     logDebug('Error with setting localStorage item.');
@@ -842,6 +852,14 @@
 
         replacePipesWithCommas: function(string) {
             return string.replace(/\|/g, ',');
+        },
+
+        replaceApostrophesWithQuotes: function(string) {
+            return string.replace(/\'/g, '"');
+        },
+
+        replaceQuotesWithApostrophes: function(string) {
+            return string.replace(/\"/g, '\'');
         },
 
         // previously stored UI as an array [{Identity: 'abc@test.com', Type: 1}, {Identity: 'ABCD1234', Type: 2}]
