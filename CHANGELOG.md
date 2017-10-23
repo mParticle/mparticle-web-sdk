@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.0.12 - 2017-10-23
+*  Complete modularization of SDK
+
 #### 2.0.11 - 2017-10-19
 *  Modularize Types, Constants, Helpers, DTO, Identity, Ecommerce
 *  Reorganize tests
