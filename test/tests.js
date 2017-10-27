@@ -1578,7 +1578,7 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
-    it('should remove products to cart', function(done) {
+    it('should remove products from cart', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
         mParticle.eCommerce.Cart.add(product);
@@ -1590,6 +1590,58 @@ describe('mParticle Core SDK', function() {
         data.pd.should.have.property('an', ProductActionType.RemoveFromCart);
         data.pd.should.have.property('pl').with.lengthOf(1);
         data.pd.pl[0].should.have.property('id', '12345');
+
+        done();
+    });
+
+    it('should update cookies properly after each product add/removal from cart', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        mParticle.init(apiKey);
+        var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
+        var product2 = mParticle.eCommerce.createProduct('Android', '12345', 400);
+        var product3 = mParticle.eCommerce.createProduct('Windows', '12345', 400);
+
+        mParticle.eCommerce.Cart.add(product1);
+        mParticle.eCommerce.Cart.add(product2);
+        mParticle.eCommerce.Cart.add(product3);
+
+        var cartProducts1 = getLocalStorage(currentLSKey).cp;
+        cartProducts1.length.should.equal(3);
+
+        mParticle.eCommerce.Cart.remove(product3);
+        var cartProducts2 = getLocalStorage(currentLSKey).cp;
+        cartProducts2.length.should.equal(2);
+
+        mParticle.eCommerce.Cart.remove(product3);
+        var cartProducts3 = getLocalStorage(currentLSKey).cp;
+        cartProducts3.length.should.equal(1);
+
+        mParticle.eCommerce.Cart.remove(product3);
+        Should(getLocalStorage(currentLSKey)).not.be.ok();
+
+        mParticle.reset();
+        mParticle.useCookieStorage = false;
+
+        mParticle.init(apiKey);
+
+        mParticle.eCommerce.Cart.add(product1);
+        mParticle.eCommerce.Cart.add(product2);
+        mParticle.eCommerce.Cart.add(product3);
+
+        cartProducts1 = getLocalStorage(currentCookieVersion).cp;
+        cartProducts1.length.should.equal(3);
+
+        mParticle.eCommerce.Cart.remove(product3);
+        cartProducts2 = getLocalStorage(currentCookieVersion).cp;
+        cartProducts2.length.should.equal(2);
+
+        mParticle.eCommerce.Cart.remove(product3);
+        cartProducts3 = getLocalStorage(currentCookieVersion).cp;
+        cartProducts3.length.should.equal(1);
+
+        mParticle.eCommerce.Cart.remove(product3);
+        getLocalStorage(currentLSKey).should.not.have.property('cp');
 
         done();
     });

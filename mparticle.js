@@ -519,11 +519,10 @@
             var key = Config.LocalStorageNameV3,
                 allPersistenceData = this.convertInMemoryDataForLocalStorage();
             if (!mParticle.useCookieStorage) {
-                allPersistenceData = extend(allPersistenceData, JSON.parse(this.convertInMemoryDataForCookie()));
+                allPersistenceData = extend(true, {}, allPersistenceData, JSON.parse(this.convertInMemoryDataForCookie()));
             }
 
-            // do not set localStorage if no keys exist
-            if (isObject(allPersistenceData) && Object.keys(allPersistenceData).length) {
+            if (isObject(allPersistenceData)) {
                 try {
                     window.localStorage.setItem(encodeURIComponent(key), this.encodeCookies(JSON.stringify(allPersistenceData)));
                 }
