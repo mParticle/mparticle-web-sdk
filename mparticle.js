@@ -1356,19 +1356,28 @@
 
     function convertProductToDTO(product) {
         return {
-            id: product.Sku,
-            nm: product.Name,
+            id: parseStringOrNumber(product.Sku),
+            nm: parseStringOrNumber(product.Name),
             pr: parseNumber(product.Price),
             qt: parseNumber(product.Quantity),
-            br: product.Brand,
-            va: product.Variant,
-            ca: product.Category,
+            br: parseStringOrNumber(product.Brand),
+            va: parseStringOrNumber(product.Variant),
+            ca: parseStringOrNumber(product.Category),
             ps: parseNumber(product.Position),
-            cc: product.CouponCode,
+            cc: parseStringOrNumber(product.CouponCode),
             tpa: parseNumber(product.TotalAmount),
             attrs: product.Attributes
         };
     }
+
+    function parseStringOrNumber(value) {
+        if (Validators.isStringOrNumber(value)) {
+            return value;
+        } else {
+            return null;
+        }
+    }
+
 
     function parseNumber(value) {
         if (isNaN(value) || !isFinite(value)) {
