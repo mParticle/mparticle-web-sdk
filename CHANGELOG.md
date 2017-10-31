@@ -1,6 +1,12 @@
 ## Releases
 --
 
+#### 1.15.1 - 2017-11-01
+*  Extend cookies and localStorage data when storing in memory
+*  Add parseStringOrNumber function to sanitize attributes in convertProductToDTO
+*  Replace quotes in cookies with apostrophes
+*  Update localStorage even if there are no keys
+
 #### 1.15.0 - 2017-10-18
 *  Reduce cookie size further by encoding certain keys to base64
 
