@@ -2610,6 +2610,301 @@ describe('mParticle Core SDK', function() {
         done();
     });
 
+    it('should send event to forwarder if filtering attribute and includingOnMatch is true', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        var filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender'),
+            userAttributeValue: mParticle.generateHash('male'),
+            includeOnMatch: true
+        };
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        forwarder.filteringUserAttributeValue = filteringUserAttributeValue;
+
+        mParticle.configureForwarder(forwarder);
+
+        mParticle.init(apiKey);
+
+        mParticle.setUserAttribute('Gender', 'Male');
+
+        mParticle.logEvent('test event');
+
+        var event = mockForwarder.instance.receivedEvent;
+        event.should.have.property('UserAttributes');
+        event.UserAttributes.should.have.property('Gender', 'Male');
+        event.EventName.should.equal('test event');
+
+        done();
+    });
+
+    it('should not send event to forwarder if filtering attribute and includingOnMatch is false', function(done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        var filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender'),
+            userAttributeValue: mParticle.generateHash('male'),
+            includeOnMatch: false
+        };
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        forwarder.filteringUserAttributeValue = filteringUserAttributeValue;
+
+        mParticle.configureForwarder(forwarder);
+
+        mParticle.init(apiKey);
+
+        mParticle.setUserAttribute('Gender', 'Male');
+        //reset received event, which will have the initial session start event on it
+        mockForwarder.instance.receivedEvent = null;
+
+        mParticle.logEvent('test event');
+        var event = mockForwarder.instance.receivedEvent;
+        Should(event).not.be.ok();
+
+        done();
+    });
+
+    it('should send event to forwarder if there are no user attributes on event if includeOnMatch = false', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        var filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender'),
+            userAttributeValue: mParticle.generateHash('male'),
+            includeOnMatch: false
+        };
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        forwarder.filteringUserAttributeValue = filteringUserAttributeValue;
+
+        mParticle.configureForwarder(forwarder);
+
+        mParticle.init(apiKey);
+
+        mParticle.logEvent('test event');
+
+        var event = mockForwarder.instance.receivedEvent;
+        mockForwarder.instance.receivedEvent.EventName.should.equal('test event');
+        Should(event).be.ok();
+
+        done();
+    });
+
+    it('should not send event to forwarder if there are no user attributes on event if includeOnMatch = true', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        var filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender'),
+            userAttributeValue: mParticle.generateHash('male'),
+            includeOnMatch: true
+        };
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        forwarder.filteringUserAttributeValue = filteringUserAttributeValue;
+
+        mParticle.configureForwarder(forwarder);
+
+        mParticle.init(apiKey);
+
+        mParticle.logEvent('test event');
+
+        var event = mockForwarder.instance.receivedEvent;
+        Should(event).not.be.ok();
+
+        done();
+    });
+
+    it('should send event to forwarder if there is no match and includeOnMatch = false', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        var filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender'),
+            userAttributeValue: mParticle.generateHash('male'),
+            includeOnMatch: false
+        };
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        forwarder.filteringUserAttributeValue = filteringUserAttributeValue;
+
+        mParticle.configureForwarder(forwarder);
+
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('gender', 'female');
+        mParticle.logEvent('test event');
+
+        var event = mockForwarder.instance.receivedEvent;
+        Should(event).be.ok();
+        event.EventName.should.equal('test event');
+
+        done();
+    });
+
+    it('should not send event to forwarder if there is no match and includeOnMatch = true', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        var filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender'),
+            userAttributeValue: mParticle.generateHash('male'),
+            includeOnMatch: true
+        };
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        forwarder.filteringUserAttributeValue = filteringUserAttributeValue;
+
+        mParticle.configureForwarder(forwarder);
+
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('gender', 'female');
+        mParticle.logEvent('test event');
+
+        var event = mockForwarder.instance.receivedEvent;
+        Should(event).not.be.ok();
+
+        done();
+    });
+
+    it('should send event to forwarder if the filterinUserAttribute object is invalid', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        var filteringUserAttributeValue = undefined;
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        forwarder.filteringUserAttributeValue = filteringUserAttributeValue;
+
+        mParticle.configureForwarder(forwarder);
+
+        mParticle.init(apiKey);
+        mParticle.setUserAttribute('Gender', 'Male');
+
+        mParticle.logEvent('test event');
+        var event = mockForwarder.instance.receivedEvent;
+
+        Should(event).be.ok();
+        mockForwarder.instance.receivedEvent.EventName.should.equal('test event');
+
+        done();
+    });
+
     it('should filter user identities from forwarder', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();

@@ -984,6 +984,46 @@
                     }
                 }
             },
+            filterUserAttributeValues = function(event, filterObject) {
+                var attrHash,
+                    valueHash,
+                    match = false;
+
+                try {
+                    if (event.UserAttributes && isObject(event.UserAttributes) && Object.keys(event.UserAttributes).length) {
+                        if (filterObject && isObject(filterObject) && Object.keys(filterObject).length) {
+                            for (var attrName in event.UserAttributes) {
+                                if (event.UserAttributes.hasOwnProperty(attrName)) {
+                                    attrHash = generateHash(attrName);
+                                    valueHash = generateHash(event.UserAttributes[attrName]);
+
+                                    if ((attrHash === filterObject.userAttributeName) && (valueHash === filterObject.userAttributeValue)) {
+                                        match = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (match) {
+                        if (filterObject.includeOnMatch) {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    } else {
+                        if (filterObject.includeOnMatch) {
+                            return false;
+                        } else {
+                            return true;
+                        }
+                    }
+                } catch (e) {
+                    // in any error scenario, err on side of returning true and forwarding event
+                    return true;
+                }
+            },
             filterUserIdentities = function(event, filterList) {
                 if (event.UserIdentities && event.UserIdentities.length) {
                     event.UserIdentities.forEach(function(userIdentity, i) {
@@ -1104,7 +1144,15 @@
                 // Check user attribute filtering rules
                 filterUserAttributes(clonedEvent, forwarders[i].userAttributeFilters);
 
+                // Check user attribute value filtering rules
+                if (forwarders[i].filteringUserAttributeValue && Object.keys(forwarders[i].filteringUserAttributeValue).length) {
+                    if (!filterUserAttributeValues(clonedEvent, forwarders[i].filteringUserAttributeValue)) {
+                        break;
+                    }
+                }
+
                 logDebug('Sending message to forwarder: ' + forwarders[i].name);
+
                 var result = forwarders[i].process(clonedEvent);
 
                 if (result) {
@@ -3754,6 +3802,7 @@
                         newForwarder.userAttributeFilters = config.userAttributeFilters;
 
                         newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
+                        newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
 
                         forwarders.push(newForwarder);
                         break;
