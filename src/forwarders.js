@@ -98,6 +98,46 @@ function sendEventToForwarders(event) {
                 }
             }
         },
+        filterUserAttributeValues = function(event, filterObject) {
+            var attrHash,
+                valueHash,
+                match = false;
+
+            try {
+                if (event.UserAttributes && Helpers.isObject(event.UserAttributes) && Object.keys(event.UserAttributes).length) {
+                    if (filterObject && Helpers.isObject(filterObject) && Object.keys(filterObject).length) {
+                        for (var attrName in event.UserAttributes) {
+                            if (event.UserAttributes.hasOwnProperty(attrName)) {
+                                attrHash = Helpers.generateHash(attrName);
+                                valueHash = Helpers.generateHash(event.UserAttributes[attrName]);
+
+                                if ((attrHash === filterObject.userAttributeName) && (valueHash === filterObject.userAttributeValue)) {
+                                    match = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (match) {
+                    if (filterObject.includeOnMatch) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    if (filterObject.includeOnMatch) {
+                        return false;
+                    } else {
+                        return true;
+                    }
+                }
+            } catch (e) {
+                // in any error scenario, err on side of returning true and forwarding event
+                return true;
+            }
+        },
         filterUserIdentities = function(event, filterList) {
             if (event.UserIdentities && event.UserIdentities.length) {
                 event.UserIdentities.forEach(function(userIdentity, i) {
@@ -218,6 +258,13 @@ function sendEventToForwarders(event) {
 
             // Check user attribute filtering rules
             filterUserAttributes(clonedEvent, MP.forwarders[i].userAttributeFilters);
+
+            // Check user attribute value filtering rules
+            if (MP.forwarders[i].filteringUserAttributeValue && Object.keys(MP.forwarders[i].filteringUserAttributeValue).length) {
+                if (!filterUserAttributeValues(clonedEvent, MP.forwarders[i].filteringUserAttributeValue)) {
+                    break;
+                }
+            }
 
             Helpers.logDebug('Sending message to forwarder: ' + MP.forwarders[i].name);
             var result = MP.forwarders[i].process(clonedEvent);

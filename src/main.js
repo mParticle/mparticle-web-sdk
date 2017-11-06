@@ -590,6 +590,7 @@ var Polyfill = require('./polyfill'),
                         newForwarder.userAttributeFilters = config.userAttributeFilters;
 
                         newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
+                        newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
 
                         MP.forwarders.push(newForwarder);
                         break;
