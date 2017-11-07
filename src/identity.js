@@ -468,6 +468,7 @@ function parseIdentityResponse(xhr, copyAttributes, previousMPID, callback, iden
         if (xhr.status === 200) {
             if (method === 'modify') {
                 MP.userIdentities = IdentityRequest.modifyUserIdentities(MP.userIdentities, identityApiData.userIdentities);
+                Persistence.update();
             } else {
                 identityApiResult = JSON.parse(xhr.responseText);
 

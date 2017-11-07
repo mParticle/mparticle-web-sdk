@@ -5234,6 +5234,30 @@ describe('mParticle', function() {
 
             done();
         });
+
+        it('should update cookies after modifying identities', function(done) {
+            var user = {
+                userIdentities: {
+                    customerid: 'customerId1'
+                }
+            };
+
+            var modifiedUser = {
+                userIdentities: {
+                    customerid: 'customerId2'
+                }
+            };
+
+            mParticle.Identity.login(user);
+            mParticle.Identity.modify(modifiedUser);
+
+            var cookie = mParticle.persistence.getLocalStorage();
+            cookie.testMPID.ui.customerid.should.equal('customerId2');
+
+            done();
+        });
+
+
     });
 
     after(function() {
