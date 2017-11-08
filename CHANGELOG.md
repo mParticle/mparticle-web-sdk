@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 1.15.2 - 2017-11-08
+*  Add support for filtering user attribute values
+*  Refactor and reorganize tests for readability
+
 #### 1.15.1 - 2017-11-01
 *  Extend cookies and localStorage data when storing in memory
 *  Add parseStringOrNumber function to sanitize attributes in convertProductToDTO
