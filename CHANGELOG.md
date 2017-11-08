@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.0.13 - 2017-11-08
+*  Add support for filtering user attribute values
+*  Update persistence after a modify call
+
 #### 2.0.12 - 2017-10-23
 *  Complete modularization of SDK
 
