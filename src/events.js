@@ -42,12 +42,12 @@ function send(event) {
 
     var validUserIdentities = [];
 
-    // convert userIdentities which are strings to their number counterpart for DTO and event forwarding
+    // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
     if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
         for (var key in event.UserIdentities) {
             var userIdentity = {};
-            userIdentity.Type = Types.IdentityType.getIdentityType(key);
             userIdentity.Identity = event.UserIdentities[key];
+            userIdentity.Type = Helpers.parseNumber(key);
             validUserIdentities.push(userIdentity);
         }
         event.UserIdentities = validUserIdentities;
@@ -73,7 +73,7 @@ function send(event) {
             if (xhr) {
                 try {
                     xhr.open('post', Helpers.createServiceUrl(Constants.secureServiceUrl, Constants.serviceUrl, MP.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.productsBags, MP.currencyCode)));
+                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.productBags, MP.currencyCode)));
 
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         Forwarders.sendEventToForwarders(event);

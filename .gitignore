@@ -2,3 +2,5 @@ node_modules/
 .vscode/
 test-bundle.js
 out/
+build/mParticle-dev.js
+build/mParticle.js

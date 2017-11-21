@@ -62,16 +62,16 @@ function convertProductToDTO(product) {
     };
 }
 
-function convertProductBagToDTO(productsBags) {
+function convertProductBagToDTO(productBags) {
     var convertedBag = {},
         list;
 
-    for (var prop in productsBags) {
-        if (!productsBags.hasOwnProperty(prop)) {
+    for (var prop in productBags) {
+        if (!productBags.hasOwnProperty(prop)) {
             continue;
         }
 
-        list = productsBags[prop].map(function(item) {
+        list = productBags[prop].map(function(item) {
             return convertProductToDTO(item);
         });
 
@@ -112,7 +112,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             Debug: mParticle.isDevelopmentMode,
             Location: MP.currentPosition,
             OptOut: optOut,
-            ProductBags: MP.productsBags,
+            ProductBags: MP.productBags,
             ExpandedEventCount: 0,
             CustomFlags: customFlags,
             AppVersion: MP.appVersion,
@@ -135,7 +135,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
     return null;
 }
 
-function convertEventToDTO(event, isFirstRun, productsBags, currencyCode) {
+function convertEventToDTO(event, isFirstRun, productBags, currencyCode) {
     var dto = {
         n: event.EventName,
         et: event.EventCategory,
@@ -172,7 +172,7 @@ function convertEventToDTO(event, isFirstRun, productsBags, currencyCode) {
         convertCustomFlags(event, dto);
     }
 
-    dto.pb = convertProductBagToDTO(productsBags);
+    dto.pb = convertProductBagToDTO(productBags);
 
     if (event.EventDataType === MessageType.Commerce) {
         dto.cu = currencyCode;

@@ -6,13 +6,25 @@
   "scripts": {
     "test": "node test/runner.js",
     "testKarma": "node test/test-karma.js",
-    "lint": "eslint mparticle.js test/tests.js",
-    "watch": "watchify src/main.js -v -o build/mParticle.js --debug"
+    "testBuild": "watchify test/tests.js -v -o test/test-bundle.js --debug",
+    "watch": "watchify src/main.js -v -o build/mParticle-dev.js --debug"
   },
   "pre-commit": [
     "lint"
   ],
+  "browserify": {
+      "transform": [
+          "aliasify"
+      ]
+  },
+  "aliasify": {
+    "aliases": {
+        ".": "./src",
+        "test": "./test"
+    }
+  },
   "devDependencies": {
+    "aliasify": "^2.1.0",
     "browser-sync": "^2.18.5",
     "browserify": "^14.3.0",
     "chai": "^4.1.1",

@@ -17,7 +17,7 @@
 
 #### 1.14.1 - 2017-06-22
 *  Fixes for cookie syncing. Properly cookie sync when MPID changes, and only perform a cookie sync when debug modes for defined pixel and mParticle match
-*  Store productsBags and cartProducts to cookies, with config option to change number of products allowed in each (config.maxProducts = 20 by default)
+*  Store productBags and cartProducts to cookies, with config option to change number of products allowed in each (config.maxProducts = 20 by default)
 *  Prevent setUserIdentity from accepting booleans
 *  Clean up code - Add additional validations, convert remaining == to ===
 

@@ -470,6 +470,6 @@ module.exports = {
     parseNumber: parseNumber,
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
-    mergeConfig:mergeConfig,
+    mergeConfig: mergeConfig,
     Validators: Validators
 };

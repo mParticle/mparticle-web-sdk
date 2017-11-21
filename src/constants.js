@@ -24,7 +24,6 @@ var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
             BadKey: 'Key value cannot be object or array',
             BadLogPurchase: 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions'
         },
-
         InformationMessages: {
             CookieSearch: 'Searching for cookie',
             CookieFound: 'Cookie found, parsing values',
@@ -51,7 +50,6 @@ var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
             NoSessionToEnd: 'Cannot end session, no active session found'
         }
     },
-
     NativeSdkPaths = {
         LogEvent: 'logEvent',
         SetUserTag: 'setUserTag',
@@ -75,21 +73,40 @@ var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
         Login: 'login',
         Modify: 'modify'
     },
-
     DefaultConfig = {
-        LocalStorageName: 'mprtcl-api', // Name of the mP localstorage data stored on the user's machine
-        CookieName: 'mprtcl-api',       // Name of the cookie stored on the user's machine
-        CookieDomain: null, 			// If null, defaults to current location.host
-        Debug: false,					// If true, will print debug messages to browser console
-        CookieExpiration: 365,			// Cookie expiration time in days
-        Verbose: false,					// Whether the server will return verbose responses
-        IncludeReferrer: true,			// Include user's referrer
-        IncludeGoogleAdwords: true,		// Include utm_source and utm_properties
-        Timeout: 300,					// Timeout in milliseconds for logging functions
-        SessionTimeout: 30,				// Session timeout in minutes
-        Sandbox: false,                 // Events are marked as debug and only forwarded to debug forwarders,
-        Version: null,                  // The version of this website/app
-        MaxProducts: 20                 // Number of products persisted in
+        LocalStorageName: 'mprtcl-api',             // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
+        LocalStorageNameV3: 'mprtcl-v3',            // v3 Name of the mP localstorage, final version on SDKv1
+        LocalStorageNameV4: 'mprtcl-v4',            // v4 Name of the mP localstorage, Current Version
+        LocalStorageProductsV4: 'mprtcl-prodv4',    // The name for mP localstorage that contains products for cartProducs and productBags
+        CookieName: 'mprtcl-api',                   // v1 Name of the cookie stored on the user's machine
+        CookieNameV2: 'mprtcl-v2',                  // v2 Name of the cookie stored on the user's machine. Removed keys with no values, moved cartProducts and productBags to localStorage.
+        CookieNameV3: 'mprtcl-v3',                  // v3 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, final version on SDKv1
+        CookieNameV4: 'mprtcl-v4',                  // v4 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, current version on SDK v2
+        CookieDomain: null, 			            // If null, defaults to current location.host
+        Debug: false,					            // If true, will print debug messages to browser console
+        CookieExpiration: 365,			            // Cookie expiration time in days
+        Verbose: false,					            // Whether the server will return verbose responses
+        IncludeReferrer: true,			            // Include user's referrer
+        IncludeGoogleAdwords: true,		            // Include utm_source and utm_properties
+        Timeout: 300,					            // Timeout in milliseconds for logging functions
+        SessionTimeout: 30,				            // Session timeout in minutes
+        Sandbox: false,                             // Events are marked as debug and only forwarded to debug forwarders,
+        Version: null,                              // The version of this website/app
+        MaxProducts: 20                             // Number of products persisted in cartProducts and productBags
+    },
+    Base64CookieKeys = {
+        csm: 1,
+        sa: 1,
+        ss: 1,
+        ua: 1,
+        ui: 1,
+        csd: 1
+    },
+    SDKv2NonMPIDCookieKeys = {
+        gs: 1,
+        cu: 1,
+        globalSettings: 1,
+        currentUserMPID: 1
     };
 
 module.exports = {
@@ -104,5 +121,7 @@ module.exports = {
     RESERVED_KEY_LTV: RESERVED_KEY_LTV,
     Messages: Messages,
     NativeSdkPaths: NativeSdkPaths,
-    DefaultConfig: DefaultConfig
+    DefaultConfig: DefaultConfig,
+    Base64CookieKeys:Base64CookieKeys,
+    SDKv2NonMPIDCookieKeys: SDKv2NonMPIDCookieKeys
 };

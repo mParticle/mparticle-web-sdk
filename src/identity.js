@@ -17,18 +17,6 @@ var Identity = {
             Persistence.storeDataInMemory(cookies, currentMPID);
             Persistence.update();
         }
-    },
-    migrate: function(isFirstRun) {
-        var cookies = Persistence.useLocalStorage ? Persistence.getLocalStorage() : Persistence.getCookie();
-        // migration occurs when it is not the first run and there is no currentUserMPID on the cookie
-        if (!isFirstRun && cookies && !cookies.currentUserMPID) {
-            if (Persistence.useLocalStorage) {
-                Persistence.removeLocalStorage();
-            } else {
-                Persistence.expireCookies();
-            }
-            Persistence.update();
-        }
     }
 };
 
@@ -137,7 +125,7 @@ var IdentityRequest = {
         var modifiedUserIdentities = {};
 
         for (var key in newUserIdentities) {
-            modifiedUserIdentities[key] = newUserIdentities[key];
+            modifiedUserIdentities[Types.IdentityType.getIdentityType(key)] = newUserIdentities[key];
         }
 
         for (key in previousUserIdentities) {
@@ -238,13 +226,12 @@ var IdentityAPI = {
 var mParticleUser = {
     getUserIdentities: function() {
         var currentUserIdentities = {};
-        if (Array.isArray(MP.userIdentities)) {
-            MP.userIdentities.map(function(identity) {
-                currentUserIdentities[identity.type] = identity.id;
-            });
-        } else {
-            currentUserIdentities = MP.userIdentities;
+        for (var type in MP.userIdentities) {
+            if (MP.userIdentities.hasOwnProperty(type)) {
+                currentUserIdentities[Types.IdentityType.getIdentityName(Helpers.parseNumber(type))] = MP.userIdentities[type];
+            }
         }
+
         return {
             userIdentities: currentUserIdentities
         };
@@ -512,8 +499,6 @@ function parseIdentityResponse(xhr, copyAttributes, previousMPID, callback, iden
                 if (Object.keys(MP.migrationData).length) {
                     MP.userIdentities = MP.migrationData.userIdentities || {};
                     MP.userAttributes = MP.migrationData.userAttributes || {};
-                    MP.cartProducts = MP.migrationData.cartProducts || [];
-                    MP.productsBags = MP.migrationData.productsBags || {};
                     MP.cookieSyncDates = MP.migrationData.cookieSyncDates || {};
                 } else {
                     if (identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length) {
@@ -549,11 +534,16 @@ function checkCookieForMPID(currentMPID) {
     var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
     if (cookies && !cookies[currentMPID]) {
         Persistence.storeDataInMemory(null, currentMPID);
+        MP.cartProducts = [];
+        MP.productBags = {};
     } else if (cookies) {
+        var products = JSON.parse(localStorage.getItem(Constants.DefaultConfig.LocalStorageProductsV4));
+        if (products && products[currentMPID]) {
+            MP.cartProducts = JSON.parse(products[currentMPID]).cp;
+            MP.productBags = JSON.parse(products[currentMPID]).pb;
+        }
         MP.userIdentities = cookies[currentMPID].ui ? cookies[currentMPID].ui : MP.userIdentities;
         MP.userAttributes = cookies[currentMPID].ua ? cookies[currentMPID].ua : MP.userAttributes;
-        MP.cartProducts = cookies[currentMPID].cp ? cookies[currentMPID].cp : MP.cartProducts;
-        MP.productsBags = cookies[currentMPID].pb ? cookies[currentMPID].pb : MP.productsBags;
         MP.cookieSyncDates = cookies[currentMPID].csd ? cookies[currentMPID].csd : MP.cookieSyncDates;
     }
 }

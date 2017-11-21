@@ -28,6 +28,7 @@ var Polyfill = require('./polyfill'),
     Events = require('./events'),
     Messages = Constants.Messages,
     Validators = Helpers.Validators,
+    Migrations = require('./migrations'),
     Forwarders = require('./forwarders'),
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
@@ -67,6 +68,7 @@ var Polyfill = require('./polyfill'),
         sessionManager: SessionManager,
         cookieSyncManager: CookieSyncManager,
         persistence: Persistence,
+        migrations: Migrations,
         Identity: IdentityAPI,
         Validators: Validators,
         _Identity: Identity,
@@ -84,34 +86,14 @@ var Polyfill = require('./polyfill'),
 
             // Set configuration to default settings
             Helpers.mergeConfig({});
-            // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
-            if (!Persistence.getCookie() && !Persistence.getLocalStorage()) {
-                MP.isFirstRun = true;
-                MP.mpid = 0;
-            } else {
-                MP.isFirstRun = false;
-            }
+
+            // Migrate any cookies from previous versions to current cookie version
+            Migrations.migrate();
 
             // Load any settings/identities/attributes from cookie or localStorage
             Persistence.initializeStorage();
-            /* Previous cookies only contained data from 1 MPID. New schema now holds multiple MPIDs and keys in memory data off latest MPID
-            Previous cookie schema: { ui: [], ua: {} ...}
-            Current cookie schema: {
-                currentUserMPID: 'mpid1',
-                mpid1: {
-                    ui: [],
-                    ua: {},
-                    ...
-                },
-                mpid2: {
-                    ui: [],
-                    ua: {},
-                    ...
-                },
-            }
-            */
-            MP.deviceId = Persistence.retrieveDeviceId();
 
+            MP.deviceId = Persistence.retrieveDeviceId();
             // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
             if ((Helpers.isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
                 MP.initialIdentifyRequest = {
@@ -122,7 +104,6 @@ var Polyfill = require('./polyfill'),
             }
 
             Forwarders.initForwarders(MP.initialIdentifyRequest);
-            Identity.migrate(MP.isFirstRun);
 
             if (arguments && arguments.length) {
                 if (arguments.length > 1 && typeof arguments[1] === 'object') {
@@ -168,7 +149,7 @@ var Polyfill = require('./polyfill'),
             MP.forwarders = [];
             MP.forwarderConstructors = [];
             MP.pixelConfigurations = [];
-            MP.productsBags = {};
+            MP.productBags = {};
             MP.cartProducts = [];
             MP.serverSettings = null;
             MP.mpid = null;
@@ -181,14 +162,10 @@ var Polyfill = require('./polyfill'),
             MP.readyQueue = [];
             Helpers.mergeConfig({});
             MP.migrationData = {};
-            MP.identityCallInFlight = false,
-            MP.initialIdentifyRequest = null,
-
-            Persistence.expireCookies();
-            if (Persistence.isLocalStorageAvailable) {
-                localStorage.removeItem('mprtcl-api');
-            }
+            MP.identityCallInFlight = false;
+            MP.initialIdentifyRequest = null;
             mParticle.sessionManager.resetSessionTimer();
+            Persistence.resetPersistence();
 
             MP.isInitialized = false;
         },
@@ -334,14 +311,14 @@ var Polyfill = require('./polyfill'),
                         return;
                     }
                     mParticle.sessionManager.resetSessionTimer();
-                    if (!MP.productsBags[productBagName]) {
-                        MP.productsBags[productBagName] = [];
+                    if (!MP.productBags[productBagName]) {
+                        MP.productBags[productBagName] = [];
                     }
 
-                    MP.productsBags[productBagName].push(product);
+                    MP.productBags[productBagName].push(product);
 
-                    if (MP.productsBags[productBagName].length > mParticle.maxProducts) {
-                        Helpers.logDebug(productBagName + ' contains ' + MP.productsBags[productBagName].length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
+                    if (MP.productBags[productBagName].length > mParticle.maxProducts) {
+                        Helpers.logDebug(productBagName + ' contains ' + MP.productBags[productBagName].length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
                     }
                     Persistence.update();
 
@@ -351,15 +328,15 @@ var Polyfill = require('./polyfill'),
                     mParticle.sessionManager.resetSessionTimer();
                     var productIndex = -1;
 
-                    if (MP.productsBags[productBagName]) {
-                        MP.productsBags[productBagName].forEach(function(productBagItem, i) {
+                    if (MP.productBags[productBagName]) {
+                        MP.productBags[productBagName].forEach(function(productBagItem, i) {
                             if (productBagItem.sku === product.sku) {
                                 productIndex = i;
                             }
                         });
 
                         if (productIndex > -1) {
-                            MP.productsBags[productBagName].splice(productIndex, 1);
+                            MP.productBags[productBagName].splice(productIndex, 1);
                         }
                         Persistence.update();
                     }
@@ -367,7 +344,7 @@ var Polyfill = require('./polyfill'),
                 },
                 clear: function(productBagName) {
                     mParticle.sessionManager.resetSessionTimer();
-                    MP.productsBags[productBagName] = [];
+                    MP.productBags[productBagName] = [];
                     Persistence.update();
 
                     Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearProductBag, productBagName);
