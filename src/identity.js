@@ -445,7 +445,6 @@ function sendIdentityRequest(identityApiRequest, method, callback, copyAttribute
 function parseIdentityResponse(xhr, copyAttributes, previousMPID, callback, identityApiData, method) {
     var identityApiResult;
     MP.identityCallInFlight = false;
-
     try {
         Helpers.logDebug('Parsing identity response from server');
         if (xhr.responseText) {
@@ -537,10 +536,10 @@ function checkCookieForMPID(currentMPID) {
         MP.cartProducts = [];
         MP.productBags = {};
     } else if (cookies) {
-        var products = JSON.parse(localStorage.getItem(Constants.DefaultConfig.LocalStorageProductsV4));
+        var products = Persistence.decodeProducts();
         if (products && products[currentMPID]) {
-            MP.cartProducts = JSON.parse(products[currentMPID]).cp;
-            MP.productBags = JSON.parse(products[currentMPID]).pb;
+            MP.cartProducts = products[currentMPID].cp;
+            MP.productBags = products[currentMPID].pb;
         }
         MP.userIdentities = cookies[currentMPID].ui ? cookies[currentMPID].ui : MP.userIdentities;
         MP.userAttributes = cookies[currentMPID].ua ? cookies[currentMPID].ua : MP.userAttributes;

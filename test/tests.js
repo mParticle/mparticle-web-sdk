@@ -12,7 +12,7 @@ describe('mParticle', function() {
         ProductBag = 'my bag',
         pluses = /\+/g,
         getLocalStorageProducts = function getLocalStorageProducts() {
-            return JSON.parse(localStorage.getItem(LocalStorageProductsV4));
+            return JSON.parse(atob(localStorage.getItem(LocalStorageProductsV4)));
         },
         decoded = function decoded(s) {
             return decodeURIComponent(s.replace(pluses, ' '));
@@ -25,16 +25,12 @@ describe('mParticle', function() {
             return s;
         },
         getCookieDomain = function() {
-            // if (MP.Config.CookieDomain) {
-                // return MP.Config.CookieDomain;
-            // } else {
             var rootDomain = getDomain(document, location.hostname);
             if (rootDomain === '') {
                 return '';
             } else {
                 return '.' + rootDomain;
             }
-            // }
         },
         getDomain = function(doc, locationHostname) {
             var i,
@@ -431,12 +427,19 @@ describe('mParticle', function() {
 
         var SDKv2CookieV1 = '%7B%22globalSettings%22%3A%7B%22currentSessionMPIDs%22%3A%5B%228179891178059554209%22%2C%224573473690267104222%22%5D%2C%22sid%22%3A%22294c8c34-328a-4285-9590-9014af35c843%22%2C%22ie%22%3Atrue%2C%22sa%22%3A%7B%22sa1%22%3A%22value1%22%7D%2C%22ss%22%3A%7B%7D%2C%22dt%22%3A%22' + apiKey + '%22%2C%22les%22%3A' + les + '%2C%22av%22%3Anull%2C%22cgid%22%3A%22d19cf18e-fda3-4e75-976d-a9a7028f33bc%22%2C%22das%22%3A%229c9ddd32-5873-4dfd-8221-0d31a16f6a27%22%2C%22c%22%3A%22%22%7D%2C%228179891178059554209%22%3A%7B%22ua%22%3A%7B%22ua1%22%3A%22value1%22%7D%2C%22ui%22%3A%7B%22email%22%3A%22test%40email.com%22%2C%22customerid%22%3A%22customerid1%22%7D%2C%22csd%22%3A%7B%225%22%3A123123%7D%2C%22mpid%22%3A%228179891178059554209%22%2C%22cp%22%3A%5B%7B%22Name%22%3A%22iPhone%22%2C%22Sku%22%3A%22SKU1%22%2C%22Price%22%3A1%2C%22Quantity%22%3A1%2C%22TotalAmount%22%3A1%7D%2C%7B%22Name%22%3A%22Android%22%2C%22Sku%22%3A%22SKU2%22%2C%22Price%22%3A1%2C%22Quantity%22%3A1%2C%22TotalAmount%22%3A1%7D%5D%2C%22pb%22%3A%7B%22pbtest%22%3A%5B%7B%22Name%22%3A%22HTC%22%2C%22Sku%22%3A%22SKU3%22%2C%22Price%22%3A1%2C%22Quantity%22%3A1%2C%22TotalAmount%22%3A1%7D%5D%7D%7D%2C%22currentUserMPID%22%3A%224573473690267104222%22%2C%224573473690267104222%22%3A%7B%22ua%22%3A%7B%22ua1%22%3A%22value2%22%7D%2C%22ui%22%3A%7B%22email%22%3A%22test2%40email.com%22%2C%22customerid%22%3A%22customerid2%22%7D%2C%22csd%22%3A%7B%225%22%3A123123%7D%2C%22mpid%22%3A%224573473690267104222%22%2C%22cp%22%3A%5B%7B%22Name%22%3A%22iPhone%22%2C%22Sku%22%3A%22SKU1%22%2C%22Price%22%3A1%2C%22Quantity%22%3A1%2C%22TotalAmount%22%3A1%7D%2C%7B%22Name%22%3A%22Android%22%2C%22Sku%22%3A%22SKU2%22%2C%22Price%22%3A1%2C%22Quantity%22%3A1%2C%22TotalAmount%22%3A1%7D%5D%2C%22pb%22%3A%7B%22pbtest%22%3A%5B%7B%22Name%22%3A%22HTC%22%2C%22Sku%22%3A%22SKU3%22%2C%22Price%22%3A1%2C%22Quantity%22%3A1%2C%22TotalAmount%22%3A1%7D%5D%7D%7D%7D';
 
+        var SDKv1CookieV3FullLSApostrophes = "{'cp':[{'Name':'iPhone'|'Sku':'SKU1'|'Price':1|'Quantity':1|'TotalAmount':1|'Attributes':null}|{'Name':'Android'|'Sku':'SKU2'|'Price':1|'Quantity':1|'TotalAmount':1|'Attributes':null}]|'pb':{'pb1':[{'Name':'HTC'|'Sku':'SKU3'|'Price':1|'Quantity':1|'TotalAmount':1|'Attributes':null}|{'Name':'Windows'|'Sku':'SKU4'|'Price':1|'Quantity':1|'TotalAmount':1|'Attributes':null}]}|'sid':'ed937016-a06f-4275-9af4-c1830cfe951f'|'ie':1|'sa':'eyJzYTEiOiJ2YWx1ZTEifQ=='|'ua':'eyJ1YTEiOiJ2YWx1ZTEifQ=='|'ui':'eyIxIjoiY3VzdG9tZXJpZDEiLCI3IjoidGVzdEBlbWFpbC5jb20ifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTEtMDZUMTg6MTE6NDMuMjU2MDY2WiIsIlZhbHVlIjoiZz02ODFlNDMyNC0yYmFjLTQwMzYtODNkOC02MTNlZDRlYzNkY2MmdT02MjI3NDUxOTA2MTg2MDU1MDUmY3I9NDEzMTAxMSJ9fQ=='|'dt':'" + apiKey + "'|'les':" + les + "|'av':'1.5.0'|'cgid':'20f258e9-13cb-4751-ac7a-b2c66ef18db4'|'das':'681e4324-2bac-4036-83d8-613ed4ec3dcc'|'csd':'eyIxMSI6MTUxMDE2NDcwMzI0N30='|'mpid':'" + testMPID + "'}";
+
+        var SDKv1CookieV3NoProdLSApostrophes = "{'sid':'ed937016-a06f-4275-9af4-c1830cfe951f'|'ie':1|'sa':'eyJzYTEiOiJ2YWx1ZTEifQ=='|'ua':'eyJ1YTEiOiJ2YWx1ZTEifQ=='|'ui':'eyIxIjoiY3VzdG9tZXJpZDEiLCI3IjoidGVzdEBlbWFpbC5jb20ifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTEtMDZUMTg6MTE6NDMuMjU2MDY2WiIsIlZhbHVlIjoiZz02ODFlNDMyNC0yYmFjLTQwMzYtODNkOC02MTNlZDRlYzNkY2MmdT02MjI3NDUxOTA2MTg2MDU1MDUmY3I9NDEzMTAxMSJ9fQ=='|'dt':'" + apiKey + "'|'les':" + les + "|'av':'1.5.0'|'cgid':'20f258e9-13cb-4751-ac7a-b2c66ef18db4'|'das':'681e4324-2bac-4036-83d8-613ed4ec3dcc'|'csd':'eyIxMSI6MTUxMDE2NDcwMzI0N30='|'mpid':'" + testMPID + "'}";
+
         var SDKv1CookieV1Parsed = JSON.parse(decodeURIComponent(SDKv1CookieV1));
         var SDKv1CookieV2Parsed = JSON.parse(decodeURIComponent(SDKv1CookieV2));
         var SDKv1CookieV3Parsed = JSON.parse(mP.replacePipesWithCommas(SDKv1CookieV3));
         var SDKv1CookieV3FullParsed = JSON.parse(mP.replacePipesWithCommas(SDKv1CookieV3Full));
         var SDKv1CookieV3LSProdOnlyParsed = JSON.parse(mP.replacePipesWithCommas(SDKv1CookieV3LSProdOnly));
         var SDKv2CookieV1Parsed = JSON.parse(decodeURIComponent(SDKv2CookieV1));
+
+        var SDKv1CookieV3FullLSApostrophesParsed = JSON.parse(mP.replacePipesWithCommas(mP.replaceApostrophesWithQuotes(SDKv1CookieV3FullLSApostrophes)));
+        var SDKv1CookieV3NoProdLSApostrophesParsed = JSON.parse(mP.replacePipesWithCommas(mP.replaceApostrophesWithQuotes(SDKv1CookieV3NoProdLSApostrophes)));
 
         it('unit test - convertSDKv1CookiesV1ToSDKv2CookiesV4', function(done) {
             mParticle.reset();
@@ -468,8 +471,8 @@ describe('mParticle', function() {
             v4Cookies[SDKv1CookieV1Parsed.mpid].csd['11'].should.equal(SDKv1CookieV1Parsed.csd['11']);
 
             var localStorageProducts = getLocalStorageProducts();
-            mParticle.persistence.replacePipesWithCommas(localStorageProducts[SDKv1CookieV1Parsed.mpid].cp).should.equal(JSON.stringify(SDKv1CookieV1Parsed.cp));
-            mParticle.persistence.replacePipesWithCommas(localStorageProducts[SDKv1CookieV1Parsed.mpid].pb).should.equal(JSON.stringify(SDKv1CookieV1Parsed.pb));
+            JSON.stringify(localStorageProducts[SDKv1CookieV1Parsed.mpid].cp).should.equal(JSON.stringify(SDKv1CookieV1Parsed.cp));
+            JSON.stringify(localStorageProducts[SDKv1CookieV1Parsed.mpid].pb).should.equal(JSON.stringify(SDKv1CookieV1Parsed.pb));
 
             done();
         });
@@ -478,6 +481,7 @@ describe('mParticle', function() {
             mParticle.reset();
             mParticle.useCookieStorage = true;
             setCookie(v1CookieKey, SDKv1CookieV1, true);
+
             mParticle.init(apiKey);
             server.requests = [];
             mParticle.eCommerce.logCheckout(1);
@@ -488,7 +492,6 @@ describe('mParticle', function() {
             event.ui[0].should.have.property('Type', 1);
             event.ui[1].should.have.property('Identity', 'test@email.com');
             event.ui[1].should.have.property('Type', 7);
-
             event.sa.should.have.property('sa1', SDKv1CookieV1Parsed.sa.sa1);
             event.cgid.should.equal(SDKv1CookieV1Parsed.cgid);
             event.av.should.equal(SDKv1CookieV1Parsed.av);
@@ -713,6 +716,95 @@ describe('mParticle', function() {
             done();
         });
 
+        it('unit test - should migrate from SDKv1CookieV3 with apostrophes to SDKv2CookieV4 using convertSDKv1CookiesV3ToSDKv2CookiesV4', function(done) {
+            mParticle.reset();
+
+            var v4Cookies = JSON.parse(mParticle.migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookieV3FullLSApostrophes));
+
+            v4Cookies.should.have.properties('gs', SDKv1CookieV3FullLSApostrophesParsed.mpid, 'cu');
+            v4Cookies.cu.should.equal(SDKv1CookieV3FullLSApostrophesParsed.mpid);
+            v4Cookies.gs.should.have.properties('csm', 'sid', 'ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das');
+            v4Cookies.gs.sid.should.equal(SDKv1CookieV3FullLSApostrophesParsed.sid);
+            v4Cookies.gs.ie.should.equal(SDKv1CookieV3FullLSApostrophesParsed.ie);
+
+            atob(v4Cookies.gs.sa).should.equal(atob(SDKv1CookieV3FullLSApostrophesParsed.sa));
+            atob(v4Cookies.gs.ss).should.equal(atob(SDKv1CookieV3FullLSApostrophesParsed.ss));
+            v4Cookies.gs.dt.should.equal(SDKv1CookieV3FullLSApostrophesParsed.dt);
+            v4Cookies.gs.les.should.equal(SDKv1CookieV3FullLSApostrophesParsed.les);
+            v4Cookies.gs.av.should.equal(SDKv1CookieV3FullLSApostrophesParsed.av);
+            v4Cookies.gs.cgid.should.equal(SDKv1CookieV3FullLSApostrophesParsed.cgid);
+            v4Cookies.gs.das.should.equal(SDKv1CookieV3FullLSApostrophesParsed.das);
+            atob(v4Cookies.gs.csm).should.equal(JSON.stringify([SDKv1CookieV3FullLSApostrophesParsed.mpid]));
+            v4Cookies[SDKv1CookieV3FullLSApostrophesParsed.mpid].should.have.properties('ua', 'ui', 'csd');
+            v4Cookies[SDKv1CookieV3FullLSApostrophesParsed.mpid].should.not.have.property('mpid');
+            v4Cookies[SDKv1CookieV3FullLSApostrophesParsed.mpid].should.not.have.property('cp');
+            v4Cookies[SDKv1CookieV3FullLSApostrophesParsed.mpid].should.not.have.property('pb');
+            atob(v4Cookies[SDKv1CookieV3FullLSApostrophesParsed.mpid].ua).should.equal(atob(SDKv1CookieV3FullLSApostrophesParsed.ua));
+            atob(v4Cookies[SDKv1CookieV3FullLSApostrophesParsed.mpid].ui).should.equal(atob(SDKv1CookieV3FullLSApostrophesParsed.ui));
+            v4Cookies[SDKv1CookieV3FullLSApostrophesParsed.mpid].csd['11'].should.equal(SDKv1CookieV3FullLSApostrophesParsed.csd['11']);
+
+            done();
+        });
+
+        it('integration test - should migrate from SDKv1CookieV3 with apostrophes to SDKv2CookieV4 and function properly when using cookie storage', function(done) {
+            mParticle.reset();
+            mParticle.useCookieStorage = true;
+
+            setCookie(v3CookieKey, SDKv1CookieV3FullLSApostrophes, true);
+
+            mParticle.init(apiKey);
+
+            server.requests = [];
+            mParticle.eCommerce.logCheckout(1);
+
+            var event = getEvent('eCommerce - Checkout');
+            event.ua.should.have.property('ua1', JSON.parse(atob(SDKv1CookieV3FullLSApostrophesParsed.ua)).ua1);
+            event.ui[0].should.have.property('Identity', 'customerid1');
+            event.ui[0].should.have.property('Type', 1);
+            event.ui[1].should.have.property('Identity', 'test@email.com');
+            event.ui[1].should.have.property('Type', 7);
+            event.sa.should.have.property('sa1', JSON.parse(atob(SDKv1CookieV3FullLSApostrophesParsed.sa)).sa1);
+            event.cgid.should.equal(SDKv1CookieV3FullLSApostrophesParsed.cgid);
+            event.av.should.equal(SDKv1CookieV3FullLSApostrophesParsed.av);
+            event.sc.pl[0].should.have.property('id', 'SKU1');
+            event.sc.pl[0].should.have.property('nm', 'iPhone');
+            event.sc.pl[0].should.have.property('pr', 1);
+            event.sc.pl[1].should.have.property('id', 'SKU2');
+            event.sc.pl[1].should.have.property('nm', 'Android');
+            event.sc.pl[1].should.have.property('pr', 1);
+
+            done();
+        });
+
+        it('integration test - should migrate from SDKv1CookieV3 with apostrophes to SDKv2CookieV4 and function properly when using local storage', function(done) {
+            mParticle.reset();
+            mParticle.useCookieStorage = false;
+
+            setLocalStorage(v3LSKey, SDKv1CookieV3FullLSApostrophes, true);
+            mParticle.init(apiKey);
+
+            server.requests = [];
+            mParticle.eCommerce.logCheckout(1);
+
+            var event = getEvent('eCommerce - Checkout');
+            event.ua.should.have.property('ua1', JSON.parse(atob(SDKv1CookieV3FullLSApostrophesParsed.ua)).ua1);
+            event.ui[0].should.have.property('Identity', 'customerid1');
+            event.ui[0].should.have.property('Type', 1);
+            event.ui[1].should.have.property('Identity', 'test@email.com');
+            event.ui[1].should.have.property('Type', 7);
+            event.sa.should.have.property('sa1', JSON.parse(atob(SDKv1CookieV3FullLSApostrophesParsed.sa)).sa1);
+            event.cgid.should.equal(SDKv1CookieV3FullLSApostrophesParsed.cgid);
+            event.av.should.equal(SDKv1CookieV3FullLSApostrophesParsed.av);
+            event.sc.pl[0].should.have.property('id', 'SKU1');
+            event.sc.pl[0].should.have.property('nm', 'iPhone');
+            event.sc.pl[0].should.have.property('pr', 1);
+            event.sc.pl[1].should.have.property('id', 'SKU2');
+            event.sc.pl[1].should.have.property('nm', 'Android');
+            event.sc.pl[1].should.have.property('pr', 1);
+
+            done();
+        });
+
         it('unit test - should migrate from SDKv2CookieV1 to SDKv2CookieV4 decoded', function(done) {
             mParticle.reset();
             mParticle.useCookieStorage = true;
@@ -750,11 +842,11 @@ describe('mParticle', function() {
             v4Cookies['4573473690267104222'].should.not.have.property('cp');
 
             var localStorageProducts = getLocalStorageProducts();
-            localStorageProducts['8179891178059554209'].cp.should.equal(JSON.stringify(SDKv2CookieV1Parsed['8179891178059554209'].cp));
-            localStorageProducts['8179891178059554209'].pb.should.equal(JSON.stringify(SDKv2CookieV1Parsed['8179891178059554209'].pb));
+            JSON.stringify(localStorageProducts['8179891178059554209'].cp).should.equal(JSON.stringify(SDKv2CookieV1Parsed['8179891178059554209'].cp));
+            JSON.stringify(localStorageProducts['8179891178059554209'].pb).should.equal(JSON.stringify(SDKv2CookieV1Parsed['8179891178059554209'].pb));
 
-            localStorageProducts['4573473690267104222'].cp.should.equal(JSON.stringify(SDKv2CookieV1Parsed['4573473690267104222'].cp));
-            localStorageProducts['4573473690267104222'].pb.should.equal(JSON.stringify(SDKv2CookieV1Parsed['4573473690267104222'].pb));
+            JSON.stringify(localStorageProducts['4573473690267104222'].cp).should.equal(JSON.stringify(SDKv2CookieV1Parsed['4573473690267104222'].cp));
+            JSON.stringify(localStorageProducts['4573473690267104222'].pb).should.equal(JSON.stringify(SDKv2CookieV1Parsed['4573473690267104222'].pb));
 
             done();
         });
@@ -763,12 +855,12 @@ describe('mParticle', function() {
             mParticle.reset();
             mParticle.useCookieStorage = true;
 
-            // var lsProductsRaw = '{"cp":[{"Name":"iPhone"|"Sku":"SKU1"|"Price":1|"Quantity":1|"TotalAmount":1|"Attributes":null}|{"Name":"Android"|"Sku":"SKU2"|"Price":1|"Quantity":1|"TotalAmount":1|"Attributes":null}]}';
             setCookie(v1CookieKey, SDKv2CookieV1, true);
-            // localStorage.setItem(v3LSKey, lsProductsRaw);
+
             mParticle.init(apiKey);
 
             server.requests = [];
+
             mParticle.eCommerce.logCheckout(1);
 
             var event = getEvent('eCommerce - Checkout');
@@ -853,8 +945,8 @@ describe('mParticle', function() {
 
             var localStorageProducts = getLocalStorageProducts();
 
-            mParticle.persistence.replacePipesWithCommas(localStorageProducts[SDKv1CookieV3.mpid].cp).should.equal(JSON.stringify(SDKv1CookieV3.cp));
-            mParticle.persistence.replacePipesWithCommas(localStorageProducts[SDKv1CookieV3.mpid].pb).should.equal(JSON.stringify(SDKv1CookieV3.pb));
+            JSON.stringify(localStorageProducts[SDKv1CookieV3.mpid].cp).should.equal(JSON.stringify(SDKv1CookieV3.cp));
+            JSON.stringify(localStorageProducts[SDKv1CookieV3.mpid].pb).should.equal(JSON.stringify(SDKv1CookieV3.pb));
 
             done();
         });
@@ -869,6 +961,7 @@ describe('mParticle', function() {
             };
 
             setLocalStorage(v1localStorageKey, lsData);
+
             mParticle.init(apiKey);
 
             var localStorageData = mParticle.persistence.getLocalStorage(v4LSKey);
@@ -1106,8 +1199,8 @@ describe('mParticle', function() {
             cookiesAfterInit[testMPID].csd.should.have.property(5, 'test');
 
             var products = getLocalStorageProducts();
-            JSON.parse(products.testMPID).cp[0].product.should.equal(lsData.cp[0].product);
-            JSON.parse(products.testMPID).pb.bag1[0].product.should.equal(lsData.pb.bag1[0].product);
+            products.testMPID.cp[0].product.should.equal(lsData.cp[0].product);
+            products.testMPID.pb.bag1[0].product.should.equal(lsData.pb.bag1[0].product);
 
             done();
         });
@@ -1422,6 +1515,7 @@ describe('mParticle', function() {
             };
 
             mParticle.Identity.login(user1);
+
             mParticle.Identity.modify({userIdentities: {email: 'email@test.com'}});
 
             mParticle.Identity.getCurrentUser().setUserAttribute('test2', 'test2');
@@ -3053,19 +3147,19 @@ describe('mParticle', function() {
             mParticle.eCommerce.Cart.add(product);
             var products1 = getLocalStorageProducts();
 
-            JSON.parse(products1[testMPID]).cp[0].should.have.properties(['Name', 'Sku', 'Price']);
+            products1[testMPID].cp[0].should.have.properties(['Name', 'Sku', 'Price']);
 
             mParticle.eCommerce.Cart.remove(product);
             var products2 = getLocalStorageProducts();
-            JSON.parse(products2[testMPID]).cp.length.should.equal(0);
+            products2[testMPID].cp.length.should.equal(0);
 
             mParticle.eCommerce.Cart.add(product);
             var products3 = getLocalStorageProducts();
-            JSON.parse(products3[testMPID]).cp[0].should.have.properties(['Name', 'Sku', 'Price']);
+            products3[testMPID].cp[0].should.have.properties(['Name', 'Sku', 'Price']);
 
             mParticle.eCommerce.Cart.clear(ProductBag);
             var products4 = getLocalStorageProducts();
-            JSON.parse(products4[testMPID]).cp.length.should.equal(0);
+            products4[testMPID].cp.length.should.equal(0);
 
             done();
         });
@@ -3079,11 +3173,11 @@ describe('mParticle', function() {
             mParticle.eCommerce.Cart.add(mParticle.eCommerce.createProduct('Product21', '12345', 400));
             var products1 = getLocalStorageProducts();
 
-            var foundProductInCookies = JSON.parse(products1[testMPID]).cp.filter(function(product) {
+            var foundProductInCookies = products1[testMPID].cp.filter(function(product) {
                 return product.Name === 'Product1';
             })[0];
 
-            JSON.parse(products1[testMPID]).cp.length.should.equal(20);
+            products1[testMPID].cp.length.should.equal(20);
             Should(foundProductInCookies).not.be.ok();
 
             // Events log with in memory data, so product bag has 21 and product is found in memory
@@ -3161,19 +3255,19 @@ describe('mParticle', function() {
             var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
             mParticle.eCommerce.ProductBags.add(ProductBag, product);
             var products1 = getLocalStorageProducts();
-            JSON.parse(products1[testMPID]).pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
+            products1[testMPID].pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
 
             mParticle.eCommerce.ProductBags.remove(ProductBag, product);
             var products2 = getLocalStorageProducts();
-            Object.keys(JSON.parse(products2[testMPID]).pb[ProductBag]).length.should.equal(0);
+            Object.keys(products2[testMPID].pb[ProductBag]).length.should.equal(0);
 
             mParticle.eCommerce.ProductBags.add(ProductBag, product);
             var products3 = getLocalStorageProducts();
-            JSON.parse(products3[testMPID]).pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
+            products3[testMPID].pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
 
             mParticle.eCommerce.ProductBags.clear(ProductBag);
             var products4 = getLocalStorageProducts();
-            Object.keys(JSON.parse(products4[testMPID]).pb[ProductBag]).length.should.equal(0);
+            Object.keys(products4[testMPID].pb[ProductBag]).length.should.equal(0);
 
             done();
         });
@@ -3186,11 +3280,11 @@ describe('mParticle', function() {
             mParticle.eCommerce.ProductBags.add(ProductBag, mParticle.eCommerce.createProduct('Product21', '54321', 100));
             var products1 = getLocalStorageProducts();
 
-            var foundProductInCookies = JSON.parse(products1[testMPID]).pb[ProductBag].filter(function(product) {
+            var foundProductInCookies = products1[testMPID].pb[ProductBag].filter(function(product) {
                 return product.Name === 'Product1';
             })[0];
 
-            JSON.parse(products1[testMPID]).pb[ProductBag].length.should.equal(20);
+            products1[testMPID].pb[ProductBag].length.should.equal(20);
             Should(foundProductInCookies).not.be.ok();
 
             // Events log with in memory data, so in memory productBag should have 21 and product is found in memory
@@ -5546,15 +5640,15 @@ describe('mParticle', function() {
 
             var products = getLocalStorageProducts();
 
-            JSON.parse(products.testMPID).cp[0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
-            JSON.parse(products.testMPID).cp[0].should.have.property('Sku', '12345');
-            JSON.parse(products.testMPID).cp[0].should.have.property('Price', '1000');
-            JSON.parse(products.testMPID).cp[0].should.have.property('Quantity', 2);
+            products.testMPID.cp[0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
+            products.testMPID.cp[0].should.have.property('Sku', '12345');
+            products.testMPID.cp[0].should.have.property('Price', '1000');
+            products.testMPID.cp[0].should.have.property('Quantity', 2);
 
-            JSON.parse(products.testMPID).pb['ProductBag1'][0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
-            JSON.parse(products.testMPID).pb['ProductBag1'][0].should.have.property('Sku', '12345');
-            JSON.parse(products.testMPID).pb['ProductBag1'][0].should.have.property('Price', '1000');
-            JSON.parse(products.testMPID).pb['ProductBag1'][0].should.have.property('Quantity', 2);
+            products.testMPID.pb['ProductBag1'][0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
+            products.testMPID.pb['ProductBag1'][0].should.have.property('Sku', '12345');
+            products.testMPID.pb['ProductBag1'][0].should.have.property('Price', '1000');
+            products.testMPID.pb['ProductBag1'][0].should.have.property('Quantity', 2);
 
             var user2 = {
                 userIdentities: {
@@ -5599,15 +5693,15 @@ describe('mParticle', function() {
 
             var products2 = getLocalStorageProducts();
 
-            JSON.parse(products2.testMPID).cp[0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
-            JSON.parse(products2.testMPID).cp[0].should.have.property('Sku', '12345');
-            JSON.parse(products2.testMPID).cp[0].should.have.property('Price', '1000');
-            JSON.parse(products2.testMPID).cp[0].should.have.property('Quantity', 2);
+            products2.testMPID.cp[0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
+            products2.testMPID.cp[0].should.have.property('Sku', '12345');
+            products2.testMPID.cp[0].should.have.property('Price', '1000');
+            products2.testMPID.cp[0].should.have.property('Quantity', 2);
 
-            JSON.parse(products2.testMPID).pb['ProductBag1'][0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
-            JSON.parse(products2.testMPID).pb['ProductBag1'][0].should.have.property('Sku', '12345');
-            JSON.parse(products2.testMPID).pb['ProductBag1'][0].should.have.property('Price', '1000');
-            JSON.parse(products2.testMPID).pb['ProductBag1'][0].should.have.property('Quantity', 2);
+            products2.testMPID.pb['ProductBag1'][0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
+            products2.testMPID.pb['ProductBag1'][0].should.have.property('Sku', '12345');
+            products2.testMPID.pb['ProductBag1'][0].should.have.property('Price', '1000');
+            products2.testMPID.pb['ProductBag1'][0].should.have.property('Quantity', 2);
 
             done();
         });
@@ -5871,7 +5965,7 @@ describe('mParticle', function() {
             };
 
             var products = getLocalStorageProducts();
-            var cartProducts = JSON.parse(products[testMPID]).cp;
+            var cartProducts = products[testMPID].cp;
 
             cartProducts[0].Name.should.equal('iPhone');
             cartProducts[1].Name.should.equal('Android');
@@ -5889,7 +5983,7 @@ describe('mParticle', function() {
             mParticle.eCommerce.Cart.add([product3, product4]);
 
             var products2 = getLocalStorageProducts();
-            var cartProducts2 = JSON.parse(products2['otherMPID']).cp;
+            var cartProducts2 = products2['otherMPID'].cp;
 
             cartProducts2[0].Name.should.equal('Windows');
             cartProducts2[1].Name.should.equal('HTC');

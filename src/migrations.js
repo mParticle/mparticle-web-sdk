@@ -128,8 +128,9 @@ function convertSDKv1CookiesV2ToSDKv2CookiesV4(SDKv1CookiesV2) {
 }
 
 function convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookiesV3) {
-    var parsedSDKv1CookiesV3 = JSON.parse(Persistence.replacePipesWithCommas(SDKv1CookiesV3));
-    var parsedCookiesV4 = JSON.parse(restructureToV4Cookie(Persistence.replacePipesWithCommas(SDKv1CookiesV3)));
+    SDKv1CookiesV3 = Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(SDKv1CookiesV3));
+    var parsedSDKv1CookiesV3 = JSON.parse(SDKv1CookiesV3);
+    var parsedCookiesV4 = JSON.parse(restructureToV4Cookie(SDKv1CookiesV3));
 
     if (parsedSDKv1CookiesV3.mpid) {
         parsedCookiesV4.gs.csm.push(parsedSDKv1CookiesV3.mpid);
@@ -173,13 +174,13 @@ function convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(SDKv2CookiesV1) {
                 }
 
                 localStorageProducts[mpid] = {
-                    cp: JSON.stringify(SDKv2CookiesV1[mpid].cp),
-                    pb: JSON.stringify(SDKv2CookiesV1[mpid].pb)
+                    cp: SDKv2CookiesV1[mpid].cp,
+                    pb: SDKv2CookiesV1[mpid].pb
                 };
             }
         }
 
-        localStorage.setItem(Config.LocalStorageProductsV4, JSON.stringify(localStorageProducts));
+        localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
 
         if (SDKv2CookiesV1.currentUserMPID) {
             cookiesV4.cu = SDKv2CookiesV1.currentUserMPID;
@@ -245,13 +246,13 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
     var localStorageProducts = {};
     localStorageProducts[mpid] = {};
     if (cookies.cp) {
-        localStorageProducts[mpid].cp = JSON.stringify(cookies.cp);
+        localStorageProducts[mpid].cp = cookies.cp;
     }
     if (cookies.pb) {
-        localStorageProducts[mpid].pb = JSON.stringify(cookies.pb);
+        localStorageProducts[mpid].pb = cookies.pb;
     }
 
-    localStorage.setItem(Config.LocalStorageProductsV4, JSON.stringify(localStorageProducts));
+    localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
 }
 
 function migrateLocalStorage() {
@@ -268,7 +269,7 @@ function migrateLocalStorage() {
         v3LSData = window.localStorage.getItem(v3LSName);
         if (v3LSData) {
             v3LSDataStringCopy = v3LSData.slice();
-            v3LSData = JSON.parse(Persistence.replacePipesWithCommas(v3LSData));
+            v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
             // localStorage may contain only products, or the full persistence
             // when there is an MPID on the cookie, it is the full persistence
             if ((v3LSData.cp || v3LSData.pb) && v3LSData.mpid) {

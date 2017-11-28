@@ -67,8 +67,15 @@ function initializeStorage() {
         this.storeDataInMemory(cookies);
     }
 
-    var products = JSON.parse(localStorage.getItem(MP.Config.LocalStorageProductsV4));
-    storeProductsInMemory(products, MP.mpid);
+    var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+
+    if (encodedProducts) {
+        var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
+    }
+
+    if (MP.mpid) {
+        storeProductsInMemory(decodedProducts, MP.mpid);
+    }
 
     this.update();
 }
@@ -83,8 +90,8 @@ function update() {
 
 function storeProductsInMemory(products, mpid) {
     try {
-        MP.cartProducts = products[mpid] ? JSON.parse(products[mpid].cp) : [];
-        MP.productBags = products[mpid] ? JSON.parse(products[mpid].pb) : {};
+        MP.cartProducts = products[mpid] ? products[mpid].cp : [];
+        MP.productBags = products[mpid] ? products[mpid].pb : {};
     }
     catch(e) {
         Helpers.logDebug(Messages.ErrorMessages.CookieParseError);
@@ -178,7 +185,7 @@ function convertInMemoryDataForCookies() {
 
 function convertProductsForLocalStorage() {
     var inMemoryDataForLocalStorage = {
-        cp: MP.cartProducts.length <= mParticle.maxProducts ? MP.cartProducts : MP.cartProducts.slice(0, mParticle.maxProducts),
+        cp: MP.cartProducts ? MP.cartProducts.length <= mParticle.maxProducts ? MP.cartProducts : MP.cartProducts.slice(0, mParticle.maxProducts) : [],
         pb: {}
     };
 
@@ -190,11 +197,15 @@ function convertProductsForLocalStorage() {
         }
     }
 
-    return JSON.stringify(inMemoryDataForLocalStorage);
+    return inMemoryDataForLocalStorage;
 }
 
 function getLocalStorageProducts() {
-    return localStorage.getItem(MP.Config.LocalStorageProductsV4);
+    var products = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+    if (products) {
+        return Base64.decode(products);
+    }
+    return products;
 }
 
 function setLocalStorage() {
@@ -204,15 +215,17 @@ function setLocalStorage() {
         localStorageData = this.getLocalStorage() || {},
         currentMPIDData;
 
-    localStorageProducts = localStorageProducts ? JSON.parse(localStorageProducts) : {};
-    localStorageProducts[MP.mpid] = currentUserProducts;
+    if (MP.mpid) {
+        localStorageProducts = localStorageProducts ? JSON.parse(localStorageProducts) : {};
+        localStorageProducts[MP.mpid] = currentUserProducts;
+        try {
+            window.localStorage.setItem(encodeURIComponent(MP.Config.LocalStorageProductsV4), Base64.encode(JSON.stringify(localStorageProducts)));
+        }
+        catch (e) {
+            Helpers.logDebug('Error with setting products on localStorage.');
+        }
+    }
 
-    try {
-        window.localStorage.setItem(encodeURIComponent(MP.Config.LocalStorageProductsV4), JSON.stringify(localStorageProducts));
-    }
-    catch (e) {
-        Helpers.logDebug('Error with setting products on localStorage.');
-    }
 
     if (!mParticle.useCookieStorage) {
         currentMPIDData = this.convertInMemoryDataForCookies();
@@ -473,13 +486,13 @@ function encodeCookies(cookie) {
         }
     }
 
-    return replaceCommasWithPipes(JSON.stringify(cookie));
+    return replaceCommasWithPipes(replaceQuotesWithApostrophes(JSON.stringify(cookie)));
 }
 
 function decodeCookies(cookie) {
     try {
         if (cookie) {
-            cookie = JSON.parse(replacePipesWithCommas(cookie));
+            cookie = JSON.parse(replacePipesWithCommas(replaceApostrophesWithQuotes(cookie)));
             if (Helpers.isObject(cookie) && Object.keys(cookie).length) {
                 for (var key in cookie.gs) {
                     if (cookie.gs.hasOwnProperty(key)) {
@@ -523,6 +536,14 @@ function replacePipesWithCommas(string) {
     return string.replace(/\|/g, ',');
 }
 
+function replaceApostrophesWithQuotes(string) {
+    return string.replace(/\'/g, '"');
+}
+
+function replaceQuotesWithApostrophes(string) {
+    return string.replace(/\"/g, '\'');
+}
+
 function getCookieDomain() {
     if (MP.Config.CookieDomain) {
         return MP.Config.CookieDomain;
@@ -557,6 +578,10 @@ function getDomain(doc, locationHostname) {
     return '';
 }
 
+function decodeProducts() {
+    return JSON.parse(Base64.decode(localStorage.getItem(Constants.DefaultConfig.LocalStorageProductsV4)));
+}
+
 function resetPersistence(){
     removeLocalStorage(MP.Config.LocalStorageName);
     removeLocalStorage(MP.Config.LocalStorageNameV3);
@@ -589,8 +614,11 @@ module.exports = {
     findPrevCookiesBasedOnUI: findPrevCookiesBasedOnUI,
     replaceCommasWithPipes: replaceCommasWithPipes,
     replacePipesWithCommas: replacePipesWithCommas,
+    replaceApostrophesWithQuotes: replaceApostrophesWithQuotes,
+    replaceQuotesWithApostrophes: replaceQuotesWithApostrophes,
     encodeCookies: encodeCookies,
     decodeCookies: decodeCookies,
     getCookieDomain: getCookieDomain,
+    decodeProducts: decodeProducts,
     resetPersistence: resetPersistence
 };
