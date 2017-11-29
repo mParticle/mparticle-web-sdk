@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.15.3 - 2017-11-29
+*  Bugfix - Adjust logic for session end event
+
 #### 1.15.2 - 2017-11-08
 *  Add support for filtering user attribute values
 *  Refactor and reorganize tests for readability
