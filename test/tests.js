@@ -66,7 +66,7 @@ describe('mParticle', function() {
             if (name === v1localStorageKey) {
                 localStorage.setItem(encodeURIComponent(name), encodeURIComponent(JSON.stringify(data)));
             } else if (name === currentLSKey) {
-                localStorage.setItem(encodeURIComponent(name), JSON.stringify(data));
+                localStorage.setItem(encodeURIComponent(name), mParticle.persistence.replaceCommasWithPipes(mParticle.persistence.replaceQuotesWithApostrophes(JSON.stringify(data))));
             }
         },
         getLocalStorage = function(name) {
@@ -4523,7 +4523,7 @@ describe('mParticle', function() {
             var data1 = mParticle.persistence.getLocalStorage();
 
             setLocalStorage(currentLSKey, {
-                mpid: btoa('differentMPID'),
+                mpid: 'differentMPID',
                 ie: true
             });
 
@@ -4873,17 +4873,90 @@ describe('mParticle', function() {
 
         it('creates a new session when elapsed time between actions is greater than session timeout', function(done) {
             mParticle.reset();
-            mParticle.init(apiKey, {SessionTimeout: .0000001});
+            var clock = sinon.useFakeTimers();
+            mParticle.init(apiKey, {SessionTimeout: 1});
+            clock.tick(100);
             mParticle.logEvent('Test Event');
             var data = getEvent('Test Event');
 
-            setTimeout(function() {
-                mParticle.logEvent('Test Event2');
-                data2 = getEvent('Test Event2');
-                data.sid.should.not.equal(data2.sid);
-                mParticle.sessionManager.clearSessionTimeout();
-                done();
-            }, 10);
+            clock.tick(70000);
+
+            mParticle.logEvent('Test Event2');
+            data2 = getEvent('Test Event2');
+            data.sid.should.not.equal(data2.sid);
+            mParticle.sessionManager.clearSessionTimeout();
+            done();
+        });
+
+        it('should end session when last event sent is outside of sessionTimeout', function(done) {
+            mParticle.reset();
+            var clock = sinon.useFakeTimers();
+
+            mParticle.init(apiKey, {SessionTimeout: 1});
+            clock.tick(100);
+            mParticle.logEvent('Test Event');
+
+            clock.tick(10000);
+            mParticle.logEvent('Test Event2');
+
+            clock.tick(120000);
+            mParticle.logEvent('Test Event3');
+
+            clock.tick(150000);
+
+            var data1 = getEvent('Test Event');
+            var data2 = getEvent('Test Event2');
+            var data3 = getEvent('Test Event3');
+
+            data2.sid.should.equal(data1.sid);
+            data3.sid.should.not.equal(data1.sid);
+            clock.restore();
+            done();
+        });
+
+        it('should not end session when end session is called within sessionTimeout timeframe', function(done) {
+            // This test mimics if another tab is open and events are sent, but previous tab's sessionTimeout is still ongoing
+            mParticle.reset();
+            var clock = sinon.useFakeTimers();
+
+            mParticle.init(apiKey, {SessionTimeout: 1});
+
+            server.requests = [];
+            clock.tick(100);
+            mParticle.logEvent('Test Event');
+
+            // This clock tick initiates a session end event that is successful
+            clock.tick(70000);
+
+            var data1 = getEvent(2);
+            Should(data1).be.ok();
+
+            server.requests = [];
+
+            clock.tick(100);
+            mParticle.logEvent('Test Event2');
+
+            var sid = mParticle.persistence.getLocalStorage().sid;
+
+            setLocalStorage(currentLSKey, {
+                sid: sid,
+                ie: true,
+                les: 150000
+            });
+
+            // This clock tick initiates a session end event that is not successful
+            clock.tick(70000);
+            var noData = getEvent(2);
+            Should(noData).not.be.ok();
+            var data2 = getEvent('Test Event2');
+
+            mParticle.logEvent('Test Event3');
+
+            var data3 = getEvent('Test Event3');
+            data3.sid.should.equal(data2.sid);
+
+            clock.restore();
+            done();
         });
 
         it('should get sessionId', function(done) {

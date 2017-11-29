@@ -37,6 +37,7 @@
         pixelConfigurations = [],
         serverSettings = null,
         dateLastEventSent,
+        sessionStartDate,
         cookieSyncDates = {},
         currentPosition,
         isTracking = false,
@@ -467,6 +468,7 @@
                 ss: serverSettings,
                 dt: devToken,
                 les: dateLastEventSent ? dateLastEventSent.getTime() : null,
+                ssd: sessionStartDate ? sessionStartDate.getTime() : null,
                 av: appVersion,
                 cgid: clientId,
                 das: deviceId,
@@ -579,6 +581,11 @@
                     }
                     else if (obj.LastEventSent) {
                         dateLastEventSent = new Date(obj.LastEventSent);
+                    }
+                    if (obj.ssd) {
+                        sessionStartDate = new Date(obj.ssd);
+                    } else {
+                        sessionStartDate = new Date();
                     }
 
                     if (obj.csd) {
@@ -1510,9 +1517,7 @@
             };
 
             if (messageType === MessageType.SessionEnd) {
-                eventObject.SessionLength = new Date().getTime() - dateLastEventSent.getTime();
-            } else {
-                dateLastEventSent = new Date();
+                eventObject.SessionLength = dateLastEventSent.getTime() - sessionStartDate.getTime();
             }
 
             eventObject.Timestamp = dateLastEventSent.getTime();
@@ -1953,6 +1958,14 @@
         }
     }
 
+    function startNewSessionIfNeeded() {
+        var cookies = persistence.getCookie() || persistence.getLocalStorage();
+
+        if (!sessionId && cookies && cookies.sid) {
+            mParticle.startNewSession();
+        }
+    }
+
     function logOptOut() {
         logDebug(InformationMessages.StartingLogOptOut);
 
@@ -1967,9 +1980,7 @@
         logDebug(InformationMessages.StartingLogEvent + ': ' + name);
 
         if (canLog()) {
-            if (!sessionId) {
-                mParticle.startNewSession();
-            }
+            startNewSessionIfNeeded();
 
             if (data) {
                 data = sanitizeAttributes(data);
@@ -2912,8 +2923,8 @@
     var sessionManager = {
         initialize: function() {
             if (sessionId) {
-                var sessionTimeoutInSeconds = Config.SessionTimeout * 60000;
-                if (new Date() > new Date(dateLastEventSent.getTime() + sessionTimeoutInSeconds)) {
+                var sessionTimeoutInMilliseconds = Config.SessionTimeout * 60000;
+                if (new Date() > new Date(dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
                     this.endSession();
                     this.startNewSession();
                 }
@@ -2930,8 +2941,10 @@
             if (canLog()) {
                 sessionId = generateUniqueId();
 
-                if (!dateLastEventSent) {
-                    dateLastEventSent = new Date();
+                if (!sessionStartDate) {
+                    var date = new Date();
+                    sessionStartDate = date;
+                    dateLastEventSent = date;
                 }
 
                 mParticle.sessionManager.setSessionTimer();
@@ -2942,32 +2955,63 @@
                 logDebug(InformationMessages.AbandonStartSession);
             }
         },
-        endSession: function() {
+        endSession: function(override) {
             logDebug(InformationMessages.StartingEndSession);
-
-            if (canLog()) {
-                if (!sessionId) {
-                    logDebug(InformationMessages.NoSessionToEnd);
-                    return;
-                }
-
+            if (override) {
                 logEvent(MessageType.SessionEnd);
 
                 sessionId = null;
                 dateLastEventSent = null;
+                sessionStartDate = null;
                 sessionAttributes = {};
                 persistence.update();
-            }
-            else {
-                logDebug(InformationMessages.AbandonEndSession);
+            } else {
+                if (canLog()) {
+                    var sessionTimeoutInMilliseconds,
+                        cookies,
+                        timeSinceLastEventSent;
+
+                    cookies = persistence.getCookie() || persistence.getLocalStorage();
+
+                    if (!cookies.sid) {
+                        logDebug(InformationMessages.NoSessionToEnd);
+                        return;
+                    }
+
+                    // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
+                    if (cookies.sid && sessionId !== cookies.sid) {
+                        sessionId = cookies.sid;
+                    }
+
+                    if (cookies.les) {
+                        sessionTimeoutInMilliseconds = Config.SessionTimeout * 60000;
+                        var newDate = new Date().getTime();
+                        timeSinceLastEventSent = newDate - cookies.les;
+
+                        if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
+                            this.setSessionTimer();
+                        } else {
+                            logEvent(MessageType.SessionEnd);
+
+                            sessionId = null;
+                            dateLastEventSent = null;
+                            sessionStartDate = null;
+                            sessionAttributes = {};
+                            persistence.update();
+                        }
+                    }
+                }
+                else {
+                    logDebug(InformationMessages.AbandonEndSession);
+                }
             }
         },
         setSessionTimer: function() {
-            var sessionTimeoutInSeconds = Config.SessionTimeout * 60000;
+            var sessionTimeoutInMilliseconds = Config.SessionTimeout * 60000;
 
             globalTimer = window.setTimeout(function() {
                 mParticle.sessionManager.endSession();
-            }, sessionTimeoutInSeconds);
+            }, sessionTimeoutInMilliseconds);
         },
 
         resetSessionTimer: function() {
@@ -3070,6 +3114,7 @@
             devToken = null;
             sessionId = null;
             dateLastEventSent = null;
+            sessionStartDate = null;
             appName = null;
             appVersion = null;
             sessionAttributes = {};
@@ -3223,7 +3268,8 @@
             sessionManager.startNewSession();
         },
         endSession: function() {
-            sessionManager.endSession();
+            // Sends true as an over ride vs when endSession is called from the setInterval
+            sessionManager.endSession(true);
         },
         logEvent: function(eventName, eventType, eventInfo, customFlags) {
             mParticle.sessionManager.resetSessionTimer();
