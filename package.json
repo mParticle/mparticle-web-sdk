@@ -1,6 +1,6 @@
 {
   "name": "mparticle-sdk-javascript",
-  "version": "2.0.13",
+  "version": "2.1.0",
   "description": "mParticle core Javascript SDK",
   "repository": "https://github.com/mParticle/mparticle-sdk-javascript",
   "scripts": {

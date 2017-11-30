@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.1.0 - 2017-11-30
+*  Migrate persistence to v4
+*  Add onUserAlias callback
+
 #### 2.0.13 - 2017-11-08
 *  Add support for filtering user attribute values
 *  Update persistence after a modify call
