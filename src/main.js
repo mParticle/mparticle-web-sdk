@@ -30,10 +30,11 @@ var Polyfill = require('./polyfill'),
     Validators = Helpers.Validators,
     Migrations = require('./migrations'),
     Forwarders = require('./forwarders'),
+    identify = require('./identity').identify,
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
-    IdentityAPI = require('./identity').IdentityAPI;
-
+    IdentityAPI = require('./identity').IdentityAPI,
+    mParticleUserCart = require('./identity').mParticleUserCart;
 
 (function(window) {
     if (!Array.prototype.forEach) {
@@ -96,11 +97,23 @@ var Polyfill = require('./polyfill'),
             MP.deviceId = Persistence.retrieveDeviceId();
             // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
             if ((Helpers.isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
+                var modifiedUIforIdentityRequest = {};
+                for (var identityType in MP.userIdentities) {
+                    if (MP.userIdentities.hasOwnProperty(identityType)) {
+                        modifiedUIforIdentityRequest[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = MP.userIdentities[identityType];
+                    }
+                }
+
                 MP.initialIdentifyRequest = {
-                    userIdentities: MP.userIdentities
+                    userIdentities: modifiedUIforIdentityRequest
                 };
             } else {
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
+            }
+
+            if (MP.migrate) {
+                identify(MP.initialIdentifyRequest);
+                MP.migrate = false;
             }
 
             Forwarders.initForwarders(MP.initialIdentifyRequest);
@@ -352,56 +365,13 @@ var Polyfill = require('./polyfill'),
             },
             Cart: {
                 add: function(product, logEvent) {
-                    mParticle.sessionManager.resetSessionTimer();
-                    var arrayCopy;
-
-                    arrayCopy = Array.isArray(product) ? product.slice() : [product];
-
-                    MP.cartProducts = MP.cartProducts.concat(arrayCopy);
-
-                    if (MP.cartProducts.length > mParticle.maxProducts) {
-                        Helpers.logDebug('The cart contains ' + MP.cartProducts.length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
-                    }
-
-                    if (Helpers.isWebViewEmbedded()) {
-                        Helpers.tryNativeSdk(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
-                    }
-                    else if (logEvent === true) {
-                        Events.logProductActionEvent(Types.ProductActionType.AddToCart, arrayCopy);
-                    }
-                    Persistence.update();
+                    mParticleUserCart(MP.mpid).add(product, logEvent);
                 },
                 remove: function(product, logEvent) {
-                    mParticle.sessionManager.resetSessionTimer();
-                    var cartIndex = -1,
-                        cartItem = null;
-
-                    if (MP.cartProducts) {
-                        MP.cartProducts.forEach(function(cartProduct, i) {
-                            if (cartProduct.Sku === product.Sku) {
-                                cartIndex = i;
-                                cartItem = cartProduct;
-                            }
-                        });
-
-                        if (cartIndex > -1) {
-                            MP.cartProducts.splice(cartIndex, 1);
-
-                            if (Helpers.isWebViewEmbedded()) {
-                                Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(cartItem));
-                            }
-                            else if (logEvent === true) {
-                                Events.logProductActionEvent(Types.ProductActionType.RemoveFromCart, cartItem);
-                            }
-                        }
-                    }
-                    Persistence.update();
+                    mParticleUserCart(MP.mpid).remove(product, logEvent);
                 },
                 clear: function() {
-                    mParticle.sessionManager.resetSessionTimer();
-                    MP.cartProducts = [];
-                    Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearCart);
-                    Persistence.update();
+                    mParticleUserCart(MP.mpid).clear();
                 }
             },
             setCurrencyCode: function(code) {

@@ -105,6 +105,7 @@ function finishCookieMigration(cookie, cookieName) {
     ';path=/' + domain;
 
     Persistence.expireCookies(cookieName);
+    MP.migrate = true;
 }
 
 function convertSDKv1CookiesV1ToSDKv2CookiesV4(SDKv1CookiesV1) {
@@ -266,6 +267,7 @@ function migrateLocalStorage() {
         v3LSDataStringCopy;
 
     if (!currentVersionLSData) {
+        MP.migrate = true;
         v3LSData = window.localStorage.getItem(v3LSName);
         if (v3LSData) {
             v3LSDataStringCopy = v3LSData.slice();

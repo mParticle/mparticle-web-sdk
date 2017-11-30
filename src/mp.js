@@ -34,5 +34,6 @@ module.exports = {
     context: '',
     identityCallInFlight: false,
     initialIdentifyRequest: null,
-    Config: {}
+    Config: {},
+    migrate: false
 };

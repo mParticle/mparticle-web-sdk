@@ -385,6 +385,11 @@ var Validators = {
     },
 
     validateIdentities: function(identityApiData, method) {
+        var validIdentityRequestKeys = {
+            userIdentities: 1,
+            onUserAlias: 1,
+            copyUserAttributes: 1
+        };
         if (identityApiData) {
             if (method === 'modify') {
                 if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
@@ -400,10 +405,16 @@ var Validators = {
             }
             for (var key in identityApiData) {
                 if (identityApiData.hasOwnProperty(key)) {
-                    if (!(key === 'userIdentities' || key === 'copyUserAttributes')) {
+                    if (!validIdentityRequestKeys[key]) {
                         return {
                             valid: false,
-                            error: 'There is an invalid key on your identityRequest object. It can only contain a userIdentities object and copyUserAttributes boolean. Request not sent to server. Please fix and try again.'
+                            error: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.'
+                        };
+                    }
+                    if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
+                        return {
+                            valid: false,
+                            error: 'The onUserAlias value must be a function. The onUserAlias provided is of type ' + typeof identityApiData[key]
                         };
                     }
                 }
@@ -436,12 +447,6 @@ var Validators = {
                             }
                         }
                     }
-                }
-                if (!identityApiData.hasOwnProperty('copyUserAttributes')) {
-                    return {
-                        valid: true,
-                        warning: 'By default, user attributes will not be copied when a new identity is returned. If you\'d like user attributes to be copied, include `copyUserAttributes = true` on the identifyRequest object. Request sent to server.'
-                    };
                 }
             }
         }

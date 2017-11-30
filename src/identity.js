@@ -8,7 +8,8 @@ var Helpers = require('./helpers'),
     MP = require('./mp'),
     Validators = Helpers.Validators,
     send = require('./events').send,
-    CookieSyncManager = require('./cookieSyncManager');
+    CookieSyncManager = require('./cookieSyncManager'),
+    Events = require('./events');
 
 var Identity = {
     checkIdentitySwap: function(previousMPID, currentMPID) {
@@ -107,7 +108,7 @@ var IdentityRequest = {
         if (newIdentities && Helpers.isObject(newIdentities) && previousIdentities && Helpers.isObject(previousIdentities)) {
             for (key in newIdentities) {
                 identityChanges.push({
-                    old_value: previousIdentities[key] || null,
+                    old_value: previousIdentities[Types.IdentityType.getIdentityType(key)] || null,
                     new_value: newIdentities[key],
                     identity_type: key
                 });
@@ -115,10 +116,6 @@ var IdentityRequest = {
         }
 
         return identityChanges;
-    },
-
-    returnCopyAttributes: function(identityApiData) {
-        return (identityApiData && identityApiData.copyUserAttributes);
     },
 
     modifyUserIdentities: function(previousUserIdentities, newUserIdentities) {
@@ -144,12 +141,11 @@ var IdentityAPI = {
 
         if (preProcessResult.valid) {
             var evt,
-                identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid),
-                copyAttributes = IdentityRequest.returnCopyAttributes(identityApiData);
+                identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
                 if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Logout)) {
-                    sendIdentityRequest(identityApiRequest, 'logout', callback, copyAttributes, identityApiData);
+                    sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData);
                     evt = ServerModel.createEventObject(Types.MessageType.Profile);
                     evt.ProfileMessageType = Types.ProfileMessageType.Logout;
 
@@ -177,12 +173,11 @@ var IdentityAPI = {
         var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'login');
 
         if (preProcessResult.valid) {
-            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid),
-                copyAttributes = IdentityRequest.returnCopyAttributes(identityApiData);
+            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
                 if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Login)) {
-                    sendIdentityRequest(identityApiRequest, 'login', callback, copyAttributes, identityApiData);
+                    sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData);
                 }
             }
             else {
@@ -204,7 +199,7 @@ var IdentityAPI = {
 
             if (Helpers.canLog()) {
                 if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Modify)) {
-                    sendIdentityRequest(identityApiRequest, 'modify', callback, null, identityApiData);
+                    sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData);
                 }
             }
             else {
@@ -219,176 +214,334 @@ var IdentityAPI = {
         }
     },
     getCurrentUser: function() {
-        return mParticleUser;
+        var mpid = MP.mpid.slice();
+        return mParticleUser(mpid);
     }
 };
 
-var mParticleUser = {
-    getUserIdentities: function() {
-        var currentUserIdentities = {};
-        for (var type in MP.userIdentities) {
-            if (MP.userIdentities.hasOwnProperty(type)) {
-                currentUserIdentities[Types.IdentityType.getIdentityName(Helpers.parseNumber(type))] = MP.userIdentities[type];
+function mParticleUser(mpid) {
+    return {
+        getUserIdentities: function() {
+            var currentUserIdentities = {};
+
+            var identities = Persistence.getUserIdentities(mpid);
+
+            for (var identityType in identities) {
+                if (identities.hasOwnProperty(identityType)) {
+                    currentUserIdentities[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = identities[identityType];
+                }
             }
-        }
 
-        return {
-            userIdentities: currentUserIdentities
-        };
-    },
-    getMPID: function() {
-        return MP.mpid;
-    },
-    setUserTag: function(tagName) {
-        mParticle.sessionManager.resetSessionTimer();
+            return {
+                userIdentities: currentUserIdentities
+            };
+        },
+        getMPID: function() {
+            return mpid;
+        },
+        setUserTag: function(tagName) {
+            mParticle.sessionManager.resetSessionTimer();
 
-        if (!Validators.isValidKeyValue(tagName)) {
-            Helpers.logDebug(Messages.ErrorMessages.BadKey);
-            return;
-        }
-
-        window.mParticle.Identity.getCurrentUser().setUserAttribute(tagName, null);
-    },
-    removeUserTag: function(tagName) {
-        mParticle.sessionManager.resetSessionTimer();
-
-        if (!Validators.isValidKeyValue(tagName)) {
-            Helpers.logDebug(Messages.ErrorMessages.BadKey);
-            return;
-        }
-
-        window.mParticle.Identity.getCurrentUser().removeUserAttribute(tagName);
-    },
-    setUserAttribute: function(key, value) {
-        mParticle.sessionManager.resetSessionTimer();
-        // Logs to cookie
-        // And logs to in-memory object
-        // Example: mParticle.Identity.getCurrentUser.setUserAttribute('email', 'tbreffni@mparticle.com');
-        if (Helpers.canLog()) {
-            if (!Validators.isValidAttributeValue(value)) {
-                Helpers.logDebug(Messages.ErrorMessages.BadAttribute);
+            if (!Validators.isValidKeyValue(tagName)) {
+                Helpers.logDebug(Messages.ErrorMessages.BadKey);
                 return;
             }
+
+            this.setUserAttribute(tagName, null);
+        },
+        removeUserTag: function(tagName) {
+            mParticle.sessionManager.resetSessionTimer();
+
+            if (!Validators.isValidKeyValue(tagName)) {
+                Helpers.logDebug(Messages.ErrorMessages.BadKey);
+                return;
+            }
+
+            this.removeUserAttribute(tagName);
+        },
+        setUserAttribute: function(key, value) {
+            var cookies,
+                userAttributes;
+
+            mParticle.sessionManager.resetSessionTimer();
+
+            if (Helpers.canLog()) {
+                if (!Validators.isValidAttributeValue(value)) {
+                    Helpers.logDebug(Messages.ErrorMessages.BadAttribute);
+                    return;
+                }
+
+                if (!Validators.isValidKeyValue(key)) {
+                    Helpers.logDebug(Messages.ErrorMessages.BadKey);
+                    return;
+                }
+
+                cookies = Persistence.getPersistence();
+
+                userAttributes = this.getAllUserAttributes();
+
+                var existingProp = Helpers.findKeyInObject(userAttributes, key);
+
+                if (existingProp) {
+                    delete userAttributes[existingProp];
+                }
+
+                userAttributes[key] = value;
+                cookies[mpid].ua = userAttributes;
+                Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+                Persistence.storeDataInMemory(cookies, mpid);
+
+                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }))) {
+                    Forwarders.callSetUserAttributeOnForwarders(key, value);
+                }
+            }
+        },
+        removeUserAttribute: function(key) {
+            var cookies, userAttributes;
+            mParticle.sessionManager.resetSessionTimer();
 
             if (!Validators.isValidKeyValue(key)) {
                 Helpers.logDebug(Messages.ErrorMessages.BadKey);
                 return;
             }
 
-            var existingProp = Helpers.findKeyInObject(MP.userAttributes, key);
+            cookies = Persistence.getPersistence();
+
+            userAttributes = this.getAllUserAttributes();
+
+            var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
             if (existingProp) {
-                delete MP.userAttributes[existingProp];
+                key = existingProp;
             }
 
-            MP.userAttributes[key] = value;
-            Persistence.update();
+            delete userAttributes[key];
 
-            if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }))) {
-                Forwarders.callSetUserAttributeOnForwarders(key, value);
+            cookies[mpid].ua = userAttributes;
+            Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+            Persistence.storeDataInMemory(cookies, mpid);
+
+            if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }))) {
+                Forwarders.applyToForwarders('removeUserAttribute', key);
             }
-        }
-    },
-    removeUserAttribute: function(key) {
-        mParticle.sessionManager.resetSessionTimer();
+        },
+        setUserAttributeList: function(key, value) {
+            var cookies, userAttributes;
 
-        if (!Validators.isValidKeyValue(key)) {
-            Helpers.logDebug(Messages.ErrorMessages.BadKey);
-            return;
-        }
+            mParticle.sessionManager.resetSessionTimer();
 
-        var existingProp = Helpers.findKeyInObject(MP.userAttributes, key);
+            if (!Validators.isValidKeyValue(key)) {
+                Helpers.logDebug(Messages.ErrorMessages.BadKey);
+                return;
+            }
 
-        if (existingProp) {
-            key = existingProp;
-        }
+            if (!Array.isArray(value)) {
+                Helpers.logDebug('The value you passed in to setUserAttributeList must be an array. You passed in a ' + typeof value);
+                return;
+            }
 
-        delete MP.userAttributes[key];
-
-        if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }))) {
-            Forwarders.applyToForwarders('removeUserAttribute', key);
-        }
-
-        Persistence.update();
-    },
-    setUserAttributeList: function(key, value) {
-        mParticle.sessionManager.resetSessionTimer();
-
-        if (!Validators.isValidKeyValue(key)) {
-            Helpers.logDebug(Messages.ErrorMessages.BadKey);
-            return;
-        }
-
-        if (Array.isArray(value)) {
             var arrayCopy = value.slice();
 
-            var existingProp = Helpers.findKeyInObject(MP.userAttributes, key);
+            cookies = Persistence.getPersistence();
+
+            userAttributes = this.getAllUserAttributes();
+
+            var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
             if (existingProp) {
-                delete MP.userAttributes[existingProp];
+                delete userAttributes[existingProp];
             }
 
-            MP.userAttributes[key] = arrayCopy;
-            Persistence.update();
+            userAttributes[key] = arrayCopy;
+            cookies[mpid].ua = userAttributes;
+            Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+            Persistence.storeDataInMemory(cookies, mpid);
 
             if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }))) {
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
             }
-        }
-    },
-    removeAllUserAttributes: function() {
-        mParticle.sessionManager.resetSessionTimer();
-        if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveAllUserAttributes)) {
-            if (MP.userAttributes) {
-                for (var prop in MP.userAttributes) {
-                    if (MP.userAttributes.hasOwnProperty(prop)) {
-                        Forwarders.applyToForwarders('removeUserAttribute', MP.userAttributes[prop]);
+        },
+        removeAllUserAttributes: function() {
+            var cookies, userAttributes;
+
+            mParticle.sessionManager.resetSessionTimer();
+
+            cookies = Persistence.getPersistence();
+
+            userAttributes = this.getAllUserAttributes();
+
+            if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveAllUserAttributes)) {
+                if (userAttributes) {
+                    for (var prop in userAttributes) {
+                        if (userAttributes.hasOwnProperty(prop)) {
+                            Forwarders.applyToForwarders('removeUserAttribute', userAttributes[prop]);
+                        }
                     }
                 }
             }
-        }
 
-        MP.userAttributes = {};
-        Persistence.update();
-    },
-    getUserAttributesLists: function() {
-        var userAttributeLists = {};
+            cookies[mpid].ua = {};
+            Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+            Persistence.storeDataInMemory(cookies, mpid);
+        },
+        getUserAttributesLists: function() {
+            var userAttributes,
+                userAttributesLists = {};
 
-        for (var key in MP.userAttributes) {
-            if (MP.userAttributes.hasOwnProperty(key) && Array.isArray(MP.userAttributes[key])) {
-                userAttributeLists[key] = MP.userAttributes[key].slice();
+            userAttributes = this.getAllUserAttributes();
+            for (var key in userAttributes) {
+                if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
+                    userAttributesLists[key] = userAttributes[key].slice();
+                }
             }
-        }
 
-        return userAttributeLists;
-    },
-    getAllUserAttributes: function() {
-        var userAttributesCopy = {};
+            return userAttributesLists;
+        },
+        getAllUserAttributes: function() {
+            var userAttributesCopy = {};
+            var userAttributes = Persistence.getAllUserAttributes(mpid);
 
-        if (MP.userAttributes) {
-            for (var prop in MP.userAttributes) {
-                if (MP.userAttributes.hasOwnProperty(prop)) {
-                    if (Array.isArray(MP.userAttributes[prop])) {
-                        userAttributesCopy[prop] = MP.userAttributes[prop].slice();
-                    }
-                    else {
-                        userAttributesCopy[prop] = MP.userAttributes[prop];
+            if (userAttributes) {
+                for (var prop in userAttributes) {
+                    if (userAttributes.hasOwnProperty(prop)) {
+                        if (Array.isArray(userAttributes[prop])) {
+                            userAttributesCopy[prop] = userAttributes[prop].slice();
+                        }
+                        else {
+                            userAttributesCopy[prop] = userAttributes[prop];
+                        }
                     }
                 }
             }
-        }
 
-        return userAttributesCopy;
-    }
-};
+            return userAttributesCopy;
+        },
+        getCart: function() {
+            return mParticleUserCart(mpid);
+        }
+    };
+}
+
+function mParticleUserCart(mpid){
+    return {
+        add: function(product, logEvent) {mParticle.sessionManager.resetSessionTimer();
+            var allProducts,
+                userProducts,
+                arrayCopy;
+
+            arrayCopy = Array.isArray(product) ? product.slice() : [product];
+
+            mParticle.sessionManager.resetSessionTimer();
+
+            allProducts = JSON.parse(Persistence.getLocalStorageProducts());
+
+            if (allProducts && !allProducts[mpid]) {
+                allProducts[mpid] = {};
+            }
+
+            if (allProducts[mpid].cp) {
+                userProducts = allProducts[mpid].cp;
+            } else {
+                userProducts = [];
+            }
+
+            userProducts = userProducts.concat(arrayCopy);
+
+            if (Helpers.isWebViewEmbedded()) {
+                Helpers.tryNativeSdk(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
+            }
+            else if (logEvent === true) {
+                Events.logProductActionEvent(Types.ProductActionType.AddToCart, arrayCopy);
+            }
+
+            var productsForMemory = {};
+            productsForMemory[mpid] = {cp: userProducts};
+            if (mpid === MP.mpid) {
+                Persistence.storeProductsInMemory(productsForMemory, mpid);
+            }
+
+            if (userProducts.length > mParticle.maxProducts) {
+                Helpers.logDebug('The cart contains ' + userProducts.length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
+                userProducts = userProducts.slice(0, mParticle.maxProducts);
+            }
+
+            allProducts[mpid].cp = userProducts;
+
+            Persistence.setCartProducts(allProducts);
+        },
+        remove: function(product, logEvent) {
+            mParticle.sessionManager.resetSessionTimer();
+            var allProducts,
+                userProducts,
+                cartIndex = -1,
+                cartItem = null;
+
+            allProducts = JSON.parse(Persistence.getLocalStorageProducts());
+
+            if (allProducts && allProducts[mpid].cp) {
+                userProducts = allProducts[mpid].cp;
+            } else {
+                userProducts = [];
+            }
+
+            if (userProducts) {
+                userProducts.forEach(function(cartProduct, i) {
+                    if (cartProduct.Sku === product.Sku) {
+                        cartIndex = i;
+                        cartItem = cartProduct;
+                    }
+                });
+
+                if (cartIndex > -1) {
+                    userProducts.splice(cartIndex, 1);
+
+                    if (Helpers.isWebViewEmbedded()) {
+                        Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(cartItem));
+                    }
+                    else if (logEvent === true) {
+                        Events.logProductActionEvent(Types.ProductActionType.RemoveFromCart, cartItem);
+                    }
+                }
+            }
+
+            var productsForMemory = {};
+            productsForMemory[mpid] = {cp: userProducts};
+            if (mpid === MP.mpid) {
+                Persistence.storeProductsInMemory(productsForMemory, mpid);
+            }
+
+            allProducts[mpid].cp = userProducts;
+
+            Persistence.setCartProducts(allProducts);
+        },
+        clear: function() {
+            mParticle.sessionManager.resetSessionTimer();
+            var allProducts = JSON.parse(Persistence.getLocalStorageProducts());
+
+            if (allProducts && allProducts[mpid].cp) {
+                allProducts[mpid].cp = [];
+
+                allProducts[mpid].cp = [];
+                if (mpid === MP.mpid) {
+                    Persistence.storeProductsInMemory(allProducts, mpid);
+                }
+
+                Persistence.setCartProducts(allProducts);
+                Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearCart);
+            }
+        },
+        getCartProducts: function() {
+            return Persistence.getCartProducts(mpid);
+        }
+    };
+}
 
 function identify(identityApiData) {
     var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, MP.identityCallback, 'identify');
     if (preProcessResult.valid) {
-        var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid),
-            copyAttributes = IdentityRequest.returnCopyAttributes(identityApiData);
+        var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
-        sendIdentityRequest(identityApiRequest, 'identify', MP.identityCallback, copyAttributes, identityApiData);
+        sendIdentityRequest(identityApiRequest, 'identify', MP.identityCallback, identityApiData);
     } else {
         if (MP.identityCallback) {
             MP.identityCallback(preProcessResult);
@@ -396,12 +549,12 @@ function identify(identityApiData) {
     }
 }
 
-function sendIdentityRequest(identityApiRequest, method, callback, copyAttributes, originalIdentityApiData) {
+function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData) {
     var xhr, previousMPID,
         xhrCallback = function() {
             if (xhr.readyState === 4) {
                 Helpers.logDebug('Received ' + xhr.statusText + ' from server');
-                parseIdentityResponse(xhr, copyAttributes, previousMPID, callback, originalIdentityApiData, method);
+                parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method);
             }
         };
 
@@ -442,8 +595,14 @@ function sendIdentityRequest(identityApiRequest, method, callback, copyAttribute
     }
 }
 
-function parseIdentityResponse(xhr, copyAttributes, previousMPID, callback, identityApiData, method) {
-    var identityApiResult;
+function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, method) {
+    var prevUser,
+        newUser,
+        identityApiResult;
+    if (MP.mpid) {
+        prevUser = mParticle.Identity.getCurrentUser();
+    }
+
     MP.identityCallInFlight = false;
     try {
         Helpers.logDebug('Parsing identity response from server');
@@ -461,18 +620,9 @@ function parseIdentityResponse(xhr, copyAttributes, previousMPID, callback, iden
                 Helpers.logDebug('Successfully parsed Identity Response');
                 if (identityApiResult.mpid && identityApiResult.mpid !== MP.mpid) {
                     MP.mpid = identityApiResult.mpid;
-                    if (!copyAttributes) {
-                        MP.userAttributes = {};
-                    } else {
-                        for (var key in MP.userAttributes) {
-                            if (MP.userAttributes.hasOwnProperty(key)) {
-                                IdentityAPI.getCurrentUser().setUserAttribute(key, MP.userAttributes[key]);
-                            }
-                        }
-                    }
-                }
 
-                checkCookieForMPID(MP.mpid);
+                    checkCookieForMPID(MP.mpid);
+                }
 
                 if (MP.sessionId && MP.mpid && previousMPID !== MP.mpid && MP.currentSessionMPIDs.indexOf(MP.mpid) < 0) {
                     MP.currentSessionMPIDs.push(MP.mpid);
@@ -510,7 +660,24 @@ function parseIdentityResponse(xhr, copyAttributes, previousMPID, callback, iden
                 MP.context = identityApiResult.context || MP.context;
             }
 
-            Forwarders.setForwarderUserIdentities(identityApiData.userIdentities);
+            if (identityApiData && identityApiData.onUserAlias && Validators.isFunction(identityApiData.onUserAlias)) {
+                newUser = mParticle.Identity.getCurrentUser();
+                try {
+                    identityApiData.onUserAlias(prevUser, newUser);
+                }
+                catch (e) {
+                    Helpers.logDebug('There was an error with your onUserAlias function - ' + e);
+                }
+            }
+            var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
+
+            if (newUser) {
+                Persistence.storeDataInMemory(cookies, newUser.getMPID());
+            }
+
+            if (identityApiData && identityApiData.userIdentities) {
+                Forwarders.setForwarderUserIdentities(identityApiData.userIdentities);
+            }
         }
 
         if (callback) {
@@ -545,11 +712,13 @@ function checkCookieForMPID(currentMPID) {
         MP.userAttributes = cookies[currentMPID].ua ? cookies[currentMPID].ua : MP.userAttributes;
         MP.cookieSyncDates = cookies[currentMPID].csd ? cookies[currentMPID].csd : MP.cookieSyncDates;
     }
+
 }
 
 module.exports = {
     identify: identify,
     IdentityAPI: IdentityAPI,
     Identity: Identity,
-    IdentityRequest: IdentityRequest
+    IdentityRequest: IdentityRequest,
+    mParticleUserCart: mParticleUserCart
 };
