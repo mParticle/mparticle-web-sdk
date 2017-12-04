@@ -42,7 +42,7 @@ describe('event logging', function() {
         data.should.have.property('fr', true);
         data.should.have.property('iu', false);
         if (document.referrer && document.referrer.length > 0) {
-            data.should.have.property('lr', document.referrer);
+            data.should.have.property('lr', window.location.href);
         }
 
         done();

@@ -261,14 +261,23 @@ function logImpressionEvent(impression, attrs) {
     if (event) {
         event.EventName += 'Impression';
         event.EventCategory = Types.CommerceEventType.ProductImpression;
-        event.ProductImpressions = [{
-            ProductImpressionList: impression.Name,
-            ProductList: [impression.Product]
-        }];
+        if (!Array.isArray(impression)) {
+            impression = [impression];
+        }
+
+        event.ProductImpressions = [];
+
+        impression.forEach(function(impression) {
+            event.ProductImpressions.push({
+                ProductImpressionList: impression.Name,
+                ProductList: Array.isArray(impression.Product) ? impression.Product : [impression.Product]
+            });
+        });
 
         logCommerceEvent(event, attrs);
     }
 }
+
 
 function logCommerceEvent(commerceEvent, attrs) {
     Helpers.logDebug(Messages.InformationMessages.StartingLogCommerceEvent);
