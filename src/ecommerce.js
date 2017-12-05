@@ -210,6 +210,8 @@ function createProduct(name,
     couponCode,
     attributes) {
 
+    attributes = Helpers.sanitizeAttributes(attributes);
+
     if (typeof name !== 'string') {
         Helpers.logDebug('Name is required when creating a product');
         return null;

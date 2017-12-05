@@ -1,3 +1,4 @@
+/* eslint-disable quotes */
 var TestsCore = require('./tests-core'),
     apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
@@ -302,7 +303,7 @@ describe('migrations and persistence-related', function() {
 
         mParticle.persistence.initializeStorage();
 
-        cookieData = findCookie();
+        var cookieData = findCookie();
 
         var localStorageData = mParticle.persistence.getLocalStorage();
 
@@ -324,7 +325,7 @@ describe('migrations and persistence-related', function() {
         window.mParticle.useCookieStorage = false;
         mParticle.persistence.initializeStorage();
 
-        cookieData = mParticle.persistence.getCookie();
+        var cookieData = mParticle.persistence.getCookie();
 
         var localStorageData = mParticle.persistence.getLocalStorage();
 

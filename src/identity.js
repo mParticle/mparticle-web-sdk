@@ -429,6 +429,7 @@ function mParticleUserCart(mpid){
                 userProducts,
                 arrayCopy;
 
+            product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
             arrayCopy = Array.isArray(product) ? product.slice() : [product];
 
             mParticle.sessionManager.resetSessionTimer();

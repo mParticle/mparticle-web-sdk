@@ -354,6 +354,8 @@ function sanitizeAttributes(attrs) {
         // Make sure that attribute values are not objects or arrays, which are not valid
         if (attrs.hasOwnProperty(prop) && Validators.isValidAttributeValue(attrs[prop])) {
             sanitizedAttrs[prop] = attrs[prop];
+        } else {
+            logDebug('The attribute key of ' + prop + ' must be a string, number, boolean, or null.');
         }
     }
 

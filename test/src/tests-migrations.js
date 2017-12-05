@@ -1,3 +1,4 @@
+/* eslint-disable quotes */
 var TestsCore = require('./tests-core'),
     apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
@@ -567,19 +568,4 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         done();
     });
-
-    it('testing modify', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = true;
-
-        setCookie(v3CookieKey, SDKv1CookieV3FullLSApostrophes, true);
-
-        mParticle.init(apiKey);
-
-        var cookies = mParticle.persistence.getCookie();
-        console.log(cookies);
-
-        done();
-    });
-
 });

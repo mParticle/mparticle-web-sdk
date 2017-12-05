@@ -1,4 +1,5 @@
-var Validators = require('../../src/helpers').Validators;
+var Helpers = require('../../src/helpers'),
+    Validators = Helpers.Validators;
 
 describe('helpers', function() {
     it('event type should return name', function(done) {

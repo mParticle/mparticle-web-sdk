@@ -282,6 +282,8 @@ function logImpressionEvent(impression, attrs) {
 function logCommerceEvent(commerceEvent, attrs) {
     Helpers.logDebug(Messages.InformationMessages.StartingLogCommerceEvent);
 
+    attrs = Helpers.sanitizeAttributes(attrs);
+
     if (Helpers.canLog()) {
         if (Helpers.isWebViewEmbedded()) {
             // Don't send shopping cart or product bags to parent sdks

@@ -278,11 +278,11 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes2');
         var event2 = getEvent('test user attributes2');
-        var cookies = getLocalStorage();
+        var cookies3 = getLocalStorage();
 
         event2.ua.should.have.property('numbers', [1, 2, 3, 4, 5]);
         event2.ua.should.not.have.property('Numbers');
-        cookies[testMPID].ua.numbers.length.should.equal(5);
+        cookies3[testMPID].ua.numbers.length.should.equal(5);
 
         done();
     });

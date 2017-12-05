@@ -95,6 +95,8 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
     var eventObject,
         optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
 
+    data = Helpers.sanitizeAttributes(data);
+
     if (MP.sessionId || messageType == Types.MessageType.OptOut) {
         if (messageType !== Types.MessageType.SessionEnd) {
             MP.dateLastEventSent = new Date();

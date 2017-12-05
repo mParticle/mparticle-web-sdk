@@ -700,7 +700,6 @@ function resetPersistence(){
     expireCookies(MP.Config.CookieNameV4);
 }
 
-
 module.exports = {
     useLocalStorage: useLocalStorage,
     isLocalStorageAvailable: null,
