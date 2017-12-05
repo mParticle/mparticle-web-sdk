@@ -2,6 +2,7 @@ var Types = require('./types'),
     MessageType = Types.MessageType,
     ApplicationTransitionType = Types.ApplicationTransitionType,
     Constants = require('./constants'),
+    Helpers = require('./helpers'),
     MP = require('./mp'),
     parseNumber = require('./helpers').parseNumber,
     isWebViewEmbedded = require('./helpers').isWebViewEmbedded;
@@ -48,15 +49,15 @@ function convertProductListToDTO(productList) {
 
 function convertProductToDTO(product) {
     return {
-        id: product.Sku,
-        nm: product.Name,
+        id: Helpers.parseStringOrNumber(product.Sku),
+        nm: Helpers.parseStringOrNumber(product.Name),
         pr: parseNumber(product.Price),
         qt: parseNumber(product.Quantity),
-        br: product.Brand,
-        va: product.Variant,
-        ca: product.Category,
+        br: Helpers.parseStringOrNumber(product.Brand),
+        va: Helpers.parseStringOrNumber(product.Variant),
+        ca: Helpers.parseStringOrNumber(product.Category),
         ps: parseNumber(product.Position),
-        cc: product.CouponCode,
+        cc: Helpers.parseStringOrNumber(product.CouponCode),
         tpa: parseNumber(product.TotalAmount),
         attrs: product.Attributes
     };

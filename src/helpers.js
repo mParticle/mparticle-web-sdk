@@ -307,6 +307,14 @@ function parseNumber(value) {
     return isNaN(floatValue) ? 0 : floatValue;
 }
 
+function parseStringOrNumber(value) {
+    if (Validators.isStringOrNumber(value)) {
+        return value;
+    } else {
+        return null;
+    }
+}
+
 function generateHash(name) {
     var hash = 0,
         i = 0,
@@ -473,6 +481,7 @@ module.exports = {
     converted: converted,
     isEventType: isEventType,
     parseNumber: parseNumber,
+    parseStringOrNumber: parseStringOrNumber,
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
     mergeConfig: mergeConfig,

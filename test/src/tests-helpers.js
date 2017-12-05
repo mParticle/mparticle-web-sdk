@@ -150,4 +150,25 @@ describe('helpers', function() {
 
         done();
     });
+
+    it('should correctly parse string or number', function(done) {
+        var string = 'abc';
+        var number = 123;
+        var object = {};
+        var array = [];
+
+        var stringResult = Helpers.parseStringOrNumber(string);
+        var numberResult = Helpers.parseStringOrNumber(number);
+        var objectResult = Helpers.parseStringOrNumber(object);
+        var arrayResult = Helpers.parseStringOrNumber(array);
+        var nullResult = Helpers.parseStringOrNumber(null);
+
+        stringResult.should.equal(string);
+        numberResult.should.equal(number);
+        Should(objectResult).not.be.ok();
+        Should(arrayResult).not.be.ok();
+        Should(nullResult).not.be.ok();
+
+        done();
+    });
 });
