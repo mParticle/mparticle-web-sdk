@@ -22,6 +22,8 @@ function getProductActionEventName(productActionType) {
             return 'AddToWishlist';
         case Types.ProductActionType.Checkout:
             return 'Checkout';
+        case Types.ProductActionType.CheckoutOption:
+            return 'CheckoutOption';
         case Types.ProductActionType.Click:
             return 'Click';
         case Types.ProductActionType.Purchase:
@@ -59,6 +61,8 @@ function convertProductActionToEventType(productActionType) {
             return Types.CommerceEventType.ProductAddToWishlist;
         case Types.ProductActionType.Checkout:
             return Types.CommerceEventType.ProductCheckout;
+        case Types.ProductActionType.CheckoutOption:
+            return Types.CommerceEventType.ProductCheckoutOption;
         case Types.ProductActionType.Click:
             return Types.CommerceEventType.ProductClick;
         case Types.ProductActionType.Purchase:

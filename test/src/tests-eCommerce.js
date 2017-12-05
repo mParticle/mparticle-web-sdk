@@ -9,7 +9,8 @@ var TestsCore = require('./tests-core'),
     getEvent = TestsCore.getEvent,
     CommerceEventType = TestsCore.CommerceEventType,
     MockForwarder = TestsCore.MockForwarder,
-    mParticleAndroid = TestsCore.mParticleAndroid;
+    mParticleAndroid = TestsCore.mParticleAndroid,
+    server = TestsCore.server;
 
 describe('eCommerce', function() {
     it('should create ecommerce product', function(done) {
@@ -493,6 +494,23 @@ describe('eCommerce', function() {
         event.pd.should.have.property('cs', 1);
         event.pd.should.have.property('co', 'Visa');
 
+        done();
+    });
+
+    it('should log checkout option', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
+        server.requests = [];
+        mParticle.eCommerce.logProductAction(ProductActionType.CheckoutOption, product, {color: 'blue'});
+
+        var event = getEvent('eCommerce - CheckoutOption');
+
+        Should(event).be.ok();
+
+        event.should.have.property('et', CommerceEventType.ProductCheckoutOption);
+        event.should.have.property('pd');
+
+        event.pd.should.have.property('an', ProductActionType.CheckoutOption);
+        event.attrs.should.have.property('color', 'blue');
         done();
     });
 
