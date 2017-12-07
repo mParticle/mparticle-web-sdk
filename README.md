@@ -75,27 +75,20 @@ Similar to other mParticle SDKs, the Javascript SDK is able to automatically inc
 
 ## Running the Tests
 
-Prior to running the tests please install all dev dependencies via an npm install:
+Prior to running the tests please install all dev dependencies via an `npm install`, and build the mParticle.js file as well as the test file by running `npm run build`:
 
 ```bash
 $ npm install
+$ npm run build
+$ npm run testKarma
 ```
 
-A suite of test cases can be run by serving the `/test` directory from a web server (such as [serve](https://www.npmjs.com/package/serve)),
-and pointing a web browser to `index.html`. This will execute the tests and also display code coverage results. Note that serving the test
-directory from the file system directly will not work.
-
-You can also run the tests by executing the npm test script:
-
-```bash
-$ npm test
-```
-The test script will run all tests using Karma and ChromeHeadless by default. To run tests using a different browser, use the command:
+The test script will run all tests using Karma and ChromeHeadless, Firefox, and Safari by default. To run tests using a different browser, use the command:
 
 ```
 $ BROWSER=[browserBrand] npm run testBrowser
 ```
-where browserBrand can be Safari, Firefox, Edge, or IE.
+where browserBrand can be Edge or IE.
 
 ## Development Notes
 This package comes with the NPM package [pre-commit](https://www.npmjs.com/package/pre-commit), which will run [ESLint](http://eslint.org/) when you try to commit.

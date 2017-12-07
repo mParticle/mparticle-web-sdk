@@ -5,7 +5,15 @@
 
     },
     "globals": {
-        "mParticle": true
+        "mParticle": true,
+        "describe": true,
+        "Should": true,
+        "MockHttpServer": true,
+        "it": true,
+        "const": true,
+        "before": true,
+        "beforeEach": true,
+        "after": true
     },
     "extends": "eslint:recommended",
     "rules": {

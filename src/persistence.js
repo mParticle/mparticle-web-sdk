@@ -7,7 +7,7 @@ var Helpers = require('./helpers'),
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys;
 
 function useLocalStorage() {
-    return (!mParticle.useCookieStorage && this.isLocalStorageAvailable);
+    return (!mParticle.useCookieStorage && determineLocalStorageAvailability());
 }
 
 function initializeStorage() {
@@ -76,6 +76,8 @@ function initializeStorage() {
     if (MP.mpid) {
         storeProductsInMemory(decodedProducts, MP.mpid);
     }
+
+    MP.deviceId = retrieveDeviceId();
 
     this.update();
 }
@@ -682,6 +684,10 @@ function getPersistence() {
     return cookies;
 }
 
+function getDeviceId() {
+    return MP.deviceId;
+}
+
 function resetPersistence(){
     removeLocalStorage(MP.Config.LocalStorageName);
     removeLocalStorage(MP.Config.LocalStorageNameV3);
@@ -693,6 +699,7 @@ function resetPersistence(){
     expireCookies(MP.Config.CookieNameV3);
     expireCookies(MP.Config.CookieNameV4);
 }
+
 
 module.exports = {
     useLocalStorage: useLocalStorage,
@@ -730,5 +737,6 @@ module.exports = {
     setCartProducts: setCartProducts,
     updateOnlyCookieUserAttributes: updateOnlyCookieUserAttributes,
     getPersistence: getPersistence,
+    getDeviceId: getDeviceId,
     resetPersistence: resetPersistence
 };

@@ -6,23 +6,15 @@
   "scripts": {
     "test": "node test/runner.js",
     "testKarma": "node test/test-karma.js",
-    "testBuild": "watchify test/tests.js -v -o test/test-bundle.js --debug",
-    "watch": "watchify src/main.js -v -o build/mParticle-dev.js --debug"
+    "build": "browserify src/main.js -v -o build/mParticle-dev.js",
+    "buildTest": "browserify test/src/tests-main.js -v -o test/test-bundle.js",
+    "testBrowser": "karma start --single-run --browsers=$BROWSER test/karma.config.js",
+    "watch": "watchify src/main.js -v -o build/mParticle-dev.js --debug",
+    "watchTests": "watchify test/src/tests-main.js -v -o test/test-bundle.js --debug"
   },
   "pre-commit": [
     "lint"
   ],
-  "browserify": {
-      "transform": [
-          "aliasify"
-      ]
-  },
-  "aliasify": {
-    "aliases": {
-        ".": "./src",
-        "test": "./test"
-    }
-  },
   "devDependencies": {
     "aliasify": "^2.1.0",
     "browser-sync": "^2.18.5",

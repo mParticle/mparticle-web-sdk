@@ -25,6 +25,7 @@ var Polyfill = require('./polyfill'),
     Ecommerce = require('./ecommerce'),
     MP = require('./mp'),
     Persistence = require('./persistence'),
+    getDeviceId = Persistence.getDeviceId,
     Events = require('./events'),
     Messages = Constants.Messages,
     Validators = Helpers.Validators,
@@ -51,10 +52,6 @@ var Polyfill = require('./polyfill'),
 
     if (!Array.isArray) {
         Array.prototype.isArray = Polyfill.isArray;
-    }
-
-    function getDeviceId() {
-        return MP.deviceId;
     }
 
     var mParticle = {
@@ -94,7 +91,6 @@ var Polyfill = require('./polyfill'),
             // Load any settings/identities/attributes from cookie or localStorage
             Persistence.initializeStorage();
 
-            MP.deviceId = Persistence.retrieveDeviceId();
             // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
             if ((Helpers.isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
                 var modifiedUIforIdentityRequest = {};
