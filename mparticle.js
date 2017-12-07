@@ -2227,9 +2227,9 @@
         sku,
         price,
         quantity,
-        brand,
         variant,
         category,
+        brand,
         position,
         couponCode,
         attributes) {
