@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.15.4 - 2017-12-07
+*  Bugfix - Correct order of internal createProducts arguments
+
 #### 1.15.3 - 2017-11-29
 *  Bugfix - Adjust logic for session end event
 
