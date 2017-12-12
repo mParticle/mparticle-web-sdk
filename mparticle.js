@@ -321,10 +321,6 @@
         }
     }
 
-    function isUIWebView() {
-        return /(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent);
-    }
-
     function tryNativeSdk(path, value) {
         if (!mParticle.useNativeSdk) {
             return false;
@@ -335,7 +331,7 @@
 
             return true;
         }
-        else if (window.mParticle.isIOS || isUIWebView()) {
+        else if (window.mParticle.isIOS) {
             logDebug(InformationMessages.SendIOS + path);
             var iframe = document.createElement('IFRAME');
             iframe.setAttribute('src', 'mp-sdk://' + path + '/' + value);
@@ -876,7 +872,6 @@
             return false;
         }
         if (window.mParticleAndroid
-            || isUIWebView()
             || window.mParticle.isIOS) {
             return true;
         }
