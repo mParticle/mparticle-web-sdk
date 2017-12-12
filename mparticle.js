@@ -2000,6 +2000,7 @@
         attrs = sanitizeAttributes(attrs);
 
         if (canLog()) {
+            startNewSessionIfNeeded();
             if (isWebViewEmbedded()) {
                 // Don't send shopping cart or product bags to parent sdks
                 commerceEvent.ShoppingCart = {};
