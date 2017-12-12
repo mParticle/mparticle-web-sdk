@@ -65,7 +65,7 @@ describe('event logging', function() {
     it('should log a page view', function(done) {
         mParticle.logPageView();
 
-        var event = getEvent(window.location.pathname);
+        var event = getEvent('PageView');
 
         Should(event).be.ok();
 
@@ -88,6 +88,83 @@ describe('event logging', function() {
 
         event.should.have.property('flags');
         event.flags.should.have.property('MyCustom.Flag', ['Test']);
+
+        done();
+    });
+
+    it('should pass custom flags in page views', function(done) {
+        mParticle.logPageView('test', null, {
+            'MyCustom.Flag': 'Test'
+        });
+
+        var event = getEvent('test');
+
+        Should(event).be.ok();
+
+        event.should.have.property('flags');
+        event.flags.should.have.property('MyCustom.Flag', ['Test']);
+
+        done();
+    });
+
+    it('should convert custom flag dictionary values to array', function(done) {
+        mParticle.logPageView('test', null, {
+            'MyCustom.String': 'Test',
+            'MyCustom.Number': 1,
+            'MyCustom.Boolean': true,
+            'MyCustom.Object': {},
+            'MyCustom.Array': ['Blah', 'Hello', {}]
+        });
+
+        var event = getEvent('test');
+
+        Should(event).be.ok();
+
+        event.should.have.property('flags');
+        event.flags.should.have.property('MyCustom.String', ['Test']);
+        event.flags.should.have.property('MyCustom.Number', ['1']);
+        event.flags.should.have.property('MyCustom.Boolean', ['true']);
+        event.flags.should.not.have.property('MyCustom.Object');
+        event.flags.should.have.property('MyCustom.Array', ['Blah', 'Hello']);
+
+        done();
+    });
+
+    it('should not log a PageView event if there are invalid attrs', function(done) {
+        mParticle.logPageView('test1', 'invalid', null);
+        var event2 = getEvent('test1');
+
+        Should(event2).not.be.ok();
+
+        done();
+    });
+
+    it('should not log an event that has an invalid customFlags', function(done) {
+        mParticle.logPageView('test', null, 'invalid');
+        var event1 = getEvent('test');
+        Should(event1).not.be.ok();
+
+        done();
+    });
+
+    it('should log event with name PageView when an invalid event name is passed', function(done) {
+        server.requests = [];
+        mParticle.logPageView(null);
+        server.requests.length.should.equal(1);
+        var event1 = getEvent('PageView');
+        event1.n.should.equal('PageView');
+
+        server.requests = [];
+        mParticle.logPageView({test: 'test'});
+        server.requests.length.should.equal(1);
+        event2 = getEvent('PageView');
+        event2.n.should.equal('PageView');
+
+        server.requests = [];
+        mParticle.logPageView([1, 2, 3]);
+        server.requests.length.should.equal(1);
+        event3 = getEvent('PageView');
+        event3.n.should.equal('PageView');
 
         done();
     });

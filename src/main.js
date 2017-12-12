@@ -280,36 +280,30 @@ var Polyfill = require('./polyfill'),
             mParticle.sessionManager.resetSessionTimer();
             Events.addEventHandler('submit', selector, eventName, eventInfo, eventType);
         },
-        logPageView: function() {
+        logPageView: function(eventName, attrs, flags) {
             mParticle.sessionManager.resetSessionTimer();
-            var eventName = null,
-                attrs = null,
-                flags = null;
 
             if (Helpers.canLog()) {
-                if (arguments.length <= 1) {
-                    // Handle original function signature
-                    eventName = window.location.pathname;
+                if (!Validators.isStringOrNumber(eventName)) {
+                    eventName = 'PageView';
+                }
+                if (!attrs) {
                     attrs = {
                         hostname: window.location.hostname,
                         title: window.document.title
                     };
-
-                    if (arguments.length === 1) {
-                        flags = arguments[0];
-                    }
                 }
-                else if (arguments.length > 1) {
-                    eventName = arguments[0];
-                    attrs = arguments[1];
-
-                    if (arguments.length === 3) {
-                        flags = arguments[2];
-                    }
+                else if (!Helpers.isObject(attrs)){
+                    Helpers.logDebug('The attributes argument must be an object. A ' + typeof attrs + ' was entered. Please correct and retry.');
+                    return;
                 }
-
-                Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, flags);
+                if (flags && !Helpers.isObject(flags)) {
+                    Helpers.logDebug('The customFlags argument must be an object. A ' + typeof flags + ' was entered. Please correct and retry.');
+                    return;
+                }
             }
+
+            Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, flags);
         },
 
         eCommerce: {
