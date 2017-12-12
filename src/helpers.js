@@ -11,10 +11,6 @@ function logDebug(msg) {
     }
 }
 
-function isUIWebView() {
-    return /(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent);
-}
-
 function canLog() {
     if (MP.isEnabled && (MP.devToken || isWebViewEmbedded())) {
         return true;
@@ -159,7 +155,7 @@ function tryNativeSdk(path, value) {
 
         return true;
     }
-    else if (window.mParticle.isIOS || isUIWebView()) {
+    else if (window.mParticle.isIOS) {
         logDebug(Messages.InformationMessages.SendIOS + path);
         var iframe = document.createElement('IFRAME');
         iframe.setAttribute('src', 'mp-sdk://' + path + '/' + value);
@@ -182,7 +178,6 @@ function isWebViewEmbedded() {
         return false;
     }
     if (window.mParticleAndroid
-        || isUIWebView()
         || window.mParticle.isIOS) {
         return true;
     }
