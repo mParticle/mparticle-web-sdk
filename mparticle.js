@@ -2,7 +2,7 @@
 var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
     secureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.1.0',
+    sdkVersion = '2.1.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     METHOD_NAME = '$MethodName',

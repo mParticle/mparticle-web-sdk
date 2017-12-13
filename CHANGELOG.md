@@ -1,6 +1,16 @@
 ## Releases
 --
 
+#### 2.1.1 - 2017-12-13
+*  Modularize tests for readability and robustness
+*  Adjust Application State Transition, include initial location
+*  Bugfix - Add CheckoutOption to ProductAction-related switch statements
+*  Add parseStringOrNumber function
+*  Sanitize additional attributes
+*  Correct order of internal createProducts arguments
+*  Refactor logPageView
+*  Require explicit UIWebview binding
+
 #### 2.1.0 - 2017-11-30
 *  Migrate persistence to v4
 *  Add onUserAlias callback
