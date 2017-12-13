@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 1.15.5 - 2017-12-13
+*  Require explicit UIWebview binding
+*  Add startNewSessionIfNeeded to logCommerce
+
 #### 1.15.4 - 2017-12-07
 *  Bugfix - Correct order of internal createProducts arguments
 
