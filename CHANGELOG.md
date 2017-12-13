@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.1.2 - 2017-12-14
+*  Add setForwarderOnUserIdentified, return null currentUser when MPID is null
+
 #### 2.1.1 - 2017-12-13
 *  Modularize tests for readability and robustness
 *  Adjust Application State Transition, include initial location
