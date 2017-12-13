@@ -2,7 +2,7 @@
 var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
     secureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.1.0',
+    sdkVersion = '2.1.2',
     sdkVendor = 'mparticle',
     platform = 'web',
     METHOD_NAME = '$MethodName',
@@ -215,6 +215,8 @@ function getProductActionEventName(productActionType) {
             return 'AddToWishlist';
         case Types.ProductActionType.Checkout:
             return 'Checkout';
+        case Types.ProductActionType.CheckoutOption:
+            return 'CheckoutOption';
         case Types.ProductActionType.Click:
             return 'Click';
         case Types.ProductActionType.Purchase:
@@ -252,6 +254,8 @@ function convertProductActionToEventType(productActionType) {
             return Types.CommerceEventType.ProductAddToWishlist;
         case Types.ProductActionType.Checkout:
             return Types.CommerceEventType.ProductCheckout;
+        case Types.ProductActionType.CheckoutOption:
+            return Types.CommerceEventType.ProductCheckoutOption;
         case Types.ProductActionType.Click:
             return Types.CommerceEventType.ProductClick;
         case Types.ProductActionType.Purchase:
@@ -392,12 +396,14 @@ function createProduct(name,
     sku,
     price,
     quantity,
-    brand,
     variant,
     category,
+    brand,
     position,
     couponCode,
     attributes) {
+
+    attributes = Helpers.sanitizeAttributes(attributes);
 
     if (typeof name !== 'string') {
         Helpers.logDebug('Name is required when creating a product');
@@ -904,17 +910,28 @@ function logImpressionEvent(impression, attrs) {
     if (event) {
         event.EventName += 'Impression';
         event.EventCategory = Types.CommerceEventType.ProductImpression;
-        event.ProductImpressions = [{
-            ProductImpressionList: impression.Name,
-            ProductList: [impression.Product]
-        }];
+        if (!Array.isArray(impression)) {
+            impression = [impression];
+        }
+
+        event.ProductImpressions = [];
+
+        impression.forEach(function(impression) {
+            event.ProductImpressions.push({
+                ProductImpressionList: impression.Name,
+                ProductList: Array.isArray(impression.Product) ? impression.Product : [impression.Product]
+            });
+        });
 
         logCommerceEvent(event, attrs);
     }
 }
 
+
 function logCommerceEvent(commerceEvent, attrs) {
     Helpers.logDebug(Messages.InformationMessages.StartingLogCommerceEvent);
+
+    attrs = Helpers.sanitizeAttributes(attrs);
 
     if (Helpers.canLog()) {
         if (Helpers.isWebViewEmbedded()) {
@@ -1342,12 +1359,25 @@ function setForwarderUserIdentities(userIdentities) {
     });
 }
 
+function setForwarderOnUserIdentified(user) {
+    MP.forwarders.forEach(function(forwarder) {
+        if (forwarder.onUserIdentified) {
+            var result = forwarder.onUserIdentified(user);
+            if (result) {
+                Helpers.logDebug(result);
+            }
+        }
+    });
+
+}
+
 module.exports = {
     initForwarders: initForwarders,
     applyToForwarders: applyToForwarders,
     sendEventToForwarders: sendEventToForwarders,
     callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
-    setForwarderUserIdentities: setForwarderUserIdentities
+    setForwarderUserIdentities: setForwarderUserIdentities,
+    setForwarderOnUserIdentified: setForwarderOnUserIdentified
 };
 
 },{"./constants":1,"./helpers":6,"./mp":10,"./types":15}],6:[function(require,module,exports){
@@ -1362,10 +1392,6 @@ function logDebug(msg) {
     if (mParticle.isDevelopmentMode && window.console && window.console.log) {
         window.console.log(msg);
     }
-}
-
-function isUIWebView() {
-    return /(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/i.test(navigator.userAgent);
 }
 
 function canLog() {
@@ -1512,7 +1538,7 @@ function tryNativeSdk(path, value) {
 
         return true;
     }
-    else if (window.mParticle.isIOS || isUIWebView()) {
+    else if (window.mParticle.isIOS) {
         logDebug(Messages.InformationMessages.SendIOS + path);
         var iframe = document.createElement('IFRAME');
         iframe.setAttribute('src', 'mp-sdk://' + path + '/' + value);
@@ -1535,7 +1561,6 @@ function isWebViewEmbedded() {
         return false;
     }
     if (window.mParticleAndroid
-        || isUIWebView()
         || window.mParticle.isIOS) {
         return true;
     }
@@ -1660,6 +1685,14 @@ function parseNumber(value) {
     return isNaN(floatValue) ? 0 : floatValue;
 }
 
+function parseStringOrNumber(value) {
+    if (Validators.isStringOrNumber(value)) {
+        return value;
+    } else {
+        return null;
+    }
+}
+
 function generateHash(name) {
     var hash = 0,
         i = 0,
@@ -1699,6 +1732,8 @@ function sanitizeAttributes(attrs) {
         // Make sure that attribute values are not objects or arrays, which are not valid
         if (attrs.hasOwnProperty(prop) && Validators.isValidAttributeValue(attrs[prop])) {
             sanitizedAttrs[prop] = attrs[prop];
+        } else {
+            logDebug('The attribute key of ' + prop + ' must be a string, number, boolean, or null.');
         }
     }
 
@@ -1826,6 +1861,7 @@ module.exports = {
     converted: converted,
     isEventType: isEventType,
     parseNumber: parseNumber,
+    parseStringOrNumber: parseStringOrNumber,
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
     mergeConfig: mergeConfig,
@@ -2049,8 +2085,13 @@ var IdentityAPI = {
         }
     },
     getCurrentUser: function() {
-        var mpid = MP.mpid.slice();
-        return mParticleUser(mpid);
+        var mpid = MP.mpid;
+        if (mpid) {
+            mpid = MP.mpid.slice();
+            return mParticleUser(mpid);
+        } else {
+            return null;
+        }
     }
 };
 
@@ -2264,6 +2305,7 @@ function mParticleUserCart(mpid){
                 userProducts,
                 arrayCopy;
 
+            product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
             arrayCopy = Array.isArray(product) ? product.slice() : [product];
 
             mParticle.sessionManager.resetSessionTimer();
@@ -2513,6 +2555,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
             if (identityApiData && identityApiData.userIdentities) {
                 Forwarders.setForwarderUserIdentities(identityApiData.userIdentities);
             }
+            Forwarders.setForwarderOnUserIdentified(newUser);
         }
 
         if (callback) {
@@ -2586,6 +2629,7 @@ var Polyfill = require('./polyfill'),
     Ecommerce = require('./ecommerce'),
     MP = require('./mp'),
     Persistence = require('./persistence'),
+    getDeviceId = Persistence.getDeviceId,
     Events = require('./events'),
     Messages = Constants.Messages,
     Validators = Helpers.Validators,
@@ -2612,10 +2656,6 @@ var Polyfill = require('./polyfill'),
 
     if (!Array.isArray) {
         Array.prototype.isArray = Polyfill.isArray;
-    }
-
-    function getDeviceId() {
-        return MP.deviceId;
     }
 
     var mParticle = {
@@ -2655,7 +2695,6 @@ var Polyfill = require('./polyfill'),
             // Load any settings/identities/attributes from cookie or localStorage
             Persistence.initializeStorage();
 
-            MP.deviceId = Persistence.retrieveDeviceId();
             // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
             if ((Helpers.isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
                 var modifiedUIforIdentityRequest = {};
@@ -2845,36 +2884,30 @@ var Polyfill = require('./polyfill'),
             mParticle.sessionManager.resetSessionTimer();
             Events.addEventHandler('submit', selector, eventName, eventInfo, eventType);
         },
-        logPageView: function() {
+        logPageView: function(eventName, attrs, flags) {
             mParticle.sessionManager.resetSessionTimer();
-            var eventName = null,
-                attrs = null,
-                flags = null;
 
             if (Helpers.canLog()) {
-                if (arguments.length <= 1) {
-                    // Handle original function signature
-                    eventName = window.location.pathname;
+                if (!Validators.isStringOrNumber(eventName)) {
+                    eventName = 'PageView';
+                }
+                if (!attrs) {
                     attrs = {
                         hostname: window.location.hostname,
                         title: window.document.title
                     };
-
-                    if (arguments.length === 1) {
-                        flags = arguments[0];
-                    }
                 }
-                else if (arguments.length > 1) {
-                    eventName = arguments[0];
-                    attrs = arguments[1];
-
-                    if (arguments.length === 3) {
-                        flags = arguments[2];
-                    }
+                else if (!Helpers.isObject(attrs)){
+                    Helpers.logDebug('The attributes argument must be an object. A ' + typeof attrs + ' was entered. Please correct and retry.');
+                    return;
                 }
-
-                Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, flags);
+                if (flags && !Helpers.isObject(flags)) {
+                    Helpers.logDebug('The customFlags argument must be an object. A ' + typeof flags + ' was entered. Please correct and retry.');
+                    return;
+                }
             }
+
+            Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, flags);
         },
 
         eCommerce: {
@@ -3590,7 +3623,7 @@ var Helpers = require('./helpers'),
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys;
 
 function useLocalStorage() {
-    return (!mParticle.useCookieStorage && this.isLocalStorageAvailable);
+    return (!mParticle.useCookieStorage && determineLocalStorageAvailability());
 }
 
 function initializeStorage() {
@@ -3659,6 +3692,8 @@ function initializeStorage() {
     if (MP.mpid) {
         storeProductsInMemory(decodedProducts, MP.mpid);
     }
+
+    MP.deviceId = retrieveDeviceId();
 
     this.update();
 }
@@ -4265,6 +4300,10 @@ function getPersistence() {
     return cookies;
 }
 
+function getDeviceId() {
+    return MP.deviceId;
+}
+
 function resetPersistence(){
     removeLocalStorage(MP.Config.LocalStorageName);
     removeLocalStorage(MP.Config.LocalStorageNameV3);
@@ -4313,6 +4352,7 @@ module.exports = {
     setCartProducts: setCartProducts,
     updateOnlyCookieUserAttributes: updateOnlyCookieUserAttributes,
     getPersistence: getPersistence,
+    getDeviceId: getDeviceId,
     resetPersistence: resetPersistence
 };
 
@@ -4569,6 +4609,7 @@ var Types = require('./types'),
     MessageType = Types.MessageType,
     ApplicationTransitionType = Types.ApplicationTransitionType,
     Constants = require('./constants'),
+    Helpers = require('./helpers'),
     MP = require('./mp'),
     parseNumber = require('./helpers').parseNumber,
     isWebViewEmbedded = require('./helpers').isWebViewEmbedded;
@@ -4615,15 +4656,15 @@ function convertProductListToDTO(productList) {
 
 function convertProductToDTO(product) {
     return {
-        id: product.Sku,
-        nm: product.Name,
+        id: Helpers.parseStringOrNumber(product.Sku),
+        nm: Helpers.parseStringOrNumber(product.Name),
         pr: parseNumber(product.Price),
         qt: parseNumber(product.Quantity),
-        br: product.Brand,
-        va: product.Variant,
-        ca: product.Category,
+        br: Helpers.parseStringOrNumber(product.Brand),
+        va: Helpers.parseStringOrNumber(product.Variant),
+        ca: Helpers.parseStringOrNumber(product.Category),
         ps: parseNumber(product.Position),
-        cc: product.CouponCode,
+        cc: Helpers.parseStringOrNumber(product.CouponCode),
         tpa: parseNumber(product.TotalAmount),
         attrs: product.Attributes
     };
@@ -4660,6 +4701,8 @@ function convertProductBagToDTO(productBags) {
 function createEventObject(messageType, name, data, eventType, customFlags) {
     var eventObject,
         optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
+
+    data = Helpers.sanitizeAttributes(data);
 
     if (MP.sessionId || messageType == Types.MessageType.OptOut) {
         if (messageType !== Types.MessageType.SessionEnd) {
@@ -4731,7 +4774,7 @@ function convertEventToDTO(event, isFirstRun, productBags, currencyCode) {
         dto.fr = isFirstRun;
         dto.iu = false;
         dto.at = ApplicationTransitionType.AppInit;
-        dto.lr = document.referrer || null;
+        dto.lr = window.location.href || null;
         dto.attrs = null;
     }
 
