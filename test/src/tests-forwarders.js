@@ -970,4 +970,35 @@ describe('forwarders', function() {
 
         done();
     });
+
+    it('should call forwarder onUserIdentified method when identity is returned', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        mParticle.configureForwarder(forwarder);
+
+        mParticle.init(apiKey);
+
+        mockForwarder.instance.should.have.property('onUserIdentifiedCalled', true);
+
+        done();
+    });
 });

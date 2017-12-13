@@ -234,6 +234,7 @@ var server = new MockHttpServer(),
             this.initCalled = false;
             this.processCalled = false;
             this.setUserIdentityCalled = false;
+            this.onUserIdentifiedCalled = false;
             this.setOptOutCalled = false;
             this.setUserAttributeCalled = false;
             this.reportingService = null;
@@ -284,6 +285,10 @@ var server = new MockHttpServer(),
 
             this.setOptOut = function() {
                 this.setOptOutCalled = true;
+            };
+
+            this.onUserIdentified = function() {
+                this.onUserIdentifiedCalled = true;
             };
 
             this.setUserAttribute = function() {

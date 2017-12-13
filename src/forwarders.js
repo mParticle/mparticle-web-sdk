@@ -312,10 +312,23 @@ function setForwarderUserIdentities(userIdentities) {
     });
 }
 
+function setForwarderOnUserIdentified(user) {
+    MP.forwarders.forEach(function(forwarder) {
+        if (forwarder.onUserIdentified) {
+            var result = forwarder.onUserIdentified(user);
+            if (result) {
+                Helpers.logDebug(result);
+            }
+        }
+    });
+
+}
+
 module.exports = {
     initForwarders: initForwarders,
     applyToForwarders: applyToForwarders,
     sendEventToForwarders: sendEventToForwarders,
     callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
-    setForwarderUserIdentities: setForwarderUserIdentities
+    setForwarderUserIdentities: setForwarderUserIdentities,
+    setForwarderOnUserIdentified: setForwarderOnUserIdentified
 };

@@ -214,8 +214,13 @@ var IdentityAPI = {
         }
     },
     getCurrentUser: function() {
-        var mpid = MP.mpid.slice();
-        return mParticleUser(mpid);
+        var mpid = MP.mpid;
+        if (mpid) {
+            mpid = MP.mpid.slice();
+            return mParticleUser(mpid);
+        } else {
+            return null;
+        }
     }
 };
 
@@ -679,6 +684,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
             if (identityApiData && identityApiData.userIdentities) {
                 Forwarders.setForwarderUserIdentities(identityApiData.userIdentities);
             }
+            Forwarders.setForwarderOnUserIdentified(newUser);
         }
 
         if (callback) {
