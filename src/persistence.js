@@ -630,7 +630,7 @@ function getCartProducts(mpid) {
         if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
             return allCartProducts[mpid].cp;
         } else {
-            return {};
+            return [];
         }
     }
 }

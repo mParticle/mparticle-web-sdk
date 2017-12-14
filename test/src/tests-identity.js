@@ -1453,6 +1453,21 @@ describe('identity', function() {
         done();
     });
 
+    it('should return an empty array when no cart products exist', function(done) {
+        var user1 = {
+            userIdentities: {
+                customerid: 'customerId1'
+            }
+        };
+
+        mParticle.Identity.login(user1);
+        var products = mParticle.Identity.getCurrentUser().getCart().getCartProducts();
+
+        Should(products.length).not.be.ok();
+
+        done();
+    });
+
     it('should make a request when copyUserAttributes is included on the identity request', function(done) {
         var identityAPIRequest1 = {
             userIdentities: {
