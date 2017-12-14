@@ -685,49 +685,6 @@ describe('eCommerce', function() {
         done();
     });
 
-    it('should support logLTVIncrease function', function(done) {
-        mParticle.logLTVIncrease(100, 'Bought Something');
-
-        var event = getEvent('Bought Something');
-
-        Should(event).be.ok();
-
-        event.should.have.property('dt', MessageType.PageEvent);
-        event.should.have.property('et', mParticle.EventType.Transaction);
-
-        event.should.have.property('attrs');
-        event.attrs.should.have.property('$Amount', 100);
-        event.attrs.should.have.property('$MethodName', 'LogLTVIncrease');
-
-        done();
-    });
-
-    it('should default logLTVIncrease event name', function(done) {
-        mParticle.logLTVIncrease(100);
-
-        var event = getEvent('Increase LTV');
-
-        Should(event).be.ok();
-
-        event.should.have.property('attrs');
-        event.attrs.should.have.property('$Amount', 100);
-
-        done();
-    });
-
-    it('should not logLTVIncrease when no amount or an invalid amount is passed', function(done) {
-        mParticle.logLTVIncrease();
-        var event = getEvent('Increase LTV');
-
-        mParticle.logLTVIncrease('error');
-        var event2 = getEvent('Increase LTV');
-
-        Should(event).not.be.ok();
-        Should(event2).not.be.ok();
-
-        done();
-    });
-
     it('should support array of products when adding to cart', function(done) {
         mParticle.reset();
         mParticle.init(apiKey);

@@ -164,12 +164,6 @@ describe('core SDK', function() {
         event.attrs.should.not.have.property('invalid');
         event.attrs.should.have.property('valid');
 
-        server.requests = [];
-        mParticle.logLTVIncrease(100, 'logLTVIncrease', attrs);
-        event = getEvent('logLTVIncrease');
-        event.attrs.should.not.have.property('invalid');
-        event.attrs.should.have.property('valid');
-
         done();
     });
 

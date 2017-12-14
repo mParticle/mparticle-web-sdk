@@ -429,26 +429,6 @@ var Polyfill = require('./polyfill'),
                 return Ecommerce.expandCommerceEvent(event);
             }
         },
-        logLTVIncrease: function(amount, eventName, attributes) {
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (typeof amount !== 'number') {
-                Helpers.logDebug('A valid amount must be passed to logLTVIncrease.');
-                return;
-            }
-
-            if (!attributes) {
-                attributes = {};
-            }
-
-            attributes[Constants.RESERVED_KEY_LTV] = amount;
-            attributes[Constants.METHOD_NAME] = Constants.LOG_LTV;
-
-            Events.logEvent(Types.MessageType.PageEvent,
-                eventName || 'Increase LTV',
-                attributes,
-                Types.EventType.Transaction);
-        },
         setSessionAttribute: function(key, value) {
             mParticle.sessionManager.resetSessionTimer();
             // Logs to cookie
