@@ -697,31 +697,41 @@
         },
 
         decodeCookies: function(cookie) {
-            cookie = this.replacePipesWithCommas(this.replaceApostrophesWithQuotes(cookie));
-            var convertedUserIdentities = [];
-            cookie = JSON.parse(cookie);
-            if (isObject(cookie) && Object.keys(cookie).length) {
-                for (var key in cookie) {
-                    if (cookie.hasOwnProperty(key)) {
-                        if (Base64CookieKeys[key]) {
-                            cookie[key] = JSON.parse(Base64.decode(cookie[key]));
-                        } else if (key === 'ie') {
-                            cookie[key] = Boolean(cookie[key]);
+            try {
+                cookie = this.replacePipesWithCommas(this.replaceApostrophesWithQuotes(cookie));
+                var convertedUserIdentities = [];
+                cookie = JSON.parse(cookie);
+                if (isObject(cookie) && Object.keys(cookie).length) {
+                    for (var key in cookie) {
+                        if (cookie.hasOwnProperty(key)) {
+                            if (Base64CookieKeys[key]) {
+                                if ((key === 'cp' && Array.isArray(cookie[key])) || (key === 'pb' && isObject(cookie[key]))) {
+                                    // import cookie properly when products were not stored as base64 items
+                                    continue;
+                                } else {
+                                    cookie[key] = JSON.parse(Base64.decode(cookie[key]));
+                                }
+                            } else if (key === 'ie') {
+                                cookie[key] = Boolean(cookie[key]);
+                            }
+                        }
+                    }
+                    if (cookie.ui && isObject(cookie.ui)) {
+                        for (var type in cookie.ui) {
+                            if (cookie.ui.hasOwnProperty(type)) {
+                                convertedUserIdentities.push({Identity: cookie.ui[type], Type: parseNumber(type)});
+                            }
+                        }
+                        if (convertedUserIdentities.length) {
+                            cookie.ui = convertedUserIdentities;
+                        } else {
+                            cookie.ui = [];
                         }
                     }
                 }
-                if (cookie.ui && isObject(cookie.ui)) {
-                    for (var type in cookie.ui) {
-                        if (cookie.ui.hasOwnProperty(type)) {
-                            convertedUserIdentities.push({Identity: cookie.ui[type], Type: parseNumber(type)});
-                        }
-                    }
-                    if (convertedUserIdentities.length) {
-                        cookie.ui = convertedUserIdentities;
-                    } else {
-                        cookie.ui = [];
-                    }
-                }
+            }
+            catch (e) {
+                cookie = {};
             }
 
             return JSON.stringify(cookie);
@@ -2759,6 +2769,8 @@
         ui: 1,
         ua: 1,
         sa: 1,
+        cp: 1,
+        pb: 1,
         csd: 1
     };
 

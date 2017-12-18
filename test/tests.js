@@ -49,14 +49,19 @@ describe('mParticle', function() {
                 }
             }
         },
-        setCookie = function(cname, data) {
+        setCookie = function(cname, data, raw) {
             var date = new Date(),
                 value = JSON.stringify(data),
                 expires = new Date(date.getTime() +
                     (365 * 24 * 60 * 60 * 1000)).toGMTString();
-            if (cname === currentCookieVersion) {
+
+            if (raw) {
+                value = data;
+            } else if (cname === currentCookieVersion) {
                 value = mParticle.replaceCommasWithPipes(value);
             }
+
+
             window.document.cookie =
                 encodeURIComponent(cname) + '=' + value +
                 ';expires=' + expires +
@@ -1277,6 +1282,104 @@ describe('mParticle', function() {
             cookies2.mpid.should.equal(cookies1.mpid);
             cookies2.ie.should.equal(cookies1.ie);
             localStorage2.cp[0].Name.should.equal(product.Name);
+
+            done();
+        });
+
+        it('should load local storage products that have quotes/apostrophes', function(done) {
+            var product1 = mParticle.eCommerce.createProduct('Extra apostrophe \' \' in name', 'SKU1', 123);
+            var product2 = mParticle.eCommerce.createProduct('Extra quotes \'\" \" \" in name', 'SKU1', 123);
+            mParticle.eCommerce.Cart.add([product1, product2]);
+
+            mParticle.init(apiKey);
+            server.requests = [];
+            mParticle.eCommerce.logCheckout(1);
+            var event = getEvent('eCommerce - Checkout');
+
+            event.pd.pl.length.should.equal(2);
+            event.pd.pl[0].nm.should.equal(product1.Name);
+            event.pd.pl[0].id.should.equal(product1.Sku);
+            event.pd.pl[0].pr.should.equal(product1.Price);
+            event.pd.pl[1].nm.should.equal(product2.Name);
+            event.pd.pl[1].id.should.equal(product2.Sku);
+            event.pd.pl[1].pr.should.equal(product2.Price);
+
+            done();
+        });
+
+        it('should bypass previously corrupt cookies that have quotes/apostrophes', function(done) {
+            var product1 = mParticle.eCommerce.createProduct('invalid \' product', 'SKU123', 123);
+            var cookies = {
+                cp: [product1],
+                sid:'dda2564f-850b-435e-90b5-ffa506dc767c',
+                ie:1,
+                ss:'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTItMTZUMTg6MDQ6MTkuMzY1NDM1WiIsIlZhbHVlIjoiZz1hNWI1MTE1Zi02MDM1LTQ3NDEtOTRlOC0wMTQ2NzcwMGU5ZmMmdT0xNTA1Nzg4MDI1MzA4MzI2OTQyJmNyPTQxODg2MDQifX0=',
+                dt:'beab3f4d34281d45bfcdbbd7eb21c083',
+                les:1513620354877,
+                ssd:1513620255927,
+                cgid:'cgid13',
+                das:'das123',
+                mpid: testMPID
+            };
+            setLocalStorage(currentCookieVersion, cookies);
+
+            mParticle.init(apiKey);
+
+            server.requests = [];
+            mParticle.logEvent('test');
+            var event = getEvent('test');
+            event.n.should.equal('test');
+
+            done();
+        });
+
+        it('should decode previously non-encoded products ok', function(done) {
+            var product1 = mParticle.eCommerce.createProduct('valid product', 'SKU123', 123);
+
+            var cookies = {
+                cp: [product1],
+                sid:'dda2564f-850b-435e-90b5-ffa506dc767c',
+                ie:1,
+                ss:'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTItMTZUMTg6MDQ6MTkuMzY1NDM1WiIsIlZhbHVlIjoiZz1hNWI1MTE1Zi02MDM1LTQ3NDEtOTRlOC0wMTQ2NzcwMGU5ZmMmdT0xNTA1Nzg4MDI1MzA4MzI2OTQyJmNyPTQxODg2MDQifX0=',
+                dt:'beab3f4d34281d45bfcdbbd7eb21c083',
+                les:1513620354877,
+                ssd:1513620255927,
+                cgid:'472f0689-88fd-4d85-8908-49f3e47592cf',
+                das:'a5b5115f-6035-4741-94e8-01467700e9fc',
+                mpid: testMPID
+            };
+            setLocalStorage(currentCookieVersion, cookies);
+            var data = localStorage.getItem('mprtcl-v3');
+
+            var product = JSON.parse(mParticle.persistence.decodeCookies(data)).cp[0];
+            product.Name.should.equal(product1.Name);
+            product.Sku.should.equal(product1.Sku);
+            product.Price.should.equal(product1.Price);
+
+            done();
+        });
+
+        it('should base-64 encode previously non-encoded products', function(done) {
+            var product1 = mParticle.eCommerce.createProduct('valid product', 'SKU123', 123);
+            var cookies = {
+                cp: [product1],
+                sid:'dda2564f-850b-435e-90b5-ffa506dc767c',
+                ie:1,
+                ss:'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTItMTZUMTg6MDQ6MTkuMzY1NDM1WiIsIlZhbHVlIjoiZz1hNWI1MTE1Zi02MDM1LTQ3NDEtOTRlOC0wMTQ2NzcwMGU5ZmMmdT0xNTA1Nzg4MDI1MzA4MzI2OTQyJmNyPTQxODg2MDQifX0=',
+                dt:'beab3f4d34281d45bfcdbbd7eb21c083',
+                les:1513620354877,
+                ssd:1513620255927,
+                cgid:'472f0689-88fd-4d85-8908-49f3e47592cf',
+                das:'a5b5115f-6035-4741-94e8-01467700e9fc',
+                mpid: testMPID
+            };
+            setLocalStorage(currentCookieVersion, cookies);
+
+            mParticle.init(apiKey);
+            var product = JSON.parse(mParticle.persistence.decodeCookies(localStorage.getItem('mprtcl-v3'))).cp[0];
+            product.Name.should.equal(product1.Name);
+            product.Sku.should.equal(product1.Sku);
+            product.Price.should.equal(product1.Price);
 
             done();
         });
