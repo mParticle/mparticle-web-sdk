@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.15.6 - 2017-12-18
+*  Fix encoding of localStorage products
+
 #### 1.15.5 - 2017-12-13
 *  Require explicit UIWebview binding
 *  Add startNewSessionIfNeeded to logCommerce
