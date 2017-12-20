@@ -2,12 +2,9 @@
 var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
     secureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.1.2',
+    sdkVersion = '2.1.3',
     sdkVendor = 'mparticle',
     platform = 'web',
-    METHOD_NAME = '$MethodName',
-    LOG_LTV = 'LogLTVIncrease',
-    RESERVED_KEY_LTV = '$Amount',
     Messages = {
         ErrorMessages: {
             NoToken: 'A token must be specified.',
@@ -117,9 +114,6 @@ module.exports = {
     sdkVersion: sdkVersion,
     sdkVendor: sdkVendor,
     platform: platform,
-    METHOD_NAME: METHOD_NAME,
-    LOG_LTV: LOG_LTV,
-    RESERVED_KEY_LTV: RESERVED_KEY_LTV,
     Messages: Messages,
     NativeSdkPaths: NativeSdkPaths,
     DefaultConfig: DefaultConfig,
@@ -1112,7 +1106,7 @@ function applyToForwarders(functionName, functionArgs) {
             var forwarderFunction = forwarder[functionName];
             if (forwarderFunction) {
                 try {
-                    var result = forwarder[functionName](forwarder, functionArgs);
+                    var result = forwarder[functionName](functionArgs);
 
                     if (result) {
                         Helpers.logDebug(result);
@@ -2250,7 +2244,7 @@ function mParticleUser(mpid) {
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
-                            Forwarders.applyToForwarders('removeUserAttribute', userAttributes[prop]);
+                            Forwarders.applyToForwarders('removeUserAttribute', prop);
                         }
                     }
                 }
@@ -3032,26 +3026,6 @@ var Polyfill = require('./polyfill'),
                 mParticle.sessionManager.resetSessionTimer();
                 return Ecommerce.expandCommerceEvent(event);
             }
-        },
-        logLTVIncrease: function(amount, eventName, attributes) {
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (typeof amount !== 'number') {
-                Helpers.logDebug('A valid amount must be passed to logLTVIncrease.');
-                return;
-            }
-
-            if (!attributes) {
-                attributes = {};
-            }
-
-            attributes[Constants.RESERVED_KEY_LTV] = amount;
-            attributes[Constants.METHOD_NAME] = Constants.LOG_LTV;
-
-            Events.logEvent(Types.MessageType.PageEvent,
-                eventName || 'Increase LTV',
-                attributes,
-                Types.EventType.Transaction);
         },
         setSessionAttribute: function(key, value) {
             mParticle.sessionManager.resetSessionTimer();
@@ -4246,7 +4220,7 @@ function getCartProducts(mpid) {
         if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
             return allCartProducts[mpid].cp;
         } else {
-            return {};
+            return [];
         }
     }
 }
