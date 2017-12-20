@@ -963,7 +963,7 @@
                 var forwarderFunction = forwarder[functionName];
                 if (forwarderFunction) {
                     try {
-                        var result = forwarder[functionName](forwarder, functionArgs);
+                        var result = forwarder[functionName](functionArgs);
 
                         if (result) {
                             logDebug(result);
@@ -3683,7 +3683,7 @@
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
-                            applyToForwarders('removeUserAttribute', userAttributes[prop]);
+                            applyToForwarders('removeUserAttribute', prop);
                         }
                     }
                 }
