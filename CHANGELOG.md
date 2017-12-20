@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.15.7 - 2017-12-20
+*  Bugfix - Adjust arguments for applyToForwarders
+
 #### 1.15.6 - 2017-12-18
 *  Fix encoding of localStorage products
 
