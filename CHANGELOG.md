@@ -1,6 +1,11 @@
 ## Releases
 --
 
+#### 2.1.3 - 2017-12-20
+*  Remove logLTVIncrease
+*  Return an empty array when there are no cart products
+*  Bugfix - Adjust arguments for applyToForwarders
+
 #### 2.1.2 - 2017-12-14
 *  Add setForwarderOnUserIdentified, return null currentUser when MPID is null
 

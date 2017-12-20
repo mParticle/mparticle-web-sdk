@@ -1,7 +1,7 @@
 var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
     secureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.1.2',
+    sdkVersion = '2.1.3',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
