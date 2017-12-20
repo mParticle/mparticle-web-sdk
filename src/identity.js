@@ -379,7 +379,7 @@ function mParticleUser(mpid) {
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
-                            Forwarders.applyToForwarders('removeUserAttribute', userAttributes[prop]);
+                            Forwarders.applyToForwarders('removeUserAttribute', prop);
                         }
                     }
                 }

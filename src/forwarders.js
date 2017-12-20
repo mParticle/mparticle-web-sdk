@@ -65,7 +65,7 @@ function applyToForwarders(functionName, functionArgs) {
             var forwarderFunction = forwarder[functionName];
             if (forwarderFunction) {
                 try {
-                    var result = forwarder[functionName](forwarder, functionArgs);
+                    var result = forwarder[functionName](functionArgs);
 
                     if (result) {
                         Helpers.logDebug(result);
