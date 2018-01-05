@@ -1966,8 +1966,12 @@
     function startNewSessionIfNeeded() {
         var cookies = persistence.getCookie() || persistence.getLocalStorage();
 
-        if (!sessionId && cookies && cookies.sid) {
-            mParticle.startNewSession();
+        if (!sessionId && cookies) {
+            if (cookies.sid) {
+                sessionId = cookies.sid;
+            } else {
+                mParticle.startNewSession();
+            }
         }
     }
 
