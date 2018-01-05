@@ -54,6 +54,13 @@ var Polyfill = require('./polyfill'),
         Array.prototype.isArray = Polyfill.isArray;
     }
 
+    /**
+    * Invoke these methods on the mParticle object.
+    * Example: mParticle.endSession()
+    *
+    * @class mParticle
+    */
+
     var mParticle = {
         useNativeSdk: true,
         isIOS: false,
@@ -76,6 +83,13 @@ var Polyfill = require('./polyfill'),
         CommerceEventType: Types.CommerceEventType,
         PromotionType: Types.PromotionActionType,
         ProductActionType: Types.ProductActionType,
+        /**
+        * Initializes the mParticle SDK
+        *
+        * @method init
+        * @param {String} apiKey your mParticle assigned API key
+        * @param {Object} [options] an options object for additional configuration
+        */
         init: function(apiKey) {
             var config;
             MP.initialIdentifyRequest = mParticle.identifyRequest;
@@ -138,8 +152,11 @@ var Polyfill = require('./polyfill'),
             Events.logAST();
             MP.isInitialized = true;
         },
+        /**
+        * Completely resets the state of the SDK. mParticle.init(apiKey) will need to be called again.
+        * @method reset
+        */
         reset: function() {
-            // Completely resets the state of the SDK. mParticle.init() will need to be called again.
             MP.sessionAttributes = {};
             MP.isEnabled = true;
             MP.isFirstRun = null;
@@ -186,30 +203,69 @@ var Polyfill = require('./polyfill'),
                 MP.readyQueue.push(f);
             }
         },
+        /**
+        * Returns the mParticle SDK version number
+        * @method getVersion
+        * @return {String} mParticle SDK version number
+        */
         getVersion: function() {
             return Constants.sdkVersion;
         },
+        /**
+        * Sets the app version
+        * @method setAppVersion
+        * @param {String} version version number
+        */
         setAppVersion: function(version) {
             MP.appVersion = version;
             Persistence.update();
         },
+        /**
+        * Gets the app name
+        * @method getAppName
+        * @return {String} App name
+        */
         getAppName: function() {
             return MP.appName;
         },
+        /**
+        * Sets the app name
+        * @method setAppName
+        * @param {String} name App Name
+        */
         setAppName: function(name) {
             MP.appName = name;
         },
+        /**
+        * Gets the app version
+        * @method getAppVersion
+        * @return {String} App version
+        */
         getAppVersion: function() {
             return MP.appVersion;
         },
+        /**
+        * Stops tracking the location of the user
+        * @method stopTrackingLocation
+        */
         stopTrackingLocation: function() {
             mParticle.sessionManager.resetSessionTimer();
             Events.stopTracking();
         },
+        /**
+        * Starts tracking the location of the user
+        * @method startTrackingLocation
+        */
         startTrackingLocation: function() {
             mParticle.sessionManager.resetSessionTimer();
             Events.startTracking();
         },
+        /**
+        * Sets the position of the user
+        * @method setPosition
+        * @param {Number} lattitude lattitude digit
+        * @param {Number} longitude longitude digit
+        */
         setPosition: function(lat, lng) {
             mParticle.sessionManager.resetSessionTimer();
             if (typeof lat === 'number' && typeof lng === 'number') {
@@ -219,15 +275,31 @@ var Polyfill = require('./polyfill'),
                 };
             }
             else {
-                Helpers.logDebug('Position latitude and/or longitude are invalid');
+                Helpers.logDebug('Position latitude and/or longitude must both be of type number');
             }
         },
+        /**
+        * Starts a new session
+        * @method startNewSession
+        */
         startNewSession: function() {
             SessionManager.startNewSession();
         },
+        /**
+        * Ends the current session
+        * @method endSession
+        */
         endSession: function() {
             SessionManager.endSession();
         },
+        /**
+        * Logs an event to mParticle's servers
+        * @method logEvent
+        * @param {String} eventName The name of the event
+        * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+        * @param {Object} [eventInfo] Attributes for the event
+        * @param {Object} [customFlags] Additional customFlags
+        */
         logEvent: function(eventName, eventType, eventInfo, customFlags) {
             mParticle.sessionManager.resetSessionTimer();
             if (typeof (eventName) !== 'string') {
@@ -251,6 +323,12 @@ var Polyfill = require('./polyfill'),
 
             Events.logEvent(Types.MessageType.PageEvent, eventName, eventInfo, eventType, customFlags);
         },
+        /**
+        * Used to log custom errors
+        *
+        * @method logError
+        * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
+        */
         logError: function(error) {
             mParticle.sessionManager.resetSessionTimer();
             if (!error) {
@@ -272,14 +350,37 @@ var Polyfill = require('./polyfill'),
                 },
                 Types.EventType.Other);
         },
+        /**
+        * Logs `click` events
+        * @method logLink
+        * @param {String} selector The selector to add a 'click' event to (ex. #purchase-event)
+        * @param {String} [eventName] The name of the event
+        * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+        * @param {Object} [eventInfo] Attributes for the event
+        */
         logLink: function(selector, eventName, eventType, eventInfo) {
             mParticle.sessionManager.resetSessionTimer();
             Events.addEventHandler('click', selector, eventName, eventInfo, eventType);
         },
+        /**
+        * Logs `submit` events
+        * @method logForm
+        * @param {String} selector The selector to add the event handler to (ex. #search-event)
+        * @param {String} [eventName] The name of the event
+        * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+        * @param {Object} [eventInfo] Attributes for the event
+        */
         logForm: function(selector, eventName, eventType, eventInfo) {
             mParticle.sessionManager.resetSessionTimer();
             Events.addEventHandler('submit', selector, eventName, eventInfo, eventType);
         },
+        /**
+        * Logs a page view
+        * @method logPageView
+        * @param {String} eventName The name of the event. Defaults to 'PageView'.
+        * @param {Object} [attrs] Attributes for the event
+        * @param {Object} [flags] Custom flags for the event
+        */
         logPageView: function(eventName, attrs, flags) {
             mParticle.sessionManager.resetSessionTimer();
 
@@ -305,9 +406,24 @@ var Polyfill = require('./polyfill'),
 
             Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, flags);
         },
-
+        /**
+        * Invoke these methods on the mParticle.eCommerce object.
+        * Example: mParticle.eCommerce.createImpresion(...)
+        * @class mParticle.eCommerce
+        */
         eCommerce: {
+            /**
+            * Invoke these methods on the mParticle.eCommerce.ProductBags object.
+            * Example: mParticle.eCommerce.ProductBags.clear('exampleBag')
+            * @class mParticle.eCommerce.ProductBags
+            */
             ProductBags: {
+                /**
+                * Adds a product to a product bag
+                * @method add
+                * @param {String} productBagName The name of the product bag
+                * @param {Object} product The product you'd like to add
+                */
                 add: function(productBagName, product) {
                     if (!Validators.isStringOrNumber(productBagName)) {
                         Helpers.logDebug('ProductBagName is required and must be a string or number');
@@ -327,6 +443,12 @@ var Polyfill = require('./polyfill'),
 
                     Helpers.tryNativeSdk(Constants.NativeSdkPaths.AddToProductBag, JSON.stringify(product));
                 },
+                /**
+                * Removes a product from a product bag
+                * @method remove
+                * @param {String} productBagName The name of the product bag
+                * @param {Object} product The product you'd like to remove
+                */
                 remove: function(productBagName, product) {
                     mParticle.sessionManager.resetSessionTimer();
                     var productIndex = -1;
@@ -345,6 +467,11 @@ var Polyfill = require('./polyfill'),
                     }
                     Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveFromProductBag, JSON.stringify(product));
                 },
+                /**
+                * Removes all products from a product bag
+                * @method clear
+                * @param {String} productBagName The name of the product bag you'd like to clear
+                */
                 clear: function(productBagName) {
                     mParticle.sessionManager.resetSessionTimer();
                     MP.productBags[productBagName] = [];
@@ -353,17 +480,44 @@ var Polyfill = require('./polyfill'),
                     Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearProductBag, productBagName);
                 }
             },
+            /**
+            * Invoke these methods on the mParticle.eCommerce.Cart object.
+            * Example: mParticle.eCommerce.ProductBags.add(...)
+            * @class mParticle.eCommerce.Cart
+            */
             Cart: {
+                /**
+                * Adds a product to the cart
+                * @method add
+                * @param {Object} product The product you want to add to the cart
+                * @param {Boolean} [logEvent] Option to log the event to mParticle's servers. If blank, no logging occurs.
+                */
                 add: function(product, logEvent) {
                     mParticleUserCart(MP.mpid).add(product, logEvent);
                 },
+                /**
+                * Removes a product from the cart
+                * @method remove
+                * @param {Object} product The product you want to add to the cart
+                * @param {Boolean} [logEvent] Option to log the event to mParticle's servers. If blank, no logging occurs.
+                */
                 remove: function(product, logEvent) {
                     mParticleUserCart(MP.mpid).remove(product, logEvent);
                 },
+                /**
+                * Clears the cart
+                * @method clear
+                */
                 clear: function() {
                     mParticleUserCart(MP.mpid).clear();
                 }
             },
+            /**
+            * Sets the currency code
+            * @for mParticle.eCommerce
+            * @method setCurrencyCode
+            * @param {String} code The currency code
+            */
             setCurrencyCode: function(code) {
                 if (typeof code !== 'string') {
                     Helpers.logDebug('Code must be a string');
@@ -372,30 +526,97 @@ var Polyfill = require('./polyfill'),
                 mParticle.sessionManager.resetSessionTimer();
                 MP.currencyCode = code;
             },
+            /**
+            * Creates a product
+            * @for mParticle.eCommerce
+            * @method createProduct
+            * @param {String} name product name
+            * @param {String} sku product sku
+            * @param {Number} price product price
+            * @param {Number} [quantity] product quantity. If blank, defaults to 1.
+            * @param {String} [variant] product variant
+            * @param {String} [category] product category
+            * @param {String} [brand] product brand
+            * @param {Number} [position] product position
+            * @param {String} [coupon] product coupon
+            * @param {Object} [attributes] product attributes
+            */
             createProduct: function(name, sku, price, quantity, variant, category, brand, position, coupon, attributes) {
                 mParticle.sessionManager.resetSessionTimer();
                 return Ecommerce.createProduct(name, sku, price, quantity, variant, category, brand, position, coupon, attributes);
             },
+            /**
+            * Creates a promotion
+            * @for mParticle.eCommerce
+            * @method createPromotion
+            * @param {String} id a unique promotion id
+            * @param {String} [creative] promotion creative
+            * @param {String} [name] promotion name
+            * @param {Number} [position] promotion position
+            */
             createPromotion: function(id, creative, name, position) {
                 mParticle.sessionManager.resetSessionTimer();
                 return Ecommerce.createPromotion(id, creative, name, position);
             },
+            /**
+            * Creates a product impression
+            * @for mParticle.eCommerce
+            * @method createImpression
+            * @param {String} name impression name
+            * @param {Object} product the product for which an impression is being created
+            */
             createImpression: function(name, product) {
                 mParticle.sessionManager.resetSessionTimer();
                 return Ecommerce.createImpression(name, product);
             },
+            /**
+            * Creates a transaction attributes object to be used with a checkout
+            * @for mParticle.eCommerce
+            * @method createTransactionAttributes
+            * @param {String or Number} id a unique transaction id
+            * @param {String} [affiliation] affilliation
+            * @param {String} [couponCode] the coupon code for which you are creating transaction attributes
+            * @param {Number} [revenue] total revenue for the product being purchased
+            * @param {String} [shipping] the shipping method
+            * @param {Number} [tax] the tax amount
+            */
             createTransactionAttributes: function(id, affiliation, couponCode, revenue, shipping, tax) {
                 mParticle.sessionManager.resetSessionTimer();
                 return Ecommerce.createTransactionAttributes(id, affiliation, couponCode, revenue, shipping, tax);
             },
-            logCheckout: function(step, paymentMethod, attrs) {
+            /**
+            * Logs a checkout action
+            * @for mParticle.eCommerce
+            * @method logCheckout
+            * @param {Number} step checkout step number
+            * @param {Object} options
+            * @param {Object} attrs
+            */
+            logCheckout: function(step, options, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
-                Events.logCheckoutEvent(step, paymentMethod, attrs);
+                Events.logCheckoutEvent(step, options, attrs);
             },
+            /**
+            * Logs a product action
+            * @for mParticle.eCommerce
+            * @method logProductAction
+            * @param {Number} productActionType product action type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L206-L218)
+            * @param {Object} product the product for which you are creating the product action
+            * @param {Object} [attrs] attributes related to the product action
+            */
             logProductAction: function(productActionType, product, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
                 Events.logProductActionEvent(productActionType, product, attrs);
             },
+            /**
+            * Logs a product purchase
+            * @for mParticle.eCommerce
+            * @method logPurchase
+            * @param {Object} transactionAttributes transactionAttributes object
+            * @param {Object} product the product being purchased
+            * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
+            * @param {Object} [attrs] other attributes related to the product purchase
+            */
             logPurchase: function(transactionAttributes, product, clearCart, attrs) {
                 if (!transactionAttributes || !product) {
                     Helpers.logDebug(Messages.ErrorMessages.BadLogPurchase);
@@ -408,14 +629,38 @@ var Polyfill = require('./polyfill'),
                     mParticle.Ecommerce.Cart.clear();
                 }
             },
+            /**
+            * Logs a product promotion
+            * @for mParticle.eCommerce
+            * @method logPromotion
+            * @param {Number} type the promotion type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L275-L279)
+            * @param {Object} promotion promotion object
+            * @param {Object} [attrs] boolean to clear the cart after logging or not
+            */
             logPromotion: function(type, promotion, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
                 Events.logPromotionEvent(type, promotion, attrs);
             },
+            /**
+            * Logs a product impression
+            * @for mParticle.eCommerce
+            * @method logImpression
+            * @param {Object} impression product impression object
+            * @param {Object} attrs attributes related to the impression log
+            */
             logImpression: function(impression, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
                 Events.logImpressionEvent(impression, attrs);
             },
+            /**
+            * Logs a refund
+            * @for mParticle.eCommerce
+            * @method logRefund
+            * @param {Object} transactionAttributes transaction attributes related to the refund
+            * @param {Object} product product being refunded
+            * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
+            * @param {Object} [attrs] attributes related to the refund
+            */
             logRefund: function(transactionAttributes, product, clearCart, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
                 Events.logRefundEvent(transactionAttributes, product, attrs);
@@ -429,6 +674,13 @@ var Polyfill = require('./polyfill'),
                 return Ecommerce.expandCommerceEvent(event);
             }
         },
+        /**
+        * Sets a session attribute
+        * @for mParticle
+        * @method mParticle.setSessionAttribute
+        * @param {String} key key for session attribute
+        * @param {String or Number} value value for session attribute
+        */
         setSessionAttribute: function(key, value) {
             mParticle.sessionManager.resetSessionTimer();
             // Logs to cookie
@@ -458,6 +710,12 @@ var Polyfill = require('./polyfill'),
                 }
             }
         },
+        /**
+        * Set opt out of logging
+        * @for mParticle
+        * @method setOptOut
+        * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
+        */
         setOptOut: function(isOptingOut) {
             mParticle.sessionManager.resetSessionTimer();
             MP.isEnabled = !isOptingOut;

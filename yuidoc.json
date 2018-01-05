@@ -1,0 +1,10 @@
+{
+    "name": "mParticle Web SDK",
+    "description": "Web SDK for the mParticle platform",
+    "url": "https://github.com/mParticle/mparticle-sdk-javascript",
+    "options": {
+        "outdir": "build/docs"
+    },
+    "logo": "https://static.mparticle.com/sdk/nuget_logo.png",
+    "path": "src/"
+}

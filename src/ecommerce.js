@@ -450,5 +450,5 @@ module.exports = {
     createImpression: createImpression,
     createTransactionAttributes: createTransactionAttributes,
     expandCommerceEvent: expandCommerceEvent,
-    createCommerceEventObject: createCommerceEventObject,
+    createCommerceEventObject: createCommerceEventObject
 };

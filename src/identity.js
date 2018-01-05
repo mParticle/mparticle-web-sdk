@@ -134,8 +134,18 @@ var IdentityRequest = {
         return modifiedUserIdentities;
     }
 };
-
+/**
+* Invoke these methods on the mParticle.Identity object.
+* Example: mParticle.Identity.getCurrentUser().
+* @class mParticle.Identity
+*/
 var IdentityAPI = {
+    /**
+    * Initiate a logout request to the mParticle server
+    * @method logout
+    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+    * @param {Function} [callback] A callback function that is called when the logout request completes
+    */
     logout: function(identityApiData, callback) {
         var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'logout');
 
@@ -169,6 +179,12 @@ var IdentityAPI = {
             }
         }
     },
+    /**
+    * Initiate a login request to the mParticle server
+    * @method login
+    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+    * @param {Function} [callback] A callback function that is called when the login request completes
+    */
     login: function(identityApiData, callback) {
         var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'login');
 
@@ -191,6 +207,12 @@ var IdentityAPI = {
             }
         }
     },
+    /**
+    * Initiate a modify request to the mParticle server
+    * @method modify
+    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+    * @param {Function} [callback] A callback function that is called when the modify request completes
+    */
     modify: function(identityApiData, callback) {
         var newUserIdentities = (identityApiData && identityApiData.userIdentities) ? identityApiData.userIdentities : {};
         var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'modify');
@@ -213,6 +235,11 @@ var IdentityAPI = {
             }
         }
     },
+    /**
+    * Returns a user object with methods to interact with the current user
+    * @method getCurrentUser
+    * @return {Object} the current user object
+    */
     getCurrentUser: function() {
         var mpid = MP.mpid;
         if (mpid) {
@@ -224,8 +251,18 @@ var IdentityAPI = {
     }
 };
 
+/**
+* Invoke these methods on the mParticle.Identity.getCurrentUser() object.
+* Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
+* @class mParticle.Identity.getCurrentUser()
+*/
 function mParticleUser(mpid) {
     return {
+        /**
+        * Get user identities for current user
+        * @method getUserIdentities
+        * @return {Object} an object with userIdentities as its key
+        */
         getUserIdentities: function() {
             var currentUserIdentities = {};
 
@@ -241,9 +278,19 @@ function mParticleUser(mpid) {
                 userIdentities: currentUserIdentities
             };
         },
+        /**
+        * Get the MPID of the current user
+        * @method getMPID
+        * @return {String} the current user MPID as a string
+        */
         getMPID: function() {
             return mpid;
         },
+        /**
+        * Sets a user tag
+        * @method setUserTag
+        * @param {String} tagName
+        */
         setUserTag: function(tagName) {
             mParticle.sessionManager.resetSessionTimer();
 
@@ -254,6 +301,11 @@ function mParticleUser(mpid) {
 
             this.setUserAttribute(tagName, null);
         },
+        /**
+        * Removes a user tag
+        * @method removeUserTag
+        * @param {String} tagName
+        */
         removeUserTag: function(tagName) {
             mParticle.sessionManager.resetSessionTimer();
 
@@ -264,6 +316,12 @@ function mParticleUser(mpid) {
 
             this.removeUserAttribute(tagName);
         },
+        /**
+        * Sets a user attribute
+        * @method setUserAttribute
+        * @param {String} key
+        * @param {String} value
+        */
         setUserAttribute: function(key, value) {
             var cookies,
                 userAttributes;
@@ -301,6 +359,11 @@ function mParticleUser(mpid) {
                 }
             }
         },
+        /**
+        * Removes a specific user attribute
+        * @method removeUserAttribute
+        * @param {String} key
+        */
         removeUserAttribute: function(key) {
             var cookies, userAttributes;
             mParticle.sessionManager.resetSessionTimer();
@@ -330,6 +393,12 @@ function mParticleUser(mpid) {
                 Forwarders.applyToForwarders('removeUserAttribute', key);
             }
         },
+        /**
+        * Sets a list of user attributes
+        * @method setUserAttributeList
+        * @param {String} key
+        * @param {Array} value an array of values
+        */
         setUserAttributeList: function(key, value) {
             var cookies, userAttributes;
 
@@ -366,6 +435,10 @@ function mParticleUser(mpid) {
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
             }
         },
+        /**
+        * Removes all user attributes
+        * @method removeAllUserAttributes
+        */
         removeAllUserAttributes: function() {
             var cookies, userAttributes;
 
@@ -389,6 +462,11 @@ function mParticleUser(mpid) {
             Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
             Persistence.storeDataInMemory(cookies, mpid);
         },
+        /**
+        * Returns all user attribute keys that have values that are arrays
+        * @method getUserAttributesLists
+        * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
+        */
         getUserAttributesLists: function() {
             var userAttributes,
                 userAttributesLists = {};
@@ -402,6 +480,11 @@ function mParticleUser(mpid) {
 
             return userAttributesLists;
         },
+        /**
+        * Returns all user attributes
+        * @method getAllUserAttributes
+        * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
+        */
         getAllUserAttributes: function() {
             var userAttributesCopy = {};
             var userAttributes = Persistence.getAllUserAttributes(mpid);
@@ -421,14 +504,30 @@ function mParticleUser(mpid) {
 
             return userAttributesCopy;
         },
+        /**
+        * Returns the cart object for the current user
+        * @method getCart
+        * @return a cart object
+        */
         getCart: function() {
             return mParticleUserCart(mpid);
         }
     };
 }
 
+/**
+* Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
+* Example: mParticle.Identity.getCurrentUser().getCart().add(...);
+* @class mParticle.Identity.getCurrentUser().getCart()
+*/
 function mParticleUserCart(mpid){
     return {
+        /**
+        * Adds a cart product to the user cart
+        * @method add
+        * @param {Object} product the product
+        * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+        */
         add: function(product, logEvent) {mParticle.sessionManager.resetSessionTimer();
             var allProducts,
                 userProducts,
@@ -475,6 +574,12 @@ function mParticleUserCart(mpid){
 
             Persistence.setCartProducts(allProducts);
         },
+        /**
+        * Removes a cart product from the current user cart
+        * @method remove
+        * @param {Object} product the product
+        * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+        */
         remove: function(product, logEvent) {
             mParticle.sessionManager.resetSessionTimer();
             var allProducts,
@@ -520,6 +625,10 @@ function mParticleUserCart(mpid){
 
             Persistence.setCartProducts(allProducts);
         },
+        /**
+        * Clears the user's cart
+        * @method clear
+        */
         clear: function() {
             mParticle.sessionManager.resetSessionTimer();
             var allProducts = JSON.parse(Persistence.getLocalStorageProducts());
@@ -536,6 +645,11 @@ function mParticleUserCart(mpid){
                 Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearCart);
             }
         },
+        /**
+        * Returns all cart products
+        * @method getCartProducts
+        * @return {Array} array of cart products
+        */
         getCartProducts: function() {
             return Persistence.getCartProducts(mpid);
         }
