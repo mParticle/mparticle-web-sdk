@@ -172,4 +172,27 @@ describe('helpers', function() {
 
         done();
     });
+
+    it('should filterUserIdentities and include customerId as first in the array', function(done) {
+        var filterList = [2, 4, 6, 8];
+        var userIdentitiesObject = {
+            email: 'test@gmail.com',
+            other: 'abc',
+            customerid: '123',
+            facebook: 'facebook123',
+            google: 'google123',
+            yahoo: 'yahoo123'
+        };
+
+        var filteredIdentities = Helpers.filterUserIdentities(userIdentitiesObject, filterList);
+        filteredIdentities.length.should.equal(3);
+        filteredIdentities[0].should.have.property('Identity', '123');
+        filteredIdentities[0].should.have.property('Type', 1);
+        filteredIdentities[1].should.have.property('Identity', 'test@gmail.com');
+        filteredIdentities[1].should.have.property('Type', 7);
+        filteredIdentities[2].should.have.property('Identity', 'abc');
+        filteredIdentities[2].should.have.property('Type', 0);
+
+        done();
+    });
 });

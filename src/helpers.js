@@ -247,10 +247,15 @@ function filterUserIdentities(userIdentitiesObject, filterList) {
             if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
                 var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
                 if (!inArray(filterList, userIdentityType)) {
-                    filteredUserIdentities.push({
+                    var identity = {
                         Type: userIdentityType,
                         Identity: userIdentitiesObject[userIdentityName]
-                    });
+                    };
+                    if (userIdentityType === mParticle.IdentityType.CustomerId) {
+                        filteredUserIdentities.unshift(identity);
+                    } else {
+                        filteredUserIdentities.push(identity);
+                    }
                 }
             }
         }

@@ -294,7 +294,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should filter user identities from forwarder', function(done) {
+    it('should filter user identities from forwarder and bring customerid as first ID', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -316,12 +316,20 @@ describe('forwarders', function() {
         });
         mParticle.init(apiKey);
 
-        mParticle.Identity.modify({userIdentities: {google: 'test@google.com', customerid: '123'}});
+        mParticle.Identity.modify({userIdentities: {google: 'test@google.com', email: 'test@gmail.com', customerid: '123'}});
         mParticle.logEvent('test event');
         var event = mockForwarder.instance.receivedEvent;
 
-        Object.keys(event.UserIdentities).length.should.equal(1);
-        Should(event.UserIdentities[mParticle.IdentityType.Google]).not.be.ok();
+        Object.keys(event.UserIdentities).length.should.equal(2);
+        var googleUserIdentityExits = false;
+        event.UserIdentities.forEach(function(identity) {
+            if (identity.Type === mParticle.IdentityType.Google) {
+                googleUserIdentityExits = true;
+            }
+        });
+        Should(googleUserIdentityExits).not.be.ok();
+
+        event.UserIdentities[0].Type.should.equal(mParticle.IdentityType.CustomerId);
 
         done();
     });
