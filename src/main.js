@@ -184,6 +184,7 @@ var Polyfill = require('./polyfill'),
             MP.clientId = null;
             MP.deviceId = null;
             MP.dateLastEventSent = null;
+            MP.sessionStartDate = null;
             MP.watchPositionId = null;
             MP.readyQueue = [];
             Helpers.mergeConfig({});
@@ -290,7 +291,8 @@ var Polyfill = require('./polyfill'),
         * @method endSession
         */
         endSession: function() {
-            SessionManager.endSession();
+            // Sends true as an over ride vs when endSession is called from the setInterval
+            SessionManager.endSession(true);
         },
         /**
         * Logs an event to mParticle's servers

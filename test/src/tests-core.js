@@ -109,7 +109,7 @@ var server = new MockHttpServer(),
         if (name === v1localStorageKey) {
             value = encodeURIComponent(JSON.stringify(data));
         } else if (name === v4LSKey) {
-            value = JSON.stringify(data);
+            value = mParticle.persistence.createCookieString(JSON.stringify(data));
         }
 
         if (raw) {

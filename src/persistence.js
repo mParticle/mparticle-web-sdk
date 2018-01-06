@@ -134,6 +134,12 @@ function storeDataInMemory(obj, currentMPID) {
                 MP.dateLastEventSent = new Date(obj.gs.les);
             }
 
+            if (obj.gs.ssd) {
+                MP.sessionStartDate = new Date(obj.gs.ssd);
+            } else {
+                MP.sessionStartDate = new Date();
+            }
+
             if (currentMPID) {
                 obj = obj[currentMPID];
             } else {
@@ -263,6 +269,7 @@ function setGlobalStorageAttributes(data) {
     data.gs.cgid = MP.clientId;
     data.gs.das = MP.deviceId;
     data.gs.c = MP.context;
+    data.gs.ssd = MP.sessionStartDate ? MP.sessionStartDate.getTime() : null;
 
     return data;
 }

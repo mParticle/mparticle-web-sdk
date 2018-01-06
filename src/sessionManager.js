@@ -8,9 +8,9 @@ var Helpers = require('./helpers'),
 
 function initialize() {
     if (MP.sessionId) {
-        var sessionTimeoutInSeconds = MP.Config.SessionTimeout * 60000;
+        var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
 
-        if (new Date() > new Date(MP.dateLastEventSent.getTime() + sessionTimeoutInSeconds)) {
+        if (new Date() > new Date(MP.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
             this.endSession();
             this.startNewSession();
         }
@@ -33,8 +33,10 @@ function startNewSession() {
             MP.currentSessionMPIDs = [MP.mpid];
         }
 
-        if (!MP.dateLastEventSent) {
-            MP.dateLastEventSent = new Date();
+        if (!MP.sessionStartDate) {
+            var date = new Date();
+            MP.sessionStartDate = date;
+            MP.dateLastEventSent = date;
         }
 
         mParticle.sessionManager.setSessionTimer();
@@ -46,33 +48,61 @@ function startNewSession() {
     }
 }
 
-function endSession() {
+function endSession(override) {
     Helpers.logDebug(Messages.InformationMessages.StartingEndSession);
 
-    if (Helpers.canLog()) {
-        if (!MP.sessionId) {
-            Helpers.logDebug(Messages.InformationMessages.NoSessionToEnd);
-            return;
-        }
-
+    if (override) {
         logEvent(Types.MessageType.SessionEnd);
 
         MP.sessionId = null;
         MP.dateLastEventSent = null;
         MP.sessionAttributes = {};
         Persistence.update();
-    }
-    else {
+    } else if (Helpers.canLog()) {
+        var sessionTimeoutInMilliseconds,
+            cookies,
+            timeSinceLastEventSent;
+
+        cookies = Persistence.getCookie() || Persistence.getLocalStorage();
+
+        if (!cookies.gs.sid) {
+            Helpers.logDebug(Messages.InformationMessages.NoSessionToEnd);
+            return;
+        }
+
+        // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
+        if (cookies.gs.sid && MP.sessionId !== cookies.gs.sid) {
+            MP.sessionId = cookies.gs.sid;
+        }
+
+        if (cookies && cookies.gs && cookies.gs.les) {
+            sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
+            var newDate = new Date().getTime();
+            timeSinceLastEventSent = newDate - cookies.gs.les;
+
+            if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
+                setSessionTimer();
+            } else {
+                logEvent(Types.MessageType.SessionEnd);
+
+                MP.sessionId = null;
+                MP.dateLastEventSent = null;
+                MP.sessionStartDate = null;
+                MP.sessionAttributes = {};
+                Persistence.update();
+            }
+        }
+    } else {
         Helpers.logDebug(Messages.InformationMessages.AbandonEndSession);
     }
 }
 
 function setSessionTimer() {
-    var sessionTimeoutInSeconds = MP.Config.SessionTimeout * 60000;
+    var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
 
     MP.globalTimer = window.setTimeout(function() {
         mParticle.sessionManager.endSession();
-    }, sessionTimeoutInSeconds);
+    }, sessionTimeoutInMilliseconds);
 }
 
 function resetSessionTimer() {

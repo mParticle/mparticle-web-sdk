@@ -16,6 +16,7 @@ module.exports = {
     pixelConfigurations: [],
     serverSettings: {},
     dateLastEventSent: null,
+    sessionStartDate: null,
     cookieSyncDates: {},
     currentPosition: null,
     isTracking: false,

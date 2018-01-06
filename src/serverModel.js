@@ -125,7 +125,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
         };
 
         if (messageType === Types.MessageType.SessionEnd) {
-            eventObject.SessionLength = new Date().getTime() - MP.dateLastEventSent.getTime();
+            eventObject.SessionLength = MP.dateLastEventSent.getTime() - MP.sessionStartDate.getTime();
             eventObject.currentSessionMPIDs = MP.currentSessionMPIDs;
             MP.currentSessionMPIDs = [];
         }

@@ -10,6 +10,7 @@
         "Should": true,
         "MockHttpServer": true,
         "it": true,
+        "sinon": true,
         "const": true,
         "before": true,
         "beforeEach": true,

@@ -12,9 +12,7 @@ function logEvent(type, name, data, category, cflags) {
     Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
 
     if (Helpers.canLog()) {
-        if (!MP.sessionId) {
-            mParticle.startNewSession();
-        }
+        startNewSessionIfNeeded();
 
         if (data) {
             data = Helpers.sanitizeAttributes(data);
@@ -285,6 +283,7 @@ function logCommerceEvent(commerceEvent, attrs) {
     attrs = Helpers.sanitizeAttributes(attrs);
 
     if (Helpers.canLog()) {
+        startNewSessionIfNeeded();
         if (Helpers.isWebViewEmbedded()) {
             // Don't send shopping cart or product bags to parent sdks
             commerceEvent.ShoppingCart = {};
@@ -378,6 +377,18 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
     }
 }
 
+function startNewSessionIfNeeded() {
+    var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
+
+    if (!MP.sessionId && cookies) {
+        if (cookies.sid) {
+            MP.sessionId = cookies.sid;
+        } else {
+            mParticle.startNewSession();
+        }
+    }
+}
+
 module.exports = {
     send: send,
     logEvent: logEvent,
@@ -392,5 +403,6 @@ module.exports = {
     logOptOut: logOptOut,
     logAST: logAST,
     logCommerceEvent: logCommerceEvent,
-    addEventHandler: addEventHandler
+    addEventHandler: addEventHandler,
+    startNewSessionIfNeeded: startNewSessionIfNeeded
 };
