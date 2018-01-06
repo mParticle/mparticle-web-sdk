@@ -95,11 +95,9 @@ var IdentityType = {
     Yahoo: 6,
     Email: 7,
     FacebookCustomAudienceId: 9,
-    // TODO: Change when we finalize the 'other' pattern
-    Other1: 10,
-    Other2: 11,
-    Other3: 12,
-    Other4: 13
+    Other2: 10,
+    Other3: 11,
+    Other4: 12
 };
 
 IdentityType.isValid = function(identityType) {

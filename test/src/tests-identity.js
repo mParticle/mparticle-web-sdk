@@ -160,10 +160,9 @@ describe('identity', function() {
         data.userIdentities.yahoo = 'id7';
         data.userIdentities.email = 'id8';
         data.userIdentities.facebookcustomaudienceid = 'id9';
-        data.userIdentities.other1 = 'id10';
-        data.userIdentities.other2 = 'id11';
-        data.userIdentities.other3 = 'id12';
-        data.userIdentities.other4 = 'id13';
+        data.userIdentities.other2 = 'id10';
+        data.userIdentities.other3 = 'id11';
+        data.userIdentities.other4 = 'id12';
 
         var count = 0;
         for (var key in data.userIdentities) {
@@ -195,10 +194,9 @@ describe('identity', function() {
         data.userIdentities.yahoo = 'id7';
         data.userIdentities.email = 'id8';
         data.userIdentities.facebookcustomaudienceid = 'id9';
-        data.userIdentities.other1 = 'id10';
-        data.userIdentities.other2 = 'id11';
-        data.userIdentities.other3 = 'id12';
-        data.userIdentities.other4 = 'id13';
+        data.userIdentities.other2 = 'id10';
+        data.userIdentities.other3 = 'id11';
+        data.userIdentities.other4 = 'id12';
 
         var identityRequest = mParticle._IdentityRequest.createIdentityRequest(data, platform, sdkVendor, sdkVersion, deviceId, context, testMPID);
         identityRequest.should.have.properties(['client_sdk', 'environment', 'context', 'known_identities', 'previous_mpid', 'request_id', 'request_timestamp_ms']);
@@ -207,7 +205,7 @@ describe('identity', function() {
         identityRequest.client_sdk.sdk_vendor.should.equal(sdkVendor);
         identityRequest.environment.should.equal('production');
         identityRequest.previous_mpid.should.equal(testMPID);
-        identityRequest.known_identities.should.have.properties(['other', 'customerid', 'facebook', 'twitter', 'google', 'microsoft', 'yahoo', 'email', 'facebookcustomaudienceid', 'other1', 'other2', 'other3', 'other4', 'device_application_stamp']);
+        identityRequest.known_identities.should.have.properties(['other', 'customerid', 'facebook', 'twitter', 'google', 'microsoft', 'yahoo', 'email', 'facebookcustomaudienceid', 'other2', 'other3', 'other4', 'device_application_stamp']);
         identityRequest.known_identities.other.should.equal('id1');
         identityRequest.known_identities.customerid.should.equal('id2');
         identityRequest.known_identities.facebook.should.equal('id3');
@@ -217,10 +215,9 @@ describe('identity', function() {
         identityRequest.known_identities.yahoo.should.equal('id7');
         identityRequest.known_identities.email.should.equal('id8');
         identityRequest.known_identities.facebookcustomaudienceid.should.equal('id9');
-        identityRequest.known_identities.other1.should.equal('id10');
-        identityRequest.known_identities.other2.should.equal('id11');
-        identityRequest.known_identities.other3.should.equal('id12');
-        identityRequest.known_identities.other4.should.equal('id13');
+        identityRequest.known_identities.other2.should.equal('id10');
+        identityRequest.known_identities.other3.should.equal('id11');
+        identityRequest.known_identities.other4.should.equal('id12');
 
         done();
     });
@@ -245,7 +242,6 @@ describe('identity', function() {
         oldIdentities[10] = 'id10';
         oldIdentities[11] = 'id11';
         oldIdentities[12] = 'id12';
-        oldIdentities[13] = 'id13';
         var newIdentities = {};
         newIdentities.other = 'id14';
         newIdentities.customerid = 'id15';
@@ -256,10 +252,9 @@ describe('identity', function() {
         newIdentities.yahoo = 'id20';
         newIdentities.email = 'id21';
         newIdentities.facebookcustomaudienceid = 'id22';
-        newIdentities.other1 = 'id23';
-        newIdentities.other2 = 'id24';
-        newIdentities.other3 = 'id25';
-        newIdentities.other4 = 'id26';
+        newIdentities.other2 = 'id23';
+        newIdentities.other3 = 'id24';
+        newIdentities.other4 = 'id25';
 
         var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(oldIdentities, newIdentities, platform, sdkVendor, sdkVersion, deviceId, context, testMPID);
         identityRequest.should.have.properties(['client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms']);
@@ -314,23 +309,18 @@ describe('identity', function() {
 
         identityRequest.identity_changes[9].should.have.properties(['identity_type', 'new_value', 'old_value']);
         identityRequest.identity_changes[9].old_value.should.equal('id10');
-        identityRequest.identity_changes[9].identity_type.should.equal('other1');
+        identityRequest.identity_changes[9].identity_type.should.equal('other2');
         identityRequest.identity_changes[9].new_value.should.equal('id23');
 
         identityRequest.identity_changes[10].should.have.properties(['identity_type', 'new_value', 'old_value']);
         identityRequest.identity_changes[10].old_value.should.equal('id11');
-        identityRequest.identity_changes[10].identity_type.should.equal('other2');
+        identityRequest.identity_changes[10].identity_type.should.equal('other3');
         identityRequest.identity_changes[10].new_value.should.equal('id24');
 
         identityRequest.identity_changes[11].should.have.properties(['identity_type', 'new_value', 'old_value']);
         identityRequest.identity_changes[11].old_value.should.equal('id12');
-        identityRequest.identity_changes[11].identity_type.should.equal('other3');
+        identityRequest.identity_changes[11].identity_type.should.equal('other4');
         identityRequest.identity_changes[11].new_value.should.equal('id25');
-
-        identityRequest.identity_changes[12].should.have.properties(['identity_type', 'new_value', 'old_value']);
-        identityRequest.identity_changes[12].old_value.should.equal('id13');
-        identityRequest.identity_changes[12].identity_type.should.equal('other4');
-        identityRequest.identity_changes[12].new_value.should.equal('id26');
 
         done();
     });
