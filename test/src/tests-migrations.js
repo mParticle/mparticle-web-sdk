@@ -34,6 +34,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
     var SDKv1CookieV3NoProdLSApostrophes = "{'sid':'ed937016-a06f-4275-9af4-c1830cfe951f'|'ie':1|'sa':'eyJzYTEiOiJ2YWx1ZTEifQ=='|'ua':'eyJ1YTEiOiJ2YWx1ZTEifQ=='|'ui':'eyIxIjoiY3VzdG9tZXJpZDEiLCI3IjoidGVzdEBlbWFpbC5jb20ifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTEtMDZUMTg6MTE6NDMuMjU2MDY2WiIsIlZhbHVlIjoiZz02ODFlNDMyNC0yYmFjLTQwMzYtODNkOC02MTNlZDRlYzNkY2MmdT02MjI3NDUxOTA2MTg2MDU1MDUmY3I9NDEzMTAxMSJ9fQ=='|'dt':'" + apiKey + "'|'les':" + les + "|'av':'1.5.0'|'cgid':'20f258e9-13cb-4751-ac7a-b2c66ef18db4'|'das':'681e4324-2bac-4036-83d8-613ed4ec3dcc'|'csd':'eyIxMSI6MTUxMDE2NDcwMzI0N30='|'mpid':'" + testMPID + "'}";
 
+    var SDKv1CookieV3WithEncodedProducts = "{'cp':'W3siTmFtZSI6IidhcG9zdHJvcGhlcyBpbicnJyBuYW1lIiwiU2t1IjoiU0tVMSIsIlByaWNlIjoxMjMsIlF1YW50aXR5IjoxLCJUb3RhbEFtb3VudCI6MTIzLCJBdHRyaWJ1dGVzIjpudWxsfV0'|'sid':'d3b6bb27-838f-49a0-bbba-407da48ac366'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDEtMDFUMTU6MTk6NDAuNTM5NTYxWiIsIlZhbHVlIjoiZz1kNmM5YzY5Zi1kYjAxLTQ4YWQtYjk0OS1hZTYxNzk5ZWE1OWEmdT0tNDE4MzA5MTg5MDM3OTM2ODIxNCZjcj00MjExNDc5In19'|'dt':'" + apiKey + "'|'les':1514992777036|'ssd':1514992777026|'cgid':'2efa7a16-971d-400e-9849-704559fd8891'|'das':'d6c9c69f-db01-48ad-b949-ae61799ea59a'|'mpid': '" + testMPID + "'}";
+
     var SDKv1CookieV1Parsed = JSON.parse(decodeURIComponent(SDKv1CookieV1));
     var SDKv1CookieV2Parsed = JSON.parse(decodeURIComponent(SDKv1CookieV2));
     var SDKv1CookieV3Parsed = JSON.parse(mP.replacePipesWithCommas(SDKv1CookieV3));
@@ -43,6 +45,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
     var SDKv1CookieV3FullLSApostrophesParsed = JSON.parse(mP.replacePipesWithCommas(mP.replaceApostrophesWithQuotes(SDKv1CookieV3FullLSApostrophes)));
     var SDKv1CookieV3NoProdLSApostrophesParsed = JSON.parse(mP.replacePipesWithCommas(mP.replaceApostrophesWithQuotes(SDKv1CookieV3NoProdLSApostrophes)));
+    var SDKv1CookieV3WithEncodedProductsParsed = JSON.parse(mP.replacePipesWithCommas(mP.replaceApostrophesWithQuotes(SDKv1CookieV3WithEncodedProducts)));
 
     it('unit test - convertSDKv1CookiesV1ToSDKv2CookiesV4', function(done) {
         mParticle.reset();
@@ -565,6 +568,82 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         JSON.stringify(localStorageProducts[SDKv1CookieV3.mpid].cp).should.equal(JSON.stringify(SDKv1CookieV3.cp));
         JSON.stringify(localStorageProducts[SDKv1CookieV3.mpid].pb).should.equal(JSON.stringify(SDKv1CookieV3.pb));
+
+        done();
+    });
+
+    it('unit test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 decoded', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+
+        var v4Cookies = JSON.parse(mParticle.migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(decodeURIComponent(SDKv1CookieV3WithEncodedProducts)));
+        v4Cookies.should.have.properties(testMPID, 'gs', 'cu');
+
+        v4Cookies.cu.should.equal(SDKv1CookieV3WithEncodedProductsParsed.mpid);
+
+        v4Cookies.gs.should.have.properties('csm', 'sid', 'ie', 'ss', 'dt', 'les', 'cgid', 'das');
+        atob(v4Cookies.gs.csm).should.equal(JSON.stringify([SDKv1CookieV3WithEncodedProductsParsed.mpid]));
+        v4Cookies.gs.sid.should.equal(SDKv1CookieV3WithEncodedProductsParsed.sid);
+        v4Cookies.gs.ie.should.equal(SDKv1CookieV3WithEncodedProductsParsed.ie);
+        v4Cookies.gs.dt.should.equal(SDKv1CookieV3WithEncodedProductsParsed.dt);
+        v4Cookies.gs.les.should.equal(SDKv1CookieV3WithEncodedProductsParsed.les);
+        v4Cookies.gs.cgid.should.equal(SDKv1CookieV3WithEncodedProductsParsed.cgid);
+        v4Cookies.gs.das.should.equal(SDKv1CookieV3WithEncodedProductsParsed.das);
+
+        v4Cookies[testMPID].should.not.have.property('mpid');
+        v4Cookies[testMPID].should.not.have.property('pb');
+        v4Cookies[testMPID].should.not.have.property('cp');
+
+        var localStorageProducts = getLocalStorageProducts();
+
+        JSON.stringify(localStorageProducts[testMPID].cp).should.equal(atob(SDKv1CookieV3WithEncodedProductsParsed.cp));
+
+        done();
+    });
+
+    it('integration test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 and function properly when using cookie storage', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+
+        setCookie(v3CookieKey, SDKv1CookieV3WithEncodedProducts, true);
+
+        mParticle.init(apiKey);
+        server.requests = [];
+        var testName = "' ' test name ' with apostrophes";
+        mParticle.eCommerce.Cart.add(mParticle.eCommerce.createProduct(testName, 'sku123', 1));
+        mParticle.eCommerce.logCheckout(1);
+
+        var event = getEvent('eCommerce - Checkout');
+
+        event.sc.pl[0].should.have.property('id', 'SKU1');
+        event.sc.pl[0].should.have.property('nm', '\'apostrophes in\'\'\' name');
+        event.sc.pl[0].should.have.property('pr', 123);
+        event.sc.pl[1].should.have.property('id', 'sku123');
+        event.sc.pl[1].should.have.property('nm', testName);
+        event.sc.pl[1].should.have.property('pr', 1);
+
+        done();
+    });
+
+    it('integration test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 and function properly when using local storage', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = false;
+
+        setLocalStorage(v3LSKey, SDKv1CookieV3WithEncodedProducts, true);
+        mParticle.init(apiKey);
+
+        server.requests = [];
+        var testName = "' ' test name ' with apostrophes";
+        mParticle.eCommerce.Cart.add(mParticle.eCommerce.createProduct(testName, 'sku123', 1));
+        mParticle.eCommerce.logCheckout(1);
+
+        var event = getEvent('eCommerce - Checkout');
+        event.sc.pl[0].should.have.property('id', 'SKU1');
+        event.sc.pl[0].should.have.property('nm', '\'apostrophes in\'\'\' name');
+        event.sc.pl[0].should.have.property('pr', 123);
+        event.sc.pl[1].should.have.property('id', 'sku123');
+        event.sc.pl[1].should.have.property('nm', testName);
+        event.sc.pl[1].should.have.property('pr', 1);
 
         done();
     });

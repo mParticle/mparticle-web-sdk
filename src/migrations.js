@@ -247,10 +247,20 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
     var localStorageProducts = {};
     localStorageProducts[mpid] = {};
     if (cookies.cp) {
-        localStorageProducts[mpid].cp = cookies.cp;
+        try {
+            localStorageProducts[mpid].cp = JSON.parse(Base64.decode(cookies.cp));
+        }
+        catch (e) {
+            localStorageProducts[mpid].cp = cookies.cp;
+        }
     }
     if (cookies.pb) {
-        localStorageProducts[mpid].pb = cookies.pb;
+        try {
+            localStorageProducts[mpid].pb = JSON.parse(Base64.decode(cookies.pb));
+        }
+        catch (e) {
+            localStorageProducts[mpid].pb = cookies.pb;
+        }
     }
 
     localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
