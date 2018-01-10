@@ -2,7 +2,7 @@
 var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
     secureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.1.3',
+    sdkVersion = '2.1.4',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -637,7 +637,7 @@ module.exports = {
     createImpression: createImpression,
     createTransactionAttributes: createTransactionAttributes,
     expandCommerceEvent: expandCommerceEvent,
-    createCommerceEventObject: createCommerceEventObject,
+    createCommerceEventObject: createCommerceEventObject
 };
 
 },{"./constants":1,"./helpers":6,"./mp":10,"./serverModel":13,"./types":15}],4:[function(require,module,exports){
@@ -655,9 +655,7 @@ function logEvent(type, name, data, category, cflags) {
     Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
 
     if (Helpers.canLog()) {
-        if (!MP.sessionId) {
-            mParticle.startNewSession();
-        }
+        startNewSessionIfNeeded();
 
         if (data) {
             data = Helpers.sanitizeAttributes(data);
@@ -928,6 +926,7 @@ function logCommerceEvent(commerceEvent, attrs) {
     attrs = Helpers.sanitizeAttributes(attrs);
 
     if (Helpers.canLog()) {
+        startNewSessionIfNeeded();
         if (Helpers.isWebViewEmbedded()) {
             // Don't send shopping cart or product bags to parent sdks
             commerceEvent.ShoppingCart = {};
@@ -1021,6 +1020,18 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
     }
 }
 
+function startNewSessionIfNeeded() {
+    var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
+
+    if (!MP.sessionId && cookies) {
+        if (cookies.sid) {
+            MP.sessionId = cookies.sid;
+        } else {
+            mParticle.startNewSession();
+        }
+    }
+}
+
 module.exports = {
     send: send,
     logEvent: logEvent,
@@ -1035,7 +1046,8 @@ module.exports = {
     logOptOut: logOptOut,
     logAST: logAST,
     logCommerceEvent: logCommerceEvent,
-    addEventHandler: addEventHandler
+    addEventHandler: addEventHandler,
+    startNewSessionIfNeeded: startNewSessionIfNeeded
 };
 
 },{"./constants":1,"./ecommerce":3,"./forwarders":5,"./helpers":6,"./mp":10,"./persistence":11,"./serverModel":13,"./types":15}],5:[function(require,module,exports){
@@ -1624,10 +1636,15 @@ function filterUserIdentities(userIdentitiesObject, filterList) {
             if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
                 var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
                 if (!inArray(filterList, userIdentityType)) {
-                    filteredUserIdentities.push({
+                    var identity = {
                         Type: userIdentityType,
                         Identity: userIdentitiesObject[userIdentityName]
-                    });
+                    };
+                    if (userIdentityType === mParticle.IdentityType.CustomerId) {
+                        filteredUserIdentities.unshift(identity);
+                    } else {
+                        filteredUserIdentities.push(identity);
+                    }
                 }
             }
         }
@@ -1999,8 +2016,18 @@ var IdentityRequest = {
         return modifiedUserIdentities;
     }
 };
-
+/**
+* Invoke these methods on the mParticle.Identity object.
+* Example: mParticle.Identity.getCurrentUser().
+* @class mParticle.Identity
+*/
 var IdentityAPI = {
+    /**
+    * Initiate a logout request to the mParticle server
+    * @method logout
+    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+    * @param {Function} [callback] A callback function that is called when the logout request completes
+    */
     logout: function(identityApiData, callback) {
         var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'logout');
 
@@ -2034,6 +2061,12 @@ var IdentityAPI = {
             }
         }
     },
+    /**
+    * Initiate a login request to the mParticle server
+    * @method login
+    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+    * @param {Function} [callback] A callback function that is called when the login request completes
+    */
     login: function(identityApiData, callback) {
         var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'login');
 
@@ -2056,6 +2089,12 @@ var IdentityAPI = {
             }
         }
     },
+    /**
+    * Initiate a modify request to the mParticle server
+    * @method modify
+    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+    * @param {Function} [callback] A callback function that is called when the modify request completes
+    */
     modify: function(identityApiData, callback) {
         var newUserIdentities = (identityApiData && identityApiData.userIdentities) ? identityApiData.userIdentities : {};
         var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'modify');
@@ -2078,6 +2117,11 @@ var IdentityAPI = {
             }
         }
     },
+    /**
+    * Returns a user object with methods to interact with the current user
+    * @method getCurrentUser
+    * @return {Object} the current user object
+    */
     getCurrentUser: function() {
         var mpid = MP.mpid;
         if (mpid) {
@@ -2089,8 +2133,18 @@ var IdentityAPI = {
     }
 };
 
+/**
+* Invoke these methods on the mParticle.Identity.getCurrentUser() object.
+* Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
+* @class mParticle.Identity.getCurrentUser()
+*/
 function mParticleUser(mpid) {
     return {
+        /**
+        * Get user identities for current user
+        * @method getUserIdentities
+        * @return {Object} an object with userIdentities as its key
+        */
         getUserIdentities: function() {
             var currentUserIdentities = {};
 
@@ -2106,9 +2160,19 @@ function mParticleUser(mpid) {
                 userIdentities: currentUserIdentities
             };
         },
+        /**
+        * Get the MPID of the current user
+        * @method getMPID
+        * @return {String} the current user MPID as a string
+        */
         getMPID: function() {
             return mpid;
         },
+        /**
+        * Sets a user tag
+        * @method setUserTag
+        * @param {String} tagName
+        */
         setUserTag: function(tagName) {
             mParticle.sessionManager.resetSessionTimer();
 
@@ -2119,6 +2183,11 @@ function mParticleUser(mpid) {
 
             this.setUserAttribute(tagName, null);
         },
+        /**
+        * Removes a user tag
+        * @method removeUserTag
+        * @param {String} tagName
+        */
         removeUserTag: function(tagName) {
             mParticle.sessionManager.resetSessionTimer();
 
@@ -2129,6 +2198,12 @@ function mParticleUser(mpid) {
 
             this.removeUserAttribute(tagName);
         },
+        /**
+        * Sets a user attribute
+        * @method setUserAttribute
+        * @param {String} key
+        * @param {String} value
+        */
         setUserAttribute: function(key, value) {
             var cookies,
                 userAttributes;
@@ -2166,6 +2241,11 @@ function mParticleUser(mpid) {
                 }
             }
         },
+        /**
+        * Removes a specific user attribute
+        * @method removeUserAttribute
+        * @param {String} key
+        */
         removeUserAttribute: function(key) {
             var cookies, userAttributes;
             mParticle.sessionManager.resetSessionTimer();
@@ -2195,6 +2275,12 @@ function mParticleUser(mpid) {
                 Forwarders.applyToForwarders('removeUserAttribute', key);
             }
         },
+        /**
+        * Sets a list of user attributes
+        * @method setUserAttributeList
+        * @param {String} key
+        * @param {Array} value an array of values
+        */
         setUserAttributeList: function(key, value) {
             var cookies, userAttributes;
 
@@ -2231,6 +2317,10 @@ function mParticleUser(mpid) {
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
             }
         },
+        /**
+        * Removes all user attributes
+        * @method removeAllUserAttributes
+        */
         removeAllUserAttributes: function() {
             var cookies, userAttributes;
 
@@ -2254,6 +2344,11 @@ function mParticleUser(mpid) {
             Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
             Persistence.storeDataInMemory(cookies, mpid);
         },
+        /**
+        * Returns all user attribute keys that have values that are arrays
+        * @method getUserAttributesLists
+        * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
+        */
         getUserAttributesLists: function() {
             var userAttributes,
                 userAttributesLists = {};
@@ -2267,6 +2362,11 @@ function mParticleUser(mpid) {
 
             return userAttributesLists;
         },
+        /**
+        * Returns all user attributes
+        * @method getAllUserAttributes
+        * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
+        */
         getAllUserAttributes: function() {
             var userAttributesCopy = {};
             var userAttributes = Persistence.getAllUserAttributes(mpid);
@@ -2286,14 +2386,30 @@ function mParticleUser(mpid) {
 
             return userAttributesCopy;
         },
+        /**
+        * Returns the cart object for the current user
+        * @method getCart
+        * @return a cart object
+        */
         getCart: function() {
             return mParticleUserCart(mpid);
         }
     };
 }
 
+/**
+* Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
+* Example: mParticle.Identity.getCurrentUser().getCart().add(...);
+* @class mParticle.Identity.getCurrentUser().getCart()
+*/
 function mParticleUserCart(mpid){
     return {
+        /**
+        * Adds a cart product to the user cart
+        * @method add
+        * @param {Object} product the product
+        * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+        */
         add: function(product, logEvent) {mParticle.sessionManager.resetSessionTimer();
             var allProducts,
                 userProducts,
@@ -2340,6 +2456,12 @@ function mParticleUserCart(mpid){
 
             Persistence.setCartProducts(allProducts);
         },
+        /**
+        * Removes a cart product from the current user cart
+        * @method remove
+        * @param {Object} product the product
+        * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+        */
         remove: function(product, logEvent) {
             mParticle.sessionManager.resetSessionTimer();
             var allProducts,
@@ -2385,6 +2507,10 @@ function mParticleUserCart(mpid){
 
             Persistence.setCartProducts(allProducts);
         },
+        /**
+        * Clears the user's cart
+        * @method clear
+        */
         clear: function() {
             mParticle.sessionManager.resetSessionTimer();
             var allProducts = JSON.parse(Persistence.getLocalStorageProducts());
@@ -2401,6 +2527,11 @@ function mParticleUserCart(mpid){
                 Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearCart);
             }
         },
+        /**
+        * Returns all cart products
+        * @method getCartProducts
+        * @return {Array} array of cart products
+        */
         getCartProducts: function() {
             return Persistence.getCartProducts(mpid);
         }
@@ -2652,6 +2783,13 @@ var Polyfill = require('./polyfill'),
         Array.prototype.isArray = Polyfill.isArray;
     }
 
+    /**
+    * Invoke these methods on the mParticle object.
+    * Example: mParticle.endSession()
+    *
+    * @class mParticle
+    */
+
     var mParticle = {
         useNativeSdk: true,
         isIOS: false,
@@ -2674,6 +2812,13 @@ var Polyfill = require('./polyfill'),
         CommerceEventType: Types.CommerceEventType,
         PromotionType: Types.PromotionActionType,
         ProductActionType: Types.ProductActionType,
+        /**
+        * Initializes the mParticle SDK
+        *
+        * @method init
+        * @param {String} apiKey your mParticle assigned API key
+        * @param {Object} [options] an options object for additional configuration
+        */
         init: function(apiKey) {
             var config;
             MP.initialIdentifyRequest = mParticle.identifyRequest;
@@ -2736,8 +2881,11 @@ var Polyfill = require('./polyfill'),
             Events.logAST();
             MP.isInitialized = true;
         },
+        /**
+        * Completely resets the state of the SDK. mParticle.init(apiKey) will need to be called again.
+        * @method reset
+        */
         reset: function() {
-            // Completely resets the state of the SDK. mParticle.init() will need to be called again.
             MP.sessionAttributes = {};
             MP.isEnabled = true;
             MP.isFirstRun = null;
@@ -2765,6 +2913,7 @@ var Polyfill = require('./polyfill'),
             MP.clientId = null;
             MP.deviceId = null;
             MP.dateLastEventSent = null;
+            MP.sessionStartDate = null;
             MP.watchPositionId = null;
             MP.readyQueue = [];
             Helpers.mergeConfig({});
@@ -2784,30 +2933,69 @@ var Polyfill = require('./polyfill'),
                 MP.readyQueue.push(f);
             }
         },
+        /**
+        * Returns the mParticle SDK version number
+        * @method getVersion
+        * @return {String} mParticle SDK version number
+        */
         getVersion: function() {
             return Constants.sdkVersion;
         },
+        /**
+        * Sets the app version
+        * @method setAppVersion
+        * @param {String} version version number
+        */
         setAppVersion: function(version) {
             MP.appVersion = version;
             Persistence.update();
         },
+        /**
+        * Gets the app name
+        * @method getAppName
+        * @return {String} App name
+        */
         getAppName: function() {
             return MP.appName;
         },
+        /**
+        * Sets the app name
+        * @method setAppName
+        * @param {String} name App Name
+        */
         setAppName: function(name) {
             MP.appName = name;
         },
+        /**
+        * Gets the app version
+        * @method getAppVersion
+        * @return {String} App version
+        */
         getAppVersion: function() {
             return MP.appVersion;
         },
+        /**
+        * Stops tracking the location of the user
+        * @method stopTrackingLocation
+        */
         stopTrackingLocation: function() {
             mParticle.sessionManager.resetSessionTimer();
             Events.stopTracking();
         },
+        /**
+        * Starts tracking the location of the user
+        * @method startTrackingLocation
+        */
         startTrackingLocation: function() {
             mParticle.sessionManager.resetSessionTimer();
             Events.startTracking();
         },
+        /**
+        * Sets the position of the user
+        * @method setPosition
+        * @param {Number} lattitude lattitude digit
+        * @param {Number} longitude longitude digit
+        */
         setPosition: function(lat, lng) {
             mParticle.sessionManager.resetSessionTimer();
             if (typeof lat === 'number' && typeof lng === 'number') {
@@ -2817,15 +3005,32 @@ var Polyfill = require('./polyfill'),
                 };
             }
             else {
-                Helpers.logDebug('Position latitude and/or longitude are invalid');
+                Helpers.logDebug('Position latitude and/or longitude must both be of type number');
             }
         },
+        /**
+        * Starts a new session
+        * @method startNewSession
+        */
         startNewSession: function() {
             SessionManager.startNewSession();
         },
+        /**
+        * Ends the current session
+        * @method endSession
+        */
         endSession: function() {
-            SessionManager.endSession();
+            // Sends true as an over ride vs when endSession is called from the setInterval
+            SessionManager.endSession(true);
         },
+        /**
+        * Logs an event to mParticle's servers
+        * @method logEvent
+        * @param {String} eventName The name of the event
+        * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+        * @param {Object} [eventInfo] Attributes for the event
+        * @param {Object} [customFlags] Additional customFlags
+        */
         logEvent: function(eventName, eventType, eventInfo, customFlags) {
             mParticle.sessionManager.resetSessionTimer();
             if (typeof (eventName) !== 'string') {
@@ -2849,6 +3054,12 @@ var Polyfill = require('./polyfill'),
 
             Events.logEvent(Types.MessageType.PageEvent, eventName, eventInfo, eventType, customFlags);
         },
+        /**
+        * Used to log custom errors
+        *
+        * @method logError
+        * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
+        */
         logError: function(error) {
             mParticle.sessionManager.resetSessionTimer();
             if (!error) {
@@ -2870,14 +3081,37 @@ var Polyfill = require('./polyfill'),
                 },
                 Types.EventType.Other);
         },
+        /**
+        * Logs `click` events
+        * @method logLink
+        * @param {String} selector The selector to add a 'click' event to (ex. #purchase-event)
+        * @param {String} [eventName] The name of the event
+        * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+        * @param {Object} [eventInfo] Attributes for the event
+        */
         logLink: function(selector, eventName, eventType, eventInfo) {
             mParticle.sessionManager.resetSessionTimer();
             Events.addEventHandler('click', selector, eventName, eventInfo, eventType);
         },
+        /**
+        * Logs `submit` events
+        * @method logForm
+        * @param {String} selector The selector to add the event handler to (ex. #search-event)
+        * @param {String} [eventName] The name of the event
+        * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+        * @param {Object} [eventInfo] Attributes for the event
+        */
         logForm: function(selector, eventName, eventType, eventInfo) {
             mParticle.sessionManager.resetSessionTimer();
             Events.addEventHandler('submit', selector, eventName, eventInfo, eventType);
         },
+        /**
+        * Logs a page view
+        * @method logPageView
+        * @param {String} eventName The name of the event. Defaults to 'PageView'.
+        * @param {Object} [attrs] Attributes for the event
+        * @param {Object} [flags] Custom flags for the event
+        */
         logPageView: function(eventName, attrs, flags) {
             mParticle.sessionManager.resetSessionTimer();
 
@@ -2903,9 +3137,24 @@ var Polyfill = require('./polyfill'),
 
             Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, flags);
         },
-
+        /**
+        * Invoke these methods on the mParticle.eCommerce object.
+        * Example: mParticle.eCommerce.createImpresion(...)
+        * @class mParticle.eCommerce
+        */
         eCommerce: {
+            /**
+            * Invoke these methods on the mParticle.eCommerce.ProductBags object.
+            * Example: mParticle.eCommerce.ProductBags.clear('exampleBag')
+            * @class mParticle.eCommerce.ProductBags
+            */
             ProductBags: {
+                /**
+                * Adds a product to a product bag
+                * @method add
+                * @param {String} productBagName The name of the product bag
+                * @param {Object} product The product you'd like to add
+                */
                 add: function(productBagName, product) {
                     if (!Validators.isStringOrNumber(productBagName)) {
                         Helpers.logDebug('ProductBagName is required and must be a string or number');
@@ -2925,6 +3174,12 @@ var Polyfill = require('./polyfill'),
 
                     Helpers.tryNativeSdk(Constants.NativeSdkPaths.AddToProductBag, JSON.stringify(product));
                 },
+                /**
+                * Removes a product from a product bag
+                * @method remove
+                * @param {String} productBagName The name of the product bag
+                * @param {Object} product The product you'd like to remove
+                */
                 remove: function(productBagName, product) {
                     mParticle.sessionManager.resetSessionTimer();
                     var productIndex = -1;
@@ -2943,6 +3198,11 @@ var Polyfill = require('./polyfill'),
                     }
                     Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveFromProductBag, JSON.stringify(product));
                 },
+                /**
+                * Removes all products from a product bag
+                * @method clear
+                * @param {String} productBagName The name of the product bag you'd like to clear
+                */
                 clear: function(productBagName) {
                     mParticle.sessionManager.resetSessionTimer();
                     MP.productBags[productBagName] = [];
@@ -2951,17 +3211,44 @@ var Polyfill = require('./polyfill'),
                     Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearProductBag, productBagName);
                 }
             },
+            /**
+            * Invoke these methods on the mParticle.eCommerce.Cart object.
+            * Example: mParticle.eCommerce.ProductBags.add(...)
+            * @class mParticle.eCommerce.Cart
+            */
             Cart: {
+                /**
+                * Adds a product to the cart
+                * @method add
+                * @param {Object} product The product you want to add to the cart
+                * @param {Boolean} [logEvent] Option to log the event to mParticle's servers. If blank, no logging occurs.
+                */
                 add: function(product, logEvent) {
                     mParticleUserCart(MP.mpid).add(product, logEvent);
                 },
+                /**
+                * Removes a product from the cart
+                * @method remove
+                * @param {Object} product The product you want to add to the cart
+                * @param {Boolean} [logEvent] Option to log the event to mParticle's servers. If blank, no logging occurs.
+                */
                 remove: function(product, logEvent) {
                     mParticleUserCart(MP.mpid).remove(product, logEvent);
                 },
+                /**
+                * Clears the cart
+                * @method clear
+                */
                 clear: function() {
                     mParticleUserCart(MP.mpid).clear();
                 }
             },
+            /**
+            * Sets the currency code
+            * @for mParticle.eCommerce
+            * @method setCurrencyCode
+            * @param {String} code The currency code
+            */
             setCurrencyCode: function(code) {
                 if (typeof code !== 'string') {
                     Helpers.logDebug('Code must be a string');
@@ -2970,30 +3257,97 @@ var Polyfill = require('./polyfill'),
                 mParticle.sessionManager.resetSessionTimer();
                 MP.currencyCode = code;
             },
+            /**
+            * Creates a product
+            * @for mParticle.eCommerce
+            * @method createProduct
+            * @param {String} name product name
+            * @param {String} sku product sku
+            * @param {Number} price product price
+            * @param {Number} [quantity] product quantity. If blank, defaults to 1.
+            * @param {String} [variant] product variant
+            * @param {String} [category] product category
+            * @param {String} [brand] product brand
+            * @param {Number} [position] product position
+            * @param {String} [coupon] product coupon
+            * @param {Object} [attributes] product attributes
+            */
             createProduct: function(name, sku, price, quantity, variant, category, brand, position, coupon, attributes) {
                 mParticle.sessionManager.resetSessionTimer();
                 return Ecommerce.createProduct(name, sku, price, quantity, variant, category, brand, position, coupon, attributes);
             },
+            /**
+            * Creates a promotion
+            * @for mParticle.eCommerce
+            * @method createPromotion
+            * @param {String} id a unique promotion id
+            * @param {String} [creative] promotion creative
+            * @param {String} [name] promotion name
+            * @param {Number} [position] promotion position
+            */
             createPromotion: function(id, creative, name, position) {
                 mParticle.sessionManager.resetSessionTimer();
                 return Ecommerce.createPromotion(id, creative, name, position);
             },
+            /**
+            * Creates a product impression
+            * @for mParticle.eCommerce
+            * @method createImpression
+            * @param {String} name impression name
+            * @param {Object} product the product for which an impression is being created
+            */
             createImpression: function(name, product) {
                 mParticle.sessionManager.resetSessionTimer();
                 return Ecommerce.createImpression(name, product);
             },
+            /**
+            * Creates a transaction attributes object to be used with a checkout
+            * @for mParticle.eCommerce
+            * @method createTransactionAttributes
+            * @param {String or Number} id a unique transaction id
+            * @param {String} [affiliation] affilliation
+            * @param {String} [couponCode] the coupon code for which you are creating transaction attributes
+            * @param {Number} [revenue] total revenue for the product being purchased
+            * @param {String} [shipping] the shipping method
+            * @param {Number} [tax] the tax amount
+            */
             createTransactionAttributes: function(id, affiliation, couponCode, revenue, shipping, tax) {
                 mParticle.sessionManager.resetSessionTimer();
                 return Ecommerce.createTransactionAttributes(id, affiliation, couponCode, revenue, shipping, tax);
             },
-            logCheckout: function(step, paymentMethod, attrs) {
+            /**
+            * Logs a checkout action
+            * @for mParticle.eCommerce
+            * @method logCheckout
+            * @param {Number} step checkout step number
+            * @param {Object} options
+            * @param {Object} attrs
+            */
+            logCheckout: function(step, options, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
-                Events.logCheckoutEvent(step, paymentMethod, attrs);
+                Events.logCheckoutEvent(step, options, attrs);
             },
+            /**
+            * Logs a product action
+            * @for mParticle.eCommerce
+            * @method logProductAction
+            * @param {Number} productActionType product action type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L206-L218)
+            * @param {Object} product the product for which you are creating the product action
+            * @param {Object} [attrs] attributes related to the product action
+            */
             logProductAction: function(productActionType, product, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
                 Events.logProductActionEvent(productActionType, product, attrs);
             },
+            /**
+            * Logs a product purchase
+            * @for mParticle.eCommerce
+            * @method logPurchase
+            * @param {Object} transactionAttributes transactionAttributes object
+            * @param {Object} product the product being purchased
+            * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
+            * @param {Object} [attrs] other attributes related to the product purchase
+            */
             logPurchase: function(transactionAttributes, product, clearCart, attrs) {
                 if (!transactionAttributes || !product) {
                     Helpers.logDebug(Messages.ErrorMessages.BadLogPurchase);
@@ -3006,14 +3360,38 @@ var Polyfill = require('./polyfill'),
                     mParticle.Ecommerce.Cart.clear();
                 }
             },
+            /**
+            * Logs a product promotion
+            * @for mParticle.eCommerce
+            * @method logPromotion
+            * @param {Number} type the promotion type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L275-L279)
+            * @param {Object} promotion promotion object
+            * @param {Object} [attrs] boolean to clear the cart after logging or not
+            */
             logPromotion: function(type, promotion, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
                 Events.logPromotionEvent(type, promotion, attrs);
             },
+            /**
+            * Logs a product impression
+            * @for mParticle.eCommerce
+            * @method logImpression
+            * @param {Object} impression product impression object
+            * @param {Object} attrs attributes related to the impression log
+            */
             logImpression: function(impression, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
                 Events.logImpressionEvent(impression, attrs);
             },
+            /**
+            * Logs a refund
+            * @for mParticle.eCommerce
+            * @method logRefund
+            * @param {Object} transactionAttributes transaction attributes related to the refund
+            * @param {Object} product product being refunded
+            * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
+            * @param {Object} [attrs] attributes related to the refund
+            */
             logRefund: function(transactionAttributes, product, clearCart, attrs) {
                 mParticle.sessionManager.resetSessionTimer();
                 Events.logRefundEvent(transactionAttributes, product, attrs);
@@ -3027,6 +3405,13 @@ var Polyfill = require('./polyfill'),
                 return Ecommerce.expandCommerceEvent(event);
             }
         },
+        /**
+        * Sets a session attribute
+        * @for mParticle
+        * @method mParticle.setSessionAttribute
+        * @param {String} key key for session attribute
+        * @param {String or Number} value value for session attribute
+        */
         setSessionAttribute: function(key, value) {
             mParticle.sessionManager.resetSessionTimer();
             // Logs to cookie
@@ -3056,6 +3441,12 @@ var Polyfill = require('./polyfill'),
                 }
             }
         },
+        /**
+        * Set opt out of logging
+        * @for mParticle
+        * @method setOptOut
+        * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
+        */
         setOptOut: function(isOptingOut) {
             mParticle.sessionManager.resetSessionTimer();
             MP.isEnabled = !isOptingOut;
@@ -3435,10 +3826,20 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
     var localStorageProducts = {};
     localStorageProducts[mpid] = {};
     if (cookies.cp) {
-        localStorageProducts[mpid].cp = cookies.cp;
+        try {
+            localStorageProducts[mpid].cp = JSON.parse(Base64.decode(cookies.cp));
+        }
+        catch (e) {
+            localStorageProducts[mpid].cp = cookies.cp;
+        }
     }
     if (cookies.pb) {
-        localStorageProducts[mpid].pb = cookies.pb;
+        try {
+            localStorageProducts[mpid].pb = JSON.parse(Base64.decode(cookies.pb));
+        }
+        catch (e) {
+            localStorageProducts[mpid].pb = cookies.pb;
+        }
     }
 
     localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
@@ -3565,6 +3966,7 @@ module.exports = {
     pixelConfigurations: [],
     serverSettings: {},
     dateLastEventSent: null,
+    sessionStartDate: null,
     cookieSyncDates: {},
     currentPosition: null,
     isTracking: false,
@@ -3724,6 +4126,12 @@ function storeDataInMemory(obj, currentMPID) {
                 MP.dateLastEventSent = new Date(obj.gs.les);
             }
 
+            if (obj.gs.ssd) {
+                MP.sessionStartDate = new Date(obj.gs.ssd);
+            } else {
+                MP.sessionStartDate = new Date();
+            }
+
             if (currentMPID) {
                 obj = obj[currentMPID];
             } else {
@@ -3853,6 +4261,7 @@ function setGlobalStorageAttributes(data) {
     data.gs.cgid = MP.clientId;
     data.gs.das = MP.deviceId;
     data.gs.c = MP.context;
+    data.gs.ssd = MP.sessionStartDate ? MP.sessionStartDate.getTime() : null;
 
     return data;
 }
@@ -4706,7 +5115,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
         };
 
         if (messageType === Types.MessageType.SessionEnd) {
-            eventObject.SessionLength = new Date().getTime() - MP.dateLastEventSent.getTime();
+            eventObject.SessionLength = MP.dateLastEventSent.getTime() - MP.sessionStartDate.getTime();
             eventObject.currentSessionMPIDs = MP.currentSessionMPIDs;
             MP.currentSessionMPIDs = [];
         }
@@ -4826,9 +5235,9 @@ var Helpers = require('./helpers'),
 
 function initialize() {
     if (MP.sessionId) {
-        var sessionTimeoutInSeconds = MP.Config.SessionTimeout * 60000;
+        var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
 
-        if (new Date() > new Date(MP.dateLastEventSent.getTime() + sessionTimeoutInSeconds)) {
+        if (new Date() > new Date(MP.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
             this.endSession();
             this.startNewSession();
         }
@@ -4851,8 +5260,10 @@ function startNewSession() {
             MP.currentSessionMPIDs = [MP.mpid];
         }
 
-        if (!MP.dateLastEventSent) {
-            MP.dateLastEventSent = new Date();
+        if (!MP.sessionStartDate) {
+            var date = new Date();
+            MP.sessionStartDate = date;
+            MP.dateLastEventSent = date;
         }
 
         mParticle.sessionManager.setSessionTimer();
@@ -4864,33 +5275,61 @@ function startNewSession() {
     }
 }
 
-function endSession() {
+function endSession(override) {
     Helpers.logDebug(Messages.InformationMessages.StartingEndSession);
 
-    if (Helpers.canLog()) {
-        if (!MP.sessionId) {
-            Helpers.logDebug(Messages.InformationMessages.NoSessionToEnd);
-            return;
-        }
-
+    if (override) {
         logEvent(Types.MessageType.SessionEnd);
 
         MP.sessionId = null;
         MP.dateLastEventSent = null;
         MP.sessionAttributes = {};
         Persistence.update();
-    }
-    else {
+    } else if (Helpers.canLog()) {
+        var sessionTimeoutInMilliseconds,
+            cookies,
+            timeSinceLastEventSent;
+
+        cookies = Persistence.getCookie() || Persistence.getLocalStorage();
+
+        if (!cookies.gs.sid) {
+            Helpers.logDebug(Messages.InformationMessages.NoSessionToEnd);
+            return;
+        }
+
+        // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
+        if (cookies.gs.sid && MP.sessionId !== cookies.gs.sid) {
+            MP.sessionId = cookies.gs.sid;
+        }
+
+        if (cookies && cookies.gs && cookies.gs.les) {
+            sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
+            var newDate = new Date().getTime();
+            timeSinceLastEventSent = newDate - cookies.gs.les;
+
+            if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
+                setSessionTimer();
+            } else {
+                logEvent(Types.MessageType.SessionEnd);
+
+                MP.sessionId = null;
+                MP.dateLastEventSent = null;
+                MP.sessionStartDate = null;
+                MP.sessionAttributes = {};
+                Persistence.update();
+            }
+        }
+    } else {
         Helpers.logDebug(Messages.InformationMessages.AbandonEndSession);
     }
 }
 
 function setSessionTimer() {
-    var sessionTimeoutInSeconds = MP.Config.SessionTimeout * 60000;
+    var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
 
     MP.globalTimer = window.setTimeout(function() {
         mParticle.sessionManager.endSession();
-    }, sessionTimeoutInSeconds);
+    }, sessionTimeoutInMilliseconds);
 }
 
 function resetSessionTimer() {
@@ -5013,11 +5452,9 @@ var IdentityType = {
     Yahoo: 6,
     Email: 7,
     FacebookCustomAudienceId: 9,
-    // TODO: Change when we finalize the 'other' pattern
-    Other1: 10,
-    Other2: 11,
-    Other3: 12,
-    Other4: 13
+    Other2: 10,
+    Other3: 11,
+    Other4: 12
 };
 
 IdentityType.isValid = function(identityType) {
