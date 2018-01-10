@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.15.8 - 2017-01-10
+*  Modify logic for starting a new session
+
 #### 1.15.7 - 2017-12-20
 *  Bugfix - Adjust arguments for applyToForwarders
 
