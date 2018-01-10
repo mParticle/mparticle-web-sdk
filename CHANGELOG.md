@@ -1,6 +1,13 @@
 ## Releases
 --
 
+#### 2.1.4 - 2017-01-10
+*  Ensure customerid is always the first identity being set
+*  Auto generate API docs
+*  Add migration for base64 encoded products
+*  Finalize Other IDs
+*  Bugfix - Adjust logic for session end event
+
 #### 2.1.3 - 2017-12-20
 *  Remove logLTVIncrease
 *  Return an empty array when there are no cart products
