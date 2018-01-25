@@ -70,7 +70,7 @@ function send(event) {
 
             if (xhr) {
                 try {
-                    xhr.open('post', Helpers.createServiceUrl(Constants.secureServiceUrl, Constants.serviceUrl, MP.devToken) + '/Events');
+                    xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
                     xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.productBags, MP.currencyCode)));
 
                     if (event.EventName !== Types.MessageType.AppStateTransition) {

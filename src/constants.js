@@ -1,5 +1,7 @@
-var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
-    secureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
+var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
+    v1SecureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
+    v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
+    v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
     sdkVersion = '2.1.4',
     sdkVendor = 'mparticle',
@@ -107,8 +109,10 @@ var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
     };
 
 module.exports = {
-    serviceUrl: serviceUrl,
-    secureServiceUrl: secureServiceUrl,
+    v1ServiceUrl: v1ServiceUrl,
+    v1SecureServiceUrl: v1SecureServiceUrl,
+    v2ServiceUrl: v2ServiceUrl,
+    v2SecureServiceUrl: v2SecureServiceUrl,
     identityUrl: identityUrl,
     sdkVersion: sdkVersion,
     sdkVendor: sdkVendor,

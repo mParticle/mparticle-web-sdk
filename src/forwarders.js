@@ -23,7 +23,7 @@ function sendForwardingStats(forwarder, event) {
 
         if (xhr) {
             try {
-                xhr.open('post', Helpers.createServiceUrl(Constants.secureServiceUrl, Constants.serviceUrl, MP.devToken) + '/Forwarding');
+                xhr.open('post', Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken) + '/Forwarding');
                 xhr.send(forwardingStat);
             }
             catch (e) {

@@ -141,8 +141,9 @@ var server = new MockHttpServer(),
         return matchedEvent;
     },
     getRequests = function(path) {
-        var requests = [],
-            fullPath = '/v2/JS/' + apiKey + '/' + path;
+        var requests = [];
+        var version = path === 'Forwarding' ? 'v1' : 'v2',
+            fullPath = '/' + version+ '/JS/' + apiKey + '/' + path;
 
         server.requests.forEach(function(item) {
             if (item.urlParts.path == fullPath) {
