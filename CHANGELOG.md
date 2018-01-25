@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.1.5 - 2017-01-25
+*  Update version endpoint for /Forwarding
+
 #### 2.1.4 - 2017-01-10
 *  Ensure customerid is always the first identity being set
 *  Auto generate API docs
