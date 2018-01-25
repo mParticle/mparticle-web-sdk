@@ -1,8 +1,10 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
-    secureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
+var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
+    v1SecureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
+    v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
+    v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.1.4',
+    sdkVersion = '2.1.5',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -108,8 +110,10 @@ var serviceUrl = 'jssdk.mparticle.com/v2/JS/',
     };
 
 module.exports = {
-    serviceUrl: serviceUrl,
-    secureServiceUrl: secureServiceUrl,
+    v1ServiceUrl: v1ServiceUrl,
+    v1SecureServiceUrl: v1SecureServiceUrl,
+    v2ServiceUrl: v2ServiceUrl,
+    v2SecureServiceUrl: v2SecureServiceUrl,
     identityUrl: identityUrl,
     sdkVersion: sdkVersion,
     sdkVendor: sdkVendor,
@@ -713,7 +717,7 @@ function send(event) {
 
             if (xhr) {
                 try {
-                    xhr.open('post', Helpers.createServiceUrl(Constants.secureServiceUrl, Constants.serviceUrl, MP.devToken) + '/Events');
+                    xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
                     xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.productBags, MP.currencyCode)));
 
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
@@ -1076,7 +1080,7 @@ function sendForwardingStats(forwarder, event) {
 
         if (xhr) {
             try {
-                xhr.open('post', Helpers.createServiceUrl(Constants.secureServiceUrl, Constants.serviceUrl, MP.devToken) + '/Forwarding');
+                xhr.open('post', Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken) + '/Forwarding');
                 xhr.send(forwardingStat);
             }
             catch (e) {
