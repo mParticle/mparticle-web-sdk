@@ -175,7 +175,6 @@ var Polyfill = require('./polyfill'),
             MP.forwarders = [];
             MP.forwarderConstructors = [];
             MP.pixelConfigurations = [];
-            MP.productBags = {};
             MP.cartProducts = [];
             MP.serverSettings = null;
             MP.mpid = null;
@@ -415,76 +414,8 @@ var Polyfill = require('./polyfill'),
         */
         eCommerce: {
             /**
-            * Invoke these methods on the mParticle.eCommerce.ProductBags object.
-            * Example: mParticle.eCommerce.ProductBags.clear('exampleBag')
-            * @class mParticle.eCommerce.ProductBags
-            */
-            ProductBags: {
-                /**
-                * Adds a product to a product bag
-                * @method add
-                * @param {String} productBagName The name of the product bag
-                * @param {Object} product The product you'd like to add
-                */
-                add: function(productBagName, product) {
-                    if (!Validators.isStringOrNumber(productBagName)) {
-                        Helpers.logDebug('ProductBagName is required and must be a string or number');
-                        return;
-                    }
-                    mParticle.sessionManager.resetSessionTimer();
-                    if (!MP.productBags[productBagName]) {
-                        MP.productBags[productBagName] = [];
-                    }
-
-                    MP.productBags[productBagName].push(product);
-
-                    if (MP.productBags[productBagName].length > mParticle.maxProducts) {
-                        Helpers.logDebug(productBagName + ' contains ' + MP.productBags[productBagName].length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
-                    }
-                    Persistence.update();
-
-                    Helpers.tryNativeSdk(Constants.NativeSdkPaths.AddToProductBag, JSON.stringify(product));
-                },
-                /**
-                * Removes a product from a product bag
-                * @method remove
-                * @param {String} productBagName The name of the product bag
-                * @param {Object} product The product you'd like to remove
-                */
-                remove: function(productBagName, product) {
-                    mParticle.sessionManager.resetSessionTimer();
-                    var productIndex = -1;
-
-                    if (MP.productBags[productBagName]) {
-                        MP.productBags[productBagName].forEach(function(productBagItem, i) {
-                            if (productBagItem.sku === product.sku) {
-                                productIndex = i;
-                            }
-                        });
-
-                        if (productIndex > -1) {
-                            MP.productBags[productBagName].splice(productIndex, 1);
-                        }
-                        Persistence.update();
-                    }
-                    Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveFromProductBag, JSON.stringify(product));
-                },
-                /**
-                * Removes all products from a product bag
-                * @method clear
-                * @param {String} productBagName The name of the product bag you'd like to clear
-                */
-                clear: function(productBagName) {
-                    mParticle.sessionManager.resetSessionTimer();
-                    MP.productBags[productBagName] = [];
-                    Persistence.update();
-
-                    Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearProductBag, productBagName);
-                }
-            },
-            /**
             * Invoke these methods on the mParticle.eCommerce.Cart object.
-            * Example: mParticle.eCommerce.ProductBags.add(...)
+            * Example: mParticle.eCommerce.Cart.add(...)
             * @class mParticle.eCommerce.Cart
             */
             Cart: {

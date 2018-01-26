@@ -1,8 +1,6 @@
 var TestsCore = require('./tests-core'),
     apiKey = TestsCore.apiKey,
-    MessageType = TestsCore.MessageType,
     testMPID = TestsCore.testMPID,
-    ProductBag = TestsCore.ProductBag,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     ProductActionType = TestsCore.ProductActionType,
     PromotionActionType = TestsCore.PromotionActionType,
@@ -318,7 +316,7 @@ describe('eCommerce', function() {
         var products3 = getLocalStorageProducts();
         products3[testMPID].cp[0].should.have.properties(['Name', 'Sku', 'Price']);
 
-        mParticle.eCommerce.Cart.clear(ProductBag);
+        mParticle.eCommerce.Cart.clear();
         var products4 = getLocalStorageProducts();
         products4[testMPID].cp.length.should.equal(0);
 
@@ -350,132 +348,6 @@ describe('eCommerce', function() {
 
         event.pd.pl.length.should.equal(21);
         foundProductInMemory.nm.should.equal('Product21');
-
-        done();
-    });
-
-    it('should add product to product bag', function(done) {
-        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-
-        mParticle.eCommerce.ProductBags.add(ProductBag, product);
-
-        mParticle.logEvent('my event');
-
-        var event = getEvent('my event');
-
-        Should(event).be.ok();
-
-        event.should.have.property('pb');
-
-        event.pb.should.have.property(ProductBag);
-        event.pb[ProductBag].should.have.property('pl').with.lengthOf(1);
-        event.pb[ProductBag].pl[0].should.have.property('id', '12345');
-
-        done();
-    });
-
-    it('should remove product from product bag', function(done) {
-        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-        mParticle.eCommerce.ProductBags.add(ProductBag, product);
-        mParticle.eCommerce.ProductBags.remove(ProductBag, product);
-
-        mParticle.logEvent('my event');
-
-        var event = getEvent('my event');
-
-        Should(event).be.ok();
-
-        event.should.have.property('pb');
-
-        event.pb.should.have.property(ProductBag);
-        event.pb[ProductBag].should.have.property('pl').with.lengthOf(0);
-
-        done();
-    });
-
-    it('should clear product bag', function(done) {
-        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-        mParticle.eCommerce.ProductBags.add(ProductBag, product);
-        mParticle.eCommerce.ProductBags.clear(ProductBag);
-
-        mParticle.logEvent('my event');
-
-        var event = getEvent('my event');
-
-        Should(event).be.ok();
-
-        event.should.have.property('pb');
-
-        event.pb.should.have.property(ProductBag);
-        event.pb[ProductBag].should.have.property('pl').with.lengthOf(0);
-
-        done();
-    });
-
-    it('should update product bags in storage after adding/removing product to/from a product bag and clearing product bag', function(done) {
-        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-        mParticle.eCommerce.ProductBags.add(ProductBag, product);
-        var products1 = getLocalStorageProducts();
-        products1[testMPID].pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
-
-        mParticle.eCommerce.ProductBags.remove(ProductBag, product);
-        var products2 = getLocalStorageProducts();
-        Object.keys(products2[testMPID].pb[ProductBag]).length.should.equal(0);
-
-        mParticle.eCommerce.ProductBags.add(ProductBag, product);
-        var products3 = getLocalStorageProducts();
-        products3[testMPID].pb[ProductBag][0].should.have.properties(['Name', 'Sku', 'Price']);
-
-        mParticle.eCommerce.ProductBags.clear(ProductBag);
-        var products4 = getLocalStorageProducts();
-        Object.keys(products4[testMPID].pb[ProductBag]).length.should.equal(0);
-
-        done();
-    });
-
-    it('should not add the (mParticle.maxProducts + 1st) item to productBags, but still persist all items in memory for logging', function(done) {
-        var product = mParticle.eCommerce.createProduct('Product', '12345', 400);
-        for (var i = 0; i < mParticle.maxProducts; i++) {
-            mParticle.eCommerce.ProductBags.add(ProductBag, product);
-        }
-        mParticle.eCommerce.ProductBags.add(ProductBag, mParticle.eCommerce.createProduct('Product21', '54321', 100));
-        var products1 = getLocalStorageProducts();
-
-        var foundProductInCookies = products1[testMPID].pb[ProductBag].filter(function(product) {
-            return product.Name === 'Product1';
-        })[0];
-
-        products1[testMPID].pb[ProductBag].length.should.equal(20);
-        Should(foundProductInCookies).not.be.ok();
-
-        // Events log with in memory data, so in memory productBag should have 21 and product is found in memory
-        mParticle.eCommerce.logCheckout();
-        var event = getEvent('eCommerce - Checkout');
-        var foundProductInMemory = event.pb[ProductBag].pl.filter(function(product) {
-            return product.nm === 'Product21';
-        })[0];
-
-        event.pb[ProductBag].pl.length.should.equal(21);
-        foundProductInMemory.nm.should.equal('Product21');
-
-        done();
-    });
-
-    it('should not add products to invalid productBags', function(done) {
-        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-        mParticle.eCommerce.ProductBags.add(null, product);
-        mParticle.eCommerce.ProductBags.add(undefined, product);
-        mParticle.eCommerce.ProductBags.add({key: 'value'}, product);
-        mParticle.eCommerce.ProductBags.add([1, 2, 3], product);
-
-        mParticle.logEvent('my event');
-
-        var event = getEvent('my event');
-
-        Should(event).be.ok();
-
-        event.should.have.property('pb');
-        Object.keys(event.pb).length.should.equal(0);
 
         done();
     });
@@ -565,39 +437,6 @@ describe('eCommerce', function() {
         mParticle.eCommerce.Cart.clear();
 
         window.mParticleAndroid.should.have.property('clearCartCalled', true);
-
-        done();
-    });
-
-    it('should invoke native sdk method addToProductBag', function(done) {
-        mParticle.reset();
-        window.mParticleAndroid = new mParticleAndroid();
-
-        mParticle.eCommerce.ProductBags.add(ProductBag, {});
-
-        window.mParticleAndroid.should.have.property('addToProductBagCalled', true);
-
-        done();
-    });
-
-    it('should invoke native sdk method removeFromProductBag', function(done) {
-        mParticle.reset();
-        window.mParticleAndroid = new mParticleAndroid();
-
-        mParticle.eCommerce.ProductBags.remove(ProductBag, {});
-
-        window.mParticleAndroid.should.have.property('removeFromProductBagCalled', true);
-
-        done();
-    });
-
-    it('should invoke native sdk method clearProductBag', function(done) {
-        mParticle.reset();
-        window.mParticleAndroid = new mParticleAndroid();
-
-        mParticle.eCommerce.ProductBags.clear(ProductBag);
-
-        window.mParticleAndroid.should.have.property('clearProductBagCalled', true);
 
         done();
     });

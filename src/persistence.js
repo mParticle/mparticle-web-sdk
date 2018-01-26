@@ -93,7 +93,6 @@ function update() {
 function storeProductsInMemory(products, mpid) {
     try {
         MP.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
-        MP.productBags = products[mpid] && products[mpid].pb? products[mpid].pb : {};
     }
     catch(e) {
         Helpers.logDebug(Messages.ErrorMessages.CookieParseError);
@@ -193,17 +192,8 @@ function convertInMemoryDataForCookies() {
 
 function convertProductsForLocalStorage() {
     var inMemoryDataForLocalStorage = {
-        cp: MP.cartProducts ? MP.cartProducts.length <= mParticle.maxProducts ? MP.cartProducts : MP.cartProducts.slice(0, mParticle.maxProducts) : [],
-        pb: {}
+        cp: MP.cartProducts ? MP.cartProducts.length <= mParticle.maxProducts ? MP.cartProducts : MP.cartProducts.slice(0, mParticle.maxProducts) : []
     };
-
-    for (var bag in MP.productBags) {
-        if (MP.productBags[bag].length > mParticle.maxProducts) {
-            inMemoryDataForLocalStorage.pb[bag] = MP.productBags[bag].slice(0, mParticle.maxProducts);
-        } else {
-            inMemoryDataForLocalStorage.pb[bag] = MP.productBags[bag];
-        }
-    }
 
     return inMemoryDataForLocalStorage;
 }

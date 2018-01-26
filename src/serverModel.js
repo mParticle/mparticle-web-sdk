@@ -4,8 +4,7 @@ var Types = require('./types'),
     Constants = require('./constants'),
     Helpers = require('./helpers'),
     MP = require('./mp'),
-    parseNumber = require('./helpers').parseNumber,
-    isWebViewEmbedded = require('./helpers').isWebViewEmbedded;
+    parseNumber = require('./helpers').parseNumber;
 
 function convertCustomFlags(event, dto) {
     var valueArray = [];
@@ -63,34 +62,6 @@ function convertProductToDTO(product) {
     };
 }
 
-function convertProductBagToDTO(productBags) {
-    var convertedBag = {},
-        list;
-
-    for (var prop in productBags) {
-        if (!productBags.hasOwnProperty(prop)) {
-            continue;
-        }
-
-        list = productBags[prop].map(function(item) {
-            return convertProductToDTO(item);
-        });
-
-        if (isWebViewEmbedded()) {
-            convertedBag[prop] = {
-                ProductList: list
-            };
-        }
-        else {
-            convertedBag[prop] = {
-                pl: list
-            };
-        }
-    }
-
-    return convertedBag;
-}
-
 function createEventObject(messageType, name, data, eventType, customFlags) {
     var eventObject,
         optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
@@ -115,7 +86,6 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             Debug: mParticle.isDevelopmentMode,
             Location: MP.currentPosition,
             OptOut: optOut,
-            ProductBags: MP.productBags,
             ExpandedEventCount: 0,
             CustomFlags: customFlags,
             AppVersion: MP.appVersion,
@@ -138,7 +108,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
     return null;
 }
 
-function convertEventToDTO(event, isFirstRun, productBags, currencyCode) {
+function convertEventToDTO(event, isFirstRun, currencyCode) {
     var dto = {
         n: event.EventName,
         et: event.EventCategory,
@@ -174,8 +144,6 @@ function convertEventToDTO(event, isFirstRun, productBags, currencyCode) {
     if (event.CustomFlags) {
         convertCustomFlags(event, dto);
     }
-
-    dto.pb = convertProductBagToDTO(productBags);
 
     if (event.EventDataType === MessageType.Commerce) {
         dto.cu = currencyCode;

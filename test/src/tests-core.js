@@ -9,7 +9,6 @@ var server = new MockHttpServer(),
     LocalStorageProductsV4 = 'mprtcl-prodv4',
     v4CookieKey = 'mprtcl-v4',
     v4LSKey = 'mprtcl-v4',
-    ProductBag = 'my bag',
     pluses = /\+/g,
     getLocalStorageProducts = function getLocalStorageProducts() {
         return JSON.parse(atob(localStorage.getItem(LocalStorageProductsV4)));
@@ -342,9 +341,6 @@ var server = new MockHttpServer(),
         this.setUserAttributeCalled = false;
         this.removeUserAttributeCalled = false;
         this.setSessionAttributeCalled = false;
-        this.addToProductBagCalled = false;
-        this.removeFromProductBagCalled = false;
-        this.clearProductBagCalled = false;
         this.addToCartCalled = false;
         this.removeFromCartCalled = false;
         this.clearCartCalled = false;
@@ -373,15 +369,6 @@ var server = new MockHttpServer(),
         this.setSessionAttribute = function() {
             self.setSessionAttributeCalled = true;
         };
-        this.addToProductBag = function() {
-            self.addToProductBagCalled = true;
-        };
-        this.removeFromProductBag = function() {
-            self.removeFromProductBagCalled = true;
-        };
-        this.clearProductBag = function() {
-            self.clearProductBagCalled = true;
-        };
         this.addToCart = function() {
             self.addToCartCalled = true;
         };
@@ -399,7 +386,6 @@ module.exports = {
     v1CookieKey: v1CookieKey,
     v1localStorageKey: v1localStorageKey,
     v2CookieKey: v2CookieKey,
-    ProductBag: ProductBag,
     getLocalStorageProducts: getLocalStorageProducts,
     findCookie: findCookie,
     setCookie: setCookie,

@@ -23,7 +23,6 @@ module.exports = {
     watchPositionId: null,
     readyQueue: [],
     isInitialized: false,
-    productBags: {},
     cartProducts: [],
     eventQueue: [],
     currencyCode: null,

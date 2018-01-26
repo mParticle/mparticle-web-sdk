@@ -175,8 +175,7 @@ function convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(SDKv2CookiesV1) {
                 }
 
                 localStorageProducts[mpid] = {
-                    cp: SDKv2CookiesV1[mpid].cp,
-                    pb: SDKv2CookiesV1[mpid].pb
+                    cp: SDKv2CookiesV1[mpid].cp
                 };
             }
         }
@@ -252,14 +251,6 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
         }
         catch (e) {
             localStorageProducts[mpid].cp = cookies.cp;
-        }
-    }
-    if (cookies.pb) {
-        try {
-            localStorageProducts[mpid].pb = JSON.parse(Base64.decode(cookies.pb));
-        }
-        catch (e) {
-            localStorageProducts[mpid].pb = cookies.pb;
         }
     }
 

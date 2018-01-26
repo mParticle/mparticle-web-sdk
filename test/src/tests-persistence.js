@@ -159,14 +159,14 @@ describe('migrations and persistence-related', function() {
 
     it('localStorage - should key cookies on mpid on first run', function(done) {
         var cookies1 = mParticle.persistence.getLocalStorage();
-        var props1 = ['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c'];
+        var props1 = ['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'sid', 'c'];
         props1.forEach(function(prop) {
             cookies1.should.not.have.property(prop);
         });
         cookies1.should.have.property('cu', testMPID, 'gs');
         cookies1.should.have.property(testMPID);
 
-        var props2 = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props2 = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -196,13 +196,13 @@ describe('migrations and persistence-related', function() {
 
         var cookies1 = findCookie();
 
-        var props1 = ['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'pb', 'sid', 'c'];
+        var props1 = ['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'sid', 'c'];
         cookies1.should.have.property('cu', testMPID, 'gs');
         props1.forEach(function(prop) {
             cookies1.should.not.have.property(prop);
         });
 
-        var props2 = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props2 = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -250,7 +250,7 @@ describe('migrations and persistence-related', function() {
         cookiesAfterInit.gs.should.have.property('cgid', 'cgidTEST');
         cookiesAfterInit[testMPID].should.have.properties(['ua', 'ui', 'csd']);
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
         props.forEach(function(prop) {
             cookiesAfterInit[testMPID].should.not.have.property(prop);
@@ -262,7 +262,6 @@ describe('migrations and persistence-related', function() {
 
         var products = getLocalStorageProducts();
         products.testMPID.cp[0].product.should.equal(lsData.cp[0].product);
-        products.testMPID.pb.bag1[0].product.should.equal(lsData.pb.bag1[0].product);
 
         done();
     });
@@ -289,7 +288,7 @@ describe('migrations and persistence-related', function() {
         cookiesAfterInit.gs.should.have.property('cgid', 'cgidTEST');
         cookiesAfterInit[testMPID].ui.should.have.property('1', 'objData');
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
         props.forEach(function(prop) {
             cookiesAfterInit[testMPID].should.not.have.property(prop);
@@ -309,7 +308,7 @@ describe('migrations and persistence-related', function() {
 
         cookieData.should.have.properties(['gs', 'cu', testMPID]);
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
         props.forEach(function(prop) {
             cookieData[testMPID].should.not.have.property(prop);
@@ -331,7 +330,7 @@ describe('migrations and persistence-related', function() {
 
         localStorageData.should.have.properties(['gs', 'cu', testMPID]);
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
         props.forEach(function(prop) {
             localStorageData[testMPID].should.not.have.property(prop);
@@ -352,7 +351,7 @@ describe('migrations and persistence-related', function() {
         cookieData.should.have.properties(['gs', 'cu', testMPID]);
         localStorageData = mParticle.persistence.getLocalStorage();
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
         props.forEach(function(prop) {
             cookieData[testMPID].should.not.have.property(prop);
         });
@@ -375,7 +374,7 @@ describe('migrations and persistence-related', function() {
 
         localStorageData.should.have.properties(['gs', 'cu', testMPID]);
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
         props.forEach(function(prop) {
             localStorageData[testMPID].should.not.have.property(prop);
         });

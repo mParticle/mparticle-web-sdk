@@ -71,7 +71,7 @@ function send(event) {
             if (xhr) {
                 try {
                     xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.productBags, MP.currencyCode)));
+                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode)));
 
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         Forwarders.sendEventToForwarders(event);
@@ -287,7 +287,6 @@ function logCommerceEvent(commerceEvent, attrs) {
         if (Helpers.isWebViewEmbedded()) {
             // Don't send shopping cart or product bags to parent sdks
             commerceEvent.ShoppingCart = {};
-            commerceEvent.ProductBags = {};
         }
 
         if (attrs) {

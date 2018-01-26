@@ -822,12 +822,10 @@ function checkCookieForMPID(currentMPID) {
     if (cookies && !cookies[currentMPID]) {
         Persistence.storeDataInMemory(null, currentMPID);
         MP.cartProducts = [];
-        MP.productBags = {};
     } else if (cookies) {
         var products = Persistence.decodeProducts();
         if (products && products[currentMPID]) {
             MP.cartProducts = products[currentMPID].cp;
-            MP.productBags = products[currentMPID].pb;
         }
         MP.userIdentities = cookies[currentMPID].ui ? cookies[currentMPID].ui : MP.userIdentities;
         MP.userAttributes = cookies[currentMPID].ua ? cookies[currentMPID].ua : MP.userAttributes;

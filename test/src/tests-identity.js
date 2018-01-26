@@ -95,7 +95,7 @@ describe('identity', function() {
         cookiesAfterMPIDChange.should.have.property('cu', 'otherMPID');
         cookiesAfterMPIDChange[testMPID].should.have.property('csd');
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
         props.forEach(function(prop) {
             cookiesAfterMPIDChange[testMPID].should.not.have.property(prop);
@@ -119,7 +119,7 @@ describe('identity', function() {
         cookiesAfterInit.should.have.properties('gs', 'cu', testMPID);
         cookiesAfterInit.gs.should.have.property('cgid', 'cgidTEST');
 
-        var props1 = ['mpid', 'ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'pb', 'cp'];
+        var props1 = ['mpid', 'ui', 'ua', 'les', 'sid', 'ie', 'dt', 'sa', 'ss', 'cp'];
 
         props1.forEach(function(prop) {
             cookiesAfterInit.should.not.have.property(prop);
@@ -139,7 +139,7 @@ describe('identity', function() {
         cookiesAfterMPIDChange.should.have.properties(['cu', 'gs', 'otherMPID', testMPID]);
         cookiesAfterMPIDChange.should.have.property('cu', 'otherMPID');
 
-        var props2 = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp', 'pb'];
+        var props2 = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
 
         props2.forEach(function(prop) {
             cookiesAfterMPIDChange[testMPID].should.not.have.property(prop);
@@ -772,8 +772,6 @@ describe('identity', function() {
         var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', '1000', 2);
         mParticle.eCommerce.Cart.add(product1);
 
-        mParticle.eCommerce.ProductBags.add('ProductBag1', product1);
-
         mParticle.logEvent('test event1');
         var event1 = getEvent('test event1');
 
@@ -789,11 +787,6 @@ describe('identity', function() {
         products.testMPID.cp[0].should.have.property('Sku', '12345');
         products.testMPID.cp[0].should.have.property('Price', '1000');
         products.testMPID.cp[0].should.have.property('Quantity', 2);
-
-        products.testMPID.pb['ProductBag1'][0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
-        products.testMPID.pb['ProductBag1'][0].should.have.property('Sku', '12345');
-        products.testMPID.pb['ProductBag1'][0].should.have.property('Price', '1000');
-        products.testMPID.pb['ProductBag1'][0].should.have.property('Quantity', 2);
 
         var user2 = {
             userIdentities: {
@@ -843,11 +836,6 @@ describe('identity', function() {
         products2.testMPID.cp[0].should.have.property('Sku', '12345');
         products2.testMPID.cp[0].should.have.property('Price', '1000');
         products2.testMPID.cp[0].should.have.property('Quantity', 2);
-
-        products2.testMPID.pb['ProductBag1'][0].should.have.property('Name', 'iPhone', 'sku', 'quantity');
-        products2.testMPID.pb['ProductBag1'][0].should.have.property('Sku', '12345');
-        products2.testMPID.pb['ProductBag1'][0].should.have.property('Price', '1000');
-        products2.testMPID.pb['ProductBag1'][0].should.have.property('Quantity', 2);
 
         done();
     });

@@ -78,7 +78,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         var localStorageProducts = getLocalStorageProducts();
         JSON.stringify(localStorageProducts[SDKv1CookieV1Parsed.mpid].cp).should.equal(JSON.stringify(SDKv1CookieV1Parsed.cp));
-        JSON.stringify(localStorageProducts[SDKv1CookieV1Parsed.mpid].pb).should.equal(JSON.stringify(SDKv1CookieV1Parsed.pb));
 
         done();
     });
@@ -449,10 +448,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         var localStorageProducts = getLocalStorageProducts();
         JSON.stringify(localStorageProducts['8179891178059554209'].cp).should.equal(JSON.stringify(SDKv2CookieV1Parsed['8179891178059554209'].cp));
-        JSON.stringify(localStorageProducts['8179891178059554209'].pb).should.equal(JSON.stringify(SDKv2CookieV1Parsed['8179891178059554209'].pb));
-
         JSON.stringify(localStorageProducts['4573473690267104222'].cp).should.equal(JSON.stringify(SDKv2CookieV1Parsed['4573473690267104222'].cp));
-        JSON.stringify(localStorageProducts['4573473690267104222'].pb).should.equal(JSON.stringify(SDKv2CookieV1Parsed['4573473690267104222'].pb));
 
         done();
     });
@@ -567,7 +563,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var localStorageProducts = getLocalStorageProducts();
 
         JSON.stringify(localStorageProducts[SDKv1CookieV3.mpid].cp).should.equal(JSON.stringify(SDKv1CookieV3.cp));
-        JSON.stringify(localStorageProducts[SDKv1CookieV3.mpid].pb).should.equal(JSON.stringify(SDKv1CookieV3.pb));
 
         done();
     });
