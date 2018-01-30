@@ -56,22 +56,22 @@ mParticle.logEvent('Play Movie', mParticle.EventType.Navigation, {'movie_length'
 
 Similar to other mParticle SDKs, the Javascript SDK is able to automatically include, initialize, and delegate API calls to 3rd-party Javascript SDKs. If you would like to add your company as a new Javascript integration, reference the following integrations as examples:
 
-- [AdChemix](https://github.com/mParticle/integration-adchemix)
-- [Amplitude](https://github.com/mParticle/integration-amplitude)
-- [Appboy](https://github.com/mParticle/integration-appboy)
-- [BingAds](https://github.com/mParticle/integration-bingads)
-- [Device Match](https://github.com/mParticle/integration-device-match)
-- [Facebook](https://github.com/mParticle/integration-facebook)
-- [Google Analytics](https://github.com/mParticle/integration-google-analytics)
-- [Inspectlet](https://github.com/mParticle/integration-inspectlet)
-- [Intercom](https://github.com/mParticle/integration-intercom)
-- [Kahuna](https://github.com/mParticle/integration-kahuna)
-- [Kissmetrics](https://github.com/mParticle/integration-kissmetrics)
-- [Localytics](https://github.com/mParticle/integration-localytics)
-- [Mixpanel](https://github.com/mParticle/integration-mixpanel)
-- [Optimizely](https://github.com/mParticle/integration-optimizely)
-- [SimpleReach](https://github.com/mParticle/integration-simplereach)
-- [Twitter](https://github.com/mParticle/integration-twitter)
+- [AdChemix](https://github.com/mparticle-integrations/mparticle-javascript-integration-adchemix)
+- [Amplitude](https://github.com/mparticle-integrations/mparticle-javascript-integration-amplitude)
+- [Appboy](https://github.com/mparticle-integrations/mparticle-javascript-integration-appboy)
+- [BingAds](https://github.com/mparticle-integrations/mparticle-javascript-integration-bingads)
+- [Device Match](https://github.com/mparticle-integrations/mparticle-javascript-integration-device-match)
+- [Facebook](https://github.com/mparticle-integrations/mparticle-javascript-integration-facebook)
+- [Google Analytics](https://github.com/mparticle-integrations/mparticle-javascript-integration-google-analytics)
+- [Inspectlet](https://github.com/mparticle-integrations/mparticle-javascript-integration-inspectlet)
+- [Intercom](https://github.com/mparticle-integrations/mparticle-javascript-integration-intercom)
+- [Kahuna](https://github.com/mparticle-integrations/mparticle-javascript-integration-kahuna)
+- [Kissmetrics](https://github.com/mparticle-integrations/mparticle-javascript-integration-kissmetrics)
+- [Localytics](https://github.com/mparticle-integrations/mparticle-javascript-integration-localytics)
+- [Mixpanel](https://github.com/mparticle-integrations/mparticle-javascript-integration-mixpanel)
+- [Optimizely](https://github.com/mparticle-integrations/mparticle-javascript-integration-optimizely)
+- [SimpleReach](https://github.com/mparticle-integrations/mparticle-javascript-integration-simplereach)
+- [Twitter](https://github.com/mparticle-integrations/mparticle-javascript-integration-twitter)
 
 ## Running the Tests
 
