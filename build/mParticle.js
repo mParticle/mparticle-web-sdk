@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.1.5',
+    sdkVersion = '2.2.0',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -57,9 +57,6 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         SetUserAttribute: 'setUserAttribute',
         RemoveUserAttribute: 'removeUserAttribute',
         SetSessionAttribute: 'setSessionAttribute',
-        AddToProductBag: 'addToProductBag',
-        RemoveFromProductBag: 'removeFromProductBag',
-        ClearProductBag: 'clearProductBag',
         AddToCart: 'addToCart',
         RemoveFromCart: 'removeFromCart',
         ClearCart: 'clearCart',
@@ -718,7 +715,7 @@ function send(event) {
             if (xhr) {
                 try {
                     xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.productBags, MP.currencyCode)));
+                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode)));
 
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         Forwarders.sendEventToForwarders(event);
@@ -934,7 +931,6 @@ function logCommerceEvent(commerceEvent, attrs) {
         if (Helpers.isWebViewEmbedded()) {
             // Don't send shopping cart or product bags to parent sdks
             commerceEvent.ShoppingCart = {};
-            commerceEvent.ProductBags = {};
         }
 
         if (attrs) {
@@ -2708,12 +2704,10 @@ function checkCookieForMPID(currentMPID) {
     if (cookies && !cookies[currentMPID]) {
         Persistence.storeDataInMemory(null, currentMPID);
         MP.cartProducts = [];
-        MP.productBags = {};
     } else if (cookies) {
         var products = Persistence.decodeProducts();
         if (products && products[currentMPID]) {
             MP.cartProducts = products[currentMPID].cp;
-            MP.productBags = products[currentMPID].pb;
         }
         MP.userIdentities = cookies[currentMPID].ui ? cookies[currentMPID].ui : MP.userIdentities;
         MP.userAttributes = cookies[currentMPID].ua ? cookies[currentMPID].ua : MP.userAttributes;
@@ -2908,7 +2902,6 @@ var Polyfill = require('./polyfill'),
             MP.forwarders = [];
             MP.forwarderConstructors = [];
             MP.pixelConfigurations = [];
-            MP.productBags = {};
             MP.cartProducts = [];
             MP.serverSettings = null;
             MP.mpid = null;
@@ -3148,76 +3141,8 @@ var Polyfill = require('./polyfill'),
         */
         eCommerce: {
             /**
-            * Invoke these methods on the mParticle.eCommerce.ProductBags object.
-            * Example: mParticle.eCommerce.ProductBags.clear('exampleBag')
-            * @class mParticle.eCommerce.ProductBags
-            */
-            ProductBags: {
-                /**
-                * Adds a product to a product bag
-                * @method add
-                * @param {String} productBagName The name of the product bag
-                * @param {Object} product The product you'd like to add
-                */
-                add: function(productBagName, product) {
-                    if (!Validators.isStringOrNumber(productBagName)) {
-                        Helpers.logDebug('ProductBagName is required and must be a string or number');
-                        return;
-                    }
-                    mParticle.sessionManager.resetSessionTimer();
-                    if (!MP.productBags[productBagName]) {
-                        MP.productBags[productBagName] = [];
-                    }
-
-                    MP.productBags[productBagName].push(product);
-
-                    if (MP.productBags[productBagName].length > mParticle.maxProducts) {
-                        Helpers.logDebug(productBagName + ' contains ' + MP.productBags[productBagName].length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
-                    }
-                    Persistence.update();
-
-                    Helpers.tryNativeSdk(Constants.NativeSdkPaths.AddToProductBag, JSON.stringify(product));
-                },
-                /**
-                * Removes a product from a product bag
-                * @method remove
-                * @param {String} productBagName The name of the product bag
-                * @param {Object} product The product you'd like to remove
-                */
-                remove: function(productBagName, product) {
-                    mParticle.sessionManager.resetSessionTimer();
-                    var productIndex = -1;
-
-                    if (MP.productBags[productBagName]) {
-                        MP.productBags[productBagName].forEach(function(productBagItem, i) {
-                            if (productBagItem.sku === product.sku) {
-                                productIndex = i;
-                            }
-                        });
-
-                        if (productIndex > -1) {
-                            MP.productBags[productBagName].splice(productIndex, 1);
-                        }
-                        Persistence.update();
-                    }
-                    Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveFromProductBag, JSON.stringify(product));
-                },
-                /**
-                * Removes all products from a product bag
-                * @method clear
-                * @param {String} productBagName The name of the product bag you'd like to clear
-                */
-                clear: function(productBagName) {
-                    mParticle.sessionManager.resetSessionTimer();
-                    MP.productBags[productBagName] = [];
-                    Persistence.update();
-
-                    Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearProductBag, productBagName);
-                }
-            },
-            /**
             * Invoke these methods on the mParticle.eCommerce.Cart object.
-            * Example: mParticle.eCommerce.ProductBags.add(...)
+            * Example: mParticle.eCommerce.Cart.add(...)
             * @class mParticle.eCommerce.Cart
             */
             Cart: {
@@ -3758,8 +3683,7 @@ function convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(SDKv2CookiesV1) {
                 }
 
                 localStorageProducts[mpid] = {
-                    cp: SDKv2CookiesV1[mpid].cp,
-                    pb: SDKv2CookiesV1[mpid].pb
+                    cp: SDKv2CookiesV1[mpid].cp
                 };
             }
         }
@@ -3835,14 +3759,6 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
         }
         catch (e) {
             localStorageProducts[mpid].cp = cookies.cp;
-        }
-    }
-    if (cookies.pb) {
-        try {
-            localStorageProducts[mpid].pb = JSON.parse(Base64.decode(cookies.pb));
-        }
-        catch (e) {
-            localStorageProducts[mpid].pb = cookies.pb;
         }
     }
 
@@ -3977,7 +3893,6 @@ module.exports = {
     watchPositionId: null,
     readyQueue: [],
     isInitialized: false,
-    productBags: {},
     cartProducts: [],
     eventQueue: [],
     currencyCode: null,
@@ -4089,7 +4004,6 @@ function update() {
 function storeProductsInMemory(products, mpid) {
     try {
         MP.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
-        MP.productBags = products[mpid] && products[mpid].pb? products[mpid].pb : {};
     }
     catch(e) {
         Helpers.logDebug(Messages.ErrorMessages.CookieParseError);
@@ -4189,17 +4103,8 @@ function convertInMemoryDataForCookies() {
 
 function convertProductsForLocalStorage() {
     var inMemoryDataForLocalStorage = {
-        cp: MP.cartProducts ? MP.cartProducts.length <= mParticle.maxProducts ? MP.cartProducts : MP.cartProducts.slice(0, mParticle.maxProducts) : [],
-        pb: {}
+        cp: MP.cartProducts ? MP.cartProducts.length <= mParticle.maxProducts ? MP.cartProducts : MP.cartProducts.slice(0, mParticle.maxProducts) : []
     };
-
-    for (var bag in MP.productBags) {
-        if (MP.productBags[bag].length > mParticle.maxProducts) {
-            inMemoryDataForLocalStorage.pb[bag] = MP.productBags[bag].slice(0, mParticle.maxProducts);
-        } else {
-            inMemoryDataForLocalStorage.pb[bag] = MP.productBags[bag];
-        }
-    }
 
     return inMemoryDataForLocalStorage;
 }
@@ -4998,8 +4903,7 @@ var Types = require('./types'),
     Constants = require('./constants'),
     Helpers = require('./helpers'),
     MP = require('./mp'),
-    parseNumber = require('./helpers').parseNumber,
-    isWebViewEmbedded = require('./helpers').isWebViewEmbedded;
+    parseNumber = require('./helpers').parseNumber;
 
 function convertCustomFlags(event, dto) {
     var valueArray = [];
@@ -5057,34 +4961,6 @@ function convertProductToDTO(product) {
     };
 }
 
-function convertProductBagToDTO(productBags) {
-    var convertedBag = {},
-        list;
-
-    for (var prop in productBags) {
-        if (!productBags.hasOwnProperty(prop)) {
-            continue;
-        }
-
-        list = productBags[prop].map(function(item) {
-            return convertProductToDTO(item);
-        });
-
-        if (isWebViewEmbedded()) {
-            convertedBag[prop] = {
-                ProductList: list
-            };
-        }
-        else {
-            convertedBag[prop] = {
-                pl: list
-            };
-        }
-    }
-
-    return convertedBag;
-}
-
 function createEventObject(messageType, name, data, eventType, customFlags) {
     var eventObject,
         optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
@@ -5109,7 +4985,6 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             Debug: mParticle.isDevelopmentMode,
             Location: MP.currentPosition,
             OptOut: optOut,
-            ProductBags: MP.productBags,
             ExpandedEventCount: 0,
             CustomFlags: customFlags,
             AppVersion: MP.appVersion,
@@ -5132,7 +5007,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
     return null;
 }
 
-function convertEventToDTO(event, isFirstRun, productBags, currencyCode) {
+function convertEventToDTO(event, isFirstRun, currencyCode) {
     var dto = {
         n: event.EventName,
         et: event.EventCategory,
@@ -5168,8 +5043,6 @@ function convertEventToDTO(event, isFirstRun, productBags, currencyCode) {
     if (event.CustomFlags) {
         convertCustomFlags(event, dto);
     }
-
-    dto.pb = convertProductBagToDTO(productBags);
 
     if (event.EventDataType === MessageType.Commerce) {
         dto.cu = currencyCode;
