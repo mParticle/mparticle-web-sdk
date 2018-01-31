@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.2.0 - 2017-01-31
+*  Remove product bags
+
 #### 2.1.5 - 2017-01-25
 *  Update version endpoint for /Forwarding
 
