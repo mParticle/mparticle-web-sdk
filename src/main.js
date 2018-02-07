@@ -143,12 +143,13 @@ var Polyfill = require('./polyfill'),
                 MP.readyQueue.forEach(function(readyQueueItem) {
                     if (typeof readyQueueItem === 'function') {
                         readyQueueItem();
+                    } else if (Array.isArray(readyQueueItem)) {
+                        processPreloadedItem(readyQueueItem);
                     }
                 });
 
                 MP.readyQueue = [];
             }
-
             Events.logAST();
             MP.isInitialized = true;
         },
@@ -713,6 +714,27 @@ var Polyfill = require('./polyfill'),
         }
     };
 
+    function processPreloadedItem(readyQueueItem) {
+        var currentUser,
+            args = readyQueueItem,
+            method = args.splice(0, 1)[0];
+        if (mParticle[args[0]]) {
+            mParticle[method].apply(this, args);
+        } else {
+            var methodArray = method.split('.');
+            try {
+                var computedMPFunction = mParticle;
+                for (var i = 0; i < methodArray.length; i++) {
+                    var currentMethod = methodArray[i];
+                    computedMPFunction = computedMPFunction[currentMethod];
+                }
+                computedMPFunction.apply(currentUser, args);
+            } catch(e) {
+                Helpers.logDebug('Unable to compute proper mParticle function ' + e);
+            }
+        }
+    }
+
     // Read existing configuration if present
     if (window.mParticle && window.mParticle.config) {
         if (window.mParticle.config.serviceUrl) {
@@ -774,6 +796,5 @@ var Polyfill = require('./polyfill'),
             MP.customFlags = window.mParticle.config.customFlags;
         }
     }
-
     window.mParticle = mParticle;
 })(window);

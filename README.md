@@ -30,12 +30,15 @@ To integrate the SDK add the following snippet to your site after customizing `m
 ```javascript
 <script type="text/javascript">
  (function (apiKey) {
-    window.mParticle = window.mParticle || {};
-    window.mParticle.config = window.mParticle.config || {};
-    window.mParticle.config.rq = [];
-    window.mParticle.ready = function (f) {
-        window.mParticle.config.rq.push(f);
-    };
+     window.mParticle = window.mParticle || { eCommerce: Identity: {} };
+     window.mParticle.config = window.mParticle.config || {};
+     window.mParticle.config.rq = [];
+     window.mParticle.ready = function (f) {
+         window.mParticle.config.rq.push(f);
+     };
+
+     function a(o,t){return function(){t&&(o=t+"."+o);var e=Array.prototype.slice.call(arguments);e.unshift(o),window.mParticle.config.rq.push(e)}}var x=["endSession","logError","logEvent","logForm","logLink","logPageView","setSessionAttribute","setAppName","setAppVersion","setOptOut","setPosition","startNewSession","startTrackingLocation","stopTrackingLocation"],y=["setCurrencyCode","logCheckout"],z=["login","logout","modify"];x.forEach(function(o){window.mParticle[o]=a(o)}),y.forEach(function(o){window.mParticle.eCommerce[o]=a(o,"eCommerce")}),z.forEach(function(o){window.mParticle.Identity[o]=a(o,"Identity")});
+
     var mp = document.createElement('script');
     mp.type = 'text/javascript';
     mp.async = true;

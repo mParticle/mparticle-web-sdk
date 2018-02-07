@@ -18,8 +18,6 @@ describe('identity', function() {
         var cookiesBefore = getLocalStorage();
         checkIdentitySwap(testMPID, testMPID);
 
-        mParticle.persistence.update();
-
         var cookiesAfter = mParticle.persistence.getLocalStorage();
 
         cookiesBefore.cu.should.equal(cookiesAfter.cu);
