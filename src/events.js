@@ -53,8 +53,8 @@ function send(event) {
         event.UserIdentities = [];
     }
 
-    // When MPID = 0, we queue events until we have a valid MPID
-    if (MP.mpid === 0) {
+    // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
+    if (!MP.mpid) {
         Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
         MP.eventQueue.push(event);
     } else {

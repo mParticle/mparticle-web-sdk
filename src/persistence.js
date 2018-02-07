@@ -77,8 +77,6 @@ function initializeStorage() {
         storeProductsInMemory(decodedProducts, MP.mpid);
     }
 
-    MP.deviceId = retrieveDeviceId();
-
     this.update();
 }
 
