@@ -59,7 +59,6 @@ mParticle.logEvent('Play Movie', mParticle.EventType.Navigation, {'movie_length'
 
 Similar to other mParticle SDKs, the Javascript SDK is able to automatically include, initialize, and delegate API calls to 3rd-party Javascript SDKs. If you would like to add your company as a new Javascript integration, reference the following integrations as examples:
 
-- [AdChemix](https://github.com/mparticle-integrations/mparticle-javascript-integration-adchemix)
 - [Amplitude](https://github.com/mparticle-integrations/mparticle-javascript-integration-amplitude)
 - [Appboy](https://github.com/mparticle-integrations/mparticle-javascript-integration-appboy)
 - [BingAds](https://github.com/mparticle-integrations/mparticle-javascript-integration-bingads)
