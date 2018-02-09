@@ -700,6 +700,7 @@ var Polyfill = require('./polyfill'),
 
                         newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
                         newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
+                        newForwarder.eventSubscriptionId = config.eventSubscriptionId;
 
                         MP.forwarders.push(newForwarder);
                         break;

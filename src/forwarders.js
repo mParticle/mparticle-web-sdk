@@ -11,6 +11,7 @@ function sendForwardingStats(forwarder, event) {
         xhr = Helpers.createXHR();
         forwardingStat = JSON.stringify({
             mid: forwarder.id,
+            esid: forwarder.eventSubscriptionId,
             n: event.EventName,
             attrs: event.EventAttributes,
             sdk: event.SDKVersion,

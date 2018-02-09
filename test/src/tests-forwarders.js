@@ -173,6 +173,7 @@ describe('forwarders', function() {
         Should(event).should.be.ok();
 
         event.should.have.property('mid', 1);
+        event.should.have.property('esid', 1234567890);
         event.should.have.property('n', 'send this event to forwarder');
         event.should.have.property('attrs');
         event.should.have.property('sdk', mParticle.getVersion());
