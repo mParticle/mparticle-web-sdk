@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.2.0',
+    sdkVersion = '2.2.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -697,8 +697,8 @@ function send(event) {
         event.UserIdentities = [];
     }
 
-    // When MPID = 0, we queue events until we have a valid MPID
-    if (MP.mpid === 0) {
+    // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
+    if (!MP.mpid) {
         Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
         MP.eventQueue.push(event);
     } else {
@@ -1064,6 +1064,7 @@ function sendForwardingStats(forwarder, event) {
         xhr = Helpers.createXHR();
         forwardingStat = JSON.stringify({
             mid: forwarder.id,
+            esid: forwarder.eventSubscriptionId,
             n: event.EventName,
             attrs: event.EventAttributes,
             sdk: event.SDKVersion,
@@ -2637,8 +2638,8 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 Identity.checkIdentitySwap(previousMPID, MP.mpid);
 
                 // events exist in the eventQueue because they were triggered when the identityAPI request was in flight
-                // once API request returns, eventQueue items are reassigned with the returned MPID and flushed
-                if (MP.eventQueue.length && MP.mpid !==0) {
+                // once API request returns and there is an MPID, eventQueue items are reassigned with the returned MPID and flushed
+                if (MP.eventQueue.length && MP.mpid) {
                     MP.eventQueue.forEach(function(event) {
                         event.MPID = MP.mpid;
                         send(event);
@@ -2870,12 +2871,13 @@ var Polyfill = require('./polyfill'),
                 MP.readyQueue.forEach(function(readyQueueItem) {
                     if (typeof readyQueueItem === 'function') {
                         readyQueueItem();
+                    } else if (Array.isArray(readyQueueItem)) {
+                        processPreloadedItem(readyQueueItem);
                     }
                 });
 
                 MP.readyQueue = [];
             }
-
             Events.logAST();
             MP.isInitialized = true;
         },
@@ -3426,6 +3428,7 @@ var Polyfill = require('./polyfill'),
 
                         newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
                         newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
+                        newForwarder.eventSubscriptionId = config.eventSubscriptionId;
 
                         MP.forwarders.push(newForwarder);
                         break;
@@ -3439,6 +3442,27 @@ var Polyfill = require('./polyfill'),
             }
         }
     };
+
+    function processPreloadedItem(readyQueueItem) {
+        var currentUser,
+            args = readyQueueItem,
+            method = args.splice(0, 1)[0];
+        if (mParticle[args[0]]) {
+            mParticle[method].apply(this, args);
+        } else {
+            var methodArray = method.split('.');
+            try {
+                var computedMPFunction = mParticle;
+                for (var i = 0; i < methodArray.length; i++) {
+                    var currentMethod = methodArray[i];
+                    computedMPFunction = computedMPFunction[currentMethod];
+                }
+                computedMPFunction.apply(currentUser, args);
+            } catch(e) {
+                Helpers.logDebug('Unable to compute proper mParticle function ' + e);
+            }
+        }
+    }
 
     // Read existing configuration if present
     if (window.mParticle && window.mParticle.config) {
@@ -3501,7 +3525,6 @@ var Polyfill = require('./polyfill'),
             MP.customFlags = window.mParticle.config.customFlags;
         }
     }
-
     window.mParticle = mParticle;
 })(window);
 
@@ -3776,9 +3799,9 @@ function migrateLocalStorage() {
         v3LSDataStringCopy;
 
     if (!currentVersionLSData) {
-        MP.migrate = true;
         v3LSData = window.localStorage.getItem(v3LSName);
         if (v3LSData) {
+            MP.migrate = true;
             v3LSDataStringCopy = v3LSData.slice();
             v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
             // localStorage may contain only products, or the full persistence
@@ -3797,6 +3820,7 @@ function migrateLocalStorage() {
         } else {
             v1LSData = JSON.parse(decodeURIComponent(window.localStorage.getItem(v1LSName)));
             if (v1LSData) {
+                MP.migrate = true;
                 // SDKv2
                 if (v1LSData.globalSettings || v1LSData.currentUserMPID) {
                     v1LSData = JSON.parse(convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(JSON.stringify(v1LSData)));
@@ -3818,7 +3842,6 @@ function migrateLocalStorage() {
                 }
             }
         }
-
     }
 
     function finishLSMigration(data, lsName) {
@@ -3987,8 +4010,6 @@ function initializeStorage() {
     if (MP.mpid) {
         storeProductsInMemory(decodedProducts, MP.mpid);
     }
-
-    MP.deviceId = retrieveDeviceId();
 
     this.update();
 }
