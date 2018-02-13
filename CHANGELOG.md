@@ -1,6 +1,12 @@
 ## Releases
 --
 
+#### 2.2.1 - 2017-02-14
+*  Queue events when mpid is null or 0
+*  Stub primary methods for pre-loading SDK invocation
+*  Add eventSubscriptionId to forwarder contract
+*  Update readme to remove adchemix
+
 #### 2.2.0 - 2017-01-31
 *  Remove product bags
 
