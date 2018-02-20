@@ -20,10 +20,10 @@ describe('mParticle', function() {
                 mpid: testMPID
             }));
         };
-        mParticle.init(apiKey);
         window.mParticleAndroid = null;
         window.mParticle.isIOS = null;
         window.mParticle.useCookieStorage = false;
+        mParticle.init(apiKey);
     });
 
     require('./tests-core-sdk');

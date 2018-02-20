@@ -345,6 +345,18 @@ var server = new MockHttpServer(),
         this.addToCartCalled = false;
         this.removeFromCartCalled = false;
         this.clearCartCalled = false;
+        this.loginData = null;
+        this.logoutData = null;
+        this.modifyData = null;
+        this.login = function(data) {
+            self.loginData = data;
+        };
+        this.logout = function(data) {
+            self.logoutData = data;
+        };
+        this.modify = function(data) {
+            self.modifyData = data;
+        };
 
         this.logEvent = function() {
             self.logEventCalled = true;

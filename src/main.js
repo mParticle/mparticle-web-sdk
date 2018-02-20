@@ -191,7 +191,6 @@ var Polyfill = require('./polyfill'),
             MP.migrationData = {};
             MP.identityCallInFlight = false;
             MP.initialIdentifyRequest = null;
-            mParticle.sessionManager.resetSessionTimer();
             Persistence.resetPersistence();
 
             MP.isInitialized = false;

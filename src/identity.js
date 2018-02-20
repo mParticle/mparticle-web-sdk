@@ -132,6 +132,24 @@ var IdentityRequest = {
         }
 
         return modifiedUserIdentities;
+    },
+
+    convertToNative: function(identityApiData) {
+        var nativeIdentityRequest = [];
+        if (identityApiData && identityApiData.userIdentities) {
+            for (var key in identityApiData.userIdentities) {
+                if (identityApiData.userIdentities.hasOwnProperty(key)) {
+                    nativeIdentityRequest.push({
+                        Type: Types.IdentityType.getIdentityType(key),
+                        Identity: identityApiData.userIdentities[key]
+                    });
+                }
+            }
+
+            return {
+                UserIdentities: nativeIdentityRequest
+            };
+        }
     }
 };
 /**
@@ -154,7 +172,7 @@ var IdentityAPI = {
                 identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Logout)) {
+                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)))) {
                     sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData);
                     evt = ServerModel.createEventObject(Types.MessageType.Profile);
                     evt.ProfileMessageType = Types.ProfileMessageType.Logout;
@@ -192,7 +210,7 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Login)) {
+                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)))) {
                     sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData);
                 }
             }
@@ -220,7 +238,7 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createModifyIdentityRequest(MP.userIdentities, newUserIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.context);
 
             if (Helpers.canLog()) {
-                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Modify)) {
+                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)))) {
                     sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData);
                 }
             }
