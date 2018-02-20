@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.2.2 - 2017-02-20
+*  Pass identityApiData to native SDKs
+
 #### 2.2.1 - 2017-02-14
 *  Queue events when mpid is null or 0
 *  Stub primary methods for pre-loading SDK invocation
