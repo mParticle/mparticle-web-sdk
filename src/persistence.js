@@ -380,7 +380,8 @@ function setCookie() {
             (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
         cookieDomain,
         domain,
-        cookies = this.getCookie() || {};
+        cookies = this.getCookie() || {},
+        encodedCookiesWithExpirationAndPath;
 
     cookieDomain = getCookieDomain();
 
@@ -403,13 +404,86 @@ function setCookie() {
 
     cookies = this.setGlobalStorageAttributes(cookies);
 
+    encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain);
+
     Helpers.logDebug(Messages.InformationMessages.CookieSet);
 
     window.document.cookie =
-        encodeURIComponent(key) + '=' + encodeCookies(JSON.stringify(cookies)) +
-        ';expires=' + expires +
-        ';path=/' +
-        domain;
+        encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
+}
+
+/*  This function determines if a cookie is greater than the configured maxCookieSize.
+        - If it is, we remove an MPID and its associated UI/UA/CSD from the cookie.
+        - Once removed, check size, and repeat.
+        - Never remove the currentUser's MPID from the cookie.
+
+    MPID removal priority:
+    1. If there are no currentSessionMPIDs, remove a random MPID from the the cookie.
+    2. If there are currentSessionMPIDs:
+        a. Remove at random MPIDs on the cookie that are not part of the currentSessionMPIDs
+        b. Then remove MPIDs based on order in currentSessionMPIDs array, which
+        stores MPIDs based on earliest login.
+*/
+function reduceAndEncodeCookies(cookies, expires, domain) {
+    var encodedCookiesWithExpirationAndPath,
+        currentSessionMPIDs = cookies.gs.csm ? cookies.gs.csm : [];
+    // Comment 1 above
+    if (!currentSessionMPIDs.length) {
+        for (var key in cookies) {
+            if (cookies.hasOwnProperty(key)) {
+                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
+                if (encodedCookiesWithExpirationAndPath.length > mParticle.maxCookieSize) {
+                    if (!SDKv2NonMPIDCookieKeys[key] && key !== cookies.cu) {
+                        delete cookies[key];
+                    }
+                }
+            }
+        }
+    } else {
+        // Comment 2 above - First create an object of all MPIDs on the cookie
+        var MPIDsOnCookie = {};
+        for (var potentialMPID in cookies) {
+            if (cookies.hasOwnProperty(potentialMPID)) {
+                if (!SDKv2NonMPIDCookieKeys[potentialMPID] && potentialMPID !==cookies.cu) {
+                    MPIDsOnCookie[potentialMPID] = 1;
+                }
+            }
+        }
+        // Comment 2a above
+        if (Object.keys(MPIDsOnCookie).length) {
+            for (var mpid in MPIDsOnCookie) {
+                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
+                if (encodedCookiesWithExpirationAndPath.length > mParticle.maxCookieSize) {
+                    if (MPIDsOnCookie.hasOwnProperty(mpid)) {
+                        if (currentSessionMPIDs.indexOf(mpid) === -1) {
+                            delete cookies[mpid];
+                        }
+                    }
+                }
+            }
+        }
+        // Comment 2b above
+        for (var i = 0; i < currentSessionMPIDs.length; i++) {
+            encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
+            if (encodedCookiesWithExpirationAndPath.length > mParticle.maxCookieSize) {
+                var MPIDtoRemove = currentSessionMPIDs[i];
+                if (cookies[MPIDtoRemove]) {
+                    Helpers.logDebug('Size of new encoded cookie is larger than maxCookieSize setting of ' + mParticle.maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(cookies[MPIDtoRemove], 0, 2));
+                    delete cookies[MPIDtoRemove];
+                } else {
+                    Helpers.logDebug('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + mParticle.maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    return encodedCookiesWithExpirationAndPath;
+}
+
+function createFullEncodedCookie(cookies, expires, domain) {
+    return encodeCookies(JSON.stringify(cookies)) + ';expires=' + expires +';path=/' + domain;
 }
 
 function findPrevCookiesBasedOnUI(identityApiData) {
@@ -640,29 +714,25 @@ function setCartProducts(allProducts) {
 }
 
 function updateOnlyCookieUserAttributes(cookies) {
-    var encodedCookies = encodeCookies(JSON.stringify(cookies));
+    var encodedCookies = encodeCookies(JSON.stringify(cookies)),
+        date = new Date(),
+        key = MP.Config.CookieNameV4,
+        expires = new Date(date.getTime() +
+        (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
+        cookieDomain = getCookieDomain(),
+        domain;
+
+    if (cookieDomain === '') {
+        domain = '';
+    } else {
+        domain = ';domain=' + cookieDomain;
+    }
+
 
     if (mParticle.useCookieStorage) {
-        var date = new Date(),
-            key = MP.Config.CookieNameV4,
-            expires = new Date(date.getTime() +
-                (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
-            cookieDomain = getCookieDomain(),
-            domain;
-
-        if (cookieDomain === '') {
-            domain = '';
-        } else {
-            domain = ';domain=' + cookieDomain;
-        }
-
-        Helpers.logDebug(Messages.InformationMessages.CookieSet);
-
+        var encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain);
         window.document.cookie =
-            encodeURIComponent(key) + '=' + encodedCookies +
-            ';expires=' + expires +
-            ';path=/' +
-            domain;
+            encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
     } else {
         localStorage.setItem(MP.Config.LocalStorageNameV4, encodedCookies);
     }
@@ -714,6 +784,7 @@ module.exports = {
     expireCookies: expireCookies,
     getCookie: getCookie,
     setCookie: setCookie,
+    reduceAndEncodeCookies: reduceAndEncodeCookies,
     findPrevCookiesBasedOnUI: findPrevCookiesBasedOnUI,
     replaceCommasWithPipes: replaceCommasWithPipes,
     replacePipesWithCommas: replacePipesWithCommas,

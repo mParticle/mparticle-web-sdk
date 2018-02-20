@@ -88,7 +88,8 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         SessionTimeout: 30,				            // Session timeout in minutes
         Sandbox: false,                             // Events are marked as debug and only forwarded to debug forwarders,
         Version: null,                              // The version of this website/app
-        MaxProducts: 20                             // Number of products persisted in cartProducts and productBags
+        MaxProducts: 20,                            // Number of products persisted in cartProducts and productBags
+        MaxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
     },
     Base64CookieKeys = {
         csm: 1,

@@ -67,6 +67,7 @@ var Polyfill = require('./polyfill'),
         isDevelopmentMode: false,
         useCookieStorage: false,
         maxProducts: Constants.DefaultConfig.MaxProducts,
+        maxCookieSize: Constants.DefaultConfig.MaxCookieSize,
         identifyRequest: {},
         getDeviceId: getDeviceId,
         generateHash: Helpers.generateHash,
@@ -92,6 +93,7 @@ var Polyfill = require('./polyfill'),
         */
         init: function(apiKey) {
             var config;
+
             MP.initialIdentifyRequest = mParticle.identifyRequest;
             MP.devToken = apiKey || null;
             Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
@@ -766,6 +768,10 @@ var Polyfill = require('./polyfill'),
             mParticle.maxProducts = window.mParticle.config.maxProducts;
         }
 
+        if (window.mParticle.config.hasOwnProperty('maxCookieSize')) {
+            mParticle.maxCookieSize = window.mParticle.config.maxCookieSize;
+        }
+
         if (window.mParticle.config.hasOwnProperty('appName')) {
             MP.appName = window.mParticle.config.appName;
         }
@@ -777,7 +783,7 @@ var Polyfill = require('./polyfill'),
         if (window.mParticle.config.hasOwnProperty('identityCallback')) {
             var callback = window.mParticle.config.identityCallback;
             if (callback && !Validators.isFunction(callback)) {
-                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof fn, ' . Callback not set. Please set your callback again.');
+                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
             } else {
                 MP.identityCallback = window.mParticle.config.identityCallback;
             }

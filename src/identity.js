@@ -736,7 +736,8 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, method) {
     var prevUser,
         newUser,
-        identityApiResult;
+        identityApiResult,
+        indexOfMPID;
     if (MP.mpid) {
         prevUser = mParticle.Identity.getCurrentUser();
     }
@@ -762,12 +763,19 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                     checkCookieForMPID(MP.mpid);
                 }
 
-                if (MP.sessionId && MP.mpid && previousMPID !== MP.mpid && MP.currentSessionMPIDs.indexOf(MP.mpid) < 0) {
+                indexOfMPID = MP.currentSessionMPIDs.indexOf(MP.mpid);
+
+                if (MP.sessionId && MP.mpid && previousMPID !== MP.mpid && indexOfMPID < 0) {
                     MP.currentSessionMPIDs.push(MP.mpid);
                     // need to update currentSessionMPIDs in memory before checkingIdentitySwap otherwise previous obj.currentSessionMPIDs is used in checkIdentitySwap's Persistence.update()
                     Persistence.update();
                 }
 
+                if (indexOfMPID > -1) {
+                    MP.currentSessionMPIDs = (MP.currentSessionMPIDs.slice(0, indexOfMPID)).concat(MP.currentSessionMPIDs.slice(indexOfMPID + 1, MP.currentSessionMPIDs.length));
+                    MP.currentSessionMPIDs.push(MP.mpid);
+                    Persistence.update();
+                }
                 CookieSyncManager.attemptCookieSync(previousMPID, MP.mpid);
 
                 Identity.checkIdentitySwap(previousMPID, MP.mpid);

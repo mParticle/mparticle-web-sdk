@@ -23,6 +23,7 @@ describe('mParticle', function() {
         window.mParticleAndroid = null;
         window.mParticle.isIOS = null;
         window.mParticle.useCookieStorage = false;
+        mParticle.isDevelopmentMode = false;
         mParticle.init(apiKey);
     });
 

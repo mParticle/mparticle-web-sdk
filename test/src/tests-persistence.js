@@ -1,5 +1,6 @@
-/* eslint-disable quotes */
+/* eslint-disable quotes*/
 var TestsCore = require('./tests-core'),
+    Persistence = require('../../src/persistence'),
     apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
     findCookie = TestsCore.findCookie,
@@ -9,9 +10,9 @@ var TestsCore = require('./tests-core'),
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     setCookie = TestsCore.setCookie,
     setLocalStorage = TestsCore.setLocalStorage,
+    server = TestsCore.server,
     v4CookieKey = 'mprtcl-v4',
-    v4LSKey = 'mprtcl-v4',
-    server = TestsCore.server;
+    v4LSKey = 'mprtcl-v4';
 
 describe('migrations and persistence-related', function() {
     it('should filter out any non string or number ids', function(done) {
@@ -652,6 +653,277 @@ describe('migrations and persistence-related', function() {
 
         mParticle.persistence.createCookieString(before).should.equal(after);
         mParticle.persistence.revertCookieString(after).should.equal(before);
+
+        done();
+    });
+
+    it('should remove MPID as keys if the cookie size is beyond the setting', function(done) {
+        mParticle.isDevelopmentMode = true;
+        mParticle.reset();
+        mParticle.maxCookieSize = 700;
+
+        var cookies = {
+            gs: {
+                csm: ['mpid1', 'mpid2', 'mpid3'],
+                sid: 'abcd',
+                ie: true,
+                dt: apiKey,
+                cgid: 'cgid1',
+                das: 'das1'
+            },
+            cu: 'mpid3',
+            mpid1: {
+                ua: {gender: 'female', age: 29, height: '65', color: 'blue', id: 'abcdefghijklmnopqrstuvwxyz'},
+                ui: {1: 'customerid123', 2: 'facebookid123'}
+            },
+            mpid2: {
+                ua: {gender: 'male', age: 20, height: '68', color: 'red'},
+                ui: {1: 'customerid234', 2: 'facebookid234', id: 'abcdefghijklmnopqrstuvwxyz'}
+            },
+            mpid3: {
+                ua: {gender: 'male', age: 20, height: '68', color: 'red'},
+                ui: {1: 'customerid234', 2: 'facebookid234', id: 'abcdefghijklmnopqrstuvwxyz'}
+            }
+        };
+        var expires = new Date((new Date).getTime() + (365 * 24 * 60 * 60 * 1000)).toGMTString();
+        var cookiesWithExpiration = Persistence.reduceAndEncodeCookies(cookies, expires, 'testDomain');
+        var cookiesWithoutExpiration = cookiesWithExpiration.slice(0, cookiesWithExpiration.indexOf(';expires'));
+        var cookiesResult = JSON.parse(Persistence.decodeCookies(cookiesWithoutExpiration));
+        Should(cookiesResult['mpid1']).not.be.ok();
+        Should(cookiesResult['mpid2']).be.ok();
+        Should(cookiesResult['mpid3']).be.ok();
+        cookiesResult.gs.csm.length.should.equal(3);
+        cookiesResult.gs.csm[0].should.equal('mpid1');
+        cookiesResult.gs.csm[1].should.equal('mpid2');
+        cookiesResult.gs.csm[2].should.equal('mpid3');
+
+        done();
+    });
+
+    it('integration test - will change the order of the CSM when a previous MPID logs in again', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        mParticle.maxCookieSize = 1000;
+        mParticle.init(apiKey);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        var cookieData = findCookie();
+        cookieData.gs.csm[0].should.be.equal('testMPID');
+        cookieData.gs.csm[1].should.be.equal('MPID1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID2'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        cookieData = findCookie();
+        cookieData.gs.csm[0].should.be.equal('testMPID');
+        cookieData.gs.csm[1].should.be.equal('MPID1');
+        cookieData.gs.csm[2].should.be.equal('MPID2');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'testMPID'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        cookieData = findCookie();
+        cookieData.gs.csm[0].should.be.equal('MPID1');
+        cookieData.gs.csm[1].should.be.equal('MPID2');
+        cookieData.gs.csm[2].should.be.equal('testMPID');
+
+        done();
+    });
+
+    it('integration test - should remove a previous MPID as a key from cookies if new user attribute added and exceeds the size of the max cookie size', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        mParticle.maxCookieSize = 600;
+
+        mParticle.init(apiKey);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '60');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id2');
+
+        var cookieData = findCookie();
+        cookieData.gs.csm[0].should.equal('testMPID');
+        cookieData.gs.csm[1].should.equal('MPID1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID2'
+            }));
+        };
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+
+        //this last one puts us over the maxcookiesize threshold and removes 'testMPID' from cookie
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id3');
+
+        cookieData = findCookie();
+
+        Should(cookieData['testMPID']).not.be.ok();
+        cookieData['MPID1'].ua.should.have.property('id', 'id2');
+        cookieData['MPID1'].ua.should.have.property('gender', 'male');
+        cookieData['MPID1'].ua.should.have.property('age', 30);
+        cookieData['MPID1'].ua.should.have.property('height', '60');
+        cookieData['MPID1'].ua.should.have.property('color', 'green');
+        cookieData['MPID2'].ua.should.have.property('id', 'id3');
+        cookieData['MPID2'].ua.should.have.property('gender', 'female');
+        cookieData['MPID2'].ua.should.have.property('age', 45);
+        cookieData['MPID2'].ua.should.have.property('height', '80');
+        cookieData['MPID2'].ua.should.have.property('color', 'green');
+
+        done();
+    });
+
+    it('should remove a random MPID from storage if there is a new session and there are no other MPIDs in currentSessionMPIDs except for the currentUser mpid', function(done) {
+        mParticle.isDevelopmentMode = true;
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        mParticle.maxCookieSize = 400;
+
+        var cookies = {
+            gs: {
+                csm: ['mpid3'],
+                sid: 'abcd',
+                ie: true,
+                dt: apiKey,
+                cgid: 'cgid1',
+                das: 'das1'
+            },
+            cu: 'mpid3',
+            mpid1: {
+                ua: {gender: 'female', age: 29, height: '65', color: 'blue', id: 'abcdefghijklmnopqrstuvwxyz'},
+                ui: {1: 'customerid123', 2: 'facebookid123'}
+            },
+            mpid2: {
+                ua: {gender: 'male', age: 20, height: '68', color: 'red'},
+                ui: {1: 'customerid234', 2: 'facebookid234', id: 'abcdefghijklmnopqrstuvwxyz'}
+            },
+            mpid3: {
+                ua: {gender: 'male', age: 20, height: '68', color: 'red'},
+                ui: {1: 'customerid234', 2: 'facebookid234', id: 'abcdefghijklmnopqrstuvwxyz'}
+            }
+        };
+
+        var expires = new Date((new Date).getTime() + (365 * 24 * 60 * 60 * 1000)).toGMTString();
+
+        var cookiesWithExpiration = Persistence.reduceAndEncodeCookies(cookies, expires, 'testDomain');
+        var cookiesWithoutExpiration = cookiesWithExpiration.slice(0, cookiesWithExpiration.indexOf(';expires'));
+        var cookiesResult = JSON.parse(Persistence.decodeCookies(cookiesWithoutExpiration));
+
+        Should(cookiesResult['mpid1']).not.be.ok();
+        Should(cookiesResult['mpid2']).not.be.ok();
+        Should(cookiesResult['mpid3']).be.ok();
+        cookiesResult.gs.csm[0].should.equal('mpid3');
+        cookiesResult.should.have.property('mpid3');
+        mParticle.maxCookieSize = 3000;
+
+        done();
+    });
+
+    it('integration test - should remove a random MPID from storage if there is a new session and there are no MPIDs in currentSessionMPIDs', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        mParticle.maxCookieSize = 600;
+        mParticle.isDevelopmentMode = true;
+
+        mParticle.init(apiKey);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '60');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id2');
+
+        var cookieData = findCookie();
+
+        cookieData.gs.csm[0].should.equal('testMPID');
+        cookieData.gs.csm[1].should.equal('MPID1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID2'
+            }));
+        };
+
+        mParticle.endSession();
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id3');
+
+        cookieData = findCookie();
+
+        Should(cookieData['testMPID']).not.be.ok();
+        cookieData['MPID1'].ua.should.have.property('id', 'id2');
+        cookieData['MPID1'].ua.should.have.property('gender', 'male');
+        cookieData['MPID1'].ua.should.have.property('age', 30);
+        cookieData['MPID1'].ua.should.have.property('height', '60');
+        cookieData['MPID1'].ua.should.have.property('color', 'green');
+        cookieData['MPID2'].ua.should.have.property('id', 'id3');
+        cookieData['MPID2'].ua.should.have.property('gender', 'female');
+        cookieData['MPID2'].ua.should.have.property('age', 45);
+        cookieData['MPID2'].ua.should.have.property('height', '80');
+        cookieData['MPID2'].ua.should.have.property('color', 'green');
 
         done();
     });
