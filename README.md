@@ -30,7 +30,9 @@ To integrate the SDK add the following snippet to your site after customizing `m
 ```javascript
 <script type="text/javascript">
  (function (apiKey) {
-     window.mParticle = window.mParticle || { eCommerce: Identity: {} };
+     window.mParticle = window.mParticle || {};
+     window.mParticle.eCommerce = { Cart: {} };
+     window.mParticle.Identity = {};
      window.mParticle.config = window.mParticle.config || {};
      window.mParticle.config.rq = [];
      window.mParticle.ready = function (f) {

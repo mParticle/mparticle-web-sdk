@@ -146,9 +146,6 @@ function inArray(items, name) {
 }
 
 function tryNativeSdk(path, value) {
-    if (!mParticle.useNativeSdk) {
-        return false;
-    }
     if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
         logDebug(Messages.InformationMessages.SendAndroid + path);
         window.mParticleAndroid[path](value);
@@ -166,7 +163,7 @@ function tryNativeSdk(path, value) {
         return true;
     }
 
-    return false;
+    return mParticle.useNativeSdk;
 }
 
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
@@ -174,10 +171,7 @@ function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
 }
 
 function isWebViewEmbedded() {
-    if (!mParticle.useNativeSdk) {
-        return false;
-    }
-    if (window.mParticleAndroid
+    if (mParticle.useNativeSdk || window.mParticleAndroid
         || window.mParticle.isIOS) {
         return true;
     }

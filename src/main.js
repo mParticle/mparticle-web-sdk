@@ -62,8 +62,8 @@ var Polyfill = require('./polyfill'),
     */
 
     var mParticle = {
-        useNativeSdk: true,
-        isIOS: false,
+        useNativeSdk: window.mParticle && window.mParticle.useNativeSdk ? window.mParticle.useNativeSdk : false,
+        isIOS: window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false,
         isDevelopmentMode: false,
         useCookieStorage: false,
         maxProducts: Constants.DefaultConfig.MaxProducts,
