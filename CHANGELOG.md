@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.2.3 - 2017-02-23
+*  Update logic for useNativeSdk and isIOS
+
 #### 2.2.2 - 2017-02-20
 *  Pass identityApiData to native SDKs
 
