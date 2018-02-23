@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.2.2',
+    sdkVersion = '2.2.3',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1536,9 +1536,6 @@ function inArray(items, name) {
 }
 
 function tryNativeSdk(path, value) {
-    if (!mParticle.useNativeSdk) {
-        return false;
-    }
     if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
         logDebug(Messages.InformationMessages.SendAndroid + path);
         window.mParticleAndroid[path](value);
@@ -1556,7 +1553,7 @@ function tryNativeSdk(path, value) {
         return true;
     }
 
-    return false;
+    return mParticle.useNativeSdk;
 }
 
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
@@ -1564,10 +1561,7 @@ function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
 }
 
 function isWebViewEmbedded() {
-    if (!mParticle.useNativeSdk) {
-        return false;
-    }
-    if (window.mParticleAndroid
+    if (mParticle.useNativeSdk || window.mParticleAndroid
         || window.mParticle.isIOS) {
         return true;
     }
@@ -2808,8 +2802,8 @@ var Polyfill = require('./polyfill'),
     */
 
     var mParticle = {
-        useNativeSdk: true,
-        isIOS: false,
+        useNativeSdk: window.mParticle && window.mParticle.useNativeSdk ? window.mParticle.useNativeSdk : false,
+        isIOS: window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false,
         isDevelopmentMode: false,
         useCookieStorage: false,
         maxProducts: Constants.DefaultConfig.MaxProducts,
