@@ -5072,6 +5072,15 @@ describe('mParticle', function() {
 
             done();
         });
+
+        it('should use https when mParticle.forceHttps is true', function(done) {
+            mParticle.forceHttps = true;
+            server.requests = [];
+            mParticle.logEvent('Test Event');
+            server.requests[0].url.should.equal('https://jssdks.mparticle.com/v1/JS/test_key/Events');
+
+            done();
+        });
     });
 
     after(function() {

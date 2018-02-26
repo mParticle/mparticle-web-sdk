@@ -19,7 +19,7 @@
 (function(window) {
     var serviceUrl = 'jssdk.mparticle.com/v1/JS/',
         secureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
-        serviceScheme = window.location.protocol + '//',
+        serviceScheme = mParticle && mParticle.forceHttps ? 'https://' : window.location.protocol + '//',
         sdkVersion = '1.15.8',
         isEnabled = true,
         pluses = /\+/g,
@@ -303,7 +303,11 @@
     }
 
     function createServiceUrl() {
-        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+        if (mParticle.forceHttps) {
+            return 'https://' + secureServiceUrl + devToken;
+        } else {
+            return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+        }
     }
 
     function inArray(items, name) {
@@ -3920,6 +3924,10 @@
 
         if (window.mParticle.config.hasOwnProperty('sessionTimeout')) {
             Config.SessionTimeout = window.mParticle.config.sessionTimeout;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('forceHttps')) {
+            mParticle.forceHttps = window.mParticle.config.forceHttps;
         }
 
         // Some forwarders require custom flags on initialization, so allow them to be set using config object
