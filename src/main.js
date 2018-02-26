@@ -803,6 +803,10 @@ var Polyfill = require('./polyfill'),
             MP.Config.SessionTimeout = window.mParticle.config.sessionTimeout;
         }
 
+        if (window.mParticle.config.hasOwnProperty('forceHttps')) {
+            mParticle.forceHttps = window.mParticle.config.forceHttps;
+        }
+
         // Some forwarders require custom flags on initialization, so allow them to be set using config object
         if (window.mParticle.config.hasOwnProperty('customFlags')) {
             MP.customFlags = window.mParticle.config.customFlags;

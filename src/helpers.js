@@ -3,7 +3,7 @@ var Types = require('./types'),
     Messages = Constants.Messages,
     MP = require('./mp'),
     pluses = /\+/g,
-    serviceScheme = window.location.protocol + '//';
+    serviceScheme = window.mParticle && window.mParticle.forceHttps ? 'https://' : window.location.protocol + '//';
 
 function logDebug(msg) {
     if (mParticle.isDevelopmentMode && window.console && window.console.log) {
@@ -161,7 +161,11 @@ function sendToNative(path, value) {
 }
 
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
-    return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+    if (mParticle.forceHttps) {
+        return 'https://' + secureServiceUrl + devToken;
+    } else {
+        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+    }
 }
 
 function shouldUseNativeSdk() {
