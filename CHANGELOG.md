@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.2.4 - 2017-02-28
+*  Add config option for maxCookieSize
+*  Refactor useNativeSdk and prevent identify calls when in webview
+
 #### 2.2.3 - 2017-02-23
 *  Update logic for useNativeSdk and isIOS
 
