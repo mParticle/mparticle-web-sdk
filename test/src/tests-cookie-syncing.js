@@ -110,11 +110,11 @@ describe('cookie syncing', function() {
         mParticle.configurePixel(pixelSettings);
 
         window.mParticleAndroid = true;
-        mParticle.init(apiKey);
 
+        mParticle.init(apiKey);
         var data = getLocalStorage();
 
-        data[testMPID].should.not.have.property('csd');
+        Should(data).not.be.ok();
         done();
     });
 
@@ -137,7 +137,7 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey);
         var data = getLocalStorage();
 
-        data[testMPID].should.not.have.property('csd');
+        Should(data).not.be.ok();
 
         done();
     });

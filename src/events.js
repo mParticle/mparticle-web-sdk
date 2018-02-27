@@ -27,43 +27,45 @@ function logEvent(type, name, data, category, cflags) {
 }
 
 function send(event) {
-    var xhr,
-        xhrCallback = function() {
-            if (xhr.readyState === 4) {
-                Helpers.logDebug('Received ' + xhr.statusText + ' from server');
+    if (Helpers.shouldUseNativeSdk()) {
+        Helpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
+    } else {
+        var xhr,
+            xhrCallback = function() {
+                if (xhr.readyState === 4) {
+                    Helpers.logDebug('Received ' + xhr.statusText + ' from server');
 
-                parseResponse(xhr.responseText);
+                    parseResponse(xhr.responseText);
+                }
+            };
+
+        Helpers.logDebug(Messages.InformationMessages.SendBegin);
+
+        var validUserIdentities = [];
+
+        // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
+        if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
+            for (var key in event.UserIdentities) {
+                var userIdentity = {};
+                userIdentity.Identity = event.UserIdentities[key];
+                userIdentity.Type = Helpers.parseNumber(key);
+                validUserIdentities.push(userIdentity);
             }
-        };
-
-    Helpers.logDebug(Messages.InformationMessages.SendBegin);
-
-    var validUserIdentities = [];
-
-    // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
-    if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
-        for (var key in event.UserIdentities) {
-            var userIdentity = {};
-            userIdentity.Identity = event.UserIdentities[key];
-            userIdentity.Type = Helpers.parseNumber(key);
-            validUserIdentities.push(userIdentity);
-        }
-        event.UserIdentities = validUserIdentities;
-    } else {
-        event.UserIdentities = [];
-    }
-
-    // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
-    if (!MP.mpid) {
-        Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
-        MP.eventQueue.push(event);
-    } else {
-        if (!event) {
-            Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
-            return;
+            event.UserIdentities = validUserIdentities;
+        } else {
+            event.UserIdentities = [];
         }
 
-        if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event))) {
+        // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
+        if (!MP.mpid) {
+            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
+            MP.eventQueue.push(event);
+        } else {
+            if (!event) {
+                Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
+                return;
+            }
+
             Helpers.logDebug(Messages.InformationMessages.SendHttp);
 
             xhr = Helpers.createXHR(xhrCallback);
@@ -83,6 +85,7 @@ function send(event) {
             }
         }
     }
+
 }
 
 function parseResponse(responseText) {
@@ -284,8 +287,8 @@ function logCommerceEvent(commerceEvent, attrs) {
 
     if (Helpers.canLog()) {
         startNewSessionIfNeeded();
-        if (Helpers.isWebViewEmbedded()) {
-            // Don't send shopping cart or product bags to parent sdks
+        if (Helpers.shouldUseNativeSdk()) {
+            // Don't send shopping cart to parent sdks
             commerceEvent.ShoppingCart = {};
         }
 
@@ -377,13 +380,15 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
 }
 
 function startNewSessionIfNeeded() {
-    var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
+    if (!Helpers.shouldUseNativeSdk()) {
+        var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
 
-    if (!MP.sessionId && cookies) {
-        if (cookies.sid) {
-            MP.sessionId = cookies.sid;
-        } else {
-            mParticle.startNewSession();
+        if (!MP.sessionId && cookies) {
+            if (cookies.sid) {
+                MP.sessionId = cookies.sid;
+            } else {
+                mParticle.startNewSession();
+            }
         }
     }
 }

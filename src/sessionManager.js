@@ -106,11 +106,13 @@ function setSessionTimer() {
 }
 
 function resetSessionTimer() {
-    if (!MP.sessionId) {
-        startNewSession();
+    if (!Helpers.shouldUseNativeSdk()) {
+        if (!MP.sessionId) {
+            startNewSession();
+        }
+        clearSessionTimeout();
+        setSessionTimer();
     }
-    clearSessionTimeout();
-    setSessionTimer();
 }
 
 function clearSessionTimeout() {

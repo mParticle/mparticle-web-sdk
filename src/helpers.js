@@ -12,7 +12,7 @@ function logDebug(msg) {
 }
 
 function canLog() {
-    if (MP.isEnabled && (MP.devToken || isWebViewEmbedded())) {
+    if (MP.isEnabled && (MP.devToken || shouldUseNativeSdk())) {
         return true;
     }
 
@@ -145,12 +145,10 @@ function inArray(items, name) {
     }
 }
 
-function tryNativeSdk(path, value) {
+function sendToNative(path, value) {
     if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
         logDebug(Messages.InformationMessages.SendAndroid + path);
         window.mParticleAndroid[path](value);
-
-        return true;
     }
     else if (window.mParticle.isIOS) {
         logDebug(Messages.InformationMessages.SendIOS + path);
@@ -159,18 +157,14 @@ function tryNativeSdk(path, value) {
         document.documentElement.appendChild(iframe);
         iframe.parentNode.removeChild(iframe);
         iframe = null;
-
-        return true;
     }
-
-    return mParticle.useNativeSdk;
 }
 
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
     return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
 }
 
-function isWebViewEmbedded() {
+function shouldUseNativeSdk() {
     if (mParticle.useNativeSdk || window.mParticleAndroid
         || window.mParticle.isIOS) {
         return true;
@@ -466,9 +460,9 @@ module.exports = {
     extend: extend,
     isObject: isObject,
     inArray: inArray,
-    tryNativeSdk: tryNativeSdk,
+    shouldUseNativeSdk: shouldUseNativeSdk,
+    sendToNative: sendToNative,
     createServiceUrl: createServiceUrl,
-    isWebViewEmbedded: isWebViewEmbedded,
     createXHR: createXHR,
     generateUniqueId: generateUniqueId,
     filterUserIdentities: filterUserIdentities,

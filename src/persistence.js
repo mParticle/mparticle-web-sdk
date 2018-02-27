@@ -81,11 +81,13 @@ function initializeStorage() {
 }
 
 function update() {
-    if (mParticle.useCookieStorage) {
-        this.setCookie();
-    }
+    if (!Helpers.shouldUseNativeSdk()) {
+        if (mParticle.useCookieStorage) {
+            this.setCookie();
+        }
 
-    this.setLocalStorage();
+        this.setLocalStorage();
+    }
 }
 
 function storeProductsInMemory(products, mpid) {

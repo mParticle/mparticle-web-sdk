@@ -35,7 +35,7 @@ function sendForwardingStats(forwarder, event) {
 }
 
 function initForwarders(identifyRequest) {
-    if (!Helpers.isWebViewEmbedded() && MP.forwarders) {
+    if (!Helpers.shouldUseNativeSdk() && MP.forwarders) {
         // Some js libraries require that they be loaded first, or last, etc
         MP.forwarders.sort(function(x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
@@ -185,7 +185,7 @@ function sendEventToForwarders(event) {
             Types.MessageType.Commerce
         ];
 
-    if (!Helpers.isWebViewEmbedded() && MP.forwarders) {
+    if (!Helpers.shouldUseNativeSdk() && MP.forwarders) {
         hashedName = Helpers.generateHash(event.EventCategory + event.EventName);
         hashedType = Helpers.generateHash(event.EventCategory);
 

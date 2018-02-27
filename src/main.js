@@ -92,54 +92,58 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [options] an options object for additional configuration
         */
         init: function(apiKey) {
-            var config;
+            if (!Helpers.shouldUseNativeSdk()) {
+                var config;
 
-            MP.initialIdentifyRequest = mParticle.identifyRequest;
-            MP.devToken = apiKey || null;
-            Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
+                MP.initialIdentifyRequest = mParticle.identifyRequest;
+                MP.devToken = apiKey || null;
+                Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
 
-            // Set configuration to default settings
-            Helpers.mergeConfig({});
+                // Set configuration to default settings
+                Helpers.mergeConfig({});
 
-            // Migrate any cookies from previous versions to current cookie version
-            Migrations.migrate();
+                // Migrate any cookies from previous versions to current cookie version
+                Migrations.migrate();
 
-            // Load any settings/identities/attributes from cookie or localStorage
-            Persistence.initializeStorage();
+                // Load any settings/identities/attributes from cookie or localStorage
+                Persistence.initializeStorage();
 
-            // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
-            if ((Helpers.isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
-                var modifiedUIforIdentityRequest = {};
-                for (var identityType in MP.userIdentities) {
-                    if (MP.userIdentities.hasOwnProperty(identityType)) {
-                        modifiedUIforIdentityRequest[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = MP.userIdentities[identityType];
+                // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
+                if ((Helpers.isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
+                    var modifiedUIforIdentityRequest = {};
+                    for (var identityType in MP.userIdentities) {
+                        if (MP.userIdentities.hasOwnProperty(identityType)) {
+                            modifiedUIforIdentityRequest[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = MP.userIdentities[identityType];
+                        }
+                    }
+
+                    MP.initialIdentifyRequest = {
+                        userIdentities: modifiedUIforIdentityRequest
+                    };
+                } else {
+                    MP.initialIdentifyRequest = mParticle.identifyRequest;
+                }
+
+                if (MP.migrate) {
+                    identify(MP.initialIdentifyRequest);
+                    MP.migrate = false;
+                }
+
+                Forwarders.initForwarders(MP.initialIdentifyRequest);
+
+                if (arguments && arguments.length) {
+                    if (arguments.length > 1 && typeof arguments[1] === 'object') {
+                        config = arguments[1];
+                    }
+                    if (config) {
+                        Helpers.mergeConfig(config);
                     }
                 }
 
-                MP.initialIdentifyRequest = {
-                    userIdentities: modifiedUIforIdentityRequest
-                };
-            } else {
-                MP.initialIdentifyRequest = mParticle.identifyRequest;
+                mParticle.sessionManager.initialize();
+                Events.logAST();
             }
 
-            if (MP.migrate) {
-                identify(MP.initialIdentifyRequest);
-                MP.migrate = false;
-            }
-
-            Forwarders.initForwarders(MP.initialIdentifyRequest);
-
-            if (arguments && arguments.length) {
-                if (arguments.length > 1 && typeof arguments[1] === 'object') {
-                    config = arguments[1];
-                }
-                if (config) {
-                    Helpers.mergeConfig(config);
-                }
-            }
-
-            mParticle.sessionManager.initialize();
             // Call any functions that are waiting for the library to be initialized
             if (MP.readyQueue && MP.readyQueue.length) {
                 MP.readyQueue.forEach(function(readyQueueItem) {
@@ -152,7 +156,6 @@ var Polyfill = require('./polyfill'),
 
                 MP.readyQueue = [];
             }
-            Events.logAST();
             MP.isInitialized = true;
         },
         /**
@@ -632,15 +635,18 @@ var Polyfill = require('./polyfill'),
                     return;
                 }
 
-                var existingProp = Helpers.findKeyInObject(MP.sessionAttributes, key);
+                if (Helpers.shouldUseNativeSdk()) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }));
+                } else {
+                    var existingProp = Helpers.findKeyInObject(MP.sessionAttributes, key);
 
-                if (existingProp) {
-                    key = existingProp;
-                }
+                    if (existingProp) {
+                        key = existingProp;
+                    }
 
-                MP.sessionAttributes[key] = value;
-                Persistence.update();
-                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }))) {
+                    MP.sessionAttributes[key] = value;
+                    Persistence.update();
+
                     Forwarders.applyToForwarders('setSessionAttribute', [key, value]);
                 }
             }
