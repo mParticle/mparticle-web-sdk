@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.2.3',
+    sdkVersion = '2.2.4',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -89,7 +89,8 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         SessionTimeout: 30,				            // Session timeout in minutes
         Sandbox: false,                             // Events are marked as debug and only forwarded to debug forwarders,
         Version: null,                              // The version of this website/app
-        MaxProducts: 20                             // Number of products persisted in cartProducts and productBags
+        MaxProducts: 20,                            // Number of products persisted in cartProducts and productBags
+        MaxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
     },
     Base64CookieKeys = {
         csm: 1,
@@ -132,7 +133,7 @@ var Helpers = require('./helpers'),
 var cookieSyncManager = {
     attemptCookieSync: function(previousMPID, mpid) {
         var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
-        if (mpid && !Helpers.isWebViewEmbedded()) {
+        if (mpid && !Helpers.shouldUseNativeSdk()) {
             MP.pixelConfigurations.forEach(function(pixelSettings) {
                 pixelConfig = {
                     moduleId: pixelSettings.moduleId,
@@ -671,43 +672,45 @@ function logEvent(type, name, data, category, cflags) {
 }
 
 function send(event) {
-    var xhr,
-        xhrCallback = function() {
-            if (xhr.readyState === 4) {
-                Helpers.logDebug('Received ' + xhr.statusText + ' from server');
+    if (Helpers.shouldUseNativeSdk()) {
+        Helpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
+    } else {
+        var xhr,
+            xhrCallback = function() {
+                if (xhr.readyState === 4) {
+                    Helpers.logDebug('Received ' + xhr.statusText + ' from server');
 
-                parseResponse(xhr.responseText);
+                    parseResponse(xhr.responseText);
+                }
+            };
+
+        Helpers.logDebug(Messages.InformationMessages.SendBegin);
+
+        var validUserIdentities = [];
+
+        // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
+        if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
+            for (var key in event.UserIdentities) {
+                var userIdentity = {};
+                userIdentity.Identity = event.UserIdentities[key];
+                userIdentity.Type = Helpers.parseNumber(key);
+                validUserIdentities.push(userIdentity);
             }
-        };
-
-    Helpers.logDebug(Messages.InformationMessages.SendBegin);
-
-    var validUserIdentities = [];
-
-    // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
-    if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
-        for (var key in event.UserIdentities) {
-            var userIdentity = {};
-            userIdentity.Identity = event.UserIdentities[key];
-            userIdentity.Type = Helpers.parseNumber(key);
-            validUserIdentities.push(userIdentity);
-        }
-        event.UserIdentities = validUserIdentities;
-    } else {
-        event.UserIdentities = [];
-    }
-
-    // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
-    if (!MP.mpid) {
-        Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
-        MP.eventQueue.push(event);
-    } else {
-        if (!event) {
-            Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
-            return;
+            event.UserIdentities = validUserIdentities;
+        } else {
+            event.UserIdentities = [];
         }
 
-        if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event))) {
+        // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
+        if (!MP.mpid) {
+            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
+            MP.eventQueue.push(event);
+        } else {
+            if (!event) {
+                Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
+                return;
+            }
+
             Helpers.logDebug(Messages.InformationMessages.SendHttp);
 
             xhr = Helpers.createXHR(xhrCallback);
@@ -727,6 +730,7 @@ function send(event) {
             }
         }
     }
+
 }
 
 function parseResponse(responseText) {
@@ -928,8 +932,8 @@ function logCommerceEvent(commerceEvent, attrs) {
 
     if (Helpers.canLog()) {
         startNewSessionIfNeeded();
-        if (Helpers.isWebViewEmbedded()) {
-            // Don't send shopping cart or product bags to parent sdks
+        if (Helpers.shouldUseNativeSdk()) {
+            // Don't send shopping cart to parent sdks
             commerceEvent.ShoppingCart = {};
         }
 
@@ -1021,13 +1025,15 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
 }
 
 function startNewSessionIfNeeded() {
-    var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
+    if (!Helpers.shouldUseNativeSdk()) {
+        var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
 
-    if (!MP.sessionId && cookies) {
-        if (cookies.sid) {
-            MP.sessionId = cookies.sid;
-        } else {
-            mParticle.startNewSession();
+        if (!MP.sessionId && cookies) {
+            if (cookies.sid) {
+                MP.sessionId = cookies.sid;
+            } else {
+                mParticle.startNewSession();
+            }
         }
     }
 }
@@ -1088,7 +1094,7 @@ function sendForwardingStats(forwarder, event) {
 }
 
 function initForwarders(identifyRequest) {
-    if (!Helpers.isWebViewEmbedded() && MP.forwarders) {
+    if (!Helpers.shouldUseNativeSdk() && MP.forwarders) {
         // Some js libraries require that they be loaded first, or last, etc
         MP.forwarders.sort(function(x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
@@ -1238,7 +1244,7 @@ function sendEventToForwarders(event) {
             Types.MessageType.Commerce
         ];
 
-    if (!Helpers.isWebViewEmbedded() && MP.forwarders) {
+    if (!Helpers.shouldUseNativeSdk() && MP.forwarders) {
         hashedName = Helpers.generateHash(event.EventCategory + event.EventName);
         hashedType = Helpers.generateHash(event.EventCategory);
 
@@ -1402,7 +1408,7 @@ function logDebug(msg) {
 }
 
 function canLog() {
-    if (MP.isEnabled && (MP.devToken || isWebViewEmbedded())) {
+    if (MP.isEnabled && (MP.devToken || shouldUseNativeSdk())) {
         return true;
     }
 
@@ -1535,12 +1541,10 @@ function inArray(items, name) {
     }
 }
 
-function tryNativeSdk(path, value) {
+function sendToNative(path, value) {
     if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
         logDebug(Messages.InformationMessages.SendAndroid + path);
         window.mParticleAndroid[path](value);
-
-        return true;
     }
     else if (window.mParticle.isIOS) {
         logDebug(Messages.InformationMessages.SendIOS + path);
@@ -1549,18 +1553,14 @@ function tryNativeSdk(path, value) {
         document.documentElement.appendChild(iframe);
         iframe.parentNode.removeChild(iframe);
         iframe = null;
-
-        return true;
     }
-
-    return mParticle.useNativeSdk;
 }
 
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
     return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
 }
 
-function isWebViewEmbedded() {
+function shouldUseNativeSdk() {
     if (mParticle.useNativeSdk || window.mParticleAndroid
         || window.mParticle.isIOS) {
         return true;
@@ -1856,9 +1856,9 @@ module.exports = {
     extend: extend,
     isObject: isObject,
     inArray: inArray,
-    tryNativeSdk: tryNativeSdk,
+    shouldUseNativeSdk: shouldUseNativeSdk,
+    sendToNative: sendToNative,
     createServiceUrl: createServiceUrl,
-    isWebViewEmbedded: isWebViewEmbedded,
     createXHR: createXHR,
     generateUniqueId: generateUniqueId,
     filterUserIdentities: filterUserIdentities,
@@ -2049,11 +2049,12 @@ var IdentityAPI = {
                 identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)))) {
+                if (Helpers.shouldUseNativeSdk()) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                } else {
                     sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData);
                     evt = ServerModel.createEventObject(Types.MessageType.Profile);
                     evt.ProfileMessageType = Types.ProfileMessageType.Logout;
-
                     if (MP.forwarders.length) {
                         MP.forwarders.forEach(function(forwarder) {
                             if (forwarder.logOut) {
@@ -2087,7 +2088,9 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)))) {
+                if (Helpers.shouldUseNativeSdk()) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                } else {
                     sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData);
                 }
             }
@@ -2115,7 +2118,9 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createModifyIdentityRequest(MP.userIdentities, newUserIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.context);
 
             if (Helpers.canLog()) {
-                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)))) {
+                if (Helpers.shouldUseNativeSdk()) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                } else {
                     sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData);
                 }
             }
@@ -2187,8 +2192,6 @@ function mParticleUser(mpid) {
         * @param {String} tagName
         */
         setUserTag: function(tagName) {
-            mParticle.sessionManager.resetSessionTimer();
-
             if (!Validators.isValidKeyValue(tagName)) {
                 Helpers.logDebug(Messages.ErrorMessages.BadKey);
                 return;
@@ -2202,8 +2205,6 @@ function mParticleUser(mpid) {
         * @param {String} tagName
         */
         removeUserTag: function(tagName) {
-            mParticle.sessionManager.resetSessionTimer();
-
             if (!Validators.isValidKeyValue(tagName)) {
                 Helpers.logDebug(Messages.ErrorMessages.BadKey);
                 return;
@@ -2233,23 +2234,24 @@ function mParticleUser(mpid) {
                     Helpers.logDebug(Messages.ErrorMessages.BadKey);
                     return;
                 }
+                if (Helpers.shouldUseNativeSdk()) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }));
+                } else {
+                    cookies = Persistence.getPersistence();
 
-                cookies = Persistence.getPersistence();
+                    userAttributes = this.getAllUserAttributes();
 
-                userAttributes = this.getAllUserAttributes();
+                    var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
-                var existingProp = Helpers.findKeyInObject(userAttributes, key);
+                    if (existingProp) {
+                        delete userAttributes[existingProp];
+                    }
 
-                if (existingProp) {
-                    delete userAttributes[existingProp];
-                }
+                    userAttributes[key] = value;
+                    cookies[mpid].ua = userAttributes;
+                    Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+                    Persistence.storeDataInMemory(cookies, mpid);
 
-                userAttributes[key] = value;
-                cookies[mpid].ua = userAttributes;
-                Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-                Persistence.storeDataInMemory(cookies, mpid);
-
-                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }))) {
                     Forwarders.callSetUserAttributeOnForwarders(key, value);
                 }
             }
@@ -2268,23 +2270,25 @@ function mParticleUser(mpid) {
                 return;
             }
 
-            cookies = Persistence.getPersistence();
+            if (Helpers.shouldUseNativeSdk()) {
+                Helpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }));
+            } else {
+                cookies = Persistence.getPersistence();
 
-            userAttributes = this.getAllUserAttributes();
+                userAttributes = this.getAllUserAttributes();
 
-            var existingProp = Helpers.findKeyInObject(userAttributes, key);
+                var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
-            if (existingProp) {
-                key = existingProp;
-            }
+                if (existingProp) {
+                    key = existingProp;
+                }
 
-            delete userAttributes[key];
+                delete userAttributes[key];
 
-            cookies[mpid].ua = userAttributes;
-            Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-            Persistence.storeDataInMemory(cookies, mpid);
+                cookies[mpid].ua = userAttributes;
+                Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+                Persistence.storeDataInMemory(cookies, mpid);
 
-            if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }))) {
                 Forwarders.applyToForwarders('removeUserAttribute', key);
             }
         },
@@ -2311,22 +2315,24 @@ function mParticleUser(mpid) {
 
             var arrayCopy = value.slice();
 
-            cookies = Persistence.getPersistence();
+            if (Helpers.shouldUseNativeSdk()) {
+                Helpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }));
+            } else {
+                cookies = Persistence.getPersistence();
 
-            userAttributes = this.getAllUserAttributes();
+                userAttributes = this.getAllUserAttributes();
 
-            var existingProp = Helpers.findKeyInObject(userAttributes, key);
+                var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
-            if (existingProp) {
-                delete userAttributes[existingProp];
-            }
+                if (existingProp) {
+                    delete userAttributes[existingProp];
+                }
 
-            userAttributes[key] = arrayCopy;
-            cookies[mpid].ua = userAttributes;
-            Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-            Persistence.storeDataInMemory(cookies, mpid);
+                userAttributes[key] = arrayCopy;
+                cookies[mpid].ua = userAttributes;
+                Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+                Persistence.storeDataInMemory(cookies, mpid);
 
-            if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }))) {
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
             }
         },
@@ -2339,11 +2345,13 @@ function mParticleUser(mpid) {
 
             mParticle.sessionManager.resetSessionTimer();
 
-            cookies = Persistence.getPersistence();
+            if (Helpers.shouldUseNativeSdk()) {
+                Helpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
+            } else {
+                cookies = Persistence.getPersistence();
 
-            userAttributes = this.getAllUserAttributes();
+                userAttributes = this.getAllUserAttributes();
 
-            if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveAllUserAttributes)) {
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
@@ -2351,11 +2359,11 @@ function mParticleUser(mpid) {
                         }
                     }
                 }
-            }
 
-            cookies[mpid].ua = {};
-            Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-            Persistence.storeDataInMemory(cookies, mpid);
+                cookies[mpid].ua = {};
+                Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+                Persistence.storeDataInMemory(cookies, mpid);
+            }
         },
         /**
         * Returns all user attribute keys that have values that are arrays
@@ -2423,51 +2431,53 @@ function mParticleUserCart(mpid){
         * @param {Object} product the product
         * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
         */
-        add: function(product, logEvent) {mParticle.sessionManager.resetSessionTimer();
+        add: function(product, logEvent) {
             var allProducts,
                 userProducts,
                 arrayCopy;
 
-            product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
-            arrayCopy = Array.isArray(product) ? product.slice() : [product];
-
-            mParticle.sessionManager.resetSessionTimer();
-
-            allProducts = JSON.parse(Persistence.getLocalStorageProducts());
-
-            if (allProducts && !allProducts[mpid]) {
-                allProducts[mpid] = {};
-            }
-
-            if (allProducts[mpid].cp) {
-                userProducts = allProducts[mpid].cp;
+            if (Helpers.shouldUseNativeSdk()) {
+                Helpers.sendToNative(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
             } else {
-                userProducts = [];
+                mParticle.sessionManager.resetSessionTimer();
+
+                product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
+                arrayCopy = Array.isArray(product) ? product.slice() : [product];
+
+
+                allProducts = JSON.parse(Persistence.getLocalStorageProducts());
+
+                if (allProducts && !allProducts[mpid]) {
+                    allProducts[mpid] = {};
+                }
+
+                if (allProducts[mpid].cp) {
+                    userProducts = allProducts[mpid].cp;
+                } else {
+                    userProducts = [];
+                }
+
+                userProducts = userProducts.concat(arrayCopy);
+
+                if (logEvent === true) {
+                    Events.logProductActionEvent(Types.ProductActionType.AddToCart, arrayCopy);
+                }
+
+                var productsForMemory = {};
+                productsForMemory[mpid] = {cp: userProducts};
+                if (mpid === MP.mpid) {
+                    Persistence.storeProductsInMemory(productsForMemory, mpid);
+                }
+
+                if (userProducts.length > mParticle.maxProducts) {
+                    Helpers.logDebug('The cart contains ' + userProducts.length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
+                    userProducts = userProducts.slice(0, mParticle.maxProducts);
+                }
+
+                allProducts[mpid].cp = userProducts;
+
+                Persistence.setCartProducts(allProducts);
             }
-
-            userProducts = userProducts.concat(arrayCopy);
-
-            if (Helpers.isWebViewEmbedded()) {
-                Helpers.tryNativeSdk(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
-            }
-            else if (logEvent === true) {
-                Events.logProductActionEvent(Types.ProductActionType.AddToCart, arrayCopy);
-            }
-
-            var productsForMemory = {};
-            productsForMemory[mpid] = {cp: userProducts};
-            if (mpid === MP.mpid) {
-                Persistence.storeProductsInMemory(productsForMemory, mpid);
-            }
-
-            if (userProducts.length > mParticle.maxProducts) {
-                Helpers.logDebug('The cart contains ' + userProducts.length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
-                userProducts = userProducts.slice(0, mParticle.maxProducts);
-            }
-
-            allProducts[mpid].cp = userProducts;
-
-            Persistence.setCartProducts(allProducts);
         },
         /**
         * Removes a cart product from the current user cart
@@ -2476,68 +2486,75 @@ function mParticleUserCart(mpid){
         * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
         */
         remove: function(product, logEvent) {
-            mParticle.sessionManager.resetSessionTimer();
             var allProducts,
                 userProducts,
                 cartIndex = -1,
                 cartItem = null;
 
-            allProducts = JSON.parse(Persistence.getLocalStorageProducts());
-
-            if (allProducts && allProducts[mpid].cp) {
-                userProducts = allProducts[mpid].cp;
+            if (Helpers.shouldUseNativeSdk()) {
+                Helpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(cartItem));
             } else {
-                userProducts = [];
-            }
+                mParticle.sessionManager.resetSessionTimer();
 
-            if (userProducts) {
-                userProducts.forEach(function(cartProduct, i) {
-                    if (cartProduct.Sku === product.Sku) {
-                        cartIndex = i;
-                        cartItem = cartProduct;
-                    }
-                });
+                allProducts = JSON.parse(Persistence.getLocalStorageProducts());
 
-                if (cartIndex > -1) {
-                    userProducts.splice(cartIndex, 1);
+                if (allProducts && allProducts[mpid].cp) {
+                    userProducts = allProducts[mpid].cp;
+                } else {
+                    userProducts = [];
+                }
 
-                    if (Helpers.isWebViewEmbedded()) {
-                        Helpers.tryNativeSdk(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(cartItem));
-                    }
-                    else if (logEvent === true) {
-                        Events.logProductActionEvent(Types.ProductActionType.RemoveFromCart, cartItem);
+                if (userProducts) {
+                    userProducts.forEach(function(cartProduct, i) {
+                        if (cartProduct.Sku === product.Sku) {
+                            cartIndex = i;
+                            cartItem = cartProduct;
+                        }
+                    });
+
+                    if (cartIndex > -1) {
+                        userProducts.splice(cartIndex, 1);
+
+                        if (logEvent === true) {
+                            Events.logProductActionEvent(Types.ProductActionType.RemoveFromCart, cartItem);
+                        }
                     }
                 }
+
+                var productsForMemory = {};
+                productsForMemory[mpid] = {cp: userProducts};
+                if (mpid === MP.mpid) {
+                    Persistence.storeProductsInMemory(productsForMemory, mpid);
+                }
+
+                allProducts[mpid].cp = userProducts;
+
+                Persistence.setCartProducts(allProducts);
             }
-
-            var productsForMemory = {};
-            productsForMemory[mpid] = {cp: userProducts};
-            if (mpid === MP.mpid) {
-                Persistence.storeProductsInMemory(productsForMemory, mpid);
-            }
-
-            allProducts[mpid].cp = userProducts;
-
-            Persistence.setCartProducts(allProducts);
         },
         /**
         * Clears the user's cart
         * @method clear
         */
         clear: function() {
-            mParticle.sessionManager.resetSessionTimer();
-            var allProducts = JSON.parse(Persistence.getLocalStorageProducts());
+            var allProducts;
 
-            if (allProducts && allProducts[mpid].cp) {
-                allProducts[mpid].cp = [];
+            if (Helpers.shouldUseNativeSdk()) {
+                Helpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
+            } else {
+                mParticle.sessionManager.resetSessionTimer();
+                allProducts = JSON.parse(Persistence.getLocalStorageProducts());
 
-                allProducts[mpid].cp = [];
-                if (mpid === MP.mpid) {
-                    Persistence.storeProductsInMemory(allProducts, mpid);
+                if (allProducts && allProducts[mpid].cp) {
+                    allProducts[mpid].cp = [];
+
+                    allProducts[mpid].cp = [];
+                    if (mpid === MP.mpid) {
+                        Persistence.storeProductsInMemory(allProducts, mpid);
+                    }
+
+                    Persistence.setCartProducts(allProducts);
                 }
-
-                Persistence.setCartProducts(allProducts);
-                Helpers.tryNativeSdk(Constants.NativeSdkPaths.ClearCart);
             }
         },
         /**
@@ -2556,7 +2573,14 @@ function identify(identityApiData) {
     if (preProcessResult.valid) {
         var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
-        sendIdentityRequest(identityApiRequest, 'identify', MP.identityCallback, identityApiData);
+        if (Helpers.canLog()) {
+            if (!Helpers.shouldUseNativeSdk()) {
+                sendIdentityRequest(identityApiRequest, 'identify', MP.identityCallback, identityApiData);
+            }
+        }
+        else {
+            Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+        }
     } else {
         if (MP.identityCallback) {
             MP.identityCallback(preProcessResult);
@@ -2613,7 +2637,8 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, method) {
     var prevUser,
         newUser,
-        identityApiResult;
+        identityApiResult,
+        indexOfMPID;
     if (MP.mpid) {
         prevUser = mParticle.Identity.getCurrentUser();
     }
@@ -2639,12 +2664,19 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                     checkCookieForMPID(MP.mpid);
                 }
 
-                if (MP.sessionId && MP.mpid && previousMPID !== MP.mpid && MP.currentSessionMPIDs.indexOf(MP.mpid) < 0) {
+                indexOfMPID = MP.currentSessionMPIDs.indexOf(MP.mpid);
+
+                if (MP.sessionId && MP.mpid && previousMPID !== MP.mpid && indexOfMPID < 0) {
                     MP.currentSessionMPIDs.push(MP.mpid);
                     // need to update currentSessionMPIDs in memory before checkingIdentitySwap otherwise previous obj.currentSessionMPIDs is used in checkIdentitySwap's Persistence.update()
                     Persistence.update();
                 }
 
+                if (indexOfMPID > -1) {
+                    MP.currentSessionMPIDs = (MP.currentSessionMPIDs.slice(0, indexOfMPID)).concat(MP.currentSessionMPIDs.slice(indexOfMPID + 1, MP.currentSessionMPIDs.length));
+                    MP.currentSessionMPIDs.push(MP.mpid);
+                    Persistence.update();
+                }
                 CookieSyncManager.attemptCookieSync(previousMPID, MP.mpid);
 
                 Identity.checkIdentitySwap(previousMPID, MP.mpid);
@@ -2807,6 +2839,7 @@ var Polyfill = require('./polyfill'),
         isDevelopmentMode: false,
         useCookieStorage: false,
         maxProducts: Constants.DefaultConfig.MaxProducts,
+        maxCookieSize: Constants.DefaultConfig.MaxCookieSize,
         identifyRequest: {},
         getDeviceId: getDeviceId,
         generateHash: Helpers.generateHash,
@@ -2831,53 +2864,58 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [options] an options object for additional configuration
         */
         init: function(apiKey) {
-            var config;
-            MP.initialIdentifyRequest = mParticle.identifyRequest;
-            MP.devToken = apiKey || null;
-            Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
+            if (!Helpers.shouldUseNativeSdk()) {
+                var config;
 
-            // Set configuration to default settings
-            Helpers.mergeConfig({});
+                MP.initialIdentifyRequest = mParticle.identifyRequest;
+                MP.devToken = apiKey || null;
+                Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
 
-            // Migrate any cookies from previous versions to current cookie version
-            Migrations.migrate();
+                // Set configuration to default settings
+                Helpers.mergeConfig({});
 
-            // Load any settings/identities/attributes from cookie or localStorage
-            Persistence.initializeStorage();
+                // Migrate any cookies from previous versions to current cookie version
+                Migrations.migrate();
 
-            // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
-            if ((Helpers.isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
-                var modifiedUIforIdentityRequest = {};
-                for (var identityType in MP.userIdentities) {
-                    if (MP.userIdentities.hasOwnProperty(identityType)) {
-                        modifiedUIforIdentityRequest[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = MP.userIdentities[identityType];
+                // Load any settings/identities/attributes from cookie or localStorage
+                Persistence.initializeStorage();
+
+                // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
+                if ((Helpers.isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
+                    var modifiedUIforIdentityRequest = {};
+                    for (var identityType in MP.userIdentities) {
+                        if (MP.userIdentities.hasOwnProperty(identityType)) {
+                            modifiedUIforIdentityRequest[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = MP.userIdentities[identityType];
+                        }
+                    }
+
+                    MP.initialIdentifyRequest = {
+                        userIdentities: modifiedUIforIdentityRequest
+                    };
+                } else {
+                    MP.initialIdentifyRequest = mParticle.identifyRequest;
+                }
+
+                if (MP.migrate) {
+                    identify(MP.initialIdentifyRequest);
+                    MP.migrate = false;
+                }
+
+                Forwarders.initForwarders(MP.initialIdentifyRequest);
+
+                if (arguments && arguments.length) {
+                    if (arguments.length > 1 && typeof arguments[1] === 'object') {
+                        config = arguments[1];
+                    }
+                    if (config) {
+                        Helpers.mergeConfig(config);
                     }
                 }
 
-                MP.initialIdentifyRequest = {
-                    userIdentities: modifiedUIforIdentityRequest
-                };
-            } else {
-                MP.initialIdentifyRequest = mParticle.identifyRequest;
+                mParticle.sessionManager.initialize();
+                Events.logAST();
             }
 
-            if (MP.migrate) {
-                identify(MP.initialIdentifyRequest);
-                MP.migrate = false;
-            }
-
-            Forwarders.initForwarders(MP.initialIdentifyRequest);
-
-            if (arguments && arguments.length) {
-                if (arguments.length > 1 && typeof arguments[1] === 'object') {
-                    config = arguments[1];
-                }
-                if (config) {
-                    Helpers.mergeConfig(config);
-                }
-            }
-
-            mParticle.sessionManager.initialize();
             // Call any functions that are waiting for the library to be initialized
             if (MP.readyQueue && MP.readyQueue.length) {
                 MP.readyQueue.forEach(function(readyQueueItem) {
@@ -2890,7 +2928,6 @@ var Polyfill = require('./polyfill'),
 
                 MP.readyQueue = [];
             }
-            Events.logAST();
             MP.isInitialized = true;
         },
         /**
@@ -3370,15 +3407,18 @@ var Polyfill = require('./polyfill'),
                     return;
                 }
 
-                var existingProp = Helpers.findKeyInObject(MP.sessionAttributes, key);
+                if (Helpers.shouldUseNativeSdk()) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }));
+                } else {
+                    var existingProp = Helpers.findKeyInObject(MP.sessionAttributes, key);
 
-                if (existingProp) {
-                    key = existingProp;
-                }
+                    if (existingProp) {
+                        key = existingProp;
+                    }
 
-                MP.sessionAttributes[key] = value;
-                Persistence.update();
-                if (!Helpers.tryNativeSdk(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }))) {
+                    MP.sessionAttributes[key] = value;
+                    Persistence.update();
+
                     Forwarders.applyToForwarders('setSessionAttribute', [key, value]);
                 }
             }
@@ -3506,6 +3546,10 @@ var Polyfill = require('./polyfill'),
             mParticle.maxProducts = window.mParticle.config.maxProducts;
         }
 
+        if (window.mParticle.config.hasOwnProperty('maxCookieSize')) {
+            mParticle.maxCookieSize = window.mParticle.config.maxCookieSize;
+        }
+
         if (window.mParticle.config.hasOwnProperty('appName')) {
             MP.appName = window.mParticle.config.appName;
         }
@@ -3517,7 +3561,7 @@ var Polyfill = require('./polyfill'),
         if (window.mParticle.config.hasOwnProperty('identityCallback')) {
             var callback = window.mParticle.config.identityCallback;
             if (callback && !Validators.isFunction(callback)) {
-                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof fn, ' . Callback not set. Please set your callback again.');
+                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
             } else {
                 MP.identityCallback = window.mParticle.config.identityCallback;
             }
@@ -4026,11 +4070,13 @@ function initializeStorage() {
 }
 
 function update() {
-    if (mParticle.useCookieStorage) {
-        this.setCookie();
-    }
+    if (!Helpers.shouldUseNativeSdk()) {
+        if (mParticle.useCookieStorage) {
+            this.setCookie();
+        }
 
-    this.setLocalStorage();
+        this.setLocalStorage();
+    }
 }
 
 function storeProductsInMemory(products, mpid) {
@@ -4325,7 +4371,8 @@ function setCookie() {
             (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
         cookieDomain,
         domain,
-        cookies = this.getCookie() || {};
+        cookies = this.getCookie() || {},
+        encodedCookiesWithExpirationAndPath;
 
     cookieDomain = getCookieDomain();
 
@@ -4348,13 +4395,86 @@ function setCookie() {
 
     cookies = this.setGlobalStorageAttributes(cookies);
 
+    encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain);
+
     Helpers.logDebug(Messages.InformationMessages.CookieSet);
 
     window.document.cookie =
-        encodeURIComponent(key) + '=' + encodeCookies(JSON.stringify(cookies)) +
-        ';expires=' + expires +
-        ';path=/' +
-        domain;
+        encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
+}
+
+/*  This function determines if a cookie is greater than the configured maxCookieSize.
+        - If it is, we remove an MPID and its associated UI/UA/CSD from the cookie.
+        - Once removed, check size, and repeat.
+        - Never remove the currentUser's MPID from the cookie.
+
+    MPID removal priority:
+    1. If there are no currentSessionMPIDs, remove a random MPID from the the cookie.
+    2. If there are currentSessionMPIDs:
+        a. Remove at random MPIDs on the cookie that are not part of the currentSessionMPIDs
+        b. Then remove MPIDs based on order in currentSessionMPIDs array, which
+        stores MPIDs based on earliest login.
+*/
+function reduceAndEncodeCookies(cookies, expires, domain) {
+    var encodedCookiesWithExpirationAndPath,
+        currentSessionMPIDs = cookies.gs.csm ? cookies.gs.csm : [];
+    // Comment 1 above
+    if (!currentSessionMPIDs.length) {
+        for (var key in cookies) {
+            if (cookies.hasOwnProperty(key)) {
+                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
+                if (encodedCookiesWithExpirationAndPath.length > mParticle.maxCookieSize) {
+                    if (!SDKv2NonMPIDCookieKeys[key] && key !== cookies.cu) {
+                        delete cookies[key];
+                    }
+                }
+            }
+        }
+    } else {
+        // Comment 2 above - First create an object of all MPIDs on the cookie
+        var MPIDsOnCookie = {};
+        for (var potentialMPID in cookies) {
+            if (cookies.hasOwnProperty(potentialMPID)) {
+                if (!SDKv2NonMPIDCookieKeys[potentialMPID] && potentialMPID !==cookies.cu) {
+                    MPIDsOnCookie[potentialMPID] = 1;
+                }
+            }
+        }
+        // Comment 2a above
+        if (Object.keys(MPIDsOnCookie).length) {
+            for (var mpid in MPIDsOnCookie) {
+                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
+                if (encodedCookiesWithExpirationAndPath.length > mParticle.maxCookieSize) {
+                    if (MPIDsOnCookie.hasOwnProperty(mpid)) {
+                        if (currentSessionMPIDs.indexOf(mpid) === -1) {
+                            delete cookies[mpid];
+                        }
+                    }
+                }
+            }
+        }
+        // Comment 2b above
+        for (var i = 0; i < currentSessionMPIDs.length; i++) {
+            encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
+            if (encodedCookiesWithExpirationAndPath.length > mParticle.maxCookieSize) {
+                var MPIDtoRemove = currentSessionMPIDs[i];
+                if (cookies[MPIDtoRemove]) {
+                    Helpers.logDebug('Size of new encoded cookie is larger than maxCookieSize setting of ' + mParticle.maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(cookies[MPIDtoRemove], 0, 2));
+                    delete cookies[MPIDtoRemove];
+                } else {
+                    Helpers.logDebug('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + mParticle.maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    return encodedCookiesWithExpirationAndPath;
+}
+
+function createFullEncodedCookie(cookies, expires, domain) {
+    return encodeCookies(JSON.stringify(cookies)) + ';expires=' + expires +';path=/' + domain;
 }
 
 function findPrevCookiesBasedOnUI(identityApiData) {
@@ -4585,29 +4705,25 @@ function setCartProducts(allProducts) {
 }
 
 function updateOnlyCookieUserAttributes(cookies) {
-    var encodedCookies = encodeCookies(JSON.stringify(cookies));
+    var encodedCookies = encodeCookies(JSON.stringify(cookies)),
+        date = new Date(),
+        key = MP.Config.CookieNameV4,
+        expires = new Date(date.getTime() +
+        (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
+        cookieDomain = getCookieDomain(),
+        domain;
+
+    if (cookieDomain === '') {
+        domain = '';
+    } else {
+        domain = ';domain=' + cookieDomain;
+    }
+
 
     if (mParticle.useCookieStorage) {
-        var date = new Date(),
-            key = MP.Config.CookieNameV4,
-            expires = new Date(date.getTime() +
-                (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
-            cookieDomain = getCookieDomain(),
-            domain;
-
-        if (cookieDomain === '') {
-            domain = '';
-        } else {
-            domain = ';domain=' + cookieDomain;
-        }
-
-        Helpers.logDebug(Messages.InformationMessages.CookieSet);
-
+        var encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain);
         window.document.cookie =
-            encodeURIComponent(key) + '=' + encodedCookies +
-            ';expires=' + expires +
-            ';path=/' +
-            domain;
+            encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
     } else {
         localStorage.setItem(MP.Config.LocalStorageNameV4, encodedCookies);
     }
@@ -4659,6 +4775,7 @@ module.exports = {
     expireCookies: expireCookies,
     getCookie: getCookie,
     setCookie: setCookie,
+    reduceAndEncodeCookies: reduceAndEncodeCookies,
     findPrevCookiesBasedOnUI: findPrevCookiesBasedOnUI,
     replaceCommasWithPipes: replaceCommasWithPipes,
     replacePipesWithCommas: replacePipesWithCommas,
@@ -5242,11 +5359,13 @@ function setSessionTimer() {
 }
 
 function resetSessionTimer() {
-    if (!MP.sessionId) {
-        startNewSession();
+    if (!Helpers.shouldUseNativeSdk()) {
+        if (!MP.sessionId) {
+            startNewSession();
+        }
+        clearSessionTimeout();
+        setSessionTimer();
     }
-    clearSessionTimeout();
-    setSessionTimer();
 }
 
 function clearSessionTimeout() {
