@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 1.15.9 - 2017-02-28
+*  Update Readme
+*  Add forceHttps as a config option
+
 #### 1.15.8 - 2017-01-10
 *  Modify logic for starting a new session
 
