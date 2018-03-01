@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.2.5 - 2017-03-01
+*  Bugfix - add shouldUseNativeSdk logic to fix null user and null path values
+
 #### 2.2.4 - 2017-02-28
 *  Add config option for maxCookieSize
 *  Refactor useNativeSdk and prevent identify calls when in webview
