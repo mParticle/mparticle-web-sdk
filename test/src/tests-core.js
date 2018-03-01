@@ -335,10 +335,6 @@ var server = new MockHttpServer(),
         var self = this;
 
         this.logEventCalled = false;
-        this.setUserIdentityCalled = false;
-        this.removeUserIdentityCalled = false;
-        this.setUserTagCalled = false;
-        this.removeUserTagCalled = false;
         this.setUserAttributeCalled = false;
         this.removeUserAttributeCalled = false;
         this.setSessionAttributeCalled = false;
@@ -348,6 +344,10 @@ var server = new MockHttpServer(),
         this.loginData = null;
         this.logoutData = null;
         this.modifyData = null;
+        this.event = null;
+        this.userAttrData = null;
+        this.sessionAttrData = null;
+
         this.login = function(data) {
             self.loginData = data;
         };
@@ -358,12 +358,15 @@ var server = new MockHttpServer(),
             self.modifyData = data;
         };
 
-        this.logEvent = function() {
+        this.logEvent = function(event) {
             self.logEventCalled = true;
+            self.event = event;
         };
+
         this.setUserIdentity = function() {
             self.setUserIdentityCalled = true;
         };
+
         this.removeUserIdentity = function() {
             self.removeUserIdentityCalled = true;
         };
@@ -373,14 +376,16 @@ var server = new MockHttpServer(),
         this.removeUserTag = function() {
             self.removeUserTagCalled = true;
         };
-        this.setUserAttribute = function() {
+        this.setUserAttribute = function(data) {
             self.setUserAttributeCalled = true;
+            self.userAttrData = data;
         };
         this.removeUserAttribute = function() {
             self.removeUserAttributeCalled = true;
         };
-        this.setSessionAttribute = function() {
+        this.setSessionAttribute = function(data) {
             self.setSessionAttributeCalled = true;
+            self.sessionAttrData = data;
         };
         this.addToCart = function() {
             self.addToCartCalled = true;

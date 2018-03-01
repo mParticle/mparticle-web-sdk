@@ -1,6 +1,5 @@
 var TestsCore = require('./tests-core'),
     setLocalStorage = TestsCore.setLocalStorage,
-    getLocalStorage = TestsCore.getLocalStorage,
     testMPID = TestsCore.testMPID,
     v1localStorageKey = TestsCore.v1localStorageKey,
     apiKey = TestsCore.apiKey,
@@ -90,54 +89,6 @@ describe('cookie syncing', function() {
         var data = mParticle.persistence.getLocalStorage();
 
         data[testMPID].csd.should.have.property(5, lastCookieSyncTime);
-
-        done();
-    });
-
-    it('should not sync cookies when in a mobile web view for Android', function(done) {
-        var pixelSettings = {
-            name: 'AdobeEventForwarder',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl:'http://www.yahoo.com',
-            redirectUrl:''
-        };
-        mParticle.reset();
-        mParticle.configurePixel(pixelSettings);
-
-        window.mParticleAndroid = true;
-
-        mParticle.init(apiKey);
-        var data = getLocalStorage();
-
-        Should(data).not.be.ok();
-        done();
-    });
-
-    it('should not sync cookies when in a mobile web view', function(done) {
-        var pixelSettings = {
-            name: 'AdobeEventForwarder',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl:'http://www.yahoo.com',
-            redirectUrl:''
-        };
-        mParticle.reset();
-        mParticle.configurePixel(pixelSettings);
-
-        window.mParticle.isIOS = true;
-        mParticle.init(apiKey);
-        var data = getLocalStorage();
-
-        Should(data).not.be.ok();
 
         done();
     });

@@ -11,7 +11,6 @@ var Identity = require('../../src/identity'),
     getIdentityEvent = TestsCore.getIdentityEvent,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     getEvent = TestsCore.getEvent,
-    mParticleAndroid = TestsCore.mParticleAndroid,
     v1localStorageKey = TestsCore.v1localStorageKey;
 
 describe('identity', function() {
@@ -1467,32 +1466,6 @@ describe('identity', function() {
 
         var modifyData = getIdentityEvent('login');
         Should(modifyData).be.ok();
-
-        done();
-    });
-
-    it('should send a JSON object to the native SDK', function(done) {
-        mParticle.reset();
-        window.mParticleAndroid = new mParticleAndroid();
-        window.mParticle.init(apiKey);
-
-        var identityAPIRequest = {
-            userIdentities: {
-                customerid: '123',
-                email: 'test@gmail.com'
-            }
-        };
-
-        mParticle.Identity.login(identityAPIRequest);
-        mParticle.Identity.logout(identityAPIRequest);
-        mParticle.Identity.modify(identityAPIRequest);
-
-        var JSONData = JSON.stringify(mParticle._IdentityRequest.convertToNative(identityAPIRequest));
-
-        window.mParticleAndroid.loginData.should.equal(JSONData);
-        window.mParticleAndroid.logoutData.should.equal(JSONData);
-        window.mParticleAndroid.modifyData.should.equal(JSONData);
-
 
         done();
     });

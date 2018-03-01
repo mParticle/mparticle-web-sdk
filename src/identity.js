@@ -268,6 +268,8 @@ var IdentityAPI = {
         if (mpid) {
             mpid = MP.mpid.slice();
             return mParticleUser(mpid);
+        } else if (Helpers.shouldUseNativeSdk()) {
+            return mParticleUser();
         } else {
             return null;
         }

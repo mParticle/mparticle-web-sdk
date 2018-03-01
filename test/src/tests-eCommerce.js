@@ -7,7 +7,6 @@ var TestsCore = require('./tests-core'),
     getEvent = TestsCore.getEvent,
     CommerceEventType = TestsCore.CommerceEventType,
     MockForwarder = TestsCore.MockForwarder,
-    mParticleAndroid = TestsCore.mParticleAndroid,
     server = TestsCore.server;
 
 describe('eCommerce', function() {
@@ -400,43 +399,6 @@ describe('eCommerce', function() {
         event.pd.pl[0].should.have.property('id', '12345');
 
         Should(event).be.ok();
-
-        done();
-    });
-
-    it('should invoke native sdk method addToCart', function(done) {
-        mParticle.reset();
-        window.mParticleAndroid = new mParticleAndroid();
-        mParticle.init(apiKey);
-
-        mParticle.eCommerce.Cart.add({});
-
-        window.mParticleAndroid.should.have.property('addToCartCalled', true);
-
-        done();
-    });
-
-    it('should invoke native sdk method removeFromCart', function(done) {
-        mParticle.reset();
-        window.mParticleAndroid = new mParticleAndroid();
-        mParticle.init(apiKey);
-
-        mParticle.eCommerce.Cart.add({ Sku: '12345' });
-        mParticle.eCommerce.Cart.remove({ Sku: '12345' });
-
-        window.mParticleAndroid.should.have.property('removeFromCartCalled', true);
-
-        done();
-    });
-
-    it('should invoke native sdk method clearCart', function(done) {
-        mParticle.reset();
-        window.mParticleAndroid = new mParticleAndroid();
-        mParticle.init(apiKey);
-
-        mParticle.eCommerce.Cart.clear();
-
-        window.mParticleAndroid.should.have.property('clearCartCalled', true);
 
         done();
     });
