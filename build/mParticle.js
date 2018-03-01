@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.2.4',
+    sdkVersion = '2.2.5',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -2145,6 +2145,8 @@ var IdentityAPI = {
         if (mpid) {
             mpid = MP.mpid.slice();
             return mParticleUser(mpid);
+        } else if (Helpers.shouldUseNativeSdk()) {
+            return mParticleUser();
         } else {
             return null;
         }
@@ -5113,10 +5115,9 @@ function convertProductToDTO(product) {
 function createEventObject(messageType, name, data, eventType, customFlags) {
     var eventObject,
         optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
-
     data = Helpers.sanitizeAttributes(data);
 
-    if (MP.sessionId || messageType == Types.MessageType.OptOut) {
+    if (MP.sessionId || messageType == Types.MessageType.OptOut || Helpers.shouldUseNativeSdk()) {
         if (messageType !== Types.MessageType.SessionEnd) {
             MP.dateLastEventSent = new Date();
         }
