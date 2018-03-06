@@ -11,7 +11,8 @@
     "buildDocs": "yuidoc src/",
     "testBrowser": "karma start --single-run --browsers=$BROWSER test/karma.config.js",
     "watch": "watchify src/main.js -v -o build/mParticle-dev.js --debug",
-    "watchTests": "watchify test/src/tests-main.js -v -o test/test-bundle.js --debug"
+    "watchTests": "watchify test/src/tests-main.js -v -o test/test-bundle.js --debug",
+    "lint": "eslint src/ test/src/"
   },
   "pre-commit": [
     "lint"

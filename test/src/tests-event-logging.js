@@ -157,13 +157,13 @@ describe('event logging', function() {
         server.requests = [];
         mParticle.logPageView({test: 'test'});
         server.requests.length.should.equal(1);
-        event2 = getEvent('PageView');
+        var event2 = getEvent('PageView');
         event2.n.should.equal('PageView');
 
         server.requests = [];
         mParticle.logPageView([1, 2, 3]);
         server.requests.length.should.equal(1);
-        event3 = getEvent('PageView');
+        var event3 = getEvent('PageView');
         event3.n.should.equal('PageView');
 
         done();
