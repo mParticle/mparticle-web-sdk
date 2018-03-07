@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.2.5',
+    sdkVersion = '2.2.6',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -654,6 +654,7 @@ var Types = require('./types'),
     Forwarders = require('./forwarders');
 
 function logEvent(type, name, data, category, cflags) {
+    Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
     Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
 
     if (Helpers.canLog()) {
@@ -1399,7 +1400,7 @@ var Types = require('./types'),
     Messages = Constants.Messages,
     MP = require('./mp'),
     pluses = /\+/g,
-    serviceScheme = window.location.protocol + '//';
+    serviceScheme = window.mParticle && window.mParticle.forceHttps ? 'https://' : window.location.protocol + '//';
 
 function logDebug(msg) {
     if (mParticle.isDevelopmentMode && window.console && window.console.log) {
@@ -1557,7 +1558,11 @@ function sendToNative(path, value) {
 }
 
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
-    return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+    if (mParticle.forceHttps) {
+        return 'https://' + secureServiceUrl + devToken;
+    } else {
+        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+    }
 }
 
 function shouldUseNativeSdk() {
@@ -3577,6 +3582,10 @@ var Polyfill = require('./polyfill'),
             MP.Config.SessionTimeout = window.mParticle.config.sessionTimeout;
         }
 
+        if (window.mParticle.config.hasOwnProperty('forceHttps')) {
+            mParticle.forceHttps = window.mParticle.config.forceHttps;
+        }
+
         // Some forwarders require custom flags on initialization, so allow them to be set using config object
         if (window.mParticle.config.hasOwnProperty('customFlags')) {
             MP.customFlags = window.mParticle.config.customFlags;
@@ -3985,7 +3994,8 @@ module.exports = {
     identityCallInFlight: false,
     initialIdentifyRequest: null,
     Config: {},
-    migrate: false
+    migrate: false,
+    nonCurrentUserMPIDs: {}
 };
 
 },{}],11:[function(require,module,exports){
@@ -4066,6 +4076,14 @@ function initializeStorage() {
 
     if (MP.mpid) {
         storeProductsInMemory(decodedProducts, MP.mpid);
+    }
+
+    for (var key in allData) {
+        if (allData.hasOwnProperty(key)) {
+            if (!SDKv2NonMPIDCookieKeys[key]) {
+                MP.nonCurrentUserMPIDs[key] = allData[key];
+            }
+        }
     }
 
     this.update();
@@ -4228,6 +4246,12 @@ function setLocalStorage() {
             localStorageData[MP.mpid] = currentMPIDData;
             localStorageData.cu = MP.mpid;
         }
+
+        if (Object.keys(MP.nonCurrentUserMPIDs).length) {
+            localStorageData = Helpers.extend({}, localStorageData, MP.nonCurrentUserMPIDs);
+            MP.nonCurrentUserMPIDs = {};
+        }
+
         localStorageData = this.setGlobalStorageAttributes(localStorageData);
 
         try {
@@ -4396,6 +4420,11 @@ function setCookie() {
     }
 
     cookies = this.setGlobalStorageAttributes(cookies);
+
+    if (Object.keys(MP.nonCurrentUserMPIDs).length) {
+        cookies = Helpers.extend({}, cookies, MP.nonCurrentUserMPIDs);
+        MP.nonCurrentUserMPIDs = {};
+    }
 
     encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain);
 
