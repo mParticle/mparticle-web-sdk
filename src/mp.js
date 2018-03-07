@@ -35,5 +35,6 @@ module.exports = {
     identityCallInFlight: false,
     initialIdentifyRequest: null,
     Config: {},
-    migrate: false
+    migrate: false,
+    nonCurrentUserMPIDs: {}
 };

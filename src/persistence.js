@@ -77,6 +77,14 @@ function initializeStorage() {
         storeProductsInMemory(decodedProducts, MP.mpid);
     }
 
+    for (var key in allData) {
+        if (allData.hasOwnProperty(key)) {
+            if (!SDKv2NonMPIDCookieKeys[key]) {
+                MP.nonCurrentUserMPIDs[key] = allData[key];
+            }
+        }
+    }
+
     this.update();
 }
 
@@ -237,6 +245,12 @@ function setLocalStorage() {
             localStorageData[MP.mpid] = currentMPIDData;
             localStorageData.cu = MP.mpid;
         }
+
+        if (Object.keys(MP.nonCurrentUserMPIDs).length) {
+            localStorageData = Helpers.extend({}, localStorageData, MP.nonCurrentUserMPIDs);
+            MP.nonCurrentUserMPIDs = {};
+        }
+
         localStorageData = this.setGlobalStorageAttributes(localStorageData);
 
         try {
@@ -405,6 +419,11 @@ function setCookie() {
     }
 
     cookies = this.setGlobalStorageAttributes(cookies);
+
+    if (Object.keys(MP.nonCurrentUserMPIDs).length) {
+        cookies = Helpers.extend({}, cookies, MP.nonCurrentUserMPIDs);
+        MP.nonCurrentUserMPIDs = {};
+    }
 
     encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain);
 

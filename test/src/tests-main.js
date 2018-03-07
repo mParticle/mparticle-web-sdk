@@ -24,6 +24,7 @@ describe('mParticle', function() {
         window.mParticle.isIOS = null;
         window.mParticle.useCookieStorage = false;
         mParticle.isDevelopmentMode = false;
+        mParticle.maxCookieSize = 3000;
         mParticle.init(apiKey);
     });
 

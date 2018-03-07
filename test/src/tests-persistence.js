@@ -927,4 +927,172 @@ describe('migrations and persistence-related', function() {
 
         done();
     });
+
+    it('integration test - migrates a large localStorage cookie to cookies and properly remove MPIDs', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = false;
+        mParticle.maxCookieSize = 600;
+        mParticle.isDevelopmentMode = true;
+
+        mParticle.init(apiKey);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '60');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id2');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID2'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id3');
+
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+        var cookieData = findCookie();
+
+        Should(cookieData['testMPID']).not.be.ok();
+        cookieData['MPID1'].ua.should.have.property('id', 'id2');
+        cookieData['MPID2'].ua.should.have.property('id');
+
+        mParticle.useCookieStorage = false;
+
+        done();
+    });
+
+    it('integration test - migrates all cookie MPIDs to localStorage', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = true;
+        mParticle.isDevelopmentMode = true;
+
+        mParticle.init(apiKey);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '60');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id2');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID2'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id3');
+
+        mParticle.useCookieStorage = false;
+
+        mParticle.init(apiKey);
+        var lsData = getLocalStorage(v4LSKey);
+
+        lsData.should.have.properties(['gs', 'cu', 'testMPID', 'MPID1', 'MPID2']);
+        lsData['testMPID'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
+        lsData['MPID1'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
+        lsData['MPID2'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
+
+        done();
+    });
+
+    it('integration test - migrates all LS MPIDs to cookies', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = false;
+        mParticle.isDevelopmentMode = true;
+
+        mParticle.init(apiKey);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '60');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id2');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID2'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
+        mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
+        mParticle.Identity.getCurrentUser().setUserAttribute('id', 'id3');
+
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+        var cookieData = findCookie();
+
+        cookieData.should.have.properties(['gs', 'cu', 'testMPID', 'MPID1', 'MPID2']);
+        cookieData['testMPID'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
+        cookieData['MPID1'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
+        cookieData['MPID2'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
+        mParticle.useCookieStorage = false;
+
+        done();
+    });
 });
