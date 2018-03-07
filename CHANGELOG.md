@@ -1,6 +1,11 @@
 ## Releases
 --
 
+#### 2.2.6 - 2017-03-07
+*  Add forceHttps as a config option
+*  Fix linting
+*  Migrate all mpids between cookies and LS when useCookieStorage changes
+
 #### 2.2.5 - 2017-03-01
 *  Bugfix - add shouldUseNativeSdk logic to fix null user and null path values
 
