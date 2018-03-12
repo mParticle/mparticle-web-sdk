@@ -28,6 +28,7 @@ function startNewSession() {
 
     if (Helpers.canLog()) {
         identify(MP.initialIdentifyRequest);
+        MP.identifyCalled = true;
         MP.sessionId = Helpers.generateUniqueId();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];

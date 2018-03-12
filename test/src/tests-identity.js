@@ -1,6 +1,9 @@
+/* eslint-disable quotes */
+
 var Identity = require('../../src/identity'),
     Helpers= require('../../src/helpers'),
     TestsCore = require('./tests-core'),
+    Constants = require('../../src/constants'),
     checkIdentitySwap = Identity.Identity.checkIdentitySwap,
     getLocalStorage = TestsCore.getLocalStorage,
     setLocalStorage = TestsCore.setLocalStorage,
@@ -11,7 +14,9 @@ var Identity = require('../../src/identity'),
     getIdentityEvent = TestsCore.getIdentityEvent,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     getEvent = TestsCore.getEvent,
-    v1localStorageKey = TestsCore.v1localStorageKey;
+    v1localStorageKey = TestsCore.v1localStorageKey,
+    v4CookieKey = TestsCore.v4CookieKey,
+    setCookie = TestsCore.setCookie;
 
 describe('identity', function() {
     it('should not do an identity swap if there is no MPID change', function(done) {
@@ -678,70 +683,12 @@ describe('identity', function() {
         };
         var badCallback = 'string';
         server.requests = [];
+
         mParticle.Identity.login(identityRequest, badCallback);
+        mParticle.Identity.modify(identityRequest, badCallback);
+        mParticle.Identity.logout(identityRequest, badCallback);
 
         server.requests.length.should.equal(0);
-
-        done();
-    });
-
-    it('should call the callback when a validation is not valid', function(done) {
-        var callbackCalledResult1;
-        var callbackCalledResult2;
-        var callbackCalledResult3;
-        var callbackCalledResult4;
-
-        var identityRequest1 = {
-            customerid: 123
-        };
-
-        var callback1 = function(data) {
-            callbackCalledResult1 = data;
-        };
-
-        mParticle.Identity.login(identityRequest1, callback1);
-
-        callbackCalledResult1.should.have.property('error', 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.');
-        callbackCalledResult1.should.have.property('valid', false);
-
-        var identityRequest2 = {};
-
-        var callback2 = function(data) {
-            callbackCalledResult2 = data;
-        };
-
-        mParticle.Identity.modify(identityRequest2, callback2);
-
-        callbackCalledResult2.should.have.property('error', 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again.');
-        callbackCalledResult2.should.have.property('valid', false);
-
-        var identityRequest3 = {
-            userIdentities:  {
-                customerId: 123
-            }
-        };
-
-        var callback3 = function(data) {
-            callbackCalledResult3 = data;
-        };
-
-        mParticle.Identity.login(identityRequest3, callback3);
-
-        callbackCalledResult3.should.have.property('error', 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.');
-        callbackCalledResult3.should.have.property('valid', false);
-
-        var identityRequest4 = {
-            userIdentities: 'string'
-        };
-
-        var callback4 = function(data) {
-            callbackCalledResult4 = data;
-        };
-
-        mParticle.Identity.login(identityRequest4, callback4);
-
-        callbackCalledResult4.should.have.property('error', 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.');
-        callbackCalledResult4.should.have.property('valid', false);
 
         done();
     });
@@ -996,8 +943,10 @@ describe('identity', function() {
         done();
     });
 
-    it('should not send requests to the server with invalid userIdentity values', function(done) {
+    it('should not send requests to the server with invalid userIdentity values, and call the callback on validation errors', function(done) {
         server.requests = [];
+        var result;
+
         var badUserIdentitiesArray = {
             userIdentities: {
                 customerid: []
@@ -1034,14 +983,83 @@ describe('identity', function() {
             }
         };
 
-        mParticle.Identity.login(badUserIdentitiesArray);
-        mParticle.Identity.login(badUserIdentitiesObject);
-        mParticle.Identity.login(badUserIdentitiesBoolean);
-        mParticle.Identity.login(badUserIdentitiesUndefined);
-        mParticle.Identity.login(validUserIdentitiesString);
-        mParticle.Identity.login(validUserIdentitiesNull);
+        var callback = function(resp) {
+            result = resp;
+        };
 
-        server.requests.length.should.equal(2);
+        mParticle.Identity.login(badUserIdentitiesArray, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.login(badUserIdentitiesObject, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.login(badUserIdentitiesBoolean, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.login(badUserIdentitiesUndefined, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.login(validUserIdentitiesString, callback);
+        result.httpCode.should.equal(200);
+        result.body.mpid.should.equal(testMPID);
+
+        mParticle.Identity.login(validUserIdentitiesNull, callback);
+        result.httpCode.should.equal(200);
+        result.body.mpid.should.equal(testMPID);
+
+        mParticle.Identity.logout(badUserIdentitiesArray, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.logout(badUserIdentitiesObject, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.logout(badUserIdentitiesBoolean, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.logout(badUserIdentitiesUndefined, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.logout(validUserIdentitiesString, callback);
+        result.httpCode.should.equal(200);
+        result.body.mpid.should.equal(testMPID);
+
+        mParticle.Identity.logout(validUserIdentitiesNull, callback);
+        result.httpCode.should.equal(200);
+        result.body.mpid.should.equal(testMPID);
+
+        mParticle.Identity.modify(badUserIdentitiesArray, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.modify(badUserIdentitiesObject, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.modify(badUserIdentitiesBoolean, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.modify(badUserIdentitiesUndefined, callback);
+        result.httpCode.should.equal(-4);
+        result.body.should.equal(Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues);
+
+        mParticle.Identity.modify(validUserIdentitiesString, callback);
+        result.httpCode.should.equal(200);
+        result.body.mpid.should.equal(testMPID);
+
+        mParticle.Identity.modify(validUserIdentitiesNull, callback);
+        result.httpCode.should.equal(200);
+        result.body.mpid.should.equal(testMPID);
+
+        server.requests.length.should.equal(6);
         done();
     });
 
@@ -1466,6 +1484,66 @@ describe('identity', function() {
 
         var modifyData = getIdentityEvent('login');
         Should(modifyData).be.ok();
+
+        done();
+    });
+
+    it('should trigger the identifyCallback when a successful identify call is sent', function(done) {
+        // MP.sessionID does not exist yet because we perform an mParticle.reset();
+        mParticle.reset();
+        var mpid;
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                status: 200,
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.identityCallback = function(resp) {
+            mpid = resp.body.mpid;
+        };
+
+        mParticle.init(apiKey);
+
+        mpid.should.equal('MPID1');
+        done();
+    });
+
+    it('should still trigger the identifyCallback when no identify request is sent beause there are already cookies', function(done) {
+        mParticle.reset();
+        var les = new Date().getTime();
+        var cookies = "{'gs':{'ie':1|'dt':'test_key'|'cgid':'886e874b-862b-4822-a24a-1146cd057101'|'das':'62c91b8d-fef6-44ea-b2cc-b55714b0d827'|'csm':'WyJ0ZXN0TVBJRCJd'|'sid':'2535f9ed-ab19-4a7c-9eeb-ce4e41e0cb06'|'les': " + les + "|'ssd':1518536950916}|'testMPID123':{'ui':'eyIxIjoiY3VzdG9tZXJpZDEifQ=='}|'cu':'testMPID123'}";
+        mParticle.useCookieStorage = true;
+        setCookie(v4CookieKey, cookies, true);
+        //does not actually hit the server because identity request is not sent
+        mParticle.identityCallback = function(resp) {
+            result = resp;
+        };
+
+        mParticle.init(apiKey);
+
+        var result;
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                status: 200, mpid: 'MPID1'
+            }));
+        };
+
+        server.requests = [];
+        mParticle.init(apiKey);
+
+        //the only server request is the AST, there is no request to Identity
+        server.requests.length.should.equal(1);
+        result.should.have.properties('body', 'httpCode');
+        result.httpCode.should.equal(-3);
+        result.body.should.have.properties('context', 'is_ephemeral', 'matched_identities', 'mpid');
+        Should(result.body.context).not.be.ok();
+        Should(result.body.is_ephemeral).not.be.ok();
+        result.body.matched_identities.should.have.property('customerid', 'customerid1');
+        result.body.mpid.should.equal('testMPID123');
 
         done();
     });

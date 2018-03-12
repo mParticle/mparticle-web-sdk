@@ -49,10 +49,11 @@ var IdentityRequest = {
         }
 
         if (callback && !Validators.isFunction(callback)) {
-            Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof fn);
+            var error = 'The optional callback must be a function. You tried entering a(n) ' + typeof callback;
+            Helpers.logDebug(error);
             return {
                 valid: false,
-                error: 'The optional callback must be a function. You tried entering a(n) ' + typeof fn
+                error: error
             };
         }
 
@@ -191,15 +192,17 @@ var IdentityAPI = {
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
+            if (callback && typeof callback === 'function') {
+                callback({
+                    httpCode: -4,
+                    body: preProcessResult.error
+                });
             }
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
-    * Initiate a login request to the mParticle server
+    * Initiate a login request to the m{Particle server
     * @method login
     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
     * @param {Function} [callback] A callback function that is called when the login request completes
@@ -221,11 +224,13 @@ var IdentityAPI = {
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
+            if (callback && typeof callback === 'function') {
+                callback({
+                    httpCode: -4,
+                    body: preProcessResult.error
+                });
             }
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -251,11 +256,13 @@ var IdentityAPI = {
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
+            if (callback && typeof callback === 'function') {
+                callback({
+                    httpCode: -4,
+                    body: preProcessResult.error
+                });
             }
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -694,22 +701,26 @@ function mParticleUserCart(mpid){
 }
 
 function identify(identityApiData) {
-    var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, MP.identityCallback, 'identify');
+    var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, mParticle.identityCallback, 'identify');
     if (preProcessResult.valid) {
         var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
         if (Helpers.canLog()) {
             if (!Helpers.shouldUseNativeSdk()) {
-                sendIdentityRequest(identityApiRequest, 'identify', MP.identityCallback, identityApiData);
+                sendIdentityRequest(identityApiRequest, 'identify', mParticle.identityCallback, identityApiData);
             }
         }
         else {
             Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
         }
     } else {
-        if (MP.identityCallback) {
-            MP.identityCallback(preProcessResult);
+        if (mParticle.identityCallback) {
+            mParticle.identityCallback({
+                httpCode: -4,
+                body: preProcessResult.error
+            });
         }
+        Helpers.logDebug(preProcessResult);
     }
 }
 
@@ -734,7 +745,9 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 
     if (xhr) {
         try {
-            if (!MP.identityCallInFlight) {
+            if (MP.identityCallInFlight) {
+                callback({httpCode: -2, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
+            } else {
                 previousMPID = (!MP.isFirstRun && MP.mpid) ? MP.mpid : null;
                 if (method === 'modify') {
                     xhr.open('post', Constants.identityUrl + MP.mpid + '/' + method);
@@ -745,8 +758,6 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
                 xhr.setRequestHeader('x-mp-key', MP.devToken);
                 MP.identityCallInFlight = true;
                 xhr.send(JSON.stringify(identityApiRequest));
-            } else {
-                callback({httpCode: -2, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
             }
         }
         catch (e) {
@@ -754,7 +765,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
             if (callback) {
                 callback({httpCode: -1, body: e});
             }
-            Helpers.logDebug('Error sending identity request to servers with status code . ' + xhr.status + ' - ' + e);
+            Helpers.logDebug('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
         }
     }
 }
@@ -862,9 +873,6 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         }
     }
     catch (e) {
-        if (callback) {
-            callback({httpCode: xhr.status, body: identityApiResult});
-        }
         Helpers.logDebug('Error parsing JSON response from Identity server: ' + e);
     }
 }

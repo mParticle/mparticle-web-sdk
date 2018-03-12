@@ -397,11 +397,7 @@ var Validators = {
                 if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
                     return {
                         valid: false,
-                        error: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again.'
-                    };
-                } else {
-                    return {
-                        valid: true
+                        error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
                     };
                 }
             }
@@ -410,13 +406,13 @@ var Validators = {
                     if (!validIdentityRequestKeys[key]) {
                         return {
                             valid: false,
-                            error: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.'
+                            error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
                         };
                     }
                     if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
                         return {
                             valid: false,
-                            error: 'The onUserAlias value must be a function. The onUserAlias provided is of type ' + typeof identityApiData[key]
+                            error: Constants.Messages.ValidationMessages.OnUserAliasType + typeof identityApiData[key]
                         };
                     }
                 }
@@ -429,7 +425,7 @@ var Validators = {
                 if (!isObject(identityApiData.userIdentities)) {
                     return {
                         valid: false,
-                        error: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.'
+                        error: Constants.Messages.ValidationMessages.UserIdentities
                     };
                 }
                 if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
@@ -438,13 +434,13 @@ var Validators = {
                             if (Types.IdentityType.getIdentityType(identityType) === false) {
                                 return {
                                     valid: false,
-                                    error: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.'
+                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
                                 };
                             }
                             if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
                                 return {
                                     valid: false,
-                                    error: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
+                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
                                 };
                             }
                         }
