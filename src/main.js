@@ -580,7 +580,7 @@ var Polyfill = require('./polyfill'),
                 Events.logPurchaseEvent(transactionAttributes, product, attrs);
 
                 if (clearCart === true) {
-                    mParticle.Ecommerce.Cart.clear();
+                    mParticle.eCommerce.Cart.clear();
                 }
             },
             /**
@@ -620,7 +620,7 @@ var Polyfill = require('./polyfill'),
                 Events.logRefundEvent(transactionAttributes, product, attrs);
 
                 if (clearCart === true) {
-                    mParticle.Ecommerce.Cart.clear();
+                    mParticle.eCommerce.Cart.clear();
                 }
             },
             expandCommerceEvent: function(event) {
