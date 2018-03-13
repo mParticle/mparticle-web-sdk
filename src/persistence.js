@@ -130,8 +130,8 @@ function storeDataInMemory(obj, currentMPID) {
             MP.isEnabled = (typeof obj.gs.ie !== 'undefined') ? obj.gs.ie : MP.isEnabled;
             MP.sessionAttributes = obj.gs.sa || MP.sessionAttributes;
             MP.serverSettings = obj.gs.ss || MP.serverSettings;
-            MP.devToken = obj.gs.dt || MP.devToken;
-            MP.appVersion = obj.gs.av || MP.appVersion;
+            MP.devToken = MP.devToken || obj.gs.dt;
+            MP.appVersion = MP.appVersion || obj.gs.av;
             MP.clientId = obj.gs.cgid || MP.clientId || Helpers.generateUniqueId();
             MP.deviceId = obj.gs.das || MP.deviceId || Helpers.generateUniqueId();
             MP.context = obj.gs.c || MP.context;
@@ -159,9 +159,6 @@ function storeDataInMemory(obj, currentMPID) {
             if (obj.csd) {
                 MP.cookieSyncDates = obj.csd;
             }
-        }
-        if (MP.isEnabled !== false || MP.isEnabled !== true) {
-            MP.isEnabled = true;
         }
     }
     catch (e) {
@@ -240,6 +237,8 @@ function setLocalStorage() {
         if (MP.sessionId) {
             localStorageData.gs.csm = MP.currentSessionMPIDs;
         }
+
+        localStorageData.gs.ie = MP.isEnabled;
 
         if (MP.mpid) {
             localStorageData[MP.mpid] = currentMPIDData;

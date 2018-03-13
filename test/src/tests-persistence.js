@@ -67,16 +67,17 @@ describe('migrations and persistence-related', function() {
         mParticle.reset();
         setCookie(v1CookieKey, {
             ui: [{Identity: 'customerId1', Type: 1}],
-            mpid: testMPID
+            mpid: testMPID,
+            ie: true
         });
         var beforeInitCookieData = findCookie(v1CookieKey);
 
         mParticle.useCookieStorage = false;
         mParticle.init(apiKey);
-
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         var localStorageData = mParticle.persistence.getLocalStorage();
         var afterInitCookieData = findCookie(v4CookieKey);
+
         beforeInitCookieData.ui[0].should.have.property('Identity', 'customerId1');
         localStorageData[testMPID].ua.should.have.property('gender', 'male');
         localStorageData[testMPID].ui.should.have.property('1', 'customerId1');
@@ -89,7 +90,8 @@ describe('migrations and persistence-related', function() {
         mParticle.reset();
         setLocalStorage(v1localStorageKey, {
             ui: [{Identity: 123, Type: 1}],
-            mpid: testMPID
+            mpid: testMPID,
+            ie: true
         });
 
         mParticle.useCookieStorage = true;
@@ -111,11 +113,10 @@ describe('migrations and persistence-related', function() {
 
     it('should move new schema from localStorage to cookies with useCookieStorage = true', function(done) {
         mParticle.reset();
-        setLocalStorage(v1CookieKey, {
-            testMPID: {
-                ui: { customerid: '123' }
-            },
-            currentUserMPID: testMPID
+        setLocalStorage(v1localStorageKey, {
+            ui: [{Identity: '123', Type: 1}],
+            mpid: testMPID,
+            ie: true
         });
 
         mParticle.useCookieStorage = true;
@@ -139,7 +140,8 @@ describe('migrations and persistence-related', function() {
         mParticle.reset();
         setCookie(v1CookieKey, {
             ui: [{Identity: '123', Type: 1}],
-            mpid: testMPID
+            mpid: testMPID,
+            ie: true
         });
         var beforeInitCookieData = findCookie(v1CookieKey);
 

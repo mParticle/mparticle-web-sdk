@@ -52,7 +52,11 @@ describe('event logging', function() {
         mParticle.reset();
         server.requests = [];
 
-        setLocalStorage(v1localStorageKey, {cookie: 'test'});
+        setLocalStorage(v1localStorageKey, {
+            mpid: testMPID,
+            csd: { 5: (new Date(500)).getTime() },
+            ie: true
+        });
 
         mParticle.init(apiKey);
 
@@ -236,6 +240,51 @@ describe('event logging', function() {
         mParticle.setOptOut(true);
         server.requests = [];
 
+        mParticle.logEvent('test');
+        server.requests.should.have.lengthOf(0);
+
+        done();
+    });
+
+    it('after logging optout, and reloading, events still should not be sent until opt out is enabled when using local storage', function(done) {
+        mParticle.setOptOut(true);
+        server.requests = [];
+
+        mParticle.logEvent('test');
+        server.requests.should.have.lengthOf(0);
+        mParticle.setOptOut(false);
+
+        mParticle.init(apiKey);
+        server.requests = [];
+        mParticle.logEvent('test');
+        server.requests.should.have.lengthOf(1);
+
+        mParticle.setOptOut(true);
+        mParticle.init(apiKey);
+        server.requests = [];
+        mParticle.logEvent('test');
+        server.requests.should.have.lengthOf(0);
+
+        done();
+    });
+
+    it('after logging optout, and reloading, events still should not be sent until opt out is enabled when using cookie storage', function(done) {
+        mParticle.useCookieStorage = true;
+        mParticle.setOptOut(true);
+        server.requests = [];
+
+        mParticle.logEvent('test');
+        server.requests.should.have.lengthOf(0);
+        mParticle.setOptOut(false);
+
+        mParticle.init(apiKey);
+        server.requests = [];
+        mParticle.logEvent('test');
+        server.requests.should.have.lengthOf(1);
+
+        mParticle.setOptOut(true);
+        mParticle.init(apiKey);
+        server.requests = [];
         mParticle.logEvent('test');
         server.requests.should.have.lengthOf(0);
 

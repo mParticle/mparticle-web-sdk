@@ -74,11 +74,13 @@ describe('identity', function() {
         window.mParticle.useCookieStorage = false;
 
         setLocalStorage(v1localStorageKey, {
-            testMPID: {
-                csd: { 10: 500 }
-            },
-            currentUserMPID: 'testMPID'
+            ui: [{Identity: '123', Type: 1}],
+            csd: { 10: 500 },
+            mpid: testMPID,
+            ie: true
         });
+
+
         mParticle.init(apiKey);
 
         var cookies1 = mParticle.persistence.getLocalStorage();
@@ -114,7 +116,8 @@ describe('identity', function() {
 
         setLocalStorage(v1localStorageKey, {
             mpid: testMPID,
-            cgid: 'cgidTEST'
+            cgid: 'cgidTEST',
+            ie: true
         });
         mParticle.init(apiKey);
 
