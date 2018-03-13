@@ -48,7 +48,8 @@ describe('cookie syncing', function() {
 
         setLocalStorage(v1localStorageKey, {
             mpid: testMPID,
-            csd: { 5: (new Date(500)).getTime() }
+            csd: { 5: (new Date(500)).getTime() },
+            ie: true
         });
 
         mParticle.init(apiKey);
