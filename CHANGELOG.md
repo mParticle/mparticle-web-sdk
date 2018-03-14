@@ -1,6 +1,11 @@
 ## Releases
 --
 
+#### 2.2.7 - 2017-03-14
+*  Refactor identify callbacks, invoke callback on validation error
+*  Bugfix - Correct capitalization of clearing eCommerce carts
+*  Bugfix - Prioritize client entered config over persistence
+
 #### 2.2.6 - 2017-03-07
 *  Add forceHttps as a config option
 *  Fix linting
