@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.2.6',
+    sdkVersion = '2.2.7',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -48,6 +48,14 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
             AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
             AbandonEndSession: 'Cannot end session, logging disabled or developer token not set',
             NoSessionToEnd: 'Cannot end session, no active session found'
+        },
+        ValidationMessages: {
+            ModifyIdentityRequestUserIdentitiesPresent: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again.',
+            IdentityRequesetInvalidKey: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.',
+            OnUserAliasType: 'The onUserAlias value must be a function. The onUserAlias provided is of type ',
+            UserIdentities: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.',
+            UserIdentitiesInvalidKey: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
+            UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
         }
     },
     NativeSdkPaths = {
@@ -1794,11 +1802,7 @@ var Validators = {
                 if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
                     return {
                         valid: false,
-                        error: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again.'
-                    };
-                } else {
-                    return {
-                        valid: true
+                        error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
                     };
                 }
             }
@@ -1807,13 +1811,13 @@ var Validators = {
                     if (!validIdentityRequestKeys[key]) {
                         return {
                             valid: false,
-                            error: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.'
+                            error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
                         };
                     }
                     if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
                         return {
                             valid: false,
-                            error: 'The onUserAlias value must be a function. The onUserAlias provided is of type ' + typeof identityApiData[key]
+                            error: Constants.Messages.ValidationMessages.OnUserAliasType + typeof identityApiData[key]
                         };
                     }
                 }
@@ -1826,7 +1830,7 @@ var Validators = {
                 if (!isObject(identityApiData.userIdentities)) {
                     return {
                         valid: false,
-                        error: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.'
+                        error: Constants.Messages.ValidationMessages.UserIdentities
                     };
                 }
                 if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
@@ -1835,13 +1839,13 @@ var Validators = {
                             if (Types.IdentityType.getIdentityType(identityType) === false) {
                                 return {
                                     valid: false,
-                                    error: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.'
+                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
                                 };
                             }
                             if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
                                 return {
                                     valid: false,
-                                    error: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
+                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
                                 };
                             }
                         }
@@ -1931,10 +1935,11 @@ var IdentityRequest = {
         }
 
         if (callback && !Validators.isFunction(callback)) {
-            Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof fn);
+            var error = 'The optional callback must be a function. You tried entering a(n) ' + typeof callback;
+            Helpers.logDebug(error);
             return {
                 valid: false,
-                error: 'The optional callback must be a function. You tried entering a(n) ' + typeof fn
+                error: error
             };
         }
 
@@ -2073,15 +2078,17 @@ var IdentityAPI = {
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
+            if (callback && typeof callback === 'function') {
+                callback({
+                    httpCode: -4,
+                    body: preProcessResult.error
+                });
             }
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
-    * Initiate a login request to the mParticle server
+    * Initiate a login request to the m{Particle server
     * @method login
     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
     * @param {Function} [callback] A callback function that is called when the login request completes
@@ -2103,11 +2110,13 @@ var IdentityAPI = {
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
+            if (callback && typeof callback === 'function') {
+                callback({
+                    httpCode: -4,
+                    body: preProcessResult.error
+                });
             }
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -2133,11 +2142,13 @@ var IdentityAPI = {
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
+            if (callback && typeof callback === 'function') {
+                callback({
+                    httpCode: -4,
+                    body: preProcessResult.error
+                });
             }
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -2576,22 +2587,26 @@ function mParticleUserCart(mpid){
 }
 
 function identify(identityApiData) {
-    var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, MP.identityCallback, 'identify');
+    var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, mParticle.identityCallback, 'identify');
     if (preProcessResult.valid) {
         var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
         if (Helpers.canLog()) {
             if (!Helpers.shouldUseNativeSdk()) {
-                sendIdentityRequest(identityApiRequest, 'identify', MP.identityCallback, identityApiData);
+                sendIdentityRequest(identityApiRequest, 'identify', mParticle.identityCallback, identityApiData);
             }
         }
         else {
             Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
         }
     } else {
-        if (MP.identityCallback) {
-            MP.identityCallback(preProcessResult);
+        if (mParticle.identityCallback) {
+            mParticle.identityCallback({
+                httpCode: -4,
+                body: preProcessResult.error
+            });
         }
+        Helpers.logDebug(preProcessResult);
     }
 }
 
@@ -2616,7 +2631,9 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 
     if (xhr) {
         try {
-            if (!MP.identityCallInFlight) {
+            if (MP.identityCallInFlight) {
+                callback({httpCode: -2, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
+            } else {
                 previousMPID = (!MP.isFirstRun && MP.mpid) ? MP.mpid : null;
                 if (method === 'modify') {
                     xhr.open('post', Constants.identityUrl + MP.mpid + '/' + method);
@@ -2627,8 +2644,6 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
                 xhr.setRequestHeader('x-mp-key', MP.devToken);
                 MP.identityCallInFlight = true;
                 xhr.send(JSON.stringify(identityApiRequest));
-            } else {
-                callback({httpCode: -2, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
             }
         }
         catch (e) {
@@ -2636,7 +2651,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
             if (callback) {
                 callback({httpCode: -1, body: e});
             }
-            Helpers.logDebug('Error sending identity request to servers with status code . ' + xhr.status + ' - ' + e);
+            Helpers.logDebug('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
         }
     }
 }
@@ -2744,9 +2759,6 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         }
     }
     catch (e) {
-        if (callback) {
-            callback({httpCode: xhr.status, body: identityApiResult});
-        }
         Helpers.logDebug('Error parsing JSON response from Identity server: ' + e);
     }
 }
@@ -2903,9 +2915,23 @@ var Polyfill = require('./polyfill'),
                     MP.initialIdentifyRequest = mParticle.identifyRequest;
                 }
 
-                if (MP.migrate) {
+                // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
+                if (MP.migratingToIDSyncCookies) {
                     identify(MP.initialIdentifyRequest);
-                    MP.migrate = false;
+                    MP.migratingToIDSyncCookies = false;
+                }
+
+                // Call mParticle.identityCallback when identify was not called due to a reload or a sessionId already existing
+                if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && mParticle.Identity.getCurrentUser()) {
+                    mParticle.identityCallback({
+                        httpCode: -3,
+                        body: {
+                            mpid: MP.mpid,
+                            matched_identities: mParticle.Identity.getCurrentUser() ? mParticle.Identity.getCurrentUser().getUserIdentities().userIdentities : {},
+                            context: null,
+                            is_ephemeral: false
+                        }
+                    });
                 }
 
                 Forwarders.initForwarders(MP.initialIdentifyRequest);
@@ -2952,7 +2978,6 @@ var Polyfill = require('./polyfill'),
             MP.appVersion = null;
             MP.currentSessionMPIDs = [],
             MP.eventQueue = [];
-            MP.identityCallback = null;
             MP.context = null;
             MP.userAttributes = {};
             MP.userIdentities = {};
@@ -2971,13 +2996,16 @@ var Polyfill = require('./polyfill'),
             MP.sessionStartDate = null;
             MP.watchPositionId = null;
             MP.readyQueue = [];
-            Helpers.mergeConfig({});
             MP.migrationData = {};
             MP.identityCallInFlight = false;
             MP.initialIdentifyRequest = null;
+            MP.isInitialized = false;
+            MP.identifyCalled = false;
+
+            Helpers.mergeConfig({});
             Persistence.resetPersistence();
 
-            MP.isInitialized = false;
+            mParticle.identityCallback = null;
         },
         ready: function(f) {
             if (MP.isInitialized && typeof f === 'function') {
@@ -3343,7 +3371,7 @@ var Polyfill = require('./polyfill'),
                 Events.logPurchaseEvent(transactionAttributes, product, attrs);
 
                 if (clearCart === true) {
-                    mParticle.Ecommerce.Cart.clear();
+                    mParticle.eCommerce.Cart.clear();
                 }
             },
             /**
@@ -3383,7 +3411,7 @@ var Polyfill = require('./polyfill'),
                 Events.logRefundEvent(transactionAttributes, product, attrs);
 
                 if (clearCart === true) {
-                    mParticle.Ecommerce.Cart.clear();
+                    mParticle.eCommerce.Cart.clear();
                 }
             },
             expandCommerceEvent: function(event) {
@@ -3570,7 +3598,7 @@ var Polyfill = require('./polyfill'),
             if (callback && !Validators.isFunction(callback)) {
                 Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
             } else {
-                MP.identityCallback = window.mParticle.config.identityCallback;
+                mParticle.identityCallback = window.mParticle.config.identityCallback;
             }
         }
 
@@ -3702,7 +3730,7 @@ function finishCookieMigration(cookie, cookieName) {
     ';path=/' + domain;
 
     Persistence.expireCookies(cookieName);
-    MP.migrate = true;
+    MP.migratingToIDSyncCookies = true;
 }
 
 function convertSDKv1CookiesV1ToSDKv2CookiesV4(SDKv1CookiesV1) {
@@ -3867,7 +3895,7 @@ function migrateLocalStorage() {
     if (!currentVersionLSData) {
         v3LSData = window.localStorage.getItem(v3LSName);
         if (v3LSData) {
-            MP.migrate = true;
+            MP.migratingToIDSyncCookies = true;
             v3LSDataStringCopy = v3LSData.slice();
             v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
             // localStorage may contain only products, or the full persistence
@@ -3886,7 +3914,7 @@ function migrateLocalStorage() {
         } else {
             v1LSData = JSON.parse(decodeURIComponent(window.localStorage.getItem(v1LSName)));
             if (v1LSData) {
-                MP.migrate = true;
+                MP.migratingToIDSyncCookies = true;
                 // SDKv2
                 if (v1LSData.globalSettings || v1LSData.currentUserMPID) {
                     v1LSData = JSON.parse(convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(JSON.stringify(v1LSData)));
@@ -3989,13 +4017,13 @@ module.exports = {
     appName: null,
     customFlags: null,
     globalTimer: null,
-    identityCallback: null,
     context: '',
     identityCallInFlight: false,
     initialIdentifyRequest: null,
     Config: {},
-    migrate: false,
-    nonCurrentUserMPIDs: {}
+    nonCurrentUserMPIDs: {},
+    migratingToIDSyncCookies: false,
+    identifyCalled: false
 };
 
 },{}],11:[function(require,module,exports){
@@ -4131,8 +4159,8 @@ function storeDataInMemory(obj, currentMPID) {
             MP.isEnabled = (typeof obj.gs.ie !== 'undefined') ? obj.gs.ie : MP.isEnabled;
             MP.sessionAttributes = obj.gs.sa || MP.sessionAttributes;
             MP.serverSettings = obj.gs.ss || MP.serverSettings;
-            MP.devToken = obj.gs.dt || MP.devToken;
-            MP.appVersion = obj.gs.av || MP.appVersion;
+            MP.devToken = MP.devToken || obj.gs.dt;
+            MP.appVersion = MP.appVersion || obj.gs.av;
             MP.clientId = obj.gs.cgid || MP.clientId || Helpers.generateUniqueId();
             MP.deviceId = obj.gs.das || MP.deviceId || Helpers.generateUniqueId();
             MP.context = obj.gs.c || MP.context;
@@ -4160,9 +4188,6 @@ function storeDataInMemory(obj, currentMPID) {
             if (obj.csd) {
                 MP.cookieSyncDates = obj.csd;
             }
-        }
-        if (MP.isEnabled !== false || MP.isEnabled !== true) {
-            MP.isEnabled = true;
         }
     }
     catch (e) {
@@ -4241,6 +4266,8 @@ function setLocalStorage() {
         if (MP.sessionId) {
             localStorageData.gs.csm = MP.currentSessionMPIDs;
         }
+
+        localStorageData.gs.ie = MP.isEnabled;
 
         if (MP.mpid) {
             localStorageData[MP.mpid] = currentMPIDData;
@@ -5311,6 +5338,7 @@ function startNewSession() {
 
     if (Helpers.canLog()) {
         identify(MP.initialIdentifyRequest);
+        MP.identifyCalled = true;
         MP.sessionId = Helpers.generateUniqueId();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];
