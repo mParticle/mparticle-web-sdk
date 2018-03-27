@@ -327,6 +327,8 @@ describe('identity', function() {
     });
 
     it('should not make a request when an invalid request is sent to login', function(done) {
+        server.requests = [];
+
         var identityAPIRequest1 = {
             userIdentities: 'badUserIdentitiesString'
         };
@@ -371,6 +373,7 @@ describe('identity', function() {
     });
 
     it('should not make a request when an invalid request is sent to logout', function(done) {
+        server.requests = [];
         var identityAPIRequest1 = {
             userIdentities: 'badUserIdentitiesString'
         };
@@ -415,6 +418,7 @@ describe('identity', function() {
     });
 
     it('should not make a request when an invalid request is sent to modify', function(done) {
+        server.requests = [];
         var identityAPIRequest1 = {
             userIdentities: 'badUserIdentitiesString'
         };
@@ -452,6 +456,50 @@ describe('identity', function() {
         };
         mParticle.Identity.modify(identityAPIRequest5);
         var badData5 = getIdentityEvent('modify');
+        Should(badData5).not.be.ok();
+
+        done();
+    });
+
+    it('should not make a request when an invalid request is sent to identify', function(done) {
+        server.requests = [];
+        var identityAPIRequest1 = {
+            userIdentities: 'badUserIdentitiesString'
+        };
+        mParticle.Identity.identify(identityAPIRequest1);
+
+        var badData1 = getIdentityEvent('identify');
+        Should(badData1).not.be.ok();
+
+        var identityAPIRequest2 = {
+            userIdentities: ['bad', 'user', 'identities', 'array']
+        };
+        mParticle.Identity.identify(identityAPIRequest2);
+
+        var badData2 = getIdentityEvent('identify');
+        Should(badData2).not.be.ok();
+
+        var identityAPIRequest3 = {
+            userIdentities: null
+        };
+        mParticle.Identity.identify(identityAPIRequest3);
+
+        var badData3 = getIdentityEvent('identify');
+        Should(badData3).not.be.ok();
+
+        var identityAPIRequest4 = {
+            userIdentities: undefined
+        };
+        mParticle.Identity.identify(identityAPIRequest4);
+
+        var badData4 = getIdentityEvent('identify');
+        Should(badData4).not.be.ok();
+
+        var identityAPIRequest5 = {
+            userIdentities: true
+        };
+        mParticle.Identity.identify(identityAPIRequest5);
+        var badData5 = getIdentityEvent('identify');
         Should(badData5).not.be.ok();
 
         done();
@@ -682,6 +730,9 @@ describe('identity', function() {
         var badCallback = 'string';
         server.requests = [];
         mParticle.Identity.login(identityRequest, badCallback);
+        mParticle.Identity.logout(identityRequest, badCallback);
+        mParticle.Identity.modify(identityRequest, badCallback);
+        mParticle.Identity.identify(identityRequest, badCallback);
 
         server.requests.length.should.equal(0);
 
@@ -1045,6 +1096,37 @@ describe('identity', function() {
         mParticle.Identity.login(validUserIdentitiesNull);
 
         server.requests.length.should.equal(2);
+
+        server.requests = [];
+        mParticle.Identity.logout(badUserIdentitiesArray);
+        mParticle.Identity.logout(badUserIdentitiesObject);
+        mParticle.Identity.logout(badUserIdentitiesBoolean);
+        mParticle.Identity.logout(badUserIdentitiesUndefined);
+        mParticle.Identity.logout(validUserIdentitiesString);
+        mParticle.Identity.logout(validUserIdentitiesNull);
+
+        server.requests.length.should.equal(2);
+
+        server.requests = [];
+        mParticle.Identity.identify(badUserIdentitiesArray);
+        mParticle.Identity.identify(badUserIdentitiesObject);
+        mParticle.Identity.identify(badUserIdentitiesBoolean);
+        mParticle.Identity.identify(badUserIdentitiesUndefined);
+        mParticle.Identity.identify(validUserIdentitiesString);
+        mParticle.Identity.identify(validUserIdentitiesNull);
+
+        server.requests.length.should.equal(2);
+
+        server.requests = [];
+        mParticle.Identity.modify(badUserIdentitiesArray);
+        mParticle.Identity.modify(badUserIdentitiesObject);
+        mParticle.Identity.modify(badUserIdentitiesBoolean);
+        mParticle.Identity.modify(badUserIdentitiesUndefined);
+        mParticle.Identity.modify(validUserIdentitiesString);
+        mParticle.Identity.modify(validUserIdentitiesNull);
+
+        server.requests.length.should.equal(2);
+
         done();
     });
 

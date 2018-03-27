@@ -1,7 +1,7 @@
 var Helpers = require('./helpers'),
     Messages = require('./constants').Messages,
     Types = require('./types'),
-    identify = require('./identity').identify,
+    IdentityAPI = require('./identity').IdentityAPI,
     Persistence = require('./persistence'),
     MP = require('./mp'),
     logEvent = require('./events').logEvent;
@@ -27,7 +27,7 @@ function startNewSession() {
     Helpers.logDebug(Messages.InformationMessages.StartingNewSession);
 
     if (Helpers.canLog()) {
-        identify(MP.initialIdentifyRequest);
+        IdentityAPI.identify(MP.initialIdentifyRequest, MP.identityCallback);
         MP.sessionId = Helpers.generateUniqueId();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];

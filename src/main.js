@@ -31,7 +31,6 @@ var Polyfill = require('./polyfill'),
     Validators = Helpers.Validators,
     Migrations = require('./migrations'),
     Forwarders = require('./forwarders'),
-    identify = require('./identity').identify,
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
     IdentityAPI = require('./identity').IdentityAPI,
@@ -125,7 +124,7 @@ var Polyfill = require('./polyfill'),
                 }
 
                 if (MP.migrate) {
-                    identify(MP.initialIdentifyRequest);
+                    IdentityAPI.identify(MP.initialIdentifyRequest);
                     MP.migrate = false;
                 }
 

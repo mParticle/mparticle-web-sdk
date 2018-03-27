@@ -399,10 +399,6 @@ var Validators = {
                         valid: false,
                         error: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again.'
                     };
-                } else {
-                    return {
-                        valid: true
-                    };
                 }
             }
             for (var key in identityApiData) {

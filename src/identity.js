@@ -160,6 +160,34 @@ var IdentityRequest = {
 var IdentityAPI = {
     /**
     * Initiate a logout request to the mParticle server
+    * @method identify
+    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+    * @param {Function} [callback] A callback function that is called when the identify request completes
+    */
+    identify: function(identityApiData, callback) {
+        var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'identify');
+
+        if (preProcessResult.valid) {
+            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
+
+            if (Helpers.canLog()) {
+                if (!Helpers.shouldUseNativeSdk()) {
+                    sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData);
+                }
+            }
+            else {
+                Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+            }
+        } else {
+            if (Validators.isFunction(callback)) {
+                callback(preProcessResult);
+            } else {
+                Helpers.logDebug(preProcessResult);
+            }
+        }
+    },
+    /**
+    * Initiate a logout request to the mParticle server
     * @method logout
     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
     * @param {Function} [callback] A callback function that is called when the logout request completes
@@ -693,26 +721,6 @@ function mParticleUserCart(mpid){
     };
 }
 
-function identify(identityApiData) {
-    var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, MP.identityCallback, 'identify');
-    if (preProcessResult.valid) {
-        var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
-
-        if (Helpers.canLog()) {
-            if (!Helpers.shouldUseNativeSdk()) {
-                sendIdentityRequest(identityApiRequest, 'identify', MP.identityCallback, identityApiData);
-            }
-        }
-        else {
-            Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
-        }
-    } else {
-        if (MP.identityCallback) {
-            MP.identityCallback(preProcessResult);
-        }
-    }
-}
-
 function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData) {
     var xhr, previousMPID,
         xhrCallback = function() {
@@ -887,7 +895,6 @@ function checkCookieForMPID(currentMPID) {
 }
 
 module.exports = {
-    identify: identify,
     IdentityAPI: IdentityAPI,
     Identity: Identity,
     IdentityRequest: IdentityRequest,
