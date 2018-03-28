@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.2.6',
+    sdkVersion = '2.3.0',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1796,10 +1796,6 @@ var Validators = {
                         valid: false,
                         error: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again.'
                     };
-                } else {
-                    return {
-                        valid: true
-                    };
                 }
             }
             for (var key in identityApiData) {
@@ -2040,6 +2036,34 @@ var IdentityRequest = {
 * @class mParticle.Identity
 */
 var IdentityAPI = {
+    /**
+    * Initiate a logout request to the mParticle server
+    * @method identify
+    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+    * @param {Function} [callback] A callback function that is called when the identify request completes
+    */
+    identify: function(identityApiData, callback) {
+        var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'identify');
+
+        if (preProcessResult.valid) {
+            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
+
+            if (Helpers.canLog()) {
+                if (!Helpers.shouldUseNativeSdk()) {
+                    sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData);
+                }
+            }
+            else {
+                Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+            }
+        } else {
+            if (Validators.isFunction(callback)) {
+                callback(preProcessResult);
+            } else {
+                Helpers.logDebug(preProcessResult);
+            }
+        }
+    },
     /**
     * Initiate a logout request to the mParticle server
     * @method logout
@@ -2575,26 +2599,6 @@ function mParticleUserCart(mpid){
     };
 }
 
-function identify(identityApiData) {
-    var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, MP.identityCallback, 'identify');
-    if (preProcessResult.valid) {
-        var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
-
-        if (Helpers.canLog()) {
-            if (!Helpers.shouldUseNativeSdk()) {
-                sendIdentityRequest(identityApiRequest, 'identify', MP.identityCallback, identityApiData);
-            }
-        }
-        else {
-            Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
-        }
-    } else {
-        if (MP.identityCallback) {
-            MP.identityCallback(preProcessResult);
-        }
-    }
-}
-
 function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData) {
     var xhr, previousMPID,
         xhrCallback = function() {
@@ -2769,7 +2773,6 @@ function checkCookieForMPID(currentMPID) {
 }
 
 module.exports = {
-    identify: identify,
     IdentityAPI: IdentityAPI,
     Identity: Identity,
     IdentityRequest: IdentityRequest,
@@ -2810,7 +2813,6 @@ var Polyfill = require('./polyfill'),
     Validators = Helpers.Validators,
     Migrations = require('./migrations'),
     Forwarders = require('./forwarders'),
-    identify = require('./identity').identify,
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
     IdentityAPI = require('./identity').IdentityAPI,
@@ -2904,7 +2906,7 @@ var Polyfill = require('./polyfill'),
                 }
 
                 if (MP.migrate) {
-                    identify(MP.initialIdentifyRequest);
+                    IdentityAPI.identify(MP.initialIdentifyRequest);
                     MP.migrate = false;
                 }
 
@@ -3343,7 +3345,7 @@ var Polyfill = require('./polyfill'),
                 Events.logPurchaseEvent(transactionAttributes, product, attrs);
 
                 if (clearCart === true) {
-                    mParticle.Ecommerce.Cart.clear();
+                    mParticle.eCommerce.Cart.clear();
                 }
             },
             /**
@@ -3383,7 +3385,7 @@ var Polyfill = require('./polyfill'),
                 Events.logRefundEvent(transactionAttributes, product, attrs);
 
                 if (clearCart === true) {
-                    mParticle.Ecommerce.Cart.clear();
+                    mParticle.eCommerce.Cart.clear();
                 }
             },
             expandCommerceEvent: function(event) {
@@ -4131,8 +4133,8 @@ function storeDataInMemory(obj, currentMPID) {
             MP.isEnabled = (typeof obj.gs.ie !== 'undefined') ? obj.gs.ie : MP.isEnabled;
             MP.sessionAttributes = obj.gs.sa || MP.sessionAttributes;
             MP.serverSettings = obj.gs.ss || MP.serverSettings;
-            MP.devToken = obj.gs.dt || MP.devToken;
-            MP.appVersion = obj.gs.av || MP.appVersion;
+            MP.devToken = MP.devToken || obj.gs.dt;
+            MP.appVersion = MP.appVersion || obj.gs.av;
             MP.clientId = obj.gs.cgid || MP.clientId || Helpers.generateUniqueId();
             MP.deviceId = obj.gs.das || MP.deviceId || Helpers.generateUniqueId();
             MP.context = obj.gs.c || MP.context;
@@ -4160,9 +4162,6 @@ function storeDataInMemory(obj, currentMPID) {
             if (obj.csd) {
                 MP.cookieSyncDates = obj.csd;
             }
-        }
-        if (MP.isEnabled !== false || MP.isEnabled !== true) {
-            MP.isEnabled = true;
         }
     }
     catch (e) {
@@ -4241,6 +4240,8 @@ function setLocalStorage() {
         if (MP.sessionId) {
             localStorageData.gs.csm = MP.currentSessionMPIDs;
         }
+
+        localStorageData.gs.ie = MP.isEnabled;
 
         if (MP.mpid) {
             localStorageData[MP.mpid] = currentMPIDData;
@@ -5284,7 +5285,7 @@ module.exports = {
 var Helpers = require('./helpers'),
     Messages = require('./constants').Messages,
     Types = require('./types'),
-    identify = require('./identity').identify,
+    IdentityAPI = require('./identity').IdentityAPI,
     Persistence = require('./persistence'),
     MP = require('./mp'),
     logEvent = require('./events').logEvent;
@@ -5310,7 +5311,7 @@ function startNewSession() {
     Helpers.logDebug(Messages.InformationMessages.StartingNewSession);
 
     if (Helpers.canLog()) {
-        identify(MP.initialIdentifyRequest);
+        IdentityAPI.identify(MP.initialIdentifyRequest, MP.identityCallback);
         MP.sessionId = Helpers.generateUniqueId();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];
