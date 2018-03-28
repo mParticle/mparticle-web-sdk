@@ -1,6 +1,11 @@
 ## Releases
 --
 
+#### 2.3.0 - 2017-03-28
+*  Bugfix - Prioritize client entered config over persistence
+*  Bugfix - Correct capitalization of clearing eCommerce carts
+*  Add Identify to public API
+
 #### 2.2.6 - 2017-03-07
 *  Add forceHttps as a config option
 *  Fix linting
