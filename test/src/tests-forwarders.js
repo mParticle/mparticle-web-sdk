@@ -587,8 +587,8 @@ describe('forwarders', function() {
             HasDebugString: 'false',
             isVisible: true,
             filteringEventAttributeValue: {
-                eventAttributeName: mParticle.generateHash('ForwardingRule'),
-                eventAttributeValue: mParticle.generateHash('Forward'),
+                eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
+                eventAttributeValue: mParticle.generateHash('Forward').toString(),
                 includeOnMatch: false
             }
         });
@@ -606,7 +606,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should forward event if attribute forwarding rule is set', function(done) {
+    it('should forward event if event attribute forwarding rule is set and includeOnMatch is true', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -626,8 +626,8 @@ describe('forwarders', function() {
             HasDebugString: 'false',
             isVisible: true,
             filteringEventAttributeValue: {
-                eventAttributeName: mParticle.generateHash('ForwardingRule'),
-                eventAttributeValue: mParticle.generateHash('Forward'),
+                eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
+                eventAttributeValue: mParticle.generateHash('Forward').toString(),
                 includeOnMatch: true
             }
         });
@@ -645,7 +645,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should not forward event if attribute forwarding true rule is set', function(done) {
+    it('should forward event if event attribute forwarding rule is set and includeOnMatch is true but attributes do not match', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -665,8 +665,8 @@ describe('forwarders', function() {
             HasDebugString: 'false',
             isVisible: true,
             filteringEventAttributeValue: {
-                eventAttributeName: mParticle.generateHash('ForwardingRule'),
-                eventAttributeValue: mParticle.generateHash('Forward'),
+                eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
+                eventAttributeValue: mParticle.generateHash('Forward').toString(),
                 includeOnMatch: true
             }
         });
@@ -684,14 +684,98 @@ describe('forwarders', function() {
         done();
     });
 
+    it('should not forward event if event attribute forwarding rule is set and includeOnMatch is false', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true,
+            filteringEventAttributeValue: {
+                eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
+                eventAttributeValue: mParticle.generateHash('Forward').toString(),
+                includeOnMatch: false
+            }
+        });
+
+        mParticle.init(apiKey);
+
+        mockForwarder.instance.receivedEvent.EventName.should.equal(1);
+        mockForwarder.instance.receivedEvent = null;
+
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            ForwardingRule: 'Forward'
+        });
+
+        var event = mockForwarder.instance.receivedEvent;
+
+        Should(event).not.be.ok();
+
+        done();
+    });
+
+    it('should forward event if event attribute forwarding rule is set and includeOnMatch is false but attributes do not match', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true,
+            filteringEventAttributeValue: {
+                eventAttributeName: mParticle.generateHash('ForwardingRule').toString(),
+                eventAttributeValue: mParticle.generateHash('Forward').toString(),
+                includeOnMatch: false
+            }
+        });
+
+        mParticle.init(apiKey);
+
+        mockForwarder.instance.receivedEvent.EventName.should.equal(1);
+        mockForwarder.instance.receivedEvent = null;
+
+        mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            Test: 'does not match'
+        });
+
+        var event = mockForwarder.instance.receivedEvent;
+
+        event.should.have.property('EventName', 'send this event to forwarder');
+
+        done();
+    });
+
     it('should send event to forwarder if filtering attribute and includingOnMatch is true', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
         var filteringUserAttributeValue = {
-            userAttributeName: mParticle.generateHash('gender'),
-            userAttributeValue: mParticle.generateHash('male'),
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
             includeOnMatch: true
         };
 
@@ -736,8 +820,8 @@ describe('forwarders', function() {
 
         mParticle.addForwarder(mockForwarder);
         var filteringUserAttributeValue = {
-            userAttributeName: mParticle.generateHash('gender'),
-            userAttributeValue: mParticle.generateHash('male'),
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
             includeOnMatch: false
         };
 
@@ -781,8 +865,8 @@ describe('forwarders', function() {
 
         mParticle.addForwarder(mockForwarder);
         var filteringUserAttributeValue = {
-            userAttributeName: mParticle.generateHash('gender'),
-            userAttributeValue: mParticle.generateHash('male'),
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
             includeOnMatch: false
         };
 
@@ -823,8 +907,8 @@ describe('forwarders', function() {
 
         mParticle.addForwarder(mockForwarder);
         var filteringUserAttributeValue = {
-            userAttributeName: mParticle.generateHash('gender'),
-            userAttributeValue: mParticle.generateHash('male'),
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
             includeOnMatch: true
         };
 
@@ -864,8 +948,8 @@ describe('forwarders', function() {
 
         mParticle.addForwarder(mockForwarder);
         var filteringUserAttributeValue = {
-            userAttributeName: mParticle.generateHash('gender'),
-            userAttributeValue: mParticle.generateHash('male'),
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
             includeOnMatch: false
         };
 
@@ -906,8 +990,8 @@ describe('forwarders', function() {
 
         mParticle.addForwarder(mockForwarder);
         var filteringUserAttributeValue = {
-            userAttributeName: mParticle.generateHash('gender'),
-            userAttributeValue: mParticle.generateHash('male'),
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
             includeOnMatch: true
         };
 

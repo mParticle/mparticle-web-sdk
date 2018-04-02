@@ -10,7 +10,6 @@ var Types = require('./types'),
 
 function logEvent(type, name, data, category, cflags) {
     Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
-    Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
 
     if (Helpers.canLog()) {
         startNewSessionIfNeeded();
