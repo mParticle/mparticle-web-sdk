@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.3.1 - 2017-04-02
+*  Bugfix - Compare strings when filtering event/user attribute values
+
 #### 2.3.0 - 2017-03-28
 *  Bugfix - Prioritize client entered config over persistence
 *  Bugfix - Correct capitalization of clearing eCommerce carts
