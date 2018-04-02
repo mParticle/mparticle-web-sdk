@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.3.0',
+    sdkVersion = '2.3.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -655,7 +655,6 @@ var Types = require('./types'),
 
 function logEvent(type, name, data, category, cflags) {
     Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
-    Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
 
     if (Helpers.canLog()) {
         startNewSessionIfNeeded();
@@ -1142,8 +1141,8 @@ function applyToForwarders(functionName, functionArgs) {
 
 function sendEventToForwarders(event) {
     var clonedEvent,
-        hashedName,
-        hashedType,
+        hashedEventName,
+        hashedEventType,
         filterUserAttributes = function(event, filterList) {
             var hash;
 
@@ -1169,8 +1168,8 @@ function sendEventToForwarders(event) {
                     if (filterObject && Helpers.isObject(filterObject) && Object.keys(filterObject).length) {
                         for (var attrName in event.UserAttributes) {
                             if (event.UserAttributes.hasOwnProperty(attrName)) {
-                                attrHash = Helpers.generateHash(attrName);
-                                valueHash = Helpers.generateHash(event.UserAttributes[attrName]);
+                                attrHash = Helpers.generateHash(attrName).toString();
+                                valueHash = Helpers.generateHash(event.UserAttributes[attrName]).toString();
 
                                 if ((attrHash === filterObject.userAttributeName) && (valueHash === filterObject.userAttributeValue)) {
                                     match = true;
@@ -1246,8 +1245,8 @@ function sendEventToForwarders(event) {
         ];
 
     if (!Helpers.shouldUseNativeSdk() && MP.forwarders) {
-        hashedName = Helpers.generateHash(event.EventCategory + event.EventName);
-        hashedType = Helpers.generateHash(event.EventCategory);
+        hashedEventName = Helpers.generateHash(event.EventCategory + event.EventName);
+        hashedEventType = Helpers.generateHash(event.EventCategory);
 
         for (var i = 0; i < MP.forwarders.length; i++) {
             // Check attribute forwarding rule. This rule allows users to only forward an event if a
@@ -1266,12 +1265,13 @@ function sendEventToForwarders(event) {
                 // Attempt to find the attribute in the collection of event attributes
                 if (event.EventAttributes) {
                     for (var prop in event.EventAttributes) {
-                        hashedName = Helpers.generateHash(prop);
+                        var hashedEventAttributeName;
+                        hashedEventAttributeName = Helpers.generateHash(prop).toString();
 
-                        if (hashedName === MP.forwarders[i].filteringEventAttributeValue.eventAttributeName) {
+                        if (hashedEventAttributeName === MP.forwarders[i].filteringEventAttributeValue.eventAttributeName) {
                             foundProp = {
-                                name: hashedName,
-                                value: Helpers.generateHash(event.EventAttributes[prop])
+                                name: hashedEventAttributeName,
+                                value: Helpers.generateHash(event.EventAttributes[prop]).toString()
                             };
                         }
 
@@ -1293,14 +1293,14 @@ function sendEventToForwarders(event) {
             clonedEvent = Helpers.extend(true, clonedEvent, event);
             // Check event filtering rules
             if (event.EventDataType === Types.MessageType.PageEvent
-                && (inFilteredList(MP.forwarders[i].eventNameFilters, hashedName)
-                    || inFilteredList(MP.forwarders[i].eventTypeFilters, hashedType))) {
+                && (inFilteredList(MP.forwarders[i].eventNameFilters, hashedEventName)
+                    || inFilteredList(MP.forwarders[i].eventTypeFilters, hashedEventType))) {
                 continue;
             }
-            else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(MP.forwarders[i].eventTypeFilters, hashedType)) {
+            else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(MP.forwarders[i].eventTypeFilters, hashedEventType)) {
                 continue;
             }
-            else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(MP.forwarders[i].screenNameFilters, hashedName)) {
+            else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(MP.forwarders[i].screenNameFilters, hashedEventName)) {
                 continue;
             }
 
