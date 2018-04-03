@@ -45,12 +45,13 @@ function initForwarders(identifyRequest) {
 
         MP.forwarders.forEach(function(forwarder) {
             var filteredUserIdentities = Helpers.filterUserIdentities(identifyRequest.userIdentities, forwarder.userIdentityFilters);
+            var filteredUserAttributes = Helpers.filterUserAttributes(MP.userAttributes, forwarder.userAttributeFilters);
 
             forwarder.init(forwarder.settings,
                 sendForwardingStats,
                 false,
                 null,
-                MP.userAttributes,
+                filteredUserAttributes,
                 filteredUserIdentities,
                 MP.appVersion,
                 MP.appName,
@@ -84,21 +85,6 @@ function sendEventToForwarders(event) {
     var clonedEvent,
         hashedEventName,
         hashedEventType,
-        filterUserAttributes = function(event, filterList) {
-            var hash;
-
-            if (event.UserAttributes) {
-                for (var attrName in event.UserAttributes) {
-                    if (event.UserAttributes.hasOwnProperty(attrName)) {
-                        hash = Helpers.generateHash(attrName);
-
-                        if (Helpers.inArray(filterList, hash)) {
-                            delete event.UserAttributes[attrName];
-                        }
-                    }
-                }
-            }
-        },
         filterUserAttributeValues = function(event, filterObject) {
             var attrHash,
                 valueHash,
@@ -259,7 +245,7 @@ function sendEventToForwarders(event) {
             filterUserIdentities(clonedEvent, MP.forwarders[i].userIdentityFilters);
 
             // Check user attribute filtering rules
-            filterUserAttributes(clonedEvent, MP.forwarders[i].userAttributeFilters);
+            clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, MP.forwarders[i].userAttributeFilters);
 
             // Check user attribute value filtering rules
             if (MP.forwarders[i].filteringUserAttributeValue && Object.keys(MP.forwarders[i].filteringUserAttributeValue).length) {

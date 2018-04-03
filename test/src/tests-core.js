@@ -262,6 +262,8 @@ var server = new MockHttpServer(),
 
                 self.trackerId = id;
                 self.userAttributes = userAttributes;
+                mParticle.userAttributesFilterOnInitTest = userAttributes;
+                mParticle.userIdentitiesFilterOnInitTest = userIdentities;
                 self.userIdentities = userIdentities;
                 self.appVersion = appVersion;
                 self.appName = appName;

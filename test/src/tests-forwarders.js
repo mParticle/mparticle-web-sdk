@@ -5,7 +5,8 @@ var TestsCore = require('./tests-core'),
     v1CookieKey = TestsCore.v1CookieKey,
     testMPID = TestsCore.testMPID,
     MessageType = TestsCore.MessageType,
-    MockForwarder = TestsCore.MockForwarder;
+    MockForwarder = TestsCore.MockForwarder,
+    Helpers = require('../../src/helpers');
 
 describe('forwarders', function() {
     it('should invoke forwarder setIdentity on initialized forwarders (debug = false)', function(done) {
@@ -262,7 +263,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should filter user attributes from forwarder', function(done) {
+    it('should filter user attributes from forwarder on log event', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
 
@@ -295,7 +296,43 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should filter user identities from forwarder and bring customerid as first ID', function(done) {
+    it('should filter user identities from forwarder on init and bring customerid as first ID', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        mParticle.init(apiKey);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [mParticle.IdentityType.Google],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        });
+
+        mParticle.Identity.modify({userIdentities: {google: 'test@google.com', email: 'test@gmail.com', customerid: '123'}});
+        mParticle.init(apiKey);
+
+        mParticle.userIdentitiesFilterOnInitTest.length.should.equal(2);
+        mParticle.userIdentitiesFilterOnInitTest[0].Type.should.equal(1);
+        mParticle.userIdentitiesFilterOnInitTest[0].Identity.should.equal('123');
+        mParticle.userIdentitiesFilterOnInitTest[1].Type.should.equal(7);
+        mParticle.userIdentitiesFilterOnInitTest[1].Identity.should.equal('test@gmail.com');
+        Should(mParticle.userIdentitiesFilterOnInitTest[2]).not.be.ok();
+
+        done();
+    });
+
+    it('should filter user identities from forwarder on log event and bring customerid as first ID', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -331,6 +368,41 @@ describe('forwarders', function() {
         Should(googleUserIdentityExits).not.be.ok();
 
         event.UserIdentities[0].Type.should.equal(mParticle.IdentityType.CustomerId);
+
+        done();
+    });
+
+    it('should filter user attributes from forwarder on init', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            pageViewFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [Helpers.generateHash('gender'), Helpers.generateHash('age')],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        });
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 32);
+        mParticle.Identity.getCurrentUser().setUserAttribute('weight', 150);
+
+        mParticle.init(apiKey);
+
+        mParticle.userAttributesFilterOnInitTest.should.have.property('weight', 150);
+        mParticle.userAttributesFilterOnInitTest.should.not.have.property('gender');
+        mParticle.userAttributesFilterOnInitTest.should.not.have.property('age');
 
         done();
     });

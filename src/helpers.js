@@ -256,6 +256,23 @@ function filterUserIdentities(userIdentitiesObject, filterList) {
     return filteredUserIdentities;
 }
 
+function filterUserAttributes(userAttributes, filterList) {
+    var filteredUserAttributes = {};
+
+    if (userAttributes && Object.keys(userAttributes).length) {
+        for (var userAttribute in userAttributes) {
+            if (userAttributes.hasOwnProperty(userAttribute)) {
+                var hashedUserAttribute = generateHash(userAttribute);
+                if (!inArray(filterList, hashedUserAttribute)) {
+                    filteredUserAttributes[userAttribute] = userAttributes[userAttribute];
+                }
+            }
+        }
+    }
+
+    return filteredUserAttributes;
+}
+
 function findKeyInObject(obj, key) {
     if (key && obj) {
         for (var prop in obj) {
@@ -466,6 +483,7 @@ module.exports = {
     createXHR: createXHR,
     generateUniqueId: generateUniqueId,
     filterUserIdentities: filterUserIdentities,
+    filterUserAttributes: filterUserAttributes,
     findKeyInObject: findKeyInObject,
     decoded: decoded,
     converted: converted,
