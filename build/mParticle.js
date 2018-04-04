@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.3.1',
+    sdkVersion = '2.3.2',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1104,12 +1104,13 @@ function initForwarders(identifyRequest) {
 
         MP.forwarders.forEach(function(forwarder) {
             var filteredUserIdentities = Helpers.filterUserIdentities(identifyRequest.userIdentities, forwarder.userIdentityFilters);
+            var filteredUserAttributes = Helpers.filterUserAttributes(MP.userAttributes, forwarder.userAttributeFilters);
 
             forwarder.init(forwarder.settings,
                 sendForwardingStats,
                 false,
                 null,
-                MP.userAttributes,
+                filteredUserAttributes,
                 filteredUserIdentities,
                 MP.appVersion,
                 MP.appName,
@@ -1143,21 +1144,6 @@ function sendEventToForwarders(event) {
     var clonedEvent,
         hashedEventName,
         hashedEventType,
-        filterUserAttributes = function(event, filterList) {
-            var hash;
-
-            if (event.UserAttributes) {
-                for (var attrName in event.UserAttributes) {
-                    if (event.UserAttributes.hasOwnProperty(attrName)) {
-                        hash = Helpers.generateHash(attrName);
-
-                        if (Helpers.inArray(filterList, hash)) {
-                            delete event.UserAttributes[attrName];
-                        }
-                    }
-                }
-            }
-        },
         filterUserAttributeValues = function(event, filterObject) {
             var attrHash,
                 valueHash,
@@ -1318,7 +1304,7 @@ function sendEventToForwarders(event) {
             filterUserIdentities(clonedEvent, MP.forwarders[i].userIdentityFilters);
 
             // Check user attribute filtering rules
-            filterUserAttributes(clonedEvent, MP.forwarders[i].userAttributeFilters);
+            clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, MP.forwarders[i].userAttributeFilters);
 
             // Check user attribute value filtering rules
             if (MP.forwarders[i].filteringUserAttributeValue && Object.keys(MP.forwarders[i].filteringUserAttributeValue).length) {
@@ -1653,6 +1639,23 @@ function filterUserIdentities(userIdentitiesObject, filterList) {
     return filteredUserIdentities;
 }
 
+function filterUserAttributes(userAttributes, filterList) {
+    var filteredUserAttributes = {};
+
+    if (userAttributes && Object.keys(userAttributes).length) {
+        for (var userAttribute in userAttributes) {
+            if (userAttributes.hasOwnProperty(userAttribute)) {
+                var hashedUserAttribute = generateHash(userAttribute);
+                if (!inArray(filterList, hashedUserAttribute)) {
+                    filteredUserAttributes[userAttribute] = userAttributes[userAttribute];
+                }
+            }
+        }
+    }
+
+    return filteredUserAttributes;
+}
+
 function findKeyInObject(obj, key) {
     if (key && obj) {
         for (var prop in obj) {
@@ -1863,6 +1866,7 @@ module.exports = {
     createXHR: createXHR,
     generateUniqueId: generateUniqueId,
     filterUserIdentities: filterUserIdentities,
+    filterUserAttributes: filterUserAttributes,
     findKeyInObject: findKeyInObject,
     decoded: decoded,
     converted: converted,
