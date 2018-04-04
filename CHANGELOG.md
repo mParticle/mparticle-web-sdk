@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.3.2 - 2017-04-04
+*  Bugfix - filter user attributes to forwarders on init
+
 #### 2.3.1 - 2017-04-02
 *  Bugfix - Compare strings when filtering event/user attribute values
 
