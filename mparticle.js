@@ -1328,7 +1328,6 @@
             n: event.EventName,
             et: event.EventCategory,
             ua: event.UserAttributes,
-            sa: event.SessionAttributes,
             ui: validUserIdentities,
             str: event.Store,
             attrs: event.EventAttributes,
@@ -1507,7 +1506,6 @@
                 EventName: name || messageType,
                 EventCategory: eventType,
                 UserAttributes: userAttributes,
-                SessionAttributes: sessionAttributes,
                 UserIdentities: userIdentities,
                 Store: serverSettings,
                 EventAttributes: data,
@@ -1527,6 +1525,7 @@
 
             if (messageType === MessageType.SessionEnd) {
                 eventObject.SessionLength = dateLastEventSent.getTime() - sessionStartDate.getTime();
+                eventObject.EventAttributes = sessionAttributes;
             }
 
             eventObject.Timestamp = dateLastEventSent.getTime();
