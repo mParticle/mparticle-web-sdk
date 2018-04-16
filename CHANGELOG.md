@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.15.10 - 2017-04-16
+*  Bugfix - send sessionAttribuets only on sessionEnd events
+
 #### 1.15.9 - 2017-02-28
 *  Update Readme
 *  Add forceHttps as a config option
