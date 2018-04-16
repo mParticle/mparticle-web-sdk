@@ -75,7 +75,6 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             EventName: name || messageType,
             EventCategory: eventType,
             UserAttributes: MP.userAttributes,
-            SessionAttributes: MP.sessionAttributes,
             UserIdentities: MP.userIdentities,
             Store: MP.serverSettings,
             EventAttributes: data,
@@ -96,6 +95,8 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
         if (messageType === Types.MessageType.SessionEnd) {
             eventObject.SessionLength = MP.dateLastEventSent.getTime() - MP.sessionStartDate.getTime();
             eventObject.currentSessionMPIDs = MP.currentSessionMPIDs;
+            eventObject.EventAttributes = MP.sessionAttributes;
+
             MP.currentSessionMPIDs = [];
         }
 
@@ -112,7 +113,6 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
         n: event.EventName,
         et: event.EventCategory,
         ua: event.UserAttributes,
-        sa: event.SessionAttributes,
         ui: event.UserIdentities,
         str: event.Store,
         attrs: event.EventAttributes,

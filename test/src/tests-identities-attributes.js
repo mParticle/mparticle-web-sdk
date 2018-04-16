@@ -3,6 +3,7 @@ var TestsCore = require('./tests-core'),
     getEvent = TestsCore.getEvent,
     getLocalStorage = TestsCore.getLocalStorage,
     testMPID = TestsCore.testMPID,
+    server = TestsCore.server,
     MockForwarder = TestsCore.MockForwarder;
 
 describe('identities and attributes', function() {
@@ -107,8 +108,12 @@ describe('identities and attributes', function() {
 
         var event = getEvent('test event');
 
-        event.should.have.property('sa');
-        event.sa.should.have.property('name', 'test');
+        event.should.not.have.property('sa');
+
+        mParticle.endSession();
+        var sessionEndEvent = getEvent(2);
+
+        sessionEndEvent.attrs.should.have.property('name', 'test');
 
         done();
     });
@@ -117,28 +122,29 @@ describe('identities and attributes', function() {
         mParticle.setSessionAttribute('name', 'test');
         mParticle.setSessionAttribute('Name', 'test1');
 
-        mParticle.logEvent('test event');
+        mParticle.endSession();
 
-        var event = getEvent('test event');
+        var sessionEndEvent = getEvent(2);
 
-        event.should.have.property('sa');
-        event.sa.should.have.property('name', 'test1');
-        event.sa.should.not.have.property('Name');
+        sessionEndEvent.attrs.should.have.property('name', 'test1');
+        sessionEndEvent.attrs.should.not.have.property('Name');
 
         done();
     });
 
     it('should not set a session attribute\'s key as an object or array)', function(done) {
         mParticle.setSessionAttribute({key: 'value'}, 'test');
-        mParticle.logEvent('test event');
-        var event1 = getEvent('test event');
+        mParticle.endSession();
+        var sessionEndEvent1 = getEvent(2);
 
+        mParticle.startNewSession();
+        server.requests = [];
         mParticle.setSessionAttribute(['test'], 'test');
-        mParticle.logEvent('test event2');
-        var event2 = getEvent('test event2');
+        mParticle.endSession();
+        var sessionEndEvent2 = getEvent(2);
 
-        Object.keys(event1.sa).length.should.equal(0);
-        Object.keys(event2.sa).length.should.equal(0);
+        Object.keys(sessionEndEvent1.attrs).length.should.equal(0);
+        Object.keys(sessionEndEvent2.attrs).length.should.equal(0);
 
         done();
     });
@@ -147,12 +153,14 @@ describe('identities and attributes', function() {
         mParticle.startNewSession();
         mParticle.setSessionAttribute('name', 'test');
         mParticle.endSession();
-        mParticle.logEvent('test event');
 
-        var event = getEvent('test event');
+        server.requests = [];
+        mParticle.startNewSession();
+        mParticle.endSession();
 
-        event.should.have.property('sa');
-        event.sa.should.not.have.property('name');
+        var sessionEndEvent = getEvent(2);
+
+        sessionEndEvent.attrs.should.not.have.property('name');
 
         done();
     });
@@ -415,12 +423,11 @@ describe('identities and attributes', function() {
     it('should not set bad session attribute value', function(done) {
         mParticle.setSessionAttribute('name', { bad: 'bad' });
 
-        mParticle.logEvent('test event');
+        mParticle.endSession();
 
-        var event = getEvent('test event');
+        var sessionEndEvent = getEvent(2);
 
-        event.should.have.property('sa');
-        event.sa.should.not.have.property('name');
+        sessionEndEvent.attrs.should.not.have.property('name');
 
         done();
     });

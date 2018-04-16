@@ -97,7 +97,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[0].should.have.property('Type', 1);
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
-        event.sa.should.have.property('sa1', SDKv1CookieV1Parsed.sa.sa1);
         event.cgid.should.equal(SDKv1CookieV1Parsed.cgid);
         event.av.should.equal(SDKv1CookieV1Parsed.av);
         event.sc.pl[0].should.have.property('id', 'SKU1');
@@ -127,7 +126,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
 
-        event.sa.should.have.property('sa1', SDKv1CookieV1Parsed.sa.sa1);
         event.cgid.should.equal(SDKv1CookieV1Parsed.cgid);
         event.av.should.equal(SDKv1CookieV1Parsed.av);
         event.sc.pl[0].should.have.property('id', 'SKU1');
@@ -190,7 +188,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
 
-        event.sa.should.have.property('sa1', SDKv1CookieV2Parsed.sa.sa1);
         event.cgid.should.equal(SDKv1CookieV2Parsed.cgid);
         event.sc.pl[0].should.have.property('id', 'SKU1');
         event.sc.pl[0].should.have.property('nm', 'iPhone');
@@ -220,7 +217,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
 
-        event.sa.should.have.property('sa1', SDKv1CookieV2Parsed.sa.sa1);
         event.cgid.should.equal(SDKv1CookieV2Parsed.cgid);
         event.sc.pl[0].should.have.property('id', 'SKU1');
         event.sc.pl[0].should.have.property('nm', 'iPhone');
@@ -280,7 +276,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
 
-        event.sa.should.have.property('sa1', SDKv1CookieV1Parsed.sa.sa1);
         event.cgid.should.equal(SDKv1CookieV3Parsed.cgid);
         event.av.should.equal(SDKv1CookieV3Parsed.av);
         event.sc.pl[0].should.have.property('id', 'SKU1');
@@ -308,7 +303,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[0].should.have.property('Identity', 'test@email.com');
         event.ui[0].should.have.property('Type', 7);
 
-        event.sa.should.have.property('sa1', JSON.parse(atob(SDKv1CookieV3FullParsed.sa)).sa1);
         event.cgid.should.equal(SDKv1CookieV3FullParsed.cgid);
         event.av.should.equal(SDKv1CookieV3FullParsed.av);
         event.sc.pl[0].should.have.property('id', 'SKU1');
@@ -368,7 +362,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[0].should.have.property('Type', 1);
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
-        event.sa.should.have.property('sa1', JSON.parse(atob(SDKv1CookieV3FullLSApostrophesParsed.sa)).sa1);
         event.cgid.should.equal(SDKv1CookieV3FullLSApostrophesParsed.cgid);
         event.av.should.equal(SDKv1CookieV3FullLSApostrophesParsed.av);
         event.sc.pl[0].should.have.property('id', 'SKU1');
@@ -397,7 +390,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[0].should.have.property('Type', 1);
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
-        event.sa.should.have.property('sa1', JSON.parse(atob(SDKv1CookieV3FullLSApostrophesParsed.sa)).sa1);
         event.cgid.should.equal(SDKv1CookieV3FullLSApostrophesParsed.cgid);
         event.av.should.equal(SDKv1CookieV3FullLSApostrophesParsed.av);
         event.sc.pl[0].should.have.property('id', 'SKU1');
@@ -480,7 +472,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[1].should.have.property('Identity', 'test2@email.com');
         event.ui[1].should.have.property('Type', 7);
 
-        event.sa.should.have.property('sa1', SDKv2CookieV1Parsed.globalSettings.sa.sa1);
         event.cgid.should.equal(SDKv2CookieV1Parsed.globalSettings.cgid);
         event.sc.pl[0].should.have.property('id', 'SKU1');
         event.sc.pl[0].should.have.property('nm', 'iPhone');
@@ -518,7 +509,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[1].should.have.property('Identity', 'test2@email.com');
         event.ui[1].should.have.property('Type', 7);
 
-        event.sa.should.have.property('sa1', SDKv2CookieV1Parsed.globalSettings.sa.sa1);
         event.cgid.should.equal(SDKv2CookieV1Parsed.globalSettings.cgid);
         event.sc.pl[0].should.have.property('id', 'SKU1');
         event.sc.pl[0].should.have.property('nm', 'iPhone');
