@@ -4,7 +4,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.3.2',
+    sdkVersion = '2.3.3',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -48,6 +48,15 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
             AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
             AbandonEndSession: 'Cannot end session, logging disabled or developer token not set',
             NoSessionToEnd: 'Cannot end session, no active session found'
+        },
+        ValidationMessages: {
+            ModifyIdentityRequestUserIdentitiesPresent: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again',
+            IdentityRequesetInvalidKey: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.',
+            OnUserAliasType: 'The onUserAlias value must be a function. The onUserAlias provided is of type',
+            UserIdentities: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.',
+            UserIdentitiesInvalidKey: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
+            UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
+
         }
     },
     NativeSdkPaths = {
@@ -82,7 +91,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         CookieDomain: null, 			            // If null, defaults to current location.host
         Debug: false,					            // If true, will print debug messages to browser console
         CookieExpiration: 365,			            // Cookie expiration time in days
-        Verbose: false,					            // Whether the server will return verbose responses
+        LogLevel: null,					            // What logging will be provided in the console
         IncludeReferrer: true,			            // Include user's referrer
         IncludeGoogleAdwords: true,		            // Include utm_source and utm_properties
         Timeout: 300,					            // Timeout in milliseconds for logging functions
@@ -1389,7 +1398,7 @@ var Types = require('./types'),
     serviceScheme = window.mParticle && window.mParticle.forceHttps ? 'https://' : window.location.protocol + '//';
 
 function logDebug(msg) {
-    if (mParticle.isDevelopmentMode && window.console && window.console.log) {
+    if (MP.Config.LogLevel === 'verbose' && window.console && window.console.log) {
         window.console.log(msg);
     }
 }
@@ -1797,7 +1806,7 @@ var Validators = {
                 if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
                     return {
                         valid: false,
-                        error: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again.'
+                        error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
                     };
                 }
             }
@@ -1806,13 +1815,13 @@ var Validators = {
                     if (!validIdentityRequestKeys[key]) {
                         return {
                             valid: false,
-                            error: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.'
+                            error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
                         };
                     }
                     if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
                         return {
                             valid: false,
-                            error: 'The onUserAlias value must be a function. The onUserAlias provided is of type ' + typeof identityApiData[key]
+                            error: Constants.Messages.ValidationMessages.OnUserAliasType + typeof identityApiData[key]
                         };
                     }
                 }
@@ -1822,10 +1831,17 @@ var Validators = {
                     valid: true
                 };
             } else {
-                if (!isObject(identityApiData.userIdentities)) {
+                // identityApiData.userIdentities can't be undefined
+                if (identityApiData.userIdentities === undefined) {
                     return {
                         valid: false,
-                        error: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.'
+                        error: Constants.Messages.ValidationMessages.UserIdentities
+                    };
+                // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
+                } else if (identityApiData.userIdentities !== null && !isObject(identityApiData.userIdentities)) {
+                    return {
+                        valid: false,
+                        error: Constants.Messages.ValidationMessages.UserIdentities
                     };
                 }
                 if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
@@ -1834,13 +1850,13 @@ var Validators = {
                             if (Types.IdentityType.getIdentityType(identityType) === false) {
                                 return {
                                     valid: false,
-                                    error: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.'
+                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
                                 };
                             }
                             if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
                                 return {
                                     valid: false,
-                                    error: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
+                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
                                 };
                             }
                         }
@@ -1903,6 +1919,15 @@ var Identity = {
     }
 };
 
+var HTTPCodes = {
+    noHttpCoverage: -1,
+    activeIdentityRequest: -2,
+    activeSession: -3,
+    validationIssue: -4,
+    nativeIdentityRequest: -5,
+    loggingDisabledOrMissingAPIKey: -6
+};
+
 var IdentityRequest = {
     createKnownIdentities: function(identityApiData, deviceId) {
         var identitiesResult = {};
@@ -1931,10 +1956,11 @@ var IdentityRequest = {
         }
 
         if (callback && !Validators.isFunction(callback)) {
-            Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof fn);
+            var error = 'The optional callback must be a function. You tried entering a(n) ' + typeof callback;
+            Helpers.logDebug(error);
             return {
                 valid: false,
-                error: 'The optional callback must be a function. You tried entering a(n) ' + typeof fn
+                error: error
             };
         }
 
@@ -2053,19 +2079,20 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (!Helpers.shouldUseNativeSdk()) {
+                if (Helpers.shouldUseNativeSdk()) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Identify request sent to native sdk');
+                } else {
                     sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData);
                 }
             }
             else {
+                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
-            }
+            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -2084,6 +2111,7 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData);
                     evt = ServerModel.createEventObject(Types.MessageType.Profile);
@@ -2098,14 +2126,12 @@ var IdentityAPI = {
                 }
             }
             else {
+                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
-            }
+            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -2123,19 +2149,18 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Login request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData);
                 }
             }
             else {
+                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
-            }
+            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -2153,19 +2178,18 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Modify request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData);
                 }
             }
             else {
+                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
-            }
+            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -2624,7 +2648,9 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 
     if (xhr) {
         try {
-            if (!MP.identityCallInFlight) {
+            if (MP.identityCallInFlight) {
+                callback({httpCode: HTTPCodes.activeIdentityRequest, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
+            } else {
                 previousMPID = (!MP.isFirstRun && MP.mpid) ? MP.mpid : null;
                 if (method === 'modify') {
                     xhr.open('post', Constants.identityUrl + MP.mpid + '/' + method);
@@ -2635,16 +2661,12 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
                 xhr.setRequestHeader('x-mp-key', MP.devToken);
                 MP.identityCallInFlight = true;
                 xhr.send(JSON.stringify(identityApiRequest));
-            } else {
-                callback({httpCode: -2, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
             }
         }
         catch (e) {
             MP.identityCallInFlight = false;
-            if (callback) {
-                callback({httpCode: -1, body: e});
-            }
-            Helpers.logDebug('Error sending identity request to servers with status code . ' + xhr.status + ' - ' + e);
+            invokeCallback(callback, HTTPCodes.noHttpCoverage, e);
+            Helpers.logDebug('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
         }
     }
 }
@@ -2744,7 +2766,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         }
 
         if (callback) {
-            callback({httpCode: xhr.status, body: identityApiResult || null});
+            invokeCallback(callback, xhr.status, identityApiResult || null);
         } else {
             if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
                 Helpers.logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
@@ -2753,9 +2775,22 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
     }
     catch (e) {
         if (callback) {
-            callback({httpCode: xhr.status, body: identityApiResult});
+            invokeCallback(callback, xhr.status, identityApiResult || null);
         }
         Helpers.logDebug('Error parsing JSON response from Identity server: ' + e);
+    }
+}
+
+function invokeCallback(callback, code, body) {
+    try {
+        if (Validators.isFunction(callback)) {
+            callback({
+                httpCode: code,
+                body: body
+            });
+        }
+    } catch (e) {
+        Helpers.logDebug('There was an error with your callback: ' + e);
     }
 }
 
@@ -2780,7 +2815,8 @@ module.exports = {
     IdentityAPI: IdentityAPI,
     Identity: Identity,
     IdentityRequest: IdentityRequest,
-    mParticleUserCart: mParticleUserCart
+    mParticleUserCart: mParticleUserCart,
+    HTTPCodes: HTTPCodes
 };
 
 },{"./constants":1,"./cookieSyncManager":2,"./events":4,"./forwarders":5,"./helpers":6,"./mp":10,"./persistence":11,"./serverModel":13,"./types":15}],8:[function(require,module,exports){
@@ -2819,6 +2855,7 @@ var Polyfill = require('./polyfill'),
     Forwarders = require('./forwarders'),
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
+    HTTPCodes = require('./identity').HTTPCodes,
     IdentityAPI = require('./identity').IdentityAPI,
     mParticleUserCart = require('./identity').mParticleUserCart;
 
@@ -2909,9 +2946,23 @@ var Polyfill = require('./polyfill'),
                     MP.initialIdentifyRequest = mParticle.identifyRequest;
                 }
 
-                if (MP.migrate) {
-                    IdentityAPI.identify(MP.initialIdentifyRequest);
-                    MP.migrate = false;
+                // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
+                if (MP.migratingToIDSyncCookies) {
+                    IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identifyRequest);
+                    MP.migratingToIDSyncCookies = false;
+                }
+
+                // Call mParticle.identityCallback when identify was not called due to a reload or a sessionId already existing
+                if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && mParticle.Identity.getCurrentUser()) {
+                    mParticle.identityCallback({
+                        httpCode: HTTPCodes.activeSession,
+                        body: {
+                            mpid: MP.mpid,
+                            matched_identities: mParticle.Identity.getCurrentUser() ? mParticle.Identity.getCurrentUser().getUserIdentities().userIdentities : {},
+                            context: null,
+                            is_ephemeral: false
+                        }
+                    });
                 }
 
                 Forwarders.initForwarders(MP.initialIdentifyRequest);
@@ -2932,7 +2983,7 @@ var Polyfill = require('./polyfill'),
             // Call any functions that are waiting for the library to be initialized
             if (MP.readyQueue && MP.readyQueue.length) {
                 MP.readyQueue.forEach(function(readyQueueItem) {
-                    if (typeof readyQueueItem === 'function') {
+                    if (Validators.isFunction(readyQueueItem)) {
                         readyQueueItem();
                     } else if (Array.isArray(readyQueueItem)) {
                         processPreloadedItem(readyQueueItem);
@@ -2958,7 +3009,6 @@ var Polyfill = require('./polyfill'),
             MP.appVersion = null;
             MP.currentSessionMPIDs = [],
             MP.eventQueue = [];
-            MP.identityCallback = null;
             MP.context = null;
             MP.userAttributes = {};
             MP.userIdentities = {};
@@ -2977,13 +3027,16 @@ var Polyfill = require('./polyfill'),
             MP.sessionStartDate = null;
             MP.watchPositionId = null;
             MP.readyQueue = [];
-            Helpers.mergeConfig({});
             MP.migrationData = {};
             MP.identityCallInFlight = false;
             MP.initialIdentifyRequest = null;
+            MP.isInitialized = false;
+            MP.identifyCalled = false;
+
+            Helpers.mergeConfig({});
             Persistence.resetPersistence();
 
-            MP.isInitialized = false;
+            mParticle.identityCallback = null;
         },
         ready: function(f) {
             if (MP.isInitialized && typeof f === 'function') {
@@ -3573,10 +3626,10 @@ var Polyfill = require('./polyfill'),
 
         if (window.mParticle.config.hasOwnProperty('identityCallback')) {
             var callback = window.mParticle.config.identityCallback;
-            if (callback && !Validators.isFunction(callback)) {
-                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
+            if (Validators.isFunction(callback)) {
+                mParticle.identityCallback = window.mParticle.config.identityCallback;
             } else {
-                MP.identityCallback = window.mParticle.config.identityCallback;
+                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
             }
         }
 
@@ -3708,7 +3761,7 @@ function finishCookieMigration(cookie, cookieName) {
     ';path=/' + domain;
 
     Persistence.expireCookies(cookieName);
-    MP.migrate = true;
+    MP.migratingToIDSyncCookies = true;
 }
 
 function convertSDKv1CookiesV1ToSDKv2CookiesV4(SDKv1CookiesV1) {
@@ -3873,7 +3926,7 @@ function migrateLocalStorage() {
     if (!currentVersionLSData) {
         v3LSData = window.localStorage.getItem(v3LSName);
         if (v3LSData) {
-            MP.migrate = true;
+            MP.migratingToIDSyncCookies = true;
             v3LSDataStringCopy = v3LSData.slice();
             v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
             // localStorage may contain only products, or the full persistence
@@ -3892,7 +3945,7 @@ function migrateLocalStorage() {
         } else {
             v1LSData = JSON.parse(decodeURIComponent(window.localStorage.getItem(v1LSName)));
             if (v1LSData) {
-                MP.migrate = true;
+                MP.migratingToIDSyncCookies = true;
                 // SDKv2
                 if (v1LSData.globalSettings || v1LSData.currentUserMPID) {
                     v1LSData = JSON.parse(convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(JSON.stringify(v1LSData)));
@@ -3995,13 +4048,13 @@ module.exports = {
     appName: null,
     customFlags: null,
     globalTimer: null,
-    identityCallback: null,
     context: '',
     identityCallInFlight: false,
     initialIdentifyRequest: null,
     Config: {},
-    migrate: false,
-    nonCurrentUserMPIDs: {}
+    migratingToIDSyncCookies: false,
+    nonCurrentUserMPIDs: {},
+    identifyCalled: false
 };
 
 },{}],11:[function(require,module,exports){
@@ -5159,7 +5212,6 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             EventName: name || messageType,
             EventCategory: eventType,
             UserAttributes: MP.userAttributes,
-            SessionAttributes: MP.sessionAttributes,
             UserIdentities: MP.userIdentities,
             Store: MP.serverSettings,
             EventAttributes: data,
@@ -5180,6 +5232,8 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
         if (messageType === Types.MessageType.SessionEnd) {
             eventObject.SessionLength = MP.dateLastEventSent.getTime() - MP.sessionStartDate.getTime();
             eventObject.currentSessionMPIDs = MP.currentSessionMPIDs;
+            eventObject.EventAttributes = MP.sessionAttributes;
+
             MP.currentSessionMPIDs = [];
         }
 
@@ -5196,7 +5250,6 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
         n: event.EventName,
         et: event.EventCategory,
         ua: event.UserAttributes,
-        sa: event.SessionAttributes,
         ui: event.UserIdentities,
         str: event.Store,
         attrs: event.EventAttributes,
@@ -5315,7 +5368,8 @@ function startNewSession() {
     Helpers.logDebug(Messages.InformationMessages.StartingNewSession);
 
     if (Helpers.canLog()) {
-        IdentityAPI.identify(MP.initialIdentifyRequest, MP.identityCallback);
+        IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
+        MP.identifyCalled = true;
         MP.sessionId = Helpers.generateUniqueId();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];
