@@ -90,7 +90,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         CookieDomain: null, 			            // If null, defaults to current location.host
         Debug: false,					            // If true, will print debug messages to browser console
         CookieExpiration: 365,			            // Cookie expiration time in days
-        Verbose: false,					            // Whether the server will return verbose responses
+        LogLevel: null,					            // What logging will be provided in the console
         IncludeReferrer: true,			            // Include user's referrer
         IncludeGoogleAdwords: true,		            // Include utm_source and utm_properties
         Timeout: 300,					            // Timeout in milliseconds for logging functions
