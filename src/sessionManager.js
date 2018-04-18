@@ -27,7 +27,8 @@ function startNewSession() {
     Helpers.logDebug(Messages.InformationMessages.StartingNewSession);
 
     if (Helpers.canLog()) {
-        IdentityAPI.identify(MP.initialIdentifyRequest, MP.identityCallback);
+        IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
+        MP.identifyCalled = true;
         MP.sessionId = Helpers.generateUniqueId();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];

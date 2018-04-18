@@ -105,7 +105,7 @@ function finishCookieMigration(cookie, cookieName) {
     ';path=/' + domain;
 
     Persistence.expireCookies(cookieName);
-    MP.migrate = true;
+    MP.migratingToIDSyncCookies = true;
 }
 
 function convertSDKv1CookiesV1ToSDKv2CookiesV4(SDKv1CookiesV1) {
@@ -270,7 +270,7 @@ function migrateLocalStorage() {
     if (!currentVersionLSData) {
         v3LSData = window.localStorage.getItem(v3LSName);
         if (v3LSData) {
-            MP.migrate = true;
+            MP.migratingToIDSyncCookies = true;
             v3LSDataStringCopy = v3LSData.slice();
             v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
             // localStorage may contain only products, or the full persistence
@@ -289,7 +289,7 @@ function migrateLocalStorage() {
         } else {
             v1LSData = JSON.parse(decodeURIComponent(window.localStorage.getItem(v1LSName)));
             if (v1LSData) {
-                MP.migrate = true;
+                MP.migratingToIDSyncCookies = true;
                 // SDKv2
                 if (v1LSData.globalSettings || v1LSData.currentUserMPID) {
                     v1LSData = JSON.parse(convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(JSON.stringify(v1LSData)));

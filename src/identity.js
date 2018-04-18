@@ -21,6 +21,15 @@ var Identity = {
     }
 };
 
+var HTTPCodes = {
+    noHttpCoverage: -1,
+    activeIdentityRequest: -2,
+    activeSession: -3,
+    validationIssue: -4,
+    nativeIdentityRequest: -5,
+    loggingDisabledOrMissingAPIKey: -6
+};
+
 var IdentityRequest = {
     createKnownIdentities: function(identityApiData, deviceId) {
         var identitiesResult = {};
@@ -49,10 +58,11 @@ var IdentityRequest = {
         }
 
         if (callback && !Validators.isFunction(callback)) {
-            Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof fn);
+            var error = 'The optional callback must be a function. You tried entering a(n) ' + typeof callback;
+            Helpers.logDebug(error);
             return {
                 valid: false,
-                error: 'The optional callback must be a function. You tried entering a(n) ' + typeof fn
+                error: error
             };
         }
 
@@ -171,19 +181,20 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (!Helpers.shouldUseNativeSdk()) {
+                if (Helpers.shouldUseNativeSdk()) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Identify request sent to native sdk');
+                } else {
                     sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData);
                 }
             }
             else {
+                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
-            }
+            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -202,6 +213,7 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData);
                     evt = ServerModel.createEventObject(Types.MessageType.Profile);
@@ -216,14 +228,12 @@ var IdentityAPI = {
                 }
             }
             else {
+                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
-            }
+            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -241,19 +251,18 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Login request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData);
                 }
             }
             else {
+                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
-            }
+            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -271,19 +280,18 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Modify request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData);
                 }
             }
             else {
+                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            if (Validators.isFunction(callback)) {
-                callback(preProcessResult);
-            } else {
-                Helpers.logDebug(preProcessResult);
-            }
+            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.logDebug(preProcessResult);
         }
     },
     /**
@@ -742,7 +750,9 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 
     if (xhr) {
         try {
-            if (!MP.identityCallInFlight) {
+            if (MP.identityCallInFlight) {
+                callback({httpCode: HTTPCodes.activeIdentityRequest, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
+            } else {
                 previousMPID = (!MP.isFirstRun && MP.mpid) ? MP.mpid : null;
                 if (method === 'modify') {
                     xhr.open('post', Constants.identityUrl + MP.mpid + '/' + method);
@@ -753,16 +763,12 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
                 xhr.setRequestHeader('x-mp-key', MP.devToken);
                 MP.identityCallInFlight = true;
                 xhr.send(JSON.stringify(identityApiRequest));
-            } else {
-                callback({httpCode: -2, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
             }
         }
         catch (e) {
             MP.identityCallInFlight = false;
-            if (callback) {
-                callback({httpCode: -1, body: e});
-            }
-            Helpers.logDebug('Error sending identity request to servers with status code . ' + xhr.status + ' - ' + e);
+            invokeCallback(callback, HTTPCodes.noHttpCoverage, e);
+            Helpers.logDebug('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
         }
     }
 }
@@ -862,7 +868,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         }
 
         if (callback) {
-            callback({httpCode: xhr.status, body: identityApiResult || null});
+            invokeCallback(callback, xhr.status, identityApiResult || null);
         } else {
             if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
                 Helpers.logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
@@ -871,9 +877,22 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
     }
     catch (e) {
         if (callback) {
-            callback({httpCode: xhr.status, body: identityApiResult});
+            invokeCallback(callback, xhr.status, identityApiResult || null);
         }
         Helpers.logDebug('Error parsing JSON response from Identity server: ' + e);
+    }
+}
+
+function invokeCallback(callback, code, body) {
+    try {
+        if (Validators.isFunction(callback)) {
+            callback({
+                httpCode: code,
+                body: body
+            });
+        }
+    } catch (e) {
+        Helpers.logDebug('There was an error with your callback: ' + e);
     }
 }
 
@@ -898,5 +917,6 @@ module.exports = {
     IdentityAPI: IdentityAPI,
     Identity: Identity,
     IdentityRequest: IdentityRequest,
-    mParticleUserCart: mParticleUserCart
+    mParticleUserCart: mParticleUserCart,
+    HTTPCodes: HTTPCodes
 };

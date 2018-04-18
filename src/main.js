@@ -33,6 +33,7 @@ var Polyfill = require('./polyfill'),
     Forwarders = require('./forwarders'),
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
+    HTTPCodes = require('./identity').HTTPCodes,
     IdentityAPI = require('./identity').IdentityAPI,
     mParticleUserCart = require('./identity').mParticleUserCart;
 
@@ -123,9 +124,23 @@ var Polyfill = require('./polyfill'),
                     MP.initialIdentifyRequest = mParticle.identifyRequest;
                 }
 
-                if (MP.migrate) {
-                    IdentityAPI.identify(MP.initialIdentifyRequest);
-                    MP.migrate = false;
+                // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
+                if (MP.migratingToIDSyncCookies) {
+                    IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identifyRequest);
+                    MP.migratingToIDSyncCookies = false;
+                }
+
+                // Call mParticle.identityCallback when identify was not called due to a reload or a sessionId already existing
+                if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && mParticle.Identity.getCurrentUser()) {
+                    mParticle.identityCallback({
+                        httpCode: HTTPCodes.activeSession,
+                        body: {
+                            mpid: MP.mpid,
+                            matched_identities: mParticle.Identity.getCurrentUser() ? mParticle.Identity.getCurrentUser().getUserIdentities().userIdentities : {},
+                            context: null,
+                            is_ephemeral: false
+                        }
+                    });
                 }
 
                 Forwarders.initForwarders(MP.initialIdentifyRequest);
@@ -146,7 +161,7 @@ var Polyfill = require('./polyfill'),
             // Call any functions that are waiting for the library to be initialized
             if (MP.readyQueue && MP.readyQueue.length) {
                 MP.readyQueue.forEach(function(readyQueueItem) {
-                    if (typeof readyQueueItem === 'function') {
+                    if (Validators.isFunction(readyQueueItem)) {
                         readyQueueItem();
                     } else if (Array.isArray(readyQueueItem)) {
                         processPreloadedItem(readyQueueItem);
@@ -172,7 +187,6 @@ var Polyfill = require('./polyfill'),
             MP.appVersion = null;
             MP.currentSessionMPIDs = [],
             MP.eventQueue = [];
-            MP.identityCallback = null;
             MP.context = null;
             MP.userAttributes = {};
             MP.userIdentities = {};
@@ -191,13 +205,16 @@ var Polyfill = require('./polyfill'),
             MP.sessionStartDate = null;
             MP.watchPositionId = null;
             MP.readyQueue = [];
-            Helpers.mergeConfig({});
             MP.migrationData = {};
             MP.identityCallInFlight = false;
             MP.initialIdentifyRequest = null;
+            MP.isInitialized = false;
+            MP.identifyCalled = false;
+
+            Helpers.mergeConfig({});
             Persistence.resetPersistence();
 
-            MP.isInitialized = false;
+            mParticle.identityCallback = null;
         },
         ready: function(f) {
             if (MP.isInitialized && typeof f === 'function') {
@@ -787,10 +804,10 @@ var Polyfill = require('./polyfill'),
 
         if (window.mParticle.config.hasOwnProperty('identityCallback')) {
             var callback = window.mParticle.config.identityCallback;
-            if (callback && !Validators.isFunction(callback)) {
-                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
+            if (Validators.isFunction(callback)) {
+                mParticle.identityCallback = window.mParticle.config.identityCallback;
             } else {
-                MP.identityCallback = window.mParticle.config.identityCallback;
+                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
             }
         }
 

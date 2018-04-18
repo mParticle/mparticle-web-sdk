@@ -30,11 +30,11 @@ module.exports = {
     appName: null,
     customFlags: null,
     globalTimer: null,
-    identityCallback: null,
     context: '',
     identityCallInFlight: false,
     initialIdentifyRequest: null,
     Config: {},
-    migrate: false,
-    nonCurrentUserMPIDs: {}
+    migratingToIDSyncCookies: false,
+    nonCurrentUserMPIDs: {},
+    identifyCalled: false
 };

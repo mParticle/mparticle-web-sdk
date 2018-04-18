@@ -125,16 +125,38 @@ describe('native-sdk methods', function() {
         window.mParticleAndroid = new mParticleAndroid();
         window.mParticle.init(apiKey);
 
-        var identityAPIRequest = {
-            userIdentities: {
-                customerid: '123',
-                email: 'test@gmail.com'
-            }
+
+        var result,
+            identityAPIRequest = {
+                userIdentities: {
+                    customerid: '123',
+                    email: 'test@gmail.com'
+                }
+            };
+
+
+        var callback = function(resp) {
+            result = resp;
         };
 
-        mParticle.Identity.login(identityAPIRequest);
-        mParticle.Identity.logout(identityAPIRequest);
-        mParticle.Identity.modify(identityAPIRequest);
+        mParticle.Identity.login(identityAPIRequest, callback);
+        result.body.should.equal('Login request sent to native sdk');
+        result.httpCode.should.equal(-5);
+        result = null;
+
+        mParticle.Identity.logout(identityAPIRequest, callback);
+        result.body.should.equal('Logout request sent to native sdk');
+        result.httpCode.should.equal(-5);
+        result = null;
+
+        mParticle.Identity.modify(identityAPIRequest, callback);
+        result.body.should.equal('Modify request sent to native sdk');
+        result.httpCode.should.equal(-5);
+        result = null;
+
+        mParticle.Identity.identify(identityAPIRequest, callback);
+        result.body.should.equal('Identify request sent to native sdk');
+        result.httpCode.should.equal(-5);
 
         var JSONData = JSON.stringify(mParticle._IdentityRequest.convertToNative(identityAPIRequest));
 

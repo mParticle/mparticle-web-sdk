@@ -47,6 +47,15 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
             AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
             AbandonEndSession: 'Cannot end session, logging disabled or developer token not set',
             NoSessionToEnd: 'Cannot end session, no active session found'
+        },
+        ValidationMessages: {
+            ModifyIdentityRequestUserIdentitiesPresent: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again',
+            IdentityRequesetInvalidKey: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.',
+            OnUserAliasType: 'The onUserAlias value must be a function. The onUserAlias provided is of type',
+            UserIdentities: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.',
+            UserIdentitiesInvalidKey: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
+            UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
+
         }
     },
     NativeSdkPaths = {
