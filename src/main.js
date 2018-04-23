@@ -33,8 +33,8 @@ var Polyfill = require('./polyfill'),
     Forwarders = require('./forwarders'),
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
-    HTTPCodes = require('./identity').HTTPCodes,
     IdentityAPI = require('./identity').IdentityAPI,
+    HTTPCodes = IdentityAPI.HTTPCodes,
     mParticleUserCart = require('./identity').mParticleUserCart;
 
 (function(window) {

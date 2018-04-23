@@ -11,6 +11,16 @@ var Helpers = require('./helpers'),
     CookieSyncManager = require('./cookieSyncManager'),
     Events = require('./events');
 
+var HTTPCodes = {
+    noHttpCoverage: -1,
+    activeIdentityRequest: -2,
+    activeSession: -3,
+    validationIssue: -4,
+    nativeIdentityRequest: -5,
+    loggingDisabledOrMissingAPIKey: -6,
+    tooManyRequests: 429
+};
+
 var Identity = {
     checkIdentitySwap: function(previousMPID, currentMPID) {
         if (previousMPID && currentMPID && previousMPID !== currentMPID) {
@@ -19,15 +29,6 @@ var Identity = {
             Persistence.update();
         }
     }
-};
-
-var HTTPCodes = {
-    noHttpCoverage: -1,
-    activeIdentityRequest: -2,
-    activeSession: -3,
-    validationIssue: -4,
-    nativeIdentityRequest: -5,
-    loggingDisabledOrMissingAPIKey: -6
 };
 
 var IdentityRequest = {
@@ -168,6 +169,7 @@ var IdentityRequest = {
 * @class mParticle.Identity
 */
 var IdentityAPI = {
+    HTTPCodes: HTTPCodes,
     /**
     * Initiate a logout request to the mParticle server
     * @method identify
@@ -917,6 +919,5 @@ module.exports = {
     IdentityAPI: IdentityAPI,
     Identity: Identity,
     IdentityRequest: IdentityRequest,
-    mParticleUserCart: mParticleUserCart,
-    HTTPCodes: HTTPCodes
+    mParticleUserCart: mParticleUserCart
 };
