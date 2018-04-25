@@ -12,7 +12,8 @@ var TestsCore = require('./tests-core'),
     setLocalStorage = TestsCore.setLocalStorage,
     server = TestsCore.server,
     v4CookieKey = 'mprtcl-v4',
-    v4LSKey = 'mprtcl-v4';
+    v4LSKey = 'mprtcl-v4',
+    should = require('should');
 
 describe('migrations and persistence-related', function() {
     it('should filter out any non string or number ids', function(done) {
@@ -1094,6 +1095,82 @@ describe('migrations and persistence-related', function() {
         cookieData['MPID1'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
         cookieData['MPID2'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
         mParticle.useCookieStorage = false;
+
+        done();
+    });
+
+    it('get/set consent state for single user', function(done) {
+        mParticle.reset();
+
+        mParticle.init(apiKey);
+        var consentState = mParticle.Identity.getCurrentUser().getConsentState();
+        should.not.exist(consentState);
+        consentState = mParticle.Consent.createConsentState();
+        consentState.addGDPRConsentState('foo purpose', mParticle.Consent.createGDPRConsent(true, 10));
+
+        mParticle.Identity.getCurrentUser().setConsentState(consentState);
+
+        var storedConsentState = mParticle.Identity.getCurrentUser().getConsentState();
+        should.exist(storedConsentState);
+        storedConsentState.getGDPRConsentState().should.have.property('foo purpose');
+        storedConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Consented', true);
+        storedConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Timestamp', 10);
+        done();
+    });
+
+    it('get/set consent state for multiple users', function(done) {
+        mParticle.reset();
+
+        mParticle.init(apiKey);
+        
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.Identity.login();
+
+        var user1StoredConsentState = mParticle.Identity.getCurrentUser().getConsentState();
+        should.not.exist(user1StoredConsentState);
+        var consentState = mParticle.Consent.createConsentState();
+        consentState.addGDPRConsentState('foo purpose', mParticle.Consent.createGDPRConsent(true, 10));
+
+        mParticle.Identity.getCurrentUser().setConsentState(consentState);
+
+        mParticle.reset(true);
+        mParticle.init(apiKey);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID2'
+            }));
+        };
+        mParticle.Identity.login();
+
+        var user2StoredConsentState = mParticle.Identity.getCurrentUser().getConsentState();
+      
+        should.not.exist(user2StoredConsentState);
+
+        consentState.removeGDPRConsentState('foo purpose');
+        consentState.addGDPRConsentState('foo purpose 2', mParticle.Consent.createGDPRConsent(false, 11));
+
+        mParticle.Identity.getCurrentUser().setConsentState(consentState);
+
+        user1StoredConsentState = mParticle.persistence.getConsentState('MPID1');
+        user2StoredConsentState = mParticle.persistence.getConsentState('MPID2');
+
+        user1StoredConsentState.getGDPRConsentState().should.have.property('foo purpose');
+        user1StoredConsentState.getGDPRConsentState().should.not.have.property('foo purpose 2');
+        user1StoredConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Consented', true);
+        user1StoredConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Timestamp', 10);
+
+        user2StoredConsentState.getGDPRConsentState().should.have.property('foo purpose 2');
+        user1StoredConsentState.getGDPRConsentState().should.not.have.property('foo purpose 1');
+        user2StoredConsentState.getGDPRConsentState()['foo purpose 2'].should.have.property('Consented', false);
+        user2StoredConsentState.getGDPRConsentState()['foo purpose 2'].should.have.property('Timestamp', 11);
 
         done();
     });

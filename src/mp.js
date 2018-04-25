@@ -4,6 +4,7 @@ module.exports = {
     currentSessionMPIDs: [],
     userAttributes: {},
     userIdentities: {},
+    consentState: null,
     forwarderConstructors: [],
     forwarders: [],
     sessionId: null,

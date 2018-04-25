@@ -323,4 +323,31 @@ describe('event logging', function() {
         (data.das.length).should.equal(36);
         done();
     });
+
+    it('should send consent state with each event logged', function(done) {
+        var consentState = mParticle.Consent.createConsentState();
+        consentState.addGDPRConsentState('foo purpose', 
+            mParticle.Consent.createGDPRConsent(true, 10, 'foo document', 'foo location', 'foo hardwareId'));
+        mParticle.Identity.getCurrentUser().setConsentState(consentState);
+
+        window.mParticle.logEvent('Test Event');
+        var data = getEvent('Test Event');
+
+        data.should.have.property('con');
+        data.con.should.have.property('gdpr');
+        data.con.gdpr.should.have.property('foo purpose');
+        var purpose = data.con.gdpr['foo purpose'];
+        purpose.should.have.property('ts', 10);
+        purpose.should.have.property('d', 'foo document');
+        purpose.should.have.property('l', 'foo location');
+        purpose.should.have.property('h', 'foo hardwareId');
+
+        mParticle.Identity.getCurrentUser().setConsentState(null);
+
+        window.mParticle.logEvent('Test Event');
+        data = getEvent('Test Event');
+        data.should.have.not.property('con');
+
+        done();
+    });
 });

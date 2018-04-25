@@ -39,6 +39,8 @@ describe('mParticle', function() {
     require('./tests-identities-attributes');
     require('./tests-cookie-syncing');
     require('./tests-native-sdk');
+    require('./tests-consent');
+    require('./tests-serverModel');
 
     after(function() {
         server.stop();

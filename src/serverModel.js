@@ -62,6 +62,41 @@ function convertProductToDTO(product) {
     };
 }
 
+function convertToConsentStateDTO(state) {
+    if (!state) {
+        return null;
+    }
+    var jsonObject = {};
+    var gdprConsentState = state.getGDPRConsentState();
+    if (gdprConsentState) {
+        var gdpr = {};
+        jsonObject.gdpr = gdpr;
+        for (var purpose in gdprConsentState){
+            if (gdprConsentState.hasOwnProperty(purpose)) {
+                var gdprConsent = gdprConsentState[purpose];
+                jsonObject.gdpr[purpose] = {};
+                if (typeof(gdprConsent.Consented) === 'boolean') {
+                    gdpr[purpose].c = gdprConsent.Consented;
+                }
+                if (typeof(gdprConsent.Timestamp) === 'number') {
+                    gdpr[purpose].ts = gdprConsent.Timestamp;
+                }
+                if (typeof(gdprConsent.ConsentDocument) === 'string') {
+                    gdpr[purpose].d = gdprConsent.ConsentDocument;
+                }
+                if (typeof(gdprConsent.Location) === 'string') {
+                    gdpr[purpose].l = gdprConsent.Location;
+                }
+                if (typeof(gdprConsent.HardwareId) === 'string') {
+                    gdpr[purpose].h = gdprConsent.HardwareId;
+                }
+            }
+        }
+    }
+    
+    return jsonObject;
+}
+
 function createEventObject(messageType, name, data, eventType, customFlags) {
     var eventObject,
         optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
@@ -89,7 +124,8 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             AppVersion: MP.appVersion,
             ClientGeneratedId: MP.clientId,
             DeviceId: MP.deviceId,
-            MPID: MP.mpid
+            MPID: MP.mpid,
+            ConsentState: MP.consentState
         };
 
         if (messageType === Types.MessageType.SessionEnd) {
@@ -131,6 +167,11 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
         mpid: event.MPID,
         smpids: event.currentSessionMPIDs
     };
+
+    var consent = convertToConsentStateDTO(event.ConsentState);
+    if (consent) {
+        dto.con = consent;
+    }
 
     if (event.EventDataType === MessageType.AppStateTransition) {
         dto.fr = isFirstRun;
@@ -198,5 +239,6 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
 
 module.exports = {
     createEventObject: createEventObject,
-    convertEventToDTO: convertEventToDTO
+    convertEventToDTO: convertEventToDTO,
+    convertToConsentStateDTO: convertToConsentStateDTO
 };

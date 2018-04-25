@@ -4,7 +4,8 @@ var Helpers = require('./helpers'),
     Messages = Constants.Messages,
     MP = require('./mp'),
     Base64CookieKeys = Constants.Base64CookieKeys,
-    SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys;
+    SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
+    Consent = require('./consent');
 
 function useLocalStorage() {
     return (!mParticle.useCookieStorage && determineLocalStorageAvailability());
@@ -30,7 +31,6 @@ function initializeStorage() {
     if (!this.isLocalStorageAvailable) {
         mParticle.useCookieStorage = true;
     }
-
     if (this.isLocalStorageAvailable) {
         storage = window.localStorage;
         if (mParticle.useCookieStorage) {
@@ -116,6 +116,7 @@ function storeDataInMemory(obj, currentMPID) {
             MP.userAttributes = {};
             MP.userIdentities = {};
             MP.cookieSyncDates = {};
+            MP.consentState = null;
         } else {
             // Set MPID first, then change object to match MPID data
             if (currentMPID) {
@@ -155,6 +156,7 @@ function storeDataInMemory(obj, currentMPID) {
 
             MP.userAttributes = obj.ua || MP.userAttributes;
             MP.userIdentities = obj.ui || MP.userIdentities;
+            MP.consentState = obj.con ? Consent.Serialization.fromMinifiedJsonObject(obj.con) : null;
 
             if (obj.csd) {
                 MP.cookieSyncDates = obj.csd;
@@ -189,7 +191,8 @@ function convertInMemoryDataForCookies() {
     var mpidData = {
         ua: MP.userAttributes,
         ui: MP.userIdentities,
-        csd: MP.cookieSyncDates
+        csd: MP.cookieSyncDates,
+        con: MP.consentState ? Consent.Serialization.toMinifiedJsonObject(MP.consentState) : null
     };
 
     return mpidData;
@@ -514,11 +517,13 @@ function findPrevCookiesBasedOnUI(identityApiData) {
         for (var requestedIdentityType in identityApiData.userIdentities) {
             if (Object.keys(cookies).length) {
                 for (var key in cookies) {
-                    // any value in cookies that has an MPID key will be an MPID to search through - other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
+                    // any value in cookies that has an MPID key will be an MPID to search through
+                    // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
                     if (cookies[key].mpid) {
                         var cookieUIs = cookies[key].ui;
                         for (var cookieUIType in cookieUIs) {
-                            if (requestedIdentityType === cookieUIType && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
+                            if (requestedIdentityType === cookieUIType 
+                                && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
                                 matchedUser = key;
                                 break;
                             }
@@ -769,6 +774,30 @@ function getPersistence() {
     return cookies;
 }
 
+function getConsentState(mpid) {
+    var cookies;
+    if (mpid === MP.mpid) {
+        return MP.consentState;
+    } else {
+        cookies = getPersistence();
+
+        if (cookies && cookies[mpid] && cookies[mpid].con) {
+            return Consent.Serialization.fromMinifiedJsonObject(cookies[mpid].con);
+        } else {
+            return null;
+        }
+    }
+}
+
+function setConsentState(mpid, consentState) {
+    //it's currently not supported to set persistence
+    //for any MPID that's not the current one.
+    if (mpid === MP.mpid) {
+        MP.consentState = consentState;
+    }
+    this.update();
+}
+
 function getDeviceId() {
     return MP.deviceId;
 }
@@ -823,5 +852,7 @@ module.exports = {
     updateOnlyCookieUserAttributes: updateOnlyCookieUserAttributes,
     getPersistence: getPersistence,
     getDeviceId: getDeviceId,
-    resetPersistence: resetPersistence
+    resetPersistence: resetPersistence,
+    getConsentState: getConsentState,
+    setConsentState: setConsentState
 };

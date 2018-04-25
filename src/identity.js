@@ -577,6 +577,23 @@ function mParticleUser(mpid) {
         */
         getCart: function() {
             return mParticleUserCart(mpid);
+        },
+
+        /**
+        * Returns the Consent State stored locally for this user.
+        * @method getConsentState
+        * @return a ConsentState object
+        */
+        getConsentState: function() {
+            return Persistence.getConsentState(mpid);
+        },
+        /**
+        * Sets the Consent State stored locally for this user.
+        * @method setConsentState
+        * @param {Object} consent state
+        */
+        setConsentState: function(state) {
+            Persistence.setConsentState(mpid, state);
         }
     };
 }
@@ -908,9 +925,10 @@ function checkCookieForMPID(currentMPID) {
         if (products && products[currentMPID]) {
             MP.cartProducts = products[currentMPID].cp;
         }
-        MP.userIdentities = cookies[currentMPID].ui ? cookies[currentMPID].ui : MP.userIdentities;
-        MP.userAttributes = cookies[currentMPID].ua ? cookies[currentMPID].ua : MP.userAttributes;
-        MP.cookieSyncDates = cookies[currentMPID].csd ? cookies[currentMPID].csd : MP.cookieSyncDates;
+        MP.userIdentities = cookies[currentMPID].ui || {};
+        MP.userAttributes = cookies[currentMPID].ua || {};
+        MP.cookieSyncDates = cookies[currentMPID].csd || {};
+        MP.consentState = cookies[currentMPID].con;
     }
 
 }

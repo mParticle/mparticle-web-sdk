@@ -35,7 +35,8 @@ var Polyfill = require('./polyfill'),
     Identity = require('./identity').Identity,
     IdentityAPI = require('./identity').IdentityAPI,
     HTTPCodes = IdentityAPI.HTTPCodes,
-    mParticleUserCart = require('./identity').mParticleUserCart;
+    mParticleUserCart = require('./identity').mParticleUserCart,
+    Consent = require('./consent');
 
 (function(window) {
     if (!Array.prototype.forEach) {
@@ -175,8 +176,9 @@ var Polyfill = require('./polyfill'),
         /**
         * Completely resets the state of the SDK. mParticle.init(apiKey) will need to be called again.
         * @method reset
+        * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
         */
-        reset: function() {
+        reset: function(keepPersistence) {
             MP.sessionAttributes = {};
             MP.isEnabled = true;
             MP.isFirstRun = null;
@@ -210,10 +212,11 @@ var Polyfill = require('./polyfill'),
             MP.initialIdentifyRequest = null;
             MP.isInitialized = false;
             MP.identifyCalled = false;
-
+            MP.consentState = null;
             Helpers.mergeConfig({});
-            Persistence.resetPersistence();
-
+            if (!keepPersistence) {
+                Persistence.resetPersistence();
+            }
             mParticle.identityCallback = null;
         },
         ready: function(f) {
@@ -427,6 +430,10 @@ var Polyfill = require('./polyfill'),
             }
 
             Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, flags);
+        },
+        Consent: {
+            createGDPRConsent: Consent.createGDPRConsent,
+            createConsentState: Consent.createConsentState
         },
         /**
         * Invoke these methods on the mParticle.eCommerce object.
