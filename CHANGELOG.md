@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.4.0 - 2017-04-26
+*  Implement Consent State
+*  Expose Identitiy HTTP constants to the public
+
 #### 2.3.3 - 2017-04-19
 *  Bugfix - filter user attributes to forwarders on init
 
