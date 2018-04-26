@@ -1,10 +1,175 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+var Helpers = require('./helpers');
+
+function createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId) {
+    if (typeof(consented) !== 'boolean') {
+        Helpers.logDebug('Consented boolean is required when constructing a GDPR Consent object.');
+        return null;
+    }
+    if (timestamp && isNaN(timestamp)) {
+        Helpers.logDebug('Timestamp must be a valid number when constructing a GDPR Consent object.');
+        return null;
+    }
+    if (consentDocument && !typeof(consentDocument) === 'string') {
+        Helpers.logDebug('Document must be a valid string when constructing a GDPR Consent object.');
+        return null;
+    }
+    if (location && !typeof(location) === 'string') {
+        Helpers.logDebug('Location must be a valid string when constructing a GDPR Consent object.');
+        return null;
+    }
+    if (hardwareId && !typeof(hardwareId) === 'string') {
+        Helpers.logDebug('Hardware ID must be a valid string when constructing a GDPR Consent object.');
+        return null;
+    }
+    return {
+        Consented: consented,
+        Timestamp: timestamp || Date.now(),
+        ConsentDocument: consentDocument,
+        Location: location,
+        HardwareId: hardwareId
+    };
+}
+
+var ConsentSerialization = {
+    toMinifiedJsonObject: function(state) {
+        var jsonObject = {};
+        if (state) {
+            var gdprConsentState = state.getGDPRConsentState();
+            if (gdprConsentState) {
+                jsonObject.gdpr = {};
+                for (var purpose in gdprConsentState){
+                    if (gdprConsentState.hasOwnProperty(purpose)) {
+                        var gdprConsent = gdprConsentState[purpose];
+                        jsonObject.gdpr[purpose] = {};
+                        if (typeof(gdprConsent.Consented) === 'boolean') {
+                            jsonObject.gdpr[purpose].c = gdprConsent.Consented;
+                        }
+                        if (typeof(gdprConsent.Timestamp) === 'number') {
+                            jsonObject.gdpr[purpose].ts = gdprConsent.Timestamp;
+                        }
+                        if (typeof(gdprConsent.ConsentDocument) === 'string') {
+                            jsonObject.gdpr[purpose].d = gdprConsent.ConsentDocument;
+                        }
+                        if (typeof(gdprConsent.Location) === 'string') {
+                            jsonObject.gdpr[purpose].l = gdprConsent.Location;
+                        }
+                        if (typeof(gdprConsent.HardwareId) === 'string') {
+                            jsonObject.gdpr[purpose].h = gdprConsent.HardwareId;
+                        }
+                    }
+                }
+            }
+        }
+        return jsonObject;
+    },
+
+    fromMinifiedJsonObject: function(json) {
+        var state = createConsentState();
+        if (json.gdpr) {
+            for (var purpose in json.gdpr){
+                if (json.gdpr.hasOwnProperty(purpose)) {
+                    var gdprConsent = createGDPRConsent(json.gdpr[purpose].c,
+                        json.gdpr[purpose].ts,
+                        json.gdpr[purpose].d,
+                        json.gdpr[purpose].l,
+                        json.gdpr[purpose].h);
+                    state.addGDPRConsentState(purpose, gdprConsent);
+                }
+            }
+        }
+        return state;
+    }
+};
+
+function createConsentState(consentState) {
+    var gdpr = {};
+
+    if (consentState) {
+        setGDPRConsentState(consentState.getGDPRConsentState());
+    }
+
+    function canonicalizeForDeduplication(purpose) {
+        if (typeof(purpose) !== 'string') {
+            return null;
+        }
+        var trimmedPurpose = purpose.trim();
+        if (!trimmedPurpose.length) {
+            return null;
+        }
+        return trimmedPurpose.toLowerCase();
+    }
+
+    function setGDPRConsentState(gdprConsentState) {
+        if (!gdprConsentState) {
+            gdpr = {};
+        } else if (Helpers.isObject(gdprConsentState)) {
+            gdpr = {};
+            for (var purpose in gdprConsentState){
+                if (gdprConsentState.hasOwnProperty(purpose)) {
+                    addGDPRConsentState(purpose, gdprConsentState[purpose]);
+                }
+            }
+        }
+        return this;
+    }
+
+    function addGDPRConsentState(purpose, gdprConsent) {
+        var normalizedPurpose = canonicalizeForDeduplication(purpose);
+        if (!normalizedPurpose) {
+            Helpers.logDebug('addGDPRConsentState() invoked with bad purpose. Purpose must be a string.');
+            return this;
+        }
+        if (!Helpers.isObject(gdprConsent)) {
+            Helpers.logDebug('addGDPRConsentState() invoked with bad or empty GDPR consent object.');
+            return this;
+        }
+        var gdprConsentCopy = createGDPRConsent(gdprConsent.Consented, 
+                gdprConsent.Timestamp,
+                gdprConsent.ConsentDocument,
+                gdprConsent.Location,
+                gdprConsent.HardwareId);
+        if (gdprConsentCopy) {
+            gdpr[normalizedPurpose] = gdprConsentCopy;
+        }
+        return this;
+    }
+
+    function removeGDPRConsentState(purpose) {
+        var normalizedPurpose = canonicalizeForDeduplication(purpose);
+        if (!normalizedPurpose) {
+            return this;
+        }
+        delete gdpr[normalizedPurpose];
+        return this;
+    }
+
+    function getGDPRConsentState() {
+        return Helpers.extend({}, gdpr);
+    }
+
+    return {
+        setGDPRConsentState: setGDPRConsentState,
+        addGDPRConsentState: addGDPRConsentState,
+        getGDPRConsentState: getGDPRConsentState,
+        removeGDPRConsentState: removeGDPRConsentState
+    };
+}
+
+
+module.exports = {
+    createGDPRConsent: createGDPRConsent,
+    Serialization: ConsentSerialization,
+    createConsentState: createConsentState
+};
+
+},{"./helpers":7}],2:[function(require,module,exports){
 var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v1SecureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.3.3',
+    sdkVersion = '2.4.0',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -107,7 +272,8 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         ss: 1,
         ua: 1,
         ui: 1,
-        csd: 1
+        csd: 1,
+        con: 1
     },
     SDKv2NonMPIDCookieKeys = {
         gs: 1,
@@ -132,7 +298,7 @@ module.exports = {
     SDKv2NonMPIDCookieKeys: SDKv2NonMPIDCookieKeys
 };
 
-},{}],2:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Persistence = require('./persistence'),
@@ -195,7 +361,7 @@ var cookieSyncManager = {
 
 module.exports = cookieSyncManager;
 
-},{"./constants":1,"./helpers":6,"./mp":10,"./persistence":11}],3:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mp":11,"./persistence":12}],4:[function(require,module,exports){
 var Types = require('./types'),
     Helpers = require('./helpers'),
     Validators = Helpers.Validators,
@@ -651,7 +817,7 @@ module.exports = {
     createCommerceEventObject: createCommerceEventObject
 };
 
-},{"./constants":1,"./helpers":6,"./mp":10,"./serverModel":13,"./types":15}],4:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mp":11,"./serverModel":14,"./types":16}],5:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Helpers = require('./helpers'),
@@ -1065,7 +1231,7 @@ module.exports = {
     startNewSessionIfNeeded: startNewSessionIfNeeded
 };
 
-},{"./constants":1,"./ecommerce":3,"./forwarders":5,"./helpers":6,"./mp":10,"./persistence":11,"./serverModel":13,"./types":15}],5:[function(require,module,exports){
+},{"./constants":2,"./ecommerce":4,"./forwarders":6,"./helpers":7,"./mp":11,"./persistence":12,"./serverModel":14,"./types":16}],6:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Types = require('./types'),
@@ -1389,7 +1555,7 @@ module.exports = {
     setForwarderOnUserIdentified: setForwarderOnUserIdentified
 };
 
-},{"./constants":1,"./helpers":6,"./mp":10,"./types":15}],6:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mp":11,"./types":16}],7:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Messages = Constants.Messages,
@@ -1895,7 +2061,7 @@ module.exports = {
     Validators: Validators
 };
 
-},{"./constants":1,"./mp":10,"./types":15}],7:[function(require,module,exports){
+},{"./constants":2,"./mp":11,"./types":16}],8:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     ServerModel = require('./serverModel'),
@@ -1909,6 +2075,16 @@ var Helpers = require('./helpers'),
     CookieSyncManager = require('./cookieSyncManager'),
     Events = require('./events');
 
+var HTTPCodes = {
+    noHttpCoverage: -1,
+    activeIdentityRequest: -2,
+    activeSession: -3,
+    validationIssue: -4,
+    nativeIdentityRequest: -5,
+    loggingDisabledOrMissingAPIKey: -6,
+    tooManyRequests: 429
+};
+
 var Identity = {
     checkIdentitySwap: function(previousMPID, currentMPID) {
         if (previousMPID && currentMPID && previousMPID !== currentMPID) {
@@ -1917,15 +2093,6 @@ var Identity = {
             Persistence.update();
         }
     }
-};
-
-var HTTPCodes = {
-    noHttpCoverage: -1,
-    activeIdentityRequest: -2,
-    activeSession: -3,
-    validationIssue: -4,
-    nativeIdentityRequest: -5,
-    loggingDisabledOrMissingAPIKey: -6
 };
 
 var IdentityRequest = {
@@ -2066,6 +2233,7 @@ var IdentityRequest = {
 * @class mParticle.Identity
 */
 var IdentityAPI = {
+    HTTPCodes: HTTPCodes,
     /**
     * Initiate a logout request to the mParticle server
     * @method identify
@@ -2473,6 +2641,23 @@ function mParticleUser(mpid) {
         */
         getCart: function() {
             return mParticleUserCart(mpid);
+        },
+
+        /**
+        * Returns the Consent State stored locally for this user.
+        * @method getConsentState
+        * @return a ConsentState object
+        */
+        getConsentState: function() {
+            return Persistence.getConsentState(mpid);
+        },
+        /**
+        * Sets the Consent State stored locally for this user.
+        * @method setConsentState
+        * @param {Object} consent state
+        */
+        setConsentState: function(state) {
+            Persistence.setConsentState(mpid, state);
         }
     };
 }
@@ -2804,9 +2989,10 @@ function checkCookieForMPID(currentMPID) {
         if (products && products[currentMPID]) {
             MP.cartProducts = products[currentMPID].cp;
         }
-        MP.userIdentities = cookies[currentMPID].ui ? cookies[currentMPID].ui : MP.userIdentities;
-        MP.userAttributes = cookies[currentMPID].ua ? cookies[currentMPID].ua : MP.userAttributes;
-        MP.cookieSyncDates = cookies[currentMPID].csd ? cookies[currentMPID].csd : MP.cookieSyncDates;
+        MP.userIdentities = cookies[currentMPID].ui || {};
+        MP.userAttributes = cookies[currentMPID].ua || {};
+        MP.cookieSyncDates = cookies[currentMPID].csd || {};
+        MP.consentState = cookies[currentMPID].con;
     }
 
 }
@@ -2815,11 +3001,10 @@ module.exports = {
     IdentityAPI: IdentityAPI,
     Identity: Identity,
     IdentityRequest: IdentityRequest,
-    mParticleUserCart: mParticleUserCart,
-    HTTPCodes: HTTPCodes
+    mParticleUserCart: mParticleUserCart
 };
 
-},{"./constants":1,"./cookieSyncManager":2,"./events":4,"./forwarders":5,"./helpers":6,"./mp":10,"./persistence":11,"./serverModel":13,"./types":15}],8:[function(require,module,exports){
+},{"./constants":2,"./cookieSyncManager":3,"./events":5,"./forwarders":6,"./helpers":7,"./mp":11,"./persistence":12,"./serverModel":14,"./types":16}],9:[function(require,module,exports){
 //
 //  Copyright 2017 mParticle, Inc.
 //
@@ -2855,9 +3040,10 @@ var Polyfill = require('./polyfill'),
     Forwarders = require('./forwarders'),
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
-    HTTPCodes = require('./identity').HTTPCodes,
     IdentityAPI = require('./identity').IdentityAPI,
-    mParticleUserCart = require('./identity').mParticleUserCart;
+    HTTPCodes = IdentityAPI.HTTPCodes,
+    mParticleUserCart = require('./identity').mParticleUserCart,
+    Consent = require('./consent');
 
 (function(window) {
     if (!Array.prototype.forEach) {
@@ -2997,8 +3183,9 @@ var Polyfill = require('./polyfill'),
         /**
         * Completely resets the state of the SDK. mParticle.init(apiKey) will need to be called again.
         * @method reset
+        * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
         */
-        reset: function() {
+        reset: function(keepPersistence) {
             MP.sessionAttributes = {};
             MP.isEnabled = true;
             MP.isFirstRun = null;
@@ -3032,10 +3219,11 @@ var Polyfill = require('./polyfill'),
             MP.initialIdentifyRequest = null;
             MP.isInitialized = false;
             MP.identifyCalled = false;
-
+            MP.consentState = null;
             Helpers.mergeConfig({});
-            Persistence.resetPersistence();
-
+            if (!keepPersistence) {
+                Persistence.resetPersistence();
+            }
             mParticle.identityCallback = null;
         },
         ready: function(f) {
@@ -3249,6 +3437,10 @@ var Polyfill = require('./polyfill'),
             }
 
             Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, flags);
+        },
+        Consent: {
+            createGDPRConsent: Consent.createGDPRConsent,
+            createConsentState: Consent.createConsentState
         },
         /**
         * Invoke these methods on the mParticle.eCommerce object.
@@ -3653,7 +3845,7 @@ var Polyfill = require('./polyfill'),
     window.mParticle = mParticle;
 })(window);
 
-},{"./constants":1,"./cookieSyncManager":2,"./ecommerce":3,"./events":4,"./forwarders":5,"./helpers":6,"./identity":7,"./migrations":9,"./mp":10,"./persistence":11,"./polyfill":12,"./sessionManager":14,"./types":15}],9:[function(require,module,exports){
+},{"./consent":1,"./constants":2,"./cookieSyncManager":3,"./ecommerce":4,"./events":5,"./forwarders":6,"./helpers":7,"./identity":8,"./migrations":10,"./mp":11,"./persistence":12,"./polyfill":13,"./sessionManager":15,"./types":16}],10:[function(require,module,exports){
 var Persistence = require('./persistence'),
     Constants = require('./constants'),
     Types = require('./types'),
@@ -4015,13 +4207,14 @@ module.exports = {
     convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4: convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4
 };
 
-},{"./constants":1,"./helpers":6,"./mp":10,"./persistence":11,"./polyfill":12,"./types":15}],10:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mp":11,"./persistence":12,"./polyfill":13,"./types":16}],11:[function(require,module,exports){
 module.exports = {
     isEnabled: true,
     sessionAttributes: {},
     currentSessionMPIDs: [],
     userAttributes: {},
     userIdentities: {},
+    consentState: null,
     forwarderConstructors: [],
     forwarders: [],
     sessionId: null,
@@ -4057,14 +4250,15 @@ module.exports = {
     identifyCalled: false
 };
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Base64 = require('./polyfill').Base64,
     Messages = Constants.Messages,
     MP = require('./mp'),
     Base64CookieKeys = Constants.Base64CookieKeys,
-    SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys;
+    SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
+    Consent = require('./consent');
 
 function useLocalStorage() {
     return (!mParticle.useCookieStorage && determineLocalStorageAvailability());
@@ -4090,7 +4284,6 @@ function initializeStorage() {
     if (!this.isLocalStorageAvailable) {
         mParticle.useCookieStorage = true;
     }
-
     if (this.isLocalStorageAvailable) {
         storage = window.localStorage;
         if (mParticle.useCookieStorage) {
@@ -4176,6 +4369,7 @@ function storeDataInMemory(obj, currentMPID) {
             MP.userAttributes = {};
             MP.userIdentities = {};
             MP.cookieSyncDates = {};
+            MP.consentState = null;
         } else {
             // Set MPID first, then change object to match MPID data
             if (currentMPID) {
@@ -4215,6 +4409,7 @@ function storeDataInMemory(obj, currentMPID) {
 
             MP.userAttributes = obj.ua || MP.userAttributes;
             MP.userIdentities = obj.ui || MP.userIdentities;
+            MP.consentState = obj.con ? Consent.Serialization.fromMinifiedJsonObject(obj.con) : null;
 
             if (obj.csd) {
                 MP.cookieSyncDates = obj.csd;
@@ -4249,7 +4444,8 @@ function convertInMemoryDataForCookies() {
     var mpidData = {
         ua: MP.userAttributes,
         ui: MP.userIdentities,
-        csd: MP.cookieSyncDates
+        csd: MP.cookieSyncDates,
+        con: MP.consentState ? Consent.Serialization.toMinifiedJsonObject(MP.consentState) : null
     };
 
     return mpidData;
@@ -4574,11 +4770,13 @@ function findPrevCookiesBasedOnUI(identityApiData) {
         for (var requestedIdentityType in identityApiData.userIdentities) {
             if (Object.keys(cookies).length) {
                 for (var key in cookies) {
-                    // any value in cookies that has an MPID key will be an MPID to search through - other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
+                    // any value in cookies that has an MPID key will be an MPID to search through
+                    // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
                     if (cookies[key].mpid) {
                         var cookieUIs = cookies[key].ui;
                         for (var cookieUIType in cookieUIs) {
-                            if (requestedIdentityType === cookieUIType && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
+                            if (requestedIdentityType === cookieUIType 
+                                && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
                                 matchedUser = key;
                                 break;
                             }
@@ -4829,6 +5027,30 @@ function getPersistence() {
     return cookies;
 }
 
+function getConsentState(mpid) {
+    var cookies;
+    if (mpid === MP.mpid) {
+        return MP.consentState;
+    } else {
+        cookies = getPersistence();
+
+        if (cookies && cookies[mpid] && cookies[mpid].con) {
+            return Consent.Serialization.fromMinifiedJsonObject(cookies[mpid].con);
+        } else {
+            return null;
+        }
+    }
+}
+
+function setConsentState(mpid, consentState) {
+    //it's currently not supported to set persistence
+    //for any MPID that's not the current one.
+    if (mpid === MP.mpid) {
+        MP.consentState = consentState;
+    }
+    this.update();
+}
+
 function getDeviceId() {
     return MP.deviceId;
 }
@@ -4883,10 +5105,12 @@ module.exports = {
     updateOnlyCookieUserAttributes: updateOnlyCookieUserAttributes,
     getPersistence: getPersistence,
     getDeviceId: getDeviceId,
-    resetPersistence: resetPersistence
+    resetPersistence: resetPersistence,
+    getConsentState: getConsentState,
+    setConsentState: setConsentState
 };
 
-},{"./constants":1,"./helpers":6,"./mp":10,"./polyfill":12}],12:[function(require,module,exports){
+},{"./consent":1,"./constants":2,"./helpers":7,"./mp":11,"./polyfill":13}],13:[function(require,module,exports){
 var Helpers = require('./helpers');
 
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
@@ -5134,7 +5358,7 @@ module.exports = {
     Base64: Base64
 };
 
-},{"./helpers":6}],13:[function(require,module,exports){
+},{"./helpers":7}],14:[function(require,module,exports){
 var Types = require('./types'),
     MessageType = Types.MessageType,
     ApplicationTransitionType = Types.ApplicationTransitionType,
@@ -5199,6 +5423,41 @@ function convertProductToDTO(product) {
     };
 }
 
+function convertToConsentStateDTO(state) {
+    if (!state) {
+        return null;
+    }
+    var jsonObject = {};
+    var gdprConsentState = state.getGDPRConsentState();
+    if (gdprConsentState) {
+        var gdpr = {};
+        jsonObject.gdpr = gdpr;
+        for (var purpose in gdprConsentState){
+            if (gdprConsentState.hasOwnProperty(purpose)) {
+                var gdprConsent = gdprConsentState[purpose];
+                jsonObject.gdpr[purpose] = {};
+                if (typeof(gdprConsent.Consented) === 'boolean') {
+                    gdpr[purpose].c = gdprConsent.Consented;
+                }
+                if (typeof(gdprConsent.Timestamp) === 'number') {
+                    gdpr[purpose].ts = gdprConsent.Timestamp;
+                }
+                if (typeof(gdprConsent.ConsentDocument) === 'string') {
+                    gdpr[purpose].d = gdprConsent.ConsentDocument;
+                }
+                if (typeof(gdprConsent.Location) === 'string') {
+                    gdpr[purpose].l = gdprConsent.Location;
+                }
+                if (typeof(gdprConsent.HardwareId) === 'string') {
+                    gdpr[purpose].h = gdprConsent.HardwareId;
+                }
+            }
+        }
+    }
+    
+    return jsonObject;
+}
+
 function createEventObject(messageType, name, data, eventType, customFlags) {
     var eventObject,
         optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
@@ -5226,7 +5485,8 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             AppVersion: MP.appVersion,
             ClientGeneratedId: MP.clientId,
             DeviceId: MP.deviceId,
-            MPID: MP.mpid
+            MPID: MP.mpid,
+            ConsentState: MP.consentState
         };
 
         if (messageType === Types.MessageType.SessionEnd) {
@@ -5268,6 +5528,11 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
         mpid: event.MPID,
         smpids: event.currentSessionMPIDs
     };
+
+    var consent = convertToConsentStateDTO(event.ConsentState);
+    if (consent) {
+        dto.con = consent;
+    }
 
     if (event.EventDataType === MessageType.AppStateTransition) {
         dto.fr = isFirstRun;
@@ -5335,10 +5600,11 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
 
 module.exports = {
     createEventObject: createEventObject,
-    convertEventToDTO: convertEventToDTO
+    convertEventToDTO: convertEventToDTO,
+    convertToConsentStateDTO: convertToConsentStateDTO
 };
 
-},{"./constants":1,"./helpers":6,"./mp":10,"./types":15}],14:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mp":11,"./types":16}],15:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Messages = require('./constants').Messages,
     Types = require('./types'),
@@ -5471,7 +5737,7 @@ module.exports = {
     clearSessionTimeout: clearSessionTimeout
 };
 
-},{"./constants":1,"./events":4,"./helpers":6,"./identity":7,"./mp":10,"./persistence":11,"./types":15}],15:[function(require,module,exports){
+},{"./constants":2,"./events":5,"./helpers":7,"./identity":8,"./mp":11,"./persistence":12,"./types":16}],16:[function(require,module,exports){
 var MessageType = {
     SessionStart: 1,
     SessionEnd: 2,
@@ -5791,4 +6057,4 @@ module.exports = {
     PromotionActionType:PromotionActionType
 };
 
-},{}]},{},[8]);
+},{}]},{},[9]);
