@@ -1,4 +1,4 @@
-<img src="https://www.mparticle.com/wp-content/themes/mparticle/images/logo.svg" width="280">
+<img src="https://static.mparticle.com/sdk/mp_logo_black.svg" width="280">
 
 # mParticle Javascript SDK
 
