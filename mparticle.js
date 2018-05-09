@@ -169,7 +169,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.4.0',
+    sdkVersion = '2.4.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1711,7 +1711,7 @@ function sendToNative(path, value) {
     else if (window.mParticle.isIOS) {
         logDebug(Messages.InformationMessages.SendIOS + path);
         var iframe = document.createElement('IFRAME');
-        iframe.setAttribute('src', 'mp-sdk://' + path + '/' + value);
+        iframe.setAttribute('src', 'mp-sdk://' + path + '/' + encodeURIComponent(value));
         document.documentElement.appendChild(iframe);
         iframe.parentNode.removeChild(iframe);
         iframe = null;
