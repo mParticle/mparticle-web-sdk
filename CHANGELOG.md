@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.4.1 - 2017-05-09
+*  Bugfix - encode event value before sending to iOS
+*  Update package-lock.json to pass CI tests
+
 #### 2.4.0 - 2017-04-26
 *  Implement Consent State
 *  Expose Identitiy HTTP constants to the public
