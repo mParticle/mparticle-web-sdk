@@ -153,7 +153,7 @@ function sendToNative(path, value) {
     else if (window.mParticle.isIOS) {
         logDebug(Messages.InformationMessages.SendIOS + path);
         var iframe = document.createElement('IFRAME');
-        iframe.setAttribute('src', 'mp-sdk://' + path + '/' + value);
+        iframe.setAttribute('src', 'mp-sdk://' + path + '/' + encodeURIComponent(value));
         document.documentElement.appendChild(iframe);
         iframe.parentNode.removeChild(iframe);
         iframe = null;
