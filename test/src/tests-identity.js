@@ -585,6 +585,78 @@ describe('identity', function() {
         done();
     });
 
+    it('getUsers should return all mpids available in local storage', function(done) {
+        mParticle.reset();
+
+        var user1 = {};
+        var user2 = {};
+        var user3 = {
+            userIdentities: {
+                customerid: 'customerid3',
+                email: 'email3@test.com'
+            }
+        };
+
+        mParticle.init(apiKey);
+
+        // get user 1 into cookies
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'user1'
+            }));
+        };
+
+        mParticle.Identity.login(user1);
+
+        // get user 2 into cookies
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'user2'
+            }));
+        };
+
+        mParticle.Identity.login(user2);
+
+        // get user 3 into cookies
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'user3'
+            }));
+        };
+
+        mParticle.Identity.login(user3);
+
+        // init again using user 1
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                Store: {},
+                mpid: 'user1'
+            }));
+        };
+
+        mParticle.identifyRequest = user1;
+
+        mParticle.init(apiKey);
+        var users = mParticle.Identity.getUsers();
+        //this includes the original, starting user, in addition to the 3 added above
+        Should(users).have.length(4);
+        for (var i = 0; i < users.length; i++) {
+            Should.exist(mParticle.Identity.getUser(users[i].getMPID()));
+        }
+        Should.not.exist(mParticle.Identity.getUser('gs'));
+        Should.not.exist(mParticle.Identity.getUser('cu'));
+        Should.not.exist(mParticle.Identity.getUser('0'));
+        Should.not.exist(mParticle.Identity.getUser('user4'));
+        done();
+    });
+
     it('should only update its own cookies, not any other mpids when initializing with a different set of credentials', function(done) {
         mParticle.reset();
 

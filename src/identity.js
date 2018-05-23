@@ -311,6 +311,38 @@ var IdentityAPI = {
         } else {
             return null;
         }
+    },
+
+    /**
+    * Returns a the user object associated with the mpid parameter or 'null' if no such
+    * user exists
+    * @method getUser
+    * @param {String} mpid of the desired user
+    * @return {Object} the user for  mpid
+    */
+    getUser: function(mpid) {
+        var cookies = Persistence.getPersistence();
+        if (cookies[mpid] && !Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(mpid)) {
+            return mParticleUser(mpid);
+        } else {
+            return null;
+        }
+    },
+
+    /**
+    * Returns all users, including the current user and all previous users that are stored on the device.
+    * @method getUsers
+    * @return {Array} array of users
+    */
+    getUsers: function() {
+        var cookies = Persistence.getPersistence();
+        var users = [];
+        for (var key in cookies) {
+            if (!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(key)) {
+                users.push(mParticleUser(key));
+            }
+        }
+        return users;
     }
 };
 
