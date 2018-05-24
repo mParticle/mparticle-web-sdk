@@ -26,6 +26,9 @@
         sessionAttributes = {},
         userAttributes = {},
         userIdentities = [],
+        //indicates if a user identity has changed since the previous upload
+        //this is a workaround for the pre-IDSync web client
+        userIdentityChange = false,
         forwarderConstructors = [],
         forwarders = [],
         sessionId,
@@ -1344,6 +1347,11 @@
             cgid: event.ClientGeneratedId,
             das: event.DeviceId
         };
+
+        //this is a workaround to allow the v1 web client
+        //to trigger identity migration for IDSync.
+        dto.uic = userIdentityChange;
+        userIdentityChange = false;
 
         if (event.EventDataType === MessageType.AppStateTransition) {
             dto.fr = isFirstRun;
@@ -3135,6 +3143,7 @@
             sessionAttributes = {};
             userAttributes = {};
             userIdentities = [];
+            userIdentityChange = false;
             cookieSyncDates = {};
             forwarders = [];
             forwarderConstructors = [];
@@ -3202,18 +3211,31 @@
             }
         },
         setUserIdentity: function(id, type) {
-            var userIdentity;
+            var userIdentity,
+                triggeredIdentityChange = false;
             mParticle.sessionManager.resetSessionTimer();
-
             if (canLog()) {
                 if (IdentityType.isValid(type)) {
-                    if (id === null || id === undefined || Validators.isStringOrNumber(id)) {
-                        mParticle.removeUserIdentity(id, type);
+                    if (id === null || id === undefined) {
+                        return mParticle.removeUserIdentity(id, type);
+                    }
+                    if (Validators.isStringOrNumber(id)) {
+                        var sameIdentityExists = false;
+                        userIdentities.forEach(function(userIdentity) {
+                            if (userIdentity.Type === type && userIdentity.Identity === id) {
+                                sameIdentityExists = true;
+                            }
+                        });
 
-                        if (id === null || id === undefined) {
-                            return;
+                        if (!sameIdentityExists ) {
+                            userIdentityChange = true;
+                            triggeredIdentityChange = true;
                         }
-
+  
+                        userIdentities = userIdentities.filter(function(userIdentity) {
+                            return userIdentity.Type !== type;
+                        });
+                        
                         userIdentity = {
                             Identity: id,
                             Type: type
@@ -3239,12 +3261,12 @@
                         persistence.update();
                     } else {
                         logDebug('User identities passed to setUserIdentity must be strings or numbers');
-                        return;
                     }
                 } else {
                     logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
                 }
             }
+            return triggeredIdentityChange;
         },
         getUserIdentity: function(id) {
             mParticle.sessionManager.resetSessionTimer();
@@ -3260,24 +3282,33 @@
         },
         removeUserIdentity: function(id, type) {
             mParticle.sessionManager.resetSessionTimer();
+            var updatedUserIdentities = null,
+                triggeredIdentityChange = false;
             if (id) {
-                userIdentities = userIdentities.filter(function(userIdentity) {
+                updatedUserIdentities = userIdentities.filter(function(userIdentity) {
                     return userIdentity.Identity !== id;
                 });
             }
 
             // Below includes times where id === null || id === undefined
             if (type && IdentityType.isValid(type)) {
-                userIdentities = userIdentities.filter(function(userIdentity) {
+                updatedUserIdentities = userIdentities.filter(function(userIdentity) {
                     return userIdentity.Type !== type;
                 });
             } else {
                 logDebug('IdentityType is not valid. Please ensure you are using a valid IdentityType from http://docs.mparticle.com/#user-identity');
             }
 
+            if (updatedUserIdentities && updatedUserIdentities.length !== userIdentities.length) {
+                userIdentities = updatedUserIdentities;
+                userIdentityChange = true;
+                triggeredIdentityChange = true;
+            }
+
             tryNativeSdk(NativeSdkPaths.RemoveUserIdentity, id);
 
             persistence.update();
+            return triggeredIdentityChange;
         },
         startNewSession: function() {
             sessionManager.startNewSession();

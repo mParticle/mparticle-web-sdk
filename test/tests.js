@@ -3912,6 +3912,49 @@ describe('mParticle', function() {
     });
 
     describe('identities and attributes', function() {
+        it('should trigger UIC while setting user identity', function(done) {
+            mParticle.reset();
+            mParticle.init(apiKey);
+            var changed = mParticle.setUserIdentity('foo', mParticle.IdentityType.CustomerId);
+            changed.should.be.ok();
+
+            changed = mParticle.setUserIdentity('foo', mParticle.IdentityType.CustomerId);
+            changed.should.not.be.ok();
+
+            changed = mParticle.setUserIdentity('bar', mParticle.IdentityType.CustomerId);
+            changed.should.be.ok();
+
+            changed = mParticle.setUserIdentity(null, mParticle.IdentityType.CustomerId);
+            changed.should.be.ok();
+
+            changed = mParticle.setUserIdentity(null, mParticle.IdentityType.CustomerId);
+            changed.should.not.be.ok();
+            
+            done();
+        });
+
+        it('should trigger UIC while removing user identity', function(done) {
+            mParticle.reset();
+            mParticle.init(apiKey);
+
+            var changed = mParticle.setUserIdentity('foo customer id', mParticle.IdentityType.CustomerId);
+            changed.should.be.ok();
+
+            changed = mParticle.setUserIdentity('foo email', mParticle.IdentityType.Email);
+            changed.should.be.ok();
+
+            changed = mParticle.removeUserIdentity(null, mParticle.IdentityType.CustomerId);
+            changed.should.be.ok();
+
+            changed = mParticle.removeUserIdentity(null, mParticle.IdentityType.CustomerId);
+            changed.should.not.be.ok();
+
+            changed = mParticle.removeUserIdentity('foo email');
+            changed.should.be.ok();
+            
+            done();
+        });
+
         it('should add string or number user identities', function(done) {
             mParticle.setUserIdentity('test@mparticle.com', mParticle.IdentityType.CustomerId);
             mParticle.setUserIdentity(123456, mParticle.IdentityType.Email);
