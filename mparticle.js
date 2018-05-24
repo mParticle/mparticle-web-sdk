@@ -20,7 +20,7 @@
     var serviceUrl = 'jssdk.mparticle.com/v1/JS/',
         secureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
         serviceScheme = mParticle && mParticle.forceHttps ? 'https://' : window.location.protocol + '//',
-        sdkVersion = '1.15.10',
+        sdkVersion = '1.16.0',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},
@@ -3231,11 +3231,11 @@
                             userIdentityChange = true;
                             triggeredIdentityChange = true;
                         }
-  
+
                         userIdentities = userIdentities.filter(function(userIdentity) {
                             return userIdentity.Type !== type;
                         });
-                        
+
                         userIdentity = {
                             Identity: id,
                             Type: type

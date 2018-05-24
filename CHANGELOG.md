@@ -1,14 +1,17 @@
 ## Releases
 --
 
-#### 1.15.10 - 2017-04-16
+#### 1.16.0 - 2018-05-24
+*  Implement user identity change flag
+
+#### 1.15.10 - 2018-04-16
 *  Bugfix - send sessionAttribuets only on sessionEnd events
 
-#### 1.15.9 - 2017-02-28
+#### 1.15.9 - 2018-02-28
 *  Update Readme
 *  Add forceHttps as a config option
 
-#### 1.15.8 - 2017-01-10
+#### 1.15.8 - 2018-01-10
 *  Modify logic for starting a new session
 
 #### 1.15.7 - 2017-12-20
