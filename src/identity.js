@@ -897,8 +897,9 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 MP.context = identityApiResult.context || MP.context;
             }
 
+            newUser = mParticle.Identity.getCurrentUser();
+
             if (identityApiData && identityApiData.onUserAlias && Validators.isFunction(identityApiData.onUserAlias)) {
-                newUser = mParticle.Identity.getCurrentUser();
                 try {
                     identityApiData.onUserAlias(prevUser, newUser);
                 }
