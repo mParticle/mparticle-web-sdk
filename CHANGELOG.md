@@ -1,59 +1,64 @@
 ## Releases
 --
 
-#### 2.4.1 - 2017-05-09
+#### 2.5.0 - 2018-06-06
+*  Expose getUser and getUsers to public Identity API
+*  Bugfix - send newUser to forwarder on user identified
+*  Add filtered user object
+
+#### 2.4.1 - 2018-05-09
 *  Bugfix - encode event value before sending to iOS
 *  Update package-lock.json to pass CI tests
 
-#### 2.4.0 - 2017-04-26
+#### 2.4.0 - 2018-04-26
 *  Implement Consent State
 *  Expose Identitiy HTTP constants to the public
 
-#### 2.3.3 - 2017-04-19
+#### 2.3.3 - 2018-04-19
 *  Bugfix - filter user attributes to forwarders on init
 
-#### 2.3.2 - 2017-04-04
+#### 2.3.2 - 2018-04-04
 *  Bugfix - filter user attributes to forwarders on init
 
-#### 2.3.1 - 2017-04-02
+#### 2.3.1 - 2018-04-02
 *  Bugfix - Compare strings when filtering event/user attribute values
 
-#### 2.3.0 - 2017-03-28
+#### 2.3.0 - 2018-03-28
 *  Bugfix - Prioritize client entered config over persistence
 *  Bugfix - Correct capitalization of clearing eCommerce carts
 *  Add Identify to public API
 
-#### 2.2.6 - 2017-03-07
+#### 2.2.6 - 2018-03-07
 *  Add forceHttps as a config option
 *  Fix linting
 *  Migrate all mpids between cookies and LS when useCookieStorage changes
 
-#### 2.2.5 - 2017-03-01
+#### 2.2.5 - 2018-03-01
 *  Bugfix - add shouldUseNativeSdk logic to fix null user and null path values
 
-#### 2.2.4 - 2017-02-28
+#### 2.2.4 - 2018-02-28
 *  Add config option for maxCookieSize
 *  Refactor useNativeSdk and prevent identify calls when in webview
 
-#### 2.2.3 - 2017-02-23
+#### 2.2.3 - 2018-02-23
 *  Update logic for useNativeSdk and isIOS
 
-#### 2.2.2 - 2017-02-20
+#### 2.2.2 - 2018-02-20
 *  Pass identityApiData to native SDKs
 
-#### 2.2.1 - 2017-02-14
+#### 2.2.1 - 2018-02-14
 *  Queue events when mpid is null or 0
 *  Stub primary methods for pre-loading SDK invocation
 *  Add eventSubscriptionId to forwarder contract
 *  Update readme to remove adchemix
 
-#### 2.2.0 - 2017-01-31
+#### 2.2.0 - 2018-01-31
 *  Remove product bags
 
-#### 2.1.5 - 2017-01-25
+#### 2.1.5 - 2018-01-25
 *  Update version endpoint for /Forwarding
 
-#### 2.1.4 - 2017-01-10
+#### 2.1.4 - 2018-01-10
 *  Ensure customerid is always the first identity being set
 *  Auto generate API docs
 *  Add migration for base64 encoded products
