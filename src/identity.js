@@ -916,6 +916,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
             if (identityApiData && identityApiData.userIdentities) {
                 Forwarders.setForwarderUserIdentities(identityApiData.userIdentities);
             }
+
             Forwarders.setForwarderOnUserIdentified(newUser);
         }
 
@@ -963,7 +964,6 @@ function checkCookieForMPID(currentMPID) {
         MP.cookieSyncDates = cookies[currentMPID].csd || {};
         MP.consentState = cookies[currentMPID].con;
     }
-
 }
 
 module.exports = {

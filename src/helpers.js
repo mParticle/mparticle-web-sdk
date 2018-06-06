@@ -256,6 +256,23 @@ function filterUserIdentities(userIdentitiesObject, filterList) {
     return filteredUserIdentities;
 }
 
+function filterUserIdentitiesForForwarders(userIdentitiesObject, filterList) {
+    var filteredUserIdentities = {};
+
+    if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
+        for (var userIdentityName in userIdentitiesObject) {
+            if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
+                var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
+                if (!inArray(filterList, userIdentityType)) {
+                    filteredUserIdentities[userIdentityName] = userIdentitiesObject[userIdentityName];
+                }
+            }
+        }
+    }
+
+    return filteredUserIdentities;
+}
+
 function filterUserAttributes(userAttributes, filterList) {
     var filteredUserAttributes = {};
 
@@ -490,6 +507,7 @@ module.exports = {
     createXHR: createXHR,
     generateUniqueId: generateUniqueId,
     filterUserIdentities: filterUserIdentities,
+    filterUserIdentitiesForForwarders: filterUserIdentitiesForForwarders,
     filterUserAttributes: filterUserAttributes,
     findKeyInObject: findKeyInObject,
     decoded: decoded,

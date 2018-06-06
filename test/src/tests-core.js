@@ -289,8 +289,9 @@ var server = new MockHttpServer(),
                 this.setOptOutCalled = true;
             };
 
-            this.onUserIdentified = function() {
+            this.onUserIdentified = function(user) {
                 this.onUserIdentifiedCalled = true;
+                this.onUserIdentifiedUser = user;
             };
 
             this.setUserAttribute = function() {

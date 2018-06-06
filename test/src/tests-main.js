@@ -41,6 +41,7 @@ describe('mParticle', function() {
     require('./tests-native-sdk');
     require('./tests-consent');
     require('./tests-serverModel');
+    require('./tests-mParticleUser');
 
     after(function() {
         server.stop();

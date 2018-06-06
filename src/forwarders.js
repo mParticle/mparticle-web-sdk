@@ -1,6 +1,7 @@
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Types = require('./types'),
+    MParticleUser = require('./mParticleUser'),
     MP = require('./mp');
 
 function sendForwardingStats(forwarder, event) {
@@ -302,14 +303,14 @@ function setForwarderUserIdentities(userIdentities) {
 
 function setForwarderOnUserIdentified(user) {
     MP.forwarders.forEach(function(forwarder) {
+        var filteredUser = MParticleUser.getFilteredMparticleUser(user.getMPID(), forwarder);
         if (forwarder.onUserIdentified) {
-            var result = forwarder.onUserIdentified(user);
+            var result = forwarder.onUserIdentified(filteredUser);
             if (result) {
                 Helpers.logDebug(result);
             }
         }
     });
-
 }
 
 module.exports = {
