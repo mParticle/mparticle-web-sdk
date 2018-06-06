@@ -169,7 +169,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.4.1',
+    sdkVersion = '2.5.0',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -361,7 +361,7 @@ var cookieSyncManager = {
 
 module.exports = cookieSyncManager;
 
-},{"./constants":2,"./helpers":7,"./mp":11,"./persistence":12}],4:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mp":12,"./persistence":13}],4:[function(require,module,exports){
 var Types = require('./types'),
     Helpers = require('./helpers'),
     Validators = Helpers.Validators,
@@ -817,7 +817,7 @@ module.exports = {
     createCommerceEventObject: createCommerceEventObject
 };
 
-},{"./constants":2,"./helpers":7,"./mp":11,"./serverModel":14,"./types":16}],5:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mp":12,"./serverModel":15,"./types":17}],5:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Helpers = require('./helpers'),
@@ -1231,10 +1231,11 @@ module.exports = {
     startNewSessionIfNeeded: startNewSessionIfNeeded
 };
 
-},{"./constants":2,"./ecommerce":4,"./forwarders":6,"./helpers":7,"./mp":11,"./persistence":12,"./serverModel":14,"./types":16}],6:[function(require,module,exports){
+},{"./constants":2,"./ecommerce":4,"./forwarders":6,"./helpers":7,"./mp":12,"./persistence":13,"./serverModel":15,"./types":17}],6:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Types = require('./types'),
+    MParticleUser = require('./mParticleUser'),
     MP = require('./mp');
 
 function sendForwardingStats(forwarder, event) {
@@ -1536,14 +1537,14 @@ function setForwarderUserIdentities(userIdentities) {
 
 function setForwarderOnUserIdentified(user) {
     MP.forwarders.forEach(function(forwarder) {
+        var filteredUser = MParticleUser.getFilteredMparticleUser(user.getMPID(), forwarder);
         if (forwarder.onUserIdentified) {
-            var result = forwarder.onUserIdentified(user);
+            var result = forwarder.onUserIdentified(filteredUser);
             if (result) {
                 Helpers.logDebug(result);
             }
         }
     });
-
 }
 
 module.exports = {
@@ -1555,7 +1556,7 @@ module.exports = {
     setForwarderOnUserIdentified: setForwarderOnUserIdentified
 };
 
-},{"./constants":2,"./helpers":7,"./mp":11,"./types":16}],7:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mParticleUser":9,"./mp":12,"./types":17}],7:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Messages = Constants.Messages,
@@ -1814,6 +1815,23 @@ function filterUserIdentities(userIdentitiesObject, filterList) {
     return filteredUserIdentities;
 }
 
+function filterUserIdentitiesForForwarders(userIdentitiesObject, filterList) {
+    var filteredUserIdentities = {};
+
+    if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
+        for (var userIdentityName in userIdentitiesObject) {
+            if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
+                var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
+                if (!inArray(filterList, userIdentityType)) {
+                    filteredUserIdentities[userIdentityName] = userIdentitiesObject[userIdentityName];
+                }
+            }
+        }
+    }
+
+    return filteredUserIdentities;
+}
+
 function filterUserAttributes(userAttributes, filterList) {
     var filteredUserAttributes = {};
 
@@ -2048,6 +2066,7 @@ module.exports = {
     createXHR: createXHR,
     generateUniqueId: generateUniqueId,
     filterUserIdentities: filterUserIdentities,
+    filterUserIdentitiesForForwarders: filterUserIdentitiesForForwarders,
     filterUserAttributes: filterUserAttributes,
     findKeyInObject: findKeyInObject,
     decoded: decoded,
@@ -2061,7 +2080,7 @@ module.exports = {
     Validators: Validators
 };
 
-},{"./constants":2,"./mp":11,"./types":16}],8:[function(require,module,exports){
+},{"./constants":2,"./mp":12,"./types":17}],8:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     ServerModel = require('./serverModel'),
@@ -2375,6 +2394,38 @@ var IdentityAPI = {
         } else {
             return null;
         }
+    },
+
+    /**
+    * Returns a the user object associated with the mpid parameter or 'null' if no such
+    * user exists
+    * @method getUser
+    * @param {String} mpid of the desired user
+    * @return {Object} the user for  mpid
+    */
+    getUser: function(mpid) {
+        var cookies = Persistence.getPersistence();
+        if (cookies[mpid] && !Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(mpid)) {
+            return mParticleUser(mpid);
+        } else {
+            return null;
+        }
+    },
+
+    /**
+    * Returns all users, including the current user and all previous users that are stored on the device.
+    * @method getUsers
+    * @return {Array} array of users
+    */
+    getUsers: function() {
+        var cookies = Persistence.getPersistence();
+        var users = [];
+        for (var key in cookies) {
+            if (!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(key)) {
+                users.push(mParticleUser(key));
+            }
+        }
+        return users;
     }
 };
 
@@ -2929,8 +2980,9 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 MP.context = identityApiResult.context || MP.context;
             }
 
+            newUser = mParticle.Identity.getCurrentUser();
+
             if (identityApiData && identityApiData.onUserAlias && Validators.isFunction(identityApiData.onUserAlias)) {
-                newUser = mParticle.Identity.getCurrentUser();
                 try {
                     identityApiData.onUserAlias(prevUser, newUser);
                 }
@@ -2947,6 +2999,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
             if (identityApiData && identityApiData.userIdentities) {
                 Forwarders.setForwarderUserIdentities(identityApiData.userIdentities);
             }
+
             Forwarders.setForwarderOnUserIdentified(newUser);
         }
 
@@ -2994,7 +3047,6 @@ function checkCookieForMPID(currentMPID) {
         MP.cookieSyncDates = cookies[currentMPID].csd || {};
         MP.consentState = cookies[currentMPID].con;
     }
-
 }
 
 module.exports = {
@@ -3004,7 +3056,96 @@ module.exports = {
     mParticleUserCart: mParticleUserCart
 };
 
-},{"./constants":2,"./cookieSyncManager":3,"./events":5,"./forwarders":6,"./helpers":7,"./mp":11,"./persistence":12,"./serverModel":14,"./types":16}],9:[function(require,module,exports){
+},{"./constants":2,"./cookieSyncManager":3,"./events":5,"./forwarders":6,"./helpers":7,"./mp":12,"./persistence":13,"./serverModel":15,"./types":17}],9:[function(require,module,exports){
+var Persistence = require('./persistence'),
+    Types = require('./types'),
+    Helpers = require('./helpers');
+
+function getFilteredMparticleUser(mpid, forwarder) {
+    return {
+        /**
+        * Get user identities for current user
+        * @method getUserIdentities
+        * @return {Object} an object with userIdentities as its key
+        */
+        getUserIdentities: function() {
+            var currentUserIdentities = {};
+            var identities = Persistence.getUserIdentities(mpid);
+
+            for (var identityType in identities) {
+                if (identities.hasOwnProperty(identityType)) {
+                    currentUserIdentities[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = identities[identityType];
+                }
+            }
+
+            currentUserIdentities = Helpers.filterUserIdentitiesForForwarders(currentUserIdentities, forwarder.userIdentityFilters);
+
+            return {
+                userIdentities: currentUserIdentities
+            };
+        },
+        /**
+        * Get the MPID of the current user
+        * @method getMPID
+        * @return {String} the current user MPID as a string
+        */
+        getMPID: function() {
+            return mpid;
+        },
+        /**
+        * Returns all user attribute keys that have values that are arrays
+        * @method getUserAttributesLists
+        * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
+        */
+        getUserAttributesLists: function(forwarder) {
+            var userAttributes,
+                userAttributesLists = {};
+
+            userAttributes = this.getAllUserAttributes();
+            for (var key in userAttributes) {
+                if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
+                    userAttributesLists[key] = userAttributes[key].slice();
+                }
+            }
+
+            userAttributesLists = Helpers.filterUserAttributes(userAttributesLists, forwarder.userAttributeFilters);
+
+            return userAttributesLists;
+        },
+        /**
+        * Returns all user attributes
+        * @method getAllUserAttributes
+        * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
+        */
+        getAllUserAttributes: function() {
+            var userAttributesCopy = {};
+            var userAttributes = Persistence.getAllUserAttributes(mpid);
+
+            if (userAttributes) {
+                for (var prop in userAttributes) {
+                    if (userAttributes.hasOwnProperty(prop)) {
+                        if (Array.isArray(userAttributes[prop])) {
+                            userAttributesCopy[prop] = userAttributes[prop].slice();
+                        }
+                        else {
+                            userAttributesCopy[prop] = userAttributes[prop];
+                        }
+                    }
+                }
+            }
+
+            userAttributesCopy = Helpers.filterUserAttributes(userAttributesCopy, forwarder.userAttributeFilters);
+
+            return userAttributesCopy;
+        }
+    };
+}
+
+module.exports = {
+    getFilteredMparticleUser: getFilteredMparticleUser
+};
+
+},{"./helpers":7,"./persistence":13,"./types":17}],10:[function(require,module,exports){
 //
 //  Copyright 2017 mParticle, Inc.
 //
@@ -3845,7 +3986,7 @@ var Polyfill = require('./polyfill'),
     window.mParticle = mParticle;
 })(window);
 
-},{"./consent":1,"./constants":2,"./cookieSyncManager":3,"./ecommerce":4,"./events":5,"./forwarders":6,"./helpers":7,"./identity":8,"./migrations":10,"./mp":11,"./persistence":12,"./polyfill":13,"./sessionManager":15,"./types":16}],10:[function(require,module,exports){
+},{"./consent":1,"./constants":2,"./cookieSyncManager":3,"./ecommerce":4,"./events":5,"./forwarders":6,"./helpers":7,"./identity":8,"./migrations":11,"./mp":12,"./persistence":13,"./polyfill":14,"./sessionManager":16,"./types":17}],11:[function(require,module,exports){
 var Persistence = require('./persistence'),
     Constants = require('./constants'),
     Types = require('./types'),
@@ -4207,7 +4348,7 @@ module.exports = {
     convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4: convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4
 };
 
-},{"./constants":2,"./helpers":7,"./mp":11,"./persistence":12,"./polyfill":13,"./types":16}],11:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mp":12,"./persistence":13,"./polyfill":14,"./types":17}],12:[function(require,module,exports){
 module.exports = {
     isEnabled: true,
     sessionAttributes: {},
@@ -4250,7 +4391,7 @@ module.exports = {
     identifyCalled: false
 };
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Base64 = require('./polyfill').Base64,
@@ -5110,7 +5251,7 @@ module.exports = {
     setConsentState: setConsentState
 };
 
-},{"./consent":1,"./constants":2,"./helpers":7,"./mp":11,"./polyfill":13}],13:[function(require,module,exports){
+},{"./consent":1,"./constants":2,"./helpers":7,"./mp":12,"./polyfill":14}],14:[function(require,module,exports){
 var Helpers = require('./helpers');
 
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
@@ -5358,7 +5499,7 @@ module.exports = {
     Base64: Base64
 };
 
-},{"./helpers":7}],14:[function(require,module,exports){
+},{"./helpers":7}],15:[function(require,module,exports){
 var Types = require('./types'),
     MessageType = Types.MessageType,
     ApplicationTransitionType = Types.ApplicationTransitionType,
@@ -5604,7 +5745,7 @@ module.exports = {
     convertToConsentStateDTO: convertToConsentStateDTO
 };
 
-},{"./constants":2,"./helpers":7,"./mp":11,"./types":16}],15:[function(require,module,exports){
+},{"./constants":2,"./helpers":7,"./mp":12,"./types":17}],16:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Messages = require('./constants').Messages,
     Types = require('./types'),
@@ -5737,7 +5878,7 @@ module.exports = {
     clearSessionTimeout: clearSessionTimeout
 };
 
-},{"./constants":2,"./events":5,"./helpers":7,"./identity":8,"./mp":11,"./persistence":12,"./types":16}],16:[function(require,module,exports){
+},{"./constants":2,"./events":5,"./helpers":7,"./identity":8,"./mp":12,"./persistence":13,"./types":17}],17:[function(require,module,exports){
 var MessageType = {
     SessionStart: 1,
     SessionEnd: 2,
@@ -6057,4 +6198,4 @@ module.exports = {
     PromotionActionType:PromotionActionType
 };
 
-},{}]},{},[9]);
+},{}]},{},[10]);
