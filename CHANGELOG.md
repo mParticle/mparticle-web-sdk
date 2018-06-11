@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.5.1 - 2018-06-11
+*  Bugfix - Fix filterUserAttributeValues break/continue
+
 #### 2.5.0 - 2018-06-06
 *  Expose getUser and getUsers to public Identity API
 *  Bugfix - send newUser to forwarder on user identified
