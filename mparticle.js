@@ -169,7 +169,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.5.0',
+    sdkVersion = '2.5.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1485,7 +1485,7 @@ function sendEventToForwarders(event) {
             // Check user attribute value filtering rules
             if (MP.forwarders[i].filteringUserAttributeValue && Object.keys(MP.forwarders[i].filteringUserAttributeValue).length) {
                 if (!filterUserAttributeValues(clonedEvent, MP.forwarders[i].filteringUserAttributeValue)) {
-                    break;
+                    continue;
                 }
             }
 
