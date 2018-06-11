@@ -251,7 +251,7 @@ function sendEventToForwarders(event) {
             // Check user attribute value filtering rules
             if (MP.forwarders[i].filteringUserAttributeValue && Object.keys(MP.forwarders[i].filteringUserAttributeValue).length) {
                 if (!filterUserAttributeValues(clonedEvent, MP.forwarders[i].filteringUserAttributeValue)) {
-                    break;
+                    continue;
                 }
             }
 
