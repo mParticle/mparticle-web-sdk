@@ -220,8 +220,8 @@ var IdentityAPI = {
                     sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData);
                     evt = ServerModel.createEventObject(Types.MessageType.Profile);
                     evt.ProfileMessageType = Types.ProfileMessageType.Logout;
-                    if (MP.forwarders.length) {
-                        MP.forwarders.forEach(function(forwarder) {
+                    if (MP.activeForwarders.length) {
+                        MP.activeForwarders.forEach(function(forwarder) {
                             if (forwarder.logOut) {
                                 forwarder.logOut(evt);
                             }
@@ -626,6 +626,9 @@ function mParticleUser(mpid) {
         */
         setConsentState: function(state) {
             Persistence.setConsentState(mpid, state);
+            if (MP.mpid === this.getMPID()) {
+                Forwarders.initForwarders(this.getUserIdentities().userIdentities);
+            }
         }
     };
 }
@@ -911,13 +914,12 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
 
             if (newUser) {
                 Persistence.storeDataInMemory(cookies, newUser.getMPID());
+                if (!prevUser || newUser.getMPID() !== prevUser.getMPID()) {
+                    Forwarders.initForwarders(newUser.getUserIdentities().userIdentities);
+                }
+                Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);
+                Forwarders.setForwarderOnUserIdentified(newUser);
             }
-
-            if (identityApiData && identityApiData.userIdentities) {
-                Forwarders.setForwarderUserIdentities(identityApiData.userIdentities);
-            }
-
-            Forwarders.setForwarderOnUserIdentified(newUser);
         }
 
         if (callback) {

@@ -6,9 +6,217 @@ var TestsCore = require('./tests-core'),
     testMPID = TestsCore.testMPID,
     MessageType = TestsCore.MessageType,
     MockForwarder = TestsCore.MockForwarder,
-    Helpers = require('../../src/helpers');
+    Forwarders = require('../../src/forwarders'),
+    Helpers = require('../../src/helpers'),
+    Consent = require('../../src/consent');
 
 describe('forwarders', function() {
+    it('should permit forwarder if no consent configured.', function(done) {
+        mParticle.reset();
+
+        mParticle.isDevelopmentMode = true;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true,
+            filteringConsentRuleValues: {}
+        });
+
+        mParticle.init(apiKey);
+
+        var enabled = Forwarders.isEnabledForUserConsent(mockForwarder.instance.filteringConsentRuleValues, null);
+        enabled.should.be.ok();
+        done();
+    });
+
+    it('should not permit forwarder if consent configured but there is no user.', function(done) {
+        var enableForwarder = true;
+        var consented = false;
+        mParticle.reset();
+        mParticle.isDevelopmentMode = true;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true,
+            filteringConsentRuleValues: {
+                includeOnMatch: enableForwarder,
+                values: [{
+                    consentPurpose: '123',
+                    hasConsented: consented
+                }]
+            }
+        });
+
+        mParticle.init(apiKey);
+
+        var enabled = Forwarders.isEnabledForUserConsent(mockForwarder.instance.filteringConsentRuleValues, null);
+        enabled.should.not.be.ok();
+        done();
+    });
+
+    var MockUser = function() {
+        var consentState = null;
+        return {
+            setConsentState: function(state) {
+                consentState = state;
+            },
+            getConsentState: function() {
+                return consentState;
+            }
+        };
+    };
+
+    it('should disable forwarder if consent has been rejected.', function(done) {
+        var enableForwarder = false;
+        var consented = false;
+        mParticle.reset();
+        mParticle.isDevelopmentMode = true;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true,
+            filteringConsentRuleValues: {
+                includeOnMatch: enableForwarder,
+                values:[{
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
+                    hasConsented: consented
+                }]
+            }
+        });
+
+        mParticle.init(apiKey);
+
+        
+        var consentState = Consent
+            .createConsentState()
+            .addGDPRConsentState('foo purpose 1', Consent.createGDPRConsent(consented));
+        var user = MockUser();
+        user.setConsentState(consentState);
+        var enabled = Forwarders.isEnabledForUserConsent(mockForwarder.instance.filteringConsentRuleValues, user);
+        enabled.should.not.be.ok();
+        done();
+    });
+
+    it('should disable forwarder if consent has been accepted.', function(done) {
+        var enableForwarder = false;
+        var consented = true;
+        mParticle.reset();
+        mParticle.isDevelopmentMode = true;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true,
+            filteringConsentRuleValues: {
+                includeOnMatch: enableForwarder,
+                values:[{
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
+                    hasConsented: consented
+                }]
+            }
+        });
+
+        mParticle.init(apiKey);
+
+        var consentState = Consent
+            .createConsentState()
+            .addGDPRConsentState('foo purpose 1', Consent.createGDPRConsent(consented));
+        var user = MockUser();
+        user.setConsentState(consentState);
+        var enabled = Forwarders.isEnabledForUserConsent(mockForwarder.instance.filteringConsentRuleValues, user);
+        enabled.should.not.be.ok();
+        done();
+    });
+
+    it('should enable forwarder if consent has been rejected.', function(done) {
+        var enableForwarder = true;
+        var consented = false;
+        mParticle.reset();
+        mParticle.isDevelopmentMode = true;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true,
+            filteringConsentRuleValues: {
+                includeOnMatch: enableForwarder,
+                values:[{
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
+                    hasConsented: consented
+                }]
+            }
+        });
+
+        mParticle.init(apiKey);
+        
+        var consentState = Consent
+            .createConsentState()
+            .addGDPRConsentState('foo purpose 1', Consent.createGDPRConsent(consented));
+        var user = MockUser();
+        user.setConsentState(consentState);
+        var enabled = Forwarders.isEnabledForUserConsent(mockForwarder.instance.filteringConsentRuleValues, user);
+        enabled.should.be.ok();
+        done();
+    });
+
+    it('should enable forwarder if consent has been accepted.', function(done) {
+        var enableForwarder = true;
+        var consented = true;
+        mParticle.reset();
+        mParticle.isDevelopmentMode = true;
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true,
+            filteringConsentRuleValues: {
+                includeOnMatch: enableForwarder,
+                values:[{
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
+                    hasConsented: consented
+                }]
+            }
+        });
+
+        mParticle.init(apiKey);
+        
+        var consentState = Consent
+            .createConsentState()
+            .addGDPRConsentState('foo purpose 1', Consent.createGDPRConsent(true));
+        var user = MockUser();
+        user.setConsentState(consentState);
+        var enabled = Forwarders.isEnabledForUserConsent(mockForwarder.instance.filteringConsentRuleValues, user);
+        enabled.should.be.ok();
+        done();
+    });
+
     it('should invoke forwarder setIdentity on initialized forwarders (debug = false)', function(done) {
         mParticle.reset();
         window.mParticle.identifyRequest = {

@@ -16,9 +16,92 @@ var Identity = require('../../src/identity'),
     getEvent = TestsCore.getEvent,
     v1localStorageKey = TestsCore.v1localStorageKey,
     v4CookieKey = TestsCore.v4CookieKey,
-    setCookie = TestsCore.setCookie;
+    setCookie = TestsCore.setCookie,
+    MockForwarder = TestsCore.MockForwarder;
 
 describe('identity', function() {
+    it('should respect consent rules on consent-change', function(done) {
+        mParticle.reset();
+        mParticle.isDevelopmentMode = true;
+        var mockForwarder = new MockForwarder('MockForwarder1');
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder1',
+            settings: {},
+            id: 1,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true,
+            filteringConsentRuleValues: {
+                includeOnMatch: true,
+                values:[{
+                    consentPurpose: mParticle.generateHash('1'+'foo purpose 1'),
+                    hasConsented: true
+                }]
+            }
+        });
+
+        var mockForwarder2 = new MockForwarder('MockForwarder2', 2);
+        mParticle.addForwarder(mockForwarder2);
+
+        mParticle.configureForwarder({
+            name: 'MockForwarder2',
+            settings: {},
+            id: 2,
+            isDebug: true,
+            hasDebugString: false,
+            isVisible: true,
+            filteringConsentRuleValues: {
+                includeOnMatch: true,
+                values:[{
+                    consentPurpose: mParticle.generateHash('1'+'foo purpose 2'), 
+                    hasConsented: true
+                }]
+            }
+        });
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.init(apiKey);
+
+        var activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders.length.should.not.be.ok();
+
+        var consentState = mParticle.Consent.createConsentState();
+        consentState.addGDPRConsentState('foo purpose 1', mParticle.Consent.createGDPRConsent(true));
+        mParticle.Identity.getCurrentUser().setConsentState(consentState);
+
+        activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders.length.should.equal(1);
+        activeForwarders[0].name.should.equal('MockForwarder1');
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID2'
+            }));
+        };
+
+        mParticle.Identity.login();
+        activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders.length.should.not.be.ok();
+
+        consentState = mParticle.Consent.createConsentState();
+        consentState.addGDPRConsentState('foo purpose 2', mParticle.Consent.createGDPRConsent(true));
+        mParticle.Identity.getCurrentUser().setConsentState(consentState);
+
+        activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders.length.should.equal(1);
+        activeForwarders[0].name.should.equal('MockForwarder2');
+
+        done();
+    });
+
     it('should not do an identity swap if there is no MPID change', function(done) {
         var cookiesBefore = getLocalStorage();
         checkIdentitySwap(testMPID, testMPID);

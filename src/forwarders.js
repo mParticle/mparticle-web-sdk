@@ -35,36 +35,81 @@ function sendForwardingStats(forwarder, event) {
     }
 }
 
-function initForwarders(identifyRequest) {
-    if (!Helpers.shouldUseNativeSdk() && MP.forwarders) {
+function initForwarders(userIdentities) {
+    if (!Helpers.shouldUseNativeSdk() && MP.configuredForwarders) {
         // Some js libraries require that they be loaded first, or last, etc
-        MP.forwarders.sort(function(x, y) {
+        MP.configuredForwarders.sort(function(x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
             y.settings.PriorityValue = y.settings.PriorityValue || 0;
             return -1 * (x.settings.PriorityValue - y.settings.PriorityValue);
         });
 
-        MP.forwarders.forEach(function(forwarder) {
-            var filteredUserIdentities = Helpers.filterUserIdentities(identifyRequest.userIdentities, forwarder.userIdentityFilters);
+        MP.activeForwarders = MP.configuredForwarders.filter(function(forwarder) {
+            if (!isEnabledForUserConsent(forwarder.filteringConsentRuleValues, mParticle.Identity.getCurrentUser())) {
+                return false;
+            }
+            var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
             var filteredUserAttributes = Helpers.filterUserAttributes(MP.userAttributes, forwarder.userAttributeFilters);
 
-            forwarder.init(forwarder.settings,
-                sendForwardingStats,
-                false,
-                null,
-                filteredUserAttributes,
-                filteredUserIdentities,
-                MP.appVersion,
-                MP.appName,
-                MP.customFlags,
-                MP.clientId);
+            if (!forwarder.initialized) {
+                forwarder.init(forwarder.settings,
+                    sendForwardingStats,
+                    false,
+                    null,
+                    filteredUserAttributes,
+                    filteredUserIdentities,
+                    MP.appVersion,
+                    MP.appName,
+                    MP.customFlags,
+                    MP.clientId);
+                forwarder.initialized = true;
+            }
+            return true;
         });
     }
 }
 
+function isEnabledForUserConsent(consentRules, user) {
+    if (!consentRules 
+        || !consentRules.values 
+        || !consentRules.values.length) {
+        return true;
+    }
+    if (!user) {
+        return false;
+    }
+    var purposeHashes = {};
+    var GDPRConsentHashPrefix = '1';
+    var consentState = user.getConsentState();
+    if (consentState) {
+        var gdprConsentState = consentState.getGDPRConsentState();
+        if (gdprConsentState) {
+            for (var purpose in gdprConsentState) {
+                if (gdprConsentState.hasOwnProperty(purpose)) {
+                    var purposeHash = Helpers.generateHash(GDPRConsentHashPrefix + purpose).toString();
+                    purposeHashes[purposeHash] = gdprConsentState[purpose].Consented;
+                }
+            }
+        }
+    }
+    var isMatch = false;
+    consentRules.values.forEach(function(consentRule) {
+        if (!isMatch) {
+            var purposeHash = consentRule.consentPurpose;
+            var hasConsented = consentRule.hasConsented;
+            if (purposeHashes.hasOwnProperty(purposeHash) 
+                && purposeHashes[purposeHash] === hasConsented) {
+                isMatch = true;
+            }
+        }
+    });
+
+    return consentRules.includeOnMatch === isMatch;
+}
+
 function applyToForwarders(functionName, functionArgs) {
-    if (MP.forwarders.length) {
-        MP.forwarders.forEach(function(forwarder) {
+    if (MP.activeForwarders.length) {
+        MP.activeForwarders.forEach(function(forwarder) {
             var forwarderFunction = forwarder[functionName];
             if (forwarderFunction) {
                 try {
@@ -172,11 +217,11 @@ function sendEventToForwarders(event) {
             Types.MessageType.Commerce
         ];
 
-    if (!Helpers.shouldUseNativeSdk() && MP.forwarders) {
+    if (!Helpers.shouldUseNativeSdk() && MP.activeForwarders) {
         hashedEventName = Helpers.generateHash(event.EventCategory + event.EventName);
         hashedEventType = Helpers.generateHash(event.EventCategory);
 
-        for (var i = 0; i < MP.forwarders.length; i++) {
+        for (var i = 0; i < MP.activeForwarders.length; i++) {
             // Check attribute forwarding rule. This rule allows users to only forward an event if a
             // specific attribute exists and has a specific value. Alternatively, they can specify
             // that an event not be forwarded if the specified attribute name and value exists.
@@ -184,9 +229,9 @@ function sendEventToForwarders(event) {
             // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
 
             if (forwardingRuleMessageTypes.indexOf(event.EventDataType) > -1
-                && MP.forwarders[i].filteringEventAttributeValue
-                && MP.forwarders[i].filteringEventAttributeValue.eventAttributeName
-                && MP.forwarders[i].filteringEventAttributeValue.eventAttributeValue) {
+                && MP.activeForwarders[i].filteringEventAttributeValue
+                && MP.activeForwarders[i].filteringEventAttributeValue.eventAttributeName
+                && MP.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue) {
 
                 var foundProp = null;
 
@@ -196,7 +241,7 @@ function sendEventToForwarders(event) {
                         var hashedEventAttributeName;
                         hashedEventAttributeName = Helpers.generateHash(prop).toString();
 
-                        if (hashedEventAttributeName === MP.forwarders[i].filteringEventAttributeValue.eventAttributeName) {
+                        if (hashedEventAttributeName === MP.activeForwarders[i].filteringEventAttributeValue.eventAttributeName) {
                             foundProp = {
                                 name: hashedEventAttributeName,
                                 value: Helpers.generateHash(event.EventAttributes[prop]).toString()
@@ -207,9 +252,9 @@ function sendEventToForwarders(event) {
                     }
                 }
 
-                var isMatch = foundProp !== null && foundProp.value === MP.forwarders[i].filteringEventAttributeValue.eventAttributeValue;
+                var isMatch = foundProp !== null && foundProp.value === MP.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue;
 
-                var shouldInclude = MP.forwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
+                var shouldInclude = MP.activeForwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
 
                 if (!shouldInclude) {
                     continue;
@@ -221,42 +266,42 @@ function sendEventToForwarders(event) {
             clonedEvent = Helpers.extend(true, clonedEvent, event);
             // Check event filtering rules
             if (event.EventDataType === Types.MessageType.PageEvent
-                && (inFilteredList(MP.forwarders[i].eventNameFilters, hashedEventName)
-                    || inFilteredList(MP.forwarders[i].eventTypeFilters, hashedEventType))) {
+                && (inFilteredList(MP.activeForwarders[i].eventNameFilters, hashedEventName)
+                    || inFilteredList(MP.activeForwarders[i].eventTypeFilters, hashedEventType))) {
                 continue;
             }
-            else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(MP.forwarders[i].eventTypeFilters, hashedEventType)) {
+            else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(MP.activeForwarders[i].eventTypeFilters, hashedEventType)) {
                 continue;
             }
-            else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(MP.forwarders[i].screenNameFilters, hashedEventName)) {
+            else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(MP.activeForwarders[i].screenNameFilters, hashedEventName)) {
                 continue;
             }
 
             // Check attribute filtering rules
             if (clonedEvent.EventAttributes) {
                 if (event.EventDataType === Types.MessageType.PageEvent) {
-                    filterAttributes(clonedEvent, MP.forwarders[i].attributeFilters);
+                    filterAttributes(clonedEvent, MP.activeForwarders[i].attributeFilters);
                 }
                 else if (event.EventDataType === Types.MessageType.PageView) {
-                    filterAttributes(clonedEvent, MP.forwarders[i].pageViewAttributeFilters);
+                    filterAttributes(clonedEvent, MP.activeForwarders[i].pageViewAttributeFilters);
                 }
             }
 
             // Check user identity filtering rules
-            filterUserIdentities(clonedEvent, MP.forwarders[i].userIdentityFilters);
+            filterUserIdentities(clonedEvent, MP.activeForwarders[i].userIdentityFilters);
 
             // Check user attribute filtering rules
-            clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, MP.forwarders[i].userAttributeFilters);
+            clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, MP.activeForwarders[i].userAttributeFilters);
 
             // Check user attribute value filtering rules
-            if (MP.forwarders[i].filteringUserAttributeValue && Object.keys(MP.forwarders[i].filteringUserAttributeValue).length) {
-                if (!filterUserAttributeValues(clonedEvent, MP.forwarders[i].filteringUserAttributeValue)) {
+            if (MP.activeForwarders[i].filteringUserAttributeValue && Object.keys(MP.activeForwarders[i].filteringUserAttributeValue).length) {
+                if (!filterUserAttributeValues(clonedEvent, MP.activeForwarders[i].filteringUserAttributeValue)) {
                     continue;
                 }
             }
 
-            Helpers.logDebug('Sending message to forwarder: ' + MP.forwarders[i].name);
-            var result = MP.forwarders[i].process(clonedEvent);
+            Helpers.logDebug('Sending message to forwarder: ' + MP.activeForwarders[i].name);
+            var result = MP.activeForwarders[i].process(clonedEvent);
 
             if (result) {
                 Helpers.logDebug(result);
@@ -266,8 +311,8 @@ function sendEventToForwarders(event) {
 }
 
 function callSetUserAttributeOnForwarders(key, value) {
-    if (MP.forwarders.length) {
-        MP.forwarders.forEach(function(forwarder) {
+    if (MP.activeForwarders.length) {
+        MP.activeForwarders.forEach(function(forwarder) {
             if (forwarder.setUserAttribute &&
                 forwarder.userAttributeFilters &&
                 !Helpers.inArray(forwarder.userAttributeFilters, Helpers.generateHash(key))) {
@@ -288,7 +333,7 @@ function callSetUserAttributeOnForwarders(key, value) {
 }
 
 function setForwarderUserIdentities(userIdentities) {
-    MP.forwarders.forEach(function(forwarder) {
+    MP.activeForwarders.forEach(function(forwarder) {
         var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
         if (forwarder.setUserIdentity) {
             filteredUserIdentities.forEach(function(identity) {
@@ -302,7 +347,7 @@ function setForwarderUserIdentities(userIdentities) {
 }
 
 function setForwarderOnUserIdentified(user) {
-    MP.forwarders.forEach(function(forwarder) {
+    MP.activeForwarders.forEach(function(forwarder) {
         var filteredUser = MParticleUser.getFilteredMparticleUser(user.getMPID(), forwarder);
         if (forwarder.onUserIdentified) {
             var result = forwarder.onUserIdentified(filteredUser);
@@ -319,5 +364,6 @@ module.exports = {
     sendEventToForwarders: sendEventToForwarders,
     callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
     setForwarderUserIdentities: setForwarderUserIdentities,
-    setForwarderOnUserIdentified: setForwarderOnUserIdentified
+    setForwarderOnUserIdentified: setForwarderOnUserIdentified,
+    isEnabledForUserConsent: isEnabledForUserConsent
 };

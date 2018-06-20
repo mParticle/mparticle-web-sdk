@@ -144,7 +144,7 @@ var Polyfill = require('./polyfill'),
                     });
                 }
 
-                Forwarders.initForwarders(MP.initialIdentifyRequest);
+                Forwarders.initForwarders(MP.initialIdentifyRequest.userIdentities);
 
                 if (arguments && arguments.length) {
                     if (arguments.length > 1 && typeof arguments[1] === 'object') {
@@ -193,7 +193,8 @@ var Polyfill = require('./polyfill'),
             MP.userAttributes = {};
             MP.userIdentities = {};
             MP.cookieSyncDates = {};
-            MP.forwarders = [];
+            MP.activeForwarders = [];
+            MP.configuredForwarders = [];
             MP.forwarderConstructors = [];
             MP.pixelConfigurations = [];
             MP.cartProducts = [];
@@ -687,8 +688,8 @@ var Polyfill = require('./polyfill'),
             Events.logOptOut();
             Persistence.update();
 
-            if (MP.forwarders.length) {
-                MP.forwarders.forEach(function(forwarder) {
+            if (MP.activeForwarders.length) {
+                MP.activeForwarders.forEach(function(forwarder) {
                     if (forwarder.setOptOut) {
                         var result = forwarder.setOptOut(isOptingOut);
 
@@ -705,7 +706,6 @@ var Polyfill = require('./polyfill'),
         configureForwarder: function(configuration) {
             var newForwarder = null,
                 config = configuration;
-
             for (var i = 0; i < MP.forwarderConstructors.length; i++) {
                 if (MP.forwarderConstructors[i].name === config.name) {
                     if (config.isDebug === mParticle.isDevelopmentMode || config.isSandbox === mParticle.isDevelopmentMode) {
@@ -731,8 +731,9 @@ var Polyfill = require('./polyfill'),
                         newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
                         newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
                         newForwarder.eventSubscriptionId = config.eventSubscriptionId;
+                        newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
 
-                        MP.forwarders.push(newForwarder);
+                        MP.configuredForwarders.push(newForwarder);
                         break;
                     }
                 }
@@ -742,6 +743,9 @@ var Polyfill = require('./polyfill'),
             if (settings.isDebug === mParticle.isDevelopmentMode || settings.isProduction !== mParticle.isDevelopmentMode) {
                 MP.pixelConfigurations.push(settings);
             }
+        },
+        _getActiveForwarders: function() {
+            return MP.activeForwarders;
         }
     };
 

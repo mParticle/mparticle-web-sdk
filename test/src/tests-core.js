@@ -222,13 +222,13 @@ var server = new MockHttpServer(),
         ProductRemoveFromWishlist: 21,
         ProductImpression: 22
     },
-    MockForwarder = function() {
+    MockForwarder = function(forwarderName, forwarderId) {
         var mockforwarder = this;
 
         var constructor = function() {
             var self = this;
 
-            this.id = 1;
+            this.id = forwarderId || 1;
             this.isDebug = false;
             this.isSandbox = false;
             this.initCalled = false;
@@ -238,7 +238,7 @@ var server = new MockHttpServer(),
             this.setOptOutCalled = false;
             this.setUserAttributeCalled = false;
             this.reportingService = null;
-            this.name = 'MockForwarder';
+            this.name = forwarderName || 'MockForwarder';
             this.userAttributeFilters = [];
             this.setUserIdentityCalled = false;
             this.removeUserAttributeCalled = false;
@@ -305,7 +305,7 @@ var server = new MockHttpServer(),
             mockforwarder.instance = this;
         };
 
-        this.name = 'MockForwarder';
+        this.name = forwarderName || 'MockForwarder';
         this.constructor = constructor;
 
         this.configureDebugAndSandbox = function() {
@@ -314,7 +314,7 @@ var server = new MockHttpServer(),
 
         this.configure = function(filteringEventAttributeRule) {
             var config = {
-                name: 'MockForwarder',
+                name: forwarderName || 'MockForwarder',
                 settings: {},
                 eventNameFilters: [],
                 eventTypeFilters: [],
@@ -323,7 +323,7 @@ var server = new MockHttpServer(),
                 pageViewAttributeFilters: [],
                 userIdentityFilters: [],
                 userAttributeFilters: [],
-                moduleId: 1,
+                moduleId: forwarderId || 1,
                 eventSubscriptionId: 1234567890,
                 isDebug: false,
                 HasDebugString: 'false',
