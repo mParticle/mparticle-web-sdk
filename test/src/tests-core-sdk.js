@@ -335,13 +335,11 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should use https when mParticle.forceHttps is true', function(done) {
-        mParticle.forceHttps = true;
+    it('should use http when mParticle.forceHttps is false', function(done) {
+        mParticle.forceHttps = false;
         server.requests = [];
         mParticle.logEvent('Test Event');
-        server.requests[0].url.should.equal('https://jssdks.mparticle.com/v2/JS/test_key/Events');
-
-        mParticle.forceHttps = false;
+        server.requests[0].url.should.equal('http://jssdk.mparticle.com/v2/JS/test_key/Events');
 
         done();
     });

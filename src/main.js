@@ -832,6 +832,8 @@ var Polyfill = require('./polyfill'),
 
         if (window.mParticle.config.hasOwnProperty('forceHttps')) {
             mParticle.forceHttps = window.mParticle.config.forceHttps;
+        } else {
+            mParticle.forceHttps = true;
         }
 
         // Some forwarders require custom flags on initialization, so allow them to be set using config object
