@@ -1,10 +1,7 @@
 /* eslint-disable quotes */
-
-var Identity = require('../../src/identity'),
-    Helpers= require('../../src/helpers'),
+var Helpers= require('../../src/helpers'),
     TestsCore = require('./tests-core'),
     Constants = require('../../src/constants'),
-    checkIdentitySwap = Identity.Identity.checkIdentitySwap,
     getLocalStorage = TestsCore.getLocalStorage,
     setLocalStorage = TestsCore.setLocalStorage,
     apiKey = TestsCore.apiKey,
@@ -54,7 +51,7 @@ describe('identity', function() {
             filteringConsentRuleValues: {
                 includeOnMatch: true,
                 values:[{
-                    consentPurpose: mParticle.generateHash('1'+'foo purpose 2'), 
+                    consentPurpose: mParticle.generateHash('1'+'foo purpose 2'),
                     hasConsented: true
                 }]
             }
@@ -104,7 +101,7 @@ describe('identity', function() {
 
     it('should not do an identity swap if there is no MPID change', function(done) {
         var cookiesBefore = getLocalStorage();
-        checkIdentitySwap(testMPID, testMPID);
+        mParticle._Identity.checkIdentitySwap(testMPID, testMPID);
 
         var cookiesAfter = mParticle.persistence.getLocalStorage();
 

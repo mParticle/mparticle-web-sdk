@@ -6,7 +6,8 @@ var Types = require('./types'),
     MP = require('./mp'),
     Persistence = require('./persistence'),
     Messages = Constants.Messages,
-    Forwarders = require('./forwarders');
+    sendEventToServer = require('./apiClient').sendEventToServer,
+    sendEventToForwarders = require('./forwarders').sendEventToForwarders;
 
 function logEvent(type, name, data, category, cflags) {
     Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
@@ -18,7 +19,7 @@ function logEvent(type, name, data, category, cflags) {
             data = Helpers.sanitizeAttributes(data);
         }
 
-        send(ServerModel.createEventObject(type, name, data, category, cflags));
+        sendEventToServer(ServerModel.createEventObject(type, name, data, category, cflags), sendEventToForwarders, parseEventResponse);
         Persistence.update();
     }
     else {
@@ -26,69 +27,7 @@ function logEvent(type, name, data, category, cflags) {
     }
 }
 
-function send(event) {
-    if (Helpers.shouldUseNativeSdk()) {
-        Helpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
-    } else {
-        var xhr,
-            xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    Helpers.logDebug('Received ' + xhr.statusText + ' from server');
-
-                    parseResponse(xhr.responseText);
-                }
-            };
-
-        Helpers.logDebug(Messages.InformationMessages.SendBegin);
-
-        var validUserIdentities = [];
-
-        // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
-        if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
-            for (var key in event.UserIdentities) {
-                var userIdentity = {};
-                userIdentity.Identity = event.UserIdentities[key];
-                userIdentity.Type = Helpers.parseNumber(key);
-                validUserIdentities.push(userIdentity);
-            }
-            event.UserIdentities = validUserIdentities;
-        } else {
-            event.UserIdentities = [];
-        }
-
-        // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
-        if (!MP.mpid) {
-            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
-            MP.eventQueue.push(event);
-        } else {
-            if (!event) {
-                Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
-                return;
-            }
-
-            Helpers.logDebug(Messages.InformationMessages.SendHttp);
-
-            xhr = Helpers.createXHR(xhrCallback);
-
-            if (xhr) {
-                try {
-                    xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode)));
-
-                    if (event.EventName !== Types.MessageType.AppStateTransition) {
-                        Forwarders.sendEventToForwarders(event);
-                    }
-                }
-                catch (e) {
-                    Helpers.logDebug('Error sending event to mParticle servers. ' + e);
-                }
-            }
-        }
-    }
-
-}
-
-function parseResponse(responseText) {
+function parseEventResponse(responseText) {
     var now = new Date(),
         settings,
         prop,
@@ -163,7 +102,7 @@ function stopTracking() {
 function logOptOut() {
     Helpers.logDebug(Messages.InformationMessages.StartingLogOptOut);
 
-    send(ServerModel.createEventObject(Types.MessageType.OptOut, null, null, Types.EventType.Other));
+    sendEventToServer(ServerModel.createEventObject(Types.MessageType.OptOut, null, null, Types.EventType.Other), sendEventToForwarders, parseEventResponse);
 }
 
 function logAST() {
@@ -296,7 +235,7 @@ function logCommerceEvent(commerceEvent, attrs) {
             commerceEvent.EventAttributes = attrs;
         }
 
-        send(commerceEvent);
+        sendEventToServer(commerceEvent, sendEventToForwarders, parseEventResponse);
         Persistence.update();
     }
     else {
@@ -394,7 +333,6 @@ function startNewSessionIfNeeded() {
 }
 
 module.exports = {
-    send: send,
     logEvent: logEvent,
     startTracking: startTracking,
     stopTracking: stopTracking,
@@ -406,6 +344,7 @@ module.exports = {
     logImpressionEvent: logImpressionEvent,
     logOptOut: logOptOut,
     logAST: logAST,
+    parseEventResponse: parseEventResponse,
     logCommerceEvent: logCommerceEvent,
     addEventHandler: addEventHandler,
     startNewSessionIfNeeded: startNewSessionIfNeeded

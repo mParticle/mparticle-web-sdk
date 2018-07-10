@@ -1,39 +1,8 @@
 var Helpers = require('./helpers'),
-    Constants = require('./constants'),
     Types = require('./types'),
     MParticleUser = require('./mParticleUser'),
+    sendForwardingStats = require('./apiClient').sendForwardingStats,
     MP = require('./mp');
-
-function sendForwardingStats(forwarder, event) {
-    var xhr,
-        forwardingStat;
-
-    if (forwarder && forwarder.isVisible) {
-        xhr = Helpers.createXHR();
-        forwardingStat = JSON.stringify({
-            mid: forwarder.id,
-            esid: forwarder.eventSubscriptionId,
-            n: event.EventName,
-            attrs: event.EventAttributes,
-            sdk: event.SDKVersion,
-            dt: event.EventDataType,
-            et: event.EventCategory,
-            dbg: event.Debug,
-            ct: event.Timestamp,
-            eec: event.ExpandedEventCount
-        });
-
-        if (xhr) {
-            try {
-                xhr.open('post', Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken) + '/Forwarding');
-                xhr.send(forwardingStat);
-            }
-            catch (e) {
-                Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
-            }
-        }
-    }
-}
 
 function initForwarders(userIdentities) {
     if (!Helpers.shouldUseNativeSdk() && MP.configuredForwarders) {
@@ -70,8 +39,8 @@ function initForwarders(userIdentities) {
 }
 
 function isEnabledForUserConsent(consentRules, user) {
-    if (!consentRules 
-        || !consentRules.values 
+    if (!consentRules
+        || !consentRules.values
         || !consentRules.values.length) {
         return true;
     }
@@ -97,7 +66,7 @@ function isEnabledForUserConsent(consentRules, user) {
         if (!isMatch) {
             var purposeHash = consentRule.consentPurpose;
             var hasConsented = consentRule.hasConsented;
-            if (purposeHashes.hasOwnProperty(purposeHash) 
+            if (purposeHashes.hasOwnProperty(purposeHash)
                 && purposeHashes[purposeHash] === hasConsented) {
                 isMatch = true;
             }

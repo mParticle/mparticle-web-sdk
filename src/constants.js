@@ -114,6 +114,15 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         cu: 1,
         globalSettings: 1,
         currentUserMPID: 1
+    },
+    HTTPCodes = {
+        noHttpCoverage: -1,
+        activeIdentityRequest: -2,
+        activeSession: -3,
+        validationIssue: -4,
+        nativeIdentityRequest: -5,
+        loggingDisabledOrMissingAPIKey: -6,
+        tooManyRequests: 429
     };
 
 module.exports = {
@@ -129,5 +138,6 @@ module.exports = {
     NativeSdkPaths: NativeSdkPaths,
     DefaultConfig: DefaultConfig,
     Base64CookieKeys:Base64CookieKeys,
+    HTTPCodes: HTTPCodes,
     SDKv2NonMPIDCookieKeys: SDKv2NonMPIDCookieKeys
 };

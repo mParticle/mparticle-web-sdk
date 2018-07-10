@@ -232,7 +232,6 @@ function setLocalStorage() {
         }
     }
 
-
     if (!mParticle.useCookieStorage) {
         currentMPIDData = this.convertInMemoryDataForCookies();
         localStorageData.gs = localStorageData.gs || {};
@@ -522,7 +521,7 @@ function findPrevCookiesBasedOnUI(identityApiData) {
                     if (cookies[key].mpid) {
                         var cookieUIs = cookies[key].ui;
                         for (var cookieUIType in cookieUIs) {
-                            if (requestedIdentityType === cookieUIType 
+                            if (requestedIdentityType === cookieUIType
                                 && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
                                 matchedUser = key;
                                 break;

@@ -19,6 +19,19 @@ function canLog() {
     return false;
 }
 
+function invokeCallback(callback, code, body) {
+    try {
+        if (Validators.isFunction(callback)) {
+            callback({
+                httpCode: code,
+                body: body
+            });
+        }
+    } catch (e) {
+        logDebug('There was an error with your callback: ' + e);
+    }
+}
+
 // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
 function extend() {
     var options, name, src, copy, copyIsArray, clone,
@@ -518,5 +531,6 @@ module.exports = {
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
     mergeConfig: mergeConfig,
+    invokeCallback: invokeCallback,
     Validators: Validators
 };

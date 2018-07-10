@@ -101,7 +101,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey);
 
-        
+
         var consentState = Consent
             .createConsentState()
             .addGDPRConsentState('foo purpose 1', Consent.createGDPRConsent(consented));
@@ -171,7 +171,7 @@ describe('forwarders', function() {
         });
 
         mParticle.init(apiKey);
-        
+
         var consentState = Consent
             .createConsentState()
             .addGDPRConsentState('foo purpose 1', Consent.createGDPRConsent(consented));
@@ -206,7 +206,7 @@ describe('forwarders', function() {
         });
 
         mParticle.init(apiKey);
-        
+
         var consentState = Consent
             .createConsentState()
             .addGDPRConsentState('foo purpose 1', Consent.createGDPRConsent(true));
