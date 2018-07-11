@@ -1,4 +1,218 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+var Helpers = require('./helpers'),
+    Constants = require('./constants'),
+    Persistence = require('./persistence'),
+    Messages = Constants.Messages,
+    MP = require('./mp');
+
+var cookieSyncManager = {
+    attemptCookieSync: function(previousMPID, mpid) {
+        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
+        if (mpid && !Helpers.shouldUseNativeSdk()) {
+            MP.pixelConfigurations.forEach(function(pixelSettings) {
+                pixelConfig = {
+                    moduleId: pixelSettings.moduleId,
+                    frequencyCap: pixelSettings.frequencyCap,
+                    pixelUrl: cookieSyncManager.replaceAmp(pixelSettings.pixelUrl),
+                    redirectUrl: pixelSettings.redirectUrl ? cookieSyncManager.replaceAmp(pixelSettings.redirectUrl) : null
+                };
+
+                url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
+                redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
+                urlWithRedirect = url + encodeURIComponent(redirect);
+
+                if (previousMPID && previousMPID !== mpid) {
+                    cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                    return;
+                } else {
+                    lastSyncDateForModule = MP.cookieSyncDates[(pixelConfig.moduleId).toString()] ? MP.cookieSyncDates[(pixelConfig.moduleId).toString()] : null;
+
+                    if (lastSyncDateForModule) {
+                        // Check to see if we need to refresh cookieSync
+                        if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
+                            cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                        }
+                    } else {
+                        cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                    }
+                }
+            });
+        }
+    },
+
+    performCookieSync: function(url, moduleId) {
+        var img = document.createElement('img');
+
+        Helpers.logDebug(Messages.InformationMessages.CookieSync);
+
+        img.src = url;
+        MP.cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
+        Persistence.update();
+    },
+
+    replaceMPID: function(string, mpid) {
+        return string.replace('%%mpid%%', mpid);
+    },
+
+    replaceAmp: function(string) {
+        return string.replace(/&amp;/g, '&');
+    }
+};
+
+module.exports = cookieSyncManager;
+
+},{"./constants":4,"./helpers":9,"./mp":14,"./persistence":15}],2:[function(require,module,exports){
+var Helpers = require('./helpers'),
+    Constants = require('./constants'),
+    HTTPCodes = Constants.HTTPCodes,
+    MP = require('./mp'),
+    ServerModel = require('./serverModel'),
+    Types = require('./types'),
+    Messages = Constants.Messages;
+
+function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
+    if (Helpers.shouldUseNativeSdk()) {
+        Helpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
+    } else {
+        var xhr,
+            xhrCallback = function() {
+                if (xhr.readyState === 4) {
+                    Helpers.logDebug('Received ' + xhr.statusText + ' from server');
+
+                    parseEventResponse(xhr.responseText);
+                }
+            };
+
+        Helpers.logDebug(Messages.InformationMessages.SendBegin);
+
+        var validUserIdentities = [];
+
+        // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
+        if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
+            for (var key in event.UserIdentities) {
+                var userIdentity = {};
+                userIdentity.Identity = event.UserIdentities[key];
+                userIdentity.Type = Helpers.parseNumber(key);
+                validUserIdentities.push(userIdentity);
+            }
+            event.UserIdentities = validUserIdentities;
+        } else {
+            event.UserIdentities = [];
+        }
+
+        // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
+        if (!MP.mpid) {
+            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
+            MP.eventQueue.push(event);
+        } else {
+            if (!event) {
+                Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
+                return;
+            }
+
+            Helpers.logDebug(Messages.InformationMessages.SendHttp);
+
+            xhr = Helpers.createXHR(xhrCallback);
+
+            if (xhr) {
+                try {
+                    xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
+                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode)));
+
+                    if (event.EventName !== Types.MessageType.AppStateTransition) {
+                        sendEventToForwarders(event);
+                    }
+                }
+                catch (e) {
+                    Helpers.logDebug('Error sending event to mParticle servers. ' + e);
+                }
+            }
+        }
+    }
+}
+
+function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse) {
+    var xhr, previousMPID,
+        xhrCallback = function() {
+            if (xhr.readyState === 4) {
+                Helpers.logDebug('Received ' + xhr.statusText + ' from server');
+                parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method);
+            }
+        };
+
+    Helpers.logDebug(Messages.InformationMessages.SendIdentityBegin);
+
+    if (!identityApiRequest) {
+        Helpers.logDebug(Messages.ErrorMessages.APIRequestEmpty);
+        return;
+    }
+
+    Helpers.logDebug(Messages.InformationMessages.SendIdentityHttp);
+    xhr = Helpers.createXHR(xhrCallback);
+
+    if (xhr) {
+        try {
+            if (MP.identityCallInFlight) {
+                callback({httpCode: HTTPCodes.activeIdentityRequest, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
+            } else {
+                previousMPID = (!MP.isFirstRun && MP.mpid) ? MP.mpid : null;
+                if (method === 'modify') {
+                    xhr.open('post', Constants.identityUrl + MP.mpid + '/' + method);
+                } else {
+                    xhr.open('post', Constants.identityUrl + method);
+                }
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('x-mp-key', MP.devToken);
+                MP.identityCallInFlight = true;
+                xhr.send(JSON.stringify(identityApiRequest));
+            }
+        }
+        catch (e) {
+            MP.identityCallInFlight = false;
+            Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, e);
+            Helpers.logDebug('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
+        }
+    }
+}
+
+function sendForwardingStats(forwarder, event) {
+    var xhr,
+        forwardingStat;
+
+    if (forwarder && forwarder.isVisible) {
+        xhr = Helpers.createXHR();
+        forwardingStat = JSON.stringify({
+            mid: forwarder.id,
+            esid: forwarder.eventSubscriptionId,
+            n: event.EventName,
+            attrs: event.EventAttributes,
+            sdk: event.SDKVersion,
+            dt: event.EventDataType,
+            et: event.EventCategory,
+            dbg: event.Debug,
+            ct: event.Timestamp,
+            eec: event.ExpandedEventCount
+        });
+
+        if (xhr) {
+            try {
+                xhr.open('post', Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken) + '/Forwarding');
+                xhr.send(forwardingStat);
+            }
+            catch (e) {
+                Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
+            }
+        }
+    }
+}
+
+module.exports = {
+    sendEventToServer: sendEventToServer,
+    sendIdentityRequest: sendIdentityRequest,
+    sendForwardingStats: sendForwardingStats
+};
+
+},{"./constants":4,"./helpers":9,"./mp":14,"./serverModel":17,"./types":19}],3:[function(require,module,exports){
 var Helpers = require('./helpers');
 
 function createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId) {
@@ -163,13 +377,13 @@ module.exports = {
     createConsentState: createConsentState
 };
 
-},{"./helpers":7}],2:[function(require,module,exports){
+},{"./helpers":9}],4:[function(require,module,exports){
 var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v1SecureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.6.0',
+    sdkVersion = '2.6.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -280,6 +494,15 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         cu: 1,
         globalSettings: 1,
         currentUserMPID: 1
+    },
+    HTTPCodes = {
+        noHttpCoverage: -1,
+        activeIdentityRequest: -2,
+        activeSession: -3,
+        validationIssue: -4,
+        nativeIdentityRequest: -5,
+        loggingDisabledOrMissingAPIKey: -6,
+        tooManyRequests: 429
     };
 
 module.exports = {
@@ -295,73 +518,13 @@ module.exports = {
     NativeSdkPaths: NativeSdkPaths,
     DefaultConfig: DefaultConfig,
     Base64CookieKeys:Base64CookieKeys,
+    HTTPCodes: HTTPCodes,
     SDKv2NonMPIDCookieKeys: SDKv2NonMPIDCookieKeys
 };
 
-},{}],3:[function(require,module,exports){
-var Helpers = require('./helpers'),
-    Constants = require('./constants'),
-    Persistence = require('./persistence'),
-    Messages = Constants.Messages,
-    MP = require('./mp');
-
-var cookieSyncManager = {
-    attemptCookieSync: function(previousMPID, mpid) {
-        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
-        if (mpid && !Helpers.shouldUseNativeSdk()) {
-            MP.pixelConfigurations.forEach(function(pixelSettings) {
-                pixelConfig = {
-                    moduleId: pixelSettings.moduleId,
-                    frequencyCap: pixelSettings.frequencyCap,
-                    pixelUrl: cookieSyncManager.replaceAmp(pixelSettings.pixelUrl),
-                    redirectUrl: pixelSettings.redirectUrl ? cookieSyncManager.replaceAmp(pixelSettings.redirectUrl) : null
-                };
-
-                url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
-                redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
-                urlWithRedirect = url + encodeURIComponent(redirect);
-
-                if (previousMPID && previousMPID !== mpid) {
-                    cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
-                    return;
-                } else {
-                    lastSyncDateForModule = MP.cookieSyncDates[(pixelConfig.moduleId).toString()] ? MP.cookieSyncDates[(pixelConfig.moduleId).toString()] : null;
-
-                    if (lastSyncDateForModule) {
-                        // Check to see if we need to refresh cookieSync
-                        if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
-                            cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
-                        }
-                    } else {
-                        cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
-                    }
-                }
-            });
-        }
-    },
-
-    performCookieSync: function(url, moduleId) {
-        var img = document.createElement('img');
-
-        Helpers.logDebug(Messages.InformationMessages.CookieSync);
-
-        img.src = url;
-        MP.cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
-        Persistence.update();
-    },
-
-    replaceMPID: function(string, mpid) {
-        return string.replace('%%mpid%%', mpid);
-    },
-
-    replaceAmp: function(string) {
-        return string.replace(/&amp;/g, '&');
-    }
-};
-
-module.exports = cookieSyncManager;
-
-},{"./constants":2,"./helpers":7,"./mp":12,"./persistence":13}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
+arguments[4][1][0].apply(exports,arguments)
+},{"./constants":4,"./helpers":9,"./mp":14,"./persistence":15,"dup":1}],6:[function(require,module,exports){
 var Types = require('./types'),
     Helpers = require('./helpers'),
     Validators = Helpers.Validators,
@@ -817,7 +980,7 @@ module.exports = {
     createCommerceEventObject: createCommerceEventObject
 };
 
-},{"./constants":2,"./helpers":7,"./mp":12,"./serverModel":15,"./types":17}],5:[function(require,module,exports){
+},{"./constants":4,"./helpers":9,"./mp":14,"./serverModel":17,"./types":19}],7:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Helpers = require('./helpers'),
@@ -826,7 +989,8 @@ var Types = require('./types'),
     MP = require('./mp'),
     Persistence = require('./persistence'),
     Messages = Constants.Messages,
-    Forwarders = require('./forwarders');
+    sendEventToServer = require('./apiClient').sendEventToServer,
+    sendEventToForwarders = require('./forwarders').sendEventToForwarders;
 
 function logEvent(type, name, data, category, cflags) {
     Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
@@ -838,7 +1002,7 @@ function logEvent(type, name, data, category, cflags) {
             data = Helpers.sanitizeAttributes(data);
         }
 
-        send(ServerModel.createEventObject(type, name, data, category, cflags));
+        sendEventToServer(ServerModel.createEventObject(type, name, data, category, cflags), sendEventToForwarders, parseEventResponse);
         Persistence.update();
     }
     else {
@@ -846,69 +1010,7 @@ function logEvent(type, name, data, category, cflags) {
     }
 }
 
-function send(event) {
-    if (Helpers.shouldUseNativeSdk()) {
-        Helpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
-    } else {
-        var xhr,
-            xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    Helpers.logDebug('Received ' + xhr.statusText + ' from server');
-
-                    parseResponse(xhr.responseText);
-                }
-            };
-
-        Helpers.logDebug(Messages.InformationMessages.SendBegin);
-
-        var validUserIdentities = [];
-
-        // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
-        if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
-            for (var key in event.UserIdentities) {
-                var userIdentity = {};
-                userIdentity.Identity = event.UserIdentities[key];
-                userIdentity.Type = Helpers.parseNumber(key);
-                validUserIdentities.push(userIdentity);
-            }
-            event.UserIdentities = validUserIdentities;
-        } else {
-            event.UserIdentities = [];
-        }
-
-        // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
-        if (!MP.mpid) {
-            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
-            MP.eventQueue.push(event);
-        } else {
-            if (!event) {
-                Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
-                return;
-            }
-
-            Helpers.logDebug(Messages.InformationMessages.SendHttp);
-
-            xhr = Helpers.createXHR(xhrCallback);
-
-            if (xhr) {
-                try {
-                    xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode)));
-
-                    if (event.EventName !== Types.MessageType.AppStateTransition) {
-                        Forwarders.sendEventToForwarders(event);
-                    }
-                }
-                catch (e) {
-                    Helpers.logDebug('Error sending event to mParticle servers. ' + e);
-                }
-            }
-        }
-    }
-
-}
-
-function parseResponse(responseText) {
+function parseEventResponse(responseText) {
     var now = new Date(),
         settings,
         prop,
@@ -983,7 +1085,7 @@ function stopTracking() {
 function logOptOut() {
     Helpers.logDebug(Messages.InformationMessages.StartingLogOptOut);
 
-    send(ServerModel.createEventObject(Types.MessageType.OptOut, null, null, Types.EventType.Other));
+    sendEventToServer(ServerModel.createEventObject(Types.MessageType.OptOut, null, null, Types.EventType.Other), sendEventToForwarders, parseEventResponse);
 }
 
 function logAST() {
@@ -1116,7 +1218,7 @@ function logCommerceEvent(commerceEvent, attrs) {
             commerceEvent.EventAttributes = attrs;
         }
 
-        send(commerceEvent);
+        sendEventToServer(commerceEvent, sendEventToForwarders, parseEventResponse);
         Persistence.update();
     }
     else {
@@ -1214,7 +1316,6 @@ function startNewSessionIfNeeded() {
 }
 
 module.exports = {
-    send: send,
     logEvent: logEvent,
     startTracking: startTracking,
     stopTracking: stopTracking,
@@ -1226,48 +1327,18 @@ module.exports = {
     logImpressionEvent: logImpressionEvent,
     logOptOut: logOptOut,
     logAST: logAST,
+    parseEventResponse: parseEventResponse,
     logCommerceEvent: logCommerceEvent,
     addEventHandler: addEventHandler,
     startNewSessionIfNeeded: startNewSessionIfNeeded
 };
 
-},{"./constants":2,"./ecommerce":4,"./forwarders":6,"./helpers":7,"./mp":12,"./persistence":13,"./serverModel":15,"./types":17}],6:[function(require,module,exports){
+},{"./apiClient":2,"./constants":4,"./ecommerce":6,"./forwarders":8,"./helpers":9,"./mp":14,"./persistence":15,"./serverModel":17,"./types":19}],8:[function(require,module,exports){
 var Helpers = require('./helpers'),
-    Constants = require('./constants'),
     Types = require('./types'),
     MParticleUser = require('./mParticleUser'),
+    sendForwardingStats = require('./apiClient').sendForwardingStats,
     MP = require('./mp');
-
-function sendForwardingStats(forwarder, event) {
-    var xhr,
-        forwardingStat;
-
-    if (forwarder && forwarder.isVisible) {
-        xhr = Helpers.createXHR();
-        forwardingStat = JSON.stringify({
-            mid: forwarder.id,
-            esid: forwarder.eventSubscriptionId,
-            n: event.EventName,
-            attrs: event.EventAttributes,
-            sdk: event.SDKVersion,
-            dt: event.EventDataType,
-            et: event.EventCategory,
-            dbg: event.Debug,
-            ct: event.Timestamp,
-            eec: event.ExpandedEventCount
-        });
-
-        if (xhr) {
-            try {
-                xhr.open('post', Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken) + '/Forwarding');
-                xhr.send(forwardingStat);
-            }
-            catch (e) {
-                Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
-            }
-        }
-    }
-}
 
 function initForwarders(userIdentities) {
     if (!Helpers.shouldUseNativeSdk() && MP.configuredForwarders) {
@@ -1304,8 +1375,8 @@ function initForwarders(userIdentities) {
 }
 
 function isEnabledForUserConsent(consentRules, user) {
-    if (!consentRules 
-        || !consentRules.values 
+    if (!consentRules
+        || !consentRules.values
         || !consentRules.values.length) {
         return true;
     }
@@ -1331,7 +1402,7 @@ function isEnabledForUserConsent(consentRules, user) {
         if (!isMatch) {
             var purposeHash = consentRule.consentPurpose;
             var hasConsented = consentRule.hasConsented;
-            if (purposeHashes.hasOwnProperty(purposeHash) 
+            if (purposeHashes.hasOwnProperty(purposeHash)
                 && purposeHashes[purposeHash] === hasConsented) {
                 isMatch = true;
             }
@@ -1602,7 +1673,7 @@ module.exports = {
     isEnabledForUserConsent: isEnabledForUserConsent
 };
 
-},{"./constants":2,"./helpers":7,"./mParticleUser":9,"./mp":12,"./types":17}],7:[function(require,module,exports){
+},{"./apiClient":2,"./helpers":9,"./mParticleUser":11,"./mp":14,"./types":19}],9:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Messages = Constants.Messages,
@@ -1622,6 +1693,19 @@ function canLog() {
     }
 
     return false;
+}
+
+function invokeCallback(callback, code, body) {
+    try {
+        if (Validators.isFunction(callback)) {
+            callback({
+                httpCode: code,
+                body: body
+            });
+        }
+    } catch (e) {
+        logDebug('There was an error with your callback: ' + e);
+    }
 }
 
 // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
@@ -2123,10 +2207,11 @@ module.exports = {
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
     mergeConfig: mergeConfig,
+    invokeCallback: invokeCallback,
     Validators: Validators
 };
 
-},{"./constants":2,"./mp":12,"./types":17}],8:[function(require,module,exports){
+},{"./constants":4,"./mp":14,"./types":19}],10:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     ServerModel = require('./serverModel'),
@@ -2136,19 +2221,11 @@ var Helpers = require('./helpers'),
     Messages = Constants.Messages,
     MP = require('./mp'),
     Validators = Helpers.Validators,
-    send = require('./events').send,
-    CookieSyncManager = require('./cookieSyncManager'),
+    sendIdentityRequest = require('./apiClient').sendIdentityRequest,
+    CookieSyncManager = require('./CookieSyncManager'),
+    sendEventToServer = require('./apiClient').sendEventToServer,
+    HTTPCodes = Constants.HTTPCodes,
     Events = require('./events');
-
-var HTTPCodes = {
-    noHttpCoverage: -1,
-    activeIdentityRequest: -2,
-    activeSession: -3,
-    validationIssue: -4,
-    nativeIdentityRequest: -5,
-    loggingDisabledOrMissingAPIKey: -6,
-    tooManyRequests: 429
-};
 
 var Identity = {
     checkIdentitySwap: function(previousMPID, currentMPID) {
@@ -2314,17 +2391,17 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
-                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Identify request sent to native sdk');
+                    Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Identify request sent to native sdk');
                 } else {
-                    sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData);
+                    sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, parseIdentityResponse);
                 }
             }
             else {
-                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
+                Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
             Helpers.logDebug(preProcessResult);
         }
     },
@@ -2344,9 +2421,9 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
-                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
+                    Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
                 } else {
-                    sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData);
+                    sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, parseIdentityResponse);
                     evt = ServerModel.createEventObject(Types.MessageType.Profile);
                     evt.ProfileMessageType = Types.ProfileMessageType.Logout;
                     if (MP.activeForwarders.length) {
@@ -2359,11 +2436,11 @@ var IdentityAPI = {
                 }
             }
             else {
-                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
+                Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
             Helpers.logDebug(preProcessResult);
         }
     },
@@ -2382,17 +2459,17 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
-                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Login request sent to native sdk');
+                    Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Login request sent to native sdk');
                 } else {
-                    sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData);
+                    sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, parseIdentityResponse);
                 }
             }
             else {
-                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
+                Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
             Helpers.logDebug(preProcessResult);
         }
     },
@@ -2411,17 +2488,17 @@ var IdentityAPI = {
             if (Helpers.canLog()) {
                 if (Helpers.shouldUseNativeSdk()) {
                     Helpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
-                    invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Modify request sent to native sdk');
+                    Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Modify request sent to native sdk');
                 } else {
-                    sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData);
+                    sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, parseIdentityResponse);
                 }
             }
             else {
-                invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
+                Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
-            invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
             Helpers.logDebug(preProcessResult);
         }
     },
@@ -2912,50 +2989,6 @@ function mParticleUserCart(mpid){
     };
 }
 
-function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData) {
-    var xhr, previousMPID,
-        xhrCallback = function() {
-            if (xhr.readyState === 4) {
-                Helpers.logDebug('Received ' + xhr.statusText + ' from server');
-                parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method);
-            }
-        };
-
-    Helpers.logDebug(Messages.InformationMessages.SendIdentityBegin);
-
-    if (!identityApiRequest) {
-        Helpers.logDebug(Messages.ErrorMessages.APIRequestEmpty);
-        return;
-    }
-
-    Helpers.logDebug(Messages.InformationMessages.SendIdentityHttp);
-    xhr = Helpers.createXHR(xhrCallback);
-
-    if (xhr) {
-        try {
-            if (MP.identityCallInFlight) {
-                callback({httpCode: HTTPCodes.activeIdentityRequest, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
-            } else {
-                previousMPID = (!MP.isFirstRun && MP.mpid) ? MP.mpid : null;
-                if (method === 'modify') {
-                    xhr.open('post', Constants.identityUrl + MP.mpid + '/' + method);
-                } else {
-                    xhr.open('post', Constants.identityUrl + method);
-                }
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.setRequestHeader('x-mp-key', MP.devToken);
-                MP.identityCallInFlight = true;
-                xhr.send(JSON.stringify(identityApiRequest));
-            }
-        }
-        catch (e) {
-            MP.identityCallInFlight = false;
-            invokeCallback(callback, HTTPCodes.noHttpCoverage, e);
-            Helpers.logDebug('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
-        }
-    }
-}
-
 function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, method) {
     var prevUser,
         newUser,
@@ -2999,6 +3032,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                     MP.currentSessionMPIDs.push(MP.mpid);
                     Persistence.update();
                 }
+
                 CookieSyncManager.attemptCookieSync(previousMPID, MP.mpid);
 
                 Identity.checkIdentitySwap(previousMPID, MP.mpid);
@@ -3008,7 +3042,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 if (MP.eventQueue.length && MP.mpid) {
                     MP.eventQueue.forEach(function(event) {
                         event.MPID = MP.mpid;
-                        send(event);
+                        sendEventToServer(event, Events.sendEventToForwarders, Events.parseEventResponse);
                     });
                     MP.eventQueue = [];
                 }
@@ -3031,7 +3065,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
 
             newUser = mParticle.Identity.getCurrentUser();
 
-            if (identityApiData && identityApiData.onUserAlias && Validators.isFunction(identityApiData.onUserAlias)) {
+            if (identityApiData && identityApiData.onUserAlias && Helpers.Validators.isFunction(identityApiData.onUserAlias)) {
                 try {
                     identityApiData.onUserAlias(prevUser, newUser);
                 }
@@ -3052,7 +3086,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         }
 
         if (callback) {
-            invokeCallback(callback, xhr.status, identityApiResult || null);
+            Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
         } else {
             if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
                 Helpers.logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
@@ -3061,22 +3095,9 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
     }
     catch (e) {
         if (callback) {
-            invokeCallback(callback, xhr.status, identityApiResult || null);
+            Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
         }
         Helpers.logDebug('Error parsing JSON response from Identity server: ' + e);
-    }
-}
-
-function invokeCallback(callback, code, body) {
-    try {
-        if (Validators.isFunction(callback)) {
-            callback({
-                httpCode: code,
-                body: body
-            });
-        }
-    } catch (e) {
-        Helpers.logDebug('There was an error with your callback: ' + e);
     }
 }
 
@@ -3104,7 +3125,7 @@ module.exports = {
     mParticleUserCart: mParticleUserCart
 };
 
-},{"./constants":2,"./cookieSyncManager":3,"./events":5,"./forwarders":6,"./helpers":7,"./mp":12,"./persistence":13,"./serverModel":15,"./types":17}],9:[function(require,module,exports){
+},{"./CookieSyncManager":1,"./apiClient":2,"./constants":4,"./events":7,"./forwarders":8,"./helpers":9,"./mp":14,"./persistence":15,"./serverModel":17,"./types":19}],11:[function(require,module,exports){
 var Persistence = require('./persistence'),
     Types = require('./types'),
     Helpers = require('./helpers');
@@ -3193,7 +3214,7 @@ module.exports = {
     getFilteredMparticleUser: getFilteredMparticleUser
 };
 
-},{"./helpers":7,"./persistence":13,"./types":17}],10:[function(require,module,exports){
+},{"./helpers":9,"./persistence":15,"./types":19}],12:[function(require,module,exports){
 //
 //  Copyright 2017 mParticle, Inc.
 //
@@ -4028,6 +4049,8 @@ var Polyfill = require('./polyfill'),
 
         if (window.mParticle.config.hasOwnProperty('forceHttps')) {
             mParticle.forceHttps = window.mParticle.config.forceHttps;
+        } else {
+            mParticle.forceHttps = true;
         }
 
         // Some forwarders require custom flags on initialization, so allow them to be set using config object
@@ -4038,7 +4061,7 @@ var Polyfill = require('./polyfill'),
     window.mParticle = mParticle;
 })(window);
 
-},{"./consent":1,"./constants":2,"./cookieSyncManager":3,"./ecommerce":4,"./events":5,"./forwarders":6,"./helpers":7,"./identity":8,"./migrations":11,"./mp":12,"./persistence":13,"./polyfill":14,"./sessionManager":16,"./types":17}],11:[function(require,module,exports){
+},{"./consent":3,"./constants":4,"./cookieSyncManager":5,"./ecommerce":6,"./events":7,"./forwarders":8,"./helpers":9,"./identity":10,"./migrations":13,"./mp":14,"./persistence":15,"./polyfill":16,"./sessionManager":18,"./types":19}],13:[function(require,module,exports){
 var Persistence = require('./persistence'),
     Constants = require('./constants'),
     Types = require('./types'),
@@ -4400,7 +4423,7 @@ module.exports = {
     convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4: convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4
 };
 
-},{"./constants":2,"./helpers":7,"./mp":12,"./persistence":13,"./polyfill":14,"./types":17}],12:[function(require,module,exports){
+},{"./constants":4,"./helpers":9,"./mp":14,"./persistence":15,"./polyfill":16,"./types":19}],14:[function(require,module,exports){
 module.exports = {
     isEnabled: true,
     sessionAttributes: {},
@@ -4444,7 +4467,7 @@ module.exports = {
     identifyCalled: false
 };
 
-},{}],13:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Base64 = require('./polyfill').Base64,
@@ -4678,7 +4701,6 @@ function setLocalStorage() {
             Helpers.logDebug('Error with setting products on localStorage.');
         }
     }
-
 
     if (!mParticle.useCookieStorage) {
         currentMPIDData = this.convertInMemoryDataForCookies();
@@ -4969,7 +4991,7 @@ function findPrevCookiesBasedOnUI(identityApiData) {
                     if (cookies[key].mpid) {
                         var cookieUIs = cookies[key].ui;
                         for (var cookieUIType in cookieUIs) {
-                            if (requestedIdentityType === cookieUIType 
+                            if (requestedIdentityType === cookieUIType
                                 && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
                                 matchedUser = key;
                                 break;
@@ -5304,7 +5326,7 @@ module.exports = {
     setConsentState: setConsentState
 };
 
-},{"./consent":1,"./constants":2,"./helpers":7,"./mp":12,"./polyfill":14}],14:[function(require,module,exports){
+},{"./consent":3,"./constants":4,"./helpers":9,"./mp":14,"./polyfill":16}],16:[function(require,module,exports){
 var Helpers = require('./helpers');
 
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
@@ -5552,7 +5574,7 @@ module.exports = {
     Base64: Base64
 };
 
-},{"./helpers":7}],15:[function(require,module,exports){
+},{"./helpers":9}],17:[function(require,module,exports){
 var Types = require('./types'),
     MessageType = Types.MessageType,
     ApplicationTransitionType = Types.ApplicationTransitionType,
@@ -5798,7 +5820,7 @@ module.exports = {
     convertToConsentStateDTO: convertToConsentStateDTO
 };
 
-},{"./constants":2,"./helpers":7,"./mp":12,"./types":17}],16:[function(require,module,exports){
+},{"./constants":4,"./helpers":9,"./mp":14,"./types":19}],18:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Messages = require('./constants').Messages,
     Types = require('./types'),
@@ -5931,7 +5953,7 @@ module.exports = {
     clearSessionTimeout: clearSessionTimeout
 };
 
-},{"./constants":2,"./events":5,"./helpers":7,"./identity":8,"./mp":12,"./persistence":13,"./types":17}],17:[function(require,module,exports){
+},{"./constants":4,"./events":7,"./helpers":9,"./identity":10,"./mp":14,"./persistence":15,"./types":19}],19:[function(require,module,exports){
 var MessageType = {
     SessionStart: 1,
     SessionEnd: 2,
@@ -6251,4 +6273,4 @@ module.exports = {
     PromotionActionType:PromotionActionType
 };
 
-},{}]},{},[10]);
+},{}]},{},[12]);
