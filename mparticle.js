@@ -338,7 +338,7 @@ function createConsentState(consentState) {
             Helpers.logDebug('addGDPRConsentState() invoked with bad or empty GDPR consent object.');
             return this;
         }
-        var gdprConsentCopy = createGDPRConsent(gdprConsent.Consented, 
+        var gdprConsentCopy = createGDPRConsent(gdprConsent.Consented,
                 gdprConsent.Timestamp,
                 gdprConsent.ConsentDocument,
                 gdprConsent.Location,
@@ -383,7 +383,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.6.1',
+    sdkVersion = '2.6.2',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -2225,7 +2225,8 @@ var Helpers = require('./helpers'),
     CookieSyncManager = require('./CookieSyncManager'),
     sendEventToServer = require('./apiClient').sendEventToServer,
     HTTPCodes = Constants.HTTPCodes,
-    Events = require('./events');
+    Events = require('./events'),
+    sendEventToForwarders = require('./forwarders').sendEventToForwarders;
 
 var Identity = {
     checkIdentitySwap: function(previousMPID, currentMPID) {
@@ -3042,7 +3043,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 if (MP.eventQueue.length && MP.mpid) {
                     MP.eventQueue.forEach(function(event) {
                         event.MPID = MP.mpid;
-                        sendEventToServer(event, Events.sendEventToForwarders, Events.parseEventResponse);
+                        sendEventToServer(event, sendEventToForwarders, Events.parseEventResponse);
                     });
                     MP.eventQueue = [];
                 }
@@ -5670,7 +5671,7 @@ function convertToConsentStateDTO(state) {
             }
         }
     }
-    
+
     return jsonObject;
 }
 
