@@ -11,7 +11,8 @@ var Helpers = require('./helpers'),
     CookieSyncManager = require('./CookieSyncManager'),
     sendEventToServer = require('./apiClient').sendEventToServer,
     HTTPCodes = Constants.HTTPCodes,
-    Events = require('./events');
+    Events = require('./events'),
+    sendEventToForwarders = require('./forwarders').sendEventToForwarders;
 
 var Identity = {
     checkIdentitySwap: function(previousMPID, currentMPID) {
@@ -828,7 +829,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 if (MP.eventQueue.length && MP.mpid) {
                     MP.eventQueue.forEach(function(event) {
                         event.MPID = MP.mpid;
-                        sendEventToServer(event, Events.sendEventToForwarders, Events.parseEventResponse);
+                        sendEventToServer(event, sendEventToForwarders, Events.parseEventResponse);
                     });
                     MP.eventQueue = [];
                 }
