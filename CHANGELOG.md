@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.6.2 - 2018-07-16
+*  Update growl and hoek for testing dependencies
+*  Bugfix - sendEventToForwarder fix
+
 #### 2.6.1 - 2018-07-11
 *  Default forceHttps to true
 *  Add apiClient module
