@@ -109,8 +109,8 @@ function logAST() {
     logEvent(Types.MessageType.AppStateTransition);
 }
 
-function logCheckoutEvent(step, options, attrs) {
-    var event = Ecommerce.createCommerceEventObject();
+function logCheckoutEvent(step, options, attrs, customFlags) {
+    var event = Ecommerce.createCommerceEventObject(customFlags);
 
     if (event) {
         event.EventName += Ecommerce.getProductActionEventName(Types.ProductActionType.Checkout);
@@ -126,8 +126,8 @@ function logCheckoutEvent(step, options, attrs) {
     }
 }
 
-function logProductActionEvent(productActionType, product, attrs) {
-    var event = Ecommerce.createCommerceEventObject();
+function logProductActionEvent(productActionType, product, attrs, customFlags) {
+    var event = Ecommerce.createCommerceEventObject(customFlags);
 
     if (event) {
         event.EventCategory = Ecommerce.convertProductActionToEventType(productActionType);
@@ -141,8 +141,8 @@ function logProductActionEvent(productActionType, product, attrs) {
     }
 }
 
-function logPurchaseEvent(transactionAttributes, product, attrs) {
-    var event = Ecommerce.createCommerceEventObject();
+function logPurchaseEvent(transactionAttributes, product, attrs, customFlags) {
+    var event = Ecommerce.createCommerceEventObject(customFlags);
 
     if (event) {
         event.EventName += Ecommerce.getProductActionEventName(Types.ProductActionType.Purchase);
@@ -158,13 +158,13 @@ function logPurchaseEvent(transactionAttributes, product, attrs) {
     }
 }
 
-function logRefundEvent(transactionAttributes, product, attrs) {
+function logRefundEvent(transactionAttributes, product, attrs, customFlags) {
     if (!transactionAttributes) {
         Helpers.logDebug(Messages.ErrorMessages.TransactionRequired);
         return;
     }
 
-    var event = Ecommerce.createCommerceEventObject();
+    var event = Ecommerce.createCommerceEventObject(customFlags);
 
     if (event) {
         event.EventName += Ecommerce.getProductActionEventName(Types.ProductActionType.Refund);
@@ -180,8 +180,8 @@ function logRefundEvent(transactionAttributes, product, attrs) {
     }
 }
 
-function logPromotionEvent(promotionType, promotion, attrs) {
-    var event = Ecommerce.createCommerceEventObject();
+function logPromotionEvent(promotionType, promotion, attrs, customFlags) {
+    var event = Ecommerce.createCommerceEventObject(customFlags);
 
     if (event) {
         event.EventName += Ecommerce.getPromotionActionEventName(promotionType);
@@ -195,8 +195,8 @@ function logPromotionEvent(promotionType, promotion, attrs) {
     }
 }
 
-function logImpressionEvent(impression, attrs) {
-    var event = Ecommerce.createCommerceEventObject();
+function logImpressionEvent(impression, attrs, customFlags) {
+    var event = Ecommerce.createCommerceEventObject(customFlags);
 
     if (event) {
         event.EventName += 'Impression';

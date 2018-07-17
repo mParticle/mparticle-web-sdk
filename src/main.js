@@ -405,9 +405,9 @@ var Polyfill = require('./polyfill'),
         * @method logPageView
         * @param {String} eventName The name of the event. Defaults to 'PageView'.
         * @param {Object} [attrs] Attributes for the event
-        * @param {Object} [flags] Custom flags for the event
+        * @param {Object} [customFlags] Custom flags for the event
         */
-        logPageView: function(eventName, attrs, flags) {
+        logPageView: function(eventName, attrs, customFlags) {
             mParticle.sessionManager.resetSessionTimer();
 
             if (Helpers.canLog()) {
@@ -424,13 +424,13 @@ var Polyfill = require('./polyfill'),
                     Helpers.logDebug('The attributes argument must be an object. A ' + typeof attrs + ' was entered. Please correct and retry.');
                     return;
                 }
-                if (flags && !Helpers.isObject(flags)) {
-                    Helpers.logDebug('The customFlags argument must be an object. A ' + typeof flags + ' was entered. Please correct and retry.');
+                if (customFlags && !Helpers.isObject(customFlags)) {
+                    Helpers.logDebug('The customFlags argument must be an object. A ' + typeof customFlags + ' was entered. Please correct and retry.');
                     return;
                 }
             }
 
-            Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, flags);
+            Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, customFlags);
         },
         Consent: {
             createGDPRConsent: Consent.createGDPRConsent,
@@ -452,19 +452,19 @@ var Polyfill = require('./polyfill'),
                 * Adds a product to the cart
                 * @method add
                 * @param {Object} product The product you want to add to the cart
-                * @param {Boolean} [logEvent] Option to log the event to mParticle's servers. If blank, no logging occurs.
+                * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
                 */
-                add: function(product, logEvent) {
-                    mParticleUserCart(MP.mpid).add(product, logEvent);
+                add: function(product, logEventBoolean) {
+                    mParticleUserCart(MP.mpid).add(product, logEventBoolean);
                 },
                 /**
                 * Removes a product from the cart
                 * @method remove
                 * @param {Object} product The product you want to add to the cart
-                * @param {Boolean} [logEvent] Option to log the event to mParticle's servers. If blank, no logging occurs.
+                * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
                 */
-                remove: function(product, logEvent) {
-                    mParticleUserCart(MP.mpid).remove(product, logEvent);
+                remove: function(product, logEventBoolean) {
+                    mParticleUserCart(MP.mpid).remove(product, logEventBoolean);
                 },
                 /**
                 * Clears the cart
@@ -553,10 +553,11 @@ var Polyfill = require('./polyfill'),
             * @param {Number} step checkout step number
             * @param {Object} options
             * @param {Object} attrs
+            * @param {Object} [customFlags] Custom flags for the event
             */
-            logCheckout: function(step, options, attrs) {
+            logCheckout: function(step, options, attrs, customFlags) {
                 mParticle.sessionManager.resetSessionTimer();
-                Events.logCheckoutEvent(step, options, attrs);
+                Events.logCheckoutEvent(step, options, attrs, customFlags);
             },
             /**
             * Logs a product action
@@ -565,10 +566,11 @@ var Polyfill = require('./polyfill'),
             * @param {Number} productActionType product action type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L206-L218)
             * @param {Object} product the product for which you are creating the product action
             * @param {Object} [attrs] attributes related to the product action
+            * @param {Object} [customFlags] Custom flags for the event
             */
-            logProductAction: function(productActionType, product, attrs) {
+            logProductAction: function(productActionType, product, attrs, customFlags) {
                 mParticle.sessionManager.resetSessionTimer();
-                Events.logProductActionEvent(productActionType, product, attrs);
+                Events.logProductActionEvent(productActionType, product, attrs, customFlags);
             },
             /**
             * Logs a product purchase
@@ -578,14 +580,15 @@ var Polyfill = require('./polyfill'),
             * @param {Object} product the product being purchased
             * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
             * @param {Object} [attrs] other attributes related to the product purchase
+            * @param {Object} [customFlags] Custom flags for the event
             */
-            logPurchase: function(transactionAttributes, product, clearCart, attrs) {
+            logPurchase: function(transactionAttributes, product, clearCart, attrs, customFlags) {
                 if (!transactionAttributes || !product) {
                     Helpers.logDebug(Messages.ErrorMessages.BadLogPurchase);
                     return;
                 }
                 mParticle.sessionManager.resetSessionTimer();
-                Events.logPurchaseEvent(transactionAttributes, product, attrs);
+                Events.logPurchaseEvent(transactionAttributes, product, attrs, customFlags);
 
                 if (clearCart === true) {
                     mParticle.eCommerce.Cart.clear();
@@ -598,10 +601,11 @@ var Polyfill = require('./polyfill'),
             * @param {Number} type the promotion type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L275-L279)
             * @param {Object} promotion promotion object
             * @param {Object} [attrs] boolean to clear the cart after logging or not
+            * @param {Object} [customFlags] Custom flags for the event
             */
-            logPromotion: function(type, promotion, attrs) {
+            logPromotion: function(type, promotion, attrs, customFlags) {
                 mParticle.sessionManager.resetSessionTimer();
-                Events.logPromotionEvent(type, promotion, attrs);
+                Events.logPromotionEvent(type, promotion, attrs, customFlags);
             },
             /**
             * Logs a product impression
@@ -609,10 +613,11 @@ var Polyfill = require('./polyfill'),
             * @method logImpression
             * @param {Object} impression product impression object
             * @param {Object} attrs attributes related to the impression log
+            * @param {Object} [customFlags] Custom flags for the event
             */
-            logImpression: function(impression, attrs) {
+            logImpression: function(impression, attrs, customFlags) {
                 mParticle.sessionManager.resetSessionTimer();
-                Events.logImpressionEvent(impression, attrs);
+                Events.logImpressionEvent(impression, attrs, customFlags);
             },
             /**
             * Logs a refund
@@ -622,10 +627,11 @@ var Polyfill = require('./polyfill'),
             * @param {Object} product product being refunded
             * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
             * @param {Object} [attrs] attributes related to the refund
+            * @param {Object} [customFlags] Custom flags for the event
             */
-            logRefund: function(transactionAttributes, product, clearCart, attrs) {
+            logRefund: function(transactionAttributes, product, clearCart, attrs, customFlags) {
                 mParticle.sessionManager.resetSessionTimer();
-                Events.logRefundEvent(transactionAttributes, product, attrs);
+                Events.logRefundEvent(transactionAttributes, product, attrs, customFlags);
 
                 if (clearCart === true) {
                     mParticle.eCommerce.Cart.clear();

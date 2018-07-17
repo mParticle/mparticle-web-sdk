@@ -411,7 +411,7 @@ function expandProductAction(commerceEvent) {
     return appEvents;
 }
 
-function createCommerceEventObject() {
+function createCommerceEventObject(customFlags) {
     var baseEvent;
 
     Helpers.logDebug(Messages.InformationMessages.StartingLogCommerceEvent);
@@ -423,6 +423,7 @@ function createCommerceEventObject() {
         baseEvent.ShoppingCart = {
             ProductList: MP.cartProducts
         };
+        baseEvent.CustomFlags = customFlags;
 
         return baseEvent;
     }

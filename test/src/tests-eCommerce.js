@@ -880,4 +880,67 @@ describe('eCommerce', function() {
 
         done();
     });
+
+    it('should add customFlags to logCheckout events', function(done) {
+        mParticle.eCommerce.logCheckout(1, {}, {}, {interactionEvent: true});
+        var event = getEvent('eCommerce - Checkout');
+        Array.isArray(event.flags.interactionEvent).should.equal(true);
+        event.flags.interactionEvent[0].should.equal('true');
+
+        done();
+    });
+
+    it('should add customFlags to logProductAction events', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
+        mParticle.eCommerce.logProductAction(0, product, {price: 5}, {interactionEvent: true});
+
+        var event = getEvent('eCommerce - Unknown');
+        Array.isArray(event.flags.interactionEvent).should.equal(true);
+        event.flags.interactionEvent[0].should.equal('true');
+
+        done();
+    });
+
+    it('should add customFlags to logPurchase events', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
+        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('id1', 'affil1', 'couponCode1');
+        mParticle.eCommerce.logPurchase(transactionAttributes, product, true, {shipping: 5}, {interactionEvent: true});
+        var event = getEvent('eCommerce - Purchase');
+        Array.isArray(event.flags.interactionEvent).should.equal(true);
+        event.flags.interactionEvent[0].should.equal('true');
+
+        done();
+    });
+
+    it('should add customFlags to logPromotion events', function(done) {
+        var promotion = mParticle.eCommerce.createPromotion('id', 'creative', 'name');
+        mParticle.eCommerce.logPromotion(0, promotion, {shipping: 5}, {interactionEvent: true});
+        var event = getEvent('eCommerce - Unknown');
+        Array.isArray(event.flags.interactionEvent).should.equal(true);
+        event.flags.interactionEvent[0].should.equal('true');
+
+        done();
+    });
+
+    it('should add customFlags to logImpression events', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
+        var impression = mParticle.eCommerce.createImpression('iphoneImpressionName', product);
+        mParticle.eCommerce.logImpression(impression, {shipping: 5}, {interactionEvent: true});
+        var event = getEvent('eCommerce - Impression');
+        Array.isArray(event.flags.interactionEvent).should.equal(true);
+        event.flags.interactionEvent[0].should.equal('true');
+
+        done();
+    });
+
+    it('should add customFlags to logRefund events', function(done) {
+        var product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
+        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('id1', 'affil1', 'couponCode1');
+        mParticle.eCommerce.logRefund(transactionAttributes, product, true, {shipping: 5}, {interactionEvent: true});
+        var event = getEvent('eCommerce - Refund');
+        Array.isArray(event.flags.interactionEvent).should.equal(true);
+        event.flags.interactionEvent[0].should.equal('true');
+
+        done();
+    });
 });
