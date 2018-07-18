@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.6.3 - 2018-07-18
+*  Implement customFlags per public API method
+
 #### 2.6.2 - 2018-07-16
 *  Update growl and hoek for testing dependencies
 *  Bugfix - sendEventToForwarder fix
