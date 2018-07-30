@@ -1,5 +1,7 @@
 var TestsCore = require('./tests-core'),
     getEvent = TestsCore.getEvent,
+    getForwarderEvent = TestsCore.getForwarderEvent,
+    server = TestsCore.server,
     apiKey = TestsCore.apiKey,
     setCookie = TestsCore.setCookie,
     v1CookieKey = TestsCore.v1CookieKey,
@@ -351,7 +353,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('sends events to forwarder when mParticle.isDevelopmentMode = config.isDebug = false', function(done) {
+    it('sends events to forwarder v1 endpoint when mParticle.isDevelopmentMode = config.isDebug = false', function(done) {
         mParticle.reset();
         mParticle.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
@@ -359,28 +361,33 @@ describe('forwarders', function() {
         mockForwarder.configure();
         mParticle.init(apiKey);
 
+        server.requests = [];
         mParticle.logEvent('send this event to forwarder');
 
         mockForwarder.instance.should.have.property('processCalled', true);
+        server.requests[1].urlParts.path.should.equal('/v1/JS/test_key/Forwarding');
 
         done();
     });
 
-    it('sends forwarding stats', function(done) {
+    it('sends forwarding stats to v2 endpoint when featureFlag setting of batching is true', function(done) {
         mParticle.reset();
+        var clock = sinon.useFakeTimers();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure();
+        mParticle._configureFeatures({batching: true});
         mParticle.init(apiKey);
+        server.requests = [];
 
         mParticle.logEvent('send this event to forwarder',
             mParticle.EventType.Navigation,
             { 'my-key': 'my-value' });
-
-        var event = getEvent('send this event to forwarder', true);
-
+        clock.tick(5000);
+        var event = getForwarderEvent('send this event to forwarder', true);
         Should(event).should.be.ok();
 
+        server.requests[1].urlParts.path.should.equal('/v2/JS/test_key/Forwarding');
         event.should.have.property('mid', 1);
         event.should.have.property('esid', 1234567890);
         event.should.have.property('n', 'send this event to forwarder');
@@ -391,6 +398,7 @@ describe('forwarders', function() {
         event.should.have.property('dbg', mParticle.isDevelopmentMode);
         event.should.have.property('ct');
         event.should.have.property('eec', 0);
+        clock.restore();
 
         done();
     });
@@ -1371,6 +1379,52 @@ describe('forwarders', function() {
         mParticle.init(apiKey);
 
         mockForwarder.instance.should.have.property('onUserIdentifiedCalled', true);
+
+        done();
+    });
+
+    it('should queue forwarder stats reporting and send after 5 seconds if batching feature is true', function(done) {
+        var clock = sinon.useFakeTimers();
+
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        mParticle.configureForwarder(forwarder);
+        mParticle._configureFeatures({batching: true});
+
+        mParticle.init(apiKey);
+        mParticle.logEvent('not in forwarder');
+        var product = mParticle.eCommerce.createProduct('iphone', 'sku', 123, 1);
+        mParticle.eCommerce.Cart.add(product, true);
+
+        var result = getForwarderEvent('not in forwarder');
+
+        Should(result).not.be.ok();
+        clock.tick(5001);
+
+        result = getForwarderEvent('not in forwarder');
+        result.should.be.ok();
+        result = getForwarderEvent('eCommerce - AddToCart');
+        result.should.be.ok();
+        clock.restore();
 
         done();
     });

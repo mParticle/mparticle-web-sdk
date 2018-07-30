@@ -38,5 +38,8 @@ module.exports = {
     Config: {},
     migratingToIDSyncCookies: false,
     nonCurrentUserMPIDs: {},
-    identifyCalled: false
+    identifyCalled: false,
+    featureFlags: {
+        batching: false
+    }
 };

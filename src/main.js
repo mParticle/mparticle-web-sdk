@@ -31,6 +31,7 @@ var Polyfill = require('./polyfill'),
     Validators = Helpers.Validators,
     Migrations = require('./migrations'),
     Forwarders = require('./forwarders'),
+    ForwardingStatsUploader = require('./forwardingStatsUploader'),
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
     IdentityAPI = require('./identity').IdentityAPI,
@@ -145,6 +146,9 @@ var Polyfill = require('./polyfill'),
                 }
 
                 Forwarders.initForwarders(MP.initialIdentifyRequest.userIdentities);
+                if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
+                    ForwardingStatsUploader.startForwardingStatsTimer();
+                }
 
                 if (arguments && arguments.length) {
                     if (arguments.length > 1 && typeof arguments[1] === 'object') {
@@ -214,11 +218,14 @@ var Polyfill = require('./polyfill'),
             MP.isInitialized = false;
             MP.identifyCalled = false;
             MP.consentState = null;
+            MP.featureFlags = {};
             Helpers.mergeConfig({});
             if (!keepPersistence) {
                 Persistence.resetPersistence();
             }
             mParticle.identityCallback = null;
+            Persistence.forwardingStatsBatches.uploadsTable = {};
+            Persistence.forwardingStatsBatches.forwardingStatsEventQueue = [];
         },
         ready: function(f) {
             if (MP.isInitialized && typeof f === 'function') {
@@ -752,6 +759,13 @@ var Polyfill = require('./polyfill'),
         },
         _getActiveForwarders: function() {
             return MP.activeForwarders;
+        },
+        _configureFeatures: function(featureFlags) {
+            for (var key in featureFlags) {
+                if (featureFlags.hasOwnProperty(key)) {
+                    MP.featureFlags[key] = featureFlags[key];
+                }
+            }
         }
     };
 

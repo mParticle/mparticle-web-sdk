@@ -813,6 +813,12 @@ function resetPersistence(){
     expireCookies(MP.Config.CookieNameV4);
 }
 
+// Forwarder Batching Code
+var forwardingStatsBatches = {
+    uploadsTable: {},
+    forwardingStatsEventQueue: []
+};
+
 module.exports = {
     useLocalStorage: useLocalStorage,
     isLocalStorageAvailable: null,
@@ -853,5 +859,6 @@ module.exports = {
     getDeviceId: getDeviceId,
     resetPersistence: resetPersistence,
     getConsentState: getConsentState,
-    setConsentState: setConsentState
+    setConsentState: setConsentState,
+    forwardingStatsBatches: forwardingStatsBatches
 };

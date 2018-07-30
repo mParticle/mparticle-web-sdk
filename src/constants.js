@@ -98,6 +98,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         Sandbox: false,                             // Events are marked as debug and only forwarded to debug forwarders,
         Version: null,                              // The version of this website/app
         MaxProducts: 20,                            // Number of products persisted in cartProducts and productBags
+        ForwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
         MaxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
     },
     Base64CookieKeys = {
@@ -123,6 +124,9 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         nativeIdentityRequest: -5,
         loggingDisabledOrMissingAPIKey: -6,
         tooManyRequests: 429
+    },
+    Features = {
+        Batching: 'batching'
     };
 
 module.exports = {
@@ -139,5 +143,6 @@ module.exports = {
     DefaultConfig: DefaultConfig,
     Base64CookieKeys:Base64CookieKeys,
     HTTPCodes: HTTPCodes,
+    Features: Features,
     SDKv2NonMPIDCookieKeys: SDKv2NonMPIDCookieKeys
 };

@@ -1,7 +1,9 @@
 var Helpers = require('./helpers'),
     Types = require('./types'),
+    Constants = require('./constants'),
     MParticleUser = require('./mParticleUser'),
-    sendForwardingStats = require('./apiClient').sendForwardingStats,
+    ApiClient = require('./apiClient'),
+    Persistence = require('./persistence'),
     MP = require('./mp');
 
 function initForwarders(userIdentities) {
@@ -22,7 +24,7 @@ function initForwarders(userIdentities) {
 
             if (!forwarder.initialized) {
                 forwarder.init(forwarder.settings,
-                    sendForwardingStats,
+                    prepareForwardingStats,
                     false,
                     null,
                     filteredUserAttributes,
@@ -327,6 +329,41 @@ function setForwarderOnUserIdentified(user) {
     });
 }
 
+function prepareForwardingStats(forwarder, event) {
+    var forwardingStatsData,
+        queue = getForwarderStatsQueue();
+
+    if (forwarder && forwarder.isVisible) {
+        forwardingStatsData = {
+            mid: forwarder.id,
+            esid: forwarder.eventSubscriptionId,
+            n: event.EventName,
+            attrs: event.EventAttributes,
+            sdk: event.SDKVersion,
+            dt: event.EventDataType,
+            et: event.EventCategory,
+            dbg: event.Debug,
+            ct: event.Timestamp,
+            eec: event.ExpandedEventCount
+        };
+
+        if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
+            queue.push(forwardingStatsData);
+            setForwarderStatsQueue(queue);
+        } else {
+            ApiClient.sendSingleForwardingStatsToServer(forwardingStatsData);
+        }
+    }
+}
+
+function getForwarderStatsQueue() {
+    return Persistence.forwardingStatsBatches.forwardingStatsEventQueue;
+}
+
+function setForwarderStatsQueue(queue) {
+    Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
+}
+
 module.exports = {
     initForwarders: initForwarders,
     applyToForwarders: applyToForwarders,
@@ -334,5 +371,8 @@ module.exports = {
     callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
     setForwarderUserIdentities: setForwarderUserIdentities,
     setForwarderOnUserIdentified: setForwarderOnUserIdentified,
+    prepareForwardingStats: prepareForwardingStats,
+    getForwarderStatsQueue: getForwarderStatsQueue,
+    setForwarderStatsQueue: setForwarderStatsQueue,
     isEnabledForUserConsent: isEnabledForUserConsent
 };

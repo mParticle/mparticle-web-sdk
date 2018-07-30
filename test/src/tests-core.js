@@ -139,10 +139,41 @@ var server = new MockHttpServer(),
 
         return matchedEvent;
     },
+    getForwarderEvent = function(eventName) {
+        var requests = [];
+        if (getForwarderRequests().length) {
+            getForwarderRequests().forEach(function(request){
+                JSON.parse(request.requestText).data.forEach(function(internalRequest){
+                    if (internalRequest.n === eventName) {
+                        requests.push(internalRequest);
+                    }
+                });
+            });
+        }
+
+        if (requests.length) {
+            return requests[0];
+        } else {
+            return null;
+        }
+    },
     getRequests = function(path) {
         var requests = [];
         var version = path === 'Forwarding' ? 'v1' : 'v2',
             fullPath = '/' + version+ '/JS/' + apiKey + '/' + path;
+
+        server.requests.forEach(function(item) {
+            if (item.urlParts.path == fullPath) {
+                requests.push(item);
+            }
+        });
+
+        return requests;
+    },
+    getForwarderRequests = function() {
+        var requests = [];
+        var version = 'v2',
+            fullPath = '/' + version+ '/JS/' + apiKey + '/' + 'Forwarding';
 
         server.requests.forEach(function(item) {
             if (item.urlParts.path == fullPath) {
@@ -413,6 +444,7 @@ module.exports = {
     setLocalStorage: setLocalStorage,
     getLocalStorage: getLocalStorage,
     getEvent: getEvent,
+    getForwarderEvent: getForwarderEvent,
     getIdentityEvent: getIdentityEvent,
     MessageType: MessageType,
     ProductActionType: ProductActionType,

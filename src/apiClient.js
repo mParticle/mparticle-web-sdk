@@ -111,39 +111,52 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
     }
 }
 
-function sendForwardingStats(forwarder, event) {
-    var xhr,
-        forwardingStat;
-
-    if (forwarder && forwarder.isVisible) {
-        xhr = Helpers.createXHR();
-        forwardingStat = JSON.stringify({
-            mid: forwarder.id,
-            esid: forwarder.eventSubscriptionId,
-            n: event.EventName,
-            attrs: event.EventAttributes,
-            sdk: event.SDKVersion,
-            dt: event.EventDataType,
-            et: event.EventCategory,
-            dbg: event.Debug,
-            ct: event.Timestamp,
-            eec: event.ExpandedEventCount
-        });
+function sendBatchForwardingStatsToServer(forwardingStatsData, xhr) {
+    var url, data;
+    try {
+        url = Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken);
+        data = {
+            uuid: Helpers.generateUniqueId(),
+            data: forwardingStatsData
+        };
 
         if (xhr) {
-            try {
-                xhr.open('post', Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken) + '/Forwarding');
-                xhr.send(forwardingStat);
-            }
-            catch (e) {
-                Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
-            }
+            xhr.open('post', url + '/Forwarding');
+            xhr.send(JSON.stringify(data));
         }
+    }
+    catch (e) {
+        Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
+    }
+}
+
+function sendSingleForwardingStatsToServer(forwardingStatsData) {
+    var url, data;
+    try {
+        var xhrCallback = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 202) {
+                    Helpers.logDebug('Successfully sent  ' + xhr.statusText + ' from server');
+                }
+            }
+        };
+        var xhr = Helpers.createXHR(xhrCallback);
+        url = Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken);
+        data = forwardingStatsData;
+
+        if (xhr) {
+            xhr.open('post', url + '/Forwarding');
+            xhr.send(JSON.stringify(data));
+        }
+    }
+    catch (e) {
+        Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
     }
 }
 
 module.exports = {
     sendEventToServer: sendEventToServer,
     sendIdentityRequest: sendIdentityRequest,
-    sendForwardingStats: sendForwardingStats
+    sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,
+    sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer
 };

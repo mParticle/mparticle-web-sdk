@@ -19,6 +19,10 @@ function canLog() {
     return false;
 }
 
+function hasFeatureFlag(feature) {
+    return MP.featureFlags[feature];
+}
+
 function invokeCallback(callback, code, body) {
     try {
         if (Validators.isFunction(callback)) {
@@ -532,5 +536,6 @@ module.exports = {
     sanitizeAttributes: sanitizeAttributes,
     mergeConfig: mergeConfig,
     invokeCallback: invokeCallback,
+    hasFeatureFlag: hasFeatureFlag,
     Validators: Validators
 };
