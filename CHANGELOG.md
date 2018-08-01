@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.6.4 - 2018-08-01
+*  Implement forwarderUploader module, feaure flags, batch forwarder stats
+*  Bugfix - Change ProductActionTypes to be consistent with mobile/S2S
+
 #### 2.6.3 - 2018-07-18
 *  Implement customFlags per public API method
 
