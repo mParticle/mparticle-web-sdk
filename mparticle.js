@@ -1,69 +1,6 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
-    Persistence = require('./persistence'),
-    Messages = Constants.Messages,
-    MP = require('./mp');
-
-var cookieSyncManager = {
-    attemptCookieSync: function(previousMPID, mpid) {
-        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
-        if (mpid && !Helpers.shouldUseNativeSdk()) {
-            MP.pixelConfigurations.forEach(function(pixelSettings) {
-                pixelConfig = {
-                    moduleId: pixelSettings.moduleId,
-                    frequencyCap: pixelSettings.frequencyCap,
-                    pixelUrl: cookieSyncManager.replaceAmp(pixelSettings.pixelUrl),
-                    redirectUrl: pixelSettings.redirectUrl ? cookieSyncManager.replaceAmp(pixelSettings.redirectUrl) : null
-                };
-
-                url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
-                redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
-                urlWithRedirect = url + encodeURIComponent(redirect);
-
-                if (previousMPID && previousMPID !== mpid) {
-                    cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
-                    return;
-                } else {
-                    lastSyncDateForModule = MP.cookieSyncDates[(pixelConfig.moduleId).toString()] ? MP.cookieSyncDates[(pixelConfig.moduleId).toString()] : null;
-
-                    if (lastSyncDateForModule) {
-                        // Check to see if we need to refresh cookieSync
-                        if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
-                            cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
-                        }
-                    } else {
-                        cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
-                    }
-                }
-            });
-        }
-    },
-
-    performCookieSync: function(url, moduleId) {
-        var img = document.createElement('img');
-
-        Helpers.logDebug(Messages.InformationMessages.CookieSync);
-
-        img.src = url;
-        MP.cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
-        Persistence.update();
-    },
-
-    replaceMPID: function(string, mpid) {
-        return string.replace('%%mpid%%', mpid);
-    },
-
-    replaceAmp: function(string) {
-        return string.replace(/&amp;/g, '&');
-    }
-};
-
-module.exports = cookieSyncManager;
-
-},{"./constants":4,"./helpers":9,"./mp":14,"./persistence":15}],2:[function(require,module,exports){
-var Helpers = require('./helpers'),
-    Constants = require('./constants'),
     HTTPCodes = Constants.HTTPCodes,
     MP = require('./mp'),
     ServerModel = require('./serverModel'),
@@ -175,44 +112,57 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
     }
 }
 
-function sendForwardingStats(forwarder, event) {
-    var xhr,
-        forwardingStat;
-
-    if (forwarder && forwarder.isVisible) {
-        xhr = Helpers.createXHR();
-        forwardingStat = JSON.stringify({
-            mid: forwarder.id,
-            esid: forwarder.eventSubscriptionId,
-            n: event.EventName,
-            attrs: event.EventAttributes,
-            sdk: event.SDKVersion,
-            dt: event.EventDataType,
-            et: event.EventCategory,
-            dbg: event.Debug,
-            ct: event.Timestamp,
-            eec: event.ExpandedEventCount
-        });
+function sendBatchForwardingStatsToServer(forwardingStatsData, xhr) {
+    var url, data;
+    try {
+        url = Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken);
+        data = {
+            uuid: Helpers.generateUniqueId(),
+            data: forwardingStatsData
+        };
 
         if (xhr) {
-            try {
-                xhr.open('post', Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken) + '/Forwarding');
-                xhr.send(forwardingStat);
-            }
-            catch (e) {
-                Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
-            }
+            xhr.open('post', url + '/Forwarding');
+            xhr.send(JSON.stringify(data));
         }
+    }
+    catch (e) {
+        Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
+    }
+}
+
+function sendSingleForwardingStatsToServer(forwardingStatsData) {
+    var url, data;
+    try {
+        var xhrCallback = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 202) {
+                    Helpers.logDebug('Successfully sent  ' + xhr.statusText + ' from server');
+                }
+            }
+        };
+        var xhr = Helpers.createXHR(xhrCallback);
+        url = Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken);
+        data = forwardingStatsData;
+
+        if (xhr) {
+            xhr.open('post', url + '/Forwarding');
+            xhr.send(JSON.stringify(data));
+        }
+    }
+    catch (e) {
+        Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
     }
 }
 
 module.exports = {
     sendEventToServer: sendEventToServer,
     sendIdentityRequest: sendIdentityRequest,
-    sendForwardingStats: sendForwardingStats
+    sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,
+    sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer
 };
 
-},{"./constants":4,"./helpers":9,"./mp":14,"./serverModel":17,"./types":19}],3:[function(require,module,exports){
+},{"./constants":3,"./helpers":9,"./mp":14,"./serverModel":17,"./types":19}],2:[function(require,module,exports){
 var Helpers = require('./helpers');
 
 function createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId) {
@@ -377,13 +327,13 @@ module.exports = {
     createConsentState: createConsentState
 };
 
-},{"./helpers":9}],4:[function(require,module,exports){
+},{"./helpers":9}],3:[function(require,module,exports){
 var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v1SecureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.6.3',
+    sdkVersion = '2.6.4',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -478,6 +428,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         Sandbox: false,                             // Events are marked as debug and only forwarded to debug forwarders,
         Version: null,                              // The version of this website/app
         MaxProducts: 20,                            // Number of products persisted in cartProducts and productBags
+        ForwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
         MaxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
     },
     Base64CookieKeys = {
@@ -503,6 +454,9 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         nativeIdentityRequest: -5,
         loggingDisabledOrMissingAPIKey: -6,
         tooManyRequests: 429
+    },
+    Features = {
+        Batching: 'batching'
     };
 
 module.exports = {
@@ -519,12 +473,74 @@ module.exports = {
     DefaultConfig: DefaultConfig,
     Base64CookieKeys:Base64CookieKeys,
     HTTPCodes: HTTPCodes,
+    Features: Features,
     SDKv2NonMPIDCookieKeys: SDKv2NonMPIDCookieKeys
 };
 
-},{}],5:[function(require,module,exports){
-arguments[4][1][0].apply(exports,arguments)
-},{"./constants":4,"./helpers":9,"./mp":14,"./persistence":15,"dup":1}],6:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
+var Helpers = require('./helpers'),
+    Constants = require('./constants'),
+    Persistence = require('./persistence'),
+    Messages = Constants.Messages,
+    MP = require('./mp');
+
+var cookieSyncManager = {
+    attemptCookieSync: function(previousMPID, mpid) {
+        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
+        if (mpid && !Helpers.shouldUseNativeSdk()) {
+            MP.pixelConfigurations.forEach(function(pixelSettings) {
+                pixelConfig = {
+                    moduleId: pixelSettings.moduleId,
+                    frequencyCap: pixelSettings.frequencyCap,
+                    pixelUrl: cookieSyncManager.replaceAmp(pixelSettings.pixelUrl),
+                    redirectUrl: pixelSettings.redirectUrl ? cookieSyncManager.replaceAmp(pixelSettings.redirectUrl) : null
+                };
+
+                url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
+                redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
+                urlWithRedirect = url + encodeURIComponent(redirect);
+
+                if (previousMPID && previousMPID !== mpid) {
+                    cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                    return;
+                } else {
+                    lastSyncDateForModule = MP.cookieSyncDates[(pixelConfig.moduleId).toString()] ? MP.cookieSyncDates[(pixelConfig.moduleId).toString()] : null;
+
+                    if (lastSyncDateForModule) {
+                        // Check to see if we need to refresh cookieSync
+                        if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
+                            cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                        }
+                    } else {
+                        cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                    }
+                }
+            });
+        }
+    },
+
+    performCookieSync: function(url, moduleId) {
+        var img = document.createElement('img');
+
+        Helpers.logDebug(Messages.InformationMessages.CookieSync);
+
+        img.src = url;
+        MP.cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
+        Persistence.update();
+    },
+
+    replaceMPID: function(string, mpid) {
+        return string.replace('%%mpid%%', mpid);
+    },
+
+    replaceAmp: function(string) {
+        return string.replace(/&amp;/g, '&');
+    }
+};
+
+module.exports = cookieSyncManager;
+
+},{"./constants":3,"./helpers":9,"./mp":14,"./persistence":15}],5:[function(require,module,exports){
 var Types = require('./types'),
     Helpers = require('./helpers'),
     Validators = Helpers.Validators,
@@ -981,7 +997,7 @@ module.exports = {
     createCommerceEventObject: createCommerceEventObject
 };
 
-},{"./constants":4,"./helpers":9,"./mp":14,"./serverModel":17,"./types":19}],7:[function(require,module,exports){
+},{"./constants":3,"./helpers":9,"./mp":14,"./serverModel":17,"./types":19}],6:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Helpers = require('./helpers'),
@@ -1334,11 +1350,13 @@ module.exports = {
     startNewSessionIfNeeded: startNewSessionIfNeeded
 };
 
-},{"./apiClient":2,"./constants":4,"./ecommerce":6,"./forwarders":8,"./helpers":9,"./mp":14,"./persistence":15,"./serverModel":17,"./types":19}],8:[function(require,module,exports){
+},{"./apiClient":1,"./constants":3,"./ecommerce":5,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":15,"./serverModel":17,"./types":19}],7:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Types = require('./types'),
+    Constants = require('./constants'),
     MParticleUser = require('./mParticleUser'),
-    sendForwardingStats = require('./apiClient').sendForwardingStats,
+    ApiClient = require('./apiClient'),
+    Persistence = require('./persistence'),
     MP = require('./mp');
 
 function initForwarders(userIdentities) {
@@ -1359,7 +1377,7 @@ function initForwarders(userIdentities) {
 
             if (!forwarder.initialized) {
                 forwarder.init(forwarder.settings,
-                    sendForwardingStats,
+                    prepareForwardingStats,
                     false,
                     null,
                     filteredUserAttributes,
@@ -1664,6 +1682,41 @@ function setForwarderOnUserIdentified(user) {
     });
 }
 
+function prepareForwardingStats(forwarder, event) {
+    var forwardingStatsData,
+        queue = getForwarderStatsQueue();
+
+    if (forwarder && forwarder.isVisible) {
+        forwardingStatsData = {
+            mid: forwarder.id,
+            esid: forwarder.eventSubscriptionId,
+            n: event.EventName,
+            attrs: event.EventAttributes,
+            sdk: event.SDKVersion,
+            dt: event.EventDataType,
+            et: event.EventCategory,
+            dbg: event.Debug,
+            ct: event.Timestamp,
+            eec: event.ExpandedEventCount
+        };
+
+        if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
+            queue.push(forwardingStatsData);
+            setForwarderStatsQueue(queue);
+        } else {
+            ApiClient.sendSingleForwardingStatsToServer(forwardingStatsData);
+        }
+    }
+}
+
+function getForwarderStatsQueue() {
+    return Persistence.forwardingStatsBatches.forwardingStatsEventQueue;
+}
+
+function setForwarderStatsQueue(queue) {
+    Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
+}
+
 module.exports = {
     initForwarders: initForwarders,
     applyToForwarders: applyToForwarders,
@@ -1671,10 +1724,70 @@ module.exports = {
     callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
     setForwarderUserIdentities: setForwarderUserIdentities,
     setForwarderOnUserIdentified: setForwarderOnUserIdentified,
+    prepareForwardingStats: prepareForwardingStats,
+    getForwarderStatsQueue: getForwarderStatsQueue,
+    setForwarderStatsQueue: setForwarderStatsQueue,
     isEnabledForUserConsent: isEnabledForUserConsent
 };
 
-},{"./apiClient":2,"./helpers":9,"./mParticleUser":11,"./mp":14,"./types":19}],9:[function(require,module,exports){
+},{"./apiClient":1,"./constants":3,"./helpers":9,"./mParticleUser":11,"./mp":14,"./persistence":15,"./types":19}],8:[function(require,module,exports){
+var ApiClient = require('./apiClient'),
+    Helpers = require('./helpers'),
+    Forwarders = require('./forwarders'),
+    MP = require('./mp'),
+    Persistence = require('./persistence');
+
+function startForwardingStatsTimer() {
+    mParticle._forwardingStatsTimer = setInterval(function() {
+        prepareAndSendForwardingStatsBatch();
+    }, MP.Config.ForwarderStatsTimeout);
+}
+
+function prepareAndSendForwardingStatsBatch() {
+    var forwarderQueue = Forwarders.getForwarderStatsQueue(),
+        uploadsTable = Persistence.forwardingStatsBatches.uploadsTable,
+        now = Date.now();
+
+    if (forwarderQueue.length) {
+        uploadsTable[now] = {uploading: false, data: forwarderQueue};
+        Forwarders.setForwarderStatsQueue([]);
+    }
+
+    for (var date in uploadsTable) {
+        (function(date) {
+            if (uploadsTable.hasOwnProperty(date)) {
+                if (uploadsTable[date].uploading === false) {
+                    var xhrCallback = function() {
+                        if (xhr.readyState === 4) {
+                            if (xhr.status === 200 || xhr.status === 202) {
+                                Helpers.logDebug('Successfully sent  ' + xhr.statusText + ' from server');
+                                delete uploadsTable[date];
+                            } else if (xhr.status.toString()[0] === '4') {
+                                if (xhr.status !== 429) {
+                                    delete uploadsTable[date];
+                                }
+                            }
+                            else {
+                                uploadsTable[date].uploading = false;
+                            }
+                        }
+                    };
+
+                    var xhr = Helpers.createXHR(xhrCallback);
+                    var forwardingStatsData = uploadsTable[date].data;
+                    uploadsTable[date].uploading = true;
+                    ApiClient.sendBatchForwardingStatsToServer(forwardingStatsData, xhr);
+                }
+            }
+        })(date);
+    }
+}
+
+module.exports = {
+    startForwardingStatsTimer: startForwardingStatsTimer
+};
+
+},{"./apiClient":1,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":15}],9:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Messages = Constants.Messages,
@@ -1694,6 +1807,10 @@ function canLog() {
     }
 
     return false;
+}
+
+function hasFeatureFlag(feature) {
+    return MP.featureFlags[feature];
 }
 
 function invokeCallback(callback, code, body) {
@@ -2209,10 +2326,11 @@ module.exports = {
     sanitizeAttributes: sanitizeAttributes,
     mergeConfig: mergeConfig,
     invokeCallback: invokeCallback,
+    hasFeatureFlag: hasFeatureFlag,
     Validators: Validators
 };
 
-},{"./constants":4,"./mp":14,"./types":19}],10:[function(require,module,exports){
+},{"./constants":3,"./mp":14,"./types":19}],10:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     ServerModel = require('./serverModel'),
@@ -2223,7 +2341,7 @@ var Helpers = require('./helpers'),
     MP = require('./mp'),
     Validators = Helpers.Validators,
     sendIdentityRequest = require('./apiClient').sendIdentityRequest,
-    CookieSyncManager = require('./CookieSyncManager'),
+    CookieSyncManager = require('./cookieSyncManager'),
     sendEventToServer = require('./apiClient').sendEventToServer,
     HTTPCodes = Constants.HTTPCodes,
     Events = require('./events'),
@@ -3127,7 +3245,7 @@ module.exports = {
     mParticleUserCart: mParticleUserCart
 };
 
-},{"./CookieSyncManager":1,"./apiClient":2,"./constants":4,"./events":7,"./forwarders":8,"./helpers":9,"./mp":14,"./persistence":15,"./serverModel":17,"./types":19}],11:[function(require,module,exports){
+},{"./apiClient":1,"./constants":3,"./cookieSyncManager":4,"./events":6,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":15,"./serverModel":17,"./types":19}],11:[function(require,module,exports){
 var Persistence = require('./persistence'),
     Types = require('./types'),
     Helpers = require('./helpers');
@@ -3250,6 +3368,7 @@ var Polyfill = require('./polyfill'),
     Validators = Helpers.Validators,
     Migrations = require('./migrations'),
     Forwarders = require('./forwarders'),
+    ForwardingStatsUploader = require('./forwardingStatsUploader'),
     IdentityRequest = require('./identity').IdentityRequest,
     Identity = require('./identity').Identity,
     IdentityAPI = require('./identity').IdentityAPI,
@@ -3364,6 +3483,9 @@ var Polyfill = require('./polyfill'),
                 }
 
                 Forwarders.initForwarders(MP.initialIdentifyRequest.userIdentities);
+                if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
+                    ForwardingStatsUploader.startForwardingStatsTimer();
+                }
 
                 if (arguments && arguments.length) {
                     if (arguments.length > 1 && typeof arguments[1] === 'object') {
@@ -3433,11 +3555,14 @@ var Polyfill = require('./polyfill'),
             MP.isInitialized = false;
             MP.identifyCalled = false;
             MP.consentState = null;
+            MP.featureFlags = {};
             Helpers.mergeConfig({});
             if (!keepPersistence) {
                 Persistence.resetPersistence();
             }
             mParticle.identityCallback = null;
+            Persistence.forwardingStatsBatches.uploadsTable = {};
+            Persistence.forwardingStatsBatches.forwardingStatsEventQueue = [];
         },
         ready: function(f) {
             if (MP.isInitialized && typeof f === 'function') {
@@ -3971,6 +4096,13 @@ var Polyfill = require('./polyfill'),
         },
         _getActiveForwarders: function() {
             return MP.activeForwarders;
+        },
+        _configureFeatures: function(featureFlags) {
+            for (var key in featureFlags) {
+                if (featureFlags.hasOwnProperty(key)) {
+                    MP.featureFlags[key] = featureFlags[key];
+                }
+            }
         }
     };
 
@@ -4069,7 +4201,7 @@ var Polyfill = require('./polyfill'),
     window.mParticle = mParticle;
 })(window);
 
-},{"./consent":3,"./constants":4,"./cookieSyncManager":5,"./ecommerce":6,"./events":7,"./forwarders":8,"./helpers":9,"./identity":10,"./migrations":13,"./mp":14,"./persistence":15,"./polyfill":16,"./sessionManager":18,"./types":19}],13:[function(require,module,exports){
+},{"./consent":2,"./constants":3,"./cookieSyncManager":4,"./ecommerce":5,"./events":6,"./forwarders":7,"./forwardingStatsUploader":8,"./helpers":9,"./identity":10,"./migrations":13,"./mp":14,"./persistence":15,"./polyfill":16,"./sessionManager":18,"./types":19}],13:[function(require,module,exports){
 var Persistence = require('./persistence'),
     Constants = require('./constants'),
     Types = require('./types'),
@@ -4431,7 +4563,7 @@ module.exports = {
     convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4: convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4
 };
 
-},{"./constants":4,"./helpers":9,"./mp":14,"./persistence":15,"./polyfill":16,"./types":19}],14:[function(require,module,exports){
+},{"./constants":3,"./helpers":9,"./mp":14,"./persistence":15,"./polyfill":16,"./types":19}],14:[function(require,module,exports){
 module.exports = {
     isEnabled: true,
     sessionAttributes: {},
@@ -4472,7 +4604,10 @@ module.exports = {
     Config: {},
     migratingToIDSyncCookies: false,
     nonCurrentUserMPIDs: {},
-    identifyCalled: false
+    identifyCalled: false,
+    featureFlags: {
+        batching: false
+    }
 };
 
 },{}],15:[function(require,module,exports){
@@ -5291,6 +5426,12 @@ function resetPersistence(){
     expireCookies(MP.Config.CookieNameV4);
 }
 
+// Forwarder Batching Code
+var forwardingStatsBatches = {
+    uploadsTable: {},
+    forwardingStatsEventQueue: []
+};
+
 module.exports = {
     useLocalStorage: useLocalStorage,
     isLocalStorageAvailable: null,
@@ -5331,10 +5472,11 @@ module.exports = {
     getDeviceId: getDeviceId,
     resetPersistence: resetPersistence,
     getConsentState: getConsentState,
-    setConsentState: setConsentState
+    setConsentState: setConsentState,
+    forwardingStatsBatches: forwardingStatsBatches
 };
 
-},{"./consent":3,"./constants":4,"./helpers":9,"./mp":14,"./polyfill":16}],16:[function(require,module,exports){
+},{"./consent":2,"./constants":3,"./helpers":9,"./mp":14,"./polyfill":16}],16:[function(require,module,exports){
 var Helpers = require('./helpers');
 
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
@@ -5828,7 +5970,7 @@ module.exports = {
     convertToConsentStateDTO: convertToConsentStateDTO
 };
 
-},{"./constants":4,"./helpers":9,"./mp":14,"./types":19}],18:[function(require,module,exports){
+},{"./constants":3,"./helpers":9,"./mp":14,"./types":19}],18:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Messages = require('./constants').Messages,
     Types = require('./types'),
@@ -5961,7 +6103,7 @@ module.exports = {
     clearSessionTimeout: clearSessionTimeout
 };
 
-},{"./constants":4,"./events":7,"./helpers":9,"./identity":10,"./mp":14,"./persistence":15,"./types":19}],19:[function(require,module,exports){
+},{"./constants":3,"./events":6,"./helpers":9,"./identity":10,"./mp":14,"./persistence":15,"./types":19}],19:[function(require,module,exports){
 var MessageType = {
     SessionStart: 1,
     SessionEnd: 2,
@@ -6210,27 +6352,27 @@ ProductActionType.getName = function(id) {
 ProductActionType.getExpansionName = function(id) {
     switch (id) {
         case ProductActionType.AddToCart:
-            return 'AddToCart';
+            return 'add_to_cart';
         case ProductActionType.RemoveFromCart:
-            return 'RemoveFromCart';
+            return 'remove_from_cart';
         case ProductActionType.Checkout:
-            return 'Checkout';
+            return 'checkout';
         case ProductActionType.CheckoutOption:
-            return 'CheckoutOption';
+            return 'checkout_option';
         case ProductActionType.Click:
-            return 'Click';
+            return 'click';
         case ProductActionType.ViewDetail:
-            return 'ViewDetail';
+            return 'view_detail';
         case ProductActionType.Purchase:
-            return 'Purchase';
+            return 'purchase';
         case ProductActionType.Refund:
-            return 'Refund';
+            return 'refund';
         case ProductActionType.AddToWishlist:
-            return 'AddToWishlist';
+            return 'add_to_wishlist';
         case ProductActionType.RemoveFromWishlist:
-            return 'RemoveFromWishlist';
+            return 'remove_from_wishlist';
         default:
-            return 'Unknown';
+            return 'unknown';
     }
 };
 
@@ -6243,11 +6385,11 @@ var PromotionActionType = {
 PromotionActionType.getName = function(id) {
     switch (id) {
         case PromotionActionType.PromotionView:
-            return 'Promotion View';
+            return 'view';
         case PromotionActionType.PromotionClick:
-            return 'Promotion Click';
+            return 'click';
         default:
-            return 'Unknown';
+            return 'unknown';
     }
 };
 
@@ -6259,7 +6401,7 @@ PromotionActionType.getExpansionName = function(id) {
         case PromotionActionType.PromotionClick:
             return 'click';
         default:
-            return 'Unknown';
+            return 'unknown';
     }
 };
 
