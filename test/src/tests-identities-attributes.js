@@ -61,6 +61,29 @@ describe('identities and attributes', function() {
         done();
     });
 
+    it('should set multiple user attributes with setUserAttributes', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.init(apiKey);
+        mParticle.Identity.getCurrentUser().setUserAttributes({gender: 'male', age: 21});
+
+        mParticle.logEvent('test user attributes');
+
+        var event = getEvent('test user attributes');
+
+        var cookies = getLocalStorage();
+        cookies[testMPID].ua.should.have.property('gender', 'male');
+        cookies[testMPID].ua.should.have.property('age', 21);
+
+        event.should.have.property('ua');
+        event.ua.should.have.property('gender', 'male');
+        event.ua.should.have.property('age', 21);
+
+        done();
+    });
+
     it('should remove user attribute', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();

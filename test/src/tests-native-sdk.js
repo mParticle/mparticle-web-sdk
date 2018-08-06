@@ -18,7 +18,7 @@ describe('native-sdk methods', function() {
         done();
     });
 
-    it('should invoke setAttributes on native SDK and pass through proper data', function(done) {
+    it('should invoke setAttribute on native SDK and pass through proper data', function(done) {
         mParticle.reset();
         window.mParticleAndroid = new mParticleAndroid();
         window.mParticle.init(apiKey);
@@ -27,6 +27,19 @@ describe('native-sdk methods', function() {
 
         window.mParticleAndroid.setUserAttributeCalled.should.equal(true);
         window.mParticleAndroid.userAttrData.should.equal(JSON.stringify({key: 'key', value: 'value'}));
+
+        done();
+    });
+
+    it('should invoke setAttribute on native SDK and pass through proper data when invoking setUserAttributes', function(done) {
+        mParticle.reset();
+        window.mParticleAndroid = new mParticleAndroid();
+        window.mParticle.init(apiKey);
+
+        mParticle.Identity.getCurrentUser().setUserAttributes({gender: 'male', age: 21});
+        window.mParticleAndroid.setUserAttributeCalled.should.equal(true);
+        window.mParticleAndroid.timesSetUserAttributeCalled.should.equal(2);
+        window.mParticleAndroid.userAttrData.should.equal(JSON.stringify({key: 'age', value: 21}));
 
         done();
     });

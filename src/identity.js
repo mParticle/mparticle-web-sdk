@@ -445,6 +445,25 @@ function mParticleUser(mpid) {
             }
         },
         /**
+        * Set multiple user attributes
+        * @method setUserAttributes
+        * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
+        */
+        setUserAttributes: function(userAttributes) {
+            mParticle.sessionManager.resetSessionTimer();
+            if (Helpers.isObject(userAttributes)) {
+                if (Helpers.canLog()) {
+                    for (var key in userAttributes) {
+                        if (userAttributes.hasOwnProperty(key)) {
+                            this.setUserAttribute(key, userAttributes[key]);
+                        }
+                    }
+                }
+            } else {
+                Helpers.debug('Must pass an object into setUserAttributes. You passed a ' + typeof userAttributes);
+            }
+        },
+        /**
         * Removes a specific user attribute
         * @method removeUserAttribute
         * @param {String} key

@@ -370,6 +370,7 @@ var server = new MockHttpServer(),
 
         this.logEventCalled = false;
         this.setUserAttributeCalled = false;
+        this.timesSetUserAttributeCalled = 0;
         this.removeUserAttributeCalled = false;
         this.setSessionAttributeCalled = false;
         this.addToCartCalled = false;
@@ -411,6 +412,7 @@ var server = new MockHttpServer(),
             self.removeUserTagCalled = true;
         };
         this.setUserAttribute = function(data) {
+            self.timesSetUserAttributeCalled += 1;
             self.setUserAttributeCalled = true;
             self.userAttrData = data;
         };
