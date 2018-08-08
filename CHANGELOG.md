@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.7.0 - 2018-08-08
+*  Add setUserAttributes to public API
+
 #### 2.6.4 - 2018-08-01
 *  Implement forwarderUploader module, feaure flags, batch forwarder stats
 *  Bugfix - Change ProductActionTypes to be consistent with mobile/S2S
