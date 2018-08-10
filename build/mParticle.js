@@ -333,7 +333,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.7.0',
+    sdkVersion = '2.7.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -3179,11 +3179,12 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 // events exist in the eventQueue because they were triggered when the identityAPI request was in flight
                 // once API request returns and there is an MPID, eventQueue items are reassigned with the returned MPID and flushed
                 if (MP.eventQueue.length && MP.mpid) {
-                    MP.eventQueue.forEach(function(event) {
+                    var localQueueCopy = MP.eventQueue;
+                    MP.eventQueue = [];
+                    localQueueCopy.forEach(function(event) {
                         event.MPID = MP.mpid;
                         sendEventToServer(event, sendEventToForwarders, Events.parseEventResponse);
                     });
-                    MP.eventQueue = [];
                 }
 
                 //if there is any previous migration data
