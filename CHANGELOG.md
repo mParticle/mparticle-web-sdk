@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.7.1 - 2018-08-10
+*  Bugfix - Create copy of MP.eventQueue to iterate through
+
 #### 2.7.0 - 2018-08-08
 *  Add setUserAttributes to public API
 
