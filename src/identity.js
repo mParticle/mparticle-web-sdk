@@ -440,6 +440,7 @@ function mParticleUser(mpid) {
                     Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
                     Persistence.storeDataInMemory(cookies, mpid);
 
+                    Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                     Forwarders.callSetUserAttributeOnForwarders(key, value);
                 }
             }
@@ -496,6 +497,7 @@ function mParticleUser(mpid) {
                 Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
                 Persistence.storeDataInMemory(cookies, mpid);
 
+                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                 Forwarders.applyToForwarders('removeUserAttribute', key);
             }
         },
@@ -540,6 +542,7 @@ function mParticleUser(mpid) {
                 Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
                 Persistence.storeDataInMemory(cookies, mpid);
 
+                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
             }
         },
@@ -559,6 +562,7 @@ function mParticleUser(mpid) {
 
                 userAttributes = this.getAllUserAttributes();
 
+                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {

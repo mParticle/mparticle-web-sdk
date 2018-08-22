@@ -278,7 +278,7 @@ var server = new MockHttpServer(),
             this.logOutCalled = false;
 
             this.trackerId = null;
-            this.userAttributes = null;
+            this.userAttributes = {};
             this.userIdentities = null;
             this.appVersion = null;
             this.appName = null;
@@ -325,8 +325,9 @@ var server = new MockHttpServer(),
                 this.onUserIdentifiedUser = user;
             };
 
-            this.setUserAttribute = function() {
+            this.setUserAttribute = function(key, value) {
                 this.setUserAttributeCalled = true;
+                this.userAttributes[key] = value;
             };
 
             this.removeUserAttribute = function () {
@@ -354,6 +355,8 @@ var server = new MockHttpServer(),
                 pageViewAttributeFilters: [],
                 userIdentityFilters: [],
                 userAttributeFilters: [],
+                filteringEventAttributeValue: {},
+                filteringUserAttributeValue: {},
                 moduleId: forwarderId || 1,
                 eventSubscriptionId: 1234567890,
                 isDebug: false,

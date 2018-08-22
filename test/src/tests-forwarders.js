@@ -231,7 +231,6 @@ describe('forwarders', function() {
         mParticle.addForwarder(mockForwarder);
 
         mockForwarder.configure();
-
         mParticle.init(apiKey);
 
         mockForwarder.instance.should.have.property('setUserIdentityCalled', true);
@@ -588,7 +587,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should filter user attributes from forwarder on init', function(done) {
+    it('should filter user attributes from forwarder on init, and on subsequent set attribute calls', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -609,16 +608,16 @@ describe('forwarders', function() {
             HasDebugString: 'false',
             isVisible: true
         });
-
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-        mParticle.Identity.getCurrentUser().setUserAttribute('age', 32);
-        mParticle.Identity.getCurrentUser().setUserAttribute('weight', 150);
+        mParticle.userAttributesFilterOnInitTest.should.not.have.property('gender');
 
         mParticle.init(apiKey);
 
-        mParticle.userAttributesFilterOnInitTest.should.have.property('weight', 150);
-        mParticle.userAttributesFilterOnInitTest.should.not.have.property('gender');
-        mParticle.userAttributesFilterOnInitTest.should.not.have.property('age');
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', 32);
+        mParticle.Identity.getCurrentUser().setUserAttribute('weight', 150);
+
+        mockForwarder.instance.userAttributes.should.have.property('weight', 150);
+        mockForwarder.instance.userAttributes.should.not.have.property('age');
 
         done();
     });
@@ -1309,6 +1308,67 @@ describe('forwarders', function() {
 
         var event = mockForwarder.instance.receivedEvent;
         Should(event).not.be.ok();
+
+        done();
+    });
+
+    it('should reinitialize forwarders when user attribute changes', function(done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        var filteringUserAttributeValue = {
+            userAttributeName: mParticle.generateHash('gender').toString(),
+            userAttributeValue: mParticle.generateHash('male').toString(),
+            includeOnMatch: false
+        };
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        };
+
+        forwarder.filteringUserAttributeValue = filteringUserAttributeValue;
+
+        mParticle.configureForwarder(forwarder);
+
+        mParticle.init(apiKey);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'Male');
+
+        var activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders.length.should.equal(0);
+
+        mockForwarder.instance.receivedEvent = null;
+
+        mParticle.logEvent('test event');
+        var event = mockForwarder.instance.receivedEvent;
+
+        Should(event).not.be.ok();
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'famale');
+
+        activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders.length.should.equal(1);
+
+        mockForwarder.instance.receivedEvent = null;
+
+        mParticle.logEvent('test event');
+        event = mockForwarder.instance.receivedEvent;
+
+        Should(event).be.ok();
 
         done();
     });
