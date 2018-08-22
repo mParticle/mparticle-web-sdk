@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.7.2 - 2018-08-22
+*  Re-initialize forwarders after userAttr changes
+*  Capitalize all letters in sessionId
+
 #### 2.7.1 - 2018-08-10
 *  Bugfix - Create copy of MP.eventQueue to iterate through
 
