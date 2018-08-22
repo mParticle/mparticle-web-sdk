@@ -333,7 +333,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.7.1',
+    sdkVersion = '2.7.2',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1360,6 +1360,8 @@ var Helpers = require('./helpers'),
     MP = require('./mp');
 
 function initForwarders(userIdentities) {
+    var user = mParticle.Identity.getCurrentUser();
+
     if (!Helpers.shouldUseNativeSdk() && MP.configuredForwarders) {
         // Some js libraries require that they be loaded first, or last, etc
         MP.configuredForwarders.sort(function(x, y) {
@@ -1369,9 +1371,13 @@ function initForwarders(userIdentities) {
         });
 
         MP.activeForwarders = MP.configuredForwarders.filter(function(forwarder) {
-            if (!isEnabledForUserConsent(forwarder.filteringConsentRuleValues, mParticle.Identity.getCurrentUser())) {
+            if (!isEnabledForUserConsent(forwarder.filteringConsentRuleValues, user)) {
                 return false;
             }
+            if (!isEnabledForUserAttributes(forwarder.filteringUserAttributeValue, user)) {
+                return false;
+            }
+
             var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
             var filteredUserAttributes = Helpers.filterUserAttributes(MP.userAttributes, forwarder.userAttributeFilters);
 
@@ -1388,6 +1394,7 @@ function initForwarders(userIdentities) {
                     MP.clientId);
                 forwarder.initialized = true;
             }
+
             return true;
         });
     }
@@ -1431,6 +1438,48 @@ function isEnabledForUserConsent(consentRules, user) {
     return consentRules.includeOnMatch === isMatch;
 }
 
+function isEnabledForUserAttributes(filterObject, user) {
+    var attrHash,
+        valueHash,
+        userAttributes;
+
+    if (filterObject && Helpers.isObject(filterObject) && !Object.keys(filterObject).length) {
+        return true;
+    }
+    if (!user) {
+        return false;
+    } else {
+        userAttributes = user.getAllUserAttributes();
+    }
+
+    var isMatch = false;
+
+    try {
+        if (userAttributes && Helpers.isObject(userAttributes) && Object.keys(userAttributes).length) {
+            for (var attrName in userAttributes) {
+                if (userAttributes.hasOwnProperty(attrName)) {
+                    attrHash = Helpers.generateHash(attrName).toString();
+                    valueHash = Helpers.generateHash(userAttributes[attrName]).toString();
+
+                    if ((attrHash === filterObject.userAttributeName) && (valueHash === filterObject.userAttributeValue)) {
+                        isMatch = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (filterObject) {
+            return filterObject.includeOnMatch === isMatch;
+        } else {
+            return true;
+        }
+    } catch (e) {
+        // in any error scenario, err on side of returning true and forwarding event
+        return true;
+    }
+}
+
 function applyToForwarders(functionName, functionArgs) {
     if (MP.activeForwarders.length) {
         MP.activeForwarders.forEach(function(forwarder) {
@@ -1455,46 +1504,6 @@ function sendEventToForwarders(event) {
     var clonedEvent,
         hashedEventName,
         hashedEventType,
-        filterUserAttributeValues = function(event, filterObject) {
-            var attrHash,
-                valueHash,
-                match = false;
-
-            try {
-                if (event.UserAttributes && Helpers.isObject(event.UserAttributes) && Object.keys(event.UserAttributes).length) {
-                    if (filterObject && Helpers.isObject(filterObject) && Object.keys(filterObject).length) {
-                        for (var attrName in event.UserAttributes) {
-                            if (event.UserAttributes.hasOwnProperty(attrName)) {
-                                attrHash = Helpers.generateHash(attrName).toString();
-                                valueHash = Helpers.generateHash(event.UserAttributes[attrName]).toString();
-
-                                if ((attrHash === filterObject.userAttributeName) && (valueHash === filterObject.userAttributeValue)) {
-                                    match = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (match) {
-                    if (filterObject.includeOnMatch) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                } else {
-                    if (filterObject.includeOnMatch) {
-                        return false;
-                    } else {
-                        return true;
-                    }
-                }
-            } catch (e) {
-                // in any error scenario, err on side of returning true and forwarding event
-                return true;
-            }
-        },
         filterUserIdentities = function(event, filterList) {
             if (event.UserIdentities && event.UserIdentities.length) {
                 event.UserIdentities.forEach(function(userIdentity, i) {
@@ -1616,13 +1625,6 @@ function sendEventToForwarders(event) {
 
             // Check user attribute filtering rules
             clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, MP.activeForwarders[i].userAttributeFilters);
-
-            // Check user attribute value filtering rules
-            if (MP.activeForwarders[i].filteringUserAttributeValue && Object.keys(MP.activeForwarders[i].filteringUserAttributeValue).length) {
-                if (!filterUserAttributeValues(clonedEvent, MP.activeForwarders[i].filteringUserAttributeValue)) {
-                    continue;
-                }
-            }
 
             Helpers.logDebug('Sending message to forwarder: ' + MP.activeForwarders[i].name);
             var result = MP.activeForwarders[i].process(clonedEvent);
@@ -2773,6 +2775,7 @@ function mParticleUser(mpid) {
                     Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
                     Persistence.storeDataInMemory(cookies, mpid);
 
+                    Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                     Forwarders.callSetUserAttributeOnForwarders(key, value);
                 }
             }
@@ -2829,6 +2832,7 @@ function mParticleUser(mpid) {
                 Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
                 Persistence.storeDataInMemory(cookies, mpid);
 
+                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                 Forwarders.applyToForwarders('removeUserAttribute', key);
             }
         },
@@ -2873,6 +2877,7 @@ function mParticleUser(mpid) {
                 Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
                 Persistence.storeDataInMemory(cookies, mpid);
 
+                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
             }
         },
@@ -2892,6 +2897,7 @@ function mParticleUser(mpid) {
 
                 userAttributes = this.getAllUserAttributes();
 
+                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
@@ -6022,7 +6028,7 @@ function startNewSession() {
     if (Helpers.canLog()) {
         IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
         MP.identifyCalled = true;
-        MP.sessionId = Helpers.generateUniqueId();
+        MP.sessionId = Helpers.generateUniqueId().toUpperCase();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];
         }
