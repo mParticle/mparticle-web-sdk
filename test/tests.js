@@ -3929,7 +3929,7 @@ describe('mParticle', function() {
 
             changed = mParticle.setUserIdentity(null, mParticle.IdentityType.CustomerId);
             changed.should.not.be.ok();
-            
+
             done();
         });
 
@@ -3951,7 +3951,7 @@ describe('mParticle', function() {
 
             changed = mParticle.removeUserIdentity('foo email');
             changed.should.be.ok();
-            
+
             done();
         });
 
@@ -4843,6 +4843,22 @@ describe('mParticle', function() {
             Should(data).be.ok();
 
             data.should.have.property('sid');
+
+            done();
+        });
+
+        it('sessionIds are all capital letters', function(done) {
+            var lowercaseLetters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
+
+            var sessionId = mParticle.sessionManager.getSession();
+            var lowercaseLetterExists;
+            sessionId.split('').forEach(function(letter) {
+                if (lowercaseLetters.indexOf(letter) > -1) {
+                    lowercaseLetterExists = true;
+                }
+            });
+
+            Should(lowercaseLetterExists).not.be.ok();
 
             done();
         });

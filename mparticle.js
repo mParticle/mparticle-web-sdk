@@ -2962,7 +2962,7 @@
             logDebug(InformationMessages.StartingNewSession);
 
             if (canLog()) {
-                sessionId = generateUniqueId();
+                sessionId = generateUniqueId().toUpperCase();
 
                 if (!sessionStartDate) {
                     var date = new Date();
