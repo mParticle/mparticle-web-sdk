@@ -20,7 +20,7 @@
     var serviceUrl = 'jssdk.mparticle.com/v1/JS/',
         secureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
         serviceScheme = mParticle && mParticle.forceHttps ? 'https://' : window.location.protocol + '//',
-        sdkVersion = '1.16.0',
+        sdkVersion = '1.16.1',
         isEnabled = true,
         pluses = /\+/g,
         sessionAttributes = {},

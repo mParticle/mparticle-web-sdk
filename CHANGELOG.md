@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.16.1 - 2018-08-22
+*  Capitalize all letters in sessionId
+
 #### 1.16.0 - 2018-05-24
 *  Implement user identity change flag
 
