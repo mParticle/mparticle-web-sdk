@@ -29,7 +29,7 @@ function startNewSession() {
     if (Helpers.canLog()) {
         IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
         MP.identifyCalled = true;
-        MP.sessionId = Helpers.generateUniqueId();
+        MP.sessionId = Helpers.generateUniqueId().toUpperCase();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];
         }
