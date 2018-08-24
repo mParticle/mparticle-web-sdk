@@ -1146,6 +1146,15 @@ describe('forwarders', function() {
         done();
     });
 
+    it('should permit forwarder if no user attribute value filters configured', function(done) {
+        var enabled = Forwarders.isEnabledForUserAttributes(null, null);
+        enabled.should.be.ok();
+
+        enabled = Forwarders.isEnabledForUserAttributes({}, null);
+        enabled.should.be.ok();
+        done();
+    });
+
     it('should send event to forwarder if there are no user attributes on event if includeOnMatch = false', function(done) {
         mParticle.reset();
         var mockForwarder = new MockForwarder();

@@ -86,13 +86,16 @@ function isEnabledForUserConsent(consentRules, user) {
 }
 
 function isEnabledForUserAttributes(filterObject, user) {
+    if (!filterObject || 
+        !Helpers.isObject(filterObject) || 
+        !Object.keys(filterObject).length) {
+        return true;
+    }
+
     var attrHash,
         valueHash,
         userAttributes;
 
-    if (filterObject && Helpers.isObject(filterObject) && !Object.keys(filterObject).length) {
-        return true;
-    }
     if (!user) {
         return false;
     } else {
@@ -376,5 +379,6 @@ module.exports = {
     prepareForwardingStats: prepareForwardingStats,
     getForwarderStatsQueue: getForwarderStatsQueue,
     setForwarderStatsQueue: setForwarderStatsQueue,
-    isEnabledForUserConsent: isEnabledForUserConsent
+    isEnabledForUserConsent: isEnabledForUserConsent,
+    isEnabledForUserAttributes: isEnabledForUserAttributes
 };
