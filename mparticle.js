@@ -333,7 +333,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.7.2',
+    sdkVersion = '2.7.3',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1439,13 +1439,16 @@ function isEnabledForUserConsent(consentRules, user) {
 }
 
 function isEnabledForUserAttributes(filterObject, user) {
+    if (!filterObject || 
+        !Helpers.isObject(filterObject) || 
+        !Object.keys(filterObject).length) {
+        return true;
+    }
+
     var attrHash,
         valueHash,
         userAttributes;
 
-    if (filterObject && Helpers.isObject(filterObject) && !Object.keys(filterObject).length) {
-        return true;
-    }
     if (!user) {
         return false;
     } else {
@@ -1729,7 +1732,8 @@ module.exports = {
     prepareForwardingStats: prepareForwardingStats,
     getForwarderStatsQueue: getForwarderStatsQueue,
     setForwarderStatsQueue: setForwarderStatsQueue,
-    isEnabledForUserConsent: isEnabledForUserConsent
+    isEnabledForUserConsent: isEnabledForUserConsent,
+    isEnabledForUserAttributes: isEnabledForUserAttributes
 };
 
 },{"./apiClient":1,"./constants":3,"./helpers":9,"./mParticleUser":11,"./mp":14,"./persistence":15,"./types":19}],8:[function(require,module,exports){
