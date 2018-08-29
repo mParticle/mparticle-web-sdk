@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.7.3 - 2018-08-30
+*  Bugfix - Always init forwarder when no UA filters are present
+
 #### 2.7.2 - 2018-08-22
 *  Re-initialize forwarders after userAttr changes
 *  Capitalize all letters in sessionId
