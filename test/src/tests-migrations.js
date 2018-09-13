@@ -613,6 +613,26 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('integration test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 and function properly when using local storage', function(done) {
         mParticle.reset();
         mParticle.useCookieStorage = false;
+        var corruptLS = 'eyItODg4OTA3MDIxNTMwMzU2MDYyNyI6eyJjcCI6W3siTmFtZSI6IkRvdWJsZSBDaGVlc2VidXJnZXIiLCJTa3UiOiI4YzdiMDVjZS02NTc3LTU3ZDAtOGEyZi03M2JhN2E1MzA3N2EiLCJQcmljZSI6MTguOTksIlF1YW50aXR5IjoxLCJCcmFuZCI6IiIsIlZhcmlhbnQiOiIiLCJDYXRlZ29yeSI6IiIsIlBvc2l0aW9uIjoiIiwiQ291cG9uQ29kZSI6IiIsIlRvdGFsQW1vdW50IjoxOC45OSwiQXR0cmlidXRlcyI6eyJDYXRhbG9ndWUgTmFtZSI6IjEwMCUgQmVlZiBCdXJnZXJzICIsIkNhdGFsb2d1ZSBVVUlEIjoiNzEzZDY2OWItNzQyNy01NjRkLWE4ZTQtNDA3YjAzYmMzYWFiIiwiZGVzY3JpcHRpb24gYXZhaWxhYmxlIjp0cnVlLCJNYXJrZXQgU2hvcnQgQ29kZSI6InNhbi1mcmFuY2lzY28iLCJQbGFjZSBDYXRlZ29yeSI6ImFtZXJpY2FuIiwiUGxhY2UgTmFtZSI6IkRlbm55JTI3cyIsIlBsYWNlIFVVSUQiOiI3YWU2Y2MzNC02YzcyLTRkYzctODIzZS02MWRjNzEyMzUzMmEiLCJUb3RhbCBQcm9kdWN0IEFtb3VudCI6MTguOTl9fSx7Ik5hbWUiOiJBbGwtQW1lcmljYW4gU2xhba4iLCJTa3UiOiIxNGQyMzA0MS1mZjc4LTVhMzQtYWViYi1kNGZkMzlhZjkzNjEiLCJQcmljZSI6MTYuMjksIlF1YW50aXR5IjoxLCJCcmFuZCI6IiIsIlZhcmlhbnQiOiIiLCJDYXRlZ29yeSI6IiIsIlBvc2l0aW9uIjoiIiwiQ291cG9uQ29kZSI6IiIsIlRvdGFsQW1vdW50IjoxNi4yOSwiQXR0cmlidXRlcyI6eyJDYXRhbG9ndWUgTmFtZSI6IlNsYW1zIiwiQ2F0YWxvZ3VlIFVVSUQiOiI5NWFlMDcxNi05NTM1LTUxNjgtODFmYy02NzA5YWM5OTRkNmIiLCJkZXNjcmlwdGlvbiBhdmFpbGFibGUiOnRydWUsIk1hcmtldCBTaG9ydCBDb2RlIjoic2FuLWZyYW5jaXNjbyIsIlBsYWNlIENhdGVnb3J5IjoiYW1lcmljYW4iLCJQbGFjZSBOYW1lIjoiRGVubnklMjdzIiwiUGxhY2UgVVVJRCI6IjdhZTZjYzM0LTZjNzItNGRjNy04MjNlLTYxZGM3MTIzNTMyYSIsIlRvdGFsIFByb2R1Y3QgQW1vdW50IjoxNi4yOX19XX19';
+
+        setLocalStorage('mprtcl-prodv4', corruptLS, true);
+        var LSBefore = localStorage.getItem('mprtcl-prodv4');
+        LSBefore.should.equal(corruptLS);
+
+        mParticle.init(apiKey);
+
+        var cartProducts = mParticle.Identity.getCurrentUser().getCart().getCartProducts();
+        cartProducts.length.should.equal(0);
+        var LS = localStorage.getItem('mprtcl-prodv4');
+
+        LS.should.equal('eyJ0ZXN0TVBJRCI6eyJjcCI6W119fQ==');
+
+        done();
+    });
+
+    it('integration test - should remove local storage products when in a broken state', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = false;
 
         setLocalStorage(v3LSKey, SDKv1CookieV3WithEncodedProducts, true);
         mParticle.init(apiKey);
