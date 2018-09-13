@@ -610,7 +610,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         done();
     });
 
-    it('integration test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 and function properly when using local storage', function(done) {
+    it('integration test - should remove local storage products when in a broken state', function(done) {
         mParticle.reset();
         mParticle.useCookieStorage = false;
         var corruptLS = 'eyItODg4OTA3MDIxNTMwMzU2MDYyNyI6eyJjcCI6W3siTmFtZSI6IkRvdWJsZSBDaGVlc2VidXJnZXIiLCJTa3UiOiI4YzdiMDVjZS02NTc3LTU3ZDAtOGEyZi03M2JhN2E1MzA3N2EiLCJQcmljZSI6MTguOTksIlF1YW50aXR5IjoxLCJCcmFuZCI6IiIsIlZhcmlhbnQiOiIiLCJDYXRlZ29yeSI6IiIsIlBvc2l0aW9uIjoiIiwiQ291cG9uQ29kZSI6IiIsIlRvdGFsQW1vdW50IjoxOC45OSwiQXR0cmlidXRlcyI6eyJDYXRhbG9ndWUgTmFtZSI6IjEwMCUgQmVlZiBCdXJnZXJzICIsIkNhdGFsb2d1ZSBVVUlEIjoiNzEzZDY2OWItNzQyNy01NjRkLWE4ZTQtNDA3YjAzYmMzYWFiIiwiZGVzY3JpcHRpb24gYXZhaWxhYmxlIjp0cnVlLCJNYXJrZXQgU2hvcnQgQ29kZSI6InNhbi1mcmFuY2lzY28iLCJQbGFjZSBDYXRlZ29yeSI6ImFtZXJpY2FuIiwiUGxhY2UgTmFtZSI6IkRlbm55JTI3cyIsIlBsYWNlIFVVSUQiOiI3YWU2Y2MzNC02YzcyLTRkYzctODIzZS02MWRjNzEyMzUzMmEiLCJUb3RhbCBQcm9kdWN0IEFtb3VudCI6MTguOTl9fSx7Ik5hbWUiOiJBbGwtQW1lcmljYW4gU2xhba4iLCJTa3UiOiIxNGQyMzA0MS1mZjc4LTVhMzQtYWViYi1kNGZkMzlhZjkzNjEiLCJQcmljZSI6MTYuMjksIlF1YW50aXR5IjoxLCJCcmFuZCI6IiIsIlZhcmlhbnQiOiIiLCJDYXRlZ29yeSI6IiIsIlBvc2l0aW9uIjoiIiwiQ291cG9uQ29kZSI6IiIsIlRvdGFsQW1vdW50IjoxNi4yOSwiQXR0cmlidXRlcyI6eyJDYXRhbG9ndWUgTmFtZSI6IlNsYW1zIiwiQ2F0YWxvZ3VlIFVVSUQiOiI5NWFlMDcxNi05NTM1LTUxNjgtODFmYy02NzA5YWM5OTRkNmIiLCJkZXNjcmlwdGlvbiBhdmFpbGFibGUiOnRydWUsIk1hcmtldCBTaG9ydCBDb2RlIjoic2FuLWZyYW5jaXNjbyIsIlBsYWNlIENhdGVnb3J5IjoiYW1lcmljYW4iLCJQbGFjZSBOYW1lIjoiRGVubnklMjdzIiwiUGxhY2UgVVVJRCI6IjdhZTZjYzM0LTZjNzItNGRjNy04MjNlLTYxZGM3MTIzNTMyYSIsIlRvdGFsIFByb2R1Y3QgQW1vdW50IjoxNi4yOX19XX19';
@@ -630,7 +630,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         done();
     });
 
-    it('integration test - should remove local storage products when in a broken state', function(done) {
+    it('integration test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 and function properly when using local storage', function(done) {
         mParticle.reset();
         mParticle.useCookieStorage = false;
 
@@ -649,6 +649,33 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.sc.pl[1].should.have.property('id', 'sku123');
         event.sc.pl[1].should.have.property('nm', testName);
         event.sc.pl[1].should.have.property('pr', 1);
+
+        done();
+    });
+
+    it('integration test - should add products with special characters to the cart without any errors', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = false;
+
+        mParticle.init(apiKey);
+        var product1 = mParticle.eCommerce.createProduct('asdfadsf’’’’', 'asdf', 123, 1);
+        var product2 = mParticle.eCommerce.createProduct('asdfads®®®®', 'asdf', 123, 1);
+        mParticle.eCommerce.Cart.add([product1, product2]);
+
+        var products = mParticle.Identity.getCurrentUser().getCart().getCartProducts();
+        products[0].Name.should.equal(product1.Name);
+        products[1].Name.should.equal(product2.Name);
+
+        var LS = localStorage.getItem('mprtcl-prodv4');
+
+        LS.should.equal('eyJ0ZXN0TVBJRCI6eyJjcCI6W3siTmFtZSI6ImFzZGZhZHNm4oCZ4oCZ4oCZ4oCZIiwiU2t1IjoiYXNkZiIsIlByaWNlIjoxMjMsIlF1YW50aXR5IjoxLCJUb3RhbEFtb3VudCI6MTIzLCJBdHRyaWJ1dGVzIjpudWxsfSx7Ik5hbWUiOiJhc2RmYWRzwq7CrsKuwq4iLCJTa3UiOiJhc2RmIiwiUHJpY2UiOjEyMywiUXVhbnRpdHkiOjEsIlRvdGFsQW1vdW50IjoxMjMsIkF0dHJpYnV0ZXMiOm51bGx9XX19');
+
+        JSON.parse(atob(LS)).testMPID.cp[0].Name.should.equal('asdfadsfââââ');
+        JSON.parse(atob(LS)).testMPID.cp[1].Name.should.equal('asdfadsÂ®Â®Â®Â®');
+
+        var decoded = JSON.parse(decodeURIComponent(escape(atob(LS))));
+        decoded.testMPID.cp[0].Name.should.equal(product1.Name);
+        decoded.testMPID.cp[1].Name.should.equal(product2.Name);
 
         done();
     });

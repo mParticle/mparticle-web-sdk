@@ -8,7 +8,7 @@ var Base64 = {
     encode: function encode(input) {
         try {
             if (window.btoa && window.atob) {
-                return window.btoa(input);
+                return window.btoa(unescape(encodeURIComponent(input)));
             }
         } catch (e) {
             Helpers.logDebug('Error encoding cookie values into Base64:' + e);
@@ -21,7 +21,7 @@ var Base64 = {
         var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
         var i = 0;
 
-        input = this.encode(input);
+        input = UTF8.encode(input);
 
         while (i < input.length) {
             chr1 = input.charCodeAt(i++);
