@@ -4648,87 +4648,93 @@ var Helpers = require('./helpers'),
     MP = require('./mp'),
     Base64CookieKeys = Constants.Base64CookieKeys,
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
-    Consent = require('./consent');
+    Consent = require('./consent'),
+    Config = MP.Config;
 
 function useLocalStorage() {
     return (!mParticle.useCookieStorage && determineLocalStorageAvailability());
 }
 
 function initializeStorage() {
-    var storage,
-        localStorageData = this.getLocalStorage(),
-        cookies = this.getCookie(),
-        allData;
+    try {
+        var storage,
+            localStorageData = this.getLocalStorage(),
+            cookies = this.getCookie(),
+            allData;
 
-    // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
-    if (!localStorageData && !cookies) {
-        MP.isFirstRun = true;
-        MP.mpid = 0;
-    } else {
-        MP.isFirstRun = false;
-    }
-
-    // Check to see if localStorage is available and if not, always use cookies
-    this.isLocalStorageAvailable = this.determineLocalStorageAvailability();
-
-    if (!this.isLocalStorageAvailable) {
-        mParticle.useCookieStorage = true;
-    }
-    if (this.isLocalStorageAvailable) {
-        storage = window.localStorage;
-        if (mParticle.useCookieStorage) {
-            // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
-            // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
-            if (localStorageData) {
-                if (cookies) {
-                    allData = Helpers.extend(false, localStorageData, cookies);
-                } else {
-                    allData = localStorageData;
-                }
-                storage.removeItem(MP.Config.LocalStorageNameV4);
-            } else if (cookies) {
-                allData = cookies;
-            }
-            this.storeDataInMemory(allData);
+        // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
+        if (!localStorageData && !cookies) {
+            MP.isFirstRun = true;
+            MP.mpid = 0;
+        } else {
+            MP.isFirstRun = false;
         }
-        else {
-            // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
-            // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
-            if (cookies) {
+
+        // Check to see if localStorage is available and if not, always use cookies
+        this.isLocalStorageAvailable = this.determineLocalStorageAvailability();
+
+        if (!this.isLocalStorageAvailable) {
+            mParticle.useCookieStorage = true;
+        }
+        if (this.isLocalStorageAvailable) {
+            storage = window.localStorage;
+            if (mParticle.useCookieStorage) {
+                // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
+                // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
                 if (localStorageData) {
-                    allData = Helpers.extend(false, localStorageData, cookies);
-                } else {
+                    if (cookies) {
+                        allData = Helpers.extend(false, localStorageData, cookies);
+                    } else {
+                        allData = localStorageData;
+                    }
+                    storage.removeItem(MP.Config.LocalStorageNameV4);
+                } else if (cookies) {
                     allData = cookies;
                 }
                 this.storeDataInMemory(allData);
-                this.expireCookies(MP.Config.CookieNameV4);
-            } else {
-                this.storeDataInMemory(localStorageData);
+            }
+            else {
+                // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
+                // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
+                if (cookies) {
+                    if (localStorageData) {
+                        allData = Helpers.extend(false, localStorageData, cookies);
+                    } else {
+                        allData = cookies;
+                    }
+                    this.storeDataInMemory(allData);
+                    this.expireCookies(MP.Config.CookieNameV4);
+                } else {
+                    this.storeDataInMemory(localStorageData);
+                }
+            }
+        } else {
+            this.storeDataInMemory(cookies);
+        }
+
+        var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+
+        if (encodedProducts) {
+            var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
+        }
+
+        if (MP.mpid) {
+            storeProductsInMemory(decodedProducts, MP.mpid);
+        }
+
+        for (var key in allData) {
+            if (allData.hasOwnProperty(key)) {
+                if (!SDKv2NonMPIDCookieKeys[key]) {
+                    MP.nonCurrentUserMPIDs[key] = allData[key];
+                }
             }
         }
-    } else {
-        this.storeDataInMemory(cookies);
+
+        this.update();
+    } catch (e) {
+        localStorage.removeItem(Config.LocalStorageProductsV4);
+        Helpers.logDebug('Error initializing storage: ' + e);
     }
-
-    var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
-
-    if (encodedProducts) {
-        var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
-    }
-
-    if (MP.mpid) {
-        storeProductsInMemory(decodedProducts, MP.mpid);
-    }
-
-    for (var key in allData) {
-        if (allData.hasOwnProperty(key)) {
-            if (!SDKv2NonMPIDCookieKeys[key]) {
-                MP.nonCurrentUserMPIDs[key] = allData[key];
-            }
-        }
-    }
-
-    this.update();
 }
 
 function update() {
@@ -5517,7 +5523,7 @@ var Base64 = {
     encode: function encode(input) {
         try {
             if (window.btoa && window.atob) {
-                return window.btoa(input);
+                return window.btoa(unescape(encodeURIComponent(input)));
             }
         } catch (e) {
             Helpers.logDebug('Error encoding cookie values into Base64:' + e);
@@ -5530,7 +5536,7 @@ var Base64 = {
         var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
         var i = 0;
 
-        input = this.encode(input);
+        input = UTF8.encode(input);
 
         while (i < input.length) {
             chr1 = input.charCodeAt(i++);
