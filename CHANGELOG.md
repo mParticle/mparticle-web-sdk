@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.7.4 - 2018-09-14
+*  Bugfix - Bugfix - Remove corrupt localStorage
+*  Bugfix - Fix encoding LS for special characters
+
 #### 2.7.3 - 2018-08-30
 *  Bugfix - Always init forwarder when no UA filters are present
 
