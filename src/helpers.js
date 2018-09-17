@@ -6,7 +6,7 @@ var Types = require('./types'),
     serviceScheme = window.mParticle && window.mParticle.forceHttps ? 'https://' : window.location.protocol + '//';
 
 function logDebug(msg) {
-    if (MP.Config.LogLevel === 'verbose' && window.console && window.console.log) {
+    if (MP.logLevel === 'verbose' && window.console && window.console.log) {
         window.console.log(msg);
     }
 }

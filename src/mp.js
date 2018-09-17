@@ -35,6 +35,7 @@ module.exports = {
     context: '',
     identityCallInFlight: false,
     initialIdentifyRequest: null,
+    logLevel: null,
     Config: {},
     migratingToIDSyncCookies: false,
     nonCurrentUserMPIDs: {},

@@ -805,6 +805,10 @@ var Polyfill = require('./polyfill'),
             MP.readyQueue = window.mParticle.config.rq;
         }
 
+        if (window.mParticle.config.logLevel) {
+            MP.logLevel = window.mParticle.config.logLevel;
+        }
+
         if (window.mParticle.config.hasOwnProperty('isDevelopmentMode')) {
             mParticle.isDevelopmentMode = window.mParticle.config.isDevelopmentMode;
         }
