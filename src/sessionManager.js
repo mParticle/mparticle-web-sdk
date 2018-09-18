@@ -27,13 +27,11 @@ function startNewSession() {
     Helpers.logDebug(Messages.InformationMessages.StartingNewSession);
 
     if (Helpers.canLog()) {
-        IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
-        MP.identifyCalled = true;
         MP.sessionId = Helpers.generateUniqueId().toUpperCase();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];
         }
-
+        
         if (!MP.sessionStartDate) {
             var date = new Date();
             MP.sessionStartDate = date;
@@ -41,6 +39,12 @@ function startNewSession() {
         }
 
         mParticle.sessionManager.setSessionTimer();
+
+        if (!MP.identifyCalled) {
+            IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
+            MP.identifyCalled = true;
+            mParticle.identityCallback = null;
+        }
 
         logEvent(Types.MessageType.SessionStart);
     }

@@ -14,7 +14,8 @@ var Helpers= require('../../src/helpers'),
     v1localStorageKey = TestsCore.v1localStorageKey,
     v4CookieKey = TestsCore.v4CookieKey,
     setCookie = TestsCore.setCookie,
-    MockForwarder = TestsCore.MockForwarder;
+    MockForwarder = TestsCore.MockForwarder,
+    should = require('should');
 
 describe('identity', function() {
     it('should respect consent rules on consent-change', function(done) {
@@ -621,6 +622,25 @@ describe('identity', function() {
         data.identity_changes[0].should.have.properties('old_value', 'new_value', 'identity_type');
         data.identity_changes[0].should.have.properties('old_value', 'new_value', 'identity_type');
 
+        done();
+    });
+
+    it('Ensure that automatic identify is not called more than once.', function(done) {
+        mParticle.reset();
+        var spy = sinon.spy();
+        mParticle.identityCallback = spy;
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'foo'
+            }));
+        };
+
+        mParticle.init(apiKey);
+        spy.calledOnce.should.be.ok();
+        mParticle.startNewSession();
+        spy.calledOnce.should.be.ok();
+        should.not.exist(mParticle.identityCallback);
         done();
     });
 
