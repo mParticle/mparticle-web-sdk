@@ -333,7 +333,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.7.4',
+    sdkVersion = '2.7.5',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1802,7 +1802,7 @@ var Types = require('./types'),
     serviceScheme = window.mParticle && window.mParticle.forceHttps ? 'https://' : window.location.protocol + '//';
 
 function logDebug(msg) {
-    if (MP.Config.LogLevel === 'verbose' && window.console && window.console.log) {
+    if (MP.logLevel === 'verbose' && window.console && window.console.log) {
         window.console.log(msg);
     }
 }
@@ -1819,12 +1819,19 @@ function hasFeatureFlag(feature) {
     return MP.featureFlags[feature];
 }
 
-function invokeCallback(callback, code, body) {
+function invokeCallback(callback, code, body, mParticleUser) {
     try {
         if (Validators.isFunction(callback)) {
             callback({
                 httpCode: code,
-                body: body
+                body: body,
+                getUser: function() {
+                    if (mParticleUser) {
+                        return mParticleUser;
+                    } else {
+                        return mParticle.Identity.getCurrentUser();
+                    }
+                }
             });
         }
     } catch (e) {
@@ -3236,7 +3243,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         }
 
         if (callback) {
-            Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
+            Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
         } else {
             if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
                 Helpers.logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
@@ -3272,6 +3279,7 @@ module.exports = {
     IdentityAPI: IdentityAPI,
     Identity: Identity,
     IdentityRequest: IdentityRequest,
+    mParticleUser: mParticleUser,
     mParticleUserCart: mParticleUserCart
 };
 
@@ -3404,6 +3412,7 @@ var Polyfill = require('./polyfill'),
     IdentityAPI = require('./identity').IdentityAPI,
     HTTPCodes = IdentityAPI.HTTPCodes,
     mParticleUserCart = require('./identity').mParticleUserCart,
+    mParticleUser = require('./identity').mParticleUser,
     Consent = require('./consent');
 
 (function(window) {
@@ -3503,6 +3512,9 @@ var Polyfill = require('./polyfill'),
                 if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && mParticle.Identity.getCurrentUser()) {
                     mParticle.identityCallback({
                         httpCode: HTTPCodes.activeSession,
+                        getUser: function() {
+                            return mParticleUser(MP.mpid);
+                        },
                         body: {
                             mpid: MP.mpid,
                             matched_identities: mParticle.Identity.getCurrentUser() ? mParticle.Identity.getCurrentUser().getUserIdentities().userIdentities : {},
@@ -4172,6 +4184,10 @@ var Polyfill = require('./polyfill'),
             MP.readyQueue = window.mParticle.config.rq;
         }
 
+        if (window.mParticle.config.logLevel) {
+            MP.logLevel = window.mParticle.config.logLevel;
+        }
+
         if (window.mParticle.config.hasOwnProperty('isDevelopmentMode')) {
             mParticle.isDevelopmentMode = window.mParticle.config.isDevelopmentMode;
         }
@@ -4631,6 +4647,7 @@ module.exports = {
     context: '',
     identityCallInFlight: false,
     initialIdentifyRequest: null,
+    logLevel: null,
     Config: {},
     migratingToIDSyncCookies: false,
     nonCurrentUserMPIDs: {},
@@ -6036,13 +6053,11 @@ function startNewSession() {
     Helpers.logDebug(Messages.InformationMessages.StartingNewSession);
 
     if (Helpers.canLog()) {
-        IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
-        MP.identifyCalled = true;
         MP.sessionId = Helpers.generateUniqueId().toUpperCase();
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];
         }
-
+        
         if (!MP.sessionStartDate) {
             var date = new Date();
             MP.sessionStartDate = date;
@@ -6050,6 +6065,12 @@ function startNewSession() {
         }
 
         mParticle.sessionManager.setSessionTimer();
+
+        if (!MP.identifyCalled) {
+            IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
+            MP.identifyCalled = true;
+            mParticle.identityCallback = null;
+        }
 
         logEvent(Types.MessageType.SessionStart);
     }
