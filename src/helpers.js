@@ -23,12 +23,19 @@ function hasFeatureFlag(feature) {
     return MP.featureFlags[feature];
 }
 
-function invokeCallback(callback, code, body) {
+function invokeCallback(callback, code, body, mParticleUser) {
     try {
         if (Validators.isFunction(callback)) {
             callback({
                 httpCode: code,
-                body: body
+                body: body,
+                getUser: function() {
+                    if (mParticleUser) {
+                        return mParticleUser;
+                    } else {
+                        return mParticle.Identity.getCurrentUser();
+                    }
+                }
             });
         }
     } catch (e) {

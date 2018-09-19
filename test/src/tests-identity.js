@@ -1658,7 +1658,7 @@ describe('identity', function() {
         done();
     });
 
-    it('should still trigger the identifyCallback when no identify request is sent beause there are already cookies', function(done) {
+    it('should still trigger the identifyCallback when no identify request is sent because there are already cookies', function(done) {
         mParticle.reset();
         var les = new Date().getTime();
         var cookies = "{'gs':{'ie':1|'dt':'test_key'|'cgid':'886e874b-862b-4822-a24a-1146cd057101'|'das':'62c91b8d-fef6-44ea-b2cc-b55714b0d827'|'csm':'WyJ0ZXN0TVBJRCJd'|'sid':'2535f9ed-ab19-4a7c-9eeb-ce4e41e0cb06'|'les': " + les + "|'ssd':1518536950916}|'testMPID123':{'ui':'eyIxIjoiY3VzdG9tZXJpZDEifQ=='}|'cu':'testMPID123'}";
@@ -1666,6 +1666,7 @@ describe('identity', function() {
         setCookie(v4CookieKey, cookies, true);
         //does not actually hit the server because identity request is not sent
         mParticle.identityCallback = function(resp) {
+            resp.getUser().setUserAttribute('attr', 'value');
             result = resp;
         };
 
@@ -1685,13 +1686,93 @@ describe('identity', function() {
 
         //the only server request is the AST, there is no request to Identity
         server.requests.length.should.equal(1);
-        result.should.have.properties('body', 'httpCode');
+        result.should.have.properties('body', 'httpCode', 'getUser');
+
         result.httpCode.should.equal(-3);
         result.body.should.have.properties('context', 'is_ephemeral', 'matched_identities', 'mpid');
         Should(result.body.context).not.be.ok();
         Should(result.body.is_ephemeral).not.be.ok();
         result.body.matched_identities.should.have.property('customerid', 'customerid1');
         result.body.mpid.should.equal('testMPID123');
+        result.getUser().getMPID().should.equal('testMPID123');
+        result.getUser().getAllUserAttributes().should.have.property('attr', 'value');
+
+        done();
+    });
+
+    it('identifyCallback response should have a getUser function on the result object', function(done) {
+        var result;
+        mParticle.reset();
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                status: 200,
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.identityCallback = function(resp) {
+            result = resp;
+            resp.getUser().setUserAttribute('test', 'value');
+        };
+
+        mParticle.init(apiKey);
+
+        result.should.have.property('getUser');
+
+        mParticle.Identity.getCurrentUser().getAllUserAttributes().should.have.property('test', 'value');
+
+        done();
+    });
+
+    it('identityCallback responses should all have a getUser function on their result objects', function(done) {
+        var result, loginResult, logoutResult, modifyResult;
+
+        mParticle.reset();
+
+        mParticle.identityCallback = function(resp) {
+            resp.getUser().setUserAttribute('attr', 'value');
+            result = resp;
+        };
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                status: 200, mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.init(apiKey);
+
+        var identityRequest = { userIdentities: {customerid: 'test123'}};
+        function loginCallback (result) {
+            loginResult = result;
+        }
+        function logoutCallback (result) {
+            logoutResult = result;
+        }
+        function modifyCallback(result) {
+            modifyResult = result;
+        }
+
+        mParticle.Identity.login(identityRequest, loginCallback);
+        mParticle.Identity.logout(identityRequest, logoutCallback);
+        mParticle.Identity.modify(identityRequest, modifyCallback);
+
+        result.should.have.properties('body', 'httpCode', 'getUser');
+        result.httpCode.should.equal(200);
+        result.body.should.have.properties('mpid', 'status');
+        result.body.mpid.should.equal('MPID1');
+        result.getUser().getMPID().should.equal('MPID1');
+        result.getUser().getAllUserAttributes().should.have.property('attr', 'value');
+        loginResult.getUser().getMPID().should.equal('MPID1');
+        logoutResult.getUser().getMPID().should.equal('MPID1');
+        modifyResult.getUser().getMPID().should.equal('MPID1');
+
+        loginResult.getUser().getAllUserAttributes().should.have.property('attr', 'value');
+        logoutResult.getUser().getAllUserAttributes().should.have.property('attr', 'value');
+        modifyResult.getUser().getAllUserAttributes().should.have.property('attr', 'value');
 
         done();
     });

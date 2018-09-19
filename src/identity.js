@@ -897,7 +897,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         }
 
         if (callback) {
-            Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
+            Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
         } else {
             if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
                 Helpers.logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
@@ -933,5 +933,6 @@ module.exports = {
     IdentityAPI: IdentityAPI,
     Identity: Identity,
     IdentityRequest: IdentityRequest,
+    mParticleUser: mParticleUser,
     mParticleUserCart: mParticleUserCart
 };

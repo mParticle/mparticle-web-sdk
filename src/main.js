@@ -37,6 +37,7 @@ var Polyfill = require('./polyfill'),
     IdentityAPI = require('./identity').IdentityAPI,
     HTTPCodes = IdentityAPI.HTTPCodes,
     mParticleUserCart = require('./identity').mParticleUserCart,
+    mParticleUser = require('./identity').mParticleUser,
     Consent = require('./consent');
 
 (function(window) {
@@ -136,6 +137,9 @@ var Polyfill = require('./polyfill'),
                 if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && mParticle.Identity.getCurrentUser()) {
                     mParticle.identityCallback({
                         httpCode: HTTPCodes.activeSession,
+                        getUser: function() {
+                            return mParticleUser(MP.mpid);
+                        },
                         body: {
                             mpid: MP.mpid,
                             matched_identities: mParticle.Identity.getCurrentUser() ? mParticle.Identity.getCurrentUser().getUserIdentities().userIdentities : {},
