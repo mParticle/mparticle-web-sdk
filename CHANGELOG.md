@@ -1,8 +1,13 @@
 ## Releases
 --
 
+#### 2.7.5 - 2018-09-19
+*  Add getUser method to identity callback results
+*  Only call initial identify and callback once
+*  Bugfix - logLevel
+
 #### 2.7.4 - 2018-09-14
-*  Bugfix - Bugfix - Remove corrupt localStorage
+*  Bugfix - Remove corrupt localStorage
 *  Bugfix - Fix encoding LS for special characters
 
 #### 2.7.3 - 2018-08-30
