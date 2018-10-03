@@ -20,6 +20,7 @@ describe('mParticle', function() {
                 mpid: testMPID
             }));
         };
+        mParticle.forceHttps = true;
         window.mParticleAndroid = null;
         window.mParticle.isIOS = null;
         window.mParticle.useCookieStorage = false;

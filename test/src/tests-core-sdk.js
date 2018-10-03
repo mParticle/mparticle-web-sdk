@@ -363,12 +363,12 @@ describe('core SDK', function() {
     it('should load SDK with the included api on init and not send events to previous apikey in persistence', function(done) {
         server.requests = [];
         mParticle.logEvent('Test Event');
-        server.requests[0].url.should.equal('http://jssdk.mparticle.com/v2/JS/test_key/Events');
+        server.requests[0].url.should.equal('https://jssdks.mparticle.com/v2/JS/test_key/Events');
 
         mParticle.init('test');
         server.requests = [];
         mParticle.logEvent('test another');
-        server.requests[0].url.should.equal('http://jssdk.mparticle.com/v2/JS/test/Events');
+        server.requests[0].url.should.equal('https://jssdks.mparticle.com/v2/JS/test/Events');
 
         done();
     });

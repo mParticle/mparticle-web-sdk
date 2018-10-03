@@ -6,6 +6,7 @@ var TestsCore = require('./tests-core'),
     findCookie = TestsCore.findCookie,
     v1CookieKey = TestsCore.v1CookieKey,
     v1localStorageKey = TestsCore.v1localStorageKey,
+    LocalStorageProductsV4 = TestsCore.LocalStorageProductsV4,
     getLocalStorage = TestsCore.getLocalStorage,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     setCookie = TestsCore.setCookie,
@@ -1122,7 +1123,7 @@ describe('migrations and persistence-related', function() {
         mParticle.reset();
 
         mParticle.init(apiKey);
-        
+
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify({
@@ -1151,7 +1152,6 @@ describe('migrations and persistence-related', function() {
         mParticle.Identity.login();
 
         var user2StoredConsentState = mParticle.Identity.getCurrentUser().getConsentState();
-      
         should.not.exist(user2StoredConsentState);
 
         consentState.removeGDPRConsentState('foo purpose');
@@ -1171,6 +1171,64 @@ describe('migrations and persistence-related', function() {
         user1StoredConsentState.getGDPRConsentState().should.not.have.property('foo purpose 1');
         user2StoredConsentState.getGDPRConsentState()['foo purpose 2'].should.have.property('Consented', false);
         user2StoredConsentState.getGDPRConsentState()['foo purpose 2'].should.have.property('Timestamp', 11);
+
+        done();
+    });
+
+    it('integration test - clears and creates new LS on reload if LS is corrupt', function(done) {
+        var les = new Date().getTime();
+
+        mParticle.reset();
+
+        //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
+        var LS = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        setLocalStorage(v4LSKey, LS, true);
+
+        mParticle.init(apiKey);
+
+        var sessionId = mParticle.sessionManager.getSession();
+        var das = mParticle.getDeviceId();
+        var cgid = mParticle.persistence.getLocalStorage().gs.cgid;
+        sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
+        das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
+        cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
+
+        done();
+    });
+
+    it('integration test - clears and creates new cookies on reload if cookies is corrupt', function(done) {
+        var les = new Date().getTime();
+
+        mParticle.reset();
+
+        //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
+        var cookies = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        setCookie(v4CookieKey, cookies, true);
+
+        mParticle.useCookieStorage = true;
+        mParticle.init(apiKey);
+
+        var sessionId = mParticle.sessionManager.getSession();
+        var das = mParticle.getDeviceId();
+        var cgid = mParticle.persistence.getCookie().gs.cgid;
+        sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
+        das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
+        cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
+
+        done();
+    });
+
+    it('integration test - clears LS products on reload if LS products are corrupt', function(done) {
+        mParticle.reset();
+
+        // raomdly added gibberish to a Base64 encoded cart product array to force a corrupt product array
+        var products = 'eyItOTE4MjY2NTAzNTA1ODg1NjAwMyI6eyasdjfiojasdifojfsdfJjcCI6W3siTmFtZSI6ImFuZHJvaWQiLCJTa3UiOiI1MTg3MDkiLCJQcmljZSI6MjM0LCJRdWFudGl0eSI6MSwiQnJhbmQiOm51bGwsIlZhcmlhbnQiOm51bGwsIkNhdGVnb3J5IjpudWxsLCJQb3NpdGlvbiI6bnVsbCwiQ291cG9uQ29kZSI6bnVsbCwiVG90YWxBbW91bnQiOjIzNCwiQXR0cmlidXRlcyI6eyJwcm9kYXR0cjEiOiJoaSJ9fSx7Ik5hbWUiOiJ3aW5kb3dzIiwiU2t1IjoiODMzODYwIiwiUHJpY2UiOjM0NSwiUXVhbnRpdHkiOjEsIlRvdGFsQW1vdW50IjozNDUsIkF0dHJpYnV0ZXMiOm51bGx9XX19';
+
+        localStorage.setItem(LocalStorageProductsV4, products);
+        mParticle.init(apiKey);
+
+        var productsAfterInit = getLocalStorageProducts().testMPID;
+        Should(productsAfterInit.length).not.be.ok();
 
         done();
     });

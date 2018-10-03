@@ -34,7 +34,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
     // var SDKv1CookieV3NoProdLSApostrophes = "{'sid':'ed937016-a06f-4275-9af4-c1830cfe951f'|'ie':1|'sa':'eyJzYTEiOiJ2YWx1ZTEifQ=='|'ua':'eyJ1YTEiOiJ2YWx1ZTEifQ=='|'ui':'eyIxIjoiY3VzdG9tZXJpZDEiLCI3IjoidGVzdEBlbWFpbC5jb20ifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTEtMDZUMTg6MTE6NDMuMjU2MDY2WiIsIlZhbHVlIjoiZz02ODFlNDMyNC0yYmFjLTQwMzYtODNkOC02MTNlZDRlYzNkY2MmdT02MjI3NDUxOTA2MTg2MDU1MDUmY3I9NDEzMTAxMSJ9fQ=='|'dt':'" + apiKey + "'|'les':" + les + "|'av':'1.5.0'|'cgid':'20f258e9-13cb-4751-ac7a-b2c66ef18db4'|'das':'681e4324-2bac-4036-83d8-613ed4ec3dcc'|'csd':'eyIxMSI6MTUxMDE2NDcwMzI0N30='|'mpid':'" + testMPID + "'}";
 
-    var SDKv1CookieV3WithEncodedProducts = "{'cp':'W3siTmFtZSI6IidhcG9zdHJvcGhlcyBpbicnJyBuYW1lIiwiU2t1IjoiU0tVMSIsIlByaWNlIjoxMjMsIlF1YW50aXR5IjoxLCJUb3RhbEFtb3VudCI6MTIzLCJBdHRyaWJ1dGVzIjpudWxsfV0'|'sid':'d3b6bb27-838f-49a0-bbba-407da48ac366'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDEtMDFUMTU6MTk6NDAuNTM5NTYxWiIsIlZhbHVlIjoiZz1kNmM5YzY5Zi1kYjAxLTQ4YWQtYjk0OS1hZTYxNzk5ZWE1OWEmdT0tNDE4MzA5MTg5MDM3OTM2ODIxNCZjcj00MjExNDc5In19'|'dt':'" + apiKey + "'|'les':1514992777036|'ssd':1514992777026|'cgid':'2efa7a16-971d-400e-9849-704559fd8891'|'das':'d6c9c69f-db01-48ad-b949-ae61799ea59a'|'mpid': '" + testMPID + "'}";
+    var SDKv1CookieV3WithEncodedProducts = "{'cp':'W3siTmFtZSI6IidhcG9zdHJvcGhlcyBpbicnJyBuYW1lIiwiU2t1IjoiU0tVMSIsIlByaWNlIjoxMjMsIlF1YW50aXR5IjoxLCJUb3RhbEFtb3VudCI6MTIzLCJBdHRyaWJ1dGVzIjpudWxsfV0'|'sid':'d3b6bb27-838f-49a0-bbba-407da48ac366'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDEtMDFUMTU6MTk6NDAuNTM5NTYxWiIsIlZhbHVlIjoiZz1kNmM5YzY5Zi1kYjAxLTQ4YWQtYjk0OS1hZTYxNzk5ZWE1OWEmdT0tNDE4MzA5MTg5MDM3OTM2ODIxNCZjcj00MjExNDc5In19'|'dt':'" + apiKey + "'|'les':" + les + " |'ssd':1514992777026|'cgid':'2efa7a16-971d-400e-9849-704559fd8891'|'das':'d6c9c69f-db01-48ad-b949-ae61799ea59a'|'mpid': '" + testMPID + "'}";
 
     var SDKv1CookieV1Parsed = JSON.parse(decodeURIComponent(SDKv1CookieV1));
     var SDKv1CookieV2Parsed = JSON.parse(decodeURIComponent(SDKv1CookieV2));
@@ -676,6 +676,157 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var decoded = JSON.parse(decodeURIComponent(escape(atob(LS))));
         decoded.testMPID.cp[0].Name.should.equal(product1.Name);
         decoded.testMPID.cp[1].Name.should.equal(product2.Name);
+
+        done();
+    });
+
+    it('integration test - should migrate from local storage with no products', function(done) {
+        var les = new Date().getTime();
+        mParticle.reset();
+
+        var cookieWithoutProducts = "{'sid':'234B3BA6-7BC2-4142-9CCD-015D7C4D0597'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjE6MjQ6MDcuNzQ4OTU4MVoiLCJWYWx1ZSI6Imc9NGQzYzE0YmUtNDY3NC00MzY0LWJlOTAtZjBjYmI3ZGI4MTNhJnU9ODE2OTg0NjE2MjM0NjA2NDk0NiZjcj00NTgxOTI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537219447486|'cgid':'429d1e42-5883-4296-91e6-8157765914d5'|'das':'4d3c14be-4674-4364-be90-f0cbb7db813a'|'mpid':'8169846162346064946'}";
+        setLocalStorage(v3LSKey, cookieWithoutProducts, true);
+        mParticle.init(apiKey);
+
+        var sessionId = mParticle.sessionManager.getSession();
+        sessionId.should.equal('234B3BA6-7BC2-4142-9CCD-015D7C4D0597');
+
+        var deviceId = mParticle.getDeviceId();
+        deviceId.should.equal('4d3c14be-4674-4364-be90-f0cbb7db813a');
+
+        done();
+    });
+
+    it('integration test - should migrate from cookies with no products', function(done) {
+        var les = new Date().getTime();
+        mParticle.reset();
+
+        var cookieWithoutProducts = "{'sid':'234B3BA6-7BC2-4142-9CCD-015D7C4D0597'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjE6MjQ6MDcuNzQ4OTU4MVoiLCJWYWx1ZSI6Imc9NGQzYzE0YmUtNDY3NC00MzY0LWJlOTAtZjBjYmI3ZGI4MTNhJnU9ODE2OTg0NjE2MjM0NjA2NDk0NiZjcj00NTgxOTI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537219447486|'cgid':'429d1e42-5883-4296-91e6-8157765914d5'|'das':'4d3c14be-4674-4364-be90-f0cbb7db813a'|'mpid':'8169846162346064946'}";
+        setCookie(v3CookieKey, cookieWithoutProducts, true);
+        mParticle.init(apiKey);
+
+        var sessionId = mParticle.sessionManager.getSession();
+        sessionId.should.equal('234B3BA6-7BC2-4142-9CCD-015D7C4D0597');
+
+        var deviceId = mParticle.getDeviceId();
+        deviceId.should.equal('4d3c14be-4674-4364-be90-f0cbb7db813a');
+
+        done();
+    });
+
+    it('integration test - migrates from local storage that have special characters in user attributes and user identities', function(done) {
+        var les = new Date().getTime();
+
+        mParticle.reset();
+
+        var cookieWithoutProducts = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        setLocalStorage(v3LSKey, cookieWithoutProducts, true);
+
+        mParticle.init(apiKey);
+
+        var currentUser = mParticle.Identity.getCurrentUser();
+        var ua = currentUser.getAllUserAttributes();
+        var ui = currentUser.getUserIdentities();
+
+        ua.test.should.equal('®’');
+
+        ui.userIdentities.twitter.should.equal('®’');
+
+        done();
+    });
+
+    it('integration test - migrates from cookies that have special characters in user attributes and user identities', function(done) {
+        var les = new Date().getTime();
+
+        mParticle.reset();
+
+        var cookieWithoutProducts = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        setCookie(v3CookieKey, cookieWithoutProducts, true);
+
+        mParticle.init(apiKey);
+
+        var currentUser = mParticle.Identity.getCurrentUser();
+        var ua = currentUser.getAllUserAttributes();
+        var ui = currentUser.getUserIdentities();
+
+        ua.test.should.equal('®’');
+        // console.log(ui);
+        ui.userIdentities.twitter.should.equal('®’');
+        done();
+    });
+
+    it('integration test - saves user attributes with special characters ® and ’', function(done) {
+        mParticle.reset();
+
+        mParticle.init(apiKey);
+
+        var currentUser = mParticle.Identity.getCurrentUser();
+        currentUser.setUserAttribute('test', '®’');
+        mParticle.init(apiKey);
+
+        var ua = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+
+        ua.test.should.equal('®’');
+
+        done();
+    });
+
+    it('integration test - clears and creates new LS when LS is corrupt when migrating', function(done) {
+        var les = new Date().getTime();
+
+        mParticle.reset();
+
+        //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
+        var rawLS = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        setLocalStorage(v3LSKey, rawLS, true);
+
+        mParticle.init(apiKey);
+
+        var sessionId = mParticle.sessionManager.getSession();
+        var das = mParticle.getDeviceId();
+        var cgid = mParticle.persistence.getLocalStorage().gs.cgid;
+        sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
+        das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
+        cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
+
+        done();
+    });
+
+    it('integration test - clears and creates new cookies when cookies is corrupt when migrating', function(done) {
+        var les = new Date().getTime();
+
+        mParticle.reset();
+
+        //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
+        var cookies = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        setCookie(v3CookieKey, cookies, true);
+
+        mParticle.init(apiKey);
+
+        var sessionId = mParticle.sessionManager.getSession();
+        var das = mParticle.getDeviceId();
+        var cgid = mParticle.persistence.getLocalStorage().gs.cgid;
+        sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
+        das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
+        cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
+
+        done();
+    });
+
+    it('integration test - clears products if when migrating they are corrupt', function(done) {
+        var les = new Date().getTime();
+
+        mParticle.reset();
+
+        // CP of mParticle.eCommerce.createProduct('iPhone®’ 8', 'iPhoneSKU123', 699, 1, '8 Plus 64GB', 'Phones', 'Apple', null, 'CouponCode1', {discount: 5, searchTerm: 'apple'});, and mParticle.eCommerce.createProduct('Galaxy®’ S9', 'AndroidSKU123', 699, 1, 'S9 Plus 64GB', 'Phones', 'Samsung', null, 'CouponCode2', {discount: 10, searchTerm: 'samsung'});
+        // corrupt CP by adding a few characters to bas64 string
+        var cookies =
+        "{'cp':'111W3siTmFtZSI6ImlQaG9uasdfZcKu4oCZIDgiLCJTa3UiOiJpUGhvbmVTS1UxMjMiLCJQcmljZSI6Njk5LCJRdWFudGl0eSI6MSwiQnJhbmQiOiJBcHBsZSIsIlZhcmlhbnQiOiI4IFBsdXMgNjRHQiIsIkNhdGVnb3J5IjoiUGhvbmVzIiwiUG9zaXRpb24iOm51bGwsIkNvdXBvbkNvZGUiOiJDb3Vwb25Db2RlMSIsIlRvdGFsQW1vdW50Ijo2OTksIkF0dHJpYnV0ZXMiOnsiZGlzY291bnQiOjUsInNlYXJjaFRlcm0iOiJhcHBsZSJ9fSx7Ik5hbWUiOiJHYWxheHnCruKAmSBTOSIsIlNrdSI6IkFuZHJvaWRTS1UxMjMiLCJQcmljZSI6Njk5LCJRdWFudGl0eSI6MSwiQnJhbmQiOiJTYW1zdW5nIiwiVmFyaWFudCI6IlM5IFBsdXMgNjRHQiIsIkNhdGVnb3J5IjoiUGhvbmVzIiwiUG9zaXRpb24iOm51bGwsIkNvdXBvbkNvZGUiOiJDb3Vwb25Db2RlMiIsIlRvdGFsQW1vdW50Ijo2OTksIkF0dHJpYnV0ZXMiOnsiZGlzY291bnQiOjEwLCJzZWFyY2hUZXJtIjoic2Ftc3VuZyJ9fV0='|'sid':'5FB9CD47-CCC5-4897-B901-61059E9C5A0C'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMjNUMTg6NDQ6MjUuMDg5OTk2NVoiLCJWYWx1ZSI6Imc9YTY3ZWZmZDAtY2UyMC00Y2M4LTg5MzgtNzc3MWY0YzQ2ZmZiJnU9MjA3Mzk0MTkzMjk4OTgyMzA5OSZjcj00NTk0NzI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537987465067|'cgid':'d1ce6cb1-5f28-4520-8ce7-f67288590944'|'das':'a67effd0-ce20-4cc8-8938-7771f4c46ffb'|'mpid':'2073941932989823099'}";
+
+        setCookie(v3CookieKey, cookies, true);
+        mParticle.init(apiKey);
+
+        Should(mParticle.Identity.getCurrentUser().getCart().getCartProducts().length).not.be.ok();
 
         done();
     });

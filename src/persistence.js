@@ -69,15 +69,21 @@ function initializeStorage() {
             this.storeDataInMemory(cookies);
         }
 
-        var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+        try {
+            var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
 
-        if (encodedProducts) {
-            var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
+            if (encodedProducts) {
+                var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
+            }
+            if (MP.mpid) {
+                storeProductsInMemory(decodedProducts, MP.mpid);
+            }
+        } catch (e) {
+            localStorage.removeItem(Config.LocalStorageProductsV4);
+            MP.cartProducts = [];
+            Helpers.logDebug('Error loading products in initialization: ' + e);
         }
 
-        if (MP.mpid) {
-            storeProductsInMemory(decodedProducts, MP.mpid);
-        }
 
         for (var key in allData) {
             if (allData.hasOwnProperty(key)) {
@@ -89,7 +95,11 @@ function initializeStorage() {
 
         this.update();
     } catch (e) {
-        localStorage.removeItem(Config.LocalStorageProductsV4);
+        if (useLocalStorage()) {
+            localStorage.removeItem(Config.LocalStorageNameV4);
+        } else {
+            expireCookies(Config.CookieNameV4);
+        }
         Helpers.logDebug('Error initializing storage: ' + e);
     }
 }
@@ -212,26 +222,60 @@ function convertProductsForLocalStorage() {
     return inMemoryDataForLocalStorage;
 }
 
-function getLocalStorageProducts() {
-    var products = localStorage.getItem(MP.Config.LocalStorageProductsV4);
-    if (products) {
-        return Base64.decode(products);
+function getUserProductsFromLS(mpid) {
+    var decodedProducts,
+        userProducts,
+        parsedProducts,
+        encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+    if (encodedProducts) {
+        decodedProducts = Base64.decode(encodedProducts);
     }
-    return products;
+    // if there is an MPID, we are retrieving the user's products, which is an array
+    if (mpid) {
+        try {
+            if (decodedProducts) {
+                parsedProducts = JSON.parse(decodedProducts);
+            }
+            if (decodedProducts && parsedProducts[mpid] && parsedProducts[mpid].cp && Array.isArray(parsedProducts[mpid].cp)) {
+                userProducts = parsedProducts[mpid].cp;
+            } else {
+                userProducts = [];
+            }
+            return userProducts;
+        } catch (e) {
+            return [];
+        }
+    } else {
+        return [];
+    }
+}
+
+function getAllUserProductsFromLS() {
+    var decodedProducts,
+        encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+    if (encodedProducts) {
+        decodedProducts = Base64.decode(encodedProducts);
+    }
+    // returns an object with keys of MPID and values of array of products
+    try {
+        return JSON.parse(decodedProducts);
+    } catch (e) {
+        return {};
+    }
 }
 
 function setLocalStorage() {
     var key = MP.Config.LocalStorageNameV4,
-        localStorageProducts = getLocalStorageProducts(),
+        allLocalStorageProducts = getAllUserProductsFromLS(),
         currentUserProducts = this.convertProductsForLocalStorage(),
         localStorageData = this.getLocalStorage() || {},
         currentMPIDData;
 
     if (MP.mpid) {
-        localStorageProducts = localStorageProducts ? JSON.parse(localStorageProducts) : {};
-        localStorageProducts[MP.mpid] = currentUserProducts;
+        allLocalStorageProducts = allLocalStorageProducts || {};
+        allLocalStorageProducts[MP.mpid] = currentUserProducts;
         try {
-            window.localStorage.setItem(encodeURIComponent(MP.Config.LocalStorageProductsV4), Base64.encode(JSON.stringify(localStorageProducts)));
+            window.localStorage.setItem(encodeURIComponent(MP.Config.LocalStorageProductsV4), Base64.encode(JSON.stringify(allLocalStorageProducts)));
         }
         catch (e) {
             Helpers.logDebug('Error with setting products on localStorage.');
@@ -833,7 +877,8 @@ module.exports = {
     determineLocalStorageAvailability: determineLocalStorageAvailability,
     convertInMemoryDataForCookies: convertInMemoryDataForCookies,
     convertProductsForLocalStorage: convertProductsForLocalStorage,
-    getLocalStorageProducts: getLocalStorageProducts,
+    getUserProductsFromLS: getUserProductsFromLS,
+    getAllUserProductsFromLS: getAllUserProductsFromLS,
     storeProductsInMemory: storeProductsInMemory,
     setLocalStorage: setLocalStorage,
     setGlobalStorageAttributes: setGlobalStorageAttributes,

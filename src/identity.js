@@ -690,17 +690,7 @@ function mParticleUserCart(mpid){
                 arrayCopy = Array.isArray(product) ? product.slice() : [product];
 
 
-                allProducts = JSON.parse(Persistence.getLocalStorageProducts());
-
-                if (allProducts && !allProducts[mpid]) {
-                    allProducts[mpid] = {};
-                }
-
-                if (allProducts[mpid].cp) {
-                    userProducts = allProducts[mpid].cp;
-                } else {
-                    userProducts = [];
-                }
+                userProducts = Persistence.getUserProductsFromLS(mpid);
 
                 userProducts = userProducts.concat(arrayCopy);
 
@@ -719,6 +709,7 @@ function mParticleUserCart(mpid){
                     userProducts = userProducts.slice(0, mParticle.maxProducts);
                 }
 
+                allProducts = Persistence.getAllUserProductsFromLS();
                 allProducts[mpid].cp = userProducts;
 
                 Persistence.setCartProducts(allProducts);
@@ -741,13 +732,7 @@ function mParticleUserCart(mpid){
             } else {
                 mParticle.sessionManager.resetSessionTimer();
 
-                allProducts = JSON.parse(Persistence.getLocalStorageProducts());
-
-                if (allProducts && allProducts[mpid].cp) {
-                    userProducts = allProducts[mpid].cp;
-                } else {
-                    userProducts = [];
-                }
+                userProducts = Persistence.getUserProductsFromLS(mpid);
 
                 if (userProducts) {
                     userProducts.forEach(function(cartProduct, i) {
@@ -772,6 +757,7 @@ function mParticleUserCart(mpid){
                     Persistence.storeProductsInMemory(productsForMemory, mpid);
                 }
 
+                allProducts = Persistence.getLocalStorage();
                 allProducts[mpid].cp = userProducts;
 
                 Persistence.setCartProducts(allProducts);
@@ -788,7 +774,7 @@ function mParticleUserCart(mpid){
                 Helpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
             } else {
                 mParticle.sessionManager.resetSessionTimer();
-                allProducts = JSON.parse(Persistence.getLocalStorageProducts());
+                allProducts = Persistence.getAllUserProductsFromLS();
 
                 if (allProducts && allProducts[mpid].cp) {
                     allProducts[mpid].cp = [];

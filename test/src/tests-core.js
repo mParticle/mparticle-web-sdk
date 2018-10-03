@@ -461,5 +461,6 @@ module.exports = {
     v3CookieKey: v3CookieKey,
     v4CookieKey: v4CookieKey,
     v4LSKey: v4LSKey,
+    LocalStorageProductsV4: LocalStorageProductsV4,
     server: server
 };

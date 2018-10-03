@@ -32,8 +32,21 @@ var Persistence = require('./persistence'),
 //  2. return if 'mprtcl-v4', otherwise migrate to mprtclv4 schema
  // 3. if 'mprtcl-api', could be JSSDKv2 or JSSDKv1. JSSDKv2 cookie has a 'globalSettings' key on it
 function migrate() {
-    migrateCookies();
-    migrateLocalStorage();
+    try {
+        migrateCookies();
+    } catch (e) {
+        Persistence.expireCookies(Config.CookieNameV3);
+        Persistence.expireCookies(Config.CookieNameV4);
+        Helpers.logDebug('Error migrating cookie: ' + e);
+    }
+
+    try {
+        migrateLocalStorage();
+    } catch (e) {
+        localStorage.removeItem(Config.LocalStorageNameV3);
+        localStorage.removeItem(Config.LocalStorageNameV4);
+        Helpers.logDebug('Error migrating localStorage: ' + e);
+    }
 }
 
 function migrateCookies() {
@@ -252,6 +265,10 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
         catch (e) {
             localStorageProducts[mpid].cp = cookies.cp;
         }
+
+        if (!Array.isArray(localStorageProducts[mpid].cp)) {
+            localStorageProducts[mpid].cp = [];
+        }
     }
 
     localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
@@ -275,7 +292,7 @@ function migrateLocalStorage() {
             v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
             // localStorage may contain only products, or the full persistence
             // when there is an MPID on the cookie, it is the full persistence
-            if ((v3LSData.cp || v3LSData.pb) && v3LSData.mpid) {
+            if (v3LSData.mpid) {
                 v3LSData = JSON.parse(convertSDKv1CookiesV3ToSDKv2CookiesV4(v3LSDataStringCopy));
                 finishLSMigration(JSON.stringify(v3LSData), v3LSName);
                 return;
