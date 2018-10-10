@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.7.6 - 2018-10-10
+*  Bugfix - guard against null cookie
+
 #### 2.7.5 - 2018-09-19
 *  Add getUser method to identity callback results
 *  Only call initial identify and callback once
