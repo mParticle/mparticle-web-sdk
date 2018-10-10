@@ -282,9 +282,14 @@ function migrateLocalStorage() {
             // if no MPID, it is only the products
             } else if ((v3LSData.cp || v3LSData.pb) && !v3LSData.mpid) {
                 cookies = Persistence.getCookie();
-                migrateProductsFromSDKv1ToSDKv2CookiesV4(v3LSData, cookies.cu);
-                localStorage.removeItem(Config.LocalStorageNameV3);
-                return;
+                if (cookies) {
+                    migrateProductsFromSDKv1ToSDKv2CookiesV4(v3LSData, cookies.cu);
+                    localStorage.removeItem(Config.LocalStorageNameV3);
+                    return;
+                } else {
+                    localStorage.removeItem(Config.LocalStorageNameV3);
+                    return;
+                }
             }
         } else {
             v1LSData = JSON.parse(decodeURIComponent(window.localStorage.getItem(v1LSName)));
@@ -297,9 +302,14 @@ function migrateLocalStorage() {
                     // only products, not full persistence
                 } else if ((v1LSData.cp || v1LSData.pb) && !v1LSData.mpid) {
                     cookies = Persistence.getCookie();
-                    migrateProductsFromSDKv1ToSDKv2CookiesV4(v1LSData, cookies.cu);
-                    window.localStorage.removeItem(v1LSName);
-                    return;
+                    if (cookies) {
+                        migrateProductsFromSDKv1ToSDKv2CookiesV4(v1LSData, cookies.cu);
+                        window.localStorage.removeItem(v1LSName);
+                        return;
+                    } else {
+                        window.localStorage.removeItem(v1LSName);
+                        return;
+                    }
                 } else {
                     v1LSData = JSON.parse(convertSDKv1CookiesV1ToSDKv2CookiesV4(JSON.stringify(v1LSData)));
                 }

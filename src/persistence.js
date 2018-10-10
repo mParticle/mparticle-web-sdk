@@ -520,7 +520,7 @@ function findPrevCookiesBasedOnUI(identityApiData) {
 
     if (identityApiData) {
         for (var requestedIdentityType in identityApiData.userIdentities) {
-            if (Object.keys(cookies).length) {
+            if (cookies && Object.keys(cookies).length) {
                 for (var key in cookies) {
                     // any value in cookies that has an MPID key will be an MPID to search through
                     // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched

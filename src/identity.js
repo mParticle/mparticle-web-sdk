@@ -315,8 +315,12 @@ var IdentityAPI = {
     */
     getUser: function(mpid) {
         var cookies = Persistence.getPersistence();
-        if (cookies[mpid] && !Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(mpid)) {
-            return mParticleUser(mpid);
+        if (cookies) {
+            if (cookies[mpid] && !Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(mpid)) {
+                return mParticleUser(mpid);
+            } else {
+                return null;
+            }
         } else {
             return null;
         }
@@ -330,9 +334,11 @@ var IdentityAPI = {
     getUsers: function() {
         var cookies = Persistence.getPersistence();
         var users = [];
-        for (var key in cookies) {
-            if (!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(key)) {
-                users.push(mParticleUser(key));
+        if (cookies) {
+            for (var key in cookies) {
+                if (!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(key)) {
+                    users.push(mParticleUser(key));
+                }
             }
         }
         return users;
@@ -436,9 +442,11 @@ function mParticleUser(mpid) {
                     }
 
                     userAttributes[key] = value;
-                    cookies[mpid].ua = userAttributes;
-                    Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-                    Persistence.storeDataInMemory(cookies, mpid);
+                    if (cookies && cookies[mpid]) {
+                        cookies[mpid].ua = userAttributes;
+                        Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+                        Persistence.storeDataInMemory(cookies, mpid);
+                    }
 
                     Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                     Forwarders.callSetUserAttributeOnForwarders(key, value);
@@ -493,9 +501,11 @@ function mParticleUser(mpid) {
 
                 delete userAttributes[key];
 
-                cookies[mpid].ua = userAttributes;
-                Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-                Persistence.storeDataInMemory(cookies, mpid);
+                if (cookies && cookies[mpid]) {
+                    cookies[mpid].ua = userAttributes;
+                    Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+                    Persistence.storeDataInMemory(cookies, mpid);
+                }
 
                 Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                 Forwarders.applyToForwarders('removeUserAttribute', key);
@@ -538,9 +548,11 @@ function mParticleUser(mpid) {
                 }
 
                 userAttributes[key] = arrayCopy;
-                cookies[mpid].ua = userAttributes;
-                Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-                Persistence.storeDataInMemory(cookies, mpid);
+                if (cookies && cookies[mpid]) {
+                    cookies[mpid].ua = userAttributes;
+                    Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+                    Persistence.storeDataInMemory(cookies, mpid);
+                }
 
                 Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
@@ -571,9 +583,11 @@ function mParticleUser(mpid) {
                     }
                 }
 
-                cookies[mpid].ua = {};
-                Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-                Persistence.storeDataInMemory(cookies, mpid);
+                if (cookies && cookies[mpid]) {
+                    cookies[mpid].ua = {};
+                    Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
+                    Persistence.storeDataInMemory(cookies, mpid);
+                }
             }
         },
         /**

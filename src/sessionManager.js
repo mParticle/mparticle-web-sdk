@@ -31,7 +31,7 @@ function startNewSession() {
         if (MP.mpid) {
             MP.currentSessionMPIDs = [MP.mpid];
         }
-        
+
         if (!MP.sessionStartDate) {
             var date = new Date();
             MP.sessionStartDate = date;
@@ -70,7 +70,11 @@ function endSession(override) {
 
         cookies = Persistence.getCookie() || Persistence.getLocalStorage();
 
-        if (!cookies.gs.sid) {
+        if (!cookies) {
+            return;
+        }
+
+        if (cookies.gs && !cookies.gs.sid) {
             Helpers.logDebug(Messages.InformationMessages.NoSessionToEnd);
             return;
         }
@@ -80,7 +84,7 @@ function endSession(override) {
             MP.sessionId = cookies.gs.sid;
         }
 
-        if (cookies && cookies.gs && cookies.gs.les) {
+        if (cookies.gs && cookies.gs.les) {
             sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
             var newDate = new Date().getTime();
             timeSinceLastEventSent = newDate - cookies.gs.les;
