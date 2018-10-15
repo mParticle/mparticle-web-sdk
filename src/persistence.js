@@ -252,16 +252,19 @@ function getUserProductsFromLS(mpid) {
 
 function getAllUserProductsFromLS() {
     var decodedProducts,
-        encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+        encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4),
+        parsedDecodedProducts;
     if (encodedProducts) {
         decodedProducts = Base64.decode(encodedProducts);
     }
     // returns an object with keys of MPID and values of array of products
     try {
-        return JSON.parse(decodedProducts);
+        parsedDecodedProducts = JSON.parse(decodedProducts);
     } catch (e) {
-        return {};
+        parsedDecodedProducts = {};
     }
+
+    return parsedDecodedProducts;
 }
 
 function setLocalStorage() {

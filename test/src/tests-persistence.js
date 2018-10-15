@@ -1232,4 +1232,30 @@ describe('migrations and persistence-related', function() {
 
         done();
     });
+
+    it('should save products to persistence correctly when adding and removing products', function(done) {
+        mParticle.reset();
+        mParticle.init(apiKey);
+
+        var iphone = mParticle.eCommerce.createProduct('iphone', 'iphonesku', 599, 1, 'iphone variant', 'iphonecategory', 'iphonebrand', null, 'iphonecoupon', {iphoneattr1: 'value1', iphoneattr2: 'value2'});
+        mParticle.eCommerce.Cart.add(iphone, true);
+
+        var ls = window.localStorage.getItem('mprtcl-prodv4');
+        var parsedProducts = JSON.parse(atob(ls));
+        // parsedProducts should just have key of testMPID with value of cp with a single product
+        Object.keys(parsedProducts).length.should.equal(1);
+        parsedProducts['testMPID'].should.have.property('cp');
+        parsedProducts['testMPID'].cp.length.should.equal(1);
+
+        mParticle.eCommerce.Cart.remove(iphone, true);
+        ls = window.localStorage.getItem('mprtcl-prodv4');
+        var parsedProductsAfter = JSON.parse(atob(ls));
+        // parsedProducts should just have key of testMPID with value of cp with no products
+
+        Object.keys(parsedProductsAfter).length.should.equal(1);
+        parsedProductsAfter['testMPID'].should.have.property('cp');
+        parsedProductsAfter['testMPID'].cp.length.should.equal(0);
+
+        done();
+    });
 });

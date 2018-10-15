@@ -757,7 +757,8 @@ function mParticleUserCart(mpid){
                     Persistence.storeProductsInMemory(productsForMemory, mpid);
                 }
 
-                allProducts = Persistence.getLocalStorage();
+                allProducts = Persistence.getAllUserProductsFromLS();
+
                 allProducts[mpid].cp = userProducts;
 
                 Persistence.setCartProducts(allProducts);
