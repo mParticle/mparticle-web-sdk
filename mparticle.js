@@ -333,7 +333,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.7.6',
+    sdkVersion = '2.7.7',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -3036,17 +3036,7 @@ function mParticleUserCart(mpid){
                 arrayCopy = Array.isArray(product) ? product.slice() : [product];
 
 
-                allProducts = JSON.parse(Persistence.getLocalStorageProducts());
-
-                if (allProducts && !allProducts[mpid]) {
-                    allProducts[mpid] = {};
-                }
-
-                if (allProducts[mpid].cp) {
-                    userProducts = allProducts[mpid].cp;
-                } else {
-                    userProducts = [];
-                }
+                userProducts = Persistence.getUserProductsFromLS(mpid);
 
                 userProducts = userProducts.concat(arrayCopy);
 
@@ -3065,6 +3055,7 @@ function mParticleUserCart(mpid){
                     userProducts = userProducts.slice(0, mParticle.maxProducts);
                 }
 
+                allProducts = Persistence.getAllUserProductsFromLS();
                 allProducts[mpid].cp = userProducts;
 
                 Persistence.setCartProducts(allProducts);
@@ -3087,13 +3078,7 @@ function mParticleUserCart(mpid){
             } else {
                 mParticle.sessionManager.resetSessionTimer();
 
-                allProducts = JSON.parse(Persistence.getLocalStorageProducts());
-
-                if (allProducts && allProducts[mpid].cp) {
-                    userProducts = allProducts[mpid].cp;
-                } else {
-                    userProducts = [];
-                }
+                userProducts = Persistence.getUserProductsFromLS(mpid);
 
                 if (userProducts) {
                     userProducts.forEach(function(cartProduct, i) {
@@ -3118,6 +3103,8 @@ function mParticleUserCart(mpid){
                     Persistence.storeProductsInMemory(productsForMemory, mpid);
                 }
 
+                allProducts = Persistence.getAllUserProductsFromLS();
+
                 allProducts[mpid].cp = userProducts;
 
                 Persistence.setCartProducts(allProducts);
@@ -3134,7 +3121,7 @@ function mParticleUserCart(mpid){
                 Helpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
             } else {
                 mParticle.sessionManager.resetSessionTimer();
-                allProducts = JSON.parse(Persistence.getLocalStorageProducts());
+                allProducts = Persistence.getAllUserProductsFromLS();
 
                 if (allProducts && allProducts[mpid].cp) {
                     allProducts[mpid].cp = [];
@@ -4296,8 +4283,21 @@ var Persistence = require('./persistence'),
 //  2. return if 'mprtcl-v4', otherwise migrate to mprtclv4 schema
  // 3. if 'mprtcl-api', could be JSSDKv2 or JSSDKv1. JSSDKv2 cookie has a 'globalSettings' key on it
 function migrate() {
-    migrateCookies();
-    migrateLocalStorage();
+    try {
+        migrateCookies();
+    } catch (e) {
+        Persistence.expireCookies(Config.CookieNameV3);
+        Persistence.expireCookies(Config.CookieNameV4);
+        Helpers.logDebug('Error migrating cookie: ' + e);
+    }
+
+    try {
+        migrateLocalStorage();
+    } catch (e) {
+        localStorage.removeItem(Config.LocalStorageNameV3);
+        localStorage.removeItem(Config.LocalStorageNameV4);
+        Helpers.logDebug('Error migrating localStorage: ' + e);
+    }
 }
 
 function migrateCookies() {
@@ -4516,6 +4516,10 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
         catch (e) {
             localStorageProducts[mpid].cp = cookies.cp;
         }
+
+        if (!Array.isArray(localStorageProducts[mpid].cp)) {
+            localStorageProducts[mpid].cp = [];
+        }
     }
 
     localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
@@ -4539,7 +4543,7 @@ function migrateLocalStorage() {
             v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
             // localStorage may contain only products, or the full persistence
             // when there is an MPID on the cookie, it is the full persistence
-            if ((v3LSData.cp || v3LSData.pb) && v3LSData.mpid) {
+            if (v3LSData.mpid) {
                 v3LSData = JSON.parse(convertSDKv1CookiesV3ToSDKv2CookiesV4(v3LSDataStringCopy));
                 finishLSMigration(JSON.stringify(v3LSData), v3LSName);
                 return;
@@ -4753,15 +4757,21 @@ function initializeStorage() {
             this.storeDataInMemory(cookies);
         }
 
-        var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+        try {
+            var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
 
-        if (encodedProducts) {
-            var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
+            if (encodedProducts) {
+                var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
+            }
+            if (MP.mpid) {
+                storeProductsInMemory(decodedProducts, MP.mpid);
+            }
+        } catch (e) {
+            localStorage.removeItem(Config.LocalStorageProductsV4);
+            MP.cartProducts = [];
+            Helpers.logDebug('Error loading products in initialization: ' + e);
         }
 
-        if (MP.mpid) {
-            storeProductsInMemory(decodedProducts, MP.mpid);
-        }
 
         for (var key in allData) {
             if (allData.hasOwnProperty(key)) {
@@ -4773,7 +4783,11 @@ function initializeStorage() {
 
         this.update();
     } catch (e) {
-        localStorage.removeItem(Config.LocalStorageProductsV4);
+        if (useLocalStorage()) {
+            localStorage.removeItem(Config.LocalStorageNameV4);
+        } else {
+            expireCookies(Config.CookieNameV4);
+        }
         Helpers.logDebug('Error initializing storage: ' + e);
     }
 }
@@ -4896,26 +4910,63 @@ function convertProductsForLocalStorage() {
     return inMemoryDataForLocalStorage;
 }
 
-function getLocalStorageProducts() {
-    var products = localStorage.getItem(MP.Config.LocalStorageProductsV4);
-    if (products) {
-        return Base64.decode(products);
+function getUserProductsFromLS(mpid) {
+    var decodedProducts,
+        userProducts,
+        parsedProducts,
+        encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+    if (encodedProducts) {
+        decodedProducts = Base64.decode(encodedProducts);
     }
-    return products;
+    // if there is an MPID, we are retrieving the user's products, which is an array
+    if (mpid) {
+        try {
+            if (decodedProducts) {
+                parsedProducts = JSON.parse(decodedProducts);
+            }
+            if (decodedProducts && parsedProducts[mpid] && parsedProducts[mpid].cp && Array.isArray(parsedProducts[mpid].cp)) {
+                userProducts = parsedProducts[mpid].cp;
+            } else {
+                userProducts = [];
+            }
+            return userProducts;
+        } catch (e) {
+            return [];
+        }
+    } else {
+        return [];
+    }
+}
+
+function getAllUserProductsFromLS() {
+    var decodedProducts,
+        encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4),
+        parsedDecodedProducts;
+    if (encodedProducts) {
+        decodedProducts = Base64.decode(encodedProducts);
+    }
+    // returns an object with keys of MPID and values of array of products
+    try {
+        parsedDecodedProducts = JSON.parse(decodedProducts);
+    } catch (e) {
+        parsedDecodedProducts = {};
+    }
+
+    return parsedDecodedProducts;
 }
 
 function setLocalStorage() {
     var key = MP.Config.LocalStorageNameV4,
-        localStorageProducts = getLocalStorageProducts(),
+        allLocalStorageProducts = getAllUserProductsFromLS(),
         currentUserProducts = this.convertProductsForLocalStorage(),
         localStorageData = this.getLocalStorage() || {},
         currentMPIDData;
 
     if (MP.mpid) {
-        localStorageProducts = localStorageProducts ? JSON.parse(localStorageProducts) : {};
-        localStorageProducts[MP.mpid] = currentUserProducts;
+        allLocalStorageProducts = allLocalStorageProducts || {};
+        allLocalStorageProducts[MP.mpid] = currentUserProducts;
         try {
-            window.localStorage.setItem(encodeURIComponent(MP.Config.LocalStorageProductsV4), Base64.encode(JSON.stringify(localStorageProducts)));
+            window.localStorage.setItem(encodeURIComponent(MP.Config.LocalStorageProductsV4), Base64.encode(JSON.stringify(allLocalStorageProducts)));
         }
         catch (e) {
             Helpers.logDebug('Error with setting products on localStorage.');
@@ -5517,7 +5568,8 @@ module.exports = {
     determineLocalStorageAvailability: determineLocalStorageAvailability,
     convertInMemoryDataForCookies: convertInMemoryDataForCookies,
     convertProductsForLocalStorage: convertProductsForLocalStorage,
-    getLocalStorageProducts: getLocalStorageProducts,
+    getUserProductsFromLS: getUserProductsFromLS,
+    getAllUserProductsFromLS: getAllUserProductsFromLS,
     storeProductsInMemory: storeProductsInMemory,
     setLocalStorage: setLocalStorage,
     setGlobalStorageAttributes: setGlobalStorageAttributes,
