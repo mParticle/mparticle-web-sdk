@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.7.7 - 2018-10-15
+*  Bugfix - remove cart item uses proper product persistence
+*  Bugfix - Guard against corrupt local storage/cookies
+
 #### 2.7.6 - 2018-10-10
 *  Bugfix - guard against null cookie
 
