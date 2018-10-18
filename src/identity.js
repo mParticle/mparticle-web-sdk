@@ -298,7 +298,7 @@ var IdentityAPI = {
         var mpid = MP.mpid;
         if (mpid) {
             mpid = MP.mpid.slice();
-            return mParticleUser(mpid);
+            return mParticleUser(mpid, MP.isLoggedIn);
         } else if (Helpers.shouldUseNativeSdk()) {
             return mParticleUser();
         } else {
@@ -350,7 +350,7 @@ var IdentityAPI = {
 * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
 * @class mParticle.Identity.getCurrentUser()
 */
-function mParticleUser(mpid) {
+function mParticleUser(mpid, isLoggedIn) {
     return {
         /**
         * Get user identities for current user
@@ -659,6 +659,9 @@ function mParticleUser(mpid) {
             if (MP.mpid === this.getMPID()) {
                 Forwarders.initForwarders(this.getUserIdentities().userIdentities);
             }
+        },
+        isLoggedIn: function() {
+            return isLoggedIn;
         }
     };
 }
@@ -814,8 +817,10 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         Helpers.logDebug('Parsing identity response from server');
         if (xhr.responseText) {
             identityApiResult = JSON.parse(xhr.responseText);
+            if (identityApiResult.hasOwnProperty('is_logged_in')) {
+                MP.isLoggedIn = identityApiResult.is_logged_in;
+            }
         }
-
         if (xhr.status === 200) {
             if (method === 'modify') {
                 MP.userIdentities = IdentityRequest.modifyUserIdentities(MP.userIdentities, identityApiData.userIdentities);
@@ -889,7 +894,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
 
             if (newUser) {
                 Persistence.storeDataInMemory(cookies, newUser.getMPID());
-                if (!prevUser || newUser.getMPID() !== prevUser.getMPID()) {
+                if (!prevUser || newUser.getMPID() !== prevUser.getMPID() || prevUser.isLoggedIn() !== newUser.isLoggedIn()) {
                     Forwarders.initForwarders(newUser.getUserIdentities().userIdentities);
                 }
                 Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);

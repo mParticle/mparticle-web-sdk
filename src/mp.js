@@ -40,6 +40,7 @@ module.exports = {
     migratingToIDSyncCookies: false,
     nonCurrentUserMPIDs: {},
     identifyCalled: false,
+    isLoggedIn: false,
     featureFlags: {
         batching: false
     }

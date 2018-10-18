@@ -154,6 +154,8 @@ function storeDataInMemory(obj, currentMPID) {
             MP.context = obj.gs.c || MP.context;
             MP.currentSessionMPIDs = obj.gs.csm || MP.currentSessionMPIDs;
 
+            MP.isLoggedIn = obj.l === true;
+
             if (obj.gs.les) {
                 MP.dateLastEventSent = new Date(obj.gs.les);
             }
@@ -288,6 +290,8 @@ function setLocalStorage() {
     if (!mParticle.useCookieStorage) {
         currentMPIDData = this.convertInMemoryDataForCookies();
         localStorageData.gs = localStorageData.gs || {};
+
+        localStorageData.l = MP.isLoggedIn ? 1 : 0;
 
         if (MP.sessionId) {
             localStorageData.gs.csm = MP.currentSessionMPIDs;
@@ -471,6 +475,8 @@ function setCookie() {
         cookies[MP.mpid] = currentMPIDData;
         cookies.cu = MP.mpid;
     }
+
+    cookies.l = MP.isLoggedIn ? 1 : 0;
 
     cookies = this.setGlobalStorageAttributes(cookies);
 
@@ -664,6 +670,8 @@ function decodeCookies(cookie) {
                                     }
                                 }
                             }
+                        } else if (mpid === 'l') {
+                            cookie[mpid] = Boolean(cookie[mpid]);
                         }
                     }
                 }

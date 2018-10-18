@@ -64,7 +64,6 @@ describe('identity', function() {
                 mpid: 'MPID1'
             }));
         };
-
         mParticle.init(apiKey);
 
         var activeForwarders = mParticle._getActiveForwarders();

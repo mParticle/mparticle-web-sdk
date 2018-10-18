@@ -113,6 +113,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     SDKv2NonMPIDCookieKeys = {
         gs: 1,
         cu: 1,
+        l: 1,
         globalSettings: 1,
         currentUserMPID: 1
     },

@@ -8,7 +8,6 @@ var Helpers = require('./helpers'),
 
 function initForwarders(userIdentities) {
     var user = mParticle.Identity.getCurrentUser();
-
     if (!Helpers.shouldUseNativeSdk() && MP.configuredForwarders) {
         // Some js libraries require that they be loaded first, or last, etc
         MP.configuredForwarders.sort(function(x, y) {
@@ -22,6 +21,9 @@ function initForwarders(userIdentities) {
                 return false;
             }
             if (!isEnabledForUserAttributes(forwarder.filteringUserAttributeValue, user)) {
+                return false;
+            }
+            if (!isEnabledForUnknownUser(forwarder.excludeAnonymousUser, user)) {
                 return false;
             }
 
@@ -86,8 +88,8 @@ function isEnabledForUserConsent(consentRules, user) {
 }
 
 function isEnabledForUserAttributes(filterObject, user) {
-    if (!filterObject || 
-        !Helpers.isObject(filterObject) || 
+    if (!filterObject ||
+        !Helpers.isObject(filterObject) ||
         !Object.keys(filterObject).length) {
         return true;
     }
@@ -128,6 +130,15 @@ function isEnabledForUserAttributes(filterObject, user) {
         // in any error scenario, err on side of returning true and forwarding event
         return true;
     }
+}
+
+function isEnabledForUnknownUser(excludeAnonymousUserBoolean, user) {
+    if (!user || !user.isLoggedIn()) {
+        if (excludeAnonymousUserBoolean) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function applyToForwarders(functionName, functionArgs) {

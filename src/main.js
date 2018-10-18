@@ -96,7 +96,7 @@ var Polyfill = require('./polyfill'),
         */
         init: function(apiKey) {
             if (!Helpers.shouldUseNativeSdk()) {
-                var config;
+                var config, currentUser;
 
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
                 MP.devToken = apiKey || null;
@@ -133,8 +133,9 @@ var Polyfill = require('./polyfill'),
                     MP.migratingToIDSyncCookies = false;
                 }
 
+                currentUser = mParticle.Identity.getCurrentUser();
                 // Call mParticle.identityCallback when identify was not called due to a reload or a sessionId already existing
-                if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && mParticle.Identity.getCurrentUser()) {
+                if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && currentUser) {
                     mParticle.identityCallback({
                         httpCode: HTTPCodes.activeSession,
                         getUser: function() {
@@ -142,7 +143,8 @@ var Polyfill = require('./polyfill'),
                         },
                         body: {
                             mpid: MP.mpid,
-                            matched_identities: mParticle.Identity.getCurrentUser() ? mParticle.Identity.getCurrentUser().getUserIdentities().userIdentities : {},
+                            is_logged_in: MP.isLoggedIn,
+                            matched_identities: currentUser ? currentUser.getUserIdentities().userIdentities : {},
                             context: null,
                             is_ephemeral: false
                         }
@@ -749,6 +751,7 @@ var Polyfill = require('./polyfill'),
                         newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
                         newForwarder.eventSubscriptionId = config.eventSubscriptionId;
                         newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
+                        newForwarder.excludeAnonymousUser = config.excludeAnonymousUser;
 
                         MP.configuredForwarders.push(newForwarder);
                         break;

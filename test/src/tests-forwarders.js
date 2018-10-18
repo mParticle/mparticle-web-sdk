@@ -1497,4 +1497,213 @@ describe('forwarders', function() {
 
         done();
     });
+
+    it('should initialize forwarders when a user is not logged in and excludeAnonymousUser=false', function(done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+        var mockForwarder2 = new MockForwarder('MockForwarder2', 2);
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.addForwarder(mockForwarder2);
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true,
+            excludeAnonymousUser: false
+        };
+
+        mParticle.configureForwarder(forwarder);
+
+        forwarder.name = 'MockForwarder2';
+        forwarder.moduleId = 2;
+        forwarder.excludeAnonymousUser = true;
+        mParticle.configureForwarder(forwarder);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                is_logged_in: false,
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.init(apiKey);
+
+        var activeForwarders = mParticle._getActiveForwarders();
+
+        activeForwarders.length.should.equal(1);
+        mParticle.Identity.getCurrentUser().isLoggedIn().should.equal(false);
+
+        done();
+    });
+
+    it('should initialize forwarders with excludeUnknowknUser = true foro non-logged-in users', function(done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+        var mockForwarder2 = new MockForwarder('MockForwarder2', 2);
+        mParticle.addForwarder(mockForwarder);
+        mParticle.addForwarder(mockForwarder2);
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true,
+            excludeAnonymousUser: true
+        };
+        mParticle.configureForwarder(forwarder);
+        forwarder.name = 'MockForwarder2';
+        forwarder.moduleId = 2;
+        forwarder.excludeAnonymousUser = false;
+        mParticle.configureForwarder(forwarder);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                is_logged_in: false,
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.init(apiKey);
+
+        var activeForwarders = mParticle._getActiveForwarders();
+
+        activeForwarders.length.should.equal(1);
+        mParticle.Identity.getCurrentUser().isLoggedIn().should.equal(false);
+
+        done();
+    });
+
+    it('should initialize all forwarders when a user is logged in and the page reloads', function(done) {
+        mParticle.reset();
+
+        var mockForwarder = new MockForwarder();
+        var mockForwarder2 = new MockForwarder('MockForwarder2', 2);
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.addForwarder(mockForwarder2);
+
+        var forwarder = {
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true,
+            excludeAnonymousUser: false
+        };
+
+        mParticle.configureForwarder(forwarder);
+
+        forwarder.name = 'MockForwarder2';
+        forwarder.moduleId = 2;
+        forwarder.excludeAnonymousUser = true;
+        mParticle.configureForwarder(forwarder);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                is_logged_in: false,
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.init(apiKey);
+        mParticle.Identity.getCurrentUser().isLoggedIn().should.equal(false);
+        var user = {
+            userIdentities: {
+                customerid: 'customerid3',
+                email: 'email3@test.com'
+            }
+        };
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                is_logged_in: true,
+                mpid: 'MPID2'
+            }));
+        };
+
+        mParticle.Identity.login(user);
+        mParticle.Identity.getCurrentUser().isLoggedIn().should.equal(true);
+        var activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders.length.should.equal(2);
+
+        mParticle.init(apiKey);
+        mParticle.Identity.getCurrentUser().isLoggedIn().should.equal(true);
+        var activeForwarders2 = mParticle._getActiveForwarders();
+        activeForwarders2.length.should.equal(2);
+
+        done();
+    });
+
+    it('should save logged in status of most recent user to cookies when logged in', function(done) {
+        mParticle.reset();
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                is_logged_in: true,
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.init(apiKey);
+        var ls = mParticle.persistence.getLocalStorage();
+        ls.l.should.equal(true);
+
+
+        mParticle.init(apiKey);
+        var ls2 = mParticle.persistence.getLocalStorage();
+        ls2.hasOwnProperty('l').should.equal(true);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                is_logged_in: false,
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.Identity.logout();
+        var ls3 = mParticle.persistence.getLocalStorage();
+        ls3.l.should.equal(false);
+
+        mParticle.init(apiKey);
+        var ls4 = mParticle.persistence.getLocalStorage();
+        ls4.l.should.equal(false);
+
+        done();
+    });
 });
