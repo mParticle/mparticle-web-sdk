@@ -1166,7 +1166,7 @@
                 // Check user attribute value filtering rules
                 if (forwarders[i].filteringUserAttributeValue && Object.keys(forwarders[i].filteringUserAttributeValue).length) {
                     if (!filterUserAttributeValues(clonedEvent, forwarders[i].filteringUserAttributeValue)) {
-                        break;
+                        continue;
                     }
                 }
 
