@@ -333,7 +333,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.7.7',
+    sdkVersion = '2.7.8',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -443,6 +443,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     SDKv2NonMPIDCookieKeys = {
         gs: 1,
         cu: 1,
+        l: 1,
         globalSettings: 1,
         currentUserMPID: 1
     },
@@ -1361,7 +1362,6 @@ var Helpers = require('./helpers'),
 
 function initForwarders(userIdentities) {
     var user = mParticle.Identity.getCurrentUser();
-
     if (!Helpers.shouldUseNativeSdk() && MP.configuredForwarders) {
         // Some js libraries require that they be loaded first, or last, etc
         MP.configuredForwarders.sort(function(x, y) {
@@ -1375,6 +1375,9 @@ function initForwarders(userIdentities) {
                 return false;
             }
             if (!isEnabledForUserAttributes(forwarder.filteringUserAttributeValue, user)) {
+                return false;
+            }
+            if (!isEnabledForUnknownUser(forwarder.excludeAnonymousUser, user)) {
                 return false;
             }
 
@@ -1439,8 +1442,8 @@ function isEnabledForUserConsent(consentRules, user) {
 }
 
 function isEnabledForUserAttributes(filterObject, user) {
-    if (!filterObject || 
-        !Helpers.isObject(filterObject) || 
+    if (!filterObject ||
+        !Helpers.isObject(filterObject) ||
         !Object.keys(filterObject).length) {
         return true;
     }
@@ -1481,6 +1484,15 @@ function isEnabledForUserAttributes(filterObject, user) {
         // in any error scenario, err on side of returning true and forwarding event
         return true;
     }
+}
+
+function isEnabledForUnknownUser(excludeAnonymousUserBoolean, user) {
+    if (!user || !user.isLoggedIn()) {
+        if (excludeAnonymousUserBoolean) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function applyToForwarders(functionName, functionArgs) {
@@ -2644,7 +2656,7 @@ var IdentityAPI = {
         var mpid = MP.mpid;
         if (mpid) {
             mpid = MP.mpid.slice();
-            return mParticleUser(mpid);
+            return mParticleUser(mpid, MP.isLoggedIn);
         } else if (Helpers.shouldUseNativeSdk()) {
             return mParticleUser();
         } else {
@@ -2696,7 +2708,7 @@ var IdentityAPI = {
 * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
 * @class mParticle.Identity.getCurrentUser()
 */
-function mParticleUser(mpid) {
+function mParticleUser(mpid, isLoggedIn) {
     return {
         /**
         * Get user identities for current user
@@ -3005,6 +3017,9 @@ function mParticleUser(mpid) {
             if (MP.mpid === this.getMPID()) {
                 Forwarders.initForwarders(this.getUserIdentities().userIdentities);
             }
+        },
+        isLoggedIn: function() {
+            return isLoggedIn;
         }
     };
 }
@@ -3160,8 +3175,10 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         Helpers.logDebug('Parsing identity response from server');
         if (xhr.responseText) {
             identityApiResult = JSON.parse(xhr.responseText);
+            if (identityApiResult.hasOwnProperty('is_logged_in')) {
+                MP.isLoggedIn = identityApiResult.is_logged_in;
+            }
         }
-
         if (xhr.status === 200) {
             if (method === 'modify') {
                 MP.userIdentities = IdentityRequest.modifyUserIdentities(MP.userIdentities, identityApiData.userIdentities);
@@ -3235,7 +3252,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
 
             if (newUser) {
                 Persistence.storeDataInMemory(cookies, newUser.getMPID());
-                if (!prevUser || newUser.getMPID() !== prevUser.getMPID()) {
+                if (!prevUser || newUser.getMPID() !== prevUser.getMPID() || prevUser.isLoggedIn() !== newUser.isLoggedIn()) {
                     Forwarders.initForwarders(newUser.getUserIdentities().userIdentities);
                 }
                 Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);
@@ -3472,7 +3489,7 @@ var Polyfill = require('./polyfill'),
         */
         init: function(apiKey) {
             if (!Helpers.shouldUseNativeSdk()) {
-                var config;
+                var config, currentUser;
 
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
                 MP.devToken = apiKey || null;
@@ -3509,8 +3526,9 @@ var Polyfill = require('./polyfill'),
                     MP.migratingToIDSyncCookies = false;
                 }
 
+                currentUser = mParticle.Identity.getCurrentUser();
                 // Call mParticle.identityCallback when identify was not called due to a reload or a sessionId already existing
-                if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && mParticle.Identity.getCurrentUser()) {
+                if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && currentUser) {
                     mParticle.identityCallback({
                         httpCode: HTTPCodes.activeSession,
                         getUser: function() {
@@ -3518,7 +3536,8 @@ var Polyfill = require('./polyfill'),
                         },
                         body: {
                             mpid: MP.mpid,
-                            matched_identities: mParticle.Identity.getCurrentUser() ? mParticle.Identity.getCurrentUser().getUserIdentities().userIdentities : {},
+                            is_logged_in: MP.isLoggedIn,
+                            matched_identities: currentUser ? currentUser.getUserIdentities().userIdentities : {},
                             context: null,
                             is_ephemeral: false
                         }
@@ -4125,6 +4144,7 @@ var Polyfill = require('./polyfill'),
                         newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
                         newForwarder.eventSubscriptionId = config.eventSubscriptionId;
                         newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
+                        newForwarder.excludeAnonymousUser = config.excludeAnonymousUser;
 
                         MP.configuredForwarders.push(newForwarder);
                         break;
@@ -4680,6 +4700,7 @@ module.exports = {
     migratingToIDSyncCookies: false,
     nonCurrentUserMPIDs: {},
     identifyCalled: false,
+    isLoggedIn: false,
     featureFlags: {
         batching: false
     }
@@ -4842,6 +4863,8 @@ function storeDataInMemory(obj, currentMPID) {
             MP.context = obj.gs.c || MP.context;
             MP.currentSessionMPIDs = obj.gs.csm || MP.currentSessionMPIDs;
 
+            MP.isLoggedIn = obj.l === true;
+
             if (obj.gs.les) {
                 MP.dateLastEventSent = new Date(obj.gs.les);
             }
@@ -4976,6 +4999,8 @@ function setLocalStorage() {
     if (!mParticle.useCookieStorage) {
         currentMPIDData = this.convertInMemoryDataForCookies();
         localStorageData.gs = localStorageData.gs || {};
+
+        localStorageData.l = MP.isLoggedIn ? 1 : 0;
 
         if (MP.sessionId) {
             localStorageData.gs.csm = MP.currentSessionMPIDs;
@@ -5159,6 +5184,8 @@ function setCookie() {
         cookies[MP.mpid] = currentMPIDData;
         cookies.cu = MP.mpid;
     }
+
+    cookies.l = MP.isLoggedIn ? 1 : 0;
 
     cookies = this.setGlobalStorageAttributes(cookies);
 
@@ -5352,6 +5379,8 @@ function decodeCookies(cookie) {
                                     }
                                 }
                             }
+                        } else if (mpid === 'l') {
+                            cookie[mpid] = Boolean(cookie[mpid]);
                         }
                     }
                 }
