@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.7.8 - 2018-10-24
+*  Initialize forwarders based on logged in status
+
 #### 2.7.7 - 2018-10-15
 *  Bugfix - remove cart item uses proper product persistence
 *  Bugfix - Guard against corrupt local storage/cookies
