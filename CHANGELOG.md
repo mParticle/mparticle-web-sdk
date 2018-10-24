@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 1.16.2 - 2018-10-24
+*  Bugfix - Fix filterUserAttributeValues break/continue
+
 #### 1.16.1 - 2018-08-22
 *  Capitalize all letters in sessionId
 
