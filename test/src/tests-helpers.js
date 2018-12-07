@@ -160,4 +160,21 @@ describe('helpers', function() {
 
         done();
     });
+
+    it('should return expected boolean value when strings are passed', function(done) {
+        Helpers.returnConvertedBoolean('false').should.equal(false);
+        Helpers.returnConvertedBoolean(false).should.equal(false);
+        Helpers.returnConvertedBoolean('true').should.equal(true);
+        Helpers.returnConvertedBoolean('true').should.equal(true);
+        Helpers.returnConvertedBoolean('randomstring').should.equal(true);
+        Helpers.returnConvertedBoolean(0).should.equal(false);
+        Helpers.returnConvertedBoolean(1).should.equal(true);
+        Helpers.returnConvertedBoolean('0').should.equal(false);
+        Helpers.returnConvertedBoolean('1').should.equal(true);
+        Helpers.returnConvertedBoolean(null).should.equal(false);
+        Helpers.returnConvertedBoolean(undefined).should.equal(false);
+        Helpers.returnConvertedBoolean('').should.equal(false);
+
+        done();
+    });
 });

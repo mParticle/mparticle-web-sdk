@@ -19,6 +19,14 @@ function canLog() {
     return false;
 }
 
+function returnConvertedBoolean(data) {
+    if (data === 'false' || data === '0') {
+        return false;
+    } else {
+        return Boolean(data);
+    }
+}
+
 function hasFeatureFlag(feature) {
     return MP.featureFlags[feature];
 }
@@ -569,6 +577,7 @@ module.exports = {
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
     mergeConfig: mergeConfig,
+    returnConvertedBoolean: returnConvertedBoolean,
     invokeCallback: invokeCallback,
     hasFeatureFlag: hasFeatureFlag,
     isDelayedByIntegration: isDelayedByIntegration,

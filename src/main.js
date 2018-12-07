@@ -892,7 +892,7 @@ var Polyfill = require('./polyfill'),
         }
 
         if (window.mParticle.config.hasOwnProperty('isDevelopmentMode')) {
-            mParticle.isDevelopmentMode = window.mParticle.config.isDevelopmentMode;
+            mParticle.isDevelopmentMode = Helpers.returnConvertedBoolean(window.mParticle.config.isDevelopmentMode);
         }
 
         if (window.mParticle.config.hasOwnProperty('useNativeSdk')) {
