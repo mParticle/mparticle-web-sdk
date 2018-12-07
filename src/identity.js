@@ -808,6 +808,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         newUser,
         identityApiResult,
         indexOfMPID;
+
     if (MP.mpid) {
         prevUser = mParticle.Identity.getCurrentUser();
     }
@@ -889,7 +890,8 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                     Forwarders.initForwarders(newUser.getUserIdentities().userIdentities);
                 }
                 Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);
-                Forwarders.setForwarderOnUserIdentified(newUser);
+                Forwarders.setForwarderOnIdentityComplete(newUser, method);
+                Forwarders.setForwarderOnUserIdentified(newUser, method);
             }
         }
 

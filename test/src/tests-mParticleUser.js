@@ -87,4 +87,62 @@ describe('mParticleUser', function() {
 
         done();
     });
+
+
+    it('should call forwarder onIdentifyComplete/onLoginComplete/onLogoutComplete/onModifyComplete method with the proper identity method passed through', function(done) {
+        mParticle.reset();
+        var mockForwarder = new MockForwarder();
+
+        mParticle.addForwarder(mockForwarder);
+        mParticle.configureForwarder({
+            name: 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [mParticle.generateHash('gender')],
+            moduleId: 1,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true
+        });
+
+        mParticle.init(apiKey);
+
+        var userIdentityRequest = {
+            userIdentities: {
+                google: 'test',
+                customerid: 'id1',
+                other: 'id2'
+            }
+        };
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+        mParticle.Identity.login(userIdentityRequest);
+        mockForwarder.instance.onLoginCompleteCalled.should.equal(true);
+        mockForwarder.instance.onLoginCompleteUser.getAllUserAttributes().should.not.have.property('gender');
+        mockForwarder.instance.onLoginCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
+
+        mParticle.Identity.logout(userIdentityRequest);
+        mockForwarder.instance.onLogoutCompleteCalled.should.equal(true);
+        mockForwarder.instance.onLogoutCompleteUser.getAllUserAttributes().should.not.have.property('gender');
+        mockForwarder.instance.onLogoutCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
+
+        mParticle.Identity.modify(userIdentityRequest);
+        mockForwarder.instance.onModifyCompleteCalled.should.equal(true);
+        mockForwarder.instance.onModifyCompleteUser.getAllUserAttributes().should.not.have.property('gender');
+        mockForwarder.instance.onModifyCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
+
+        mParticle.Identity.identify(userIdentityRequest);
+        mockForwarder.instance.onIdentifyCompleteCalled.should.equal(true);
+        mockForwarder.instance.onIdentifyCompleteUser.getAllUserAttributes().should.not.have.property('gender');
+        mockForwarder.instance.onIdentifyCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
+
+        done();
+    });
+
 });

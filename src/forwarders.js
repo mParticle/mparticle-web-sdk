@@ -349,6 +349,44 @@ function setForwarderOnUserIdentified(user) {
     });
 }
 
+function setForwarderOnIdentityComplete(user, identityMethod) {
+    var result;
+
+    MP.activeForwarders.forEach(function(forwarder) {
+        var filteredUser = MParticleUser.getFilteredMparticleUser(user.getMPID(), forwarder);
+        if (identityMethod === 'identify') {
+            if (forwarder.onIdentifyComplete) {
+                result = forwarder.onIdentifyComplete(filteredUser);
+                if (result) {
+                    Helpers.logDebug(result);
+                }
+            }
+        }
+        else if (identityMethod === 'login') {
+            if (forwarder.onLoginComplete) {
+                result = forwarder.onLoginComplete(filteredUser);
+                if (result) {
+                    Helpers.logDebug(result);
+                }
+            }
+        } else if (identityMethod === 'logout') {
+            if (forwarder.onLogoutComplete) {
+                result = forwarder.onLogoutComplete(filteredUser);
+                if (result) {
+                    Helpers.logDebug(result);
+                }
+            }
+        } else if (identityMethod === 'modify') {
+            if (forwarder.onModifyComplete) {
+                result = forwarder.onModifyComplete(filteredUser);
+                if (result) {
+                    Helpers.logDebug(result);
+                }
+            }
+        }
+    });
+}
+
 function prepareForwardingStats(forwarder, event) {
     var forwardingStatsData,
         queue = getForwarderStatsQueue();
@@ -391,6 +429,7 @@ module.exports = {
     callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
     setForwarderUserIdentities: setForwarderUserIdentities,
     setForwarderOnUserIdentified: setForwarderOnUserIdentified,
+    setForwarderOnIdentityComplete: setForwarderOnIdentityComplete,
     prepareForwardingStats: prepareForwardingStats,
     getForwarderStatsQueue: getForwarderStatsQueue,
     setForwarderStatsQueue: setForwarderStatsQueue,

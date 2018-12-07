@@ -325,6 +325,26 @@ var server = new MockHttpServer(),
                 this.onUserIdentifiedUser = user;
             };
 
+            this.onIdentifyComplete = function(user) {
+                this.onIdentifyCompleteCalled = true;
+                this.onIdentifyCompleteUser = user;
+            };
+
+            this.onLoginComplete = function(user) {
+                this.onLoginCompleteCalled = true;
+                this.onLoginCompleteUser = user;
+            };
+
+            this.onLogoutComplete = function(user) {
+                this.onLogoutCompleteCalled = true;
+                this.onLogoutCompleteUser = user;
+            };
+
+            this.onModifyComplete = function(user) {
+                this.onModifyCompleteCalled = true;
+                this.onModifyCompleteUser = user;
+            };
+
             this.setUserAttribute = function(key, value) {
                 this.setUserAttributeCalled = true;
                 this.userAttributes[key] = value;
