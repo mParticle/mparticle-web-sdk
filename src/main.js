@@ -658,7 +658,7 @@ var Polyfill = require('./polyfill'),
         /**
         * Sets a session attribute
         * @for mParticle
-        * @method mParticle.setSessionAttribute
+        * @method setSessionAttribute
         * @param {String} key key for session attribute
         * @param {String or Number} value value for session attribute
         */
