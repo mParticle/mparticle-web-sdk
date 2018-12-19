@@ -1,6 +1,12 @@
 ## Releases
 --
 
+#### 2.8.0 - 2018-12-19
+*  Fix autogen yuidocs comments
+*  Add get/setIntegrationAttribute APIs
+*  Add snippet tests
+*  Add boolean validation for isDevelopmentMode
+
 #### 2.7.8 - 2018-10-24
 *  Initialize forwarders based on logged in status
 
