@@ -9,6 +9,7 @@
     "build": "browserify src/main.js -v -o build/mParticle-dev.js",
     "buildTest": "browserify test/src/tests-main.js -v -o test/test-bundle.js",
     "buildDocs": "yuidoc src/",
+    "buildSnippet": "uglifyjs snippet.js -nm -o snippet.min.js",
     "testBrowser": "karma start --single-run --browsers=$BROWSER test/karma.config.js",
     "watch": "watchify src/main.js -v -o build/mParticle-dev.js --debug",
     "watchTests": "watchify test/src/tests-main.js -v -o test/test-bundle.js --debug",
@@ -38,6 +39,7 @@
     "should": "^7.1.0",
     "sinon": "^4.1.2",
     "sinon-browser-only": "^1.12.1",
+    "uglify-js": "^3.4.9",
     "watchify": "^3.9.0",
     "yuidocjs": "^0.10.2"
   }
