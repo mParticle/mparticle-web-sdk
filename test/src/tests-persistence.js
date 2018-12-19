@@ -14,6 +14,7 @@ var TestsCore = require('./tests-core'),
     server = TestsCore.server,
     v4CookieKey = 'mprtcl-v4',
     v4LSKey = 'mprtcl-v4',
+    getEvent = TestsCore.getEvent,
     should = require('should');
 
 describe('migrations and persistence-related', function() {
@@ -424,12 +425,24 @@ describe('migrations and persistence-related', function() {
 
     it('should set certain attributes onto global localStorage, while setting user specific to the MPID', function(done) {
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-
+        mParticle.setIntegrationAttribute(128, {MCID: 'abcedfg'});
         var data = getLocalStorage();
 
         data.cu.should.equal(testMPID);
-        data.gs.should.have.properties(['sid', 'ie', 'dt', 'cgid', 'das', 'les']);
+        data.gs.should.have.properties(['sid', 'ie', 'dt', 'cgid', 'das', 'les', 'ia']);
         data.testMPID.ua.should.have.property('gender', 'male');
+
+        done();
+    });
+
+    it('should save integration attributes properly on a page refresh', function(done) {
+        mParticle.setIntegrationAttribute(128, {MCID: 'abcedfg'});
+
+        mParticle.logEvent('Test Event');
+        var data = getEvent('Test Event');
+
+        data.ia.should.have.property('128');
+        data.ia['128'].should.have.property('MCID', 'abcedfg');
 
         done();
     });

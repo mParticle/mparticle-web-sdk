@@ -151,6 +151,7 @@ function storeDataInMemory(obj, currentMPID) {
             MP.appVersion = MP.appVersion || obj.gs.av;
             MP.clientId = obj.gs.cgid || MP.clientId || Helpers.generateUniqueId();
             MP.deviceId = obj.gs.das || MP.deviceId || Helpers.generateUniqueId();
+            MP.integrationAttributes = obj.gs.ia || {};
             MP.context = obj.gs.c || MP.context;
             MP.currentSessionMPIDs = obj.gs.csm || MP.currentSessionMPIDs;
 
@@ -332,6 +333,7 @@ function setGlobalStorageAttributes(data) {
     data.gs.das = MP.deviceId;
     data.gs.c = MP.context;
     data.gs.ssd = MP.sessionStartDate ? MP.sessionStartDate.getTime() : null;
+    data.gs.ia = MP.integrationAttributes;
 
     return data;
 }

@@ -71,6 +71,7 @@ var Polyfill = require('./polyfill'),
         useCookieStorage: false,
         maxProducts: Constants.DefaultConfig.MaxProducts,
         maxCookieSize: Constants.DefaultConfig.MaxCookieSize,
+        integrationDelayTimeout: Constants.DefaultConfig.IntegrationDelayTimeout,
         identifyRequest: {},
         getDeviceId: getDeviceId,
         generateHash: Helpers.generateHash,
@@ -97,6 +98,8 @@ var Polyfill = require('./polyfill'),
         init: function(apiKey) {
             if (!Helpers.shouldUseNativeSdk()) {
                 var config, currentUser;
+
+                MP.integrationDelayTimeoutStart = Date.now();
 
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
                 MP.devToken = apiKey || null;
@@ -225,6 +228,9 @@ var Polyfill = require('./polyfill'),
             MP.identifyCalled = false;
             MP.consentState = null;
             MP.featureFlags = {};
+            MP.integrationAttributes = {};
+            MP.integrationDelays = {};
+            MP.requireDelay = true;
             Helpers.mergeConfig({});
             if (!keepPersistence) {
                 Persistence.resetPersistence();
@@ -719,6 +725,69 @@ var Polyfill = require('./polyfill'),
                 });
             }
         },
+        /**
+        * Set or remove the integration attributes for a given integration ID.
+        * Integration attributes are keys and values specific to a given integration. For example,
+        * many integrations have their own internal user/device ID. mParticle will store integration attributes
+        * for a given device, and will be able to use these values for server-to-server communication to services.
+        * This is often useful when used in combination with a server-to-server feed, allowing the feed to be enriched
+        * with the necessary integration attributes to be properly forwarded to the given integration.
+        * @for mParticle
+        * @method setIntegrationAttribute
+        * @param {Number} integrationId mParticle integration ID
+        * @param {Object} attrs a map of attributes that will replace any current attributes. The keys are predefined by mParticle.
+        * Please consult with the mParticle docs or your solutions consultant for the correct value. You may
+        * also pass a null or empty map here to remove all of the attributes.
+        */
+        setIntegrationAttribute: function(integrationId, attrs) {
+            if (typeof integrationId !== 'number') {
+                Helpers.logDebug('integrationId must be a number');
+                return;
+            }
+            if (attrs === null) {
+                MP.integrationAttributes[integrationId] = {};
+            } else if (Helpers.isObject(attrs)) {
+                if (Object.keys(attrs).length === 0) {
+                    MP.integrationAttributes[integrationId] = {};
+                } else {
+                    for (var key in attrs) {
+                        if (typeof key === 'string') {
+                            if (typeof attrs[key] === 'string') {
+                                if (Helpers.isObject(MP.integrationAttributes[integrationId])) {
+                                    MP.integrationAttributes[integrationId][key] = attrs[key];
+                                } else {
+                                    MP.integrationAttributes[integrationId] = {};
+                                    MP.integrationAttributes[integrationId][key] = attrs[key];
+                                }
+                            } else {
+                                Helpers.logDebug('Values for integration attributes must be strings. You entered a ' + typeof attrs[key]);
+                                continue;
+                            }
+                        } else {
+                            Helpers.logDebug('Keys must be strings, you entered a ' + typeof key);
+                            continue;
+                        }
+                    }
+                }
+            } else {
+                Helpers.logDebug('Attrs must be an object with keys and values. You entered a ' + typeof attrs);
+                return;
+            }
+            Persistence.update();
+        },
+        /**
+        * Get integration attributes for a given integration ID.
+        * @method getIntegrationAttributes
+        * @param {Number} integrationId mParticle integration ID
+        * @return {Object} an object map of the integrationId's attributes
+        */
+        getIntegrationAttributes: function(integrationId) {
+            if (MP.integrationAttributes[integrationId]) {
+                return MP.integrationAttributes[integrationId];
+            } else {
+                return {};
+            }
+        },
         addForwarder: function(forwarderProcessor) {
             MP.forwarderConstructors.push(forwarderProcessor);
         },
@@ -767,12 +836,18 @@ var Polyfill = require('./polyfill'),
         _getActiveForwarders: function() {
             return MP.activeForwarders;
         },
+        _getIntegrationDelays: function() {
+            return MP.integrationDelays;
+        },
         _configureFeatures: function(featureFlags) {
             for (var key in featureFlags) {
                 if (featureFlags.hasOwnProperty(key)) {
                     MP.featureFlags[key] = featureFlags[key];
                 }
             }
+        },
+        _setIntegrationDelay: function(module, boolean) {
+            MP.integrationDelays[module] = boolean;
         }
     };
 
@@ -838,6 +913,10 @@ var Polyfill = require('./polyfill'),
 
         if (window.mParticle.config.hasOwnProperty('appName')) {
             MP.appName = window.mParticle.config.appName;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('integrationDelayTimeout')) {
+            mParticle.integrationDelayTimeout = window.mParticle.config.integrationDelayTimeout;
         }
 
         if (window.mParticle.config.hasOwnProperty('identifyRequest')) {

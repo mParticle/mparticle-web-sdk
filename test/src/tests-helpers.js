@@ -119,4 +119,45 @@ describe('helpers', function() {
 
         done();
     });
+
+    it('should return the appropriate boolean for if events should be delayed by an integration', function(done) {
+        var integrationDelays1 = {
+            128: false,
+            20: false,
+            10: true
+        };
+        var integrationDelays2 = {
+            128: true
+        };
+        var integrationDelays3 = {
+            128: false
+        };
+
+        var integrationDelays4 = {
+            128: false,
+            20: false,
+            10: false
+        };
+
+        var result1 = Helpers.isDelayedByIntegration(integrationDelays1);
+        var result2 = Helpers.isDelayedByIntegration(integrationDelays2);
+        var result3 = Helpers.isDelayedByIntegration(integrationDelays3);
+        var result4 = Helpers.isDelayedByIntegration(integrationDelays4);
+
+        result1.should.equal(true);
+        result2.should.equal(true);
+        result3.should.equal(false);
+        result4.should.equal(false);
+
+        done();
+    });
+
+    it('should return false if integration delay object is empty', function(done) {
+        var emptyIntegrationDelays = {};
+        var result1 = Helpers.isDelayedByIntegration(emptyIntegrationDelays);
+
+        result1.should.equal(false);
+
+        done();
+    });
 });

@@ -519,6 +519,33 @@ var Validators = {
     }
 };
 
+function isDelayedByIntegration(delayedIntegrations, timeoutStart, now) {
+    if (now - timeoutStart > mParticle.integrationDelayTimeout) {
+        return false;
+    }
+    for (var integration in delayedIntegrations) {
+        if (delayedIntegrations[integration] === true) {
+            return true;
+        } else {
+            continue;
+        }
+    }
+    return false;
+}
+
+// events exist in the eventQueue because they were triggered when the identityAPI request was in flight
+// once API request returns and there is an MPID, eventQueue items are reassigned with the returned MPID and flushed
+function processQueuedEvents(eventQueue, mpid, requireDelay, sendEventToServer, sendEventToForwarders, parseEventResponse) {
+    if (eventQueue.length && mpid && requireDelay) {
+        var localQueueCopy = eventQueue;
+        MP.eventQueue = [];
+        localQueueCopy.forEach(function(event) {
+            event.MPID = mpid;
+            sendEventToServer(event, sendEventToForwarders, parseEventResponse);
+        });
+    }
+}
+
 module.exports = {
     logDebug: logDebug,
     canLog: canLog,
@@ -544,5 +571,7 @@ module.exports = {
     mergeConfig: mergeConfig,
     invokeCallback: invokeCallback,
     hasFeatureFlag: hasFeatureFlag,
+    isDelayedByIntegration: isDelayedByIntegration,
+    processQueuedEvents: processQueuedEvents,
     Validators: Validators
 };

@@ -41,6 +41,9 @@ module.exports = {
     nonCurrentUserMPIDs: {},
     identifyCalled: false,
     isLoggedIn: false,
+    integrationAttributes: {},
+    integrationDelays: {},
+    requireDelay: true,
     featureFlags: {
         batching: false
     }

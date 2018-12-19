@@ -326,7 +326,7 @@ describe('event logging', function() {
 
     it('should send consent state with each event logged', function(done) {
         var consentState = mParticle.Consent.createConsentState();
-        consentState.addGDPRConsentState('foo purpose', 
+        consentState.addGDPRConsentState('foo purpose',
             mParticle.Consent.createGDPRConsent(true, 10, 'foo document', 'foo location', 'foo hardwareId'));
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
@@ -347,6 +347,18 @@ describe('event logging', function() {
         window.mParticle.logEvent('Test Event');
         data = getEvent('Test Event');
         data.should.have.not.property('con');
+
+        done();
+    });
+
+    it('should log integration attributes with each event', function(done) {
+        mParticle.setIntegrationAttribute(128, {MCID: 'abcdefg'});
+        mParticle.logEvent('Test Event');
+        var data = getEvent('Test Event');
+
+        data.should.have.property('ia');
+        data.ia.should.have.property('128');
+        data.ia['128'].should.have.property('MCID', 'abcdefg');
 
         done();
     });

@@ -93,7 +93,7 @@ function convertToConsentStateDTO(state) {
             }
         }
     }
-    
+
     return jsonObject;
 }
 
@@ -125,7 +125,8 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             ClientGeneratedId: MP.clientId,
             DeviceId: MP.deviceId,
             MPID: MP.mpid,
-            ConsentState: MP.consentState
+            ConsentState: MP.consentState,
+            IntegrationAttributes: MP.integrationAttributes
         };
 
         if (messageType === Types.MessageType.SessionEnd) {
@@ -150,6 +151,7 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
         et: event.EventCategory,
         ua: event.UserAttributes,
         ui: event.UserIdentities,
+        ia: event.IntegrationAttributes,
         str: event.Store,
         attrs: event.EventAttributes,
         sdk: event.SDKVersion,

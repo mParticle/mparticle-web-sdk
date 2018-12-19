@@ -288,11 +288,15 @@ function sendEventToForwarders(event) {
             clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, MP.activeForwarders[i].userAttributeFilters);
 
             Helpers.logDebug('Sending message to forwarder: ' + MP.activeForwarders[i].name);
-            var result = MP.activeForwarders[i].process(clonedEvent);
 
-            if (result) {
-                Helpers.logDebug(result);
+            if (MP.activeForwarders[i].process) {
+                var result = MP.activeForwarders[i].process(clonedEvent);
+
+                if (result) {
+                    Helpers.logDebug(result);
+                }
             }
+
         }
     }
 }

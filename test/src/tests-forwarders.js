@@ -1706,4 +1706,156 @@ describe('forwarders', function() {
 
         done();
     });
+
+    it('should not set integration attributes on forwarders when a non-object attr is passed', function(done) {
+        mParticle.setIntegrationAttribute(128, 123);
+        var adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
+        Object.keys(adobeIntegrationAttributes).length.should.equal(0);
+
+        done();
+    });
+
+    it('should set integration attributes on forwarders', function(done) {
+        mParticle.setIntegrationAttribute(128, {MCID: 'abcdefg'});
+        var adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
+
+        adobeIntegrationAttributes.MCID.should.equal('abcdefg');
+
+        done();
+    });
+
+    it('should clear integration attributes when an empty object or a null is passed', function(done) {
+        mParticle.setIntegrationAttribute(128, {MCID: 'abcdefg'});
+        var adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
+        Object.keys(adobeIntegrationAttributes).length.should.equal(1);
+
+        mParticle.setIntegrationAttribute(128, {});
+        adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
+        Object.keys(adobeIntegrationAttributes).length.should.equal(0);
+
+        mParticle.setIntegrationAttribute(128, {MCID: 'abcdefg'});
+        adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
+        Object.keys(adobeIntegrationAttributes).length.should.equal(1);
+
+        mParticle.setIntegrationAttribute(128, null);
+        adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
+        Object.keys(adobeIntegrationAttributes).length.should.equal(0);
+
+        done();
+    });
+
+    it('should set only strings as integration attributes', function(done) {
+        mParticle.setIntegrationAttribute(128, {
+            MCID: 'abcdefg',
+            fail: {test: 'false'},
+            nullValue: null,
+            undefinedValue: undefined
+        });
+        var adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
+        Object.keys(adobeIntegrationAttributes).length.should.equal(1);
+
+        done();
+    });
+
+    it('should add integration delays to the integrationDelays object', function(done) {
+        mParticle._setIntegrationDelay(128, true);
+        mParticle._setIntegrationDelay(24, false);
+        mParticle._setIntegrationDelay(10, true);
+
+        var integrationDelays = mParticle._getIntegrationDelays();
+
+        integrationDelays.should.have.property('128', true);
+        integrationDelays.should.have.property('24', false);
+        integrationDelays.should.have.property('10', true);
+
+        done();
+    });
+
+    it('integration test - should not log events if there are any integrations delaying, then resume logging events once delays are gone', function(done) {
+        mParticle.reset();
+        // this code will be put in each forwarder as each forwarder is initialized
+        mParticle._setIntegrationDelay(128, true);
+        mParticle._setIntegrationDelay(24, false);
+        mParticle._setIntegrationDelay(10, true);
+
+        mParticle.init(apiKey);
+        server.requests = [];
+        mParticle.logEvent('test1');
+        server.requests.length.should.equal(0);
+
+        mParticle._setIntegrationDelay(10, false);
+        mParticle._setIntegrationDelay(128, false);
+        mParticle.logEvent('test2');
+        server.requests.length.should.equal(4);
+        var sessionStartEvent = getEvent(1);
+        var astEvent = getEvent(10);
+        var test1 = getEvent('test1');
+        var test2 = getEvent('test2');
+
+        (typeof sessionStartEvent === 'object').should.equal(true);
+        (typeof astEvent === 'object').should.equal(true);
+        (typeof test1 === 'object').should.equal(true);
+        (typeof test2 === 'object').should.equal(true);
+
+        done();
+    });
+
+    it('integration test - should send events after a configured delay, or 5 seconds by default if setIntegrationDelays are still true', function(done) {
+        // testing default of 5000 ms
+        var clock = sinon.useFakeTimers();
+        mParticle.reset();
+        // this code will be put in each forwarder as each forwarder is initialized
+        mParticle._setIntegrationDelay(128, true);
+        mParticle._setIntegrationDelay(24, false);
+        mParticle._setIntegrationDelay(10, true);
+
+        mParticle.init(apiKey);
+        server.requests = [];
+        mParticle.logEvent('test1');
+        server.requests.length.should.equal(0);
+
+        clock.tick(5001);
+
+        mParticle.logEvent('test2');
+        server.requests.length.should.equal(4);
+        var sessionStartEvent = getEvent(1);
+        var astEvent = getEvent(10);
+        var test1 = getEvent('test1');
+        var test2 = getEvent('test2');
+
+        (typeof sessionStartEvent === 'object').should.equal(true);
+        (typeof astEvent === 'object').should.equal(true);
+        (typeof test1 === 'object').should.equal(true);
+        (typeof test2 === 'object').should.equal(true);
+        clock.restore();
+
+        // testing user-configured integrationDelayTimeout
+        clock = sinon.useFakeTimers();
+        mParticle.reset();
+        mParticle.integrationDelayTimeout = 1000;
+        mParticle._setIntegrationDelay(128, true);
+        mParticle._setIntegrationDelay(24, false);
+        mParticle._setIntegrationDelay(10, true);
+        mParticle.init(apiKey);
+        server.requests = [];
+        mParticle.logEvent('test1');
+        server.requests.length.should.equal(0);
+
+        clock.tick(1001);
+
+        mParticle.logEvent('test2');
+        server.requests.length.should.equal(4);
+        sessionStartEvent = getEvent(1);
+        astEvent = getEvent(10);
+        test1 = getEvent('test1');
+        test2 = getEvent('test2');
+
+        (typeof sessionStartEvent === 'object').should.equal(true);
+        (typeof astEvent === 'object').should.equal(true);
+        (typeof test1 === 'object').should.equal(true);
+        (typeof test2 === 'object').should.equal(true);
+        clock.restore();
+
+        done();
+    });
 });

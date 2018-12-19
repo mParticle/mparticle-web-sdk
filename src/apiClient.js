@@ -36,11 +36,15 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
             event.UserIdentities = [];
         }
 
-        // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
-        if (!MP.mpid) {
-            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
+        MP.requireDelay = Helpers.isDelayedByIntegration(MP.integrationDelays, MP.integrationDelayTimeoutStart, Date.now());
+        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
+        // need to be set, and so require delaying events
+        if (!MP.mpid || MP.requireDelay) {
+            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
             MP.eventQueue.push(event);
         } else {
+            Helpers.processQueuedEvents(MP.eventQueue, MP.mpid, !MP.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
+
             if (!event) {
                 Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
                 return;
@@ -53,7 +57,7 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
             if (xhr) {
                 try {
                     xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode)));
+                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode, MP.integrationAttributes)));
 
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         sendEventToForwarders(event);

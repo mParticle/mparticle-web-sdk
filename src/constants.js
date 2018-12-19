@@ -99,6 +99,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         Version: null,                              // The version of this website/app
         MaxProducts: 20,                            // Number of products persisted in cartProducts and productBags
         ForwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
+        IntegrationDelayTimeout: 5000,              // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
         MaxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
     },
     Base64CookieKeys = {
@@ -108,6 +109,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         ua: 1,
         ui: 1,
         csd: 1,
+        ia: 1,
         con: 1
     },
     SDKv2NonMPIDCookieKeys = {

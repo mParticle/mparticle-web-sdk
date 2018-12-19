@@ -780,7 +780,7 @@ function mParticleUserCart(mpid){
                 mParticle.sessionManager.resetSessionTimer();
                 allProducts = Persistence.getAllUserProductsFromLS();
 
-                if (allProducts && allProducts[mpid].cp) {
+                if (allProducts && allProducts[mpid] && allProducts[mpid].cp) {
                     allProducts[mpid].cp = [];
 
                     allProducts[mpid].cp = [];
@@ -853,16 +853,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
 
                 Identity.checkIdentitySwap(previousMPID, MP.mpid);
 
-                // events exist in the eventQueue because they were triggered when the identityAPI request was in flight
-                // once API request returns and there is an MPID, eventQueue items are reassigned with the returned MPID and flushed
-                if (MP.eventQueue.length && MP.mpid) {
-                    var localQueueCopy = MP.eventQueue;
-                    MP.eventQueue = [];
-                    localQueueCopy.forEach(function(event) {
-                        event.MPID = MP.mpid;
-                        sendEventToServer(event, sendEventToForwarders, Events.parseEventResponse);
-                    });
-                }
+                Helpers.processQueuedEvents(MP.eventQueue, MP.mpid, !MP.requireDelay, sendEventToServer, sendEventToForwarders, Events.parseEventResponse);
 
                 //if there is any previous migration data
                 if (Object.keys(MP.migrationData).length) {
