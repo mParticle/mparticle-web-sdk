@@ -1,4 +1,4 @@
-(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     HTTPCodes = Constants.HTTPCodes,
@@ -37,11 +37,15 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
             event.UserIdentities = [];
         }
 
-        // When there is no MPID (MPID is null, or === 0), we queue events until we have a valid MPID
-        if (!MP.mpid) {
-            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned');
+        MP.requireDelay = Helpers.isDelayedByIntegration(MP.integrationDelays, MP.integrationDelayTimeoutStart, Date.now());
+        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
+        // need to be set, and so require delaying events
+        if (!MP.mpid || MP.requireDelay) {
+            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
             MP.eventQueue.push(event);
         } else {
+            Helpers.processQueuedEvents(MP.eventQueue, MP.mpid, !MP.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
+
             if (!event) {
                 Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
                 return;
@@ -54,7 +58,7 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
             if (xhr) {
                 try {
                     xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode)));
+                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode, MP.integrationAttributes)));
 
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         sendEventToForwarders(event);
@@ -333,7 +337,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.7.8',
+    sdkVersion = '2.8.0',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -429,6 +433,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         Version: null,                              // The version of this website/app
         MaxProducts: 20,                            // Number of products persisted in cartProducts and productBags
         ForwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
+        IntegrationDelayTimeout: 5000,              // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
         MaxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
     },
     Base64CookieKeys = {
@@ -438,6 +443,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         ua: 1,
         ui: 1,
         csd: 1,
+        ia: 1,
         con: 1
     },
     SDKv2NonMPIDCookieKeys = {
@@ -1642,11 +1648,15 @@ function sendEventToForwarders(event) {
             clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, MP.activeForwarders[i].userAttributeFilters);
 
             Helpers.logDebug('Sending message to forwarder: ' + MP.activeForwarders[i].name);
-            var result = MP.activeForwarders[i].process(clonedEvent);
 
-            if (result) {
-                Helpers.logDebug(result);
+            if (MP.activeForwarders[i].process) {
+                var result = MP.activeForwarders[i].process(clonedEvent);
+
+                if (result) {
+                    Helpers.logDebug(result);
+                }
             }
+
         }
     }
 }
@@ -1825,6 +1835,14 @@ function canLog() {
     }
 
     return false;
+}
+
+function returnConvertedBoolean(data) {
+    if (data === 'false' || data === '0') {
+        return false;
+    } else {
+        return Boolean(data);
+    }
 }
 
 function hasFeatureFlag(feature) {
@@ -2327,6 +2345,33 @@ var Validators = {
     }
 };
 
+function isDelayedByIntegration(delayedIntegrations, timeoutStart, now) {
+    if (now - timeoutStart > mParticle.integrationDelayTimeout) {
+        return false;
+    }
+    for (var integration in delayedIntegrations) {
+        if (delayedIntegrations[integration] === true) {
+            return true;
+        } else {
+            continue;
+        }
+    }
+    return false;
+}
+
+// events exist in the eventQueue because they were triggered when the identityAPI request was in flight
+// once API request returns and there is an MPID, eventQueue items are reassigned with the returned MPID and flushed
+function processQueuedEvents(eventQueue, mpid, requireDelay, sendEventToServer, sendEventToForwarders, parseEventResponse) {
+    if (eventQueue.length && mpid && requireDelay) {
+        var localQueueCopy = eventQueue;
+        MP.eventQueue = [];
+        localQueueCopy.forEach(function(event) {
+            event.MPID = mpid;
+            sendEventToServer(event, sendEventToForwarders, parseEventResponse);
+        });
+    }
+}
+
 module.exports = {
     logDebug: logDebug,
     canLog: canLog,
@@ -2350,8 +2395,11 @@ module.exports = {
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
     mergeConfig: mergeConfig,
+    returnConvertedBoolean: returnConvertedBoolean,
     invokeCallback: invokeCallback,
     hasFeatureFlag: hasFeatureFlag,
+    isDelayedByIntegration: isDelayedByIntegration,
+    processQueuedEvents: processQueuedEvents,
     Validators: Validators
 };
 
@@ -3138,7 +3186,7 @@ function mParticleUserCart(mpid){
                 mParticle.sessionManager.resetSessionTimer();
                 allProducts = Persistence.getAllUserProductsFromLS();
 
-                if (allProducts && allProducts[mpid].cp) {
+                if (allProducts && allProducts[mpid] && allProducts[mpid].cp) {
                     allProducts[mpid].cp = [];
 
                     allProducts[mpid].cp = [];
@@ -3211,16 +3259,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
 
                 Identity.checkIdentitySwap(previousMPID, MP.mpid);
 
-                // events exist in the eventQueue because they were triggered when the identityAPI request was in flight
-                // once API request returns and there is an MPID, eventQueue items are reassigned with the returned MPID and flushed
-                if (MP.eventQueue.length && MP.mpid) {
-                    var localQueueCopy = MP.eventQueue;
-                    MP.eventQueue = [];
-                    localQueueCopy.forEach(function(event) {
-                        event.MPID = MP.mpid;
-                        sendEventToServer(event, sendEventToForwarders, Events.parseEventResponse);
-                    });
-                }
+                Helpers.processQueuedEvents(MP.eventQueue, MP.mpid, !MP.requireDelay, sendEventToServer, sendEventToForwarders, Events.parseEventResponse);
 
                 //if there is any previous migration data
                 if (Object.keys(MP.migrationData).length) {
@@ -3308,11 +3347,6 @@ var Persistence = require('./persistence'),
 
 function getFilteredMparticleUser(mpid, forwarder) {
     return {
-        /**
-        * Get user identities for current user
-        * @method getUserIdentities
-        * @return {Object} an object with userIdentities as its key
-        */
         getUserIdentities: function() {
             var currentUserIdentities = {};
             var identities = Persistence.getUserIdentities(mpid);
@@ -3329,19 +3363,9 @@ function getFilteredMparticleUser(mpid, forwarder) {
                 userIdentities: currentUserIdentities
             };
         },
-        /**
-        * Get the MPID of the current user
-        * @method getMPID
-        * @return {String} the current user MPID as a string
-        */
         getMPID: function() {
             return mpid;
         },
-        /**
-        * Returns all user attribute keys that have values that are arrays
-        * @method getUserAttributesLists
-        * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
-        */
         getUserAttributesLists: function(forwarder) {
             var userAttributes,
                 userAttributesLists = {};
@@ -3357,11 +3381,6 @@ function getFilteredMparticleUser(mpid, forwarder) {
 
             return userAttributesLists;
         },
-        /**
-        * Returns all user attributes
-        * @method getAllUserAttributes
-        * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
-        */
         getAllUserAttributes: function() {
             var userAttributesCopy = {};
             var userAttributes = Persistence.getAllUserAttributes(mpid);
@@ -3464,6 +3483,7 @@ var Polyfill = require('./polyfill'),
         useCookieStorage: false,
         maxProducts: Constants.DefaultConfig.MaxProducts,
         maxCookieSize: Constants.DefaultConfig.MaxCookieSize,
+        integrationDelayTimeout: Constants.DefaultConfig.IntegrationDelayTimeout,
         identifyRequest: {},
         getDeviceId: getDeviceId,
         generateHash: Helpers.generateHash,
@@ -3490,6 +3510,8 @@ var Polyfill = require('./polyfill'),
         init: function(apiKey) {
             if (!Helpers.shouldUseNativeSdk()) {
                 var config, currentUser;
+
+                MP.integrationDelayTimeoutStart = Date.now();
 
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
                 MP.devToken = apiKey || null;
@@ -3618,6 +3640,9 @@ var Polyfill = require('./polyfill'),
             MP.identifyCalled = false;
             MP.consentState = null;
             MP.featureFlags = {};
+            MP.integrationAttributes = {};
+            MP.integrationDelays = {};
+            MP.requireDelay = true;
             Helpers.mergeConfig({});
             if (!keepPersistence) {
                 Persistence.resetPersistence();
@@ -4051,7 +4076,7 @@ var Polyfill = require('./polyfill'),
         /**
         * Sets a session attribute
         * @for mParticle
-        * @method mParticle.setSessionAttribute
+        * @method setSessionAttribute
         * @param {String} key key for session attribute
         * @param {String or Number} value value for session attribute
         */
@@ -4112,6 +4137,69 @@ var Polyfill = require('./polyfill'),
                 });
             }
         },
+        /**
+        * Set or remove the integration attributes for a given integration ID.
+        * Integration attributes are keys and values specific to a given integration. For example,
+        * many integrations have their own internal user/device ID. mParticle will store integration attributes
+        * for a given device, and will be able to use these values for server-to-server communication to services.
+        * This is often useful when used in combination with a server-to-server feed, allowing the feed to be enriched
+        * with the necessary integration attributes to be properly forwarded to the given integration.
+        * @for mParticle
+        * @method setIntegrationAttribute
+        * @param {Number} integrationId mParticle integration ID
+        * @param {Object} attrs a map of attributes that will replace any current attributes. The keys are predefined by mParticle.
+        * Please consult with the mParticle docs or your solutions consultant for the correct value. You may
+        * also pass a null or empty map here to remove all of the attributes.
+        */
+        setIntegrationAttribute: function(integrationId, attrs) {
+            if (typeof integrationId !== 'number') {
+                Helpers.logDebug('integrationId must be a number');
+                return;
+            }
+            if (attrs === null) {
+                MP.integrationAttributes[integrationId] = {};
+            } else if (Helpers.isObject(attrs)) {
+                if (Object.keys(attrs).length === 0) {
+                    MP.integrationAttributes[integrationId] = {};
+                } else {
+                    for (var key in attrs) {
+                        if (typeof key === 'string') {
+                            if (typeof attrs[key] === 'string') {
+                                if (Helpers.isObject(MP.integrationAttributes[integrationId])) {
+                                    MP.integrationAttributes[integrationId][key] = attrs[key];
+                                } else {
+                                    MP.integrationAttributes[integrationId] = {};
+                                    MP.integrationAttributes[integrationId][key] = attrs[key];
+                                }
+                            } else {
+                                Helpers.logDebug('Values for integration attributes must be strings. You entered a ' + typeof attrs[key]);
+                                continue;
+                            }
+                        } else {
+                            Helpers.logDebug('Keys must be strings, you entered a ' + typeof key);
+                            continue;
+                        }
+                    }
+                }
+            } else {
+                Helpers.logDebug('Attrs must be an object with keys and values. You entered a ' + typeof attrs);
+                return;
+            }
+            Persistence.update();
+        },
+        /**
+        * Get integration attributes for a given integration ID.
+        * @method getIntegrationAttributes
+        * @param {Number} integrationId mParticle integration ID
+        * @return {Object} an object map of the integrationId's attributes
+        */
+        getIntegrationAttributes: function(integrationId) {
+            if (MP.integrationAttributes[integrationId]) {
+                return MP.integrationAttributes[integrationId];
+            } else {
+                return {};
+            }
+        },
         addForwarder: function(forwarderProcessor) {
             MP.forwarderConstructors.push(forwarderProcessor);
         },
@@ -4160,12 +4248,18 @@ var Polyfill = require('./polyfill'),
         _getActiveForwarders: function() {
             return MP.activeForwarders;
         },
+        _getIntegrationDelays: function() {
+            return MP.integrationDelays;
+        },
         _configureFeatures: function(featureFlags) {
             for (var key in featureFlags) {
                 if (featureFlags.hasOwnProperty(key)) {
                     MP.featureFlags[key] = featureFlags[key];
                 }
             }
+        },
+        _setIntegrationDelay: function(module, boolean) {
+            MP.integrationDelays[module] = boolean;
         }
     };
 
@@ -4210,7 +4304,7 @@ var Polyfill = require('./polyfill'),
         }
 
         if (window.mParticle.config.hasOwnProperty('isDevelopmentMode')) {
-            mParticle.isDevelopmentMode = window.mParticle.config.isDevelopmentMode;
+            mParticle.isDevelopmentMode = Helpers.returnConvertedBoolean(window.mParticle.config.isDevelopmentMode);
         }
 
         if (window.mParticle.config.hasOwnProperty('useNativeSdk')) {
@@ -4231,6 +4325,10 @@ var Polyfill = require('./polyfill'),
 
         if (window.mParticle.config.hasOwnProperty('appName')) {
             MP.appName = window.mParticle.config.appName;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('integrationDelayTimeout')) {
+            mParticle.integrationDelayTimeout = window.mParticle.config.integrationDelayTimeout;
         }
 
         if (window.mParticle.config.hasOwnProperty('identifyRequest')) {
@@ -4701,6 +4799,9 @@ module.exports = {
     nonCurrentUserMPIDs: {},
     identifyCalled: false,
     isLoggedIn: false,
+    integrationAttributes: {},
+    integrationDelays: {},
+    requireDelay: true,
     featureFlags: {
         batching: false
     }
@@ -4860,6 +4961,7 @@ function storeDataInMemory(obj, currentMPID) {
             MP.appVersion = MP.appVersion || obj.gs.av;
             MP.clientId = obj.gs.cgid || MP.clientId || Helpers.generateUniqueId();
             MP.deviceId = obj.gs.das || MP.deviceId || Helpers.generateUniqueId();
+            MP.integrationAttributes = obj.gs.ia || {};
             MP.context = obj.gs.c || MP.context;
             MP.currentSessionMPIDs = obj.gs.csm || MP.currentSessionMPIDs;
 
@@ -5041,6 +5143,7 @@ function setGlobalStorageAttributes(data) {
     data.gs.das = MP.deviceId;
     data.gs.c = MP.context;
     data.gs.ssd = MP.sessionStartDate ? MP.sessionStartDate.getTime() : null;
+    data.gs.ia = MP.integrationAttributes;
 
     return data;
 }
@@ -5978,7 +6081,7 @@ function convertToConsentStateDTO(state) {
             }
         }
     }
-    
+
     return jsonObject;
 }
 
@@ -6010,7 +6113,8 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             ClientGeneratedId: MP.clientId,
             DeviceId: MP.deviceId,
             MPID: MP.mpid,
-            ConsentState: MP.consentState
+            ConsentState: MP.consentState,
+            IntegrationAttributes: MP.integrationAttributes
         };
 
         if (messageType === Types.MessageType.SessionEnd) {
@@ -6035,6 +6139,7 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
         et: event.EventCategory,
         ua: event.UserAttributes,
         ui: event.UserIdentities,
+        ia: event.IntegrationAttributes,
         str: event.Store,
         attrs: event.EventAttributes,
         sdk: event.SDKVersion,
