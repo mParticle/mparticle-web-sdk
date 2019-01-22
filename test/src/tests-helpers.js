@@ -177,4 +177,13 @@ describe('helpers', function() {
 
         done();
     });
+
+    it('should return 0 when hashing undefined or null', function(done) {
+        Helpers.generateHash(undefined).should.equal(0);
+        Helpers.generateHash(null).should.equal(0);
+        (typeof Helpers.generateHash(false)).should.equal('number');
+        Helpers.generateHash(false).should.not.equal(0);
+
+        done();
+    });
 });

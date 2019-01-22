@@ -378,8 +378,8 @@ function generateHash(name) {
         i = 0,
         character;
 
-    if (!name) {
-        return null;
+    if (name === undefined || name === null) {
+        return 0;
     }
 
     name = name.toString().toLowerCase();
