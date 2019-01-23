@@ -337,7 +337,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.0',
+    sdkVersion = '2.8.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1709,6 +1709,44 @@ function setForwarderOnUserIdentified(user) {
     });
 }
 
+function setForwarderOnIdentityComplete(user, identityMethod) {
+    var result;
+
+    MP.activeForwarders.forEach(function(forwarder) {
+        var filteredUser = MParticleUser.getFilteredMparticleUser(user.getMPID(), forwarder);
+        if (identityMethod === 'identify') {
+            if (forwarder.onIdentifyComplete) {
+                result = forwarder.onIdentifyComplete(filteredUser);
+                if (result) {
+                    Helpers.logDebug(result);
+                }
+            }
+        }
+        else if (identityMethod === 'login') {
+            if (forwarder.onLoginComplete) {
+                result = forwarder.onLoginComplete(filteredUser);
+                if (result) {
+                    Helpers.logDebug(result);
+                }
+            }
+        } else if (identityMethod === 'logout') {
+            if (forwarder.onLogoutComplete) {
+                result = forwarder.onLogoutComplete(filteredUser);
+                if (result) {
+                    Helpers.logDebug(result);
+                }
+            }
+        } else if (identityMethod === 'modify') {
+            if (forwarder.onModifyComplete) {
+                result = forwarder.onModifyComplete(filteredUser);
+                if (result) {
+                    Helpers.logDebug(result);
+                }
+            }
+        }
+    });
+}
+
 function prepareForwardingStats(forwarder, event) {
     var forwardingStatsData,
         queue = getForwarderStatsQueue();
@@ -1751,6 +1789,7 @@ module.exports = {
     callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
     setForwarderUserIdentities: setForwarderUserIdentities,
     setForwarderOnUserIdentified: setForwarderOnUserIdentified,
+    setForwarderOnIdentityComplete: setForwarderOnIdentityComplete,
     prepareForwardingStats: prepareForwardingStats,
     getForwarderStatsQueue: getForwarderStatsQueue,
     setForwarderStatsQueue: setForwarderStatsQueue,
@@ -2196,8 +2235,8 @@ function generateHash(name) {
         i = 0,
         character;
 
-    if (!name) {
-        return null;
+    if (name === undefined || name === null) {
+        return 0;
     }
 
     name = name.toString().toLowerCase();
@@ -3214,6 +3253,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         newUser,
         identityApiResult,
         indexOfMPID;
+
     if (MP.mpid) {
         prevUser = mParticle.Identity.getCurrentUser();
     }
@@ -3295,7 +3335,8 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                     Forwarders.initForwarders(newUser.getUserIdentities().userIdentities);
                 }
                 Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);
-                Forwarders.setForwarderOnUserIdentified(newUser);
+                Forwarders.setForwarderOnIdentityComplete(newUser, method);
+                Forwarders.setForwarderOnUserIdentified(newUser, method);
             }
         }
 
