@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.8.1 - 2019-01-23
+*  Add identityMethod to onUserIdentified function definition
+*  Bugfix - return 0 instead of null for hashing boolean false
+
 #### 2.8.0 - 2018-12-19
 *  Fix autogen yuidocs comments
 *  Add get/setIntegrationAttribute APIs
