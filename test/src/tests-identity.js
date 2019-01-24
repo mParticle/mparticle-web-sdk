@@ -1775,4 +1775,49 @@ describe('identity', function() {
 
         done();
     });
+
+    it('should call identify when there is an active session but no current user', function(done) {
+        // this broken cookie state occurs when an initial identify request is made, fails, and the
+        // client had no programmatic handling of a failed identify request
+        mParticle.reset();
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                status: 200, mpid: 'MPID1'
+            }));
+        };
+
+        // invalid customerid of type number, so mParticle.init(apiKey) will fail, but create cookies
+        // without a current user
+        mParticle.identifyRequest = {
+            userIdentities: {
+                customerid: 123
+            }
+        };
+        server.requests = [];
+        mParticle.init(apiKey);
+
+        var cookies = mParticle.persistence.getPersistence();
+        cookies.should.have.property('gs');
+        cookies.should.not.have.property('cu');
+        (mParticle.Identity.getCurrentUser() === null).should.equal(true);
+
+        // change to a valid customerid
+        mParticle.identifyRequest = {
+            userIdentities: {
+                customerid: '123'
+            }
+        };
+        server.requests = [];
+
+        mParticle.init(apiKey);
+
+        cookies = mParticle.persistence.getPersistence();
+        cookies.should.have.property('gs');
+        cookies.should.have.have.property('cu', 'MPID1');
+        mParticle.Identity.getCurrentUser().should.not.equal(null);
+
+        done();
+    });
 });

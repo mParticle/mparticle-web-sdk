@@ -13,6 +13,13 @@ function initialize() {
         if (new Date() > new Date(MP.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
             this.endSession();
             this.startNewSession();
+        } else {
+            var cookies = mParticle.persistence.getPersistence();
+            if (cookies && !cookies.cu) {
+                IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
+                MP.identifyCalled = true;
+                mParticle.identityCallback = null;
+            }
         }
     } else {
         this.startNewSession();
