@@ -337,7 +337,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.1',
+    sdkVersion = '2.8.2',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -2095,8 +2095,12 @@ function createXHR(cb) {
 }
 
 function generateRandomValue(a) {
+    var randomValue;
     if (window.crypto && window.crypto.getRandomValues) {
-        return (a ^ window.crypto.getRandomValues(new Uint8Array(1))[0] % 16 >> a/4).toString(16); // eslint-disable-line no-undef
+        randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
+    }
+    if (randomValue) {
+        return (a ^ randomValue[0] % 16 >> a/4).toString(16); 
     }
 
     return (a ^ Math.random() * 16 >> a/4).toString(16);
@@ -6290,6 +6294,13 @@ function initialize() {
         if (new Date() > new Date(MP.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
             this.endSession();
             this.startNewSession();
+        } else {
+            var cookies = mParticle.persistence.getPersistence();
+            if (cookies && !cookies.cu) {
+                IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
+                MP.identifyCalled = true;
+                mParticle.identityCallback = null;
+            }
         }
     } else {
         this.startNewSession();
