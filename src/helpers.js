@@ -238,8 +238,12 @@ function createXHR(cb) {
 }
 
 function generateRandomValue(a) {
+    var randomValue;
     if (window.crypto && window.crypto.getRandomValues) {
-        return (a ^ window.crypto.getRandomValues(new Uint8Array(1))[0] % 16 >> a/4).toString(16); // eslint-disable-line no-undef
+        randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
+    }
+    if (randomValue) {
+        return (a ^ randomValue[0] % 16 >> a/4).toString(16); 
     }
 
     return (a ^ Math.random() * 16 >> a/4).toString(16);

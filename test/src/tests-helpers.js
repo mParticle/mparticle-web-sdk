@@ -186,4 +186,23 @@ describe('helpers', function() {
 
         done();
     });
+
+    it('should generate random value', function(done) {
+        var randomValue = Helpers.generateUniqueId();
+        randomValue.should.be.ok();
+        window.crypto.getRandomValues = undefined;
+        randomValue = Helpers.generateUniqueId();
+        randomValue.should.be.ok();
+        //old browsers may return undefined despite
+        //defining the getRandomValues API.
+        window.crypto.getRandomValues = function(a) {
+            a = undefined;
+            return a;
+        };
+
+        randomValue = Helpers.generateUniqueId();
+        randomValue.should.be.ok();
+        done();
+    });
+
 });
