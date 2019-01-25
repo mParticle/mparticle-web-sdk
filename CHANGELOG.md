@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.8.2 - 2019-01-25
+*  Bugfix - Guard against undefined result from crypto API
+*  Bugfix - Call identify if cookies exist, but there is no current user
+
 #### 2.8.1 - 2019-01-23
 *  Add identityMethod to onUserIdentified function definition
 *  Bugfix - return 0 instead of null for hashing boolean false
