@@ -337,7 +337,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.2',
+    sdkVersion = '2.8.3',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -3561,6 +3561,8 @@ var Polyfill = require('./polyfill'),
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
                 MP.devToken = apiKey || null;
                 Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
+                //check to see if localStorage is available for migrating purposes
+                MP.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
 
                 // Set configuration to default settings
                 Helpers.mergeConfig({});
@@ -4454,12 +4456,14 @@ function migrate() {
         Helpers.logDebug('Error migrating cookie: ' + e);
     }
 
-    try {
-        migrateLocalStorage();
-    } catch (e) {
-        localStorage.removeItem(Config.LocalStorageNameV3);
-        localStorage.removeItem(Config.LocalStorageNameV4);
-        Helpers.logDebug('Error migrating localStorage: ' + e);
+    if (MP.isLocalStorageAvailable) {
+        try {
+            migrateLocalStorage();
+        } catch (e) {
+            localStorage.removeItem(Config.LocalStorageNameV3);
+            localStorage.removeItem(Config.LocalStorageNameV4);
+            Helpers.logDebug('Error migrating localStorage: ' + e);
+        }
     }
 }
 
@@ -4606,8 +4610,9 @@ function convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(SDKv2CookiesV1) {
                 };
             }
         }
-
-        localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
+        if (MP.isLocalStorageAvailable) {
+            localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
+        }
 
         if (SDKv2CookiesV1.currentUserMPID) {
             cookiesV4.cu = SDKv2CookiesV1.currentUserMPID;
@@ -4670,6 +4675,10 @@ function restructureToV4Cookie(cookies) {
 }
 
 function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
+    if (!MP.isLocalStorageAvailable) {
+        return;
+    }
+
     var localStorageProducts = {};
     localStorageProducts[mpid] = {};
     if (cookies.cp) {
@@ -4849,7 +4858,8 @@ module.exports = {
     requireDelay: true,
     featureFlags: {
         batching: false
-    }
+    },
+    isLocalStorageAvailable: null
 };
 
 },{}],15:[function(require,module,exports){
@@ -4864,7 +4874,7 @@ var Helpers = require('./helpers'),
     Config = MP.Config;
 
 function useLocalStorage() {
-    return (!mParticle.useCookieStorage && determineLocalStorageAvailability());
+    return (!mParticle.useCookieStorage && MP.isLocalStorageAvailable);
 }
 
 function initializeStorage() {
@@ -4882,13 +4892,11 @@ function initializeStorage() {
             MP.isFirstRun = false;
         }
 
-        // Check to see if localStorage is available and if not, always use cookies
-        this.isLocalStorageAvailable = this.determineLocalStorageAvailability();
-
-        if (!this.isLocalStorageAvailable) {
+        if (!MP.isLocalStorageAvailable) {
             mParticle.useCookieStorage = true;
         }
-        if (this.isLocalStorageAvailable) {
+
+        if (MP.isLocalStorageAvailable) {
             storage = window.localStorage;
             if (mParticle.useCookieStorage) {
                 // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
@@ -4925,16 +4933,20 @@ function initializeStorage() {
         }
 
         try {
-            var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+            if (MP.isLocalStorageAvailable) {
+                var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
 
-            if (encodedProducts) {
-                var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
-            }
-            if (MP.mpid) {
-                storeProductsInMemory(decodedProducts, MP.mpid);
+                if (encodedProducts) {
+                    var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
+                }
+                if (MP.mpid) {
+                    storeProductsInMemory(decodedProducts, MP.mpid);
+                }
             }
         } catch (e) {
-            localStorage.removeItem(Config.LocalStorageProductsV4);
+            if (MP.isLocalStorageAvailable) {
+                localStorage.removeItem(Config.LocalStorageProductsV4);
+            }
             MP.cartProducts = [];
             Helpers.logDebug('Error loading products in initialization: ' + e);
         }
@@ -4950,7 +4962,7 @@ function initializeStorage() {
 
         this.update();
     } catch (e) {
-        if (useLocalStorage()) {
+        if (useLocalStorage() && MP.isLocalStorageAvailable) {
             localStorage.removeItem(Config.LocalStorageNameV4);
         } else {
             expireCookies(Config.CookieNameV4);
@@ -4970,11 +4982,13 @@ function update() {
 }
 
 function storeProductsInMemory(products, mpid) {
-    try {
-        MP.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
-    }
-    catch(e) {
-        Helpers.logDebug(Messages.ErrorMessages.CookieParseError);
+    if (products) {
+        try {
+            MP.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
+        }
+        catch(e) {
+            Helpers.logDebug(Messages.ErrorMessages.CookieParseError);
+        }
     }
 }
 
@@ -5042,11 +5056,15 @@ function storeDataInMemory(obj, currentMPID) {
     }
 }
 
-function determineLocalStorageAvailability() {
-    var storage, result;
+function determineLocalStorageAvailability(storage) {
+    var result;
+
+    if (mParticle._forceNoLocalStorage) {
+        storage = undefined;
+    }
 
     try {
-        (storage = window.localStorage).setItem('mparticle', 'test');
+        storage.setItem('mparticle', 'test');
         result = storage.getItem('mparticle') === 'test';
         storage.removeItem('mparticle');
 
@@ -5081,6 +5099,10 @@ function convertProductsForLocalStorage() {
 }
 
 function getUserProductsFromLS(mpid) {
+    if (!MP.isLocalStorageAvailable) {
+        return [];
+    }
+
     var decodedProducts,
         userProducts,
         parsedProducts,
@@ -5126,6 +5148,10 @@ function getAllUserProductsFromLS() {
 }
 
 function setLocalStorage() {
+    if (!MP.isLocalStorageAvailable) {
+        return;
+    }
+
     var key = MP.Config.LocalStorageNameV4,
         allLocalStorageProducts = getAllUserProductsFromLS(),
         currentUserProducts = this.convertProductsForLocalStorage(),
@@ -5194,6 +5220,10 @@ function setGlobalStorageAttributes(data) {
 }
 
 function getLocalStorage() {
+    if (!MP.isLocalStorageAvailable) {
+        return null;
+    }
+
     var key = MP.Config.LocalStorageNameV4,
         localStorageData = decodeCookies(window.localStorage.getItem(key)),
         obj = {},
@@ -5647,6 +5677,10 @@ function getCartProducts(mpid) {
 }
 
 function setCartProducts(allProducts) {
+    if (!MP.isLocalStorageAvailable) {
+        return;
+    }
+
     try {
         window.localStorage.setItem(encodeURIComponent(MP.Config.LocalStorageProductsV4), Base64.encode(JSON.stringify(allProducts)));
     }
@@ -5670,13 +5704,14 @@ function updateOnlyCookieUserAttributes(cookies) {
         domain = ';domain=' + cookieDomain;
     }
 
-
     if (mParticle.useCookieStorage) {
         var encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain);
         window.document.cookie =
             encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
     } else {
-        localStorage.setItem(MP.Config.LocalStorageNameV4, encodedCookies);
+        if (MP.isLocalStorageAvailable) {
+            localStorage.setItem(MP.Config.LocalStorageNameV4, encodedCookies);
+        }
     }
 }
 
@@ -5739,7 +5774,6 @@ var forwardingStatsBatches = {
 
 module.exports = {
     useLocalStorage: useLocalStorage,
-    isLocalStorageAvailable: null,
     initializeStorage: initializeStorage,
     update: update,
     determineLocalStorageAvailability: determineLocalStorageAvailability,
