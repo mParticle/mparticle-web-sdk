@@ -104,6 +104,8 @@ var Polyfill = require('./polyfill'),
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
                 MP.devToken = apiKey || null;
                 Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
+                //check to see if localStorage is available for migrating purposes
+                MP.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
 
                 // Set configuration to default settings
                 Helpers.mergeConfig({});

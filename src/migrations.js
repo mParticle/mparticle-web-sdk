@@ -40,12 +40,14 @@ function migrate() {
         Helpers.logDebug('Error migrating cookie: ' + e);
     }
 
-    try {
-        migrateLocalStorage();
-    } catch (e) {
-        localStorage.removeItem(Config.LocalStorageNameV3);
-        localStorage.removeItem(Config.LocalStorageNameV4);
-        Helpers.logDebug('Error migrating localStorage: ' + e);
+    if (MP.isLocalStorageAvailable) {
+        try {
+            migrateLocalStorage();
+        } catch (e) {
+            localStorage.removeItem(Config.LocalStorageNameV3);
+            localStorage.removeItem(Config.LocalStorageNameV4);
+            Helpers.logDebug('Error migrating localStorage: ' + e);
+        }
     }
 }
 
@@ -192,8 +194,9 @@ function convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(SDKv2CookiesV1) {
                 };
             }
         }
-
-        localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
+        if (MP.isLocalStorageAvailable) {
+            localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
+        }
 
         if (SDKv2CookiesV1.currentUserMPID) {
             cookiesV4.cu = SDKv2CookiesV1.currentUserMPID;
@@ -256,6 +259,10 @@ function restructureToV4Cookie(cookies) {
 }
 
 function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
+    if (!MP.isLocalStorageAvailable) {
+        return;
+    }
+
     var localStorageProducts = {};
     localStorageProducts[mpid] = {};
     if (cookies.cp) {

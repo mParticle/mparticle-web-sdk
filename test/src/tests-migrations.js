@@ -11,6 +11,8 @@ var TestsCore = require('./tests-core'),
     setLocalStorage = TestsCore.setLocalStorage,
     getEvent = TestsCore.getEvent,
     v3LSKey = TestsCore.v3LSKey,
+    findCookie = TestsCore.findCookie,
+    v4CookieKey = TestsCore.v4CookieKey,
     server = TestsCore.server;
 
 describe('persistence migrations from SDKv1 to SDKv2', function() {
@@ -827,6 +829,25 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.init(apiKey);
 
         Should(mParticle.Identity.getCurrentUser().getCart().getCartProducts().length).not.be.ok();
+
+        done();
+    });
+
+    it('does not throw error during migration step when local storage does not exist', function(done) {
+        mParticle.reset();
+        mParticle.useCookieStorage = false;
+
+        var cookies =
+        "{'cp':'111W3siTmFtZSI6ImlQaG9uasdfZcKu4oCZIDgiLCJTa3UiOiJpUGhvbmVTS1UxMjMiLCJQcmljZSI6Njk5LCJRdWFudGl0eSI6MSwiQnJhbmQiOiJBcHBsZSIsIlZhcmlhbnQiOiI4IFBsdXMgNjRHQiIsIkNhdGVnb3J5IjoiUGhvbmVzIiwiUG9zaXRpb24iOm51bGwsIkNvdXBvbkNvZGUiOiJDb3Vwb25Db2RlMSIsIlRvdGFsQW1vdW50Ijo2OTksIkF0dHJpYnV0ZXMiOnsiZGlzY291bnQiOjUsInNlYXJjaFRlcm0iOiJhcHBsZSJ9fSx7Ik5hbWUiOiJHYWxheHnCruKAmSBTOSIsIlNrdSI6IkFuZHJvaWRTS1UxMjMiLCJQcmljZSI6Njk5LCJRdWFudGl0eSI6MSwiQnJhbmQiOiJTYW1zdW5nIiwiVmFyaWFudCI6IlM5IFBsdXMgNjRHQiIsIkNhdGVnb3J5IjoiUGhvbmVzIiwiUG9zaXRpb24iOm51bGwsIkNvdXBvbkNvZGUiOiJDb3Vwb25Db2RlMiIsIlRvdGFsQW1vdW50Ijo2OTksIkF0dHJpYnV0ZXMiOnsiZGlzY291bnQiOjEwLCJzZWFyY2hUZXJtIjoic2Ftc3VuZyJ9fV0='|'sid':'5FB9CD47-CCC5-4897-B901-61059E9C5A0C'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMjNUMTg6NDQ6MjUuMDg5OTk2NVoiLCJWYWx1ZSI6Imc9YTY3ZWZmZDAtY2UyMC00Y2M4LTg5MzgtNzc3MWY0YzQ2ZmZiJnU9MjA3Mzk0MTkzMjk4OTgyMzA5OSZjcj00NTk0NzI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537987465067|'cgid':'d1ce6cb1-5f28-4520-8ce7-f67288590944'|'das':'a67effd0-ce20-4cc8-8938-7771f4c46ffb'|'mpid':'2073941932989823099'}";
+
+        setCookie(v3CookieKey, cookies, true);
+
+        mParticle._forceNoLocalStorage = true;
+
+        mParticle.init(apiKey);
+        (window.localStorage.getItem('mprtclv4') === null).should.equal(true);
+        findCookie(v4CookieKey).cu.should.equal('2073941932989823099');
+        mParticle._forceNoLocalStorage = false;
 
         done();
     });

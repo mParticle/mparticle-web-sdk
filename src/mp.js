@@ -46,5 +46,6 @@ module.exports = {
     requireDelay: true,
     featureFlags: {
         batching: false
-    }
+    },
+    isLocalStorageAvailable: null
 };
