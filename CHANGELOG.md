@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.8.3 - 2019-01-30
+*  Bugfix - Check for LocalStorage before migrating
+
 #### 2.8.2 - 2019-01-25
 *  Bugfix - Guard against undefined result from crypto API
 *  Bugfix - Call identify if cookies exist, but there is no current user
