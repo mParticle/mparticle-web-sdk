@@ -404,7 +404,10 @@ var server = new MockHttpServer(),
         this.modifyData = null;
         this.event = null;
         this.userAttrData = null;
-        this.sessionAttrData = null;
+        this.sessionAttrData = [];
+        this.resetSessionAttrData = function() {
+            self.sessionAttrData = [];
+        };
 
         this.login = function(data) {
             self.loginData = data;
@@ -444,7 +447,7 @@ var server = new MockHttpServer(),
         };
         this.setSessionAttribute = function(data) {
             self.setSessionAttributeCalled = true;
-            self.sessionAttrData = data;
+            self.sessionAttrData.push(data);
         };
         this.addToCart = function() {
             self.addToCartCalled = true;

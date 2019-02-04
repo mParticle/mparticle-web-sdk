@@ -243,7 +243,7 @@ function generateRandomValue(a) {
         randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
     }
     if (randomValue) {
-        return (a ^ randomValue[0] % 16 >> a/4).toString(16); 
+        return (a ^ randomValue[0] % 16 >> a/4).toString(16);
     }
 
     return (a ^ Math.random() * 16 >> a/4).toString(16);

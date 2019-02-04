@@ -58,15 +58,38 @@ describe('native-sdk methods', function() {
         done();
     });
 
+    it('invoke setSessionAttributes of $src_key/$src_env of apikey/\'webview\' to the native SDK\'s on init', function(done) {
+        mParticle.reset();
+        window.mParticleAndroid = new mParticleAndroid();
+        window.mParticle.init(apiKey);
+
+        window.mParticleAndroid.sessionAttrData.length.should.equal(2);
+        JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('key', '$src_env');
+        JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('value', 'webview');
+        JSON.parse(window.mParticleAndroid.sessionAttrData[1]).should.have.property('key', '$src_key');
+        JSON.parse(window.mParticleAndroid.sessionAttrData[1]).should.have.property('value', apiKey);
+
+        window.mParticleAndroid.resetSessionAttrData();
+        window.mParticle.init();
+
+        window.mParticleAndroid.sessionAttrData.length.should.equal(1);
+        JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('key', '$src_env');
+        JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('value', 'webview');
+
+        done();
+    });
+
     it('should invoke setSessionAttributes on native SDK and pass through proper data', function(done) {
         mParticle.reset();
         window.mParticleAndroid = new mParticleAndroid();
         window.mParticle.init(apiKey);
 
+        window.mParticleAndroid.resetSessionAttrData();
+
         mParticle.setSessionAttribute('key', 'value');
 
         window.mParticleAndroid.setSessionAttributeCalled.should.equal(true);
-        window.mParticleAndroid.sessionAttrData.should.equal(JSON.stringify({key: 'key', value: 'value'}));
+        window.mParticleAndroid.sessionAttrData[0].should.equal(JSON.stringify({key: 'key', value: 'value'}));
 
         done();
     });

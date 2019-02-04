@@ -96,7 +96,12 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [options] an options object for additional configuration
         */
         init: function(apiKey) {
-            if (!Helpers.shouldUseNativeSdk()) {
+            if (Helpers.shouldUseNativeSdk()) {
+                Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
+                if (apiKey) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey}));
+                }
+            } else {
                 var config, currentUser;
 
                 MP.integrationDelayTimeoutStart = Date.now();
