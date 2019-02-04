@@ -337,7 +337,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.3',
+    sdkVersion = '2.8.4',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -2100,7 +2100,7 @@ function generateRandomValue(a) {
         randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
     }
     if (randomValue) {
-        return (a ^ randomValue[0] % 16 >> a/4).toString(16); 
+        return (a ^ randomValue[0] % 16 >> a/4).toString(16);
     }
 
     return (a ^ Math.random() * 16 >> a/4).toString(16);
@@ -3553,7 +3553,12 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [options] an options object for additional configuration
         */
         init: function(apiKey) {
-            if (!Helpers.shouldUseNativeSdk()) {
+            if (Helpers.shouldUseNativeSdk()) {
+                Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
+                if (apiKey) {
+                    Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey}));
+                }
+            } else {
                 var config, currentUser;
 
                 MP.integrationDelayTimeoutStart = Date.now();
