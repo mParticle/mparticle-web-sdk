@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.8.4 - 2019-02-04
+*  Set session attributes when using native bridge
+
 #### 2.8.3 - 2019-01-30
 *  Bugfix - Check for LocalStorage before migrating
 
