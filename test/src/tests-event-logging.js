@@ -362,4 +362,132 @@ describe('event logging', function() {
 
         done();
     });
+
+    it('should run the callback once when tracking succeeds', function(done) {
+        mParticle.reset();
+        var clock = sinon.useFakeTimers();
+
+        mParticle.init(apiKey);
+
+        var successCallbackCalled = false;
+        var numberTimesCalled = 0;
+
+        mParticle.startTrackingLocation(function() {
+            numberTimesCalled += 1;
+            successCallbackCalled = true;
+            mParticle.logEvent('test event');
+        });
+
+        // mock geo will successfully run after 1 second (geomock.js // navigator.geolocation.delay)
+        clock.tick(1000);
+        successCallbackCalled.should.equal(true);
+        var event = getEvent('test event');
+        event.lc.lat.should.equal(52.5168);
+        event.lc.lng.should.equal(13.3889);
+        server.requests = [];
+        //this will hit the watch position again, but won't call the callback again
+        clock.tick(1000);
+        numberTimesCalled.should.equal(1);
+        event = getEvent('test event');
+        Should(event).not.be.ok();
+
+        clock.restore();
+
+        done();
+    });
+
+    it('should run the callback once when tracking fails', function(done) {
+        mParticle.reset();
+        var clock = sinon.useFakeTimers();
+
+        mParticle.init(apiKey);
+
+        var successCallbackCalled = false;
+        var numberTimesCalled = 0;
+
+        navigator.geolocation.shouldFail = true;
+
+        mParticle.startTrackingLocation(function() {
+            numberTimesCalled += 1;
+            successCallbackCalled = true;
+            mParticle.logEvent('test event');
+        });
+
+        // mock geo will successfully run after 1 second (geomock.js // navigator.geolocation.delay)
+        clock.tick(1000);
+        successCallbackCalled.should.equal(true);
+        var event = getEvent('test event');
+        event.should.have.property('lc', null);
+        server.requests = [];
+
+        //this will hit the watch position again, but won't call the callback again
+        clock.tick(1000);
+        numberTimesCalled.should.equal(1);
+        event = getEvent('test event');
+        Should(event).not.be.ok();
+
+        navigator.geolocation.shouldFail = false;
+
+        clock.restore();
+
+        done();
+    });
+
+    it('should pass the found or existing position to the callback in startTrackingLocation', function(done) {
+        mParticle.reset();
+        var clock = sinon.useFakeTimers();
+
+        mParticle.init(apiKey);
+
+        var currentPosition;
+
+        function callback(position) {
+            currentPosition = position;
+        }
+
+        mParticle.startTrackingLocation(callback);
+
+        // mock geo will successfully run after 1 second (geomock.js // navigator.geolocation.delay)
+        clock.tick(1000);
+        var latitudeResult = 52.5168;
+        var longitudeResult = 13.3889;
+
+        currentPosition.coords.latitude.should.equal(latitudeResult);
+        currentPosition.coords.longitude.should.equal(longitudeResult);
+
+        clock.restore();
+
+        done();
+    });
+
+    it('should run the callback if tracking already exists', function(done) {
+        mParticle.reset();
+        var clock = sinon.useFakeTimers();
+
+        mParticle.init(apiKey);
+
+        mParticle.startTrackingLocation();
+
+        var successCallbackCalled = false;
+
+        function callback() {
+            successCallbackCalled = true;
+            mParticle.logEvent('test event');
+        }
+
+        mParticle.startTrackingLocation(callback);
+
+        // mock geo will successfully run after 1 second (geomock.js // navigator.geolocation.delay)
+        clock.tick(1000);
+        successCallbackCalled.should.equal(true);
+        var event = getEvent('test event');
+        var latitudeResult = 52.5168;
+        var longitudeResult = 13.3889;
+        event.lc.lat.should.equal(latitudeResult);
+        event.lc.lng.should.equal(longitudeResult);
+
+        clock.restore();
+
+        done();
+    });
 });

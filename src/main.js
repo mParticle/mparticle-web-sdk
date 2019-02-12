@@ -306,10 +306,15 @@ var Polyfill = require('./polyfill'),
         /**
         * Starts tracking the location of the user
         * @method startTrackingLocation
+        * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
         */
-        startTrackingLocation: function() {
+        startTrackingLocation: function(callback) {
+            if (!Validators.isFunction(callback)) {
+                Helpers.logDebug('Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.');
+            }
+
             mParticle.sessionManager.resetSessionTimer();
-            Events.startTracking();
+            Events.startTracking(callback);
         },
         /**
         * Sets the position of the user

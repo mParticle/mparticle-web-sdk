@@ -76,17 +76,53 @@ function parseEventResponse(responseText) {
     }
 }
 
-function startTracking() {
+function startTracking(callback) {
     if (!MP.isTracking) {
         if ('geolocation' in navigator) {
-            MP.watchPositionId = navigator.geolocation.watchPosition(function(position) {
-                MP.currentPosition = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                };
-            });
+            MP.watchPositionId = navigator.geolocation.watchPosition(successTracking, errorTracking);
+        }
+    } else {
+        var position = {
+            coords: {
+                latitude: MP.currentPosition.lat,
+                longitude: MP.currentPosition.lng
+            }
+        };
+        triggerCallback(callback, position);
+    }
 
-            MP.isTracking = true;
+    function successTracking(position) {
+        MP.currentPosition = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+        };
+
+        triggerCallback(callback, position);
+        // prevents callback from being fired multiple times
+        callback = null;
+
+        MP.isTracking = true;
+    }
+
+    function errorTracking() {
+        triggerCallback(callback);
+        // prevents callback from being fired multiple times
+        callback = null;
+        MP.isTracking = false;
+    }
+
+    function triggerCallback(callback, position) {
+        if (callback) {
+            try {
+                if (position) {
+                    callback(position);
+                } else {
+                    callback();
+                }
+            } catch (e) {
+                Helpers.logDebug('Error invoking the callback passed to startTrackingLocation.');
+                Helpers.logDebug(e);
+            }
         }
     }
 }
