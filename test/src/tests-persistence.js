@@ -7,6 +7,7 @@ var TestsCore = require('./tests-core'),
     v1CookieKey = TestsCore.v1CookieKey,
     v1localStorageKey = TestsCore.v1localStorageKey,
     LocalStorageProductsV4 = TestsCore.LocalStorageProductsV4,
+    LocalStorageProductsV4WithWorkSpaceName = TestsCore.LocalStorageProductsV4WithWorkSpaceName,
     getLocalStorage = TestsCore.getLocalStorage,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     setCookie = TestsCore.setCookie,
@@ -565,8 +566,8 @@ describe('migrations and persistence-related', function() {
         var user3data = mParticle.persistence.getLocalStorage();
         user3data.cu.should.equal('mpid3');
 
-        mParticle.init();
 
+        mParticle.init(apiKey);
         var data3 = mParticle.persistence.getLocalStorage();
         data3.cu.should.equal('mpid3');
 
@@ -1253,7 +1254,7 @@ describe('migrations and persistence-related', function() {
         var iphone = mParticle.eCommerce.createProduct('iphone', 'iphonesku', 599, 1, 'iphone variant', 'iphonecategory', 'iphonebrand', null, 'iphonecoupon', {iphoneattr1: 'value1', iphoneattr2: 'value2'});
         mParticle.eCommerce.Cart.add(iphone, true);
 
-        var ls = window.localStorage.getItem('mprtcl-prodv4');
+        var ls = window.localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
         var parsedProducts = JSON.parse(atob(ls));
         // parsedProducts should just have key of testMPID with value of cp with a single product
         Object.keys(parsedProducts).length.should.equal(1);
@@ -1261,7 +1262,7 @@ describe('migrations and persistence-related', function() {
         parsedProducts['testMPID'].cp.length.should.equal(1);
 
         mParticle.eCommerce.Cart.remove(iphone, true);
-        ls = window.localStorage.getItem('mprtcl-prodv4');
+        ls = window.localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
         var parsedProductsAfter = JSON.parse(atob(ls));
         // parsedProducts should just have key of testMPID with value of cp with no products
 

@@ -1,4 +1,6 @@
 var Helpers = require('../../src/helpers'),
+    TestsCore = require('./tests-core'),
+    apiKey = TestsCore.apiKey,
     Validators = Helpers.Validators;
 
 describe('helpers', function() {
@@ -205,4 +207,30 @@ describe('helpers', function() {
         done();
     });
 
+    it('should create a storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
+        var cookieName = Helpers.createMainStorageName(apiKey);
+        cookieName.should.equal('mprtcl-v4_test_key');
+
+        done();
+    });
+
+    it('should create a storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
+        var cookieName = Helpers.createMainStorageName();
+        cookieName.should.equal('mprtcl-v4');
+
+        done();
+    });
+
+    it('should create a product storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
+        var cookieName = Helpers.createProductStorageName(apiKey);
+        cookieName.should.equal('mprtcl-prodv4_test_key');
+
+        done();
+    });
+    it('should create a product storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
+        var cookieName = Helpers.createProductStorageName();
+        cookieName.should.equal('mprtcl-prodv4');
+
+        done();
+    });
 });

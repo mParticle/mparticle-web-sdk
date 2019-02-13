@@ -1,4 +1,5 @@
 var server = new MockHttpServer(),
+    Helpers = require('../../src/helpers'),
     v1localStorageKey,
     apiKey = 'test_key',
     testMPID = 'testMPID',
@@ -9,9 +10,12 @@ var server = new MockHttpServer(),
     LocalStorageProductsV4 = 'mprtcl-prodv4',
     v4CookieKey = 'mprtcl-v4',
     v4LSKey = 'mprtcl-v4',
+    workspaceToken = 'abcdef',
+    workspaceCookieName = Helpers.createMainStorageName(workspaceToken),
+    LocalStorageProductsV4WithWorkSpaceName = Helpers.createProductStorageName(workspaceToken),
     pluses = /\+/g,
     getLocalStorageProducts = function getLocalStorageProducts() {
-        return JSON.parse(atob(localStorage.getItem(LocalStorageProductsV4)));
+        return JSON.parse(atob(localStorage.getItem(Helpers.createProductStorageName(workspaceToken))));
     },
     decoded = function decoded(s) {
         return decodeURIComponent(s.replace(pluses, ' '));
@@ -107,7 +111,7 @@ var server = new MockHttpServer(),
         var value;
         if (name === v1localStorageKey) {
             value = encodeURIComponent(JSON.stringify(data));
-        } else if (name === v4LSKey) {
+        } else if (name === v4LSKey || name === workspaceCookieName) {
             value = mParticle.persistence.createCookieString(JSON.stringify(data));
         }
 
@@ -485,5 +489,8 @@ module.exports = {
     v4CookieKey: v4CookieKey,
     v4LSKey: v4LSKey,
     LocalStorageProductsV4: LocalStorageProductsV4,
+    LocalStorageProductsV4WithWorkSpaceName: LocalStorageProductsV4WithWorkSpaceName,
+    workspaceToken: workspaceToken,
+    workspaceCookieName: workspaceCookieName,
     server: server
 };

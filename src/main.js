@@ -104,6 +104,9 @@ var Polyfill = require('./polyfill'),
             } else {
                 var config, currentUser;
 
+                MP.storageName = Helpers.createMainStorageName(mParticle.workspaceToken);
+                MP.prodStorageName = Helpers.createProductStorageName(mParticle.workspaceToken);
+
                 MP.integrationDelayTimeoutStart = Date.now();
 
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
@@ -962,6 +965,11 @@ var Polyfill = require('./polyfill'),
         if (window.mParticle.config.hasOwnProperty('customFlags')) {
             MP.customFlags = window.mParticle.config.customFlags;
         }
+
+        if (window.mParticle.config.hasOwnProperty('workspaceToken')) {
+            mParticle.workspaceToken = window.mParticle.config.workspaceToken;
+        }
     }
+
     window.mParticle = mParticle;
 })(window);

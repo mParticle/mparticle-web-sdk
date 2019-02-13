@@ -558,6 +558,22 @@ function processQueuedEvents(eventQueue, mpid, requireDelay, sendEventToServer, 
     }
 }
 
+function createMainStorageName(workspaceToken) {
+    if (workspaceToken) {
+        return Constants.DefaultConfig.CurrentStorageName + '_' + workspaceToken;
+    } else {
+        return Constants.DefaultConfig.CurrentStorageName;
+    }
+}
+
+function createProductStorageName(workspaceToken) {
+    if (workspaceToken) {
+        return Constants.DefaultConfig.CurrentStorageProductsName + '_' + workspaceToken;
+    } else {
+        return Constants.DefaultConfig.CurrentStorageProductsName;
+    }
+}
+
 module.exports = {
     logDebug: logDebug,
     canLog: canLog,
@@ -586,5 +602,7 @@ module.exports = {
     hasFeatureFlag: hasFeatureFlag,
     isDelayedByIntegration: isDelayedByIntegration,
     processQueuedEvents: processQueuedEvents,
+    createMainStorageName: createMainStorageName,
+    createProductStorageName: createProductStorageName,
     Validators: Validators
 };

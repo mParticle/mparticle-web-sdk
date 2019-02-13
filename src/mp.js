@@ -47,5 +47,7 @@ module.exports = {
     featureFlags: {
         batching: false
     },
-    isLocalStorageAvailable: null
+    isLocalStorageAvailable: null,
+    storageName: null,
+    prodStorageName: null
 };

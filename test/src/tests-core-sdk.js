@@ -1,11 +1,10 @@
 var TestsCore = require('./tests-core'),
     v1localStorageKey = TestsCore.v1localStorageKey,
-    findCookie = TestsCore.findCookie,
     setLocalStorage = TestsCore.setLocalStorage,
     getEvent = TestsCore.getEvent,
     apiKey = TestsCore.apiKey,
     server = TestsCore.server,
-    v4LSKey = TestsCore.v4LSKey,
+    workspaceCookieName = TestsCore.workspaceCookieName,
     MessageType = TestsCore.MessageType;
 
 describe('core SDK', function() {
@@ -239,7 +238,7 @@ describe('core SDK', function() {
         mParticle.persistence.initializeStorage();
         mParticle.persistence.update();
 
-        var cookieData = findCookie();
+        var cookieData = mParticle.persistence.getCookie();
 
         cookieData.gs.should.have.properties(['cgid']);
         cookieData.gs.should.not.have.property('sid');
@@ -296,7 +295,6 @@ describe('core SDK', function() {
         // This test mimics if another tab is open and events are sent, but previous tab's sessionTimeout is still ongoing
         mParticle.reset();
         var clock = sinon.useFakeTimers();
-
         mParticle.init(apiKey, {SessionTimeout: 1});
 
         server.requests = [];
@@ -323,8 +321,7 @@ describe('core SDK', function() {
                 les: 120000
             }
         };
-
-        setLocalStorage(v4LSKey, newPersistence);
+        setLocalStorage(workspaceCookieName, newPersistence);
         // This clock tick initiates a session end event that is not successful
         clock.tick(70000);
         var noData = getEvent(2);

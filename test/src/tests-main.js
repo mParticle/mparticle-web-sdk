@@ -1,10 +1,12 @@
 var TestsCore = require('./tests-core'),
     testMPID = TestsCore.testMPID,
     apiKey = TestsCore.apiKey,
+    workspaceToken = TestsCore.workspaceToken,
     server = TestsCore.server;
 
 describe('mParticle', function() {
     before(function() {
+        mParticle._isTestEnv = true;
         mParticle.reset();
         server.start();
     });
@@ -26,6 +28,7 @@ describe('mParticle', function() {
         window.mParticle.useCookieStorage = false;
         mParticle.isDevelopmentMode = false;
         mParticle.maxCookieSize = 3000;
+        mParticle.workspaceToken = workspaceToken;
         mParticle.init(apiKey);
     });
 

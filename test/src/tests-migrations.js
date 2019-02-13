@@ -7,12 +7,15 @@ var TestsCore = require('./tests-core'),
     v2CookieKey = TestsCore.v2CookieKey,
     v3CookieKey = TestsCore.v3CookieKey,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
+    workspaceCookieName = TestsCore.workspaceCookieName,
     setCookie = TestsCore.setCookie,
     setLocalStorage = TestsCore.setLocalStorage,
     getEvent = TestsCore.getEvent,
     v3LSKey = TestsCore.v3LSKey,
     findCookie = TestsCore.findCookie,
     v4CookieKey = TestsCore.v4CookieKey,
+    LocalStorageProductsV4 = TestsCore.LocalStorageProductsV4,
+    LocalStorageProductsV4WithWorkSpaceName = TestsCore.LocalStorageProductsV4WithWorkSpaceName,
     server = TestsCore.server;
 
 describe('persistence migrations from SDKv1 to SDKv2', function() {
@@ -625,7 +628,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         var cartProducts = mParticle.Identity.getCurrentUser().getCart().getCartProducts();
         cartProducts.length.should.equal(0);
-        var LS = localStorage.getItem('mprtcl-prodv4');
+        var LS = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
 
         LS.should.equal('eyJ0ZXN0TVBJRCI6eyJjcCI6W119fQ==');
 
@@ -668,7 +671,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         products[0].Name.should.equal(product1.Name);
         products[1].Name.should.equal(product2.Name);
 
-        var LS = localStorage.getItem('mprtcl-prodv4');
+        var LS = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
 
         LS.should.equal('eyJ0ZXN0TVBJRCI6eyJjcCI6W3siTmFtZSI6ImFzZGZhZHNm4oCZ4oCZ4oCZ4oCZIiwiU2t1IjoiYXNkZiIsIlByaWNlIjoxMjMsIlF1YW50aXR5IjoxLCJUb3RhbEFtb3VudCI6MTIzLCJBdHRyaWJ1dGVzIjpudWxsfSx7Ik5hbWUiOiJhc2RmYWRzwq7CrsKuwq4iLCJTa3UiOiJhc2RmIiwiUHJpY2UiOjEyMywiUXVhbnRpdHkiOjEsIlRvdGFsQW1vdW50IjoxMjMsIkF0dHJpYnV0ZXMiOm51bGx9XX19');
 
@@ -848,6 +851,117 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         (window.localStorage.getItem('mprtclv4') === null).should.equal(true);
         findCookie(v4CookieKey).cu.should.equal('2073941932989823099');
         mParticle._forceNoLocalStorage = false;
+
+        done();
+    });
+
+    it('migrates from v4cookie to name spaced cookie', function(done) {
+        mParticle.workspaceToken = 'abcdef';
+        mParticle.reset();
+        var date = (new Date()).getTime();
+        setCookie(v4CookieKey, JSON.stringify({
+            gs: {
+                les: date,
+                dt: apiKey,
+                cgid: 'testCGID',
+                das: 'testDAS',
+                ssd: date
+            },
+            testMPID: {
+                ui: btoa(JSON.stringify({1: 'customerid'})),
+                ua: btoa(JSON.stringify({age: 30})),
+                csd: btoa(JSON.stringify({5: date}))
+            },
+            cu: testMPID
+        }));
+
+        mParticle.init(apiKey);
+        mParticle.workspaceToken = null;
+
+        var oldLS = localStorage.getItem(v4CookieKey);
+        Should(oldLS).not.be.ok();
+
+        var newLS = localStorage.getItem(workspaceCookieName);
+        Should(newLS).be.ok();
+
+        var data = mParticle.persistence.getLocalStorage();
+        data.gs.les.should.aboveOrEqual(date);
+        data.gs.should.have.property('dt', apiKey);
+        data.gs.should.have.property('cgid', 'testCGID');
+        data.gs.should.have.property('das', 'testDAS');
+        data.should.have.property('testMPID');
+        data.testMPID.ui.should.have.property('1', 'customerid');
+        data.testMPID.ua.should.have.property('age', 30);
+        data.testMPID.csd.should.have.property('5', date);
+
+        done();
+    });
+
+    it('migrates from v4cookie to name spaced localStorage', function(done) {
+        mParticle.workspaceToken = 'abcdef';
+        mParticle.reset();
+        var date = (new Date()).getTime();
+        setLocalStorage(v4CookieKey, {
+            gs: {
+                les: date,
+                dt: apiKey,
+                cgid: 'testCGID',
+                das: 'testDAS',
+                ssd: date
+            },
+            testMPID: {
+                ui: btoa(JSON.stringify({1: 'customerid'})),
+                ua: btoa(JSON.stringify({age: 30})),
+                csd: btoa(JSON.stringify({5: date}))
+            },
+            cu: testMPID
+        });
+
+        mParticle.init(apiKey);
+        mParticle.workspaceToken = null;
+
+        var oldLS = localStorage.getItem(v4CookieKey);
+        Should(oldLS).not.be.ok();
+
+        var newLS = localStorage.getItem(workspaceCookieName);
+        Should(newLS).be.ok();
+
+        var data = mParticle.persistence.getLocalStorage();
+        data.gs.les.should.aboveOrEqual(date);
+        data.gs.should.have.property('dt', apiKey);
+        data.gs.should.have.property('cgid', 'testCGID');
+        data.gs.should.have.property('das', 'testDAS');
+        data.should.have.property('testMPID');
+        data.testMPID.ui.should.have.property('1', 'customerid');
+        data.testMPID.ua.should.have.property('age', 30);
+        data.testMPID.csd.should.have.property('5', date);
+
+        done();
+    });
+
+    it('migrates from nonNameSpaced products to nameSpacedProducts on localStorage', function(done) {
+        mParticle.reset();
+        mParticle.init(apiKey);
+        var product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
+        var product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799);
+        mParticle.eCommerce.Cart.add([product1, product2]);
+
+        var oldLS = localStorage.getItem(LocalStorageProductsV4);
+        Should(oldLS).not.be.ok();
+
+        mParticle.workspaceToken = 'abcdef';
+        mParticle.init(apiKey);
+
+
+        var newLS = JSON.parse(atob(localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName)));
+        var products = newLS.testMPID.cp;
+        products.should.have.length(2);
+        products[0].should.have.property('Name', 'iphone');
+        products[0].should.have.property('Sku', 'iphoneSKU');
+        products[0].should.have.property('Price', 999);
+        products[1].should.have.property('Name', 'galaxy');
+        products[1].should.have.property('Sku', 'galaxySKU');
+        products[1].should.have.property('Price', 799);
 
         done();
     });
