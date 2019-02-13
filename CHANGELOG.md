@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.8.5 - 2019-02-13
+*  Add callback to location tracking method
+
 #### 2.8.4 - 2019-02-04
 *  Set session attributes when using native bridge
 
