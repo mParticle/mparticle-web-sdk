@@ -337,7 +337,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.4',
+    sdkVersion = '2.8.5',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1083,17 +1083,53 @@ function parseEventResponse(responseText) {
     }
 }
 
-function startTracking() {
+function startTracking(callback) {
     if (!MP.isTracking) {
         if ('geolocation' in navigator) {
-            MP.watchPositionId = navigator.geolocation.watchPosition(function(position) {
-                MP.currentPosition = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
-                };
-            });
+            MP.watchPositionId = navigator.geolocation.watchPosition(successTracking, errorTracking);
+        }
+    } else {
+        var position = {
+            coords: {
+                latitude: MP.currentPosition.lat,
+                longitude: MP.currentPosition.lng
+            }
+        };
+        triggerCallback(callback, position);
+    }
 
-            MP.isTracking = true;
+    function successTracking(position) {
+        MP.currentPosition = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+        };
+
+        triggerCallback(callback, position);
+        // prevents callback from being fired multiple times
+        callback = null;
+
+        MP.isTracking = true;
+    }
+
+    function errorTracking() {
+        triggerCallback(callback);
+        // prevents callback from being fired multiple times
+        callback = null;
+        MP.isTracking = false;
+    }
+
+    function triggerCallback(callback, position) {
+        if (callback) {
+            try {
+                if (position) {
+                    callback(position);
+                } else {
+                    callback();
+                }
+            } catch (e) {
+                Helpers.logDebug('Error invoking the callback passed to startTrackingLocation.');
+                Helpers.logDebug(e);
+            }
         }
     }
 }
@@ -3763,10 +3799,15 @@ var Polyfill = require('./polyfill'),
         /**
         * Starts tracking the location of the user
         * @method startTrackingLocation
+        * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
         */
-        startTrackingLocation: function() {
+        startTrackingLocation: function(callback) {
+            if (!Validators.isFunction(callback)) {
+                Helpers.logDebug('Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.');
+            }
+
             mParticle.sessionManager.resetSessionTimer();
-            Events.startTracking();
+            Events.startTracking(callback);
         },
         /**
         * Sets the position of the user
