@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.8.6 - 2019-02-14
+*  Namespace localstorage with workspace token
+
 #### 2.8.5 - 2019-02-13
 *  Add callback to location tracking method
 
