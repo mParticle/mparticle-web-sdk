@@ -1,6 +1,7 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
+    NativeSdkHelpers = require('./nativeSdkHelpers'),
     HTTPCodes = Constants.HTTPCodes,
     MP = require('./mp'),
     ServerModel = require('./serverModel'),
@@ -8,8 +9,8 @@ var Helpers = require('./helpers'),
     Messages = Constants.Messages;
 
 function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
-    if (Helpers.shouldUseNativeSdk()) {
-        Helpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
+    if (MP.webviewBridgeEnabled) {
+        NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
     } else {
         var xhr,
             xhrCallback = function() {
@@ -166,7 +167,7 @@ module.exports = {
     sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer
 };
 
-},{"./constants":3,"./helpers":9,"./mp":14,"./serverModel":17,"./types":19}],2:[function(require,module,exports){
+},{"./constants":3,"./helpers":9,"./mp":14,"./nativeSdkHelpers":15,"./serverModel":18,"./types":20}],2:[function(require,module,exports){
 var Helpers = require('./helpers');
 
 function createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId) {
@@ -337,7 +338,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.6',
+    sdkVersion = '2.8.7',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -496,7 +497,7 @@ var Helpers = require('./helpers'),
 var cookieSyncManager = {
     attemptCookieSync: function(previousMPID, mpid) {
         var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
-        if (mpid && !Helpers.shouldUseNativeSdk()) {
+        if (mpid && !MP.webviewBridgeEnabled) {
             MP.pixelConfigurations.forEach(function(pixelSettings) {
                 pixelConfig = {
                     moduleId: pixelSettings.moduleId,
@@ -549,7 +550,7 @@ var cookieSyncManager = {
 
 module.exports = cookieSyncManager;
 
-},{"./constants":3,"./helpers":9,"./mp":14,"./persistence":15}],5:[function(require,module,exports){
+},{"./constants":3,"./helpers":9,"./mp":14,"./persistence":16}],5:[function(require,module,exports){
 var Types = require('./types'),
     Helpers = require('./helpers'),
     Validators = Helpers.Validators,
@@ -1006,7 +1007,7 @@ module.exports = {
     createCommerceEventObject: createCommerceEventObject
 };
 
-},{"./constants":3,"./helpers":9,"./mp":14,"./serverModel":17,"./types":19}],6:[function(require,module,exports){
+},{"./constants":3,"./helpers":9,"./mp":14,"./serverModel":18,"./types":20}],6:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Helpers = require('./helpers'),
@@ -1271,7 +1272,7 @@ function logCommerceEvent(commerceEvent, attrs) {
 
     if (Helpers.canLog()) {
         startNewSessionIfNeeded();
-        if (Helpers.shouldUseNativeSdk()) {
+        if (MP.webviewBridgeEnabled) {
             // Don't send shopping cart to parent sdks
             commerceEvent.ShoppingCart = {};
         }
@@ -1364,7 +1365,7 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
 }
 
 function startNewSessionIfNeeded() {
-    if (!Helpers.shouldUseNativeSdk()) {
+    if (!MP.webviewBridgeEnabled) {
         var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
 
         if (!MP.sessionId && cookies) {
@@ -1395,7 +1396,7 @@ module.exports = {
     startNewSessionIfNeeded: startNewSessionIfNeeded
 };
 
-},{"./apiClient":1,"./constants":3,"./ecommerce":5,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":15,"./serverModel":17,"./types":19}],7:[function(require,module,exports){
+},{"./apiClient":1,"./constants":3,"./ecommerce":5,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":16,"./serverModel":18,"./types":20}],7:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Types = require('./types'),
     Constants = require('./constants'),
@@ -1406,7 +1407,7 @@ var Helpers = require('./helpers'),
 
 function initForwarders(userIdentities) {
     var user = mParticle.Identity.getCurrentUser();
-    if (!Helpers.shouldUseNativeSdk() && MP.configuredForwarders) {
+    if (!MP.webviewBridgeEnabled && MP.configuredForwarders) {
         // Some js libraries require that they be loaded first, or last, etc
         MP.configuredForwarders.sort(function(x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
@@ -1609,7 +1610,7 @@ function sendEventToForwarders(event) {
             Types.MessageType.Commerce
         ];
 
-    if (!Helpers.shouldUseNativeSdk() && MP.activeForwarders) {
+    if (!MP.webviewBridgeEnabled && MP.activeForwarders) {
         hashedEventName = Helpers.generateHash(event.EventCategory + event.EventName);
         hashedEventType = Helpers.generateHash(event.EventCategory);
 
@@ -1835,7 +1836,7 @@ module.exports = {
     isEnabledForUserAttributes: isEnabledForUserAttributes
 };
 
-},{"./apiClient":1,"./constants":3,"./helpers":9,"./mParticleUser":11,"./mp":14,"./persistence":15,"./types":19}],8:[function(require,module,exports){
+},{"./apiClient":1,"./constants":3,"./helpers":9,"./mParticleUser":11,"./mp":14,"./persistence":16,"./types":20}],8:[function(require,module,exports){
 var ApiClient = require('./apiClient'),
     Helpers = require('./helpers'),
     Forwarders = require('./forwarders'),
@@ -1892,7 +1893,7 @@ module.exports = {
     startForwardingStatsTimer: startForwardingStatsTimer
 };
 
-},{"./apiClient":1,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":15}],9:[function(require,module,exports){
+},{"./apiClient":1,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":16}],9:[function(require,module,exports){
 var Types = require('./types'),
     Constants = require('./constants'),
     Messages = Constants.Messages,
@@ -1907,7 +1908,7 @@ function logDebug(msg) {
 }
 
 function canLog() {
-    if (MP.isEnabled && (MP.devToken || shouldUseNativeSdk())) {
+    if (MP.isEnabled && (MP.devToken || MP.webviewBridgeEnabled)) {
         return true;
     }
 
@@ -2072,36 +2073,12 @@ function inArray(items, name) {
     }
 }
 
-function sendToNative(path, value) {
-    if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
-        logDebug(Messages.InformationMessages.SendAndroid + path);
-        window.mParticleAndroid[path](value);
-    }
-    else if (window.mParticle.isIOS) {
-        logDebug(Messages.InformationMessages.SendIOS + path);
-        var iframe = document.createElement('IFRAME');
-        iframe.setAttribute('src', 'mp-sdk://' + path + '/' + encodeURIComponent(value));
-        document.documentElement.appendChild(iframe);
-        iframe.parentNode.removeChild(iframe);
-        iframe = null;
-    }
-}
-
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
     if (mParticle.forceHttps) {
         return 'https://' + secureServiceUrl + devToken;
     } else {
         return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
     }
-}
-
-function shouldUseNativeSdk() {
-    if (mParticle.useNativeSdk || window.mParticleAndroid
-        || window.mParticle.isIOS) {
-        return true;
-    }
-
-    return false;
 }
 
 function createXHR(cb) {
@@ -2475,8 +2452,6 @@ module.exports = {
     extend: extend,
     isObject: isObject,
     inArray: inArray,
-    shouldUseNativeSdk: shouldUseNativeSdk,
-    sendToNative: sendToNative,
     createServiceUrl: createServiceUrl,
     createXHR: createXHR,
     generateUniqueId: generateUniqueId,
@@ -2502,7 +2477,7 @@ module.exports = {
     Validators: Validators
 };
 
-},{"./constants":3,"./mp":14,"./types":19}],10:[function(require,module,exports){
+},{"./constants":3,"./mp":14,"./types":20}],10:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     ServerModel = require('./serverModel'),
@@ -2511,6 +2486,7 @@ var Helpers = require('./helpers'),
     Types = require('./types'),
     Messages = Constants.Messages,
     MP = require('./mp'),
+    NativeSdkHelpers = require('./nativeSdkHelpers'),
     Validators = Helpers.Validators,
     sendIdentityRequest = require('./apiClient').sendIdentityRequest,
     CookieSyncManager = require('./cookieSyncManager'),
@@ -2681,8 +2657,8 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Identify request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, parseIdentityResponse);
@@ -2711,8 +2687,8 @@ var IdentityAPI = {
                 identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, parseIdentityResponse);
@@ -2749,8 +2725,8 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Login request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, parseIdentityResponse);
@@ -2778,8 +2754,8 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createModifyIdentityRequest(MP.userIdentities, newUserIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.context);
 
             if (Helpers.canLog()) {
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Modify request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, parseIdentityResponse);
@@ -2804,7 +2780,7 @@ var IdentityAPI = {
         if (mpid) {
             mpid = MP.mpid.slice();
             return mParticleUser(mpid, MP.isLoggedIn);
-        } else if (Helpers.shouldUseNativeSdk()) {
+        } else if (MP.webviewBridgeEnabled) {
             return mParticleUser();
         } else {
             return null;
@@ -2933,8 +2909,8 @@ function mParticleUser(mpid, isLoggedIn) {
                     Helpers.logDebug(Messages.ErrorMessages.BadKey);
                     return;
                 }
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }));
                 } else {
                     cookies = Persistence.getPersistence();
 
@@ -2991,8 +2967,8 @@ function mParticleUser(mpid, isLoggedIn) {
                 return;
             }
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }));
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }));
             } else {
                 cookies = Persistence.getPersistence();
 
@@ -3039,8 +3015,8 @@ function mParticleUser(mpid, isLoggedIn) {
 
             var arrayCopy = value.slice();
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }));
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }));
             } else {
                 cookies = Persistence.getPersistence();
 
@@ -3072,8 +3048,8 @@ function mParticleUser(mpid, isLoggedIn) {
 
             mParticle.sessionManager.resetSessionTimer();
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
             } else {
                 cookies = Persistence.getPersistence();
 
@@ -3189,13 +3165,16 @@ function mParticleUserCart(mpid){
                 userProducts,
                 arrayCopy;
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
+            arrayCopy = Array.isArray(product) ? product.slice() : [product];
+            arrayCopy.forEach(function(product) {
+                product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
+            });
+
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
             } else {
                 mParticle.sessionManager.resetSessionTimer();
 
-                product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
-                arrayCopy = Array.isArray(product) ? product.slice() : [product];
 
 
                 userProducts = Persistence.getUserProductsFromLS(mpid);
@@ -3235,8 +3214,8 @@ function mParticleUserCart(mpid){
                 cartIndex = -1,
                 cartItem = null;
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(cartItem));
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(product));
             } else {
                 mParticle.sessionManager.resetSessionTimer();
 
@@ -3279,8 +3258,8 @@ function mParticleUserCart(mpid){
         clear: function() {
             var allProducts;
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
             } else {
                 mParticle.sessionManager.resetSessionTimer();
                 allProducts = Persistence.getAllUserProductsFromLS();
@@ -3441,7 +3420,7 @@ module.exports = {
     mParticleUserCart: mParticleUserCart
 };
 
-},{"./apiClient":1,"./constants":3,"./cookieSyncManager":4,"./events":6,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":15,"./serverModel":17,"./types":19}],11:[function(require,module,exports){
+},{"./apiClient":1,"./constants":3,"./cookieSyncManager":4,"./events":6,"./forwarders":7,"./helpers":9,"./mp":14,"./nativeSdkHelpers":15,"./persistence":16,"./serverModel":18,"./types":20}],11:[function(require,module,exports){
 var Persistence = require('./persistence'),
     Types = require('./types'),
     Helpers = require('./helpers');
@@ -3510,7 +3489,7 @@ module.exports = {
     getFilteredMparticleUser: getFilteredMparticleUser
 };
 
-},{"./helpers":9,"./persistence":15,"./types":19}],12:[function(require,module,exports){
+},{"./helpers":9,"./persistence":16,"./types":20}],12:[function(require,module,exports){
 //
 //  Copyright 2017 mParticle, Inc.
 //
@@ -3533,6 +3512,7 @@ var Polyfill = require('./polyfill'),
     Types = require('./types'),
     Constants = require('./constants'),
     Helpers = require('./helpers'),
+    NativeSdkHelpers = require('./nativeSdkHelpers'),
     CookieSyncManager = require('./cookieSyncManager'),
     SessionManager = require('./sessionManager'),
     Ecommerce = require('./ecommerce'),
@@ -3609,10 +3589,12 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [options] an options object for additional configuration
         */
         init: function(apiKey) {
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
+            MP.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.requiredWebviewBridgeName, mParticle.minWebviewBridgeVersion);
+
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
                 if (apiKey) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey}));
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey}));
                 }
             } else {
                 var config, currentUser;
@@ -3621,7 +3603,6 @@ var Polyfill = require('./polyfill'),
                 MP.prodStorageName = Helpers.createProductStorageName(mParticle.workspaceToken);
 
                 MP.integrationDelayTimeoutStart = Date.now();
-
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
                 MP.devToken = apiKey || null;
                 Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
@@ -4212,8 +4193,8 @@ var Polyfill = require('./polyfill'),
                     return;
                 }
 
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }));
                 } else {
                     var existingProp = Helpers.findKeyInObject(MP.sessionAttributes, key);
 
@@ -4482,12 +4463,22 @@ var Polyfill = require('./polyfill'),
         if (window.mParticle.config.hasOwnProperty('workspaceToken')) {
             mParticle.workspaceToken = window.mParticle.config.workspaceToken;
         }
+
+        if (window.mParticle.config.hasOwnProperty('requiredWebviewBridgeName')) {
+            mParticle.requiredWebviewBridgeName = window.mParticle.config.requiredWebviewBridgeName;
+        } else {
+            mParticle.requiredWebviewBridgeName = window.mParticle.config.workspaceToken;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('minWebviewBridgeVersion')) {
+            mParticle.minWebviewBridgeVersion = window.mParticle.config.minWebviewBridgeVersion;
+        }
     }
 
     window.mParticle = mParticle;
 })(window);
 
-},{"./consent":2,"./constants":3,"./cookieSyncManager":4,"./ecommerce":5,"./events":6,"./forwarders":7,"./forwardingStatsUploader":8,"./helpers":9,"./identity":10,"./migrations":13,"./mp":14,"./persistence":15,"./polyfill":16,"./sessionManager":18,"./types":19}],13:[function(require,module,exports){
+},{"./consent":2,"./constants":3,"./cookieSyncManager":4,"./ecommerce":5,"./events":6,"./forwarders":7,"./forwardingStatsUploader":8,"./helpers":9,"./identity":10,"./migrations":13,"./mp":14,"./nativeSdkHelpers":15,"./persistence":16,"./polyfill":17,"./sessionManager":19,"./types":20}],13:[function(require,module,exports){
 var Persistence = require('./persistence'),
     Constants = require('./constants'),
     Types = require('./types'),
@@ -4906,7 +4897,7 @@ module.exports = {
     convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4: convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4
 };
 
-},{"./constants":3,"./helpers":9,"./mp":14,"./persistence":15,"./polyfill":16,"./types":19}],14:[function(require,module,exports){
+},{"./constants":3,"./helpers":9,"./mp":14,"./persistence":16,"./polyfill":17,"./types":20}],14:[function(require,module,exports){
 module.exports = {
     isEnabled: true,
     sessionAttributes: {},
@@ -4962,6 +4953,134 @@ module.exports = {
 };
 
 },{}],15:[function(require,module,exports){
+var Helpers = require('./helpers'),
+    Messages = require('./constants').Messages,
+    MP = require('./mp');
+
+var androidBridgeNameBase = 'mParticleAndroid';
+var iosBridgeNameBase = 'mParticle';
+
+function isBridgeV2Available(bridgeName) {
+    if (!bridgeName) {
+        return false;
+    }
+    var androidBridgeName = androidBridgeNameBase + '_' + bridgeName + '_v2';
+    var iosBridgeName = iosBridgeNameBase + '_' + bridgeName + '_v2';
+
+    // iOS v2 bridge
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.hasOwnProperty(iosBridgeName)) {
+        return true;
+    }
+    // other iOS v2 bridge
+    if (window.mParticle.uiwebviewBridgeName === iosBridgeName) {
+        return true;
+    }
+    // android
+    if (window.hasOwnProperty(androidBridgeName)) {
+        return true;
+    }
+    return false;
+}
+
+function isWebviewEnabled(requiredWebviewBridgeName, minWebviewBridgeVersion) {
+    MP.bridgeV2Available = isBridgeV2Available(requiredWebviewBridgeName);
+    MP.bridgeV1Available = isBridgeV1Available();
+
+    if (minWebviewBridgeVersion === 2) {
+        return MP.bridgeV2Available;
+    }
+
+    if (minWebviewBridgeVersion < 2) {
+        return MP.bridgeV2Available || MP.bridgeV1Available;
+    }
+
+    return false;
+}
+
+function isBridgeV1Available() {
+    if (mParticle.useNativeSdk || window.mParticleAndroid
+        || window.mParticle.isIOS) {
+        return true;
+    }
+
+    return false;
+}
+
+function sendToNative(path, value) {
+    if (MP.bridgeV2Available && mParticle.minWebviewBridgeVersion === 2) {
+        sendViaBridgeV2(path, value, mParticle.requiredWebviewBridgeName);
+        return;
+    }
+    if (MP.bridgeV2Available && mParticle.minWebviewBridgeVersion < 2) {
+        sendViaBridgeV2(path, value, mParticle.requiredWebviewBridgeName);
+        return;
+    }
+    if (MP.bridgeV1Available && mParticle.minWebviewBridgeVersion < 2) {
+        sendViaBridgeV1(path, value);
+        return;
+    }
+}
+
+function sendViaBridgeV1(path, value) {
+    if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
+        Helpers.logDebug(Messages.InformationMessages.SendAndroid + path);
+        window.mParticleAndroid[path](value);
+    }
+    else if (window.mParticle.isIOS) {
+        Helpers.logDebug(Messages.InformationMessages.SendIOS + path);
+        sendViaIframeToIOS(path, value);
+    }
+}
+
+function sendViaIframeToIOS(path, value) {
+    var iframe = document.createElement('IFRAME');
+    iframe.setAttribute('src', 'mp-sdk://' + path + '/' + encodeURIComponent(value));
+    document.documentElement.appendChild(iframe);
+    iframe.parentNode.removeChild(iframe);
+    iframe = null;
+}
+
+function sendViaBridgeV2(path, value, requiredWebviewBridgeName) {
+    if (!requiredWebviewBridgeName) {
+        return;
+    }
+
+    var androidBridgeName = androidBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2',
+        androidBridge = window[androidBridgeName],
+        iosBridgeName = iosBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2',
+        iOSBridgeMessageHandler,
+        iOSBridgeNonMessageHandler;
+
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[iosBridgeName]) {
+        iOSBridgeMessageHandler = window.webkit.messageHandlers[iosBridgeName];
+    }
+
+    if (window.mParticle.uiwebviewBridgeName === iosBridgeName) {
+        iOSBridgeNonMessageHandler = window.mParticle[iosBridgeName];
+    }
+
+    if (androidBridge && androidBridge.hasOwnProperty(path)) {
+        Helpers.logDebug(Messages.InformationMessages.SendAndroid + path);
+        androidBridge[path](value);
+        return;
+    } else if (iOSBridgeMessageHandler) {
+        Helpers.logDebug(Messages.InformationMessages.SendIOS + path);
+        iOSBridgeMessageHandler.postMessage(JSON.stringify({path:path, value: value ? JSON.parse(value) : null}));
+    } else if (iOSBridgeNonMessageHandler) {
+        Helpers.logDebug(Messages.InformationMessages.SendIOS + path);
+        sendViaIframeToIOS(path, value);
+    }
+}
+
+module.exports = {
+    isWebviewEnabled: isWebviewEnabled,
+    isBridgeV2Available:isBridgeV2Available,
+    sendToNative: sendToNative,
+    sendViaBridgeV1: sendViaBridgeV1,
+    sendViaBridgeV2: sendViaBridgeV2
+};
+
+},{"./constants":3,"./helpers":9,"./mp":14}],16:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Base64 = require('./polyfill').Base64,
@@ -5070,7 +5189,7 @@ function initializeStorage() {
 }
 
 function update() {
-    if (!Helpers.shouldUseNativeSdk()) {
+    if (!MP.webviewBridgeEnabled) {
         if (mParticle.useCookieStorage) {
             this.setCookie();
         }
@@ -5920,7 +6039,7 @@ module.exports = {
     forwardingStatsBatches: forwardingStatsBatches
 };
 
-},{"./consent":2,"./constants":3,"./helpers":9,"./mp":14,"./polyfill":16}],16:[function(require,module,exports){
+},{"./consent":2,"./constants":3,"./helpers":9,"./mp":14,"./polyfill":17}],17:[function(require,module,exports){
 var Helpers = require('./helpers');
 
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
@@ -6168,7 +6287,7 @@ module.exports = {
     Base64: Base64
 };
 
-},{"./helpers":9}],17:[function(require,module,exports){
+},{"./helpers":9}],18:[function(require,module,exports){
 var Types = require('./types'),
     MessageType = Types.MessageType,
     ApplicationTransitionType = Types.ApplicationTransitionType,
@@ -6273,7 +6392,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
         optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
     data = Helpers.sanitizeAttributes(data);
 
-    if (MP.sessionId || messageType == Types.MessageType.OptOut || Helpers.shouldUseNativeSdk()) {
+    if (MP.sessionId || messageType == Types.MessageType.OptOut || MP.webviewBridgeEnabled) {
         if (messageType !== Types.MessageType.SessionEnd) {
             MP.dateLastEventSent = new Date();
         }
@@ -6416,7 +6535,7 @@ module.exports = {
     convertToConsentStateDTO: convertToConsentStateDTO
 };
 
-},{"./constants":3,"./helpers":9,"./mp":14,"./types":19}],18:[function(require,module,exports){
+},{"./constants":3,"./helpers":9,"./mp":14,"./types":20}],19:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Messages = require('./constants').Messages,
     Types = require('./types'),
@@ -6541,7 +6660,7 @@ function setSessionTimer() {
 }
 
 function resetSessionTimer() {
-    if (!Helpers.shouldUseNativeSdk()) {
+    if (!MP.webviewBridgeEnabled) {
         if (!MP.sessionId) {
             startNewSession();
         }
@@ -6564,7 +6683,7 @@ module.exports = {
     clearSessionTimeout: clearSessionTimeout
 };
 
-},{"./constants":3,"./events":6,"./helpers":9,"./identity":10,"./mp":14,"./persistence":15,"./types":19}],19:[function(require,module,exports){
+},{"./constants":3,"./events":6,"./helpers":9,"./identity":10,"./mp":14,"./persistence":16,"./types":20}],20:[function(require,module,exports){
 var MessageType = {
     SessionStart: 1,
     SessionEnd: 2,
