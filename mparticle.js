@@ -337,7 +337,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.5',
+    sdkVersion = '2.8.6',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -421,6 +421,8 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         CookieNameV2: 'mprtcl-v2',                  // v2 Name of the cookie stored on the user's machine. Removed keys with no values, moved cartProducts and productBags to localStorage.
         CookieNameV3: 'mprtcl-v3',                  // v3 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, final version on SDKv1
         CookieNameV4: 'mprtcl-v4',                  // v4 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, current version on SDK v2
+        CurrentStorageName: 'mprtcl-v4',
+        CurrentStorageProductsName: 'mprtcl-prodv4',
         CookieDomain: null, 			            // If null, defaults to current location.host
         Debug: false,					            // If true, will print debug messages to browser console
         CookieExpiration: 365,			            // Cookie expiration time in days
@@ -2451,6 +2453,22 @@ function processQueuedEvents(eventQueue, mpid, requireDelay, sendEventToServer, 
     }
 }
 
+function createMainStorageName(workspaceToken) {
+    if (workspaceToken) {
+        return Constants.DefaultConfig.CurrentStorageName + '_' + workspaceToken;
+    } else {
+        return Constants.DefaultConfig.CurrentStorageName;
+    }
+}
+
+function createProductStorageName(workspaceToken) {
+    if (workspaceToken) {
+        return Constants.DefaultConfig.CurrentStorageProductsName + '_' + workspaceToken;
+    } else {
+        return Constants.DefaultConfig.CurrentStorageProductsName;
+    }
+}
+
 module.exports = {
     logDebug: logDebug,
     canLog: canLog,
@@ -2479,6 +2497,8 @@ module.exports = {
     hasFeatureFlag: hasFeatureFlag,
     isDelayedByIntegration: isDelayedByIntegration,
     processQueuedEvents: processQueuedEvents,
+    createMainStorageName: createMainStorageName,
+    createProductStorageName: createProductStorageName,
     Validators: Validators
 };
 
@@ -3597,6 +3617,9 @@ var Polyfill = require('./polyfill'),
             } else {
                 var config, currentUser;
 
+                MP.storageName = Helpers.createMainStorageName(mParticle.workspaceToken);
+                MP.prodStorageName = Helpers.createProductStorageName(mParticle.workspaceToken);
+
                 MP.integrationDelayTimeoutStart = Date.now();
 
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
@@ -4455,7 +4478,12 @@ var Polyfill = require('./polyfill'),
         if (window.mParticle.config.hasOwnProperty('customFlags')) {
             MP.customFlags = window.mParticle.config.customFlags;
         }
+
+        if (window.mParticle.config.hasOwnProperty('workspaceToken')) {
+            mParticle.workspaceToken = window.mParticle.config.workspaceToken;
+        }
     }
+
     window.mParticle = mParticle;
 })(window);
 
@@ -4531,8 +4559,13 @@ function migrateCookies() {
         foundCookie;
 
         //most recent version needs no migration
+        if (name === MP.storageName) {
+            return;
+        }
         if (name === Config.CookieNameV4) {
-            break;
+            // adds cookies to new namespace, removes previous cookie
+            finishCookieMigration(cookie, Config.CookieNameV4);
+            migrateProductsToNameSpace();
         // migration path for SDKv1CookiesV3, doesn't need to be encoded
         } else if (name === Config.CookieNameV3) {
             foundCookie = convertSDKv1CookiesV3ToSDKv2CookiesV4(cookie);
@@ -4577,7 +4610,7 @@ function finishCookieMigration(cookie, cookieName) {
     Helpers.logDebug(Constants.Messages.InformationMessages.CookieSet);
 
     window.document.cookie =
-    encodeURIComponent(Config.CookieNameV4) + '=' + cookie +
+    encodeURIComponent(MP.storageName) + '=' + cookie +
     ';expires=' + expires +
     ';path=/' + domain;
 
@@ -4657,7 +4690,7 @@ function convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(SDKv2CookiesV1) {
             }
         }
         if (MP.isLocalStorageAvailable) {
-            localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
+            localStorage.setItem(MP.prodStorageName, Base64.encode(JSON.stringify(localStorageProducts)));
         }
 
         if (SDKv2CookiesV1.currentUserMPID) {
@@ -4720,6 +4753,14 @@ function restructureToV4Cookie(cookies) {
     }
 }
 
+function migrateProductsToNameSpace() {
+    var lsProdV4Name = Constants.DefaultConfig.LocalStorageProductsV4;
+    var products = localStorage.getItem(Constants.DefaultConfig.LocalStorageProductsV4);
+    localStorage.setItem(MP.prodStorageName, products);
+    localStorage.removeItem(lsProdV4Name);
+
+}
+
 function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
     if (!MP.isLocalStorageAvailable) {
         return;
@@ -4740,78 +4781,88 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
         }
     }
 
-    localStorage.setItem(Config.LocalStorageProductsV4, Base64.encode(JSON.stringify(localStorageProducts)));
+    localStorage.setItem(MP.prodStorageName, Base64.encode(JSON.stringify(localStorageProducts)));
 }
 
 function migrateLocalStorage() {
-    var currentVersionLSName = Config.LocalStorageNameV4,
-        cookies,
+    var cookies,
         v1LSName = Config.LocalStorageName,
         v3LSName = Config.LocalStorageNameV3,
-        currentVersionLSData = window.localStorage.getItem(currentVersionLSName),
+        v4LSName = Config.LocalStorageNameV4,
+        currentVersionLSData = window.localStorage.getItem(MP.storageName),
+        v4LSData,
         v1LSData,
         v3LSData,
         v3LSDataStringCopy;
 
-    if (!currentVersionLSData) {
-        v3LSData = window.localStorage.getItem(v3LSName);
-        if (v3LSData) {
-            MP.migratingToIDSyncCookies = true;
-            v3LSDataStringCopy = v3LSData.slice();
-            v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
-            // localStorage may contain only products, or the full persistence
-            // when there is an MPID on the cookie, it is the full persistence
-            if (v3LSData.mpid) {
-                v3LSData = JSON.parse(convertSDKv1CookiesV3ToSDKv2CookiesV4(v3LSDataStringCopy));
-                finishLSMigration(JSON.stringify(v3LSData), v3LSName);
+    if (currentVersionLSData) {
+        return;
+    }
+
+    v4LSData = window.localStorage.getItem(v4LSName);
+    if (v4LSData) {
+        finishLSMigration(v4LSData, v4LSName);
+        migrateProductsToNameSpace();
+        return;
+    }
+
+    v3LSData = window.localStorage.getItem(v3LSName);
+    if (v3LSData) {
+        MP.migratingToIDSyncCookies = true;
+        v3LSDataStringCopy = v3LSData.slice();
+        v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
+        // localStorage may contain only products, or the full persistence
+        // when there is an MPID on the cookie, it is the full persistence
+        if (v3LSData.mpid) {
+            v3LSData = JSON.parse(convertSDKv1CookiesV3ToSDKv2CookiesV4(v3LSDataStringCopy));
+            finishLSMigration(JSON.stringify(v3LSData), v3LSName);
+            return;
+        // if no MPID, it is only the products
+        } else if ((v3LSData.cp || v3LSData.pb) && !v3LSData.mpid) {
+            cookies = Persistence.getCookie();
+            if (cookies) {
+                migrateProductsFromSDKv1ToSDKv2CookiesV4(v3LSData, cookies.cu);
+                localStorage.removeItem(Config.LocalStorageNameV3);
                 return;
-            // if no MPID, it is only the products
-            } else if ((v3LSData.cp || v3LSData.pb) && !v3LSData.mpid) {
-                cookies = Persistence.getCookie();
-                if (cookies) {
-                    migrateProductsFromSDKv1ToSDKv2CookiesV4(v3LSData, cookies.cu);
-                    localStorage.removeItem(Config.LocalStorageNameV3);
-                    return;
-                } else {
-                    localStorage.removeItem(Config.LocalStorageNameV3);
-                    return;
-                }
+            } else {
+                localStorage.removeItem(Config.LocalStorageNameV3);
+                return;
+            }
+        }
+    }
+
+    v1LSData = JSON.parse(decodeURIComponent(window.localStorage.getItem(v1LSName)));
+    if (v1LSData) {
+        MP.migratingToIDSyncCookies = true;
+        // SDKv2
+        if (v1LSData.globalSettings || v1LSData.currentUserMPID) {
+            v1LSData = JSON.parse(convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(JSON.stringify(v1LSData)));
+            // SDKv1
+            // only products, not full persistence
+        } else if ((v1LSData.cp || v1LSData.pb) && !v1LSData.mpid) {
+            cookies = Persistence.getCookie();
+            if (cookies) {
+                migrateProductsFromSDKv1ToSDKv2CookiesV4(v1LSData, cookies.cu);
+                window.localStorage.removeItem(v1LSName);
+                return;
+            } else {
+                window.localStorage.removeItem(v1LSName);
+                return;
             }
         } else {
-            v1LSData = JSON.parse(decodeURIComponent(window.localStorage.getItem(v1LSName)));
-            if (v1LSData) {
-                MP.migratingToIDSyncCookies = true;
-                // SDKv2
-                if (v1LSData.globalSettings || v1LSData.currentUserMPID) {
-                    v1LSData = JSON.parse(convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(JSON.stringify(v1LSData)));
-                    // SDKv1
-                    // only products, not full persistence
-                } else if ((v1LSData.cp || v1LSData.pb) && !v1LSData.mpid) {
-                    cookies = Persistence.getCookie();
-                    if (cookies) {
-                        migrateProductsFromSDKv1ToSDKv2CookiesV4(v1LSData, cookies.cu);
-                        window.localStorage.removeItem(v1LSName);
-                        return;
-                    } else {
-                        window.localStorage.removeItem(v1LSName);
-                        return;
-                    }
-                } else {
-                    v1LSData = JSON.parse(convertSDKv1CookiesV1ToSDKv2CookiesV4(JSON.stringify(v1LSData)));
-                }
+            v1LSData = JSON.parse(convertSDKv1CookiesV1ToSDKv2CookiesV4(JSON.stringify(v1LSData)));
+        }
 
-                if (Helpers.isObject(v1LSData) && Object.keys(v1LSData).length) {
-                    v1LSData = Persistence.encodeCookies(JSON.stringify(v1LSData));
-                    finishLSMigration(v1LSData, v1LSName);
-                    return;
-                }
-            }
+        if (Helpers.isObject(v1LSData) && Object.keys(v1LSData).length) {
+            v1LSData = Persistence.encodeCookies(JSON.stringify(v1LSData));
+            finishLSMigration(v1LSData, v1LSName);
+            return;
         }
     }
 
     function finishLSMigration(data, lsName) {
         try {
-            window.localStorage.setItem(encodeURIComponent(Config.LocalStorageNameV4), data);
+            window.localStorage.setItem(encodeURIComponent(MP.storageName), data);
         }
         catch (e) {
             Helpers.logDebug('Error with setting localStorage item.');
@@ -4905,7 +4956,9 @@ module.exports = {
     featureFlags: {
         batching: false
     },
-    isLocalStorageAvailable: null
+    isLocalStorageAvailable: null,
+    storageName: null,
+    prodStorageName: null
 };
 
 },{}],15:[function(require,module,exports){
@@ -4916,8 +4969,7 @@ var Helpers = require('./helpers'),
     MP = require('./mp'),
     Base64CookieKeys = Constants.Base64CookieKeys,
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
-    Consent = require('./consent'),
-    Config = MP.Config;
+    Consent = require('./consent');
 
 function useLocalStorage() {
     return (!mParticle.useCookieStorage && MP.isLocalStorageAvailable);
@@ -4953,7 +5005,7 @@ function initializeStorage() {
                     } else {
                         allData = localStorageData;
                     }
-                    storage.removeItem(MP.Config.LocalStorageNameV4);
+                    storage.removeItem(MP.storageName);
                 } else if (cookies) {
                     allData = cookies;
                 }
@@ -4969,7 +5021,7 @@ function initializeStorage() {
                         allData = cookies;
                     }
                     this.storeDataInMemory(allData);
-                    this.expireCookies(MP.Config.CookieNameV4);
+                    this.expireCookies(MP.storageName);
                 } else {
                     this.storeDataInMemory(localStorageData);
                 }
@@ -4980,7 +5032,7 @@ function initializeStorage() {
 
         try {
             if (MP.isLocalStorageAvailable) {
-                var encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+                var encodedProducts = localStorage.getItem(MP.prodStorageName);
 
                 if (encodedProducts) {
                     var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
@@ -4991,7 +5043,7 @@ function initializeStorage() {
             }
         } catch (e) {
             if (MP.isLocalStorageAvailable) {
-                localStorage.removeItem(Config.LocalStorageProductsV4);
+                localStorage.removeItem(MP.prodStorageName);
             }
             MP.cartProducts = [];
             Helpers.logDebug('Error loading products in initialization: ' + e);
@@ -5009,9 +5061,9 @@ function initializeStorage() {
         this.update();
     } catch (e) {
         if (useLocalStorage() && MP.isLocalStorageAvailable) {
-            localStorage.removeItem(Config.LocalStorageNameV4);
+            localStorage.removeItem(MP.storageName);
         } else {
-            expireCookies(Config.CookieNameV4);
+            expireCookies(MP.storageName);
         }
         Helpers.logDebug('Error initializing storage: ' + e);
     }
@@ -5152,7 +5204,7 @@ function getUserProductsFromLS(mpid) {
     var decodedProducts,
         userProducts,
         parsedProducts,
-        encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4);
+        encodedProducts = localStorage.getItem(MP.prodStorageName);
     if (encodedProducts) {
         decodedProducts = Base64.decode(encodedProducts);
     }
@@ -5178,7 +5230,7 @@ function getUserProductsFromLS(mpid) {
 
 function getAllUserProductsFromLS() {
     var decodedProducts,
-        encodedProducts = localStorage.getItem(MP.Config.LocalStorageProductsV4),
+        encodedProducts = localStorage.getItem(MP.prodStorageName),
         parsedDecodedProducts;
     if (encodedProducts) {
         decodedProducts = Base64.decode(encodedProducts);
@@ -5198,7 +5250,7 @@ function setLocalStorage() {
         return;
     }
 
-    var key = MP.Config.LocalStorageNameV4,
+    var key = MP.storageName,
         allLocalStorageProducts = getAllUserProductsFromLS(),
         currentUserProducts = this.convertProductsForLocalStorage(),
         localStorageData = this.getLocalStorage() || {},
@@ -5208,7 +5260,7 @@ function setLocalStorage() {
         allLocalStorageProducts = allLocalStorageProducts || {};
         allLocalStorageProducts[MP.mpid] = currentUserProducts;
         try {
-            window.localStorage.setItem(encodeURIComponent(MP.Config.LocalStorageProductsV4), Base64.encode(JSON.stringify(allLocalStorageProducts)));
+            window.localStorage.setItem(encodeURIComponent(MP.prodStorageName), Base64.encode(JSON.stringify(allLocalStorageProducts)));
         }
         catch (e) {
             Helpers.logDebug('Error with setting products on localStorage.');
@@ -5270,7 +5322,7 @@ function getLocalStorage() {
         return null;
     }
 
-    var key = MP.Config.LocalStorageNameV4,
+    var key = MP.storageName,
         localStorageData = decodeCookies(window.localStorage.getItem(key)),
         obj = {},
         j;
@@ -5346,7 +5398,7 @@ function expireCookies(cookieName) {
 
 function getCookie() {
     var cookies = window.document.cookie.split('; '),
-        key = MP.Config.CookieNameV4,
+        key = MP.storageName,
         i,
         l,
         parts,
@@ -5381,7 +5433,7 @@ function getCookie() {
 
 function setCookie() {
     var date = new Date(),
-        key = MP.Config.CookieNameV4,
+        key = MP.storageName,
         currentMPIDData = this.convertInMemoryDataForCookies(),
         expires = new Date(date.getTime() +
             (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
@@ -5676,7 +5728,7 @@ function getDomain(doc, locationHostname) {
 }
 
 function decodeProducts() {
-    return JSON.parse(Base64.decode(localStorage.getItem(Constants.DefaultConfig.LocalStorageProductsV4)));
+    return JSON.parse(Base64.decode(localStorage.getItem(MP.prodStorageName)));
 }
 
 function getUserIdentities(mpid) {
@@ -5713,7 +5765,7 @@ function getCartProducts(mpid) {
     if (mpid === MP.mpid) {
         return MP.cartProducts;
     } else {
-        var allCartProducts = JSON.parse(Base64.decode(localStorage.getItem(MP.Config.LocalStorageProductsV4)));
+        var allCartProducts = JSON.parse(Base64.decode(localStorage.getItem(MP.prodStorageName)));
         if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
             return allCartProducts[mpid].cp;
         } else {
@@ -5728,7 +5780,7 @@ function setCartProducts(allProducts) {
     }
 
     try {
-        window.localStorage.setItem(encodeURIComponent(MP.Config.LocalStorageProductsV4), Base64.encode(JSON.stringify(allProducts)));
+        window.localStorage.setItem(encodeURIComponent(MP.prodStorageName), Base64.encode(JSON.stringify(allProducts)));
     }
     catch (e) {
         Helpers.logDebug('Error with setting products on localStorage.');
@@ -5738,7 +5790,7 @@ function setCartProducts(allProducts) {
 function updateOnlyCookieUserAttributes(cookies) {
     var encodedCookies = encodeCookies(JSON.stringify(cookies)),
         date = new Date(),
-        key = MP.Config.CookieNameV4,
+        key = MP.storageName,
         expires = new Date(date.getTime() +
         (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
         cookieDomain = getCookieDomain(),
@@ -5756,7 +5808,7 @@ function updateOnlyCookieUserAttributes(cookies) {
             encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
     } else {
         if (MP.isLocalStorageAvailable) {
-            localStorage.setItem(MP.Config.LocalStorageNameV4, encodedCookies);
+            localStorage.setItem(MP.storageName, encodedCookies);
         }
     }
 }
@@ -5800,16 +5852,22 @@ function getDeviceId() {
     return MP.deviceId;
 }
 
-function resetPersistence(){
+function resetPersistence() {
     removeLocalStorage(MP.Config.LocalStorageName);
     removeLocalStorage(MP.Config.LocalStorageNameV3);
     removeLocalStorage(MP.Config.LocalStorageNameV4);
+    removeLocalStorage(MP.prodStorageName);
     removeLocalStorage(MP.Config.LocalStorageProductsV4);
 
     expireCookies(MP.Config.CookieName);
     expireCookies(MP.Config.CookieNameV2);
     expireCookies(MP.Config.CookieNameV3);
     expireCookies(MP.Config.CookieNameV4);
+    if (mParticle._isTestEnv) {
+        removeLocalStorage(Helpers.createMainStorageName(mParticle.workspaceToken));
+        expireCookies(Helpers.createMainStorageName(mParticle.workspaceToken));
+        removeLocalStorage(Helpers.createProductStorageName(mParticle.workspaceToken));
+    }
 }
 
 // Forwarder Batching Code
