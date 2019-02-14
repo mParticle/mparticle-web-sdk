@@ -7,7 +7,7 @@ var Helpers = require('./helpers'),
 var cookieSyncManager = {
     attemptCookieSync: function(previousMPID, mpid) {
         var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
-        if (mpid && !Helpers.shouldUseNativeSdk()) {
+        if (mpid && !MP.webviewBridgeEnabled) {
             MP.pixelConfigurations.forEach(function(pixelSettings) {
                 pixelConfig = {
                     moduleId: pixelSettings.moduleId,

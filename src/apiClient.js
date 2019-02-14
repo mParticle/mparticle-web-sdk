@@ -1,5 +1,6 @@
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
+    NativeSdkHelpers = require('./nativeSdkHelpers'),
     HTTPCodes = Constants.HTTPCodes,
     MP = require('./mp'),
     ServerModel = require('./serverModel'),
@@ -7,8 +8,8 @@ var Helpers = require('./helpers'),
     Messages = Constants.Messages;
 
 function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
-    if (Helpers.shouldUseNativeSdk()) {
-        Helpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
+    if (MP.webviewBridgeEnabled) {
+        NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
     } else {
         var xhr,
             xhrCallback = function() {

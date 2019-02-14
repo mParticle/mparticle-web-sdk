@@ -106,7 +106,7 @@ function initializeStorage() {
 }
 
 function update() {
-    if (!Helpers.shouldUseNativeSdk()) {
+    if (!MP.webviewBridgeEnabled) {
         if (mParticle.useCookieStorage) {
             this.setCookie();
         }

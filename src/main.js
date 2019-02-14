@@ -20,6 +20,7 @@ var Polyfill = require('./polyfill'),
     Types = require('./types'),
     Constants = require('./constants'),
     Helpers = require('./helpers'),
+    NativeSdkHelpers = require('./nativeSdkHelpers'),
     CookieSyncManager = require('./cookieSyncManager'),
     SessionManager = require('./sessionManager'),
     Ecommerce = require('./ecommerce'),
@@ -96,10 +97,12 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [options] an options object for additional configuration
         */
         init: function(apiKey) {
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
+            MP.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.requiredWebviewBridgeName, mParticle.minWebviewBridgeVersion);
+
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
                 if (apiKey) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey}));
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey}));
                 }
             } else {
                 var config, currentUser;
@@ -108,7 +111,6 @@ var Polyfill = require('./polyfill'),
                 MP.prodStorageName = Helpers.createProductStorageName(mParticle.workspaceToken);
 
                 MP.integrationDelayTimeoutStart = Date.now();
-
                 MP.initialIdentifyRequest = mParticle.identifyRequest;
                 MP.devToken = apiKey || null;
                 Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
@@ -699,8 +701,8 @@ var Polyfill = require('./polyfill'),
                     return;
                 }
 
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }));
                 } else {
                     var existingProp = Helpers.findKeyInObject(MP.sessionAttributes, key);
 
@@ -968,6 +970,16 @@ var Polyfill = require('./polyfill'),
 
         if (window.mParticle.config.hasOwnProperty('workspaceToken')) {
             mParticle.workspaceToken = window.mParticle.config.workspaceToken;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('requiredWebviewBridgeName')) {
+            mParticle.requiredWebviewBridgeName = window.mParticle.config.requiredWebviewBridgeName;
+        } else {
+            mParticle.requiredWebviewBridgeName = window.mParticle.config.workspaceToken;
+        }
+
+        if (window.mParticle.config.hasOwnProperty('minWebviewBridgeVersion')) {
+            mParticle.minWebviewBridgeVersion = window.mParticle.config.minWebviewBridgeVersion;
         }
     }
 

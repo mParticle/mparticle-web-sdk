@@ -122,7 +122,7 @@ function setSessionTimer() {
 }
 
 function resetSessionTimer() {
-    if (!Helpers.shouldUseNativeSdk()) {
+    if (!MP.webviewBridgeEnabled) {
         if (!MP.sessionId) {
             startNewSession();
         }

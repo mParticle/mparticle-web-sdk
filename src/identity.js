@@ -6,6 +6,7 @@ var Helpers = require('./helpers'),
     Types = require('./types'),
     Messages = Constants.Messages,
     MP = require('./mp'),
+    NativeSdkHelpers = require('./nativeSdkHelpers'),
     Validators = Helpers.Validators,
     sendIdentityRequest = require('./apiClient').sendIdentityRequest,
     CookieSyncManager = require('./cookieSyncManager'),
@@ -176,8 +177,8 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Identify request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, parseIdentityResponse);
@@ -206,8 +207,8 @@ var IdentityAPI = {
                 identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, parseIdentityResponse);
@@ -244,8 +245,8 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
 
             if (Helpers.canLog()) {
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Login request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, parseIdentityResponse);
@@ -273,8 +274,8 @@ var IdentityAPI = {
             var identityApiRequest = IdentityRequest.createModifyIdentityRequest(MP.userIdentities, newUserIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.context);
 
             if (Helpers.canLog()) {
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Modify request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, parseIdentityResponse);
@@ -299,7 +300,7 @@ var IdentityAPI = {
         if (mpid) {
             mpid = MP.mpid.slice();
             return mParticleUser(mpid, MP.isLoggedIn);
-        } else if (Helpers.shouldUseNativeSdk()) {
+        } else if (MP.webviewBridgeEnabled) {
             return mParticleUser();
         } else {
             return null;
@@ -428,8 +429,8 @@ function mParticleUser(mpid, isLoggedIn) {
                     Helpers.logDebug(Messages.ErrorMessages.BadKey);
                     return;
                 }
-                if (Helpers.shouldUseNativeSdk()) {
-                    Helpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }));
+                if (MP.webviewBridgeEnabled) {
+                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }));
                 } else {
                     cookies = Persistence.getPersistence();
 
@@ -486,8 +487,8 @@ function mParticleUser(mpid, isLoggedIn) {
                 return;
             }
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }));
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }));
             } else {
                 cookies = Persistence.getPersistence();
 
@@ -534,8 +535,8 @@ function mParticleUser(mpid, isLoggedIn) {
 
             var arrayCopy = value.slice();
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }));
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }));
             } else {
                 cookies = Persistence.getPersistence();
 
@@ -567,8 +568,8 @@ function mParticleUser(mpid, isLoggedIn) {
 
             mParticle.sessionManager.resetSessionTimer();
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
             } else {
                 cookies = Persistence.getPersistence();
 
@@ -684,13 +685,16 @@ function mParticleUserCart(mpid){
                 userProducts,
                 arrayCopy;
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
+            arrayCopy = Array.isArray(product) ? product.slice() : [product];
+            arrayCopy.forEach(function(product) {
+                product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
+            });
+
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
             } else {
                 mParticle.sessionManager.resetSessionTimer();
 
-                product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
-                arrayCopy = Array.isArray(product) ? product.slice() : [product];
 
 
                 userProducts = Persistence.getUserProductsFromLS(mpid);
@@ -730,8 +734,8 @@ function mParticleUserCart(mpid){
                 cartIndex = -1,
                 cartItem = null;
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(cartItem));
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(product));
             } else {
                 mParticle.sessionManager.resetSessionTimer();
 
@@ -774,8 +778,8 @@ function mParticleUserCart(mpid){
         clear: function() {
             var allProducts;
 
-            if (Helpers.shouldUseNativeSdk()) {
-                Helpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
+            if (MP.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
             } else {
                 mParticle.sessionManager.resetSessionTimer();
                 allProducts = Persistence.getAllUserProductsFromLS();

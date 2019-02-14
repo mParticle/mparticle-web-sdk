@@ -262,7 +262,7 @@ function logCommerceEvent(commerceEvent, attrs) {
 
     if (Helpers.canLog()) {
         startNewSessionIfNeeded();
-        if (Helpers.shouldUseNativeSdk()) {
+        if (MP.webviewBridgeEnabled) {
             // Don't send shopping cart to parent sdks
             commerceEvent.ShoppingCart = {};
         }
@@ -355,7 +355,7 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
 }
 
 function startNewSessionIfNeeded() {
-    if (!Helpers.shouldUseNativeSdk()) {
+    if (!MP.webviewBridgeEnabled) {
         var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
 
         if (!MP.sessionId && cookies) {

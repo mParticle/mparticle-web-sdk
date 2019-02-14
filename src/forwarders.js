@@ -8,7 +8,7 @@ var Helpers = require('./helpers'),
 
 function initForwarders(userIdentities) {
     var user = mParticle.Identity.getCurrentUser();
-    if (!Helpers.shouldUseNativeSdk() && MP.configuredForwarders) {
+    if (!MP.webviewBridgeEnabled && MP.configuredForwarders) {
         // Some js libraries require that they be loaded first, or last, etc
         MP.configuredForwarders.sort(function(x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
@@ -211,7 +211,7 @@ function sendEventToForwarders(event) {
             Types.MessageType.Commerce
         ];
 
-    if (!Helpers.shouldUseNativeSdk() && MP.activeForwarders) {
+    if (!MP.webviewBridgeEnabled && MP.activeForwarders) {
         hashedEventName = Helpers.generateHash(event.EventCategory + event.EventName);
         hashedEventType = Helpers.generateHash(event.EventCategory);
 

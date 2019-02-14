@@ -395,9 +395,9 @@ var server = new MockHttpServer(),
     mParticleAndroid = function() {
         var self = this;
 
+        this.addedToCartItem = null;
         this.logEventCalled = false;
         this.setUserAttributeCalled = false;
-        this.timesSetUserAttributeCalled = 0;
         this.removeUserAttributeCalled = false;
         this.setSessionAttributeCalled = false;
         this.addToCartCalled = false;
@@ -407,8 +407,9 @@ var server = new MockHttpServer(),
         this.logoutData = null;
         this.modifyData = null;
         this.event = null;
-        this.userAttrData = null;
+        this.userAttrData = [];
         this.sessionAttrData = [];
+
         this.resetSessionAttrData = function() {
             self.sessionAttrData = [];
         };
@@ -420,6 +421,9 @@ var server = new MockHttpServer(),
             self.logoutData = data;
         };
         this.modify = function(data) {
+            self.modifyData = data;
+        };
+        this.identify = function(data) {
             self.modifyData = data;
         };
 
@@ -441,10 +445,12 @@ var server = new MockHttpServer(),
         this.removeUserTag = function() {
             self.removeUserTagCalled = true;
         };
+        this.resetUserAttributes = function() {
+            self.userAttrData = [];
+        };
         this.setUserAttribute = function(data) {
-            self.timesSetUserAttributeCalled += 1;
             self.setUserAttributeCalled = true;
-            self.userAttrData = data;
+            self.userAttrData.push(data);
         };
         this.removeUserAttribute = function() {
             self.removeUserAttributeCalled = true;
@@ -453,14 +459,28 @@ var server = new MockHttpServer(),
             self.setSessionAttributeCalled = true;
             self.sessionAttrData.push(data);
         };
-        this.addToCart = function() {
+        this.addToCart = function(item) {
             self.addToCartCalled = true;
+            self.addedToCartItem = item;
         };
-        this.removeFromCart = function() {
+        this.removeFromCart = function(item) {
             self.removeFromCartCalled = true;
+            self.removedFromCartItem = item;
         };
         this.clearCart = function() {
+            self.addedToCartItem = null;
             self.clearCartCalled = true;
+        };
+    },
+
+    mParticleIOS = function() {
+        var self = this;
+        this.data = [];
+        this.postMessage = function(data) {
+            self.data.push(data);
+        };
+        this.reset = function() {
+            self.data = [];
         };
     };
 
@@ -484,6 +504,7 @@ module.exports = {
     CommerceEventType: CommerceEventType,
     MockForwarder: MockForwarder,
     mParticleAndroid: mParticleAndroid,
+    mParticleIOS: mParticleIOS,
     v3LSKey: v3LSKey,
     v3CookieKey: v3CookieKey,
     v4CookieKey: v4CookieKey,

@@ -102,7 +102,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
         optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
     data = Helpers.sanitizeAttributes(data);
 
-    if (MP.sessionId || messageType == Types.MessageType.OptOut || Helpers.shouldUseNativeSdk()) {
+    if (MP.sessionId || messageType == Types.MessageType.OptOut || MP.webviewBridgeEnabled) {
         if (messageType !== Types.MessageType.SessionEnd) {
             MP.dateLastEventSent = new Date();
         }
