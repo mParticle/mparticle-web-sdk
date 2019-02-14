@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.8.7 - 2019-02-14
+*  Update native bridge logic
+
 #### 2.8.6 - 2019-02-14
 *  Namespace localstorage with workspace token
 
