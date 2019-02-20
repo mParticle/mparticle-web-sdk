@@ -35,7 +35,13 @@ function isWebviewEnabled(requiredWebviewBridgeName, minWebviewBridgeVersion) {
         return MP.bridgeV2Available;
     }
 
+    // iOS BridgeV1 can be available via mParticle.isIOS, but return false if uiwebviewBridgeName doesn't match requiredWebviewBridgeName
+    if (window.mParticle.uiwebviewBridgeName && window.mParticle.uiwebviewBridgeName !== (iosBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2')) {
+        return false;
+    }
+
     if (minWebviewBridgeVersion < 2) {
+        // ios
         return MP.bridgeV2Available || MP.bridgeV1Available;
     }
 

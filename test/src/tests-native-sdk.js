@@ -12,9 +12,20 @@ describe('native-sdk methods', function() {
             delete window.mParticleAndroid_bridgeName_v2;
             delete window.webkit;
             delete window.mParticle.uiwebviewBridgeName;
+            delete mParticle.requiredWebviewBridgeName;
             delete mParticle.minWebviewBridgeVersion;
+            delete mParticle.isIOS;
 
             mParticle.init(apiKey);
+        });
+
+        after(function() {
+            delete window.mParticleAndroid_bridgeName_v2;
+            delete window.webkit;
+            delete window.mParticle.uiwebviewBridgeName;
+            delete mParticle.requiredWebviewBridgeName;
+            delete mParticle.minWebviewBridgeVersion;
+            delete mParticle.isIOS;
         });
 
         it('isBridgeV2Available returns false if no bridges exist on window', function(done) {
@@ -144,6 +155,17 @@ describe('native-sdk methods', function() {
 
             NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion).should.equal(true);
 
+            done();
+        });
+
+        it('isWebviewEnabled returns false if there is an unmatched requiredWebviewBridgeName, even if bridge 1 exists and min version is 1', function(done) {
+            mParticle.minWebviewBridgeVersion = 1;
+            mParticle.requiredWebviewBridgeName = 'nonmatching';
+            window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
+            mParticle.isIOS = true;
+
+            NativeSdkHelpers.isWebviewEnabled(mParticle.requiredWebviewBridgeName, mParticle.minWebviewBridgeVersion).should.equal(false);
+            delete mParticle.isIOS;
             done();
         });
     });
@@ -418,7 +440,6 @@ describe('native-sdk methods', function() {
             });
 
             it('should invoke native sdk method removeFromCart', function(done) {
-
                 var product = mParticle.eCommerce.createProduct('name', 'sku', 10, 1);
 
                 mParticle.eCommerce.Cart.add(product);
