@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.8.8 - 2019-02-20
+*  Bugfix - Native SDK - prioritize equality of requiredWebviewBridgeName
+
 #### 2.8.7 - 2019-02-14
 *  Update native bridge logic
 
