@@ -2956,7 +2956,7 @@
             }
         },
         getSession: function() {
-            return sessionId;
+            return sessionId || null;
         },
         startNewSession: function() {
             logDebug(InformationMessages.StartingNewSession);
@@ -2996,7 +2996,7 @@
 
                     cookies = persistence.getCookie() || persistence.getLocalStorage();
 
-                    if (!cookies.sid) {
+                    if (!cookies || (cookies && !cookies.sid)) {
                         logDebug(InformationMessages.NoSessionToEnd);
                         return;
                     }

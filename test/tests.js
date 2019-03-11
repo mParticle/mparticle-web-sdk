@@ -4875,6 +4875,22 @@ describe('mParticle', function() {
             done();
         });
 
+        it('does not send session end event if it does not exist', function(done) {
+            var clock = sinon.useFakeTimers();
+            mParticle.reset();
+            mParticle.init(apiKey);
+            setLocalStorage(currentLSKey, {});
+
+            clock.tick(30*60000);
+
+            var data = getEvent(MessageType.SessionEnd);
+
+            Should(data).not.be.ok();
+
+            clock.restore();
+            done();
+        });
+
         it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', function(done) {
             mParticle.logEvent('Test Event1');
             var data1 = getEvent('Test Event1');
