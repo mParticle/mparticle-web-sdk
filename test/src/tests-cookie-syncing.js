@@ -1,7 +1,7 @@
 var TestsCore = require('./tests-core'),
     setLocalStorage = TestsCore.setLocalStorage,
     testMPID = TestsCore.testMPID,
-    v1localStorageKey = TestsCore.v1localStorageKey,
+    v4LSKey = TestsCore.v4LSKey,
     apiKey = TestsCore.apiKey,
     server = TestsCore.server;
 
@@ -46,7 +46,7 @@ describe('cookie syncing', function() {
         };
         mParticle.configurePixel(pixelSettings);
 
-        setLocalStorage(v1localStorageKey, {
+        setLocalStorage(v4LSKey, {
             mpid: testMPID,
             csd: { 5: (new Date(500)).getTime() },
             ie: true
@@ -79,17 +79,13 @@ describe('cookie syncing', function() {
         };
         mParticle.configurePixel(pixelSettings);
 
-        var lastCookieSyncTime = (new Date().getTime())-5000;
-        setLocalStorage(v1localStorageKey, {
-            mpid: testMPID,
-            csd: { 5: lastCookieSyncTime }
-        });
+        setLocalStorage();
         mParticle.init(apiKey);
         server.requests = [];
 
         var data = mParticle.persistence.getLocalStorage();
 
-        data[testMPID].csd.should.have.property(5, lastCookieSyncTime);
+        data[testMPID].csd.should.have.property(5, mParticle.persistence.getLocalStorage().testMPID.csd['5']);
 
         done();
     });

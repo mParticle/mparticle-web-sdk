@@ -3,9 +3,7 @@ var TestsCore = require('./tests-core'),
     getForwarderEvent = TestsCore.getForwarderEvent,
     server = TestsCore.server,
     apiKey = TestsCore.apiKey,
-    setCookie = TestsCore.setCookie,
-    v1CookieKey = TestsCore.v1CookieKey,
-    testMPID = TestsCore.testMPID,
+    setLocalStorage = TestsCore.setLocalStorage,
     MessageType = TestsCore.MessageType,
     MockForwarder = TestsCore.MockForwarder,
     Forwarders = require('../../src/forwarders'),
@@ -812,13 +810,7 @@ describe('forwarders', function() {
     it('should pass in user identities to forwarder on initialize', function(done) {
         mParticle.reset();
 
-        setCookie(v1CookieKey, {
-            ui: [{
-                Identity: 'testuser@mparticle.com',
-                Type: 1
-            }],
-            mpid: testMPID
-        });
+        setLocalStorage();
 
         var mockForwarder = new MockForwarder();
 
@@ -834,12 +826,7 @@ describe('forwarders', function() {
     it('should pass in user attributes to forwarder on initialize', function(done) {
         mParticle.reset();
 
-        setCookie(v1CookieKey, {
-            ua: {
-                color: 'blue'
-            },
-            mpid: testMPID
-        });
+        setLocalStorage();
 
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);

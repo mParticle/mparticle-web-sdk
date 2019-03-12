@@ -1,10 +1,7 @@
 var server = new MockHttpServer(),
     Helpers = require('../../src/helpers'),
-    v1localStorageKey,
     apiKey = 'test_key',
     testMPID = 'testMPID',
-    v1CookieKey = v1localStorageKey = 'mprtcl-api',
-    v2CookieKey = 'mprtcl-v2',
     v3CookieKey = 'mprtcl-v3',
     v3LSKey = v3CookieKey,
     LocalStorageProductsV4 = 'mprtcl-prodv4',
@@ -14,6 +11,7 @@ var server = new MockHttpServer(),
     workspaceCookieName = Helpers.createMainStorageName(workspaceToken),
     LocalStorageProductsV4WithWorkSpaceName = Helpers.createProductStorageName(workspaceToken),
     pluses = /\+/g,
+    das = 'das-test',
     getLocalStorageProducts = function getLocalStorageProducts() {
         return JSON.parse(atob(localStorage.getItem(Helpers.createProductStorageName(workspaceToken))));
     },
@@ -82,7 +80,7 @@ var server = new MockHttpServer(),
             (365 * 24 * 60 * 60 * 1000)).toGMTString(),
             domain, cookieDomain,
             value;
-        if (cname === v4CookieKey) {
+        if (cname === v4CookieKey || cname === workspaceCookieName) {
             value = mParticle.persistence.replaceCommasWithPipes(data);
         } else if (cname === v3CookieKey) {
             value = data;
@@ -109,27 +107,45 @@ var server = new MockHttpServer(),
     },
     setLocalStorage = function(name, data, raw) {
         var value;
-        if (name === v1localStorageKey) {
-            value = encodeURIComponent(JSON.stringify(data));
-        } else if (name === v4LSKey || name === workspaceCookieName) {
+        //if we just set setLocalStorage(), we put a valid full length LS into localStorage
+        if (arguments.length === 0) {
+            data = {
+                cu: testMPID,
+                gs: {
+                    csm: btoa(JSON.stringify([testMPID])),
+                    cgid: '606d4dbd-123f-4a9c-9729-d6b6f42db743',
+                    das: das,
+                    dt: apiKey,
+                    ie: 1,
+                    les: new Date().getTime(),
+                    sid: '826ECC8F-9FCC-49C2-A3D3-4FC4F21D052C',
+                    ssd: new Date().getTime()
+                },
+                l: false,
+                testMPID: {
+                    ua: btoa(JSON.stringify({color: 'blue'})),
+                    ui: btoa(JSON.stringify({1: 'testuser@mparticle.com'})),
+                    csd: btoa(JSON.stringify({5: 500}))
+                }
+            };
             value = mParticle.persistence.createCookieString(JSON.stringify(data));
-        }
+            name = v4LSKey;
+        } else {
+            if (name === v4LSKey) {
+                value = mParticle.persistence.createCookieString(JSON.stringify(data));
+            }
 
-        if (raw) {
-            value = data;
+            if (raw) {
+                value = data;
+            }
         }
 
         localStorage.setItem(encodeURIComponent(name), value);
     },
     getLocalStorage = function(name) {
-        if (name === v1localStorageKey) {
-            return findEncodedLocalStorage(name);
-        } else if (name === v4LSKey || !name) {
+        if (name === v4LSKey || !name) {
             return mParticle.persistence.getLocalStorage();
         }
-    },
-    findEncodedLocalStorage = function(name) {
-        return JSON.parse(mParticle.persistence.replacePipesWithCommas(decodeURIComponent(localStorage.getItem(encodeURIComponent(name)))));
     },
     getEvent = function(eventName, isForwarding) {
         var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
@@ -487,9 +503,6 @@ var server = new MockHttpServer(),
 module.exports = {
     apiKey: apiKey,
     testMPID: testMPID,
-    v1CookieKey: v1CookieKey,
-    v1localStorageKey: v1localStorageKey,
-    v2CookieKey: v2CookieKey,
     getLocalStorageProducts: getLocalStorageProducts,
     findCookie: findCookie,
     setCookie: setCookie,
@@ -509,6 +522,7 @@ module.exports = {
     v3CookieKey: v3CookieKey,
     v4CookieKey: v4CookieKey,
     v4LSKey: v4LSKey,
+    das: das,
     LocalStorageProductsV4: LocalStorageProductsV4,
     LocalStorageProductsV4WithWorkSpaceName: LocalStorageProductsV4WithWorkSpaceName,
     workspaceToken: workspaceToken,

@@ -4,124 +4,52 @@ var TestsCore = require('./tests-core'),
     apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
     findCookie = TestsCore.findCookie,
-    v1CookieKey = TestsCore.v1CookieKey,
-    v1localStorageKey = TestsCore.v1localStorageKey,
     LocalStorageProductsV4 = TestsCore.LocalStorageProductsV4,
     LocalStorageProductsV4WithWorkSpaceName = TestsCore.LocalStorageProductsV4WithWorkSpaceName,
+    workspaceCookieName = TestsCore.workspaceCookieName,
     getLocalStorage = TestsCore.getLocalStorage,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     setCookie = TestsCore.setCookie,
     setLocalStorage = TestsCore.setLocalStorage,
     server = TestsCore.server,
-    v4CookieKey = 'mprtcl-v4',
     v4LSKey = 'mprtcl-v4',
     getEvent = TestsCore.getEvent,
     should = require('should');
 
 describe('migrations and persistence-related', function() {
-    it('should filter out any non string or number ids', function(done) {
-        mParticle.reset();
-        var lsData = {
-            ui: [{Identity: 123, Type: 1}, {Identity: '123', Type: 2}, {Identity: [], Type: 1}, {Identity: {}, Type: 1}],
-            mpid: testMPID
-        };
-
-        setLocalStorage(v1localStorageKey, lsData);
-
-        mParticle.init(apiKey);
-
-        var localStorageData = mParticle.persistence.getLocalStorage(v4LSKey);
-        Object.keys(localStorageData[lsData.mpid].ui).length.should.equal(2);
-
-        done();
-    });
-
-    it('should filter out any multiple UIs with no IDs', function(done) {
-        mParticle.reset();
-
-        setLocalStorage(v1localStorageKey, {
-            ui: [{Identity: 123, Type: 1}, {Type: 1}, {Type: 1}, {Type: 1}],
-            mpid: testMPID
-        });
-
-        mParticle.init(apiKey);
-
-        var localStorageData = mParticle.persistence.getLocalStorage(v4LSKey);
-
-        Object.keys(localStorageData[testMPID].ui).length.should.equal(1);
-
-        done();
-    });
-
-    it('should migrate previous user identity schema (array) to current schema (object)', function(done) {
-        mParticle.reset();
-        var userIdentities = [{Type: 1, Identity: 'id1'}, {Type: 7, Identity: 'email@domain.com'}];
-        setLocalStorage(v1localStorageKey, {ui: userIdentities, mpid: testMPID});
-        mParticle.init(apiKey);
-
-        var localStorageData = getLocalStorage();
-
-        localStorageData.testMPID.should.have.property('ui');
-        localStorageData.testMPID.ui.should.have.property('1', 'id1');
-
-        done();
-    });
-
     it('should move new schema from cookies to localStorage with useCookieStorage = false', function(done) {
         mParticle.reset();
-        setCookie(v1CookieKey, {
-            ui: [{Identity: 'customerId1', Type: 1}],
-            mpid: testMPID,
-            ie: true
-        });
-        var beforeInitCookieData = findCookie(v1CookieKey);
 
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'sid',
+                les: new Date().getTime()
+            },
+            testMPID: {
+                ui: {1: '123'}
+            },
+            cu: testMPID
+        });
+
+        setCookie(workspaceCookieName, cookies);
+        var beforeInitCookieData = findCookie(workspaceCookieName);
         mParticle.useCookieStorage = false;
         mParticle.init(apiKey);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         var localStorageData = mParticle.persistence.getLocalStorage();
-        var afterInitCookieData = findCookie(v4CookieKey);
-
-        beforeInitCookieData.ui[0].should.have.property('Identity', 'customerId1');
+        var afterInitCookieData = findCookie();
+        beforeInitCookieData[testMPID].ui.should.have.property('1', '123');
         localStorageData[testMPID].ua.should.have.property('gender', 'male');
-        localStorageData[testMPID].ui.should.have.property('1', 'customerId1');
+        localStorageData[testMPID].ui.should.have.property('1', '123');
         Should(afterInitCookieData).not.be.ok();
 
         done();
     });
 
-    it('should move old schema from localStorage to cookies with useCookieStorage = true', function(done) {
+    it('should migrate localStorage to cookies with useCookieStorage = true', function(done) {
         mParticle.reset();
-        setLocalStorage(v1localStorageKey, {
-            ui: [{Identity: 123, Type: 1}],
-            mpid: testMPID,
-            ie: true
-        });
 
-        mParticle.useCookieStorage = true;
-
-        mParticle.init(apiKey);
-
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-        var localStorageData = localStorage.getItem('mprtcl-api');
-        var cookieData = findCookie(v4CookieKey);
-        Should(localStorageData).not.be.ok();
-
-        cookieData[testMPID].ua.should.have.property('gender', 'male');
-        cookieData[testMPID].ui.should.have.property('1', 123);
-
-        window.mParticle.useCookieStorage = false;
-
-        done();
-    });
-
-    it('should move new schema from localStorage to cookies with useCookieStorage = true', function(done) {
-        mParticle.reset();
-        setLocalStorage(v1localStorageKey, {
-            ui: [{Identity: '123', Type: 1}],
-            mpid: testMPID,
-            ie: true
-        });
+        setLocalStorage();
 
         mParticle.useCookieStorage = true;
         mParticle.init(apiKey);
@@ -133,33 +61,9 @@ describe('migrations and persistence-related', function() {
 
         Should(localStorageData).not.be.ok();
         cookieData[testMPID].ua.should.have.property('gender', 'male');
-        cookieData[testMPID].ui.should.have.property('1', '123');
+        cookieData[testMPID].ui.should.have.property('1', 'testuser@mparticle.com');
 
         window.mParticle.useCookieStorage = false;
-
-        done();
-    });
-
-    it('should move old schema from cookies to localStorage with useCookieStorage = false', function(done) {
-        mParticle.reset();
-        setCookie(v1CookieKey, {
-            ui: [{Identity: '123', Type: 1}],
-            mpid: testMPID,
-            ie: true
-        });
-        var beforeInitCookieData = findCookie(v1CookieKey);
-
-        mParticle.useCookieStorage = false;
-        mParticle.init(apiKey);
-
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-
-        var localStorageData = mParticle.persistence.getLocalStorage();
-        var afterInitCookieData = mParticle.persistence.getCookie();
-        beforeInitCookieData.ui[0].should.have.property('Identity', '123');
-        localStorageData[testMPID].ua.should.have.property('gender', 'male');
-        localStorageData[testMPID].ui.should.have.property('1', '123');
-        Should(afterInitCookieData).not.be.ok();
 
         done();
     });
@@ -227,78 +131,6 @@ describe('migrations and persistence-related', function() {
             cookies1[testMPID].should.not.have.property(prop);
             cookies2[testMPID].should.not.have.property(prop);
             cookies2['otherMPID'].should.not.have.property(prop);
-        });
-
-        done();
-    });
-
-    it('localStorage - should migrate previous cookies into JS SDK v2 schema', function(done) {
-        mParticle.reset();
-        window.mParticle.useCookieStorage = false;
-
-        var lsData = {
-            mpid: testMPID,
-            cgid: 'cgidTEST',
-            ui: [{Identity: 123, Type: 1}],
-            ua: {foo: 'bar'},
-            cp: [{product: 'test'}],
-            pb: {bag1: [{product: 'item1'}]},
-            csd: { 5: 'test'}
-        };
-
-        setLocalStorage(v1localStorageKey, lsData);
-
-        mParticle.init(apiKey);
-        var cookiesAfterInit = mParticle.persistence.getLocalStorage();
-
-        cookiesAfterInit.should.not.have.property('cgid');
-        cookiesAfterInit.should.not.have.property('mpid');
-        cookiesAfterInit.should.have.properties([testMPID, 'cu', 'gs']);
-        cookiesAfterInit.gs.should.have.property('cgid', 'cgidTEST');
-        cookiesAfterInit[testMPID].should.have.properties(['ua', 'ui', 'csd']);
-
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
-
-        props.forEach(function(prop) {
-            cookiesAfterInit[testMPID].should.not.have.property(prop);
-        });
-
-        cookiesAfterInit[testMPID].ua.should.have.property('foo', 'bar');
-        cookiesAfterInit[testMPID].ui.should.have.property('1', 123);
-        cookiesAfterInit[testMPID].csd.should.have.property(5, 'test');
-
-        var products = getLocalStorageProducts();
-        products.testMPID.cp[0].product.should.equal(lsData.cp[0].product);
-
-        done();
-    });
-
-    it('cookies - should migrate previous cookies into JS SDK v2 schema', function(done) {
-        mParticle.reset();
-        window.mParticle.useCookieStorage = true;
-
-        setLocalStorage(v1localStorageKey, {
-            mpid: testMPID,
-            cgid: 'cgidTEST',
-            ui: [{
-                Identity: 'objData',
-                Type: 1
-            }]
-        });
-
-        mParticle.init(apiKey);
-
-        var cookiesAfterInit = findCookie();
-        cookiesAfterInit.should.not.have.property('cgid');
-        cookiesAfterInit.should.not.have.property('mpid');
-        cookiesAfterInit.should.have.properties([testMPID, 'cu', 'gs']);
-        cookiesAfterInit.gs.should.have.property('cgid', 'cgidTEST');
-        cookiesAfterInit[testMPID].ui.should.have.property('1', 'objData');
-
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
-
-        props.forEach(function(prop) {
-            cookiesAfterInit[testMPID].should.not.have.property(prop);
         });
 
         done();
@@ -1217,7 +1049,7 @@ describe('migrations and persistence-related', function() {
 
         //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
         var cookies = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
-        setCookie(v4CookieKey, cookies, true);
+        setCookie(workspaceCookieName, cookies, true);
 
         mParticle.useCookieStorage = true;
         mParticle.init(apiKey);

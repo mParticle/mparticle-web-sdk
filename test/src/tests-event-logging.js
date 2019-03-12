@@ -5,7 +5,6 @@ var TestsCore = require('./tests-core'),
     testMPID = TestsCore.testMPID,
     setLocalStorage = TestsCore.setLocalStorage,
     server = TestsCore.server,
-    v1localStorageKey = TestsCore.v1localStorageKey,
     MessageType = TestsCore.MessageType;
 
 describe('event logging', function() {
@@ -52,11 +51,7 @@ describe('event logging', function() {
         mParticle.reset();
         server.requests = [];
 
-        setLocalStorage(v1localStorageKey, {
-            mpid: testMPID,
-            csd: { 5: (new Date(500)).getTime() },
-            ie: true
-        });
+        setLocalStorage();
 
         mParticle.init(apiKey);
 

@@ -178,7 +178,7 @@ describe('native-sdk methods', function() {
             mParticle.init(apiKey);
         });
 
-        it('invoke setSessionAttributes of $src_key/$src_env of apikey/\'webview\' to the native SDK\'s on init', function(done) {
+        it('invoke setSessionAttributes of $src_key/$src_env of apikey/\'webview\' to the native SDK\'s on init if apiKey is available', function(done) {
             mParticle.reset();
             window.mParticleAndroid = new mParticleAndroid();
             window.mParticle.init(apiKey);
@@ -190,6 +190,7 @@ describe('native-sdk methods', function() {
             JSON.parse(window.mParticleAndroid.sessionAttrData[1]).should.have.property('value', apiKey);
 
             window.mParticleAndroid.resetSessionAttrData();
+
             window.mParticle.init();
 
             window.mParticleAndroid.sessionAttrData.length.should.equal(1);

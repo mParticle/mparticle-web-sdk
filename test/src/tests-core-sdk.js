@@ -1,6 +1,6 @@
 var TestsCore = require('./tests-core'),
-    v1localStorageKey = TestsCore.v1localStorageKey,
     setLocalStorage = TestsCore.setLocalStorage,
+    das = TestsCore.das,
     getEvent = TestsCore.getEvent,
     apiKey = TestsCore.apiKey,
     server = TestsCore.server,
@@ -211,14 +211,13 @@ describe('core SDK', function() {
     it('should not generate a new device ID if a deviceId exists in localStorage', function(done) {
         mParticle.reset();
 
-        var guid = '7b0a8d4e-b144-4259-b491-1b3cf76af453';
-        setLocalStorage(v1localStorageKey, {das: guid});
+        setLocalStorage();
 
         mParticle.init(apiKey);
 
         var deviceId = mParticle.getDeviceId();
 
-        deviceId.should.equal(guid);
+        deviceId.should.equal(das);
         done();
     });
 

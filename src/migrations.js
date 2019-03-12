@@ -1,30 +1,15 @@
 var Persistence = require('./persistence'),
     Constants = require('./constants'),
-    Types = require('./types'),
     Helpers = require('./helpers'),
     MP = require('./mp'),
     Config = MP.Config,
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
     Base64 = require('./polyfill').Base64,
     CookiesGlobalSettingsKeys = {
-        currentSessionMPIDs: 1,
-        csm: 1,
-        sid: 1,
-        isEnabled: 1,
-        ie: 1,
-        sa: 1,
-        ss: 1,
-        dt: 1,
-        les: 1,
-        av: 1,
-        cgid: 1,
-        das: 1,
-        c: 1
+        das: 1
     },
     MPIDKeys = {
-        ui: 1,
-        ua: 1,
-        csd: 1
+        ui: 1
     };
 
 //  if there is a cookie or localStorage:
@@ -75,28 +60,15 @@ function migrateCookies() {
         if (name === Config.CookieNameV4) {
             // adds cookies to new namespace, removes previous cookie
             finishCookieMigration(cookie, Config.CookieNameV4);
-            migrateProductsToNameSpace();
+            if (MP.isLocalStorageAvailable) {
+                migrateProductsToNameSpace();
+            }
+            return;
         // migration path for SDKv1CookiesV3, doesn't need to be encoded
-        } else if (name === Config.CookieNameV3) {
+        }
+        if (name === Config.CookieNameV3) {
             foundCookie = convertSDKv1CookiesV3ToSDKv2CookiesV4(cookie);
             finishCookieMigration(foundCookie, Config.CookieNameV3);
-            break;
-        // migration path for SDKv1CookiesV2, needs to be encoded
-        } else if (name === Config.CookieNameV2) {
-            foundCookie = convertSDKv1CookiesV2ToSDKv2CookiesV4(Helpers.converted(cookie));
-            finishCookieMigration(Persistence.encodeCookies(foundCookie), Config.CookieNameV2);
-            break;
-        // migration path for v1, needs to be encoded
-        } else if (name === Config.CookieName) {
-            foundCookie = Helpers.converted(cookie);
-            if (JSON.parse(foundCookie).globalSettings) {
-                // CookieV1 from SDKv2
-                foundCookie = convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(foundCookie);
-            } else {
-                // CookieV1 from SDKv1
-                foundCookie = convertSDKv1CookiesV1ToSDKv2CookiesV4(foundCookie);
-            }
-            finishCookieMigration(Persistence.encodeCookies(foundCookie), Config.CookieName);
             break;
         }
     }
@@ -128,26 +100,6 @@ function finishCookieMigration(cookie, cookieName) {
     MP.migratingToIDSyncCookies = true;
 }
 
-function convertSDKv1CookiesV1ToSDKv2CookiesV4(SDKv1CookiesV1) {
-    var parsedCookiesV4 = JSON.parse(restructureToV4Cookie(decodeURIComponent(SDKv1CookiesV1))),
-        parsedSDKv1CookiesV1 = JSON.parse(decodeURIComponent(SDKv1CookiesV1));
-
-    // UI was stored as an array previously, we need to convert to an object
-    parsedCookiesV4 = convertUIFromArrayToObject(parsedCookiesV4);
-
-    if (parsedSDKv1CookiesV1.mpid) {
-        parsedCookiesV4.gs.csm.push(parsedSDKv1CookiesV1.mpid);
-        migrateProductsFromSDKv1ToSDKv2CookiesV4(parsedSDKv1CookiesV1, parsedSDKv1CookiesV1.mpid);
-    }
-
-    return JSON.stringify(parsedCookiesV4);
-}
-
-function convertSDKv1CookiesV2ToSDKv2CookiesV4(SDKv1CookiesV2) {
-    // structure of SDKv1CookiesV2 is identital to SDKv1CookiesV1
-    return convertSDKv1CookiesV1ToSDKv2CookiesV4(SDKv1CookiesV2);
-}
-
 function convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookiesV3) {
     SDKv1CookiesV3 = Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(SDKv1CookiesV3));
     var parsedSDKv1CookiesV3 = JSON.parse(SDKv1CookiesV3);
@@ -163,76 +115,6 @@ function convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookiesV3) {
     return JSON.stringify(parsedCookiesV4);
 }
 
-function convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(SDKv2CookiesV1) {
-    try {
-        var cookiesV4 = { gs: {}},
-            localStorageProducts = {};
-
-        SDKv2CookiesV1 = JSON.parse(SDKv2CookiesV1);
-        cookiesV4 = setGlobalSettings(cookiesV4, SDKv2CookiesV1);
-
-        // set each MPID's respective persistence
-        for (var mpid in SDKv2CookiesV1) {
-            if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                cookiesV4[mpid] = {};
-                for (var mpidKey in SDKv2CookiesV1[mpid]) {
-                    if (SDKv2CookiesV1[mpid].hasOwnProperty(mpidKey)) {
-                        if (MPIDKeys[mpidKey]) {
-                            if (Helpers.isObject(SDKv2CookiesV1[mpid][mpidKey]) && Object.keys(SDKv2CookiesV1[mpid][mpidKey]).length) {
-                                if (mpidKey === 'ui') {
-                                    cookiesV4[mpid].ui = {};
-                                    for (var typeName in SDKv2CookiesV1[mpid][mpidKey]) {
-                                        if (SDKv2CookiesV1[mpid][mpidKey].hasOwnProperty(typeName)) {
-                                            cookiesV4[mpid].ui[Types.IdentityType.getIdentityType(typeName)] = SDKv2CookiesV1[mpid][mpidKey][typeName];
-                                        }
-                                    }
-                                } else {
-                                    cookiesV4[mpid][mpidKey] = SDKv2CookiesV1[mpid][mpidKey];
-                                }
-                            }
-                        }
-                    }
-                }
-
-                localStorageProducts[mpid] = {
-                    cp: SDKv2CookiesV1[mpid].cp
-                };
-            }
-        }
-        if (MP.isLocalStorageAvailable) {
-            localStorage.setItem(MP.prodStorageName, Base64.encode(JSON.stringify(localStorageProducts)));
-        }
-
-        if (SDKv2CookiesV1.currentUserMPID) {
-            cookiesV4.cu = SDKv2CookiesV1.currentUserMPID;
-        }
-
-        return JSON.stringify(cookiesV4);
-    }
-    catch (e) {
-        Helpers.logDebug('Failed to convert cookies from SDKv2 cookies v1 to SDKv2 cookies v4');
-    }
-}
-
-// migrate from object containing globalSettings to gs to reduce cookie size
-function setGlobalSettings(cookies, SDKv2CookiesV1) {
-    if (SDKv2CookiesV1 && SDKv2CookiesV1.globalSettings) {
-        for (var key in SDKv2CookiesV1.globalSettings) {
-            if (SDKv2CookiesV1.globalSettings.hasOwnProperty(key)) {
-                if (key === 'currentSessionMPIDs') {
-                    cookies.gs.csm = SDKv2CookiesV1.globalSettings[key];
-                } else if (key === 'isEnabled') {
-                    cookies.gs.ie = SDKv2CookiesV1.globalSettings[key];
-                } else {
-                    cookies.gs[key] = SDKv2CookiesV1.globalSettings[key];
-                }
-            }
-        }
-    }
-
-    return cookies;
-}
-
 function restructureToV4Cookie(cookies) {
     try {
         var cookiesV4Schema = { gs: {csm: []} };
@@ -241,11 +123,7 @@ function restructureToV4Cookie(cookies) {
         for (var key in cookies) {
             if (cookies.hasOwnProperty(key)) {
                 if (CookiesGlobalSettingsKeys[key]) {
-                    if (key === 'isEnabled') {
-                        cookiesV4Schema.gs.ie = cookies[key];
-                    } else {
-                        cookiesV4Schema.gs[key] = cookies[key];
-                    }
+                    cookiesV4Schema.gs[key] = cookies[key];
                 } else if (key === 'mpid') {
                     cookiesV4Schema.cu = cookies[key];
                 } else if (cookies.mpid) {
@@ -268,7 +146,6 @@ function migrateProductsToNameSpace() {
     var products = localStorage.getItem(Constants.DefaultConfig.LocalStorageProductsV4);
     localStorage.setItem(MP.prodStorageName, products);
     localStorage.removeItem(lsProdV4Name);
-
 }
 
 function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
@@ -296,12 +173,10 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
 
 function migrateLocalStorage() {
     var cookies,
-        v1LSName = Config.LocalStorageName,
         v3LSName = Config.LocalStorageNameV3,
         v4LSName = Config.LocalStorageNameV4,
         currentVersionLSData = window.localStorage.getItem(MP.storageName),
         v4LSData,
-        v1LSData,
         v3LSData,
         v3LSDataStringCopy;
 
@@ -338,35 +213,6 @@ function migrateLocalStorage() {
                 localStorage.removeItem(Config.LocalStorageNameV3);
                 return;
             }
-        }
-    }
-
-    v1LSData = JSON.parse(decodeURIComponent(window.localStorage.getItem(v1LSName)));
-    if (v1LSData) {
-        MP.migratingToIDSyncCookies = true;
-        // SDKv2
-        if (v1LSData.globalSettings || v1LSData.currentUserMPID) {
-            v1LSData = JSON.parse(convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4(JSON.stringify(v1LSData)));
-            // SDKv1
-            // only products, not full persistence
-        } else if ((v1LSData.cp || v1LSData.pb) && !v1LSData.mpid) {
-            cookies = Persistence.getCookie();
-            if (cookies) {
-                migrateProductsFromSDKv1ToSDKv2CookiesV4(v1LSData, cookies.cu);
-                window.localStorage.removeItem(v1LSName);
-                return;
-            } else {
-                window.localStorage.removeItem(v1LSName);
-                return;
-            }
-        } else {
-            v1LSData = JSON.parse(convertSDKv1CookiesV1ToSDKv2CookiesV4(JSON.stringify(v1LSData)));
-        }
-
-        if (Helpers.isObject(v1LSData) && Object.keys(v1LSData).length) {
-            v1LSData = Persistence.encodeCookies(JSON.stringify(v1LSData));
-            finishLSMigration(v1LSData, v1LSName);
-            return;
         }
     }
 
@@ -410,8 +256,5 @@ function convertUIFromArrayToObject(cookie) {
 module.exports = {
     migrate: migrate,
     convertUIFromArrayToObject: convertUIFromArrayToObject,
-    convertSDKv1CookiesV1ToSDKv2CookiesV4: convertSDKv1CookiesV1ToSDKv2CookiesV4,
-    convertSDKv1CookiesV2ToSDKv2CookiesV4: convertSDKv1CookiesV2ToSDKv2CookiesV4,
-    convertSDKv1CookiesV3ToSDKv2CookiesV4: convertSDKv1CookiesV3ToSDKv2CookiesV4,
-    convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4: convertSDKv2CookiesV1ToSDKv2DecodedCookiesV4
+    convertSDKv1CookiesV3ToSDKv2CookiesV4: convertSDKv1CookiesV3ToSDKv2CookiesV4
 };
