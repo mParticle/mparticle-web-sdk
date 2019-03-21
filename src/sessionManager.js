@@ -11,10 +11,10 @@ function initialize() {
         var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
 
         if (new Date() > new Date(MP.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
-            this.endSession();
-            this.startNewSession();
+            endSession();
+            startNewSession();
         } else {
-            var cookies = mParticle.persistence.getPersistence();
+            var cookies = Persistence.getPersistence();
             if (cookies && !cookies.cu) {
                 IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
                 MP.identifyCalled = true;
@@ -22,7 +22,7 @@ function initialize() {
             }
         }
     } else {
-        this.startNewSession();
+        startNewSession();
     }
 }
 
@@ -45,7 +45,7 @@ function startNewSession() {
             MP.dateLastEventSent = date;
         }
 
-        mParticle.sessionManager.setSessionTimer();
+        setSessionTimer();
 
         if (!MP.identifyCalled) {
             IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
@@ -117,7 +117,7 @@ function setSessionTimer() {
     var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
 
     MP.globalTimer = window.setTimeout(function() {
-        mParticle.sessionManager.endSession();
+        endSession();
     }, sessionTimeoutInMilliseconds);
 }
 
