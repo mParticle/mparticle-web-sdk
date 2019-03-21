@@ -449,7 +449,7 @@ function mParticleUser(mpid, isLoggedIn) {
                         Persistence.storeDataInMemory(cookies, mpid);
                     }
 
-                    Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
+                    Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
                     Forwarders.callSetUserAttributeOnForwarders(key, value);
                 }
             }
@@ -508,7 +508,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     Persistence.storeDataInMemory(cookies, mpid);
                 }
 
-                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
+                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
                 Forwarders.applyToForwarders('removeUserAttribute', key);
             }
         },
@@ -555,7 +555,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     Persistence.storeDataInMemory(cookies, mpid);
                 }
 
-                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
+                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
             }
         },
@@ -575,7 +575,7 @@ function mParticleUser(mpid, isLoggedIn) {
 
                 userAttributes = this.getAllUserAttributes();
 
-                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
+                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
@@ -695,8 +695,6 @@ function mParticleUserCart(mpid){
             } else {
                 mParticle.sessionManager.resetSessionTimer();
 
-
-
                 userProducts = Persistence.getUserProductsFromLS(mpid);
 
                 userProducts = userProducts.concat(arrayCopy);
@@ -814,7 +812,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         indexOfMPID;
 
     if (MP.mpid) {
-        prevUser = mParticle.Identity.getCurrentUser();
+        prevUser = IdentityAPI.getCurrentUser();
     }
 
     MP.identityCallInFlight = false;
@@ -876,7 +874,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 MP.context = identityApiResult.context || MP.context;
             }
 
-            newUser = mParticle.Identity.getCurrentUser();
+            newUser = IdentityAPI.getCurrentUser();
 
             if (identityApiData && identityApiData.onUserAlias && Helpers.Validators.isFunction(identityApiData.onUserAlias)) {
                 try {

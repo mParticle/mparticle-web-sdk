@@ -5,6 +5,7 @@ var Types = require('./types'),
     ServerModel = require('./serverModel'),
     MP = require('./mp'),
     Persistence = require('./persistence'),
+    SessionManager = require('./sessionManager'),
     Messages = Constants.Messages,
     sendEventToServer = require('./apiClient').sendEventToServer,
     sendEventToForwarders = require('./forwarders').sendEventToForwarders;
@@ -362,7 +363,7 @@ function startNewSessionIfNeeded() {
             if (cookies.sid) {
                 MP.sessionId = cookies.sid;
             } else {
-                mParticle.startNewSession();
+                SessionManager.startNewSession();
             }
         }
     }
