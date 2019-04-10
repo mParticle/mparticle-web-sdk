@@ -338,7 +338,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.9',
+    sdkVersion = '2.8.10',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1015,6 +1015,7 @@ var Types = require('./types'),
     ServerModel = require('./serverModel'),
     MP = require('./mp'),
     Persistence = require('./persistence'),
+    SessionManager = require('./sessionManager'),
     Messages = Constants.Messages,
     sendEventToServer = require('./apiClient').sendEventToServer,
     sendEventToForwarders = require('./forwarders').sendEventToForwarders;
@@ -1372,7 +1373,7 @@ function startNewSessionIfNeeded() {
             if (cookies.sid) {
                 MP.sessionId = cookies.sid;
             } else {
-                mParticle.startNewSession();
+                SessionManager.startNewSession();
             }
         }
     }
@@ -1396,7 +1397,7 @@ module.exports = {
     startNewSessionIfNeeded: startNewSessionIfNeeded
 };
 
-},{"./apiClient":1,"./constants":3,"./ecommerce":5,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":16,"./serverModel":18,"./types":20}],7:[function(require,module,exports){
+},{"./apiClient":1,"./constants":3,"./ecommerce":5,"./forwarders":7,"./helpers":9,"./mp":14,"./persistence":16,"./serverModel":18,"./sessionManager":19,"./types":20}],7:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Types = require('./types'),
     Constants = require('./constants'),
@@ -2929,7 +2930,7 @@ function mParticleUser(mpid, isLoggedIn) {
                         Persistence.storeDataInMemory(cookies, mpid);
                     }
 
-                    Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
+                    Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
                     Forwarders.callSetUserAttributeOnForwarders(key, value);
                 }
             }
@@ -2988,7 +2989,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     Persistence.storeDataInMemory(cookies, mpid);
                 }
 
-                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
+                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
                 Forwarders.applyToForwarders('removeUserAttribute', key);
             }
         },
@@ -3035,7 +3036,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     Persistence.storeDataInMemory(cookies, mpid);
                 }
 
-                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
+                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
             }
         },
@@ -3055,7 +3056,7 @@ function mParticleUser(mpid, isLoggedIn) {
 
                 userAttributes = this.getAllUserAttributes();
 
-                Forwarders.initForwarders(mParticle.Identity.getCurrentUser().getUserIdentities());
+                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
@@ -3175,8 +3176,6 @@ function mParticleUserCart(mpid){
             } else {
                 mParticle.sessionManager.resetSessionTimer();
 
-
-
                 userProducts = Persistence.getUserProductsFromLS(mpid);
 
                 userProducts = userProducts.concat(arrayCopy);
@@ -3294,7 +3293,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         indexOfMPID;
 
     if (MP.mpid) {
-        prevUser = mParticle.Identity.getCurrentUser();
+        prevUser = IdentityAPI.getCurrentUser();
     }
 
     MP.identityCallInFlight = false;
@@ -3356,7 +3355,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 MP.context = identityApiResult.context || MP.context;
             }
 
-            newUser = mParticle.Identity.getCurrentUser();
+            newUser = IdentityAPI.getCurrentUser();
 
             if (identityApiData && identityApiData.onUserAlias && Helpers.Validators.isFunction(identityApiData.onUserAlias)) {
                 try {
@@ -3640,8 +3639,8 @@ var Polyfill = require('./polyfill'),
                     MP.migratingToIDSyncCookies = false;
                 }
 
-                currentUser = mParticle.Identity.getCurrentUser();
-                // Call mParticle.identityCallback when identify was not called due to a reload or a sessionId already existing
+                currentUser = IdentityAPI.getCurrentUser();
+                // Call MP.config.identityCallback when identify was not called due to a reload or a sessionId already existing
                 if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && currentUser) {
                     mParticle.identityCallback({
                         httpCode: HTTPCodes.activeSession,
@@ -3672,7 +3671,7 @@ var Polyfill = require('./polyfill'),
                     }
                 }
 
-                mParticle.sessionManager.initialize();
+                SessionManager.initialize();
                 Events.logAST();
             }
 
@@ -3797,7 +3796,7 @@ var Polyfill = require('./polyfill'),
         * @method stopTrackingLocation
         */
         stopTrackingLocation: function() {
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
             Events.stopTracking();
         },
         /**
@@ -3810,7 +3809,7 @@ var Polyfill = require('./polyfill'),
                 Helpers.logDebug('Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.');
             }
 
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
             Events.startTracking(callback);
         },
         /**
@@ -3820,7 +3819,7 @@ var Polyfill = require('./polyfill'),
         * @param {Number} longitude longitude digit
         */
         setPosition: function(lat, lng) {
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
             if (typeof lat === 'number' && typeof lng === 'number') {
                 MP.currentPosition = {
                     lat: lat,
@@ -3855,7 +3854,7 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [customFlags] Additional customFlags
         */
         logEvent: function(eventName, eventType, eventInfo, customFlags) {
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
             if (typeof (eventName) !== 'string') {
                 Helpers.logDebug(Messages.ErrorMessages.EventNameInvalidType);
                 return;
@@ -3884,7 +3883,7 @@ var Polyfill = require('./polyfill'),
         * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
         */
         logError: function(error) {
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
             if (!error) {
                 return;
             }
@@ -3913,7 +3912,7 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [eventInfo] Attributes for the event
         */
         logLink: function(selector, eventName, eventType, eventInfo) {
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
             Events.addEventHandler('click', selector, eventName, eventInfo, eventType);
         },
         /**
@@ -3925,7 +3924,7 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [eventInfo] Attributes for the event
         */
         logForm: function(selector, eventName, eventType, eventInfo) {
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
             Events.addEventHandler('submit', selector, eventName, eventInfo, eventType);
         },
         /**
@@ -3936,7 +3935,7 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [customFlags] Custom flags for the event
         */
         logPageView: function(eventName, attrs, customFlags) {
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
 
             if (Helpers.canLog()) {
                 if (!Validators.isStringOrNumber(eventName)) {
@@ -4013,7 +4012,7 @@ var Polyfill = require('./polyfill'),
                     Helpers.logDebug('Code must be a string');
                     return;
                 }
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 MP.currencyCode = code;
             },
             /**
@@ -4032,7 +4031,7 @@ var Polyfill = require('./polyfill'),
             * @param {Object} [attributes] product attributes
             */
             createProduct: function(name, sku, price, quantity, variant, category, brand, position, coupon, attributes) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 return Ecommerce.createProduct(name, sku, price, quantity, variant, category, brand, position, coupon, attributes);
             },
             /**
@@ -4045,7 +4044,7 @@ var Polyfill = require('./polyfill'),
             * @param {Number} [position] promotion position
             */
             createPromotion: function(id, creative, name, position) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 return Ecommerce.createPromotion(id, creative, name, position);
             },
             /**
@@ -4056,7 +4055,7 @@ var Polyfill = require('./polyfill'),
             * @param {Object} product the product for which an impression is being created
             */
             createImpression: function(name, product) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 return Ecommerce.createImpression(name, product);
             },
             /**
@@ -4071,7 +4070,7 @@ var Polyfill = require('./polyfill'),
             * @param {Number} [tax] the tax amount
             */
             createTransactionAttributes: function(id, affiliation, couponCode, revenue, shipping, tax) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 return Ecommerce.createTransactionAttributes(id, affiliation, couponCode, revenue, shipping, tax);
             },
             /**
@@ -4084,7 +4083,7 @@ var Polyfill = require('./polyfill'),
             * @param {Object} [customFlags] Custom flags for the event
             */
             logCheckout: function(step, options, attrs, customFlags) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 Events.logCheckoutEvent(step, options, attrs, customFlags);
             },
             /**
@@ -4097,7 +4096,7 @@ var Polyfill = require('./polyfill'),
             * @param {Object} [customFlags] Custom flags for the event
             */
             logProductAction: function(productActionType, product, attrs, customFlags) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 Events.logProductActionEvent(productActionType, product, attrs, customFlags);
             },
             /**
@@ -4115,7 +4114,7 @@ var Polyfill = require('./polyfill'),
                     Helpers.logDebug(Messages.ErrorMessages.BadLogPurchase);
                     return;
                 }
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 Events.logPurchaseEvent(transactionAttributes, product, attrs, customFlags);
 
                 if (clearCart === true) {
@@ -4132,7 +4131,7 @@ var Polyfill = require('./polyfill'),
             * @param {Object} [customFlags] Custom flags for the event
             */
             logPromotion: function(type, promotion, attrs, customFlags) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 Events.logPromotionEvent(type, promotion, attrs, customFlags);
             },
             /**
@@ -4144,7 +4143,7 @@ var Polyfill = require('./polyfill'),
             * @param {Object} [customFlags] Custom flags for the event
             */
             logImpression: function(impression, attrs, customFlags) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 Events.logImpressionEvent(impression, attrs, customFlags);
             },
             /**
@@ -4158,7 +4157,7 @@ var Polyfill = require('./polyfill'),
             * @param {Object} [customFlags] Custom flags for the event
             */
             logRefund: function(transactionAttributes, product, clearCart, attrs, customFlags) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 Events.logRefundEvent(transactionAttributes, product, attrs, customFlags);
 
                 if (clearCart === true) {
@@ -4166,7 +4165,7 @@ var Polyfill = require('./polyfill'),
                 }
             },
             expandCommerceEvent: function(event) {
-                mParticle.sessionManager.resetSessionTimer();
+                SessionManager.resetSessionTimer();
                 return Ecommerce.expandCommerceEvent(event);
             }
         },
@@ -4178,7 +4177,7 @@ var Polyfill = require('./polyfill'),
         * @param {String or Number} value value for session attribute
         */
         setSessionAttribute: function(key, value) {
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
             // Logs to cookie
             // And logs to in-memory object
             // Example: mParticle.setSessionAttribute('location', '33431');
@@ -4216,7 +4215,7 @@ var Polyfill = require('./polyfill'),
         * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
         */
         setOptOut: function(isOptingOut) {
-            mParticle.sessionManager.resetSessionTimer();
+            SessionManager.resetSessionTimer();
             MP.isEnabled = !isOptingOut;
 
             Events.logOptOut();
@@ -6398,10 +6397,10 @@ function initialize() {
         var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
 
         if (new Date() > new Date(MP.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
-            this.endSession();
-            this.startNewSession();
+            endSession();
+            startNewSession();
         } else {
-            var cookies = mParticle.persistence.getPersistence();
+            var cookies = Persistence.getPersistence();
             if (cookies && !cookies.cu) {
                 IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
                 MP.identifyCalled = true;
@@ -6409,7 +6408,7 @@ function initialize() {
             }
         }
     } else {
-        this.startNewSession();
+        startNewSession();
     }
 }
 
@@ -6432,7 +6431,7 @@ function startNewSession() {
             MP.dateLastEventSent = date;
         }
 
-        mParticle.sessionManager.setSessionTimer();
+        setSessionTimer();
 
         if (!MP.identifyCalled) {
             IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
@@ -6504,7 +6503,7 @@ function setSessionTimer() {
     var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
 
     MP.globalTimer = window.setTimeout(function() {
-        mParticle.sessionManager.endSession();
+        endSession();
     }, sessionTimeoutInMilliseconds);
 }
 
