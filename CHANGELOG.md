@@ -1,6 +1,12 @@
 ## Releases
 --
 
+#### 2.8.10 - 2019-04-10
+*  Prefer modules over public mParticle methods
+
+#### 2.8.9 - 2019-03-13
+*  Simplify / remove migrations
+
 #### 2.8.8 - 2019-02-20
 *  Bugfix - Native SDK - prioritize equality of requiredWebviewBridgeName
 
