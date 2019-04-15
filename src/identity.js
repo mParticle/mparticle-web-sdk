@@ -669,6 +669,12 @@ function mParticleUser(mpid, isLoggedIn) {
         },
         isLoggedIn: function() {
             return isLoggedIn;
+        },
+        getLastSeenTime: function() {
+            return Persistence.getLastSeenTime(mpid);
+        },
+        getFirstSeenTime: function() {
+            return Persistence.getFirstSeenTime(mpid);
         }
     };
 }
@@ -837,6 +843,17 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
 
                 if (!(prevUser) || (prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID())) {
                     mParticle.Store.mpid = identityApiResult.mpid;
+                    if (prevUser) {
+                        Persistence.setLastSeenTime(previousMPID);
+                    }
+                    Persistence.setFirstSeenTime(identityApiResult.mpid);
+                }
+
+                //this covers an edge case where, users stored before "firstSeenTime" was introduced
+                //will not have a value for "fst" until the current MPID changes, and in some cases,
+                //the current MPID will never change
+                if (method === 'identify' && prevUser && identityApiResult.mpid === prevUser.getMPID()) {
+                    Persistence.setFirstSeenTime(identityApiResult.mpid);
                 }
 
                 indexOfMPID = mParticle.Store.currentSessionMPIDs.indexOf(identityApiResult.mpid);

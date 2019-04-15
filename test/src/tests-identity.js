@@ -1808,4 +1808,104 @@ describe('identity', function() {
 
         done();
     });
+
+    it('Users should have firstSeenTime and lastSeenTime', function(done) {
+        mParticle.reset(MPConfig);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                status: 200, mpid: 'MPID1'
+            }));
+        };
+        
+        server.requests = [];
+
+        var clock = sinon.useFakeTimers();
+        clock.tick(100);
+
+        mParticle.init(apiKey);
+
+        var currentUser = mParticle.Identity.getCurrentUser();
+        currentUser.should.not.equal(null);
+
+        Should(currentUser.getFirstSeenTime()).not.equal(null);
+        Should(currentUser.getLastSeenTime()).not.equal(null);
+        
+        clock.tick(100);
+
+        currentUser.getFirstSeenTime().should.equal(100);
+        currentUser.getLastSeenTime().should.equal(200);
+        
+        clock.restore();
+        done();
+    });
+
+    it('firstSeenTime should stay the same for a user', function(done) {
+        mParticle.reset(MPConfig);
+
+        var clock = sinon.useFakeTimers();
+        clock.tick(100);
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                status: 200, mpid: 'MPID1'
+            }));
+        };
+
+        server.requests = [];
+        
+        mParticle.init(apiKey);
+
+        var currentUser = mParticle.Identity.getCurrentUser();
+        currentUser.should.not.equal(null);
+        var user1FirstSeen = currentUser.getFirstSeenTime();
+
+        clock.tick(20);
+        
+        var user1LastSeen = currentUser.getLastSeenTime();
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                status: 200, mpid: 'MPID2'
+            }));
+        };
+
+        server.requests = [];
+        mParticle.Identity.login();
+
+        currentUser = mParticle.Identity.getCurrentUser();
+        currentUser.getMPID().should.equal('MPID2');
+
+        //new user's firstSeenTime should be greater than or equal to the preceeding user's lastSeenTime
+        (currentUser.getFirstSeenTime() >= user1LastSeen).should.equal(true);
+        currentUser.getFirstSeenTime().should.equal(120);
+
+        clock.tick(20);
+        
+        var user1 = mParticle.Identity.getUser('MPID1');
+        user1.getFirstSeenTime().should.equal(user1FirstSeen);
+
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                status: 200, mpid: 'MPID1'
+            }));
+        };
+
+        server.requests = [];
+
+        mParticle.Identity.login();
+
+        currentUser = mParticle.Identity.getCurrentUser();
+        currentUser.getMPID().should.equal('MPID1');
+        currentUser.getFirstSeenTime().should.equal(user1FirstSeen);
+        (currentUser.getLastSeenTime() > user1LastSeen).should.equal(true);
+
+        clock.restore();
+        done();
+    });
 });

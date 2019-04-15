@@ -16,7 +16,6 @@ var TestsCore = require('./tests-core'),
     v4LSKey = 'mprtcl-v4',
     getEvent = TestsCore.getEvent,
     should = require('should');
-
 describe('migrations and persistence-related', function() {
     beforeEach(function() {
         delete mParticle.config.useCookieStorage;
@@ -164,8 +163,6 @@ describe('migrations and persistence-related', function() {
     });
 
     it('puts data into localStorage when running initializeStorage with useCookieStorage = false', function(done) {
-        // window.mParticle.config.useCookieStorage = false;
-
         mParticle.init(apiKey);
 
         var cookieData = mParticle.persistence.getCookie();
@@ -208,7 +205,6 @@ describe('migrations and persistence-related', function() {
     it('puts data into localStorage when updating persistence with useCookieStorage = false', function(done) {
         var localStorageData, cookieData;
         // Flush out anything in expire before updating in order to silo testing persistence.update()
-        // window.mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey);
 
         localStorageData = getLocalStorage();
@@ -593,7 +589,7 @@ describe('migrations and persistence-related', function() {
     it('integration test - should remove a previous MPID as a key from cookies if new user attribute added and exceeds the size of the max cookie size', function(done) {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = true;
-        mParticle.config.maxCookieSize = 600;
+        mParticle.config.maxCookieSize = 650;
 
         mParticle.init(apiKey);
 
@@ -1081,6 +1077,144 @@ describe('migrations and persistence-related', function() {
         Object.keys(parsedProductsAfter).length.should.equal(1);
         parsedProductsAfter['testMPID'].should.have.property('cp');
         parsedProductsAfter['testMPID'].cp.length.should.equal(0);
+        done();
+    });
+
+    it('should only set setFirstSeenTime() once', function(done) {
+        mParticle.reset(MPConfig);
+
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime()
+            },
+            previous: {},
+            previous_set: {
+                fst: 100
+            },
+            cu: 'current'
+        });
+
+        setCookie(workspaceCookieName, cookies);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+
+        mParticle.persistence.setFirstSeenTime('current', 10000);
+        var currentFirstSeenTime = mParticle.persistence.getFirstSeenTime('current');
+        mParticle.persistence.setFirstSeenTime('current', 2);
+        mParticle.persistence.getFirstSeenTime('current').should.equal(currentFirstSeenTime);
+
+        mParticle.persistence.setFirstSeenTime('previous', 10);
+        mParticle.persistence.getFirstSeenTime('previous').should.equal(10);
+        mParticle.persistence.setFirstSeenTime('previous', 20);
+        mParticle.persistence.getFirstSeenTime('previous').should.equal(10);
+
+        mParticle.persistence.getFirstSeenTime('previous_set').should.equal(100);
+        mParticle.persistence.setFirstSeenTime('previous_set', 200);
+        mParticle.persistence.getFirstSeenTime('previous_set').should.equal(100);
+        done();
+    });
+
+    it('should properly set setLastSeenTime()', function(done) {
+        mParticle.reset(MPConfig);
+
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'lst Test',
+                les: new Date().getTime()
+            },
+            previous: {},
+            previous_set: {
+                lst: 10
+            },
+            cu: 'current'
+        });
+
+        setCookie(workspaceCookieName, cookies, true);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+
+        var clock = sinon.useFakeTimers();
+        clock.tick(100);
+        
+        Persistence.setLastSeenTime('previous', 1);
+        Persistence.getLastSeenTime('previous').should.equal(1);
+
+        Persistence.setLastSeenTime('previous', 2);
+        Persistence.getLastSeenTime('previous').should.equal(2);
+
+        Persistence.getLastSeenTime('previous_set').should.equal(10);
+        Persistence.setLastSeenTime('previous_set', 20);
+        Persistence.getLastSeenTime('previous_set').should.equal(20);
+
+        Persistence.getLastSeenTime('current').should.equal(100);
+        Persistence.setLastSeenTime('current', 200);
+        //lastSeenTime for the current user should always reflect the current time,
+        //even if was set
+        Persistence.getLastSeenTime('current').should.equal(100);
+        clock.tick(50);
+        Persistence.getLastSeenTime('current').should.equal(150);
+
+        clock.restore();
+        done();
+    });
+
+    it('should set firstSeenTime() for a user that doesn\'t have storage yet', function(done) {
+        mParticle.reset(MPConfig);
+
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'lst Test',
+                les: new Date().getTime()
+            },
+            cu: 'test'
+        });
+
+        setCookie(workspaceCookieName, cookies, true);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+
+        Persistence.setFirstSeenTime('1', 1);
+        Persistence.getFirstSeenTime('1').should.equal(1);
+        //firstSeenTime should ignore subsiquent calls after it has been set
+        Persistence.setFirstSeenTime('2', 2);
+        Persistence.getFirstSeenTime('1').should.equal(1);
+
+        done();
+    });
+
+    it('fst should be set when the user does not change, after an identify request', function(done) {
+        mParticle.reset(MPConfig);
+
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'lst Test',
+                les: new Date().getTime()
+            },
+            current: {},
+            cu: 'current'
+        });
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'current'
+            }));
+        };
+
+        setCookie(workspaceCookieName, cookies, true);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+
+        Should(Persistence.getFirstSeenTime('current')).equal(null);
+
+        mParticle.Identity.identify();
+
+        Should(Persistence.getFirstSeenTime('current')).not.equal(null);
 
         done();
     });

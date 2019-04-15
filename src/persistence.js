@@ -93,7 +93,6 @@ function initializeStorage() {
                 }
             }
         }
-
         this.update();
     } catch (e) {
         if (useLocalStorage() && mParticle.Store.isLocalStorageAvailable) {
@@ -890,6 +889,79 @@ function getConsentState(mpid) {
     }
 }
 
+function getFirstSeenTime(mpid) {
+    if (!mpid) {
+        return null;
+    }
+    var cookies = getPersistence();
+    if (cookies && cookies[mpid] && cookies[mpid].fst) {
+        return cookies[mpid].fst;
+    } else {
+        return null;
+    }
+}
+
+/**
+* set the "first seen" time for a user. the time will only be set once for a given
+* mpid after which subsequent calls will be ignored
+*/
+function setFirstSeenTime(mpid, time) {
+    if (!mpid) {
+        return;
+    }
+    if (!time) {
+        time = new Date().getTime();
+    }
+    var cookies = getPersistence();
+    if (cookies) {
+        if (!cookies[mpid]) {
+            cookies[mpid] = {};
+        }
+        if (!cookies[mpid].fst) {
+            cookies[mpid].fst = time;
+            saveCookies(cookies);
+        }
+    }
+}
+
+/**
+* returns the "last seen" time for a user. If the mpid represents the current user, the 
+* return value will always be the current time, otherwise it will be to stored "last seen" 
+* time
+*/
+function getLastSeenTime(mpid) {
+    if (!mpid) {
+        return null;
+    }
+    if (mpid === mParticle.Identity.getCurrentUser().getMPID()) {
+        //if the mpid is the current user, its last seen time is the current time
+        return new Date().getTime();
+    } else {
+        var cookies = getPersistence();
+        if (cookies && cookies[mpid] && cookies[mpid].lst) {
+            return cookies[mpid].lst;
+        } else {
+            var defaultTime = new Date().getTime();
+            setLastSeenTime(mpid, defaultTime);
+            return defaultTime;
+        }
+    }
+}
+
+function setLastSeenTime(mpid, time) {
+    if (!mpid) {
+        return;
+    }
+    if (!time) {
+        time = new Date().getTime();
+    }
+    var cookies = getPersistence();
+    if (cookies && cookies[mpid]) {
+        cookies[mpid].lst = time;
+        saveCookies(cookies);
+    }
+}
+
 function getDeviceId() {
     return mParticle.Store.deviceId;
 }
@@ -960,5 +1032,9 @@ module.exports = {
     getDeviceId: getDeviceId,
     resetPersistence: resetPersistence,
     getConsentState: getConsentState,
-    forwardingStatsBatches: forwardingStatsBatches
+    forwardingStatsBatches: forwardingStatsBatches,
+    getFirstSeenTime: getFirstSeenTime,
+    getLastSeenTime: getLastSeenTime,
+    setFirstSeenTime: setFirstSeenTime,
+    setLastSeenTime: setLastSeenTime
 };
