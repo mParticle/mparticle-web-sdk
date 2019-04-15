@@ -3,20 +3,19 @@ var Helpers = require('./helpers'),
     Constants = require('./constants'),
     MParticleUser = require('./mParticleUser'),
     ApiClient = require('./apiClient'),
-    Persistence = require('./persistence'),
-    MP = require('./mp');
+    Persistence = require('./persistence');
 
 function initForwarders(userIdentities) {
     var user = mParticle.Identity.getCurrentUser();
-    if (!MP.webviewBridgeEnabled && MP.configuredForwarders) {
+    if (!mParticle.Store.webviewBridgeEnabled && mParticle.preInit.configuredForwarders) {
         // Some js libraries require that they be loaded first, or last, etc
-        MP.configuredForwarders.sort(function(x, y) {
+        mParticle.preInit.configuredForwarders.sort(function(x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
             y.settings.PriorityValue = y.settings.PriorityValue || 0;
             return -1 * (x.settings.PriorityValue - y.settings.PriorityValue);
         });
 
-        MP.activeForwarders = MP.configuredForwarders.filter(function(forwarder) {
+        mParticle.Store.activeForwarders = mParticle.preInit.configuredForwarders.filter(function(forwarder) {
             if (!isEnabledForUserConsent(forwarder.filteringConsentRuleValues, user)) {
                 return false;
             }
@@ -28,7 +27,7 @@ function initForwarders(userIdentities) {
             }
 
             var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
-            var filteredUserAttributes = Helpers.filterUserAttributes(MP.userAttributes, forwarder.userAttributeFilters);
+            var filteredUserAttributes = Helpers.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
 
             if (!forwarder.initialized) {
                 forwarder.init(forwarder.settings,
@@ -37,10 +36,10 @@ function initForwarders(userIdentities) {
                     null,
                     filteredUserAttributes,
                     filteredUserIdentities,
-                    MP.appVersion,
-                    MP.appName,
-                    MP.customFlags,
-                    MP.clientId);
+                    mParticle.Store.SDKConfig.appVersion,
+                    mParticle.Store.SDKConfig.appName,
+                    mParticle.Store.SDKConfig.customFlags,
+                    mParticle.Store.clientId);
                 forwarder.initialized = true;
             }
 
@@ -142,8 +141,8 @@ function isEnabledForUnknownUser(excludeAnonymousUserBoolean, user) {
 }
 
 function applyToForwarders(functionName, functionArgs) {
-    if (MP.activeForwarders.length) {
-        MP.activeForwarders.forEach(function(forwarder) {
+    if (mParticle.Store.activeForwarders.length) {
+        mParticle.Store.activeForwarders.forEach(function(forwarder) {
             var forwarderFunction = forwarder[functionName];
             if (forwarderFunction) {
                 try {
@@ -211,11 +210,11 @@ function sendEventToForwarders(event) {
             Types.MessageType.Commerce
         ];
 
-    if (!MP.webviewBridgeEnabled && MP.activeForwarders) {
+    if (!mParticle.Store.webviewBridgeEnabled && mParticle.Store.activeForwarders) {
         hashedEventName = Helpers.generateHash(event.EventCategory + event.EventName);
         hashedEventType = Helpers.generateHash(event.EventCategory);
 
-        for (var i = 0; i < MP.activeForwarders.length; i++) {
+        for (var i = 0; i < mParticle.Store.activeForwarders.length; i++) {
             // Check attribute forwarding rule. This rule allows users to only forward an event if a
             // specific attribute exists and has a specific value. Alternatively, they can specify
             // that an event not be forwarded if the specified attribute name and value exists.
@@ -223,9 +222,9 @@ function sendEventToForwarders(event) {
             // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
 
             if (forwardingRuleMessageTypes.indexOf(event.EventDataType) > -1
-                && MP.activeForwarders[i].filteringEventAttributeValue
-                && MP.activeForwarders[i].filteringEventAttributeValue.eventAttributeName
-                && MP.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue) {
+                && mParticle.Store.activeForwarders[i].filteringEventAttributeValue
+                && mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName
+                && mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue) {
 
                 var foundProp = null;
 
@@ -235,7 +234,7 @@ function sendEventToForwarders(event) {
                         var hashedEventAttributeName;
                         hashedEventAttributeName = Helpers.generateHash(prop).toString();
 
-                        if (hashedEventAttributeName === MP.activeForwarders[i].filteringEventAttributeValue.eventAttributeName) {
+                        if (hashedEventAttributeName === mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName) {
                             foundProp = {
                                 name: hashedEventAttributeName,
                                 value: Helpers.generateHash(event.EventAttributes[prop]).toString()
@@ -246,9 +245,9 @@ function sendEventToForwarders(event) {
                     }
                 }
 
-                var isMatch = foundProp !== null && foundProp.value === MP.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue;
+                var isMatch = foundProp !== null && foundProp.value === mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue;
 
-                var shouldInclude = MP.activeForwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
+                var shouldInclude = mParticle.Store.activeForwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
 
                 if (!shouldInclude) {
                     continue;
@@ -260,37 +259,37 @@ function sendEventToForwarders(event) {
             clonedEvent = Helpers.extend(true, clonedEvent, event);
             // Check event filtering rules
             if (event.EventDataType === Types.MessageType.PageEvent
-                && (inFilteredList(MP.activeForwarders[i].eventNameFilters, hashedEventName)
-                    || inFilteredList(MP.activeForwarders[i].eventTypeFilters, hashedEventType))) {
+                && (inFilteredList(mParticle.Store.activeForwarders[i].eventNameFilters, hashedEventName)
+                    || inFilteredList(mParticle.Store.activeForwarders[i].eventTypeFilters, hashedEventType))) {
                 continue;
             }
-            else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(MP.activeForwarders[i].eventTypeFilters, hashedEventType)) {
+            else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(mParticle.Store.activeForwarders[i].eventTypeFilters, hashedEventType)) {
                 continue;
             }
-            else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(MP.activeForwarders[i].screenNameFilters, hashedEventName)) {
+            else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(mParticle.Store.activeForwarders[i].screenNameFilters, hashedEventName)) {
                 continue;
             }
 
             // Check attribute filtering rules
             if (clonedEvent.EventAttributes) {
                 if (event.EventDataType === Types.MessageType.PageEvent) {
-                    filterAttributes(clonedEvent, MP.activeForwarders[i].attributeFilters);
+                    filterAttributes(clonedEvent, mParticle.Store.activeForwarders[i].attributeFilters);
                 }
                 else if (event.EventDataType === Types.MessageType.PageView) {
-                    filterAttributes(clonedEvent, MP.activeForwarders[i].pageViewAttributeFilters);
+                    filterAttributes(clonedEvent, mParticle.Store.activeForwarders[i].pageViewAttributeFilters);
                 }
             }
 
             // Check user identity filtering rules
-            filterUserIdentities(clonedEvent, MP.activeForwarders[i].userIdentityFilters);
+            filterUserIdentities(clonedEvent, mParticle.Store.activeForwarders[i].userIdentityFilters);
 
             // Check user attribute filtering rules
-            clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, MP.activeForwarders[i].userAttributeFilters);
+            clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, mParticle.Store.activeForwarders[i].userAttributeFilters);
 
-            Helpers.logDebug('Sending message to forwarder: ' + MP.activeForwarders[i].name);
+            Helpers.logDebug('Sending message to forwarder: ' + mParticle.Store.activeForwarders[i].name);
 
-            if (MP.activeForwarders[i].process) {
-                var result = MP.activeForwarders[i].process(clonedEvent);
+            if (mParticle.Store.activeForwarders[i].process) {
+                var result = mParticle.Store.activeForwarders[i].process(clonedEvent);
 
                 if (result) {
                     Helpers.logDebug(result);
@@ -302,8 +301,8 @@ function sendEventToForwarders(event) {
 }
 
 function callSetUserAttributeOnForwarders(key, value) {
-    if (MP.activeForwarders.length) {
-        MP.activeForwarders.forEach(function(forwarder) {
+    if (mParticle.Store.activeForwarders.length) {
+        mParticle.Store.activeForwarders.forEach(function(forwarder) {
             if (forwarder.setUserAttribute &&
                 forwarder.userAttributeFilters &&
                 !Helpers.inArray(forwarder.userAttributeFilters, Helpers.generateHash(key))) {
@@ -324,7 +323,7 @@ function callSetUserAttributeOnForwarders(key, value) {
 }
 
 function setForwarderUserIdentities(userIdentities) {
-    MP.activeForwarders.forEach(function(forwarder) {
+    mParticle.Store.activeForwarders.forEach(function(forwarder) {
         var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
         if (forwarder.setUserIdentity) {
             filteredUserIdentities.forEach(function(identity) {
@@ -338,7 +337,7 @@ function setForwarderUserIdentities(userIdentities) {
 }
 
 function setForwarderOnUserIdentified(user) {
-    MP.activeForwarders.forEach(function(forwarder) {
+    mParticle.Store.activeForwarders.forEach(function(forwarder) {
         var filteredUser = MParticleUser.getFilteredMparticleUser(user.getMPID(), forwarder);
         if (forwarder.onUserIdentified) {
             var result = forwarder.onUserIdentified(filteredUser);
@@ -352,7 +351,7 @@ function setForwarderOnUserIdentified(user) {
 function setForwarderOnIdentityComplete(user, identityMethod) {
     var result;
 
-    MP.activeForwarders.forEach(function(forwarder) {
+    mParticle.Store.activeForwarders.forEach(function(forwarder) {
         var filteredUser = MParticleUser.getFilteredMparticleUser(user.getMPID(), forwarder);
         if (identityMethod === 'identify') {
             if (forwarder.onIdentifyComplete) {

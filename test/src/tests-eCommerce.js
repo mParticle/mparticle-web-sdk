@@ -2,9 +2,11 @@ var TestsCore = require('./tests-core'),
     apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
+    MPConfig = TestsCore.MPConfig,
     ProductActionType = TestsCore.ProductActionType,
     PromotionActionType = TestsCore.PromotionActionType,
     getEvent = TestsCore.getEvent,
+    workspaceToken = TestsCore.workspaceToken,
     CommerceEventType = TestsCore.CommerceEventType,
     MockForwarder = TestsCore.MockForwarder,
     server = TestsCore.server;
@@ -323,31 +325,35 @@ describe('eCommerce', function() {
         done();
     });
 
-    it('should not add the (mParticle.maxProducts + 1st) item to cookie cartItems, but still persist all items in memory for logging', function(done) {
+    it('should not add the (config.maxProducts + 1st) item to cookie cartItems and only send cookie cartProducts when logging', function(done) {
+        mParticle.config.maxProducts = 10;
+        mParticle.config.workspaceToken = workspaceToken;
+        mParticle.init(apiKey);
+
         var product = mParticle.eCommerce.createProduct('Product', '12345', 400);
-        for (var i = 0; i < mParticle.maxProducts; i++) {
+        for (var i = 0; i < mParticle.config.maxProducts; i++) {
             mParticle.eCommerce.Cart.add(product);
         }
 
-        mParticle.eCommerce.Cart.add(mParticle.eCommerce.createProduct('Product21', '12345', 400));
+        mParticle.eCommerce.Cart.add(mParticle.eCommerce.createProduct('Product11', '12345', 400));
         var products1 = getLocalStorageProducts();
 
         var foundProductInCookies = products1[testMPID].cp.filter(function(product) {
-            return product.Name === 'Product1';
+            return product.Name === 'Product11';
         })[0];
 
-        products1[testMPID].cp.length.should.equal(20);
-        Should(foundProductInCookies).not.be.ok();
+        products1[testMPID].cp.length.should.equal(10);
+        Should(foundProductInCookies).be.ok();
 
         // Events log with in memory data, so product bag has 21 and product is found in memory
         mParticle.eCommerce.logCheckout();
         var event = getEvent('eCommerce - Checkout');
-        var foundProductInMemory = event.pd.pl.filter(function(product) {
-            return product.nm === 'Product21';
+        var product11 = event.pd.pl.filter(function(product) {
+            return product.nm === 'Product11';
         })[0];
 
-        event.pd.pl.length.should.equal(21);
-        foundProductInMemory.nm.should.equal('Product21');
+        event.pd.pl.length.should.equal(10);
+        product11.nm.should.equal('Product11');
 
         done();
     });
@@ -488,7 +494,7 @@ describe('eCommerce', function() {
     });
 
     it('should support array of products when adding to cart', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         mParticle.init(apiKey);
 
         var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2),
@@ -514,7 +520,7 @@ describe('eCommerce', function() {
     });
 
     it('should support a single product when adding to cart', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         mParticle.init(apiKey);
 
         var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2);
@@ -536,7 +542,7 @@ describe('eCommerce', function() {
     });
 
     it('expand product purchase commerce event', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure({
@@ -610,7 +616,7 @@ describe('eCommerce', function() {
     });
 
     it('expand product refund commerce event', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure({
@@ -659,7 +665,7 @@ describe('eCommerce', function() {
     });
 
     it('expand non-plus-one-product commerce event', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure({
@@ -713,7 +719,7 @@ describe('eCommerce', function() {
     });
 
     it('expand checkout commerce event', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure({
@@ -771,7 +777,7 @@ describe('eCommerce', function() {
     });
 
     it('expand promotion commerce event', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure({
@@ -823,7 +829,7 @@ describe('eCommerce', function() {
     });
 
     it('expand impression commerce event', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
         mockForwarder.configure({

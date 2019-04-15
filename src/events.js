@@ -3,7 +3,6 @@ var Types = require('./types'),
     Helpers = require('./helpers'),
     Ecommerce = require('./ecommerce'),
     ServerModel = require('./serverModel'),
-    MP = require('./mp'),
     Persistence = require('./persistence'),
     SessionManager = require('./sessionManager'),
     Messages = Constants.Messages,
@@ -45,8 +44,8 @@ function parseEventResponse(responseText) {
         if (settings && settings.Store) {
             Helpers.logDebug('Parsed store from response, updating local settings');
 
-            if (!MP.serverSettings) {
-                MP.serverSettings = {};
+            if (!mParticle.Store.serverSettings) {
+                mParticle.Store.serverSettings = {};
             }
 
             for (prop in settings.Store) {
@@ -59,13 +58,13 @@ function parseEventResponse(responseText) {
                 if (!fullProp.Value || new Date(fullProp.Expires) < now) {
                     // This setting should be deleted from the local store if it exists
 
-                    if (MP.serverSettings.hasOwnProperty(prop)) {
-                        delete MP.serverSettings[prop];
+                    if (mParticle.Store.serverSettings.hasOwnProperty(prop)) {
+                        delete mParticle.Store.serverSettings[prop];
                     }
                 }
                 else {
                     // This is a valid setting
-                    MP.serverSettings[prop] = fullProp;
+                    mParticle.Store.serverSettings[prop] = fullProp;
                 }
             }
 
@@ -78,22 +77,22 @@ function parseEventResponse(responseText) {
 }
 
 function startTracking(callback) {
-    if (!MP.isTracking) {
+    if (!mParticle.Store.isTracking) {
         if ('geolocation' in navigator) {
-            MP.watchPositionId = navigator.geolocation.watchPosition(successTracking, errorTracking);
+            mParticle.Store.watchPositionId = navigator.geolocation.watchPosition(successTracking, errorTracking);
         }
     } else {
         var position = {
             coords: {
-                latitude: MP.currentPosition.lat,
-                longitude: MP.currentPosition.lng
+                latitude: mParticle.Store.currentPosition.lat,
+                longitude: mParticle.Store.currentPosition.lng
             }
         };
         triggerCallback(callback, position);
     }
 
     function successTracking(position) {
-        MP.currentPosition = {
+        mParticle.Store.currentPosition = {
             lat: position.coords.latitude,
             lng: position.coords.longitude
         };
@@ -102,14 +101,14 @@ function startTracking(callback) {
         // prevents callback from being fired multiple times
         callback = null;
 
-        MP.isTracking = true;
+        mParticle.Store.isTracking = true;
     }
 
     function errorTracking() {
         triggerCallback(callback);
         // prevents callback from being fired multiple times
         callback = null;
-        MP.isTracking = false;
+        mParticle.Store.isTracking = false;
     }
 
     function triggerCallback(callback, position) {
@@ -129,10 +128,10 @@ function startTracking(callback) {
 }
 
 function stopTracking() {
-    if (MP.isTracking) {
-        navigator.geolocation.clearWatch(MP.watchPositionId);
-        MP.currentPosition = null;
-        MP.isTracking = false;
+    if (mParticle.Store.isTracking) {
+        navigator.geolocation.clearWatch(mParticle.Store.watchPositionId);
+        mParticle.Store.currentPosition = null;
+        mParticle.Store.isTracking = false;
     }
 }
 
@@ -263,7 +262,7 @@ function logCommerceEvent(commerceEvent, attrs) {
 
     if (Helpers.canLog()) {
         startNewSessionIfNeeded();
-        if (MP.webviewBridgeEnabled) {
+        if (mParticle.Store.webviewBridgeEnabled) {
             // Don't send shopping cart to parent sdks
             commerceEvent.ShoppingCart = {};
         }
@@ -310,7 +309,7 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
                     e.returnValue = false;
                 }
 
-                setTimeout(timeoutHandler, MP.Config.Timeout);
+                setTimeout(timeoutHandler, mParticle.Store.SDKConfig.timeout);
             }
         },
         element,
@@ -356,12 +355,12 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
 }
 
 function startNewSessionIfNeeded() {
-    if (!MP.webviewBridgeEnabled) {
+    if (!mParticle.Store.webviewBridgeEnabled) {
         var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
 
-        if (!MP.sessionId && cookies) {
+        if (!mParticle.Store.sessionId && cookies) {
             if (cookies.sid) {
-                MP.sessionId = cookies.sid;
+                mParticle.Store.sessionId = cookies.sid;
             } else {
                 SessionManager.startNewSession();
             }

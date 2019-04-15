@@ -3,22 +3,21 @@ var Helpers = require('./helpers'),
     Types = require('./types'),
     IdentityAPI = require('./identity').IdentityAPI,
     Persistence = require('./persistence'),
-    MP = require('./mp'),
     logEvent = require('./events').logEvent;
 
 function initialize() {
-    if (MP.sessionId) {
-        var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
+    if (mParticle.Store.sessionId) {
+        var sessionTimeoutInMilliseconds = mParticle.Store.SDKConfig.sessionTimeout * 60000;
 
-        if (new Date() > new Date(MP.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
+        if (new Date() > new Date(mParticle.Store.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
             endSession();
             startNewSession();
         } else {
             var cookies = Persistence.getPersistence();
             if (cookies && !cookies.cu) {
-                IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
-                MP.identifyCalled = true;
-                mParticle.identityCallback = null;
+                IdentityAPI.identify(mParticle.Store.SDKConfig.identifyRequest, mParticle.Store.SDKConfig.identityCallback);
+                mParticle.Store.identifyCalled = true;
+                mParticle.Store.SDKConfig.identityCallback = null;
             }
         }
     } else {
@@ -27,30 +26,32 @@ function initialize() {
 }
 
 function getSession() {
-    return MP.sessionId;
+    return mParticle.Store.sessionId;
 }
 
 function startNewSession() {
     Helpers.logDebug(Messages.InformationMessages.StartingNewSession);
 
     if (Helpers.canLog()) {
-        MP.sessionId = Helpers.generateUniqueId().toUpperCase();
-        if (MP.mpid) {
-            MP.currentSessionMPIDs = [MP.mpid];
+        mParticle.Store.sessionId = Helpers.generateUniqueId().toUpperCase();
+        var currentUser = mParticle.Identity.getCurrentUser(),
+            mpid = currentUser ? currentUser.getMPID() : null;
+        if (mpid) {
+            mParticle.Store.currentSessionMPIDs = [mpid];
         }
 
-        if (!MP.sessionStartDate) {
+        if (!mParticle.Store.sessionStartDate) {
             var date = new Date();
-            MP.sessionStartDate = date;
-            MP.dateLastEventSent = date;
+            mParticle.Store.sessionStartDate = date;
+            mParticle.Store.dateLastEventSent = date;
         }
 
         setSessionTimer();
 
-        if (!MP.identifyCalled) {
-            IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identityCallback);
-            MP.identifyCalled = true;
-            mParticle.identityCallback = null;
+        if (!mParticle.Store.identifyCalled) {
+            IdentityAPI.identify(mParticle.Store.SDKConfig.identifyRequest, mParticle.Store.SDKConfig.identityCallback);
+            mParticle.Store.identifyCalled = true;
+            mParticle.Store.SDKConfig.identityCallback = null;
         }
 
         logEvent(Types.MessageType.SessionStart);
@@ -66,9 +67,9 @@ function endSession(override) {
     if (override) {
         logEvent(Types.MessageType.SessionEnd);
 
-        MP.sessionId = null;
-        MP.dateLastEventSent = null;
-        MP.sessionAttributes = {};
+        mParticle.Store.sessionId = null;
+        mParticle.Store.dateLastEventSent = null;
+        mParticle.Store.sessionAttributes = {};
         Persistence.update();
     } else if (Helpers.canLog()) {
         var sessionTimeoutInMilliseconds,
@@ -87,12 +88,12 @@ function endSession(override) {
         }
 
         // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
-        if (cookies.gs.sid && MP.sessionId !== cookies.gs.sid) {
-            MP.sessionId = cookies.gs.sid;
+        if (cookies.gs.sid && mParticle.Store.sessionId !== cookies.gs.sid) {
+            mParticle.Store.sessionId = cookies.gs.sid;
         }
 
         if (cookies.gs && cookies.gs.les) {
-            sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
+            sessionTimeoutInMilliseconds = mParticle.Store.SDKConfig.sessionTimeout * 60000;
             var newDate = new Date().getTime();
             timeSinceLastEventSent = newDate - cookies.gs.les;
 
@@ -101,10 +102,10 @@ function endSession(override) {
             } else {
                 logEvent(Types.MessageType.SessionEnd);
 
-                MP.sessionId = null;
-                MP.dateLastEventSent = null;
-                MP.sessionStartDate = null;
-                MP.sessionAttributes = {};
+                mParticle.Store.sessionId = null;
+                mParticle.Store.dateLastEventSent = null;
+                mParticle.Store.sessionStartDate = null;
+                mParticle.Store.sessionAttributes = {};
                 Persistence.update();
             }
         }
@@ -114,16 +115,16 @@ function endSession(override) {
 }
 
 function setSessionTimer() {
-    var sessionTimeoutInMilliseconds = MP.Config.SessionTimeout * 60000;
+    var sessionTimeoutInMilliseconds = mParticle.Store.SDKConfig.sessionTimeout * 60000;
 
-    MP.globalTimer = window.setTimeout(function() {
+    mParticle.Store.globalTimer = window.setTimeout(function() {
         endSession();
     }, sessionTimeoutInMilliseconds);
 }
 
 function resetSessionTimer() {
-    if (!MP.webviewBridgeEnabled) {
-        if (!MP.sessionId) {
+    if (!mParticle.Store.webviewBridgeEnabled) {
+        if (!mParticle.Store.sessionId) {
             startNewSession();
         }
         clearSessionTimeout();
@@ -132,7 +133,7 @@ function resetSessionTimer() {
 }
 
 function clearSessionTimeout() {
-    clearTimeout(MP.globalTimer);
+    clearTimeout(mParticle.Store.globalTimer);
 }
 
 module.exports = {

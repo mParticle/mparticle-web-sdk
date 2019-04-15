@@ -1,8 +1,10 @@
 /* eslint-disable quotes */
 var TestsCore = require('./tests-core'),
+    Persistence = require('../../src/persistence'),
     apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
     v3CookieKey = TestsCore.v3CookieKey,
+    MPConfig = TestsCore.MPConfig,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     workspaceCookieName = TestsCore.workspaceCookieName,
     setCookie = TestsCore.setCookie,
@@ -11,12 +13,12 @@ var TestsCore = require('./tests-core'),
     v3LSKey = TestsCore.v3LSKey,
     findCookie = TestsCore.findCookie,
     v4CookieKey = TestsCore.v4CookieKey,
-    LocalStorageProductsV4 = TestsCore.LocalStorageProductsV4,
+    localStorageProductsV4 = TestsCore.localStorageProductsV4,
     LocalStorageProductsV4WithWorkSpaceName = TestsCore.LocalStorageProductsV4WithWorkSpaceName,
     server = TestsCore.server;
 
 describe('persistence migrations from SDKv1 to SDKv2', function() {
-    var mP = mParticle.persistence;
+    var mP = Persistence;
     var les = new Date().getTime();
 
     var SDKv1CookieV3 = '{"sid":"cc3e7de7-67d0-4581-b4ae-242e8773f0a4"|"ie":1|"sa":"eyJzYTEiOiJ2YWx1ZTEifQ=="|"ua":"eyJhdHRyMSI6InZhbHVlMSJ9"|"ui":"eyIxIjoiY3VzdG9tZXJpZDEiLCI3IjoidGVzdEBlbWFpbC5jb20ifQ=="|"ss":"eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjctMTAtMzFUMTk6MzI6NTguNjA1NzkxWiIsIlZhbHVlIjoiZz1iMTNjNmZkNS05ZjBiLTQ3NGEtODQzZi1jY2RlZDAxZmY5ZDgmdT0tODI2NDc2MDM5ODIzNzQwNTMzMyZjcj00MTIyNDUyIn19"|"dt":"' + apiKey + '"|"les":' + les + '|"av":"1.5.0"|"cgid":"63781306-983e-4bec-8b0c-2c58b14f6d4e"|"das":"b13c6fd5-9f0b-474a-843f-ccded01ff9d8"|"csd":"eyIxMSI6MTUwOTY1MTE3ODYwNX0="|"mpid":"' + testMPID + '"}';
@@ -33,7 +35,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     var SDKv1CookieV3WithEncodedProductsParsed = JSON.parse(mP.replacePipesWithCommas(mP.replaceApostrophesWithQuotes(SDKv1CookieV3WithEncodedProducts)));
 
     it('unit test - should migrate from SDKv1CookieV3 to SDKv2CookieV4 using convertSDKv1CookiesV3ToSDKv2CookiesV4', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var v4Cookies = JSON.parse(mParticle.migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookieV3));
 
         v4Cookies.should.have.properties('gs', SDKv1CookieV3Parsed.mpid, 'cu');
@@ -52,8 +54,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('integration test - should migrate from SDKv1CookieV3 to SDKv2CookieV4 and function properly when using cookie storage', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = true;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = true;
 
         var lsProductsRaw = '{"cp":[{"Name":"iPhone"|"Sku":"SKU1"|"Price":1|"Quantity":1|"TotalAmount":1|"Attributes":null}|{"Name":"Android"|"Sku":"SKU2"|"Price":1|"Quantity":1|"TotalAmount":1|"Attributes":null}]}';
         setCookie(v3CookieKey, SDKv1CookieV3, true);
@@ -80,8 +82,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('integration test - should migrate from SDKv1CookieV3 to SDKv2CookieV4 and function properly when using localStorage', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = false;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = false;
 
         setLocalStorage(v3LSKey, SDKv1CookieV3Full, true);
 
@@ -104,7 +106,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('unit test - should migrate from SDKv1CookieV3 with apostrophes to SDKv2CookieV4 using convertSDKv1CookiesV3ToSDKv2CookiesV4', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         var v4Cookies = JSON.parse(mParticle.migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookieV3FullLSApostrophes));
 
@@ -123,8 +125,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('integration test - should migrate from SDKv1CookieV3 with apostrophes to SDKv2CookieV4 and function properly when using cookie storage', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = true;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = true;
 
         setCookie(v3CookieKey, SDKv1CookieV3FullLSApostrophes, true);
 
@@ -149,8 +151,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('integration test - should migrate from SDKv1CookieV3 with apostrophes to SDKv2CookieV4 and function properly when using local storage', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = false;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = false;
 
         setLocalStorage(v3LSKey, SDKv1CookieV3FullLSApostrophes, true);
         mParticle.init(apiKey);
@@ -174,8 +176,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('unit test - should migrate products from SDKv1CookieV3 to SDKv2CookieV4 local storage', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = false;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = false;
 
         var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1);
@@ -211,8 +213,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('unit test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 decoded', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = true;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = true;
 
         var v4Cookies = JSON.parse(mParticle.migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(decodeURIComponent(SDKv1CookieV3WithEncodedProducts)));
         v4Cookies.should.have.properties(testMPID, 'gs', 'cu');
@@ -235,8 +237,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('integration test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 and function properly when using cookie storage', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = true;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = true;
 
         setCookie(v3CookieKey, SDKv1CookieV3WithEncodedProducts, true);
 
@@ -259,8 +261,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('integration test - should remove local storage products when in a broken state', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = false;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = false;
         var corruptLS = 'eyItODg4OTA3MDIxNTMwMzU2MDYyNyI6eyJjcCI6W3siTmFtZSI6IkRvdWJsZSBDaGVlc2VidXJnZXIiLCJTa3UiOiI4YzdiMDVjZS02NTc3LTU3ZDAtOGEyZi03M2JhN2E1MzA3N2EiLCJQcmljZSI6MTguOTksIlF1YW50aXR5IjoxLCJCcmFuZCI6IiIsIlZhcmlhbnQiOiIiLCJDYXRlZ29yeSI6IiIsIlBvc2l0aW9uIjoiIiwiQ291cG9uQ29kZSI6IiIsIlRvdGFsQW1vdW50IjoxOC45OSwiQXR0cmlidXRlcyI6eyJDYXRhbG9ndWUgTmFtZSI6IjEwMCUgQmVlZiBCdXJnZXJzICIsIkNhdGFsb2d1ZSBVVUlEIjoiNzEzZDY2OWItNzQyNy01NjRkLWE4ZTQtNDA3YjAzYmMzYWFiIiwiZGVzY3JpcHRpb24gYXZhaWxhYmxlIjp0cnVlLCJNYXJrZXQgU2hvcnQgQ29kZSI6InNhbi1mcmFuY2lzY28iLCJQbGFjZSBDYXRlZ29yeSI6ImFtZXJpY2FuIiwiUGxhY2UgTmFtZSI6IkRlbm55JTI3cyIsIlBsYWNlIFVVSUQiOiI3YWU2Y2MzNC02YzcyLTRkYzctODIzZS02MWRjNzEyMzUzMmEiLCJUb3RhbCBQcm9kdWN0IEFtb3VudCI6MTguOTl9fSx7Ik5hbWUiOiJBbGwtQW1lcmljYW4gU2xhba4iLCJTa3UiOiIxNGQyMzA0MS1mZjc4LTVhMzQtYWViYi1kNGZkMzlhZjkzNjEiLCJQcmljZSI6MTYuMjksIlF1YW50aXR5IjoxLCJCcmFuZCI6IiIsIlZhcmlhbnQiOiIiLCJDYXRlZ29yeSI6IiIsIlBvc2l0aW9uIjoiIiwiQ291cG9uQ29kZSI6IiIsIlRvdGFsQW1vdW50IjoxNi4yOSwiQXR0cmlidXRlcyI6eyJDYXRhbG9ndWUgTmFtZSI6IlNsYW1zIiwiQ2F0YWxvZ3VlIFVVSUQiOiI5NWFlMDcxNi05NTM1LTUxNjgtODFmYy02NzA5YWM5OTRkNmIiLCJkZXNjcmlwdGlvbiBhdmFpbGFibGUiOnRydWUsIk1hcmtldCBTaG9ydCBDb2RlIjoic2FuLWZyYW5jaXNjbyIsIlBsYWNlIENhdGVnb3J5IjoiYW1lcmljYW4iLCJQbGFjZSBOYW1lIjoiRGVubnklMjdzIiwiUGxhY2UgVVVJRCI6IjdhZTZjYzM0LTZjNzItNGRjNy04MjNlLTYxZGM3MTIzNTMyYSIsIlRvdGFsIFByb2R1Y3QgQW1vdW50IjoxNi4yOX19XX19';
 
         setLocalStorage('mprtcl-prodv4', corruptLS, true);
@@ -279,8 +281,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('integration test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 and function properly when using local storage', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = false;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = false;
 
         setLocalStorage(v3LSKey, SDKv1CookieV3WithEncodedProducts, true);
         mParticle.init(apiKey);
@@ -302,8 +304,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('integration test - should add products with special characters to the cart without any errors', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = false;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = false;
 
         mParticle.init(apiKey);
         var product1 = mParticle.eCommerce.createProduct('asdfadsf’’’’', 'asdf', 123, 1);
@@ -330,7 +332,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
     it('integration test - should migrate from local storage with no products', function(done) {
         var les = new Date().getTime();
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         var cookieWithoutProducts = "{'sid':'234B3BA6-7BC2-4142-9CCD-015D7C4D0597'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjE6MjQ6MDcuNzQ4OTU4MVoiLCJWYWx1ZSI6Imc9NGQzYzE0YmUtNDY3NC00MzY0LWJlOTAtZjBjYmI3ZGI4MTNhJnU9ODE2OTg0NjE2MjM0NjA2NDk0NiZjcj00NTgxOTI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537219447486|'cgid':'429d1e42-5883-4296-91e6-8157765914d5'|'das':'4d3c14be-4674-4364-be90-f0cbb7db813a'|'mpid':'8169846162346064946'}";
         setLocalStorage(v3LSKey, cookieWithoutProducts, true);
@@ -344,7 +346,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
     it('integration test - should migrate from cookies with no products', function(done) {
         var les = new Date().getTime();
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         var cookieWithoutProducts = "{'sid':'234B3BA6-7BC2-4142-9CCD-015D7C4D0597'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjE6MjQ6MDcuNzQ4OTU4MVoiLCJWYWx1ZSI6Imc9NGQzYzE0YmUtNDY3NC00MzY0LWJlOTAtZjBjYmI3ZGI4MTNhJnU9ODE2OTg0NjE2MjM0NjA2NDk0NiZjcj00NTgxOTI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537219447486|'cgid':'429d1e42-5883-4296-91e6-8157765914d5'|'das':'4d3c14be-4674-4364-be90-f0cbb7db813a'|'mpid':'8169846162346064946'}";
         setCookie(v3CookieKey, cookieWithoutProducts, true);
@@ -359,9 +361,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('integration test - migrates from local storage that have special characters in user attributes and user identities', function(done) {
         var les = new Date().getTime();
 
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
-        var cookieWithoutProducts = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        var cookieWithoutProducts = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'testMPID'}";
         setLocalStorage(v3LSKey, cookieWithoutProducts, true);
 
         mParticle.init(apiKey);
@@ -377,9 +379,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('integration test - migrates from cookies that have special characters in user attributes and user identities', function(done) {
         var les = new Date().getTime();
 
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
-        var cookieWithoutProducts = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        var cookieWithoutProducts = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'testMPID'}";
         setCookie(v3CookieKey, cookieWithoutProducts, true);
 
         mParticle.init(apiKey);
@@ -392,7 +394,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('integration test - saves user attributes with special characters ® and ’', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         mParticle.init(apiKey);
 
@@ -410,10 +412,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('integration test - clears and creates new LS when LS is corrupt when migrating', function(done) {
         var les = new Date().getTime();
 
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
-        var rawLS = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        var rawLS = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'testMPID'}";
         setLocalStorage(v3LSKey, rawLS, true);
 
         mParticle.init(apiKey);
@@ -431,10 +433,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('integration test - clears and creates new cookies when cookies is corrupt when migrating', function(done) {
         var les = new Date().getTime();
 
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
-        var cookies = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        var cookies = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'testMPID'}";
         setCookie(v3CookieKey, cookies, true);
 
         mParticle.init(apiKey);
@@ -452,7 +454,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('integration test - clears products if when migrating they are corrupt', function(done) {
         var les = new Date().getTime();
 
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         // CP of mParticle.eCommerce.createProduct('iPhone®’ 8', 'iPhoneSKU123', 699, 1, '8 Plus 64GB', 'Phones', 'Apple', null, 'CouponCode1', {discount: 5, searchTerm: 'apple'});, and mParticle.eCommerce.createProduct('Galaxy®’ S9', 'AndroidSKU123', 699, 1, 'S9 Plus 64GB', 'Phones', 'Samsung', null, 'CouponCode2', {discount: 10, searchTerm: 'samsung'});
         // corrupt CP by adding a few characters to bas64 string
@@ -468,8 +470,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('does not throw error during migration step when local storage does not exist', function(done) {
-        mParticle.reset();
-        mParticle.useCookieStorage = false;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = false;
         var cookies =
         "{'cp':'111W3siTmFtZSI6ImlQaG9uasdfZcKu4oCZIDgiLCJTa3UiOiJpUGhvbmVTS1UxMjMiLCJQcmljZSI6Njk5LCJRdWFudGl0eSI6MSwiQnJhbmQiOiJBcHBsZSIsIlZhcmlhbnQiOiI4IFBsdXMgNjRHQiIsIkNhdGVnb3J5IjoiUGhvbmVzIiwiUG9zaXRpb24iOm51bGwsIkNvdXBvbkNvZGUiOiJDb3Vwb25Db2RlMSIsIlRvdGFsQW1vdW50Ijo2OTksIkF0dHJpYnV0ZXMiOnsiZGlzY291bnQiOjUsInNlYXJjaFRlcm0iOiJhcHBsZSJ9fSx7Ik5hbWUiOiJHYWxheHnCruKAmSBTOSIsIlNrdSI6IkFuZHJvaWRTS1UxMjMiLCJQcmljZSI6Njk5LCJRdWFudGl0eSI6MSwiQnJhbmQiOiJTYW1zdW5nIiwiVmFyaWFudCI6IlM5IFBsdXMgNjRHQiIsIkNhdGVnb3J5IjoiUGhvbmVzIiwiUG9zaXRpb24iOm51bGwsIkNvdXBvbkNvZGUiOiJDb3Vwb25Db2RlMiIsIlRvdGFsQW1vdW50Ijo2OTksIkF0dHJpYnV0ZXMiOnsiZGlzY291bnQiOjEwLCJzZWFyY2hUZXJtIjoic2Ftc3VuZyJ9fV0='|'sid':'5FB9CD47-CCC5-4897-B901-61059E9C5A0C'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMjNUMTg6NDQ6MjUuMDg5OTk2NVoiLCJWYWx1ZSI6Imc9YTY3ZWZmZDAtY2UyMC00Y2M4LTg5MzgtNzc3MWY0YzQ2ZmZiJnU9MjA3Mzk0MTkzMjk4OTgyMzA5OSZjcj00NTk0NzI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537987465067|'cgid':'d1ce6cb1-5f28-4520-8ce7-f67288590944'|'das':'a67effd0-ce20-4cc8-8938-7771f4c46ffb'|'mpid':'testMPID'}";
 
@@ -480,14 +482,14 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.init(apiKey);
         (window.localStorage.getItem('mprtclv4') === null).should.equal(true);
         findCookie(v4CookieKey).cu.should.equal('testMPID');
-        mParticle._forceNoLocalStorage = false;
+        delete mParticle._forceNoLocalStorage;
 
         done();
     });
 
     it('migrates from v4cookie to name spaced cookie', function(done) {
         mParticle.workspaceToken = 'abcdef';
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var date = (new Date()).getTime();
         setCookie(v4CookieKey, JSON.stringify({
             gs: {
@@ -505,31 +507,27 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
             cu: testMPID
         }));
 
+        mParticle.config.useCookieStorage = true;
+
         mParticle.init(apiKey);
         mParticle.workspaceToken = null;
 
-        var oldLS = localStorage.getItem(v4CookieKey);
-        Should(oldLS).not.be.ok();
-
-        var newLS = localStorage.getItem(workspaceCookieName);
-        Should(newLS).be.ok();
-
-        var data = mParticle.persistence.getLocalStorage();
-        data.gs.les.should.aboveOrEqual(date);
-        data.gs.should.have.property('dt', apiKey);
-        data.gs.should.have.property('cgid', 'testCGID');
-        data.gs.should.have.property('das', 'testDAS');
-        data.should.have.property('testMPID');
-        data.testMPID.ui.should.have.property('1', 'customerid');
-        data.testMPID.ua.should.have.property('age', 30);
-        data.testMPID.csd.should.have.property('5', date);
+        var newCookies = findCookie(v4CookieKey);
+        newCookies.gs.les.should.aboveOrEqual(date);
+        newCookies.gs.should.have.property('dt', apiKey);
+        newCookies.gs.should.have.property('cgid', 'testCGID');
+        newCookies.gs.should.have.property('das', 'testDAS');
+        newCookies.should.have.property('testMPID');
+        newCookies.testMPID.ui.should.have.property('1', 'customerid');
+        newCookies.testMPID.ua.should.have.property('age', 30);
+        newCookies.testMPID.csd.should.have.property('5', date);
 
         done();
     });
 
     it('migrates from v4cookie to name spaced localStorage', function(done) {
         mParticle.workspaceToken = 'abcdef';
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var date = (new Date()).getTime();
         setLocalStorage(v4CookieKey, {
             gs: {
@@ -546,6 +544,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
             },
             cu: testMPID
         });
+
+        mParticle.config.useCookieStorage = false;
 
         mParticle.init(apiKey);
         mParticle.workspaceToken = null;
@@ -570,13 +570,13 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     it('migrates from nonNameSpaced products to nameSpacedProducts on localStorage', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         mParticle.init(apiKey);
         var product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
         var product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799);
         mParticle.eCommerce.Cart.add([product1, product2]);
 
-        var oldLS = localStorage.getItem(LocalStorageProductsV4);
+        var oldLS = localStorage.getItem(localStorageProductsV4);
         Should(oldLS).not.be.ok();
 
         mParticle.workspaceToken = 'abcdef';

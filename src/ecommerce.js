@@ -2,7 +2,6 @@ var Types = require('./types'),
     Helpers = require('./helpers'),
     Validators = Helpers.Validators,
     Messages = require('./constants').Messages,
-    MP = require('./mp'),
     ServerModel = require('./serverModel');
 
 function convertTransactionAttributesToProductAction(transactionAttributes, productAction) {
@@ -412,16 +411,17 @@ function expandProductAction(commerceEvent) {
 }
 
 function createCommerceEventObject(customFlags) {
-    var baseEvent;
+    var baseEvent,
+        currentUser = mParticle.Identity.getCurrentUser();
 
     Helpers.logDebug(Messages.InformationMessages.StartingLogCommerceEvent);
 
     if (Helpers.canLog()) {
         baseEvent = ServerModel.createEventObject(Types.MessageType.Commerce);
         baseEvent.EventName = 'eCommerce - ';
-        baseEvent.CurrencyCode = MP.currencyCode;
+        baseEvent.CurrencyCode = mParticle.Store.currencyCode;
         baseEvent.ShoppingCart = {
-            ProductList: MP.cartProducts
+            ProductList: currentUser ? currentUser.getCart().getCartProducts() : []
         };
         baseEvent.CustomFlags = customFlags;
 

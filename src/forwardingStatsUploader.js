@@ -1,13 +1,12 @@
 var ApiClient = require('./apiClient'),
     Helpers = require('./helpers'),
     Forwarders = require('./forwarders'),
-    MP = require('./mp'),
     Persistence = require('./persistence');
 
 function startForwardingStatsTimer() {
     mParticle._forwardingStatsTimer = setInterval(function() {
         prepareAndSendForwardingStatsBatch();
-    }, MP.Config.ForwarderStatsTimeout);
+    }, mParticle.Store.SDKConfig.forwarderStatsTimeout);
 }
 
 function prepareAndSendForwardingStatsBatch() {

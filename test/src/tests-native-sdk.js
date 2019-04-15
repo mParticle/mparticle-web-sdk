@@ -3,12 +3,13 @@ var TestsCore = require('./tests-core'),
     apiKey = TestsCore.apiKey,
     getLocalStorage = TestsCore.getLocalStorage,
     mParticleIOS = TestsCore.mParticleIOS,
+    MPConfig = TestsCore.MPConfig,
     mParticleAndroid = TestsCore.mParticleAndroid;
 
 describe('native-sdk methods', function() {
     describe('Helper methods', function() {
         beforeEach(function() {
-            mParticle.reset();
+            mParticle.reset(MPConfig);
             delete window.mParticleAndroid_bridgeName_v2;
             delete window.webkit;
             delete window.mParticle.uiwebviewBridgeName;
@@ -17,6 +18,7 @@ describe('native-sdk methods', function() {
             delete mParticle.isIOS;
 
             mParticle.init(apiKey);
+            mParticle.config = {};
         });
 
         after(function() {
@@ -68,30 +70,47 @@ describe('native-sdk methods', function() {
         });
 
         it('isWebviewEnabled returns true if there is no v2Bridge, and minWebviewBridgeVersion is 1, and v1 bridge is available', function(done) {
-            mParticle.minWebviewBridgeVersion = 1;
-            mParticle.isIOS = true;
+            mParticle.reset(MPConfig);
+            window.mParticle.config.minWebviewBridgeVersion = 1;
+            mParticle.config.isIOS = true;
+            mParticle.init(apiKey);
 
-            NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion).should.equal(true);
+            NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion).should.equal(true);
 
             done();
         });
 
-        it('isWebviewEnabled returns true if there is an Android bridge and minWebviewBridgeVersion is 2', function(done) {
-            mParticle.minWebviewBridgeVersion = 2;
+        it('isWebviewEnabled returns true if there is an Android bridge, minWebviewBridgeVersion is 2', function(done) {
+            mParticle.reset(MPConfig);
+            window.mParticle.config.minWebviewBridgeVersion = 2;
+            mParticle.init(apiKey);
+
+            // window.mParticle.config.minWebviewBridgeVersion = 2;
             window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
 
-            NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion).should.equal(true);
+            NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion).should.equal(true);
 
             done();
         });
 
-        it('isWebviewEnabled returns true if there is an iOS messageHandler bridge and minWebviewBridgeVersion is 2', function(done) {
-            mParticle.minWebviewBridgeVersion = 2;
+        it('isWebviewEnabled returns true if there is an iOS bridge, minWebviewBridgeVersion is 2', function(done) {
+            mParticle.reset(MPConfig);
+            window.mParticle.config.minWebviewBridgeVersion = 2;
             window.webkit = {
                 messageHandlers: {
                     mParticle_bridgeName_v2: { postMessage: null }
                 }
             };
+            mParticle.init(apiKey);
+
+            NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion).should.equal(true);
+
+            done();
+        });
+
+        it('isWebviewEnabled returns true if there is an iOS nonMessageHandler bridge and minWebviewBridgeVersion is 2', function(done) {
+            mParticle.minWebviewBridgeVersion = 2;
+            window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
 
             NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion).should.equal(true);
 
@@ -108,19 +127,56 @@ describe('native-sdk methods', function() {
         });
 
         it('isWebviewEnabled returns false if there is a v1 Android bridge, and minWebviewBridgeVersion is 2', function(done) {
-            mParticle.minWebviewBridgeVersion = 2;
+            mParticle.reset(MPConfig);
+            window.mParticle.config.minWebviewBridgeVersion = 2;
+            mParticle.init(apiKey);
             window.mParticleAndroid = new mParticleAndroid();
 
-            NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion).should.equal(false);
+            NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion).should.equal(false);
 
             done();
         });
 
         it('isWebviewEnabled returns false if there is a v1 iOS bridge, and minWebviewBridgeVersion is 2', function(done) {
-            mParticle.minWebviewBridgeVersion = 2;
+            mParticle.reset(MPConfig);
+            window.mParticle.config.minWebviewBridgeVersion = 2;
+            mParticle.init(apiKey);
             mParticle.isIOS = true;
 
-            NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion).should.equal(false);
+            NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion).should.equal(false);
+
+            delete mParticle.isIOS;
+
+            done();
+        });
+
+        it('isWebviewEnabled returns true if there is a v2 Android bridge, and minWebviewBridgeVersion is 1, and no v1 Android bridge exists', function(done) {
+            mParticle.minWebviewBridgeVersion = 1;
+            window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
+
+            NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion).should.equal(true);
+
+            done();
+        });
+
+        it('isWebviewEnabled returns true if there is a v2 iOS messageHandler bridge, and minWebviewBridgeVersion is 1, and no v1 ios bridge exists', function(done) {
+            mParticle.minWebviewBridgeVersion = 1;
+            window.webkit = {
+                messageHandlers: {
+                    mParticle_bridgeName_v2: { postMessage: null }
+                }
+            };
+
+            NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion).should.equal(true);
+
+            done();
+        });
+
+        it('isWebviewEnabled returns true if there is a v2 iOS nonMessageHandler bridge, and minWebviewBridgeVersion is 1, and no v1 ios bridge exists', function(done) {
+            mParticle.minWebviewBridgeVersion = 1;
+            window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
+
+            NativeSdkHelpers.isWebviewEnabled('bridgeName', mParticle.minWebviewBridgeVersion).should.equal(true);
 
             delete mParticle.isIOS;
 
@@ -172,14 +228,14 @@ describe('native-sdk methods', function() {
 
     describe('bridge version 1', function() {
         beforeEach(function() {
-            mParticle.reset();
+            mParticle.reset(MPConfig);
             window.mParticleAndroid = new mParticleAndroid();
-            mParticle.minWebviewBridgeVersion = 1;
+            window.mParticle.config.minWebviewBridgeVersion = 1;
             mParticle.init(apiKey);
         });
 
         it('invoke setSessionAttributes of $src_key/$src_env of apikey/\'webview\' to the native SDK\'s on init if apiKey is available', function(done) {
-            mParticle.reset();
+            mParticle.reset(MPConfig);
             window.mParticleAndroid = new mParticleAndroid();
             window.mParticle.init(apiKey);
 
@@ -201,10 +257,6 @@ describe('native-sdk methods', function() {
         });
 
         it('should invoke setSessionAttributes on native SDK and pass through proper data', function(done) {
-            mParticle.reset();
-            window.mParticleAndroid = new mParticleAndroid();
-            window.mParticle.init(apiKey);
-
             window.mParticleAndroid.resetSessionAttrData();
 
             mParticle.setSessionAttribute('key', 'value');
@@ -359,18 +411,18 @@ describe('native-sdk methods', function() {
         describe('android', function() {
             var mParticleAndroidV2Bridge;
             beforeEach(function() {
-                mParticle.reset();
-                mParticle.minWebviewBridgeVersion = 2;
-                mParticle.requiredWebviewBridgeName = 'bridgeName';
+                mParticle.reset(MPConfig);
+                window.mParticle.config.minWebviewBridgeVersion = 2;
+                window.mParticle.config.requiredWebviewBridgeName = 'bridgeName';
                 window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
                 mParticleAndroidV2Bridge = window.mParticleAndroid_bridgeName_v2;
 
                 window.mParticle.init(apiKey);
+                mParticle.config = {};
             });
 
             afterEach(function() {
-                delete mParticle.minWebviewBridgeVersion;
-                delete mParticle.requiredWebviewBridgeName;
+                delete window.mParticle.config;
                 delete window.mParticleAndroid_bridgeName_v2;
             });
 
@@ -527,9 +579,9 @@ describe('native-sdk methods', function() {
         describe('iOS', function() {
             var mParticleIOSV2Bridge;
             beforeEach(function() {
-                mParticle.reset();
-                mParticle.minWebviewBridgeVersion = 2;
-                mParticle.requiredWebviewBridgeName = 'bridgeName';
+                mParticle.reset(MPConfig);
+                window.mParticle.config.minWebviewBridgeVersion = 2;
+                window.mParticle.config.requiredWebviewBridgeName = 'bridgeName';
                 window.webkit = {
                     messageHandlers: {
                         mParticle_bridgeName_v2: new mParticleIOS()
@@ -539,12 +591,12 @@ describe('native-sdk methods', function() {
 
                 mParticle.enableWebviewBridge = true;
                 window.mParticle.init(apiKey);
+                mParticle.config = {};
                 mParticleIOSV2Bridge.reset();
             });
 
             afterEach(function() {
                 delete window.webkit;
-                delete mParticle.minWebviewBridgeVersion;
                 delete mParticle.requiredWebviewBridgeName;
                 delete mParticle.enableWebviewBridge;
             });

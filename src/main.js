@@ -24,7 +24,7 @@ var Polyfill = require('./polyfill'),
     CookieSyncManager = require('./cookieSyncManager'),
     SessionManager = require('./sessionManager'),
     Ecommerce = require('./ecommerce'),
-    MP = require('./mp'),
+    Store = require('./store'),
     Persistence = require('./persistence'),
     getDeviceId = Persistence.getDeviceId,
     Events = require('./events'),
@@ -66,14 +66,8 @@ var Polyfill = require('./polyfill'),
     */
 
     var mParticle = {
-        useNativeSdk: window.mParticle && window.mParticle.useNativeSdk ? window.mParticle.useNativeSdk : false,
-        isIOS: window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false,
-        isDevelopmentMode: false,
-        useCookieStorage: false,
-        maxProducts: Constants.DefaultConfig.MaxProducts,
-        maxCookieSize: Constants.DefaultConfig.MaxCookieSize,
-        integrationDelayTimeout: Constants.DefaultConfig.IntegrationDelayTimeout,
-        identifyRequest: {},
+        config: window.mParticle ? window.mParticle.config : {},
+        Store: {},
         getDeviceId: getDeviceId,
         generateHash: Helpers.generateHash,
         sessionManager: SessionManager,
@@ -97,28 +91,29 @@ var Polyfill = require('./polyfill'),
         * @param {Object} [options] an options object for additional configuration
         */
         init: function(apiKey) {
-            MP.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.requiredWebviewBridgeName, mParticle.minWebviewBridgeVersion);
+            var config;
+            // Set user config settings
+            if (arguments && arguments.length) {
+                if (arguments.length > 1 && typeof arguments[1] === 'object') {
+                    config = arguments[1];
+                }
+            }
+            mParticle.Store = new Store(window.mParticle.config, config);
 
-            if (MP.webviewBridgeEnabled) {
+            mParticle.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.Store.SDKConfig.requiredWebviewBridgeName, mParticle.Store.SDKConfig.minWebviewBridgeVersion);
+
+            if (mParticle.Store.webviewBridgeEnabled) {
                 NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
                 if (apiKey) {
                     NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey}));
                 }
             } else {
-                var config, currentUser;
+                var currentUser;
 
-                MP.storageName = Helpers.createMainStorageName(mParticle.workspaceToken);
-                MP.prodStorageName = Helpers.createProductStorageName(mParticle.workspaceToken);
+                mParticle.Store.devToken = apiKey || null;
+                mParticle.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
 
-                MP.integrationDelayTimeoutStart = Date.now();
-                MP.initialIdentifyRequest = mParticle.identifyRequest;
-                MP.devToken = apiKey || null;
                 Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
-                //check to see if localStorage is available for migrating purposes
-                MP.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
-
-                // Set configuration to default settings
-                Helpers.mergeConfig({});
 
                 // Migrate any cookies from previous versions to current cookie version
                 Migrations.migrate();
@@ -126,39 +121,43 @@ var Polyfill = require('./polyfill'),
                 // Load any settings/identities/attributes from cookie or localStorage
                 Persistence.initializeStorage();
 
-                // If no identity is passed in, we set the user identities to what is currently in cookies for the identify request
-                if ((Helpers.isObject(mParticle.identifyRequest) && Object.keys(mParticle.identifyRequest).length === 0) || !mParticle.identifyRequest) {
+                // If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
+                if ((Helpers.isObject(mParticle.Store.SDKConfig.identifyRequest) && Helpers.isObject(mParticle.Store.SDKConfig.identifyRequest.userIdentities) &&
+                    Object.keys(mParticle.Store.SDKConfig.identifyRequest.userIdentities).length === 0) || !mParticle.Store.SDKConfig.identifyRequest) {
                     var modifiedUIforIdentityRequest = {};
-                    for (var identityType in MP.userIdentities) {
-                        if (MP.userIdentities.hasOwnProperty(identityType)) {
-                            modifiedUIforIdentityRequest[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = MP.userIdentities[identityType];
+
+                    currentUser = mParticle.Identity.getCurrentUser();
+                    if (currentUser) {
+                        var identities = currentUser.getUserIdentities().userIdentities || {};
+                        for (var identityKey in identities) {
+                            if (identities.hasOwnProperty(identityKey)) {
+                                modifiedUIforIdentityRequest[identityKey] = identities[identityKey];
+                            }
                         }
                     }
 
-                    MP.initialIdentifyRequest = {
+                    mParticle.Store.SDKConfig.identifyRequest = {
                         userIdentities: modifiedUIforIdentityRequest
                     };
-                } else {
-                    MP.initialIdentifyRequest = mParticle.identifyRequest;
                 }
 
                 // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
-                if (MP.migratingToIDSyncCookies) {
-                    IdentityAPI.identify(MP.initialIdentifyRequest, mParticle.identifyRequest);
-                    MP.migratingToIDSyncCookies = false;
+                if (mParticle.Store.migratingToIDSyncCookies) {
+                    IdentityAPI.identify(mParticle.Store.SDKConfig.identifyRequest, mParticle.Store.SDKConfig.identityCallback);
+                    mParticle.Store.migratingToIDSyncCookies = false;
                 }
 
                 currentUser = IdentityAPI.getCurrentUser();
-                // Call MP.config.identityCallback when identify was not called due to a reload or a sessionId already existing
-                if (!MP.identifyCalled && mParticle.identityCallback && MP.mpid && currentUser) {
-                    mParticle.identityCallback({
+                // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
+                if (!mParticle.Store.identifyCalled && mParticle.Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
+                    mParticle.Store.SDKConfig.identityCallback({
                         httpCode: HTTPCodes.activeSession,
                         getUser: function() {
-                            return mParticleUser(MP.mpid);
+                            return mParticleUser(currentUser.getMPID());
                         },
                         body: {
-                            mpid: MP.mpid,
-                            is_logged_in: MP.isLoggedIn,
+                            mpid: currentUser.getMPID(),
+                            is_logged_in: mParticle.Store.isLoggedIn,
                             matched_identities: currentUser ? currentUser.getUserIdentities().userIdentities : {},
                             context: null,
                             is_ephemeral: false
@@ -166,18 +165,9 @@ var Polyfill = require('./polyfill'),
                     });
                 }
 
-                Forwarders.initForwarders(MP.initialIdentifyRequest.userIdentities);
+                Forwarders.initForwarders(mParticle.Store.SDKConfig.identifyRequest.userIdentities);
                 if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
                     ForwardingStatsUploader.startForwardingStatsTimer();
-                }
-
-                if (arguments && arguments.length) {
-                    if (arguments.length > 1 && typeof arguments[1] === 'object') {
-                        config = arguments[1];
-                    }
-                    if (config) {
-                        Helpers.mergeConfig(config);
-                    }
                 }
 
                 SessionManager.initialize();
@@ -185,8 +175,8 @@ var Polyfill = require('./polyfill'),
             }
 
             // Call any functions that are waiting for the library to be initialized
-            if (MP.readyQueue && MP.readyQueue.length) {
-                MP.readyQueue.forEach(function(readyQueueItem) {
+            if (mParticle.preInit.readyQueue && mParticle.preInit.readyQueue.length) {
+                mParticle.preInit.readyQueue.forEach(function(readyQueueItem) {
                     if (Validators.isFunction(readyQueueItem)) {
                         readyQueueItem();
                     } else if (Array.isArray(readyQueueItem)) {
@@ -194,69 +184,43 @@ var Polyfill = require('./polyfill'),
                     }
                 });
 
-                MP.readyQueue = [];
+                mParticle.preInit.readyQueue = [];
             }
-            MP.isInitialized = true;
+            mParticle.Store.isInitialized = true;
         },
         /**
         * Completely resets the state of the SDK. mParticle.init(apiKey) will need to be called again.
         * @method reset
         * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
         */
-        reset: function(keepPersistence) {
-            MP.sessionAttributes = {};
-            MP.isEnabled = true;
-            MP.isFirstRun = null;
+        reset: function(config, keepPersistence) {
+            if (mParticle.Store) {
+                delete mParticle.Store;
+            }
+            mParticle.Store = new Store(config);
+            mParticle.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
             Events.stopTracking();
-            MP.devToken = null;
-            MP.sessionId = null;
-            MP.appName = null;
-            MP.appVersion = null;
-            MP.currentSessionMPIDs = [],
-            MP.eventQueue = [];
-            MP.context = null;
-            MP.userAttributes = {};
-            MP.userIdentities = {};
-            MP.cookieSyncDates = {};
-            MP.activeForwarders = [];
-            MP.configuredForwarders = [];
-            MP.forwarderConstructors = [];
-            MP.pixelConfigurations = [];
-            MP.cartProducts = [];
-            MP.serverSettings = null;
-            MP.mpid = null;
-            MP.customFlags = null;
-            MP.currencyCode;
-            MP.clientId = null;
-            MP.deviceId = null;
-            MP.dateLastEventSent = null;
-            MP.sessionStartDate = null;
-            MP.watchPositionId = null;
-            MP.readyQueue = [];
-            MP.migrationData = {};
-            MP.identityCallInFlight = false;
-            MP.initialIdentifyRequest = null;
-            MP.isInitialized = false;
-            MP.identifyCalled = false;
-            MP.consentState = null;
-            MP.featureFlags = {};
-            MP.integrationAttributes = {};
-            MP.integrationDelays = {};
-            MP.requireDelay = true;
-            Helpers.mergeConfig({});
             if (!keepPersistence) {
                 Persistence.resetPersistence();
             }
-            mParticle.identityCallback = null;
             Persistence.forwardingStatsBatches.uploadsTable = {};
             Persistence.forwardingStatsBatches.forwardingStatsEventQueue = [];
+            mParticle.preInit = {
+                readyQueue: [],
+                pixelConfigurations: [],
+                integrationDelays: {},
+                featureFlags: {},
+                forwarderConstructors: [],
+                isDevelopmentMode: false,
+                configuredForwarders: []
+            };
         },
         ready: function(f) {
-            if (MP.isInitialized && typeof f === 'function') {
+            if (mParticle.Store.isInitialized && typeof f === 'function') {
                 f();
             }
             else {
-                MP.readyQueue.push(f);
+                mParticle.preInit.readyQueue.push(f);
             }
         },
         /**
@@ -273,7 +237,7 @@ var Polyfill = require('./polyfill'),
         * @param {String} version version number
         */
         setAppVersion: function(version) {
-            MP.appVersion = version;
+            mParticle.Store.SDKConfig.appVersion = version;
             Persistence.update();
         },
         /**
@@ -282,7 +246,7 @@ var Polyfill = require('./polyfill'),
         * @return {String} App name
         */
         getAppName: function() {
-            return MP.appName;
+            return mParticle.Store.SDKConfig.appName;
         },
         /**
         * Sets the app name
@@ -290,7 +254,7 @@ var Polyfill = require('./polyfill'),
         * @param {String} name App Name
         */
         setAppName: function(name) {
-            MP.appName = name;
+            mParticle.Store.SDKConfig.appName = name;
         },
         /**
         * Gets the app version
@@ -298,7 +262,7 @@ var Polyfill = require('./polyfill'),
         * @return {String} App version
         */
         getAppVersion: function() {
-            return MP.appVersion;
+            return mParticle.Store.SDKConfig.appVersion;
         },
         /**
         * Stops tracking the location of the user
@@ -330,7 +294,7 @@ var Polyfill = require('./polyfill'),
         setPosition: function(lat, lng) {
             SessionManager.resetSessionTimer();
             if (typeof lat === 'number' && typeof lng === 'number') {
-                MP.currentPosition = {
+                mParticle.Store.currentPosition = {
                     lat: lat,
                     lng: lng
                 };
@@ -491,7 +455,12 @@ var Polyfill = require('./polyfill'),
                 * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
                 */
                 add: function(product, logEventBoolean) {
-                    mParticleUserCart(MP.mpid).add(product, logEventBoolean);
+                    var mpid,
+                        currentUser = mParticle.Identity.getCurrentUser();
+                    if (currentUser) {
+                        mpid = currentUser.getMPID();
+                    }
+                    mParticleUserCart(mpid).add(product, logEventBoolean);
                 },
                 /**
                 * Removes a product from the cart
@@ -500,14 +469,24 @@ var Polyfill = require('./polyfill'),
                 * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
                 */
                 remove: function(product, logEventBoolean) {
-                    mParticleUserCart(MP.mpid).remove(product, logEventBoolean);
+                    var mpid,
+                        currentUser = mParticle.Identity.getCurrentUser();
+                    if (currentUser) {
+                        mpid = currentUser.getMPID();
+                    }
+                    mParticleUserCart(mpid).remove(product, logEventBoolean);
                 },
                 /**
                 * Clears the cart
                 * @method clear
                 */
                 clear: function() {
-                    mParticleUserCart(MP.mpid).clear();
+                    var mpid,
+                        currentUser = mParticle.Identity.getCurrentUser();
+                    if (currentUser) {
+                        mpid = currentUser.getMPID();
+                    }
+                    mParticleUserCart(mpid).clear();
                 }
             },
             /**
@@ -522,7 +501,7 @@ var Polyfill = require('./polyfill'),
                     return;
                 }
                 SessionManager.resetSessionTimer();
-                MP.currencyCode = code;
+                mParticle.Store.currencyCode = code;
             },
             /**
             * Creates a product
@@ -701,16 +680,16 @@ var Polyfill = require('./polyfill'),
                     return;
                 }
 
-                if (MP.webviewBridgeEnabled) {
+                if (mParticle.Store.webviewBridgeEnabled) {
                     NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }));
                 } else {
-                    var existingProp = Helpers.findKeyInObject(MP.sessionAttributes, key);
+                    var existingProp = Helpers.findKeyInObject(mParticle.Store.sessionAttributes, key);
 
                     if (existingProp) {
                         key = existingProp;
                     }
 
-                    MP.sessionAttributes[key] = value;
+                    mParticle.Store.sessionAttributes[key] = value;
                     Persistence.update();
 
                     Forwarders.applyToForwarders('setSessionAttribute', [key, value]);
@@ -725,13 +704,13 @@ var Polyfill = require('./polyfill'),
         */
         setOptOut: function(isOptingOut) {
             SessionManager.resetSessionTimer();
-            MP.isEnabled = !isOptingOut;
+            mParticle.Store.isEnabled = !isOptingOut;
 
             Events.logOptOut();
             Persistence.update();
 
-            if (MP.activeForwarders.length) {
-                MP.activeForwarders.forEach(function(forwarder) {
+            if (mParticle.Store.activeForwarders.length) {
+                mParticle.Store.activeForwarders.forEach(function(forwarder) {
                     if (forwarder.setOptOut) {
                         var result = forwarder.setOptOut(isOptingOut);
 
@@ -762,19 +741,19 @@ var Polyfill = require('./polyfill'),
                 return;
             }
             if (attrs === null) {
-                MP.integrationAttributes[integrationId] = {};
+                mParticle.Store.integrationAttributes[integrationId] = {};
             } else if (Helpers.isObject(attrs)) {
                 if (Object.keys(attrs).length === 0) {
-                    MP.integrationAttributes[integrationId] = {};
+                    mParticle.Store.integrationAttributes[integrationId] = {};
                 } else {
                     for (var key in attrs) {
                         if (typeof key === 'string') {
                             if (typeof attrs[key] === 'string') {
-                                if (Helpers.isObject(MP.integrationAttributes[integrationId])) {
-                                    MP.integrationAttributes[integrationId][key] = attrs[key];
+                                if (Helpers.isObject(mParticle.Store.integrationAttributes[integrationId])) {
+                                    mParticle.Store.integrationAttributes[integrationId][key] = attrs[key];
                                 } else {
-                                    MP.integrationAttributes[integrationId] = {};
-                                    MP.integrationAttributes[integrationId][key] = attrs[key];
+                                    mParticle.Store.integrationAttributes[integrationId] = {};
+                                    mParticle.Store.integrationAttributes[integrationId][key] = attrs[key];
                                 }
                             } else {
                                 Helpers.logDebug('Values for integration attributes must be strings. You entered a ' + typeof attrs[key]);
@@ -799,22 +778,22 @@ var Polyfill = require('./polyfill'),
         * @return {Object} an object map of the integrationId's attributes
         */
         getIntegrationAttributes: function(integrationId) {
-            if (MP.integrationAttributes[integrationId]) {
-                return MP.integrationAttributes[integrationId];
+            if (mParticle.Store.integrationAttributes[integrationId]) {
+                return mParticle.Store.integrationAttributes[integrationId];
             } else {
                 return {};
             }
         },
         addForwarder: function(forwarderProcessor) {
-            MP.forwarderConstructors.push(forwarderProcessor);
+            mParticle.preInit.forwarderConstructors.push(forwarderProcessor);
         },
         configureForwarder: function(configuration) {
             var newForwarder = null,
                 config = configuration;
-            for (var i = 0; i < MP.forwarderConstructors.length; i++) {
-                if (MP.forwarderConstructors[i].name === config.name) {
-                    if (config.isDebug === mParticle.isDevelopmentMode || config.isSandbox === mParticle.isDevelopmentMode) {
-                        newForwarder = new MP.forwarderConstructors[i].constructor();
+            for (var i = 0; i < mParticle.preInit.forwarderConstructors.length; i++) {
+                if (mParticle.preInit.forwarderConstructors[i].name === config.name) {
+                    if (config.isDebug === mParticle.preInit.isDevelopmentMode || config.isSandbox === mParticle.preInit.isDevelopmentMode) {
+                        newForwarder = new mParticle.preInit.forwarderConstructors[i].constructor();
 
                         newForwarder.id = config.moduleId;
                         newForwarder.isSandbox = config.isDebug || config.isSandbox;
@@ -839,32 +818,32 @@ var Polyfill = require('./polyfill'),
                         newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
                         newForwarder.excludeAnonymousUser = config.excludeAnonymousUser;
 
-                        MP.configuredForwarders.push(newForwarder);
+                        mParticle.preInit.configuredForwarders.push(newForwarder);
                         break;
                     }
                 }
             }
         },
         configurePixel: function(settings) {
-            if (settings.isDebug === mParticle.isDevelopmentMode || settings.isProduction !== mParticle.isDevelopmentMode) {
-                MP.pixelConfigurations.push(settings);
+            if (settings.isDebug === mParticle.preInit.isDevelopmentMode || settings.isProduction !== mParticle.preInit.isDevelopmentMode) {
+                mParticle.preInit.pixelConfigurations.push(settings);
             }
         },
         _getActiveForwarders: function() {
-            return MP.activeForwarders;
+            return mParticle.Store.activeForwarders;
         },
         _getIntegrationDelays: function() {
-            return MP.integrationDelays;
+            return mParticle.preInit.integrationDelays;
         },
         _configureFeatures: function(featureFlags) {
             for (var key in featureFlags) {
-                if (featureFlags.hasOwnProperty(key)) {
-                    MP.featureFlags[key] = featureFlags[key];
+                if (mParticle.Store && mParticle.preInit.featureFlags) {
+                    mParticle.preInit.featureFlags[key] = featureFlags[key];
                 }
             }
         },
         _setIntegrationDelay: function(module, boolean) {
-            MP.integrationDelays[module] = boolean;
+            mParticle.preInit.integrationDelays[module] = boolean;
         }
     };
 
@@ -889,97 +868,25 @@ var Polyfill = require('./polyfill'),
         }
     }
 
-    // Read existing configuration if present
+    mParticle.preInit = {
+        readyQueue: [],
+        configuredForwarders: [],
+        featureFlags: {},
+        forwarderConstructors: [],
+        pixelConfigurations: [],
+        integrationDelays: {},
+        isDevelopmentMode: false
+    };
+
     if (window.mParticle && window.mParticle.config) {
-        if (window.mParticle.config.serviceUrl) {
-            Constants.serviceUrl = window.mParticle.config.serviceUrl;
-        }
-
-        if (window.mParticle.config.secureServiceUrl) {
-            Constants.secureServiceUrl = window.mParticle.config.secureServiceUrl;
-        }
-
-        // Check for any functions queued
-        if (window.mParticle.config.rq) {
-            MP.readyQueue = window.mParticle.config.rq;
-        }
-
-        if (window.mParticle.config.logLevel) {
-            MP.logLevel = window.mParticle.config.logLevel;
-        }
-
         if (window.mParticle.config.hasOwnProperty('isDevelopmentMode')) {
-            mParticle.isDevelopmentMode = Helpers.returnConvertedBoolean(window.mParticle.config.isDevelopmentMode);
-        }
-
-        if (window.mParticle.config.hasOwnProperty('useNativeSdk')) {
-            mParticle.useNativeSdk = window.mParticle.config.useNativeSdk;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('useCookieStorage')) {
-            mParticle.useCookieStorage = window.mParticle.config.useCookieStorage;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('maxProducts')) {
-            mParticle.maxProducts = window.mParticle.config.maxProducts;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('maxCookieSize')) {
-            mParticle.maxCookieSize = window.mParticle.config.maxCookieSize;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('appName')) {
-            MP.appName = window.mParticle.config.appName;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('integrationDelayTimeout')) {
-            mParticle.integrationDelayTimeout = window.mParticle.config.integrationDelayTimeout;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('identifyRequest')) {
-            mParticle.identifyRequest = window.mParticle.config.identifyRequest;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('identityCallback')) {
-            var callback = window.mParticle.config.identityCallback;
-            if (Validators.isFunction(callback)) {
-                mParticle.identityCallback = window.mParticle.config.identityCallback;
-            } else {
-                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
-            }
-        }
-
-        if (window.mParticle.config.hasOwnProperty('appVersion')) {
-            MP.appVersion = window.mParticle.config.appVersion;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('sessionTimeout')) {
-            MP.Config.SessionTimeout = window.mParticle.config.sessionTimeout;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('forceHttps')) {
-            mParticle.forceHttps = window.mParticle.config.forceHttps;
+            mParticle.preInit.isDevelopmentMode = Helpers.returnConvertedBoolean(window.mParticle.config.isDevelopmentMode);
         } else {
-            mParticle.forceHttps = true;
+            mParticle.preInit.isDevelopmentMode = false;
         }
 
-        // Some forwarders require custom flags on initialization, so allow them to be set using config object
-        if (window.mParticle.config.hasOwnProperty('customFlags')) {
-            MP.customFlags = window.mParticle.config.customFlags;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('workspaceToken')) {
-            mParticle.workspaceToken = window.mParticle.config.workspaceToken;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('requiredWebviewBridgeName')) {
-            mParticle.requiredWebviewBridgeName = window.mParticle.config.requiredWebviewBridgeName;
-        } else {
-            mParticle.requiredWebviewBridgeName = window.mParticle.config.workspaceToken;
-        }
-
-        if (window.mParticle.config.hasOwnProperty('minWebviewBridgeVersion')) {
-            mParticle.minWebviewBridgeVersion = window.mParticle.config.minWebviewBridgeVersion;
+        if (window.mParticle.config.hasOwnProperty('rq')) {
+            mParticle.preInit.readyQueue = window.mParticle.config.rq;
         }
     }
 

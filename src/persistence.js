@@ -2,13 +2,13 @@ var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Base64 = require('./polyfill').Base64,
     Messages = Constants.Messages,
-    MP = require('./mp'),
     Base64CookieKeys = Constants.Base64CookieKeys,
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
+    StorageNames = Constants.StorageNames,
     Consent = require('./consent');
 
 function useLocalStorage() {
-    return (!mParticle.useCookieStorage && MP.isLocalStorageAvailable);
+    return (!mParticle.Store.SDKConfig.useCookieStorage && mParticle.Store.isLocalStorageAvailable);
 }
 
 function initializeStorage() {
@@ -20,19 +20,19 @@ function initializeStorage() {
 
         // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
         if (!localStorageData && !cookies) {
-            MP.isFirstRun = true;
-            MP.mpid = 0;
+            mParticle.Store.isFirstRun = true;
+            mParticle.Store.mpid = 0;
         } else {
-            MP.isFirstRun = false;
+            mParticle.Store.isFirstRun = false;
         }
 
-        if (!MP.isLocalStorageAvailable) {
-            mParticle.useCookieStorage = true;
+        if (!mParticle.Store.isLocalStorageAvailable) {
+            mParticle.Store.SDKConfig.useCookieStorage = true;
         }
 
-        if (MP.isLocalStorageAvailable) {
+        if (mParticle.Store.isLocalStorageAvailable) {
             storage = window.localStorage;
-            if (mParticle.useCookieStorage) {
+            if (mParticle.Store.SDKConfig.useCookieStorage) {
                 // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
                 // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
                 if (localStorageData) {
@@ -41,7 +41,7 @@ function initializeStorage() {
                     } else {
                         allData = localStorageData;
                     }
-                    storage.removeItem(MP.storageName);
+                    storage.removeItem(mParticle.Store.storageName);
                 } else if (cookies) {
                     allData = cookies;
                 }
@@ -57,7 +57,7 @@ function initializeStorage() {
                         allData = cookies;
                     }
                     this.storeDataInMemory(allData);
-                    this.expireCookies(MP.storageName);
+                    this.expireCookies(mParticle.Store.storageName);
                 } else {
                     this.storeDataInMemory(localStorageData);
                 }
@@ -66,48 +66,28 @@ function initializeStorage() {
             this.storeDataInMemory(cookies);
         }
 
-        try {
-            if (MP.isLocalStorageAvailable) {
-                var encodedProducts = localStorage.getItem(MP.prodStorageName);
-
-                if (encodedProducts) {
-                    var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
-                }
-                if (MP.mpid) {
-                    storeProductsInMemory(decodedProducts, MP.mpid);
-                }
-            }
-        } catch (e) {
-            if (MP.isLocalStorageAvailable) {
-                localStorage.removeItem(MP.prodStorageName);
-            }
-            MP.cartProducts = [];
-            Helpers.logDebug('Error loading products in initialization: ' + e);
-        }
-
-
         for (var key in allData) {
             if (allData.hasOwnProperty(key)) {
                 if (!SDKv2NonMPIDCookieKeys[key]) {
-                    MP.nonCurrentUserMPIDs[key] = allData[key];
+                    mParticle.Store.nonCurrentUserMPIDs[key] = allData[key];
                 }
             }
         }
 
         this.update();
     } catch (e) {
-        if (useLocalStorage() && MP.isLocalStorageAvailable) {
-            localStorage.removeItem(MP.storageName);
+        if (useLocalStorage() && mParticle.Store.isLocalStorageAvailable) {
+            localStorage.removeItem(mParticle.Store.storageName);
         } else {
-            expireCookies(MP.storageName);
+            expireCookies(mParticle.Store.storageName);
         }
         Helpers.logDebug('Error initializing storage: ' + e);
     }
 }
 
 function update() {
-    if (!MP.webviewBridgeEnabled) {
-        if (mParticle.useCookieStorage) {
+    if (!mParticle.Store.webviewBridgeEnabled) {
+        if (mParticle.Store.SDKConfig.useCookieStorage) {
             this.setCookie();
         }
 
@@ -115,73 +95,50 @@ function update() {
     }
 }
 
-function storeProductsInMemory(products, mpid) {
-    if (products) {
-        try {
-            MP.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
-        }
-        catch(e) {
-            Helpers.logDebug(Messages.ErrorMessages.CookieParseError);
-        }
-    }
-}
-
 function storeDataInMemory(obj, currentMPID) {
     try {
         if (!obj) {
             Helpers.logDebug(Messages.InformationMessages.CookieNotFound);
-            MP.clientId = MP.clientId || Helpers.generateUniqueId();
-            MP.deviceId = MP.deviceId || Helpers.generateUniqueId();
-            MP.userAttributes = {};
-            MP.userIdentities = {};
-            MP.cookieSyncDates = {};
-            MP.consentState = null;
+            mParticle.Store.clientId = mParticle.Store.clientId || Helpers.generateUniqueId();
+            mParticle.Store.deviceId = mParticle.Store.deviceId || Helpers.generateUniqueId();
         } else {
             // Set MPID first, then change object to match MPID data
             if (currentMPID) {
-                MP.mpid = currentMPID;
+                mParticle.Store.mpid = currentMPID;
             } else {
-                MP.mpid = obj.cu || 0;
+                mParticle.Store.mpid = obj.cu || 0;
             }
 
             obj.gs = obj.gs || {};
 
-            MP.sessionId = obj.gs.sid || MP.sessionId;
-            MP.isEnabled = (typeof obj.gs.ie !== 'undefined') ? obj.gs.ie : MP.isEnabled;
-            MP.sessionAttributes = obj.gs.sa || MP.sessionAttributes;
-            MP.serverSettings = obj.gs.ss || MP.serverSettings;
-            MP.devToken = MP.devToken || obj.gs.dt;
-            MP.appVersion = MP.appVersion || obj.gs.av;
-            MP.clientId = obj.gs.cgid || MP.clientId || Helpers.generateUniqueId();
-            MP.deviceId = obj.gs.das || MP.deviceId || Helpers.generateUniqueId();
-            MP.integrationAttributes = obj.gs.ia || {};
-            MP.context = obj.gs.c || MP.context;
-            MP.currentSessionMPIDs = obj.gs.csm || MP.currentSessionMPIDs;
+            mParticle.Store.sessionId = obj.gs.sid || mParticle.Store.sessionId;
+            mParticle.Store.isEnabled = (typeof obj.gs.ie !== 'undefined') ? obj.gs.ie : mParticle.Store.isEnabled;
+            mParticle.Store.sessionAttributes = obj.gs.sa || mParticle.Store.sessionAttributes;
+            mParticle.Store.serverSettings = obj.gs.ss || mParticle.Store.serverSettings;
+            mParticle.Store.devToken = mParticle.Store.devToken || obj.gs.dt;
+            mParticle.Store.SDKConfig.appVersion = mParticle.Store.SDKConfig.appVersion || obj.gs.av;
+            mParticle.Store.clientId = obj.gs.cgid || mParticle.Store.clientId || Helpers.generateUniqueId();
+            mParticle.Store.deviceId = obj.gs.das || mParticle.Store.deviceId || Helpers.generateUniqueId();
+            mParticle.Store.integrationAttributes = obj.gs.ia || {};
+            mParticle.Store.context = obj.gs.c || mParticle.Store.context;
+            mParticle.Store.currentSessionMPIDs = obj.gs.csm || mParticle.Store.currentSessionMPIDs;
 
-            MP.isLoggedIn = obj.l === true;
+            mParticle.Store.isLoggedIn = obj.l === true;
 
             if (obj.gs.les) {
-                MP.dateLastEventSent = new Date(obj.gs.les);
+                mParticle.Store.dateLastEventSent = new Date(obj.gs.les);
             }
 
             if (obj.gs.ssd) {
-                MP.sessionStartDate = new Date(obj.gs.ssd);
+                mParticle.Store.sessionStartDate = new Date(obj.gs.ssd);
             } else {
-                MP.sessionStartDate = new Date();
+                mParticle.Store.sessionStartDate = new Date();
             }
 
             if (currentMPID) {
                 obj = obj[currentMPID];
             } else {
                 obj = obj[obj.cu];
-            }
-
-            MP.userAttributes = obj.ua || MP.userAttributes;
-            MP.userIdentities = obj.ui || MP.userIdentities;
-            MP.consentState = obj.con ? Consent.Serialization.fromMinifiedJsonObject(obj.con) : null;
-
-            if (obj.csd) {
-                MP.cookieSyncDates = obj.csd;
             }
         }
     }
@@ -213,34 +170,15 @@ function determineLocalStorageAvailability(storage) {
     }
 }
 
-function convertInMemoryDataForCookies() {
-    var mpidData = {
-        ua: MP.userAttributes,
-        ui: MP.userIdentities,
-        csd: MP.cookieSyncDates,
-        con: MP.consentState ? Consent.Serialization.toMinifiedJsonObject(MP.consentState) : null
-    };
-
-    return mpidData;
-}
-
-function convertProductsForLocalStorage() {
-    var inMemoryDataForLocalStorage = {
-        cp: MP.cartProducts ? MP.cartProducts.length <= mParticle.maxProducts ? MP.cartProducts : MP.cartProducts.slice(0, mParticle.maxProducts) : []
-    };
-
-    return inMemoryDataForLocalStorage;
-}
-
 function getUserProductsFromLS(mpid) {
-    if (!MP.isLocalStorageAvailable) {
+    if (!mParticle.Store.isLocalStorageAvailable) {
         return [];
     }
 
     var decodedProducts,
         userProducts,
         parsedProducts,
-        encodedProducts = localStorage.getItem(MP.prodStorageName);
+        encodedProducts = localStorage.getItem(mParticle.Store.prodStorageName);
     if (encodedProducts) {
         decodedProducts = Base64.decode(encodedProducts);
     }
@@ -266,7 +204,7 @@ function getUserProductsFromLS(mpid) {
 
 function getAllUserProductsFromLS() {
     var decodedProducts,
-        encodedProducts = localStorage.getItem(MP.prodStorageName),
+        encodedProducts = localStorage.getItem(mParticle.Store.prodStorageName),
         parsedDecodedProducts;
     if (encodedProducts) {
         decodedProducts = Base64.decode(encodedProducts);
@@ -282,47 +220,47 @@ function getAllUserProductsFromLS() {
 }
 
 function setLocalStorage() {
-    if (!MP.isLocalStorageAvailable) {
+    if (!mParticle.Store.isLocalStorageAvailable) {
         return;
     }
 
-    var key = MP.storageName,
+    var key = mParticle.Store.storageName,
         allLocalStorageProducts = getAllUserProductsFromLS(),
-        currentUserProducts = this.convertProductsForLocalStorage(),
         localStorageData = this.getLocalStorage() || {},
-        currentMPIDData;
-
-    if (MP.mpid) {
+        currentUser = mParticle.Identity.getCurrentUser(),
+        mpid = currentUser ? currentUser.getMPID() : null,
+        currentUserProducts = {
+            cp: allLocalStorageProducts[mpid] ? allLocalStorageProducts[mpid].cp : []
+        };
+    if (mpid) {
         allLocalStorageProducts = allLocalStorageProducts || {};
-        allLocalStorageProducts[MP.mpid] = currentUserProducts;
+        allLocalStorageProducts[mpid] = currentUserProducts;
         try {
-            window.localStorage.setItem(encodeURIComponent(MP.prodStorageName), Base64.encode(JSON.stringify(allLocalStorageProducts)));
+            window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName), Base64.encode(JSON.stringify(allLocalStorageProducts)));
         }
         catch (e) {
             Helpers.logDebug('Error with setting products on localStorage.');
         }
     }
 
-    if (!mParticle.useCookieStorage) {
-        currentMPIDData = this.convertInMemoryDataForCookies();
+    if (!mParticle.Store.SDKConfig.useCookieStorage) {
         localStorageData.gs = localStorageData.gs || {};
 
-        localStorageData.l = MP.isLoggedIn ? 1 : 0;
+        localStorageData.l = mParticle.Store.isLoggedIn ? 1 : 0;
 
-        if (MP.sessionId) {
-            localStorageData.gs.csm = MP.currentSessionMPIDs;
+        if (mParticle.Store.sessionId) {
+            localStorageData.gs.csm = mParticle.Store.currentSessionMPIDs;
         }
 
-        localStorageData.gs.ie = MP.isEnabled;
+        localStorageData.gs.ie = mParticle.Store.isEnabled;
 
-        if (MP.mpid) {
-            localStorageData[MP.mpid] = currentMPIDData;
-            localStorageData.cu = MP.mpid;
+        if (mpid) {
+            localStorageData.cu = mpid;
         }
 
-        if (Object.keys(MP.nonCurrentUserMPIDs).length) {
-            localStorageData = Helpers.extend({}, localStorageData, MP.nonCurrentUserMPIDs);
-            MP.nonCurrentUserMPIDs = {};
+        if (Object.keys(mParticle.Store.nonCurrentUserMPIDs).length) {
+            localStorageData = Helpers.extend({}, localStorageData, mParticle.Store.nonCurrentUserMPIDs);
+            mParticle.Store.nonCurrentUserMPIDs = {};
         }
 
         localStorageData = this.setGlobalStorageAttributes(localStorageData);
@@ -337,28 +275,29 @@ function setLocalStorage() {
 }
 
 function setGlobalStorageAttributes(data) {
-    data.gs.sid = MP.sessionId;
-    data.gs.ie = MP.isEnabled;
-    data.gs.sa = MP.sessionAttributes;
-    data.gs.ss = MP.serverSettings;
-    data.gs.dt = MP.devToken;
-    data.gs.les = MP.dateLastEventSent ? MP.dateLastEventSent.getTime() : null;
-    data.gs.av = MP.appVersion;
-    data.gs.cgid = MP.clientId;
-    data.gs.das = MP.deviceId;
-    data.gs.c = MP.context;
-    data.gs.ssd = MP.sessionStartDate ? MP.sessionStartDate.getTime() : null;
-    data.gs.ia = MP.integrationAttributes;
+    var store = mParticle.Store;
+    data.gs.sid = store.sessionId;
+    data.gs.ie = store.isEnabled;
+    data.gs.sa = store.sessionAttributes;
+    data.gs.ss = store.serverSettings;
+    data.gs.dt = store.devToken;
+    data.gs.les = store.dateLastEventSent ? store.dateLastEventSent.getTime() : null;
+    data.gs.av = store.SDKConfig.appVersion;
+    data.gs.cgid = store.clientId;
+    data.gs.das = store.deviceId;
+    data.gs.c = store.context;
+    data.gs.ssd = store.sessionStartDate ? store.sessionStartDate.getTime() : null;
+    data.gs.ia = store.integrationAttributes;
 
     return data;
 }
 
 function getLocalStorage() {
-    if (!MP.isLocalStorageAvailable) {
+    if (!mParticle.Store.isLocalStorageAvailable) {
         return null;
     }
 
-    var key = MP.storageName,
+    var key = mParticle.Store.storageName,
         localStorageData = decodeCookies(window.localStorage.getItem(key)),
         obj = {},
         j;
@@ -383,10 +322,10 @@ function removeLocalStorage(localStorageName) {
 }
 
 function retrieveDeviceId() {
-    if (MP.deviceId) {
-        return MP.deviceId;
+    if (mParticle.Store.deviceId) {
+        return mParticle.Store.deviceId;
     } else {
-        return this.parseDeviceId(MP.serverSettings);
+        return this.parseDeviceId(mParticle.Store.serverSettings);
     }
 }
 
@@ -434,7 +373,7 @@ function expireCookies(cookieName) {
 
 function getCookie() {
     var cookies = window.document.cookie.split('; '),
-        key = MP.storageName,
+        key = mParticle.Store.storageName,
         i,
         l,
         parts,
@@ -468,14 +407,18 @@ function getCookie() {
 }
 
 function setCookie() {
+    var mpid,
+        currentUser = mParticle.Identity.getCurrentUser();
+    if (currentUser) {
+        mpid = currentUser.getMPID();
+    }
     var date = new Date(),
-        key = MP.storageName,
-        currentMPIDData = this.convertInMemoryDataForCookies(),
+        key = mParticle.Store.storageName,
+        cookies = this.getCookie() || {},
         expires = new Date(date.getTime() +
-            (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
+            (mParticle.Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
         cookieDomain,
         domain,
-        cookies = this.getCookie() || {},
         encodedCookiesWithExpirationAndPath;
 
     cookieDomain = getCookieDomain();
@@ -488,25 +431,24 @@ function setCookie() {
 
     cookies.gs = cookies.gs || {};
 
-    if (MP.sessionId) {
-        cookies.gs.csm = MP.currentSessionMPIDs;
+    if (mParticle.Store.sessionId) {
+        cookies.gs.csm = mParticle.Store.currentSessionMPIDs;
     }
 
-    if (MP.mpid) {
-        cookies[MP.mpid] = currentMPIDData;
-        cookies.cu = MP.mpid;
+    if (mpid) {
+        cookies.cu = mpid;
     }
 
-    cookies.l = MP.isLoggedIn ? 1 : 0;
+    cookies.l = mParticle.Store.isLoggedIn ? 1 : 0;
 
     cookies = this.setGlobalStorageAttributes(cookies);
 
-    if (Object.keys(MP.nonCurrentUserMPIDs).length) {
-        cookies = Helpers.extend({}, cookies, MP.nonCurrentUserMPIDs);
-        MP.nonCurrentUserMPIDs = {};
+    if (Object.keys(mParticle.Store.nonCurrentUserMPIDs).length) {
+        cookies = Helpers.extend({}, cookies, mParticle.Store.nonCurrentUserMPIDs);
+        mParticle.Store.nonCurrentUserMPIDs = {};
     }
 
-    encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain);
+    encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain, mParticle.Store.SDKConfig.maxCookieSize);
 
     Helpers.logDebug(Messages.InformationMessages.CookieSet);
 
@@ -526,7 +468,7 @@ function setCookie() {
         b. Then remove MPIDs based on order in currentSessionMPIDs array, which
         stores MPIDs based on earliest login.
 */
-function reduceAndEncodeCookies(cookies, expires, domain) {
+function reduceAndEncodeCookies(cookies, expires, domain, maxCookieSize) {
     var encodedCookiesWithExpirationAndPath,
         currentSessionMPIDs = cookies.gs.csm ? cookies.gs.csm : [];
     // Comment 1 above
@@ -534,7 +476,7 @@ function reduceAndEncodeCookies(cookies, expires, domain) {
         for (var key in cookies) {
             if (cookies.hasOwnProperty(key)) {
                 encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
-                if (encodedCookiesWithExpirationAndPath.length > mParticle.maxCookieSize) {
+                if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
                     if (!SDKv2NonMPIDCookieKeys[key] && key !== cookies.cu) {
                         delete cookies[key];
                     }
@@ -555,7 +497,7 @@ function reduceAndEncodeCookies(cookies, expires, domain) {
         if (Object.keys(MPIDsOnCookie).length) {
             for (var mpid in MPIDsOnCookie) {
                 encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
-                if (encodedCookiesWithExpirationAndPath.length > mParticle.maxCookieSize) {
+                if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
                     if (MPIDsOnCookie.hasOwnProperty(mpid)) {
                         if (currentSessionMPIDs.indexOf(mpid) === -1) {
                             delete cookies[mpid];
@@ -567,13 +509,13 @@ function reduceAndEncodeCookies(cookies, expires, domain) {
         // Comment 2b above
         for (var i = 0; i < currentSessionMPIDs.length; i++) {
             encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
-            if (encodedCookiesWithExpirationAndPath.length > mParticle.maxCookieSize) {
+            if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
                 var MPIDtoRemove = currentSessionMPIDs[i];
                 if (cookies[MPIDtoRemove]) {
-                    Helpers.logDebug('Size of new encoded cookie is larger than maxCookieSize setting of ' + mParticle.maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(cookies[MPIDtoRemove], 0, 2));
+                    Helpers.logDebug('Size of new encoded cookie is larger than maxCookieSize setting of ' + maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(cookies[MPIDtoRemove], 0, 2));
                     delete cookies[MPIDtoRemove];
                 } else {
-                    Helpers.logDebug('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + mParticle.maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
+                    Helpers.logDebug('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
                 }
             } else {
                 break;
@@ -730,8 +672,8 @@ function revertCookieString(string) {
 }
 
 function getCookieDomain() {
-    if (MP.Config.CookieDomain) {
-        return MP.Config.CookieDomain;
+    if (mParticle.Store.SDKConfig.cookieDomain) {
+        return mParticle.Store.SDKConfig.cookieDomain;
     } else {
         var rootDomain = getDomain(document, location.hostname);
         if (rootDomain === '') {
@@ -764,71 +706,123 @@ function getDomain(doc, locationHostname) {
 }
 
 function decodeProducts() {
-    return JSON.parse(Base64.decode(localStorage.getItem(MP.prodStorageName)));
+    return JSON.parse(Base64.decode(localStorage.getItem(mParticle.Store.prodStorageName)));
 }
 
 function getUserIdentities(mpid) {
-    var cookies;
-    if (mpid === MP.mpid) {
-        return MP.userIdentities;
-    } else {
-        cookies = getPersistence();
+    var cookies = getPersistence();
 
-        if (cookies && cookies[mpid] && cookies[mpid].ui) {
-            return cookies[mpid].ui;
-        } else {
-            return {};
-        }
+    if (cookies && cookies[mpid] && cookies[mpid].ui) {
+        return cookies[mpid].ui;
+    } else {
+        return {};
     }
 }
 
 function getAllUserAttributes(mpid) {
-    var cookies;
-    if (mpid === MP.mpid) {
-        return MP.userAttributes;
-    } else {
-        cookies = getPersistence();
+    var cookies = getPersistence();
 
-        if (cookies && cookies[mpid] && cookies[mpid].ua) {
-            return cookies[mpid].ua;
-        } else {
-            return {};
-        }
+    if (cookies && cookies[mpid] && cookies[mpid].ua) {
+        return cookies[mpid].ua;
+    } else {
+        return {};
     }
 }
 
 function getCartProducts(mpid) {
-    if (mpid === MP.mpid) {
-        return MP.cartProducts;
+    var allCartProducts = JSON.parse(Base64.decode(localStorage.getItem(mParticle.Store.prodStorageName)));
+    if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
+        return allCartProducts[mpid].cp;
     } else {
-        var allCartProducts = JSON.parse(Base64.decode(localStorage.getItem(MP.prodStorageName)));
-        if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
-            return allCartProducts[mpid].cp;
-        } else {
-            return [];
-        }
+        return [];
     }
 }
 
 function setCartProducts(allProducts) {
-    if (!MP.isLocalStorageAvailable) {
+    if (!mParticle.Store.isLocalStorageAvailable) {
         return;
     }
 
     try {
-        window.localStorage.setItem(encodeURIComponent(MP.prodStorageName), Base64.encode(JSON.stringify(allProducts)));
+        window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName), Base64.encode(JSON.stringify(allProducts)));
     }
     catch (e) {
         Helpers.logDebug('Error with setting products on localStorage.');
     }
 }
 
-function updateOnlyCookieUserAttributes(cookies) {
+function saveUserIdentitiesToCookies(mpid, userIdentities) {
+    if (userIdentities) {
+        var cookies = getPersistence();
+        if (cookies) {
+            if (cookies[mpid]) {
+                cookies[mpid].ui = userIdentities;
+            } else {
+                cookies[mpid] = {
+                    ui: userIdentities
+                };
+            }
+            saveCookies(cookies);
+        }
+    }
+}
+
+function saveUserAttributesToCookies(mpid, userAttributes) {
+    var cookies = getPersistence();
+    if (userAttributes) {
+        if (cookies) {
+            if (cookies[mpid]) {
+                cookies[mpid].ui = userAttributes;
+            } else {
+                cookies[mpid] = {
+                    ui: userAttributes
+                };
+            }
+        }
+        saveCookies(cookies);
+    }
+}
+
+function saveUserCookieSyncDatesToCookies(mpid, csd) {
+    if (csd) {
+        var cookies = getPersistence();
+        if (cookies) {
+            if (cookies[mpid]) {
+                cookies[mpid].csd = csd;
+            } else {
+                cookies[mpid] = {
+                    csd: csd
+                };
+            }
+        }
+        saveCookies(cookies);
+    }
+}
+
+function saveUserConsentStateToCookies(mpid, consentState) {
+    //it's currently not supported to set persistence
+    //for any MPID that's not the current one.
+    if (consentState || consentState === null) {
+        var cookies = getPersistence();
+        if (cookies) {
+            if (cookies[mpid]) {
+                cookies[mpid].con = Consent.Serialization.toMinifiedJsonObject(consentState);
+            } else {
+                cookies[mpid] = {
+                    con: Consent.Serialization.toMinifiedJsonObject(consentState)
+                };
+            }
+            saveCookies(cookies);
+        }
+    }
+}
+
+function saveCookies(cookies) {
     var encodedCookies = encodeCookies(JSON.stringify(cookies)),
         date = new Date(),
-        key = MP.storageName,
+        key = mParticle.Store.storageName,
         expires = new Date(date.getTime() +
-        (MP.Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
+        (mParticle.Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
         cookieDomain = getCookieDomain(),
         domain;
 
@@ -838,20 +832,20 @@ function updateOnlyCookieUserAttributes(cookies) {
         domain = ';domain=' + cookieDomain;
     }
 
-    if (mParticle.useCookieStorage) {
-        var encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain);
+    if (mParticle.Store.SDKConfig.useCookieStorage) {
+        var encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain, mParticle.Store.SDKConfig.maxCookieSize);
         window.document.cookie =
             encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
     } else {
-        if (MP.isLocalStorageAvailable) {
-            localStorage.setItem(MP.storageName, encodedCookies);
+        if (mParticle.Store.isLocalStorageAvailable) {
+            localStorage.setItem(mParticle.Store.storageName, encodedCookies);
         }
     }
 }
 
 function getPersistence() {
     var cookies;
-    if (mParticle.useCookieStorage) {
+    if (mParticle.Store.SDKConfig.useCookieStorage) {
         cookies = getCookie();
     } else {
         cookies = getLocalStorage();
@@ -861,48 +855,35 @@ function getPersistence() {
 }
 
 function getConsentState(mpid) {
-    var cookies;
-    if (mpid === MP.mpid) {
-        return MP.consentState;
+    var cookies = getPersistence();
+
+    if (cookies && cookies[mpid] && cookies[mpid].con) {
+        return Consent.Serialization.fromMinifiedJsonObject(cookies[mpid].con);
     } else {
-        cookies = getPersistence();
-
-        if (cookies && cookies[mpid] && cookies[mpid].con) {
-            return Consent.Serialization.fromMinifiedJsonObject(cookies[mpid].con);
-        } else {
-            return null;
-        }
+        return null;
     }
-}
-
-function setConsentState(mpid, consentState) {
-    //it's currently not supported to set persistence
-    //for any MPID that's not the current one.
-    if (mpid === MP.mpid) {
-        MP.consentState = consentState;
-    }
-    this.update();
 }
 
 function getDeviceId() {
-    return MP.deviceId;
+    return mParticle.Store.deviceId;
 }
 
 function resetPersistence() {
-    removeLocalStorage(MP.Config.LocalStorageName);
-    removeLocalStorage(MP.Config.LocalStorageNameV3);
-    removeLocalStorage(MP.Config.LocalStorageNameV4);
-    removeLocalStorage(MP.prodStorageName);
-    removeLocalStorage(MP.Config.LocalStorageProductsV4);
+    removeLocalStorage(StorageNames.localStorageName);
+    removeLocalStorage(StorageNames.localStorageNameV3);
+    removeLocalStorage(StorageNames.localStorageNameV4);
+    removeLocalStorage(mParticle.Store.prodStorageName);
+    removeLocalStorage(StorageNames.localStorageProductsV4);
 
-    expireCookies(MP.Config.CookieName);
-    expireCookies(MP.Config.CookieNameV2);
-    expireCookies(MP.Config.CookieNameV3);
-    expireCookies(MP.Config.CookieNameV4);
+    expireCookies(StorageNames.cookieName);
+    expireCookies(StorageNames.cookieNameV2);
+    expireCookies(StorageNames.cookieNameV3);
+    expireCookies(StorageNames.cookieNameV4);
     if (mParticle._isTestEnv) {
-        removeLocalStorage(Helpers.createMainStorageName(mParticle.workspaceToken));
-        expireCookies(Helpers.createMainStorageName(mParticle.workspaceToken));
-        removeLocalStorage(Helpers.createProductStorageName(mParticle.workspaceToken));
+        var testWorkspaceToken = 'abcdef';
+        removeLocalStorage(Helpers.createMainStorageName(testWorkspaceToken));
+        expireCookies(Helpers.createMainStorageName(testWorkspaceToken));
+        removeLocalStorage(Helpers.createProductStorageName(testWorkspaceToken));
     }
 }
 
@@ -917,11 +898,8 @@ module.exports = {
     initializeStorage: initializeStorage,
     update: update,
     determineLocalStorageAvailability: determineLocalStorageAvailability,
-    convertInMemoryDataForCookies: convertInMemoryDataForCookies,
-    convertProductsForLocalStorage: convertProductsForLocalStorage,
     getUserProductsFromLS: getUserProductsFromLS,
     getAllUserProductsFromLS: getAllUserProductsFromLS,
-    storeProductsInMemory: storeProductsInMemory,
     setLocalStorage: setLocalStorage,
     setGlobalStorageAttributes: setGlobalStorageAttributes,
     getLocalStorage: getLocalStorage,
@@ -947,11 +925,14 @@ module.exports = {
     getAllUserAttributes: getAllUserAttributes,
     getCartProducts: getCartProducts,
     setCartProducts: setCartProducts,
-    updateOnlyCookieUserAttributes: updateOnlyCookieUserAttributes,
+    saveCookies: saveCookies,
+    saveUserIdentitiesToCookies: saveUserIdentitiesToCookies,
+    saveUserAttributesToCookies: saveUserAttributesToCookies,
+    saveUserCookieSyncDatesToCookies: saveUserCookieSyncDatesToCookies,
+    saveUserConsentStateToCookies: saveUserConsentStateToCookies,
     getPersistence: getPersistence,
     getDeviceId: getDeviceId,
     resetPersistence: resetPersistence,
     getConsentState: getConsentState,
-    setConsentState: setConsentState,
     forwardingStatsBatches: forwardingStatsBatches
 };

@@ -1,8 +1,7 @@
 var Persistence = require('./persistence'),
     Constants = require('./constants'),
+    StorageNames = Constants.StorageNames,
     Helpers = require('./helpers'),
-    MP = require('./mp'),
-    Config = MP.Config,
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
     Base64 = require('./polyfill').Base64,
     CookiesGlobalSettingsKeys = {
@@ -20,17 +19,17 @@ function migrate() {
     try {
         migrateCookies();
     } catch (e) {
-        Persistence.expireCookies(Config.CookieNameV3);
-        Persistence.expireCookies(Config.CookieNameV4);
+        Persistence.expireCookies(StorageNames.cookieNameV3);
+        Persistence.expireCookies(StorageNames.cookieNameV4);
         Helpers.logDebug('Error migrating cookie: ' + e);
     }
 
-    if (MP.isLocalStorageAvailable) {
+    if (mParticle.Store.isLocalStorageAvailable) {
         try {
             migrateLocalStorage();
         } catch (e) {
-            localStorage.removeItem(Config.LocalStorageNameV3);
-            localStorage.removeItem(Config.LocalStorageNameV4);
+            localStorage.removeItem(StorageNames.localStorageNameV3);
+            localStorage.removeItem(StorageNames.localStorageNameV4);
             Helpers.logDebug('Error migrating localStorage: ' + e);
         }
     }
@@ -54,21 +53,21 @@ function migrateCookies() {
         foundCookie;
 
         //most recent version needs no migration
-        if (name === MP.storageName) {
+        if (name === mParticle.Store.storageName) {
             return;
         }
-        if (name === Config.CookieNameV4) {
+        if (name === StorageNames.cookieNameV4) {
             // adds cookies to new namespace, removes previous cookie
-            finishCookieMigration(cookie, Config.CookieNameV4);
-            if (MP.isLocalStorageAvailable) {
+            finishCookieMigration(cookie, StorageNames.cookieNameV4);
+            if (mParticle.Store.isLocalStorageAvailable) {
                 migrateProductsToNameSpace();
             }
             return;
         // migration path for SDKv1CookiesV3, doesn't need to be encoded
         }
-        if (name === Config.CookieNameV3) {
+        if (name === StorageNames.cookieNameV3) {
             foundCookie = convertSDKv1CookiesV3ToSDKv2CookiesV4(cookie);
-            finishCookieMigration(foundCookie, Config.CookieNameV3);
+            finishCookieMigration(foundCookie, StorageNames.cookieNameV3);
             break;
         }
     }
@@ -81,7 +80,7 @@ function finishCookieMigration(cookie, cookieName) {
         domain;
 
     expires = new Date(date.getTime() +
-    (Config.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString();
+    (StorageNames.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString();
 
     if (cookieDomain === '') {
         domain = '';
@@ -92,12 +91,12 @@ function finishCookieMigration(cookie, cookieName) {
     Helpers.logDebug(Constants.Messages.InformationMessages.CookieSet);
 
     window.document.cookie =
-    encodeURIComponent(MP.storageName) + '=' + cookie +
+    encodeURIComponent(mParticle.Store.storageName) + '=' + cookie +
     ';expires=' + expires +
     ';path=/' + domain;
 
     Persistence.expireCookies(cookieName);
-    MP.migratingToIDSyncCookies = true;
+    mParticle.Store.migratingToIDSyncCookies = true;
 }
 
 function convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookiesV3) {
@@ -142,14 +141,14 @@ function restructureToV4Cookie(cookies) {
 }
 
 function migrateProductsToNameSpace() {
-    var lsProdV4Name = Constants.DefaultConfig.LocalStorageProductsV4;
-    var products = localStorage.getItem(Constants.DefaultConfig.LocalStorageProductsV4);
-    localStorage.setItem(MP.prodStorageName, products);
+    var lsProdV4Name = StorageNames.localStorageProductsV4;
+    var products = localStorage.getItem(StorageNames.localStorageProductsV4);
+    localStorage.setItem(mParticle.Store.prodStorageName, products);
     localStorage.removeItem(lsProdV4Name);
 }
 
 function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
-    if (!MP.isLocalStorageAvailable) {
+    if (!mParticle.Store.isLocalStorageAvailable) {
         return;
     }
 
@@ -168,14 +167,14 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
         }
     }
 
-    localStorage.setItem(MP.prodStorageName, Base64.encode(JSON.stringify(localStorageProducts)));
+    localStorage.setItem(mParticle.Store.prodStorageName, Base64.encode(JSON.stringify(localStorageProducts)));
 }
 
 function migrateLocalStorage() {
     var cookies,
-        v3LSName = Config.LocalStorageNameV3,
-        v4LSName = Config.LocalStorageNameV4,
-        currentVersionLSData = window.localStorage.getItem(MP.storageName),
+        v3LSName = StorageNames.localStorageNameV3,
+        v4LSName = StorageNames.localStorageNameV4,
+        currentVersionLSData = window.localStorage.getItem(mParticle.Store.storageName),
         v4LSData,
         v3LSData,
         v3LSDataStringCopy;
@@ -193,7 +192,7 @@ function migrateLocalStorage() {
 
     v3LSData = window.localStorage.getItem(v3LSName);
     if (v3LSData) {
-        MP.migratingToIDSyncCookies = true;
+        mParticle.Store.migratingToIDSyncCookies = true;
         v3LSDataStringCopy = v3LSData.slice();
         v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
         // localStorage may contain only products, or the full persistence
@@ -207,10 +206,10 @@ function migrateLocalStorage() {
             cookies = Persistence.getCookie();
             if (cookies) {
                 migrateProductsFromSDKv1ToSDKv2CookiesV4(v3LSData, cookies.cu);
-                localStorage.removeItem(Config.LocalStorageNameV3);
+                localStorage.removeItem(StorageNames.localStorageNameV3);
                 return;
             } else {
-                localStorage.removeItem(Config.LocalStorageNameV3);
+                localStorage.removeItem(StorageNames.localStorageNameV3);
                 return;
             }
         }
@@ -218,7 +217,7 @@ function migrateLocalStorage() {
 
     function finishLSMigration(data, lsName) {
         try {
-            window.localStorage.setItem(encodeURIComponent(MP.storageName), data);
+            window.localStorage.setItem(encodeURIComponent(mParticle.Store.storageName), data);
         }
         catch (e) {
             Helpers.logDebug('Error with setting localStorage item.');

@@ -1,6 +1,5 @@
 var Helpers = require('./helpers'),
-    Messages = require('./constants').Messages,
-    MP = require('./mp');
+    Messages = require('./constants').Messages;
 
 var androidBridgeNameBase = 'mParticleAndroid';
 var iosBridgeNameBase = 'mParticle';
@@ -28,11 +27,11 @@ function isBridgeV2Available(bridgeName) {
 }
 
 function isWebviewEnabled(requiredWebviewBridgeName, minWebviewBridgeVersion) {
-    MP.bridgeV2Available = isBridgeV2Available(requiredWebviewBridgeName);
-    MP.bridgeV1Available = isBridgeV1Available();
+    mParticle.Store.bridgeV2Available = isBridgeV2Available(requiredWebviewBridgeName);
+    mParticle.Store.bridgeV1Available = isBridgeV1Available();
 
     if (minWebviewBridgeVersion === 2) {
-        return MP.bridgeV2Available;
+        return mParticle.Store.bridgeV2Available;
     }
 
     // iOS BridgeV1 can be available via mParticle.isIOS, but return false if uiwebviewBridgeName doesn't match requiredWebviewBridgeName
@@ -42,15 +41,15 @@ function isWebviewEnabled(requiredWebviewBridgeName, minWebviewBridgeVersion) {
 
     if (minWebviewBridgeVersion < 2) {
         // ios
-        return MP.bridgeV2Available || MP.bridgeV1Available;
+        return mParticle.Store.bridgeV2Available || mParticle.Store.bridgeV1Available;
     }
 
     return false;
 }
 
 function isBridgeV1Available() {
-    if (mParticle.useNativeSdk || window.mParticleAndroid
-        || window.mParticle.isIOS) {
+    if (mParticle.Store.SDKConfig.useNativeSdk || window.mParticleAndroid
+        || mParticle.Store.SDKConfig.isIOS) {
         return true;
     }
 
@@ -58,15 +57,15 @@ function isBridgeV1Available() {
 }
 
 function sendToNative(path, value) {
-    if (MP.bridgeV2Available && mParticle.minWebviewBridgeVersion === 2) {
-        sendViaBridgeV2(path, value, mParticle.requiredWebviewBridgeName);
+    if (mParticle.Store.bridgeV2Available && mParticle.Store.SDKConfig.minWebviewBridgeVersion === 2) {
+        sendViaBridgeV2(path, value, mParticle.Store.SDKConfig.requiredWebviewBridgeName);
         return;
     }
-    if (MP.bridgeV2Available && mParticle.minWebviewBridgeVersion < 2) {
-        sendViaBridgeV2(path, value, mParticle.requiredWebviewBridgeName);
+    if (mParticle.Store.bridgeV2Available && mParticle.Store.SDKConfig.minWebviewBridgeVersion < 2) {
+        sendViaBridgeV2(path, value, mParticle.Store.SDKConfig.requiredWebviewBridgeName);
         return;
     }
-    if (MP.bridgeV1Available && mParticle.minWebviewBridgeVersion < 2) {
+    if (mParticle.Store.bridgeV1Available && mParticle.Store.SDKConfig.minWebviewBridgeVersion < 2) {
         sendViaBridgeV1(path, value);
         return;
     }
@@ -77,7 +76,7 @@ function sendViaBridgeV1(path, value) {
         Helpers.logDebug(Messages.InformationMessages.SendAndroid + path);
         window.mParticleAndroid[path](value);
     }
-    else if (window.mParticle.isIOS) {
+    else if (mParticle.Store.SDKConfig.isIOS) {
         Helpers.logDebug(Messages.InformationMessages.SendIOS + path);
         sendViaIframeToIOS(path, value);
     }

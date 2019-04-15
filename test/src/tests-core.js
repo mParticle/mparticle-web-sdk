@@ -4,13 +4,16 @@ var server = new MockHttpServer(),
     testMPID = 'testMPID',
     v3CookieKey = 'mprtcl-v3',
     v3LSKey = v3CookieKey,
-    LocalStorageProductsV4 = 'mprtcl-prodv4',
+    localStorageProductsV4 = 'mprtcl-prodv4',
     v4CookieKey = 'mprtcl-v4',
     v4LSKey = 'mprtcl-v4',
     workspaceToken = 'abcdef',
     workspaceCookieName = Helpers.createMainStorageName(workspaceToken),
     LocalStorageProductsV4WithWorkSpaceName = Helpers.createProductStorageName(workspaceToken),
     pluses = /\+/g,
+    MPConfig = {
+        workspaceToken: workspaceToken
+    },
     das = 'das-test',
     getLocalStorageProducts = function getLocalStorageProducts() {
         return JSON.parse(atob(localStorage.getItem(Helpers.createProductStorageName(workspaceToken))));
@@ -129,7 +132,7 @@ var server = new MockHttpServer(),
                 }
             };
             value = mParticle.persistence.createCookieString(JSON.stringify(data));
-            name = v4LSKey;
+            name = workspaceCookieName;
         } else {
             if (name === v4LSKey) {
                 value = mParticle.persistence.createCookieString(JSON.stringify(data));
@@ -281,7 +284,6 @@ var server = new MockHttpServer(),
 
             this.id = forwarderId || 1;
             this.isDebug = false;
-            this.isSandbox = false;
             this.initCalled = false;
             this.processCalled = false;
             this.setUserIdentityCalled = false;
@@ -523,9 +525,10 @@ module.exports = {
     v4CookieKey: v4CookieKey,
     v4LSKey: v4LSKey,
     das: das,
-    LocalStorageProductsV4: LocalStorageProductsV4,
+    localStorageProductsV4: localStorageProductsV4,
     LocalStorageProductsV4WithWorkSpaceName: LocalStorageProductsV4WithWorkSpaceName,
     workspaceToken: workspaceToken,
     workspaceCookieName: workspaceCookieName,
+    MPConfig: MPConfig,
     server: server
 };

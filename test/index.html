@@ -12,19 +12,6 @@
     <script src="../node_modules/sinon-browser-only/sinon.js"></script>
     <script src="mockhttprequest.js"></script>
     <script src="geomock.js"></script>
-    <script>
-        window.mParticle = {
-            config: {
-                appName: 'My App',
-                customFlags: {
-                    'StartUp.Flag': 'TestFlag'
-                }
-            }
-        };
-    </script>
-    <div id="mparticle">
-        <script src="../build/mParticle-dev.js" data-cover></script>
-    </div>
 
     <script>mocha.setup('bdd')</script>
 

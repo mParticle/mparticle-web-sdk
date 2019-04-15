@@ -4,11 +4,12 @@ var TestsCore = require('./tests-core'),
     getLocalStorage = TestsCore.getLocalStorage,
     testMPID = TestsCore.testMPID,
     server = TestsCore.server,
+    MPConfig = TestsCore.MPConfig,
     MockForwarder = TestsCore.MockForwarder;
 
 describe('identities and attributes', function() {
     it('should set user attribute', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
@@ -29,7 +30,7 @@ describe('identities and attributes', function() {
     });
 
     it('should set user attribute be case insensitive', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
@@ -62,7 +63,7 @@ describe('identities and attributes', function() {
     });
 
     it('should set multiple user attributes with setUserAttributes', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
@@ -85,7 +86,7 @@ describe('identities and attributes', function() {
     });
 
     it('should remove user attribute', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
@@ -105,7 +106,7 @@ describe('identities and attributes', function() {
     });
 
     it('should remove user attribute case insensitive', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mParticle.addForwarder(mockForwarder);
@@ -270,7 +271,7 @@ describe('identities and attributes', function() {
     });
 
     it('should set user attribute list', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         mParticle.init(apiKey);
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
@@ -289,7 +290,7 @@ describe('identities and attributes', function() {
     });
 
     it('should set user attribute list case insensitive', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         mParticle.init(apiKey);
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
@@ -321,7 +322,7 @@ describe('identities and attributes', function() {
     it('should make a copy of user attribute list', function (done) {
         var list = [1, 2, 3, 4, 5];
 
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         mParticle.init(apiKey);
 
@@ -344,7 +345,7 @@ describe('identities and attributes', function() {
     });
 
     it('should remove all user attributes', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         mParticle.init(apiKey);
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
@@ -362,7 +363,7 @@ describe('identities and attributes', function() {
     });
 
     it('should get user attribute lists', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         mParticle.init(apiKey);
 
@@ -378,7 +379,7 @@ describe('identities and attributes', function() {
     });
 
     it('should copy when calling get user attribute lists', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         mParticle.init(apiKey);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
@@ -395,7 +396,7 @@ describe('identities and attributes', function() {
     });
 
     it('should copy when calling get user attributes', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         mParticle.init(apiKey);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
@@ -415,7 +416,7 @@ describe('identities and attributes', function() {
     });
 
     it('should get all user attributes', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         mParticle.init(apiKey);
 
@@ -431,7 +432,7 @@ describe('identities and attributes', function() {
     });
 
     it('should not set user attribute list if value is not array', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         mParticle.init(apiKey);
 
         mParticle.Identity.getCurrentUser().setUserAttributeList('mykey', 1234);

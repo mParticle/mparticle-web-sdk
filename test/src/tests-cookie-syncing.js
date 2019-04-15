@@ -1,13 +1,14 @@
 var TestsCore = require('./tests-core'),
     setLocalStorage = TestsCore.setLocalStorage,
     testMPID = TestsCore.testMPID,
+    MPConfig = TestsCore.MPConfig,
     v4LSKey = TestsCore.v4LSKey,
     apiKey = TestsCore.apiKey,
     server = TestsCore.server;
 
 describe('cookie syncing', function() {
     it('should sync cookies when there was not a previous cookie-sync', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -29,10 +30,12 @@ describe('cookie syncing', function() {
 
             done();
         }, 50);
+
+        Should(mParticle.preInit.pixelConfigurations.length).equal(1);
     });
 
     it('should sync cookies when current date is beyond the frequency cap and the MPID has not changed', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -47,11 +50,12 @@ describe('cookie syncing', function() {
         mParticle.configurePixel(pixelSettings);
 
         setLocalStorage(v4LSKey, {
-            mpid: testMPID,
-            csd: { 5: (new Date(500)).getTime() },
+            cu: testMPID,
+            testMPID: {
+                csd: { 5: (new Date(500)).getTime() }
+            },
             ie: true
         });
-
         mParticle.init(apiKey);
 
         setTimeout(function() {
@@ -62,10 +66,12 @@ describe('cookie syncing', function() {
 
             done();
         }, 50);
+
+        Should(mParticle.preInit.pixelConfigurations.length).equal(1);
     });
 
     it('should not sync cookies when last date is within frequencyCap', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -86,6 +92,7 @@ describe('cookie syncing', function() {
         var data = mParticle.persistence.getLocalStorage();
 
         data[testMPID].csd.should.have.property(5, mParticle.persistence.getLocalStorage().testMPID.csd['5']);
+        Should(mParticle.preInit.pixelConfigurations.length).equal(1);
 
         done();
     });
@@ -102,7 +109,7 @@ describe('cookie syncing', function() {
             pixelUrl:'http://www.yahoo.com',
             redirectUrl:''
         };
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         mParticle.configurePixel(pixelSettings);
 
         mParticle.init(apiKey);
@@ -120,11 +127,12 @@ describe('cookie syncing', function() {
         var data2 = mParticle.persistence.getLocalStorage();
         data1[testMPID].csd[5].should.be.ok();
         data2['otherMPID'].csd[5].should.be.ok();
+        Should(mParticle.preInit.pixelConfigurations.length).equal(1);
 
         done();
     });
 
-    it('should not sync cookies when pixelSettings.isDebug is false, pixelSettings.isProduction is true, and mParticle.isDevelopment is true', function(done) {
+    it('should not sync cookies when pixelSettings.isDebug is false, pixelSettings.isProduction is true, and mParticle.preInit.isDevelopmentMode is true', function(done) {
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -136,20 +144,21 @@ describe('cookie syncing', function() {
             pixelUrl:'http://www.yahoo.com',
             redirectUrl:''
         };
-        mParticle.reset();
-        mParticle.isDevelopment = true;
+        mParticle.reset(MPConfig);
+        mParticle.preInit.isDevelopmentMode = true;
         mParticle.configurePixel(pixelSettings);
 
         mParticle.init(apiKey);
 
         var data1 = mParticle.persistence.getLocalStorage();
 
-        Object.keys(data1[testMPID].csd).should.not.have.property(5);
+        Object.keys(data1[testMPID]).should.not.have.property('csd');
+        Should(mParticle.preInit.pixelConfigurations.length).equal(0);
 
         done();
     });
 
-    it('should not sync cookies when pixelSettings.isDebug is true, pixelSettings.isProduction is false, and mParticle.isDevelopment is false', function(done) {
+    it('should not sync cookies when pixelSettings.isDebug is true, pixelSettings.isProduction is false, and mParticle.preInit.isDevelopmentMode is false', function(done) {
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -161,14 +170,15 @@ describe('cookie syncing', function() {
             pixelUrl:'http://www.yahoo.com',
             redirectUrl:''
         };
-        mParticle.reset();
-        mParticle.isDevelopment = false;
+        mParticle.reset(MPConfig);
+        mParticle.preInit.isDevelopmentMode = false;
         mParticle.configurePixel(pixelSettings);
 
         mParticle.init(apiKey);
 
         var data1 = mParticle.persistence.getLocalStorage();
         data1[testMPID].should.not.have.property('csd');
+        Should(mParticle.preInit.pixelConfigurations.length).equal(0);
 
         done();
     });

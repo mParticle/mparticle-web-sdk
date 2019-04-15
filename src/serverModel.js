@@ -3,7 +3,6 @@ var Types = require('./types'),
     ApplicationTransitionType = Types.ApplicationTransitionType,
     Constants = require('./constants'),
     Helpers = require('./helpers'),
-    MP = require('./mp'),
     parseNumber = require('./helpers').parseNumber;
 
 function convertCustomFlags(event, dto) {
@@ -99,45 +98,53 @@ function convertToConsentStateDTO(state) {
 
 function createEventObject(messageType, name, data, eventType, customFlags) {
     var eventObject,
-        optOut = (messageType === Types.MessageType.OptOut ? !MP.isEnabled : null);
+        dtoUserIdentities = {},
+        currentUser = mParticle.Identity.getCurrentUser(),
+        userIdentities = currentUser ? currentUser.getUserIdentities().userIdentities : {},
+        optOut = (messageType === Types.MessageType.OptOut ? !mParticle.Store.isEnabled : null);
+
     data = Helpers.sanitizeAttributes(data);
 
-    if (MP.sessionId || messageType == Types.MessageType.OptOut || MP.webviewBridgeEnabled) {
+    if (mParticle.Store.sessionId || messageType == Types.MessageType.OptOut || mParticle.Store.webviewBridgeEnabled) {
+        for (var identityKey in userIdentities) {
+            dtoUserIdentities[Types.IdentityType.getIdentityType(identityKey)] = userIdentities[identityKey];
+        }
+
         if (messageType !== Types.MessageType.SessionEnd) {
-            MP.dateLastEventSent = new Date();
+            mParticle.Store.dateLastEventSent = new Date();
         }
         eventObject = {
             EventName: name || messageType,
             EventCategory: eventType,
-            UserAttributes: MP.userAttributes,
-            UserIdentities: MP.userIdentities,
-            Store: MP.serverSettings,
+            UserAttributes: currentUser ? currentUser.getAllUserAttributes() : {},
+            UserIdentities: dtoUserIdentities,
+            Store: mParticle.Store.serverSettings,
             EventAttributes: data,
             SDKVersion: Constants.sdkVersion,
-            SessionId: MP.sessionId,
+            SessionId: mParticle.Store.sessionId,
             EventDataType: messageType,
-            Debug: mParticle.isDevelopmentMode,
-            Location: MP.currentPosition,
+            Debug: mParticle.preInit.isDevelopmentMode,
+            Location: mParticle.Store.currentPosition,
             OptOut: optOut,
             ExpandedEventCount: 0,
             CustomFlags: customFlags,
-            AppVersion: MP.appVersion,
-            ClientGeneratedId: MP.clientId,
-            DeviceId: MP.deviceId,
-            MPID: MP.mpid,
-            ConsentState: MP.consentState,
-            IntegrationAttributes: MP.integrationAttributes
+            AppVersion: mParticle.Store.SDKConfig.appVersion,
+            ClientGeneratedId: mParticle.Store.clientId,
+            DeviceId: mParticle.Store.deviceId,
+            MPID: currentUser ? currentUser.getMPID() : null,
+            ConsentState: currentUser ? currentUser.getConsentState() : null,
+            IntegrationAttributes: mParticle.Store.integrationAttributes
         };
 
         if (messageType === Types.MessageType.SessionEnd) {
-            eventObject.SessionLength = MP.dateLastEventSent.getTime() - MP.sessionStartDate.getTime();
-            eventObject.currentSessionMPIDs = MP.currentSessionMPIDs;
-            eventObject.EventAttributes = MP.sessionAttributes;
+            eventObject.SessionLength = mParticle.Store.dateLastEventSent.getTime() - mParticle.Store.sessionStartDate.getTime();
+            eventObject.currentSessionMPIDs = mParticle.Store.currentSessionMPIDs;
+            eventObject.EventAttributes = mParticle.Store.sessionAttributes;
 
-            MP.currentSessionMPIDs = [];
+            mParticle.Store.currentSessionMPIDs = [];
         }
 
-        eventObject.Timestamp = MP.dateLastEventSent.getTime();
+        eventObject.Timestamp = mParticle.Store.dateLastEventSent.getTime();
 
         return eventObject;
     }

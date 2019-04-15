@@ -5,6 +5,7 @@ var TestsCore = require('./tests-core'),
     testMPID = TestsCore.testMPID,
     setLocalStorage = TestsCore.setLocalStorage,
     server = TestsCore.server,
+    MPConfig = TestsCore.MPConfig,
     MessageType = TestsCore.MessageType;
 
 describe('event logging', function() {
@@ -48,7 +49,7 @@ describe('event logging', function() {
     });
 
     it('should log an AST on init with firstRun = false when cookies already exist', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         server.requests = [];
 
         setLocalStorage();
@@ -264,7 +265,8 @@ describe('event logging', function() {
     });
 
     it('after logging optout, and reloading, events still should not be sent until opt out is enabled when using cookie storage', function(done) {
-        mParticle.useCookieStorage = true;
+        mParticle.config.useCookieStorage = true;
+        mParticle.init(apiKey);
         mParticle.setOptOut(true);
         server.requests = [];
 
@@ -320,6 +322,7 @@ describe('event logging', function() {
     });
 
     it('should send consent state with each event logged', function(done) {
+
         var consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState('foo purpose',
             mParticle.Consent.createGDPRConsent(true, 10, 'foo document', 'foo location', 'foo hardwareId'));
@@ -359,7 +362,7 @@ describe('event logging', function() {
     });
 
     it('should run the callback once when tracking succeeds', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey);
@@ -392,7 +395,7 @@ describe('event logging', function() {
     });
 
     it('should run the callback once when tracking fails', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey);
@@ -429,7 +432,7 @@ describe('event logging', function() {
     });
 
     it('should pass the found or existing position to the callback in startTrackingLocation', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey);
@@ -456,7 +459,7 @@ describe('event logging', function() {
     });
 
     it('should run the callback if tracking already exists', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey);

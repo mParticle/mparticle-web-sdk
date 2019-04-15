@@ -5,7 +5,6 @@ var Helpers = require('./helpers'),
     Persistence = require('./persistence'),
     Types = require('./types'),
     Messages = Constants.Messages,
-    MP = require('./mp'),
     NativeSdkHelpers = require('./nativeSdkHelpers'),
     Validators = Helpers.Validators,
     sendIdentityRequest = require('./apiClient').sendIdentityRequest,
@@ -16,11 +15,12 @@ var Helpers = require('./helpers'),
     sendEventToForwarders = require('./forwarders').sendEventToForwarders;
 
 var Identity = {
-    checkIdentitySwap: function(previousMPID, currentMPID) {
+    checkIdentitySwap: function(previousMPID, currentMPID, currentSessionMPIDs) {
         if (previousMPID && currentMPID && previousMPID !== currentMPID) {
             var cookies = Persistence.useLocalStorage() ? Persistence.getLocalStorage() : Persistence.getCookie();
-            Persistence.storeDataInMemory(cookies, currentMPID);
-            Persistence.update();
+            cookies.cu = currentMPID;
+            cookies.gs.csm = currentSessionMPIDs;
+            Persistence.saveCookies(cookies);
         }
     }
 };
@@ -82,7 +82,7 @@ var IdentityRequest = {
                 sdk_version: sdkVersion
             },
             context: context,
-            environment: mParticle.isDevelopmentMode ? 'development' : 'production',
+            environment: mParticle.preInit.isDevelopmentMode ? 'development' : 'production',
             request_id: Helpers.generateUniqueId(),
             request_timestamp_ms: new Date().getTime(),
             previous_mpid: mpid || null,
@@ -100,7 +100,7 @@ var IdentityRequest = {
                 sdk_version: sdkVersion
             },
             context: context,
-            environment: mParticle.isDevelopmentMode ? 'development' : 'production',
+            environment: mParticle.preInit.isDevelopmentMode ? 'development' : 'production',
             request_id: Helpers.generateUniqueId(),
             request_timestamp_ms: new Date().getTime(),
             identity_changes: this.createIdentityChanges(currentUserIdentities, newUserIdentities)
@@ -171,17 +171,22 @@ var IdentityAPI = {
     * @param {Function} [callback] A callback function that is called when the identify request completes
     */
     identify: function(identityApiData, callback) {
-        var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'identify');
+        var mpid,
+            currentUser = mParticle.Identity.getCurrentUser(),
+            preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'identify');
+        if (currentUser) {
+            mpid = currentUser.getMPID();
+        }
 
         if (preProcessResult.valid) {
-            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
+            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mParticle.Store.deviceId, mParticle.Store.context, mpid);
 
             if (Helpers.canLog()) {
-                if (MP.webviewBridgeEnabled) {
+                if (mParticle.Store.webviewBridgeEnabled) {
                     NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Identify request sent to native sdk');
                 } else {
-                    sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, parseIdentityResponse);
+                    sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, parseIdentityResponse, mpid);
                 }
             }
             else {
@@ -200,22 +205,27 @@ var IdentityAPI = {
     * @param {Function} [callback] A callback function that is called when the logout request completes
     */
     logout: function(identityApiData, callback) {
-        var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'logout');
+        var mpid,
+            currentUser = mParticle.Identity.getCurrentUser(),
+            preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'logout');
+        if (currentUser) {
+            mpid = currentUser.getMPID();
+        }
 
         if (preProcessResult.valid) {
             var evt,
-                identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
+                identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mParticle.Store.deviceId, mParticle.Store.context, mpid);
 
             if (Helpers.canLog()) {
-                if (MP.webviewBridgeEnabled) {
+                if (mParticle.Store.webviewBridgeEnabled) {
                     NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
                 } else {
-                    sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, parseIdentityResponse);
+                    sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, parseIdentityResponse, mpid);
                     evt = ServerModel.createEventObject(Types.MessageType.Profile);
                     evt.ProfileMessageType = Types.ProfileMessageType.Logout;
-                    if (MP.activeForwarders.length) {
-                        MP.activeForwarders.forEach(function(forwarder) {
+                    if (mParticle.Store.activeForwarders.length) {
+                        mParticle.Store.activeForwarders.forEach(function(forwarder) {
                             if (forwarder.logOut) {
                                 forwarder.logOut(evt);
                             }
@@ -239,17 +249,22 @@ var IdentityAPI = {
     * @param {Function} [callback] A callback function that is called when the login request completes
     */
     login: function(identityApiData, callback) {
-        var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'login');
+        var mpid,
+            currentUser = mParticle.Identity.getCurrentUser(),
+            preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'login');
+        if (currentUser) {
+            mpid = currentUser.getMPID();
+        }
 
         if (preProcessResult.valid) {
-            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.deviceId, MP.context, MP.mpid);
+            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mParticle.Store.deviceId, mParticle.Store.context, mpid);
 
             if (Helpers.canLog()) {
-                if (MP.webviewBridgeEnabled) {
+                if (mParticle.Store.webviewBridgeEnabled) {
                     NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Login request sent to native sdk');
                 } else {
-                    sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, parseIdentityResponse);
+                    sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, parseIdentityResponse, mpid);
                 }
             }
             else {
@@ -268,17 +283,22 @@ var IdentityAPI = {
     * @param {Function} [callback] A callback function that is called when the modify request completes
     */
     modify: function(identityApiData, callback) {
+        var mpid,
+            currentUser = mParticle.Identity.getCurrentUser(),
+            preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'modify');
+        if (currentUser) {
+            mpid = currentUser.getMPID();
+        }
         var newUserIdentities = (identityApiData && identityApiData.userIdentities) ? identityApiData.userIdentities : {};
-        var preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'modify');
         if (preProcessResult.valid) {
-            var identityApiRequest = IdentityRequest.createModifyIdentityRequest(MP.userIdentities, newUserIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, MP.context);
+            var identityApiRequest = IdentityRequest.createModifyIdentityRequest(currentUser ? currentUser.getUserIdentities().userIdentities : {}, newUserIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mParticle.Store.context);
 
             if (Helpers.canLog()) {
-                if (MP.webviewBridgeEnabled) {
+                if (mParticle.Store.webviewBridgeEnabled) {
                     NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Modify request sent to native sdk');
                 } else {
-                    sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, parseIdentityResponse);
+                    sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, parseIdentityResponse, mpid);
                 }
             }
             else {
@@ -296,11 +316,11 @@ var IdentityAPI = {
     * @return {Object} the current user object
     */
     getCurrentUser: function() {
-        var mpid = MP.mpid;
+        var mpid = mParticle.Store.mpid;
         if (mpid) {
-            mpid = MP.mpid.slice();
-            return mParticleUser(mpid, MP.isLoggedIn);
-        } else if (MP.webviewBridgeEnabled) {
+            mpid = mParticle.Store.mpid.slice();
+            return mParticleUser(mpid, mParticle.Store.isLoggedIn);
+        } else if (mParticle.Store.webviewBridgeEnabled) {
             return mParticleUser();
         } else {
             return null;
@@ -429,7 +449,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     Helpers.logDebug(Messages.ErrorMessages.BadKey);
                     return;
                 }
-                if (MP.webviewBridgeEnabled) {
+                if (mParticle.Store.webviewBridgeEnabled) {
                     NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }));
                 } else {
                     cookies = Persistence.getPersistence();
@@ -445,8 +465,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     userAttributes[key] = value;
                     if (cookies && cookies[mpid]) {
                         cookies[mpid].ua = userAttributes;
-                        Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-                        Persistence.storeDataInMemory(cookies, mpid);
+                        Persistence.saveCookies(cookies, mpid);
                     }
 
                     Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
@@ -487,7 +506,7 @@ function mParticleUser(mpid, isLoggedIn) {
                 return;
             }
 
-            if (MP.webviewBridgeEnabled) {
+            if (mParticle.Store.webviewBridgeEnabled) {
                 NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }));
             } else {
                 cookies = Persistence.getPersistence();
@@ -504,8 +523,7 @@ function mParticleUser(mpid, isLoggedIn) {
 
                 if (cookies && cookies[mpid]) {
                     cookies[mpid].ua = userAttributes;
-                    Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-                    Persistence.storeDataInMemory(cookies, mpid);
+                    Persistence.saveCookies(cookies, mpid);
                 }
 
                 Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
@@ -535,7 +553,7 @@ function mParticleUser(mpid, isLoggedIn) {
 
             var arrayCopy = value.slice();
 
-            if (MP.webviewBridgeEnabled) {
+            if (mParticle.Store.webviewBridgeEnabled) {
                 NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }));
             } else {
                 cookies = Persistence.getPersistence();
@@ -551,8 +569,7 @@ function mParticleUser(mpid, isLoggedIn) {
                 userAttributes[key] = arrayCopy;
                 if (cookies && cookies[mpid]) {
                     cookies[mpid].ua = userAttributes;
-                    Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-                    Persistence.storeDataInMemory(cookies, mpid);
+                    Persistence.saveCookies(cookies, mpid);
                 }
 
                 Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
@@ -568,7 +585,7 @@ function mParticleUser(mpid, isLoggedIn) {
 
             mParticle.sessionManager.resetSessionTimer();
 
-            if (MP.webviewBridgeEnabled) {
+            if (mParticle.Store.webviewBridgeEnabled) {
                 NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
             } else {
                 cookies = Persistence.getPersistence();
@@ -586,8 +603,7 @@ function mParticleUser(mpid, isLoggedIn) {
 
                 if (cookies && cookies[mpid]) {
                     cookies[mpid].ua = {};
-                    Persistence.updateOnlyCookieUserAttributes(cookies, mpid);
-                    Persistence.storeDataInMemory(cookies, mpid);
+                    Persistence.saveCookies(cookies, mpid);
                 }
             }
         },
@@ -656,10 +672,8 @@ function mParticleUser(mpid, isLoggedIn) {
         * @param {Object} consent state
         */
         setConsentState: function(state) {
-            Persistence.setConsentState(mpid, state);
-            if (MP.mpid === this.getMPID()) {
-                Forwarders.initForwarders(this.getUserIdentities().userIdentities);
-            }
+            Persistence.saveUserConsentStateToCookies(mpid, state);
+            Forwarders.initForwarders(this.getUserIdentities().userIdentities);
         },
         isLoggedIn: function() {
             return isLoggedIn;
@@ -690,7 +704,7 @@ function mParticleUserCart(mpid){
                 product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
             });
 
-            if (MP.webviewBridgeEnabled) {
+            if (mParticle.Store.webviewBridgeEnabled) {
                 NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
             } else {
                 mParticle.sessionManager.resetSessionTimer();
@@ -705,13 +719,10 @@ function mParticleUserCart(mpid){
 
                 var productsForMemory = {};
                 productsForMemory[mpid] = {cp: userProducts};
-                if (mpid === MP.mpid) {
-                    Persistence.storeProductsInMemory(productsForMemory, mpid);
-                }
 
-                if (userProducts.length > mParticle.maxProducts) {
-                    Helpers.logDebug('The cart contains ' + userProducts.length + ' items. Only mParticle.maxProducts = ' + mParticle.maxProducts + ' can currently be saved in cookies.');
-                    userProducts = userProducts.slice(0, mParticle.maxProducts);
+                if (userProducts.length > mParticle.Store.SDKConfig.maxProducts) {
+                    Helpers.logDebug('The cart contains ' + userProducts.length + ' items. Only ' + mParticle.Store.SDKConfig.maxProducts + ' can currently be saved in cookies.');
+                    userProducts = userProducts.slice(-mParticle.Store.SDKConfig.maxProducts);
                 }
 
                 allProducts = Persistence.getAllUserProductsFromLS();
@@ -732,7 +743,7 @@ function mParticleUserCart(mpid){
                 cartIndex = -1,
                 cartItem = null;
 
-            if (MP.webviewBridgeEnabled) {
+            if (mParticle.Store.webviewBridgeEnabled) {
                 NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(product));
             } else {
                 mParticle.sessionManager.resetSessionTimer();
@@ -758,9 +769,6 @@ function mParticleUserCart(mpid){
 
                 var productsForMemory = {};
                 productsForMemory[mpid] = {cp: userProducts};
-                if (mpid === MP.mpid) {
-                    Persistence.storeProductsInMemory(productsForMemory, mpid);
-                }
 
                 allProducts = Persistence.getAllUserProductsFromLS();
 
@@ -776,7 +784,7 @@ function mParticleUserCart(mpid){
         clear: function() {
             var allProducts;
 
-            if (MP.webviewBridgeEnabled) {
+            if (mParticle.Store.webviewBridgeEnabled) {
                 NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
             } else {
                 mParticle.sessionManager.resetSessionTimer();
@@ -786,9 +794,6 @@ function mParticleUserCart(mpid){
                     allProducts[mpid].cp = [];
 
                     allProducts[mpid].cp = [];
-                    if (mpid === MP.mpid) {
-                        Persistence.storeProductsInMemory(allProducts, mpid);
-                    }
 
                     Persistence.setCartProducts(allProducts);
                 }
@@ -806,72 +811,77 @@ function mParticleUserCart(mpid){
 }
 
 function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, method) {
-    var prevUser,
+    var prevUser = mParticle.Identity.getCurrentUser(),
         newUser,
         identityApiResult,
         indexOfMPID;
 
-    if (MP.mpid) {
-        prevUser = IdentityAPI.getCurrentUser();
+    var userIdentitiesForModify = {},
+        userIdentities = prevUser ? prevUser.getUserIdentities().userIdentities : {};
+    for (var identityKey in userIdentities) {
+        userIdentitiesForModify[Types.IdentityType.getIdentityType(identityKey)] = userIdentities[identityKey];
     }
 
-    MP.identityCallInFlight = false;
+    var newIdentities = {};
+
+    mParticle.Store.identityCallInFlight = false;
+
     try {
         Helpers.logDebug('Parsing identity response from server');
         if (xhr.responseText) {
             identityApiResult = JSON.parse(xhr.responseText);
             if (identityApiResult.hasOwnProperty('is_logged_in')) {
-                MP.isLoggedIn = identityApiResult.is_logged_in;
+                mParticle.Store.isLoggedIn = identityApiResult.is_logged_in;
             }
         }
         if (xhr.status === 200) {
             if (method === 'modify') {
-                MP.userIdentities = IdentityRequest.modifyUserIdentities(MP.userIdentities, identityApiData.userIdentities);
-                Persistence.update();
+                newIdentities = IdentityRequest.modifyUserIdentities(userIdentitiesForModify, identityApiData.userIdentities);
+                Persistence.saveUserIdentitiesToCookies(prevUser.getMPID(), newIdentities);
             } else {
                 identityApiResult = JSON.parse(xhr.responseText);
 
                 Helpers.logDebug('Successfully parsed Identity Response');
-                if (identityApiResult.mpid && identityApiResult.mpid !== MP.mpid) {
-                    MP.mpid = identityApiResult.mpid;
 
-                    checkCookieForMPID(MP.mpid);
+                if (!(prevUser) || (prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID())) {
+                    mParticle.Store.mpid = identityApiResult.mpid;
                 }
 
-                indexOfMPID = MP.currentSessionMPIDs.indexOf(MP.mpid);
+                indexOfMPID = mParticle.Store.currentSessionMPIDs.indexOf(identityApiResult.mpid);
 
-                if (MP.sessionId && MP.mpid && previousMPID !== MP.mpid && indexOfMPID < 0) {
-                    MP.currentSessionMPIDs.push(MP.mpid);
-                    // need to update currentSessionMPIDs in memory before checkingIdentitySwap otherwise previous obj.currentSessionMPIDs is used in checkIdentitySwap's Persistence.update()
-                    Persistence.update();
+                if (mParticle.Store.sessionId && identityApiResult.mpid && previousMPID !== identityApiResult.mpid && indexOfMPID < 0) {
+                    mParticle.Store.currentSessionMPIDs.push(identityApiResult.mpid);
                 }
 
                 if (indexOfMPID > -1) {
-                    MP.currentSessionMPIDs = (MP.currentSessionMPIDs.slice(0, indexOfMPID)).concat(MP.currentSessionMPIDs.slice(indexOfMPID + 1, MP.currentSessionMPIDs.length));
-                    MP.currentSessionMPIDs.push(MP.mpid);
-                    Persistence.update();
+                    mParticle.Store.currentSessionMPIDs = (mParticle.Store.currentSessionMPIDs.slice(0, indexOfMPID)).concat(mParticle.Store.currentSessionMPIDs.slice(indexOfMPID + 1, mParticle.Store.currentSessionMPIDs.length));
+                    mParticle.Store.currentSessionMPIDs.push(identityApiResult.mpid);
                 }
 
-                CookieSyncManager.attemptCookieSync(previousMPID, MP.mpid);
+                Persistence.saveUserIdentitiesToCookies(identityApiResult.mpid, newIdentities);
+                CookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid);
 
-                Identity.checkIdentitySwap(previousMPID, MP.mpid);
+                Identity.checkIdentitySwap(previousMPID, identityApiResult.mpid, mParticle.Store.currentSessionMPIDs);
 
-                Helpers.processQueuedEvents(MP.eventQueue, MP.mpid, !MP.requireDelay, sendEventToServer, sendEventToForwarders, Events.parseEventResponse);
+                Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, sendEventToServer, sendEventToForwarders, Events.parseEventResponse);
 
                 //if there is any previous migration data
-                if (Object.keys(MP.migrationData).length) {
-                    MP.userIdentities = MP.migrationData.userIdentities || {};
-                    MP.userAttributes = MP.migrationData.userAttributes || {};
-                    MP.cookieSyncDates = MP.migrationData.cookieSyncDates || {};
+                if (Object.keys(mParticle.Store.migrationData).length) {
+                    newIdentities = mParticle.Store.migrationData.userIdentities || {};
+                    var userAttributes = mParticle.Store.migrationData.userAttributes || {};
+                    Persistence.saveUserAttributesToCookies(identityApiResult.mpid, userAttributes);
                 } else {
                     if (identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length) {
-                        MP.userIdentities = IdentityRequest.modifyUserIdentities(MP.userIdentities, identityApiData.userIdentities);
+                        newIdentities = IdentityRequest.modifyUserIdentities(userIdentitiesForModify, identityApiData.userIdentities);
                     }
                 }
+
+                Persistence.saveUserIdentitiesToCookies(identityApiResult.mpid, newIdentities);
                 Persistence.update();
+
                 Persistence.findPrevCookiesBasedOnUI(identityApiData);
 
-                MP.context = identityApiResult.context || MP.context;
+                mParticle.Store.context = identityApiResult.context || mParticle.Store.context;
             }
 
             newUser = IdentityAPI.getCurrentUser();
@@ -910,23 +920,6 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
             Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
         }
         Helpers.logDebug('Error parsing JSON response from Identity server: ' + e);
-    }
-}
-
-function checkCookieForMPID(currentMPID) {
-    var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
-    if (cookies && !cookies[currentMPID]) {
-        Persistence.storeDataInMemory(null, currentMPID);
-        MP.cartProducts = [];
-    } else if (cookies) {
-        var products = Persistence.decodeProducts();
-        if (products && products[currentMPID]) {
-            MP.cartProducts = products[currentMPID].cp;
-        }
-        MP.userIdentities = cookies[currentMPID].ui || {};
-        MP.userAttributes = cookies[currentMPID].ua || {};
-        MP.cookieSyncDates = cookies[currentMPID].csd || {};
-        MP.consentState = cookies[currentMPID].con;
     }
 }
 

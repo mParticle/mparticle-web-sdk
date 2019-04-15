@@ -1,18 +1,16 @@
 var Types = require('./types'),
     Constants = require('./constants'),
-    Messages = Constants.Messages,
-    MP = require('./mp'),
-    pluses = /\+/g,
-    serviceScheme = window.mParticle && window.mParticle.forceHttps ? 'https://' : window.location.protocol + '//';
+    StorageNames = Constants.StorageNames,
+    pluses = /\+/g;
 
 function logDebug(msg) {
-    if (MP.logLevel === 'verbose' && window.console && window.console.log) {
+    if (mParticle.Store.SDKConfig.logLevel === 'verbose' && window.console && window.console.log) {
         window.console.log(msg);
     }
 }
 
 function canLog() {
-    if (MP.isEnabled && (MP.devToken || MP.webviewBridgeEnabled)) {
+    if (mParticle.Store.isEnabled && (mParticle.Store.devToken || mParticle.Store.webviewBridgeEnabled)) {
         return true;
     }
 
@@ -28,10 +26,15 @@ function returnConvertedBoolean(data) {
 }
 
 function hasFeatureFlag(feature) {
-    return MP.featureFlags[feature];
+    if (mParticle.preInit.featureFlags) {
+        return mParticle.preInit.featureFlags[feature];
+    }
 }
 
 function invokeCallback(callback, code, body, mParticleUser) {
+    if (!callback) {
+        logDebug('There is no callback provided');
+    }
     try {
         if (Validators.isFunction(callback)) {
             callback({
@@ -178,7 +181,8 @@ function inArray(items, name) {
 }
 
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
-    if (mParticle.forceHttps) {
+    var serviceScheme = window.mParticle && mParticle.Store.SDKConfig.forceHttps ? 'https://' : window.location.protocol + '//';
+    if (mParticle.Store.SDKConfig.forceHttps) {
         return 'https://' + secureServiceUrl + devToken;
     } else {
         return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
@@ -400,18 +404,21 @@ function sanitizeAttributes(attrs) {
     return sanitizedAttrs;
 }
 
-function mergeConfig(config) {
-    logDebug(Messages.InformationMessages.LoadingConfig);
-
-    for (var prop in Constants.DefaultConfig) {
-        if (Constants.DefaultConfig.hasOwnProperty(prop)) {
-            MP.Config[prop] = Constants.DefaultConfig[prop];
+function mergeConfigs() {
+    // accepts arguments for configurations and consolidates them
+    var configs = Array.prototype.slice.call(arguments);
+    var newConfig = {};
+    configs.forEach(function(config) {
+        if (isObject(config)) {
+            for (var prop in config) {
+                if (config.hasOwnProperty(prop)) {
+                    newConfig[prop] = config[prop];
+                }
+            }
         }
+    });
 
-        if (config.hasOwnProperty(prop)) {
-            MP.Config[prop] = config[prop];
-        }
-    }
+    return newConfig;
 }
 
 var Validators = {
@@ -508,7 +515,7 @@ var Validators = {
 };
 
 function isDelayedByIntegration(delayedIntegrations, timeoutStart, now) {
-    if (now - timeoutStart > mParticle.integrationDelayTimeout) {
+    if (now - timeoutStart > mParticle.Store.SDKConfig.integrationDelayTimeout) {
         return false;
     }
     for (var integration in delayedIntegrations) {
@@ -526,7 +533,7 @@ function isDelayedByIntegration(delayedIntegrations, timeoutStart, now) {
 function processQueuedEvents(eventQueue, mpid, requireDelay, sendEventToServer, sendEventToForwarders, parseEventResponse) {
     if (eventQueue.length && mpid && requireDelay) {
         var localQueueCopy = eventQueue;
-        MP.eventQueue = [];
+        mParticle.Store.eventQueue = [];
         localQueueCopy.forEach(function(event) {
             event.MPID = mpid;
             sendEventToServer(event, sendEventToForwarders, parseEventResponse);
@@ -536,17 +543,17 @@ function processQueuedEvents(eventQueue, mpid, requireDelay, sendEventToServer, 
 
 function createMainStorageName(workspaceToken) {
     if (workspaceToken) {
-        return Constants.DefaultConfig.CurrentStorageName + '_' + workspaceToken;
+        return StorageNames.currentStorageName + '_' + workspaceToken;
     } else {
-        return Constants.DefaultConfig.CurrentStorageName;
+        return StorageNames.currentStorageName;
     }
 }
 
 function createProductStorageName(workspaceToken) {
     if (workspaceToken) {
-        return Constants.DefaultConfig.CurrentStorageProductsName + '_' + workspaceToken;
+        return StorageNames.currentStorageProductsName + '_' + workspaceToken;
     } else {
-        return Constants.DefaultConfig.CurrentStorageProductsName;
+        return StorageNames.currentStorageProductsName;
     }
 }
 
@@ -570,7 +577,7 @@ module.exports = {
     parseStringOrNumber: parseStringOrNumber,
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
-    mergeConfig: mergeConfig,
+    mergeConfigs: mergeConfigs,
     returnConvertedBoolean: returnConvertedBoolean,
     invokeCallback: invokeCallback,
     hasFeatureFlag: hasFeatureFlag,

@@ -2,13 +2,17 @@ var Helpers = require('./helpers'),
     Constants = require('./constants'),
     NativeSdkHelpers = require('./nativeSdkHelpers'),
     HTTPCodes = Constants.HTTPCodes,
-    MP = require('./mp'),
     ServerModel = require('./serverModel'),
     Types = require('./types'),
     Messages = Constants.Messages;
 
 function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
-    if (MP.webviewBridgeEnabled) {
+    var mpid,
+        currentUser = mParticle.Identity.getCurrentUser();
+    if (currentUser) {
+        mpid = currentUser.getMPID();
+    }
+    if (mParticle.Store.webviewBridgeEnabled) {
         NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
     } else {
         var xhr,
@@ -37,14 +41,14 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
             event.UserIdentities = [];
         }
 
-        MP.requireDelay = Helpers.isDelayedByIntegration(MP.integrationDelays, MP.integrationDelayTimeoutStart, Date.now());
+        mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays, mParticle.Store.integrationDelayTimeoutStart, Date.now());
         // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
         // need to be set, and so require delaying events
-        if (!MP.mpid || MP.requireDelay) {
+        if (!mpid || mParticle.Store.requireDelay) {
             Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
-            MP.eventQueue.push(event);
+            mParticle.Store.eventQueue.push(event);
         } else {
-            Helpers.processQueuedEvents(MP.eventQueue, MP.mpid, !MP.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
+            Helpers.processQueuedEvents(mParticle.Store.eventQueue, mpid, !mParticle.Store.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
 
             if (!event) {
                 Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
@@ -57,8 +61,8 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
 
             if (xhr) {
                 try {
-                    xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, MP.isFirstRun, MP.currencyCode, MP.integrationAttributes)));
+                    xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, mParticle.Store.devToken) + '/Events');
+                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun, mParticle.Store.currencyCode, mParticle.Store.integrationAttributes)));
 
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         sendEventToForwarders(event);
@@ -72,7 +76,7 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
     }
 }
 
-function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse) {
+function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid) {
     var xhr, previousMPID,
         xhrCallback = function() {
             if (xhr.readyState === 4) {
@@ -93,23 +97,23 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 
     if (xhr) {
         try {
-            if (MP.identityCallInFlight) {
+            if (mParticle.Store.identityCallInFlight) {
                 callback({httpCode: HTTPCodes.activeIdentityRequest, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
             } else {
-                previousMPID = (!MP.isFirstRun && MP.mpid) ? MP.mpid : null;
+                previousMPID = (!mParticle.Store.isFirstRun && mpid) ? mpid : null;
                 if (method === 'modify') {
-                    xhr.open('post', Constants.identityUrl + MP.mpid + '/' + method);
+                    xhr.open('post', Constants.identityUrl + mpid + '/' + method);
                 } else {
                     xhr.open('post', Constants.identityUrl + method);
                 }
                 xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.setRequestHeader('x-mp-key', MP.devToken);
-                MP.identityCallInFlight = true;
+                xhr.setRequestHeader('x-mp-key', mParticle.Store.devToken);
+                mParticle.Store.identityCallInFlight = true;
                 xhr.send(JSON.stringify(identityApiRequest));
             }
         }
         catch (e) {
-            MP.identityCallInFlight = false;
+            mParticle.Store.identityCallInFlight = false;
             Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, e);
             Helpers.logDebug('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
         }
@@ -119,7 +123,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 function sendBatchForwardingStatsToServer(forwardingStatsData, xhr) {
     var url, data;
     try {
-        url = Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, MP.devToken);
+        url = Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, mParticle.Store.devToken);
         data = {
             uuid: Helpers.generateUniqueId(),
             data: forwardingStatsData
@@ -146,7 +150,7 @@ function sendSingleForwardingStatsToServer(forwardingStatsData) {
             }
         };
         var xhr = Helpers.createXHR(xhrCallback);
-        url = Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, MP.devToken);
+        url = Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, mParticle.Store.devToken);
         data = forwardingStatsData;
 
         if (xhr) {

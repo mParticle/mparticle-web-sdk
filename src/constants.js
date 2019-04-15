@@ -78,31 +78,28 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         Login: 'login',
         Modify: 'modify'
     },
+    StorageNames = {
+        localStorageName: 'mprtcl-api',             // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
+        localStorageNameV3: 'mprtcl-v3',            // v3 Name of the mP localstorage, final version on SDKv1
+        cookieName: 'mprtcl-api',                   // v1 Name of the cookie stored on the user's machine
+        cookieNameV2: 'mprtcl-v2',                  // v2 Name of the cookie stored on the user's machine. Removed keys with no values, moved cartProducts and productBags to localStorage.
+        cookieNameV3: 'mprtcl-v3',                  // v3 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, final version on SDKv1
+        localStorageNameV4: 'mprtcl-v4',            // v4 Name of the mP localstorage, Current Version
+        localStorageProductsV4: 'mprtcl-prodv4',    // The name for mP localstorage that contains products for cartProducs and productBags
+        cookieNameV4: 'mprtcl-v4',                  // v4 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, current version on SDK v2
+        currentStorageName: 'mprtcl-v4',
+        currentStorageProductsName: 'mprtcl-prodv4'
+    },
     DefaultConfig = {
-        LocalStorageName: 'mprtcl-api',             // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
-        LocalStorageNameV3: 'mprtcl-v3',            // v3 Name of the mP localstorage, final version on SDKv1
-        LocalStorageNameV4: 'mprtcl-v4',            // v4 Name of the mP localstorage, Current Version
-        LocalStorageProductsV4: 'mprtcl-prodv4',    // The name for mP localstorage that contains products for cartProducs and productBags
-        CookieName: 'mprtcl-api',                   // v1 Name of the cookie stored on the user's machine
-        CookieNameV2: 'mprtcl-v2',                  // v2 Name of the cookie stored on the user's machine. Removed keys with no values, moved cartProducts and productBags to localStorage.
-        CookieNameV3: 'mprtcl-v3',                  // v3 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, final version on SDKv1
-        CookieNameV4: 'mprtcl-v4',                  // v4 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, current version on SDK v2
-        CurrentStorageName: 'mprtcl-v4',
-        CurrentStorageProductsName: 'mprtcl-prodv4',
-        CookieDomain: null, 			            // If null, defaults to current location.host
-        Debug: false,					            // If true, will print debug messages to browser console
-        CookieExpiration: 365,			            // Cookie expiration time in days
-        LogLevel: null,					            // What logging will be provided in the console
-        IncludeReferrer: true,			            // Include user's referrer
-        IncludeGoogleAdwords: true,		            // Include utm_source and utm_properties
-        Timeout: 300,					            // Timeout in milliseconds for logging functions
-        SessionTimeout: 30,				            // Session timeout in minutes
-        Sandbox: false,                             // Events are marked as debug and only forwarded to debug forwarders,
-        Version: null,                              // The version of this website/app
-        MaxProducts: 20,                            // Number of products persisted in cartProducts and productBags
-        ForwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
-        IntegrationDelayTimeout: 5000,              // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
-        MaxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
+        cookieDomain: null, 			            // If null, defaults to current location.host
+        cookieExpiration: 365,			            // Cookie expiration time in days
+        logLevel: null,					            // What logging will be provided in the console
+        timeout: 300,					            // timeout in milliseconds for logging functions
+        sessionTimeout: 30,				            // Session timeout in minutes
+        maxProducts: 20,                            // Number of products persisted in cartProducts and productBags
+        forwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
+        integrationDelayTimeout: 5000,              // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
+        maxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
     },
     Base64CookieKeys = {
         csm: 1,
@@ -145,6 +142,7 @@ module.exports = {
     platform: platform,
     Messages: Messages,
     NativeSdkPaths: NativeSdkPaths,
+    StorageNames: StorageNames,
     DefaultConfig: DefaultConfig,
     Base64CookieKeys:Base64CookieKeys,
     HTTPCodes: HTTPCodes,

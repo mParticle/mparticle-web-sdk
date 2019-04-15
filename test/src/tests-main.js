@@ -1,19 +1,22 @@
 var TestsCore = require('./tests-core'),
     testMPID = TestsCore.testMPID,
+    MPConfig = TestsCore.MPConfig,
     apiKey = TestsCore.apiKey,
     workspaceToken = TestsCore.workspaceToken,
     server = TestsCore.server;
 
 describe('mParticle', function() {
     before(function() {
-        mParticle._isTestEnv = true;
-        mParticle.reset();
         server.start();
     });
 
     beforeEach(function() {
-        mParticle.reset();
-
+        window.mParticle = window.mParticle || {};
+        window.mParticle.config = {
+            workspaceToken: workspaceToken
+        };
+        require('../../src/main.js');
+        mParticle._isTestEnv = true;
         server.requests = [];
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -22,14 +25,15 @@ describe('mParticle', function() {
                 mpid: testMPID
             }));
         };
-        mParticle.forceHttps = true;
         window.mParticleAndroid = null;
+        mParticle.preInit.isDevelopmentMode = false;
         window.mParticle.isIOS = null;
-        window.mParticle.useCookieStorage = false;
-        mParticle.isDevelopmentMode = false;
-        mParticle.maxCookieSize = 3000;
-        mParticle.workspaceToken = workspaceToken;
+
+        mParticle.reset(MPConfig);
         mParticle.init(apiKey);
+        window.mParticle.config = {
+            workspaceToken: workspaceToken
+        };
     });
 
     require('./tests-core-sdk');

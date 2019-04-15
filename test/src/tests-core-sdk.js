@@ -1,4 +1,7 @@
 var TestsCore = require('./tests-core'),
+    Store = require('../../src/store'),
+    DefaultConfig = require('../../src/constants').DefaultConfig,
+    MPConfig = TestsCore.MPConfig,
     setLocalStorage = TestsCore.setLocalStorage,
     das = TestsCore.das,
     getEvent = TestsCore.getEvent,
@@ -72,7 +75,8 @@ describe('core SDK', function() {
     it('should process ready queue when initialized', function(done) {
         var readyFuncCalled = false;
 
-        mParticle.reset();
+        mParticle.reset(MPConfig);
+
         mParticle.ready(function() { readyFuncCalled = true; });
         mParticle.init(apiKey);
 
@@ -209,10 +213,9 @@ describe('core SDK', function() {
     });
 
     it('should not generate a new device ID if a deviceId exists in localStorage', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         setLocalStorage();
-
         mParticle.init(apiKey);
 
         var deviceId = mParticle.getDeviceId();
@@ -222,6 +225,9 @@ describe('core SDK', function() {
     });
 
     it('should return the deviceId when requested', function(done) {
+        mParticle.reset(MPConfig);
+        mParticle.init(apiKey);
+
         var deviceId = mParticle.getDeviceId();
 
         Should(deviceId).be.ok();
@@ -231,13 +237,12 @@ describe('core SDK', function() {
     });
 
     it('will create a cgid when no previous cgid exists after initializing storage, and no sid', function(done) {
-        mParticle.reset();
-        window.mParticle.useCookieStorage = true;
+        mParticle.reset(MPConfig);
 
         mParticle.persistence.initializeStorage();
         mParticle.persistence.update();
 
-        var cookieData = mParticle.persistence.getCookie();
+        var cookieData = mParticle.persistence.getLocalStorage();
 
         cookieData.gs.should.have.properties(['cgid']);
         cookieData.gs.should.not.have.property('sid');
@@ -246,9 +251,10 @@ describe('core SDK', function() {
     });
 
     it('creates a new session when elapsed time between actions is greater than session timeout', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
-        mParticle.init(apiKey, {SessionTimeout: 1});
+        mParticle.config.sessionTimeout = 1;
+        mParticle.init(apiKey);
         clock.tick(100);
         mParticle.logEvent('Test Event');
         var data = getEvent('Test Event');
@@ -265,10 +271,10 @@ describe('core SDK', function() {
     });
 
     it('should end session when last event sent is outside of sessionTimeout', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
-
-        mParticle.init(apiKey, {SessionTimeout: 1});
+        mParticle.config.sessionTimeout = 1;
+        mParticle.init(apiKey);
         clock.tick(100);
         mParticle.logEvent('Test Event');
 
@@ -292,9 +298,10 @@ describe('core SDK', function() {
 
     it('should not end session when end session is called within sessionTimeout timeframe', function(done) {
         // This test mimics if another tab is open and events are sent, but previous tab's sessionTimeout is still ongoing
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
-        mParticle.init(apiKey, {SessionTimeout: 1});
+        mParticle.config.sessionTimeout = 1;
+        mParticle.init(apiKey);
 
         server.requests = [];
         clock.tick(100);
@@ -347,8 +354,9 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should use http when mParticle.forceHttps is false', function(done) {
-        mParticle.forceHttps = false;
+    it('should use http when forceHttps is false', function(done) {
+        mParticle.config.forceHttps = false;
+        mParticle.init(apiKey);
         server.requests = [];
         mParticle.logEvent('Test Event');
         server.requests[0].url.should.equal('http://jssdk.mparticle.com/v2/JS/test_key/Events');
@@ -365,6 +373,152 @@ describe('core SDK', function() {
         server.requests = [];
         mParticle.logEvent('test another');
         server.requests[0].url.should.equal('https://jssdks.mparticle.com/v2/JS/test/Events');
+
+        done();
+    });
+
+    it('should have default options as well as configured options on configuration object, overwriting when appropriate', function(done) {
+        var defaults = new Store({});
+        // all items here should be the default values
+        for (var key in DefaultConfig) {
+            defaults.SDKConfig.should.have.property(key, DefaultConfig[key]);
+        }
+
+        var config = {
+            useCookieStorage: true,
+            logLevel: 'abc',
+            useNativeSdk: true,
+            isIOS: true,
+            maxProducts: 10,
+            maxCookieSize: 2000,
+            appName: 'testApp',
+            integrationDelayTimeout: 100,
+            identifyRequest: {userIdentities: {
+                customerid: 'test'
+            }},
+            identityCallback: function() {
+                return 'identityCallback';
+            },
+            appVersion: 'v2.0.0',
+            sessionTimeout: 3000,
+            forceHttps: false,
+            customFlags: {flag1: 'attr1'},
+            workspaceToken: 'abcdef',
+            requiredWebviewBridgeName: 'exampleWebviewBridgeName',
+            minWebviewBridgeVersion: 2
+        };
+
+        var mp = new Store(config);
+        mp.isEnabled.should.equal(true);
+        Object.keys(mp.sessionAttributes).length.should.equal(0);
+        Object.keys(mp.migrationData).length.should.equal(0);
+        Object.keys(mp.serverSettings).length.should.equal(0);
+        Object.keys(mp.nonCurrentUserMPIDs).length.should.equal(0);
+        Object.keys(mp.integrationAttributes).length.should.equal(0);
+        Object.keys(mp.cookieSyncDates).length.should.equal(0);
+        mp.currentSessionMPIDs.length.should.equal(0);
+        mp.isTracking.should.equal(false);
+        mp.cartProducts.length.should.equal(0);
+        mp.eventQueue.length.should.equal(0);
+        mp.context.should.equal('');
+        mp.identityCallInFlight.should.equal(false);
+        mp.migratingToIDSyncCookies.should.equal(false);
+        mp.identifyCalled.should.equal(false);
+        mp.isLoggedIn.should.equal(false);
+        mp.requireDelay.should.equal(true);
+        mp.activeForwarders.length.should.equal(0);
+
+        (mp.consentState === null).should.equal(true);
+        (mp.sessionId === null).should.equal(true);
+        (mp.isFirstRun === null).should.equal(true);
+        (mp.clientId === null).should.equal(true);
+        (mp.deviceId === null).should.equal(true);
+        (mp.devToken === null).should.equal(true);
+        (mp.dateLastEventSent === null).should.equal(true);
+        (mp.sessionStartDate === null).should.equal(true);
+        (mp.currentPosition === null).should.equal(true);
+        (mp.watchPositionId === null).should.equal(true);
+        (mp.currencyCode === null).should.equal(true);
+        (mp.globalTimer === null).should.equal(true);
+        (mp.isLocalStorageAvailable === null).should.equal(true);
+        (mp.storageName).should.equal('mprtcl-v4_abcdef');
+        (mp.prodStorageName).should.equal('mprtcl-prodv4_abcdef');
+
+        // all items here should be the overwritten values
+        mp.SDKConfig.useCookieStorage.should.equal(config.useCookieStorage);
+        mp.SDKConfig.logLevel.should.equal(config.logLevel);
+        mp.SDKConfig.useNativeSdk.should.equal(config.useNativeSdk);
+        mp.SDKConfig.isIOS.should.equal(config.isIOS);
+        mp.SDKConfig.maxProducts.should.equal(config.maxProducts);
+        mp.SDKConfig.maxCookieSize.should.equal(config.maxCookieSize);
+        mp.SDKConfig.appName.should.equal(config.appName);
+        mp.SDKConfig.integrationDelayTimeout.should.equal(config.integrationDelayTimeout);
+        JSON.stringify(mp.SDKConfig.identifyRequest).should.equal(JSON.stringify(config.identifyRequest));
+        mp.SDKConfig.identityCallback().should.equal(config.identityCallback());
+        mp.SDKConfig.appVersion.should.equal(config.appVersion);
+        mp.SDKConfig.sessionTimeout.should.equal(3000);
+        mp.SDKConfig.forceHttps.should.equal(config.forceHttps);
+        mp.SDKConfig.customFlags.should.equal(config.customFlags);
+        mp.SDKConfig.workspaceToken.should.equal(config.workspaceToken);
+        mp.SDKConfig.requiredWebviewBridgeName.should.equal(config.requiredWebviewBridgeName);
+        mp.SDKConfig.minWebviewBridgeVersion.should.equal(config.minWebviewBridgeVersion);
+
+        mParticle.reset(MPConfig);
+
+        done();
+    });
+
+    it('should merge configs when initializing sdk, with config argument taking priority over mParticle.config', function(done) {
+        var identityCallbackCalled = false;
+        mParticle.reset(MPConfig);
+        window.mParticle.config = {
+            useCookieStorage: true,
+            logLevel: 'abc',
+            useNativeSdk: true,
+            isIOS: true,
+            maxProducts: 10,
+            maxCookieSize: 2000,
+            appName: 'testApp',
+            integrationDelayTimeout: 100
+        };
+        
+        var config = {
+            identifyRequest: {userIdentities: {
+                customerid: 'test'
+            }},
+            identityCallback: function() {
+                identityCallbackCalled = true;
+            },
+            appVersion: 'v2.0.0',
+            sessionTimeout: 3000,
+            forceHttps: false,
+            customFlags: {flag1: 'attr1'},
+            workspaceToken: 'abcdef',
+            requiredWebviewBridgeName: 'exampleWebviewBridgeName',
+            integrationDelayTimeout: 200,
+            minWebviewBridgeVersion: 2
+        };
+
+        mParticle.init(apiKey, config);
+
+        // all items here should be the overwritten values
+        mParticle.Store.SDKConfig.useCookieStorage.should.equal(window.mParticle.config.useCookieStorage);
+        mParticle.Store.SDKConfig.logLevel.should.equal(window.mParticle.config.logLevel);
+        mParticle.Store.SDKConfig.useNativeSdk.should.equal(window.mParticle.config.useNativeSdk);
+        mParticle.Store.SDKConfig.isIOS.should.equal(window.mParticle.config.isIOS);
+        mParticle.Store.SDKConfig.maxProducts.should.equal(window.mParticle.config.maxProducts);
+        mParticle.Store.SDKConfig.maxCookieSize.should.equal(window.mParticle.config.maxCookieSize);
+        mParticle.Store.SDKConfig.appName.should.equal(window.mParticle.config.appName);
+        mParticle.Store.SDKConfig.integrationDelayTimeout.should.equal(config.integrationDelayTimeout);
+        JSON.stringify(mParticle.Store.SDKConfig.identifyRequest).should.equal(JSON.stringify(config.identifyRequest));
+        Should(identityCallbackCalled).equal(true);
+        mParticle.Store.SDKConfig.appVersion.should.equal(config.appVersion);
+        mParticle.Store.SDKConfig.sessionTimeout.should.equal(3000);
+        mParticle.Store.SDKConfig.forceHttps.should.equal(config.forceHttps);
+        mParticle.Store.SDKConfig.customFlags.should.equal(config.customFlags);
+        mParticle.Store.SDKConfig.workspaceToken.should.equal(config.workspaceToken);
+        mParticle.Store.SDKConfig.requiredWebviewBridgeName.should.equal(config.requiredWebviewBridgeName);
+        mParticle.Store.SDKConfig.minWebviewBridgeVersion.should.equal(config.minWebviewBridgeVersion);
 
         done();
     });

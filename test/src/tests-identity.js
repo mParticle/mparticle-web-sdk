@@ -8,18 +8,18 @@ var Helpers= require('../../src/helpers'),
     testMPID = TestsCore.testMPID,
     server = TestsCore.server,
     findCookie = TestsCore.findCookie,
+    MPConfig = TestsCore.MPConfig,
     getIdentityEvent = TestsCore.getIdentityEvent,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     getEvent = TestsCore.getEvent,
     workspaceCookieName = TestsCore.workspaceCookieName,
     setCookie = TestsCore.setCookie,
-    MockForwarder = TestsCore.MockForwarder,
-    should = require('should');
+    MockForwarder = TestsCore.MockForwarder;
 
 describe('identity', function() {
     it('should respect consent rules on consent-change', function(done) {
-        mParticle.reset();
-        mParticle.isDevelopmentMode = true;
+        mParticle.reset(MPConfig);
+        mParticle.preInit.isDevelopmentMode = true;
         var mockForwarder = new MockForwarder('MockForwarder1');
         mParticle.addForwarder(mockForwarder);
         mParticle.configureForwarder({
@@ -149,8 +149,8 @@ describe('identity', function() {
     });
 
     it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', function(done) {
-        mParticle.reset();
-        window.mParticle.useCookieStorage = false;
+        mParticle.reset(MPConfig);
+        window.mParticle.config.useCookieStorage = false;
 
         setLocalStorage();
 
@@ -184,8 +184,8 @@ describe('identity', function() {
     });
 
     it('cookies - should switch user cookies to new mpid details from cookies when a new mpid is provided', function(done) {
-        mParticle.reset();
-        window.mParticle.useCookieStorage = true;
+        mParticle.reset(MPConfig);
+        mParticle.config.useCookieStorage = true;
 
         setLocalStorage();
 
@@ -614,9 +614,9 @@ describe('identity', function() {
     });
 
     it('Ensure that automatic identify is not called more than once.', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var spy = sinon.spy();
-        mParticle.identityCallback = spy;
+        mParticle.config.identityCallback = spy;
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify({
@@ -628,12 +628,12 @@ describe('identity', function() {
         spy.calledOnce.should.be.ok();
         mParticle.startNewSession();
         spy.calledOnce.should.be.ok();
-        should.not.exist(mParticle.identityCallback);
+
         done();
     });
 
     it('queue events when MPID is 0, and then flush events once MPID changes', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -674,7 +674,7 @@ describe('identity', function() {
     });
 
     it('getUsers should return all mpids available in local storage', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         var user1 = {};
         var user2 = {};
@@ -746,7 +746,7 @@ describe('identity', function() {
     });
 
     it('should only update its own cookies, not any other mpids when initializing with a different set of credentials', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         var user1 = {
             userIdentities: {
@@ -850,7 +850,7 @@ describe('identity', function() {
     });
 
     it('should convert user identities object to an array if no identityRequest is passed through', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         server.requests = [];
 
         mParticle.identifyRequest = null;
@@ -882,7 +882,7 @@ describe('identity', function() {
     });
 
     it('should find the related MPID\'s cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var user1 = {
             userIdentities: {
                 customerid: 'customerid1'
@@ -895,7 +895,7 @@ describe('identity', function() {
             }
         };
 
-        mParticle.identifyRequest = user1;
+        mParticle.config.identifyRequest = user1;
 
         mParticle.init(apiKey);
 
@@ -955,8 +955,7 @@ describe('identity', function() {
         mParticle.logEvent('test event3');
         var event3 = getEvent('test event3');
 
-        // TODO: confirm about copy user attributes
-        // event3.ua.should.have.property('foo1', 'bar1');
+        event3.ua.should.have.property('foo1', 'bar1');
         event3.ui.length.should.equal(2);
         event3.ui[0].should.have.property('Type', 1);
         event3.ui[0].should.have.property('Identity', 'customerid1');
@@ -974,7 +973,7 @@ describe('identity', function() {
     });
 
     it('Should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous one will keep the last MPID ', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var user1 = {
             userIdentities: {
                 customerid: '1'
@@ -999,7 +998,7 @@ describe('identity', function() {
             }
         };
 
-        mParticle.identifyRequest = user1;
+        mParticle.config.identifyRequest = user1;
 
         mParticle.init(apiKey);
         var user1UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
@@ -1226,7 +1225,7 @@ describe('identity', function() {
     });
 
     it('saves proper cookies for each user\'s products, and purchases record cartProducts correctly', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         var identityAPIRequest1 = {
             userIdentities: {
@@ -1624,8 +1623,8 @@ describe('identity', function() {
     });
 
     it('should trigger the identifyCallback when a successful identify call is sent', function(done) {
-        // MP.sessionID does not exist yet because we perform an mParticle.reset();
-        mParticle.reset();
+        // MP.sessionID does not exist yet because we perform an mParticle.reset(MPConfig);
+        mParticle.reset(MPConfig);
 
         var mpid;
         server.handle = function(request) {
@@ -1636,7 +1635,7 @@ describe('identity', function() {
             }));
         };
 
-        mParticle.identityCallback = function(resp) {
+        mParticle.config.identityCallback = function(resp) {
             mpid = resp.body.mpid;
         };
 
@@ -1647,13 +1646,13 @@ describe('identity', function() {
     });
 
     it('should still trigger the identifyCallback when no identify request is sent because there are already cookies', function(done) {
-        mParticle.reset();
+        mParticle.reset(MPConfig);
         var les = new Date().getTime();
-        var cookies = "{'gs':{'ie':1|'dt':'test_key'|'cgid':'886e874b-862b-4822-a24a-1146cd057101'|'das':'62c91b8d-fef6-44ea-b2cc-b55714b0d827'|'csm':'WyJ0ZXN0TVBJRCJd'|'sid':'2535f9ed-ab19-4a7c-9eeb-ce4e41e0cb06'|'les': " + les + "|'ssd':1518536950916}|'testMPID123':{'ui':'eyIxIjoiY3VzdG9tZXJpZDEifQ=='}|'cu':'testMPID123'}";
-        mParticle.useCookieStorage = true;
+        var cookies = "{'gs':{'ie':1|'dt':'test_key'|'cgid':'886e874b-862b-4822-a24a-1146cd057101'|'das':'62c91b8d-fef6-44ea-b2cc-b55714b0d827'|'csm':'WyJ0ZXN0TVBJRCJd'|'sid':'2535f9ed-ab19-4a7c-9eeb-ce4e41e0cb06'|'les': " + les + "|'ssd':1518536950916}|'testMPID':{'ui':'eyIxIjoiY3VzdG9tZXJpZDEifQ=='}|'cu':'testMPID'}";
+        mParticle.config.useCookieStorage = true;
         setCookie(workspaceCookieName, cookies, true);
         //does not actually hit the server because identity request is not sent
-        mParticle.identityCallback = function(resp) {
+        mParticle.config.identityCallback = function(resp) {
             resp.getUser().setUserAttribute('attr', 'value');
             result = resp;
         };
@@ -1681,8 +1680,8 @@ describe('identity', function() {
         Should(result.body.context).not.be.ok();
         Should(result.body.is_ephemeral).not.be.ok();
         result.body.matched_identities.should.have.property('customerid', 'customerid1');
-        result.body.mpid.should.equal('testMPID123');
-        result.getUser().getMPID().should.equal('testMPID123');
+        result.body.mpid.should.equal('testMPID');
+        result.getUser().getMPID().should.equal('testMPID');
         result.getUser().getAllUserAttributes().should.have.property('attr', 'value');
 
         done();
@@ -1690,7 +1689,7 @@ describe('identity', function() {
 
     it('identifyCallback response should have a getUser function on the result object', function(done) {
         var result;
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -1700,7 +1699,7 @@ describe('identity', function() {
             }));
         };
 
-        mParticle.identityCallback = function(resp) {
+        mParticle.config.identityCallback = function(resp) {
             result = resp;
             resp.getUser().setUserAttribute('test', 'value');
         };
@@ -1717,9 +1716,9 @@ describe('identity', function() {
     it('identityCallback responses should all have a getUser function on their result objects', function(done) {
         var result, loginResult, logoutResult, modifyResult;
 
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
-        mParticle.identityCallback = function(resp) {
+        mParticle.config.identityCallback = function(resp) {
             resp.getUser().setUserAttribute('attr', 'value');
             result = resp;
         };
@@ -1768,7 +1767,7 @@ describe('identity', function() {
     it('should call identify when there is an active session but no current user', function(done) {
         // this broken cookie state occurs when an initial identify request is made, fails, and the
         // client had no programmatic handling of a failed identify request
-        mParticle.reset();
+        mParticle.reset(MPConfig);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -1779,7 +1778,7 @@ describe('identity', function() {
 
         // invalid customerid of type number, so mParticle.init(apiKey) will fail, but create cookies
         // without a current user
-        mParticle.identifyRequest = {
+        mParticle.config.identifyRequest = {
             userIdentities: {
                 customerid: 123
             }
@@ -1793,7 +1792,7 @@ describe('identity', function() {
         (mParticle.Identity.getCurrentUser() === null).should.equal(true);
 
         // change to a valid customerid
-        mParticle.identifyRequest = {
+        mParticle.config.identifyRequest = {
             userIdentities: {
                 customerid: '123'
             }

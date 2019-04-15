@@ -1,14 +1,13 @@
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     Persistence = require('./persistence'),
-    Messages = Constants.Messages,
-    MP = require('./mp');
+    Messages = Constants.Messages;
 
 var cookieSyncManager = {
     attemptCookieSync: function(previousMPID, mpid) {
         var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
-        if (mpid && !MP.webviewBridgeEnabled) {
-            MP.pixelConfigurations.forEach(function(pixelSettings) {
+        if (mpid && !mParticle.Store.webviewBridgeEnabled) {
+            mParticle.preInit.pixelConfigurations.forEach(function(pixelSettings) {
                 pixelConfig = {
                     moduleId: pixelSettings.moduleId,
                     frequencyCap: pixelSettings.frequencyCap,
@@ -19,34 +18,45 @@ var cookieSyncManager = {
                 url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
                 redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
                 urlWithRedirect = url + encodeURIComponent(redirect);
+                var cookies = Persistence.getPersistence();
 
                 if (previousMPID && previousMPID !== mpid) {
-                    cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                    if (cookies && cookies[mpid]) {
+                        if (!cookies[mpid].csd) {
+                            cookies[mpid].csd = {};
+                        }
+                        cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
+                    }
                     return;
                 } else {
-                    lastSyncDateForModule = MP.cookieSyncDates[(pixelConfig.moduleId).toString()] ? MP.cookieSyncDates[(pixelConfig.moduleId).toString()] : null;
-
-                    if (lastSyncDateForModule) {
-                        // Check to see if we need to refresh cookieSync
-                        if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
-                            cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                    if (cookies[mpid]) {
+                        if (!cookies[mpid].csd) {
+                            cookies[mpid].csd = {};
                         }
-                    } else {
-                        cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId);
+                        lastSyncDateForModule = cookies[mpid].csd[(pixelConfig.moduleId).toString()] ? cookies[mpid].csd[(pixelConfig.moduleId).toString()] : null;
+
+                        if (lastSyncDateForModule) {
+                            // Check to see if we need to refresh cookieSync
+                            if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
+                                cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
+                            }
+                        } else {
+                            cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
+                        }
                     }
                 }
             });
         }
     },
 
-    performCookieSync: function(url, moduleId) {
+    performCookieSync: function(url, moduleId, mpid, cookieSyncDates) {
         var img = document.createElement('img');
 
         Helpers.logDebug(Messages.InformationMessages.CookieSync);
 
         img.src = url;
-        MP.cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
-        Persistence.update();
+        cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
+        Persistence.saveUserCookieSyncDatesToCookies(mpid, cookieSyncDates);
     },
 
     replaceMPID: function(string, mpid) {
