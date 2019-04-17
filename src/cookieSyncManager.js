@@ -1,5 +1,4 @@
-var Helpers = require('./helpers'),
-    Constants = require('./constants'),
+var Constants = require('./constants'),
     Persistence = require('./persistence'),
     Messages = Constants.Messages;
 
@@ -52,7 +51,7 @@ var cookieSyncManager = {
     performCookieSync: function(url, moduleId, mpid, cookieSyncDates) {
         var img = document.createElement('img');
 
-        Helpers.logDebug(Messages.InformationMessages.CookieSync);
+        mParticle.Logger.verbose(Messages.InformationMessages.CookieSync);
 
         img.src = url;
         cookieSyncDates[moduleId.toString()] = (new Date()).getTime();

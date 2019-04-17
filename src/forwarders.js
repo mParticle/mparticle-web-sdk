@@ -149,11 +149,11 @@ function applyToForwarders(functionName, functionArgs) {
                     var result = forwarder[functionName](functionArgs);
 
                     if (result) {
-                        Helpers.logDebug(result);
+                        mParticle.Logger.verbose(result);
                     }
                 }
                 catch (e) {
-                    Helpers.logDebug(e);
+                    mParticle.Logger.verbose(e);
                 }
             }
         });
@@ -286,13 +286,13 @@ function sendEventToForwarders(event) {
             // Check user attribute filtering rules
             clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, mParticle.Store.activeForwarders[i].userAttributeFilters);
 
-            Helpers.logDebug('Sending message to forwarder: ' + mParticle.Store.activeForwarders[i].name);
+            mParticle.Logger.verbose('Sending message to forwarder: ' + mParticle.Store.activeForwarders[i].name);
 
             if (mParticle.Store.activeForwarders[i].process) {
                 var result = mParticle.Store.activeForwarders[i].process(clonedEvent);
 
                 if (result) {
-                    Helpers.logDebug(result);
+                    mParticle.Logger.verbose(result);
                 }
             }
 
@@ -311,11 +311,11 @@ function callSetUserAttributeOnForwarders(key, value) {
                     var result = forwarder.setUserAttribute(key, value);
 
                     if (result) {
-                        Helpers.logDebug(result);
+                        mParticle.Logger.verbose(result);
                     }
                 }
                 catch (e) {
-                    Helpers.logDebug(e);
+                    mParticle.Logger.error(e);
                 }
             }
         });
@@ -329,7 +329,7 @@ function setForwarderUserIdentities(userIdentities) {
             filteredUserIdentities.forEach(function(identity) {
                 var result = forwarder.setUserIdentity(identity.Identity, identity.Type);
                 if (result) {
-                    Helpers.logDebug(result);
+                    mParticle.Logger.verbose(result);
                 }
             });
         }
@@ -342,7 +342,7 @@ function setForwarderOnUserIdentified(user) {
         if (forwarder.onUserIdentified) {
             var result = forwarder.onUserIdentified(filteredUser);
             if (result) {
-                Helpers.logDebug(result);
+                mParticle.Logger.verbose(result);
             }
         }
     });
@@ -357,7 +357,7 @@ function setForwarderOnIdentityComplete(user, identityMethod) {
             if (forwarder.onIdentifyComplete) {
                 result = forwarder.onIdentifyComplete(filteredUser);
                 if (result) {
-                    Helpers.logDebug(result);
+                    mParticle.Logger.verbose(result);
                 }
             }
         }
@@ -365,21 +365,21 @@ function setForwarderOnIdentityComplete(user, identityMethod) {
             if (forwarder.onLoginComplete) {
                 result = forwarder.onLoginComplete(filteredUser);
                 if (result) {
-                    Helpers.logDebug(result);
+                    mParticle.Logger.verbose(result);
                 }
             }
         } else if (identityMethod === 'logout') {
             if (forwarder.onLogoutComplete) {
                 result = forwarder.onLogoutComplete(filteredUser);
                 if (result) {
-                    Helpers.logDebug(result);
+                    mParticle.Logger.verbose(result);
                 }
             }
         } else if (identityMethod === 'modify') {
             if (forwarder.onModifyComplete) {
                 result = forwarder.onModifyComplete(filteredUser);
                 if (result) {
-                    Helpers.logDebug(result);
+                    mParticle.Logger.verbose(result);
                 }
             }
         }

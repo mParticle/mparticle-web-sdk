@@ -66,6 +66,26 @@ function initializeStorage() {
             this.storeDataInMemory(cookies);
         }
 
+        try {
+            if (mParticle.Store.isLocalStorageAvailable) {
+                var encodedProducts = localStorage.getItem(mParticle.Store.prodStorageName);
+
+                if (encodedProducts) {
+                    var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
+                }
+                if (mParticle.Store.mpid) {
+                    storeProductsInMemory(decodedProducts, mParticle.Store.mpid);
+                }
+            }
+        } catch (e) {
+            if (mParticle.Store.isLocalStorageAvailable) {
+                localStorage.removeItem(mParticle.Store.prodStorageName);
+            }
+            mParticle.Store.cartProducts = [];
+            mParticle.Logger.error('Error loading products in initialization: ' + e);
+        }
+
+
         for (var key in allData) {
             if (allData.hasOwnProperty(key)) {
                 if (!SDKv2NonMPIDCookieKeys[key]) {
@@ -81,7 +101,7 @@ function initializeStorage() {
         } else {
             expireCookies(mParticle.Store.storageName);
         }
-        Helpers.logDebug('Error initializing storage: ' + e);
+        mParticle.Logger.error('Error initializing storage: ' + e);
     }
 }
 
@@ -95,10 +115,21 @@ function update() {
     }
 }
 
+function storeProductsInMemory(products, mpid) {
+    if (products) {
+        try {
+            mParticle.Store.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
+        }
+        catch(e) {
+            mParticle.Logger.error(Messages.ErrorMessages.CookieParseError);
+        }
+    }
+}
+
 function storeDataInMemory(obj, currentMPID) {
     try {
         if (!obj) {
-            Helpers.logDebug(Messages.InformationMessages.CookieNotFound);
+            mParticle.Logger.verbose(Messages.InformationMessages.CookieNotFound);
             mParticle.Store.clientId = mParticle.Store.clientId || Helpers.generateUniqueId();
             mParticle.Store.deviceId = mParticle.Store.deviceId || Helpers.generateUniqueId();
         } else {
@@ -143,7 +174,7 @@ function storeDataInMemory(obj, currentMPID) {
         }
     }
     catch (e) {
-        Helpers.logDebug(Messages.ErrorMessages.CookieParseError);
+        mParticle.Logger.error(Messages.ErrorMessages.CookieParseError);
     }
 }
 
@@ -239,7 +270,7 @@ function setLocalStorage() {
             window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName), Base64.encode(JSON.stringify(allLocalStorageProducts)));
         }
         catch (e) {
-            Helpers.logDebug('Error with setting products on localStorage.');
+            mParticle.Logger.error('Error with setting products on localStorage.');
         }
     }
 
@@ -269,7 +300,7 @@ function setLocalStorage() {
             window.localStorage.setItem(encodeURIComponent(key), encodeCookies(JSON.stringify(localStorageData)));
         }
         catch (e) {
-            Helpers.logDebug('Error with setting localStorage item.');
+            mParticle.Logger.error('Error with setting localStorage item.');
         }
     }
 }
@@ -381,7 +412,7 @@ function getCookie() {
         cookie,
         result = key ? undefined : {};
 
-    Helpers.logDebug(Messages.InformationMessages.CookieSearch);
+    mParticle.Logger.verbose(Messages.InformationMessages.CookieSearch);
 
     for (i = 0, l = cookies.length; i < l; i++) {
         parts = cookies[i].split('=');
@@ -399,7 +430,7 @@ function getCookie() {
     }
 
     if (result) {
-        Helpers.logDebug(Messages.InformationMessages.CookieFound);
+        mParticle.Logger.verbose(Messages.InformationMessages.CookieFound);
         return JSON.parse(decodeCookies(result));
     } else {
         return null;
@@ -450,7 +481,7 @@ function setCookie() {
 
     encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain, mParticle.Store.SDKConfig.maxCookieSize);
 
-    Helpers.logDebug(Messages.InformationMessages.CookieSet);
+    mParticle.Logger.verbose(Messages.InformationMessages.CookieSet);
 
     window.document.cookie =
         encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
@@ -512,10 +543,10 @@ function reduceAndEncodeCookies(cookies, expires, domain, maxCookieSize) {
             if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
                 var MPIDtoRemove = currentSessionMPIDs[i];
                 if (cookies[MPIDtoRemove]) {
-                    Helpers.logDebug('Size of new encoded cookie is larger than maxCookieSize setting of ' + maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(cookies[MPIDtoRemove], 0, 2));
+                    mParticle.Logger.verbose('Size of new encoded cookie is larger than maxCookieSize setting of ' + maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(cookies[MPIDtoRemove], 0, 2));
                     delete cookies[MPIDtoRemove];
                 } else {
-                    Helpers.logDebug('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
+                    mParticle.Logger.error('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
                 }
             } else {
                 break;
@@ -643,7 +674,7 @@ function decodeCookies(cookie) {
             return JSON.stringify(cookie);
         }
     } catch (e) {
-        Helpers.logDebug('Problem with decoding cookie', e);
+        mParticle.Logger.error('Problem with decoding cookie', e);
     }
 }
 
@@ -747,7 +778,7 @@ function setCartProducts(allProducts) {
         window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName), Base64.encode(JSON.stringify(allProducts)));
     }
     catch (e) {
-        Helpers.logDebug('Error with setting products on localStorage.');
+        mParticle.Logger.error('Error with setting products on localStorage.');
     }
 }
 

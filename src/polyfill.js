@@ -1,5 +1,3 @@
-var Helpers = require('./helpers');
-
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
 var Base64 = {
     _keyStr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
@@ -11,7 +9,7 @@ var Base64 = {
                 return window.btoa(unescape(encodeURIComponent(input)));
             }
         } catch (e) {
-            Helpers.logDebug('Error encoding cookie values into Base64:' + e);
+            window.console.log('Error encoding cookie values into Base64:' + e);
         }
         return this._encode(input);
     },

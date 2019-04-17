@@ -446,7 +446,6 @@ describe('core SDK', function() {
 
         // all items here should be the overwritten values
         mp.SDKConfig.useCookieStorage.should.equal(config.useCookieStorage);
-        mp.SDKConfig.logLevel.should.equal(config.logLevel);
         mp.SDKConfig.useNativeSdk.should.equal(config.useNativeSdk);
         mp.SDKConfig.isIOS.should.equal(config.isIOS);
         mp.SDKConfig.maxProducts.should.equal(config.maxProducts);
@@ -519,6 +518,95 @@ describe('core SDK', function() {
         mParticle.Store.SDKConfig.workspaceToken.should.equal(config.workspaceToken);
         mParticle.Store.SDKConfig.requiredWebviewBridgeName.should.equal(config.requiredWebviewBridgeName);
         mParticle.Store.SDKConfig.minWebviewBridgeVersion.should.equal(config.minWebviewBridgeVersion);
+
+        done();
+    });
+
+    it('should use custom loggers when provided', function(done) {
+        mParticle.config.logLevel = 'verbose';
+        var errorMessage;
+        var warnMessage;
+        var infoMessage;
+
+        mParticle.config.logger = {
+            error: function(msg) {
+                errorMessage = msg;
+            },
+            warning: function(msg) {
+                warnMessage = msg;
+            },
+            verbose: function(msg) {
+                infoMessage = msg;
+            }
+        };
+
+        mParticle.init(apiKey);
+        infoMessage.should.equal('Parsed store from response, updating local settings');
+
+        mParticle.eCommerce.createProduct();
+        errorMessage.should.equal('Name is required when creating a product');
+
+        mParticle.startTrackingLocation();
+        warnMessage.should.equal('Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.');
+
+
+        done();
+    });
+
+    it('should be able to change logLevel on the fly, postuse custom loggers when provided', function (done) {
+        var infoMessages = [];
+
+        mParticle.config.logger = {
+            verbose: function (msg) {
+                infoMessages.push(msg);
+            }
+        };
+
+        mParticle.init(apiKey);
+        
+        infoMessages.length.should.equal(0);
+
+        mParticle.setLogLevel('verbose');
+
+        mParticle.logEvent('hi');
+        infoMessages[0].should.equal('Starting to log event: hi');
+
+        done();
+    });
+
+    it('should not log anything to console when logLevel = \'none\'', function (done) {
+        var infoMessages = [];
+        var warnMessages = [];
+        var errorMessages = [];
+
+        mParticle.config.logger = {
+            error: function (msg) {
+                errorMessages.push(msg);
+            },
+            warning: function (msg) {
+                warnMessages.push(msg);
+            },
+            verbose: function (msg) {
+                infoMessages.push(msg);
+            }
+        };
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        infoMessages.length.should.equal(0);
+        warnMessages.length.should.equal(0);
+        errorMessages.length.should.equal(0);
+
+        mParticle.setLogLevel('none');
+
+        mParticle.logEvent('hi');
+
+        infoMessages.length.should.equal(0);
+        warnMessages.length.should.equal(0);
+        errorMessages.length.should.equal(0);
+
+        var data = getEvent('hi');
+        Should(data).be.ok();
 
         done();
     });

@@ -30,7 +30,7 @@ function getSession() {
 }
 
 function startNewSession() {
-    Helpers.logDebug(Messages.InformationMessages.StartingNewSession);
+    mParticle.Logger.verbose(Messages.InformationMessages.StartingNewSession);
 
     if (Helpers.canLog()) {
         mParticle.Store.sessionId = Helpers.generateUniqueId().toUpperCase();
@@ -57,12 +57,12 @@ function startNewSession() {
         logEvent(Types.MessageType.SessionStart);
     }
     else {
-        Helpers.logDebug(Messages.InformationMessages.AbandonStartSession);
+        mParticle.Logger.verbose(Messages.InformationMessages.AbandonStartSession);
     }
 }
 
 function endSession(override) {
-    Helpers.logDebug(Messages.InformationMessages.StartingEndSession);
+    mParticle.Logger.verbose(Messages.InformationMessages.StartingEndSession);
 
     if (override) {
         logEvent(Types.MessageType.SessionEnd);
@@ -83,7 +83,7 @@ function endSession(override) {
         }
 
         if (cookies.gs && !cookies.gs.sid) {
-            Helpers.logDebug(Messages.InformationMessages.NoSessionToEnd);
+            mParticle.Logger.verbose(Messages.InformationMessages.NoSessionToEnd);
             return;
         }
 
@@ -110,7 +110,7 @@ function endSession(override) {
             }
         }
     } else {
-        Helpers.logDebug(Messages.InformationMessages.AbandonEndSession);
+        mParticle.Logger.verbose(Messages.InformationMessages.AbandonEndSession);
     }
 }
 

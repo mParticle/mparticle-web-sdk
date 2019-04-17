@@ -77,7 +77,7 @@ function convertProductActionToEventType(productActionType) {
         case Types.ProductActionType.ViewDetail:
             return Types.CommerceEventType.ProductViewDetail;
         default:
-            Helpers.logDebug('Could not convert product action type ' + productActionType + ' to event type');
+            mParticle.Logger.error('Could not convert product action type ' + productActionType + ' to event type');
             return null;
     }
 }
@@ -89,7 +89,7 @@ function convertPromotionActionToEventType(promotionActionType) {
         case Types.PromotionActionType.PromotionView:
             return Types.CommerceEventType.PromotionView;
         default:
-            Helpers.logDebug('Could not convert promotion action type ' + promotionActionType + ' to event type');
+            mParticle.Logger.error('Could not convert promotion action type ' + promotionActionType + ' to event type');
             return null;
     }
 }
@@ -212,17 +212,17 @@ function createProduct(name,
     attributes = Helpers.sanitizeAttributes(attributes);
 
     if (typeof name !== 'string') {
-        Helpers.logDebug('Name is required when creating a product');
+        mParticle.Logger.error('Name is required when creating a product');
         return null;
     }
 
     if (!Validators.isStringOrNumber(sku)) {
-        Helpers.logDebug('SKU is required when creating a product, and must be a string or a number');
+        mParticle.Logger.error('SKU is required when creating a product, and must be a string or a number');
         return null;
     }
 
     if (!Validators.isStringOrNumber(price)) {
-        Helpers.logDebug('Price is required when creating a product, and must be a string or a number');
+        mParticle.Logger.error('Price is required when creating a product, and must be a string or a number');
         return null;
     }
 
@@ -247,7 +247,7 @@ function createProduct(name,
 
 function createPromotion(id, creative, name, position) {
     if (!Validators.isStringOrNumber(id)) {
-        Helpers.logDebug(Messages.ErrorMessages.PromotionIdRequired);
+        mParticle.Logger.error(Messages.ErrorMessages.PromotionIdRequired);
         return null;
     }
 
@@ -261,12 +261,12 @@ function createPromotion(id, creative, name, position) {
 
 function createImpression(name, product) {
     if (typeof name !== 'string') {
-        Helpers.logDebug('Name is required when creating an impression.');
+        mParticle.Logger.error('Name is required when creating an impression.');
         return null;
     }
 
     if (!product) {
-        Helpers.logDebug('Product is required when creating an impression.');
+        mParticle.Logger.error('Product is required when creating an impression.');
         return null;
     }
 
@@ -284,7 +284,7 @@ function createTransactionAttributes(id,
     tax) {
 
     if (!Validators.isStringOrNumber(id)) {
-        Helpers.logDebug(Messages.ErrorMessages.TransactionIdRequired);
+        mParticle.Logger.error(Messages.ErrorMessages.TransactionIdRequired);
         return null;
     }
 
@@ -414,7 +414,7 @@ function createCommerceEventObject(customFlags) {
     var baseEvent,
         currentUser = mParticle.Identity.getCurrentUser();
 
-    Helpers.logDebug(Messages.InformationMessages.StartingLogCommerceEvent);
+    mParticle.Logger.verbose(Messages.InformationMessages.StartingLogCommerceEvent);
 
     if (Helpers.canLog()) {
         baseEvent = ServerModel.createEventObject(Types.MessageType.Commerce);
@@ -428,7 +428,7 @@ function createCommerceEventObject(customFlags) {
         return baseEvent;
     }
     else {
-        Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+        mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
     }
 
     return null;

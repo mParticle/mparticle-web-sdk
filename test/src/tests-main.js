@@ -13,7 +13,8 @@ describe('mParticle', function() {
     beforeEach(function() {
         window.mParticle = window.mParticle || {};
         window.mParticle.config = {
-            workspaceToken: workspaceToken
+            workspaceToken: workspaceToken,
+            logLevel: 'none'
         };
         require('../../src/main.js');
         mParticle._isTestEnv = true;
@@ -32,7 +33,8 @@ describe('mParticle', function() {
         mParticle.reset(MPConfig);
         mParticle.init(apiKey);
         window.mParticle.config = {
-            workspaceToken: workspaceToken
+            workspaceToken: workspaceToken,
+            logLevel: 'none'
         };
     });
 

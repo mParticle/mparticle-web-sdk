@@ -25,6 +25,7 @@ var Polyfill = require('./polyfill'),
     SessionManager = require('./sessionManager'),
     Ecommerce = require('./ecommerce'),
     Store = require('./store'),
+    Logger = require('./logger'),
     Persistence = require('./persistence'),
     getDeviceId = Persistence.getDeviceId,
     Events = require('./events'),
@@ -92,13 +93,16 @@ var Polyfill = require('./polyfill'),
         */
         init: function(apiKey) {
             var config;
-            // Set user config settings
             if (arguments && arguments.length) {
                 if (arguments.length > 1 && typeof arguments[1] === 'object') {
                     config = arguments[1];
                 }
             }
+
+            // Set user config settings
             mParticle.Store = new Store(window.mParticle.config, config);
+
+            mParticle.Logger = new Logger(window.mParticle.config);
 
             mParticle.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.Store.SDKConfig.requiredWebviewBridgeName, mParticle.Store.SDKConfig.minWebviewBridgeVersion);
 
@@ -111,9 +115,11 @@ var Polyfill = require('./polyfill'),
                 var currentUser;
 
                 mParticle.Store.devToken = apiKey || null;
+                mParticle.Logger.verbose(Messages.InformationMessages.StartingInitialization);
+                //check to see if localStorage is available for migrating purposes
                 mParticle.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
 
-                Helpers.logDebug(Messages.InformationMessages.StartingInitialization);
+                mParticle.Logger.verbose(Messages.InformationMessages.StartingInitialization);
 
                 // Migrate any cookies from previous versions to current cookie version
                 Migrations.migrate();
@@ -187,6 +193,9 @@ var Polyfill = require('./polyfill'),
                 mParticle.preInit.readyQueue = [];
             }
             mParticle.Store.isInitialized = true;
+        },
+        setLogLevel: function(newLogLevel) {
+            mParticle.Logger.setLogLevel(newLogLevel);
         },
         /**
         * Completely resets the state of the SDK. mParticle.init(apiKey) will need to be called again.
@@ -279,7 +288,7 @@ var Polyfill = require('./polyfill'),
         */
         startTrackingLocation: function(callback) {
             if (!Validators.isFunction(callback)) {
-                Helpers.logDebug('Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.');
+                mParticle.Logger.warning('Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.');
             }
 
             SessionManager.resetSessionTimer();
@@ -300,7 +309,7 @@ var Polyfill = require('./polyfill'),
                 };
             }
             else {
-                Helpers.logDebug('Position latitude and/or longitude must both be of type number');
+                mParticle.Logger.error('Position latitude and/or longitude must both be of type number');
             }
         },
         /**
@@ -329,7 +338,7 @@ var Polyfill = require('./polyfill'),
         logEvent: function(eventName, eventType, eventInfo, customFlags) {
             SessionManager.resetSessionTimer();
             if (typeof (eventName) !== 'string') {
-                Helpers.logDebug(Messages.ErrorMessages.EventNameInvalidType);
+                mParticle.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
                 return;
             }
 
@@ -338,12 +347,12 @@ var Polyfill = require('./polyfill'),
             }
 
             if (!Helpers.isEventType(eventType)) {
-                Helpers.logDebug('Invalid event type: ' + eventType + ', must be one of: \n' + JSON.stringify(Types.EventType));
+                mParticle.Logger.error('Invalid event type: ' + eventType + ', must be one of: \n' + JSON.stringify(Types.EventType));
                 return;
             }
 
             if (!Helpers.canLog()) {
-                Helpers.logDebug(Messages.ErrorMessages.LoggingDisabled);
+                mParticle.Logger.error(Messages.ErrorMessages.LoggingDisabled);
                 return;
             }
 
@@ -421,11 +430,11 @@ var Polyfill = require('./polyfill'),
                     };
                 }
                 else if (!Helpers.isObject(attrs)){
-                    Helpers.logDebug('The attributes argument must be an object. A ' + typeof attrs + ' was entered. Please correct and retry.');
+                    mParticle.Logger.error('The attributes argument must be an object. A ' + typeof attrs + ' was entered. Please correct and retry.');
                     return;
                 }
                 if (customFlags && !Helpers.isObject(customFlags)) {
-                    Helpers.logDebug('The customFlags argument must be an object. A ' + typeof customFlags + ' was entered. Please correct and retry.');
+                    mParticle.Logger.error('The customFlags argument must be an object. A ' + typeof customFlags + ' was entered. Please correct and retry.');
                     return;
                 }
             }
@@ -497,7 +506,7 @@ var Polyfill = require('./polyfill'),
             */
             setCurrencyCode: function(code) {
                 if (typeof code !== 'string') {
-                    Helpers.logDebug('Code must be a string');
+                    mParticle.Logger.error('Code must be a string');
                     return;
                 }
                 SessionManager.resetSessionTimer();
@@ -599,7 +608,7 @@ var Polyfill = require('./polyfill'),
             */
             logPurchase: function(transactionAttributes, product, clearCart, attrs, customFlags) {
                 if (!transactionAttributes || !product) {
-                    Helpers.logDebug(Messages.ErrorMessages.BadLogPurchase);
+                    mParticle.Logger.error(Messages.ErrorMessages.BadLogPurchase);
                     return;
                 }
                 SessionManager.resetSessionTimer();
@@ -671,12 +680,12 @@ var Polyfill = require('./polyfill'),
             // Example: mParticle.setSessionAttribute('location', '33431');
             if (Helpers.canLog()) {
                 if (!Validators.isValidAttributeValue(value)) {
-                    Helpers.logDebug(Messages.ErrorMessages.BadAttribute);
+                    mParticle.Logger.error(Messages.ErrorMessages.BadAttribute);
                     return;
                 }
 
                 if (!Validators.isValidKeyValue(key)) {
-                    Helpers.logDebug(Messages.ErrorMessages.BadKey);
+                    mParticle.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
                 }
 
@@ -715,7 +724,7 @@ var Polyfill = require('./polyfill'),
                         var result = forwarder.setOptOut(isOptingOut);
 
                         if (result) {
-                            Helpers.logDebug(result);
+                            mParticle.Logger.verbose(result);
                         }
                     }
                 });
@@ -737,7 +746,7 @@ var Polyfill = require('./polyfill'),
         */
         setIntegrationAttribute: function(integrationId, attrs) {
             if (typeof integrationId !== 'number') {
-                Helpers.logDebug('integrationId must be a number');
+                mParticle.Logger.error('integrationId must be a number');
                 return;
             }
             if (attrs === null) {
@@ -756,17 +765,17 @@ var Polyfill = require('./polyfill'),
                                     mParticle.Store.integrationAttributes[integrationId][key] = attrs[key];
                                 }
                             } else {
-                                Helpers.logDebug('Values for integration attributes must be strings. You entered a ' + typeof attrs[key]);
+                                mParticle.Logger.error('Values for integration attributes must be strings. You entered a ' + typeof attrs[key]);
                                 continue;
                             }
                         } else {
-                            Helpers.logDebug('Keys must be strings, you entered a ' + typeof key);
+                            mParticle.Logger.error('Keys must be strings, you entered a ' + typeof key);
                             continue;
                         }
                     }
                 }
             } else {
-                Helpers.logDebug('Attrs must be an object with keys and values. You entered a ' + typeof attrs);
+                mParticle.Logger.error('Attrs must be an object with keys and values. You entered a ' + typeof attrs);
                 return;
             }
             Persistence.update();
@@ -863,7 +872,7 @@ var Polyfill = require('./polyfill'),
                 }
                 computedMPFunction.apply(currentUser, args);
             } catch(e) {
-                Helpers.logDebug('Unable to compute proper mParticle function ' + e);
+                mParticle.Logger.verbose('Unable to compute proper mParticle function ' + e);
             }
         }
     }

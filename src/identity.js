@@ -40,12 +40,12 @@ var IdentityRequest = {
     },
 
     preProcessIdentityRequest: function(identityApiData, callback, method) {
-        Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + method);
+        mParticle.Logger.verbose(Messages.InformationMessages.StartingLogEvent + ': ' + method);
 
         var identityValidationResult = Validators.validateIdentities(identityApiData, method);
 
         if (!identityValidationResult.valid) {
-            Helpers.logDebug('ERROR: ' + identityValidationResult.error);
+            mParticle.Logger.error('ERROR: ' + identityValidationResult.error);
             return {
                 valid: false,
                 error: identityValidationResult.error
@@ -54,18 +54,10 @@ var IdentityRequest = {
 
         if (callback && !Validators.isFunction(callback)) {
             var error = 'The optional callback must be a function. You tried entering a(n) ' + typeof callback;
-            Helpers.logDebug(error);
+            mParticle.Logger.error(error);
             return {
                 valid: false,
                 error: error
-            };
-        }
-
-        if (identityValidationResult.warning) {
-            Helpers.logDebug('WARNING:' + identityValidationResult.warning);
-            return {
-                valid: true,
-                error: identityValidationResult.warning
             };
         }
 
@@ -191,11 +183,11 @@ var IdentityAPI = {
             }
             else {
                 Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
-                Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+                mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
             Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
-            Helpers.logDebug(preProcessResult);
+            mParticle.Logger.verbose(preProcessResult);
         }
     },
     /**
@@ -235,11 +227,11 @@ var IdentityAPI = {
             }
             else {
                 Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
-                Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+                mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
             Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
-            Helpers.logDebug(preProcessResult);
+            mParticle.Logger.verbose(preProcessResult);
         }
     },
     /**
@@ -269,11 +261,11 @@ var IdentityAPI = {
             }
             else {
                 Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
-                Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+                mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
             Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
-            Helpers.logDebug(preProcessResult);
+            mParticle.Logger.verbose(preProcessResult);
         }
     },
     /**
@@ -303,11 +295,11 @@ var IdentityAPI = {
             }
             else {
                 Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
-                Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+                mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
             }
         } else {
             Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
-            Helpers.logDebug(preProcessResult);
+            mParticle.Logger.verbose(preProcessResult);
         }
     },
     /**
@@ -408,7 +400,7 @@ function mParticleUser(mpid, isLoggedIn) {
         */
         setUserTag: function(tagName) {
             if (!Validators.isValidKeyValue(tagName)) {
-                Helpers.logDebug(Messages.ErrorMessages.BadKey);
+                mParticle.Logger.error(Messages.ErrorMessages.BadKey);
                 return;
             }
 
@@ -421,7 +413,7 @@ function mParticleUser(mpid, isLoggedIn) {
         */
         removeUserTag: function(tagName) {
             if (!Validators.isValidKeyValue(tagName)) {
-                Helpers.logDebug(Messages.ErrorMessages.BadKey);
+                mParticle.Logger.error(Messages.ErrorMessages.BadKey);
                 return;
             }
 
@@ -441,12 +433,12 @@ function mParticleUser(mpid, isLoggedIn) {
 
             if (Helpers.canLog()) {
                 if (!Validators.isValidAttributeValue(value)) {
-                    Helpers.logDebug(Messages.ErrorMessages.BadAttribute);
+                    mParticle.Logger.error(Messages.ErrorMessages.BadAttribute);
                     return;
                 }
 
                 if (!Validators.isValidKeyValue(key)) {
-                    Helpers.logDebug(Messages.ErrorMessages.BadKey);
+                    mParticle.Logger.error(Messages.ErrorMessages.BadKey);
                     return;
                 }
                 if (mParticle.Store.webviewBridgeEnabled) {
@@ -502,7 +494,7 @@ function mParticleUser(mpid, isLoggedIn) {
             mParticle.sessionManager.resetSessionTimer();
 
             if (!Validators.isValidKeyValue(key)) {
-                Helpers.logDebug(Messages.ErrorMessages.BadKey);
+                mParticle.Logger.error(Messages.ErrorMessages.BadKey);
                 return;
             }
 
@@ -542,12 +534,12 @@ function mParticleUser(mpid, isLoggedIn) {
             mParticle.sessionManager.resetSessionTimer();
 
             if (!Validators.isValidKeyValue(key)) {
-                Helpers.logDebug(Messages.ErrorMessages.BadKey);
+                mParticle.Logger.error(Messages.ErrorMessages.BadKey);
                 return;
             }
 
             if (!Array.isArray(value)) {
-                Helpers.logDebug('The value you passed in to setUserAttributeList must be an array. You passed in a ' + typeof value);
+                mParticle.Logger.error('The value you passed in to setUserAttributeList must be an array. You passed in a ' + typeof value);
                 return;
             }
 
@@ -721,7 +713,7 @@ function mParticleUserCart(mpid){
                 productsForMemory[mpid] = {cp: userProducts};
 
                 if (userProducts.length > mParticle.Store.SDKConfig.maxProducts) {
-                    Helpers.logDebug('The cart contains ' + userProducts.length + ' items. Only ' + mParticle.Store.SDKConfig.maxProducts + ' can currently be saved in cookies.');
+                    mParticle.Logger.verbose('The cart contains ' + userProducts.length + ' items. Only ' + mParticle.Store.SDKConfig.maxProducts + ' can currently be saved in cookies.');
                     userProducts = userProducts.slice(-mParticle.Store.SDKConfig.maxProducts);
                 }
 
@@ -827,7 +819,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
     mParticle.Store.identityCallInFlight = false;
 
     try {
-        Helpers.logDebug('Parsing identity response from server');
+        mParticle.Logger.verbose('Parsing identity response from server');
         if (xhr.responseText) {
             identityApiResult = JSON.parse(xhr.responseText);
             if (identityApiResult.hasOwnProperty('is_logged_in')) {
@@ -841,7 +833,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
             } else {
                 identityApiResult = JSON.parse(xhr.responseText);
 
-                Helpers.logDebug('Successfully parsed Identity Response');
+                mParticle.Logger.verbose('Successfully parsed Identity Response');
 
                 if (!(prevUser) || (prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID())) {
                     mParticle.Store.mpid = identityApiResult.mpid;
@@ -891,7 +883,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                     identityApiData.onUserAlias(prevUser, newUser);
                 }
                 catch (e) {
-                    Helpers.logDebug('There was an error with your onUserAlias function - ' + e);
+                    mParticle.Logger.error('There was an error with your onUserAlias function - ' + e);
                 }
             }
             var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
@@ -911,7 +903,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
             Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
         } else {
             if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
-                Helpers.logDebug('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
+                mParticle.Logger.error('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
             }
         }
     }
@@ -919,7 +911,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         if (callback) {
             Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
         }
-        Helpers.logDebug('Error parsing JSON response from Identity server: ' + e);
+        mParticle.Logger.error('Error parsing JSON response from Identity server: ' + e);
     }
 }
 

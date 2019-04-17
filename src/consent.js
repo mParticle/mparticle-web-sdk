@@ -2,23 +2,23 @@ var Helpers = require('./helpers');
 
 function createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId) {
     if (typeof(consented) !== 'boolean') {
-        Helpers.logDebug('Consented boolean is required when constructing a GDPR Consent object.');
+        mParticle.Logger.error('Consented boolean is required when constructing a GDPR Consent object.');
         return null;
     }
     if (timestamp && isNaN(timestamp)) {
-        Helpers.logDebug('Timestamp must be a valid number when constructing a GDPR Consent object.');
+        mParticle.Logger.error('Timestamp must be a valid number when constructing a GDPR Consent object.');
         return null;
     }
     if (consentDocument && !typeof(consentDocument) === 'string') {
-        Helpers.logDebug('Document must be a valid string when constructing a GDPR Consent object.');
+        mParticle.Logger.error('Document must be a valid string when constructing a GDPR Consent object.');
         return null;
     }
     if (location && !typeof(location) === 'string') {
-        Helpers.logDebug('Location must be a valid string when constructing a GDPR Consent object.');
+        mParticle.Logger.error('Location must be a valid string when constructing a GDPR Consent object.');
         return null;
     }
     if (hardwareId && !typeof(hardwareId) === 'string') {
-        Helpers.logDebug('Hardware ID must be a valid string when constructing a GDPR Consent object.');
+        mParticle.Logger.error('Hardware ID must be a valid string when constructing a GDPR Consent object.');
         return null;
     }
     return {
@@ -116,14 +116,14 @@ function createConsentState(consentState) {
     function addGDPRConsentState(purpose, gdprConsent) {
         var normalizedPurpose = canonicalizeForDeduplication(purpose);
         if (!normalizedPurpose) {
-            Helpers.logDebug('addGDPRConsentState() invoked with bad purpose. Purpose must be a string.');
+            mParticle.Logger.error('addGDPRConsentState() invoked with bad purpose. Purpose must be a string.');
             return this;
         }
         if (!Helpers.isObject(gdprConsent)) {
-            Helpers.logDebug('addGDPRConsentState() invoked with bad or empty GDPR consent object.');
+            mParticle.Logger.error('addGDPRConsentState() invoked with bad or empty GDPR consent object.');
             return this;
         }
-        var gdprConsentCopy = createGDPRConsent(gdprConsent.Consented, 
+        var gdprConsentCopy = createGDPRConsent(gdprConsent.Consented,
                 gdprConsent.Timestamp,
                 gdprConsent.ConsentDocument,
                 gdprConsent.Location,

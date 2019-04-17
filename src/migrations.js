@@ -21,7 +21,7 @@ function migrate() {
     } catch (e) {
         Persistence.expireCookies(StorageNames.cookieNameV3);
         Persistence.expireCookies(StorageNames.cookieNameV4);
-        Helpers.logDebug('Error migrating cookie: ' + e);
+        mParticle.Logger.error('Error migrating cookie: ' + e);
     }
 
     if (mParticle.Store.isLocalStorageAvailable) {
@@ -30,7 +30,7 @@ function migrate() {
         } catch (e) {
             localStorage.removeItem(StorageNames.localStorageNameV3);
             localStorage.removeItem(StorageNames.localStorageNameV4);
-            Helpers.logDebug('Error migrating localStorage: ' + e);
+            mParticle.Logger.error('Error migrating localStorage: ' + e);
         }
     }
 }
@@ -44,7 +44,7 @@ function migrateCookies() {
         name,
         cookie;
 
-    Helpers.logDebug(Constants.Messages.InformationMessages.CookieSearch);
+    mParticle.Logger.verbose(Constants.Messages.InformationMessages.CookieSearch);
 
     for (i = 0, l = cookies.length; i < l; i++) {
         parts = cookies[i].split('=');
@@ -88,7 +88,7 @@ function finishCookieMigration(cookie, cookieName) {
         domain = ';domain=' + cookieDomain;
     }
 
-    Helpers.logDebug(Constants.Messages.InformationMessages.CookieSet);
+    mParticle.Logger.verbose(Constants.Messages.InformationMessages.CookieSet);
 
     window.document.cookie =
     encodeURIComponent(mParticle.Store.storageName) + '=' + cookie +
@@ -136,7 +136,7 @@ function restructureToV4Cookie(cookies) {
         return JSON.stringify(cookiesV4Schema);
     }
     catch (e) {
-        Helpers.logDebug('Failed to restructure previous cookie into most current cookie schema');
+        mParticle.Logger.error('Failed to restructure previous cookie into most current cookie schema');
     }
 }
 
@@ -220,7 +220,7 @@ function migrateLocalStorage() {
             window.localStorage.setItem(encodeURIComponent(mParticle.Store.storageName), data);
         }
         catch (e) {
-            Helpers.logDebug('Error with setting localStorage item.');
+            mParticle.Logger.error('Error with setting localStorage item.');
         }
         window.localStorage.removeItem(encodeURIComponent(lsName));
     }
@@ -248,7 +248,7 @@ function convertUIFromArrayToObject(cookie) {
         return cookie;
     }
     catch (e) {
-        Helpers.logDebug('An error ocurred when converting the user identities array to an object', e);
+        mParticle.Logger.error('An error ocurred when converting the user identities array to an object', e);
     }
 }
 

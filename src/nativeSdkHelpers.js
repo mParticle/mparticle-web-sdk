@@ -1,5 +1,4 @@
-var Helpers = require('./helpers'),
-    Messages = require('./constants').Messages;
+var Messages = require('./constants').Messages;
 
 var androidBridgeNameBase = 'mParticleAndroid';
 var iosBridgeNameBase = 'mParticle';
@@ -73,11 +72,11 @@ function sendToNative(path, value) {
 
 function sendViaBridgeV1(path, value) {
     if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
-        Helpers.logDebug(Messages.InformationMessages.SendAndroid + path);
+        mParticle.Logger.verbose(Messages.InformationMessages.SendAndroid + path);
         window.mParticleAndroid[path](value);
     }
     else if (mParticle.Store.SDKConfig.isIOS) {
-        Helpers.logDebug(Messages.InformationMessages.SendIOS + path);
+        mParticle.Logger.verbose(Messages.InformationMessages.SendIOS + path);
         sendViaIframeToIOS(path, value);
     }
 }
@@ -110,14 +109,14 @@ function sendViaBridgeV2(path, value, requiredWebviewBridgeName) {
     }
 
     if (androidBridge && androidBridge.hasOwnProperty(path)) {
-        Helpers.logDebug(Messages.InformationMessages.SendAndroid + path);
+        mParticle.Logger.verbose(Messages.InformationMessages.SendAndroid + path);
         androidBridge[path](value);
         return;
     } else if (iOSBridgeMessageHandler) {
-        Helpers.logDebug(Messages.InformationMessages.SendIOS + path);
+        mParticle.Logger.verbose(Messages.InformationMessages.SendIOS + path);
         iOSBridgeMessageHandler.postMessage(JSON.stringify({path:path, value: value ? JSON.parse(value) : null}));
     } else if (iOSBridgeNonMessageHandler) {
-        Helpers.logDebug(Messages.InformationMessages.SendIOS + path);
+        mParticle.Logger.verbose(Messages.InformationMessages.SendIOS + path);
         sendViaIframeToIOS(path, value);
     }
 }

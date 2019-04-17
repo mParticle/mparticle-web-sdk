@@ -3,12 +3,6 @@ var Types = require('./types'),
     StorageNames = Constants.StorageNames,
     pluses = /\+/g;
 
-function logDebug(msg) {
-    if (mParticle.Store.SDKConfig.logLevel === 'verbose' && window.console && window.console.log) {
-        window.console.log(msg);
-    }
-}
-
 function canLog() {
     if (mParticle.Store.isEnabled && (mParticle.Store.devToken || mParticle.Store.webviewBridgeEnabled)) {
         return true;
@@ -16,6 +10,7 @@ function canLog() {
 
     return false;
 }
+
 
 function returnConvertedBoolean(data) {
     if (data === 'false' || data === '0') {
@@ -33,7 +28,7 @@ function hasFeatureFlag(feature) {
 
 function invokeCallback(callback, code, body, mParticleUser) {
     if (!callback) {
-        logDebug('There is no callback provided');
+        mParticle.Logger.warning('There is no callback provided');
     }
     try {
         if (Validators.isFunction(callback)) {
@@ -50,7 +45,7 @@ function invokeCallback(callback, code, body, mParticleUser) {
             });
         }
     } catch (e) {
-        logDebug('There was an error with your callback: ' + e);
+        mParticle.Logger.error('There was an error with your callback: ' + e);
     }
 }
 
@@ -196,21 +191,21 @@ function createXHR(cb) {
         xhr = new window.XMLHttpRequest();
     }
     catch (e) {
-        logDebug('Error creating XMLHttpRequest object.');
+        mParticle.Logger.error('Error creating XMLHttpRequest object.');
     }
 
     if (xhr && cb && 'withCredentials' in xhr) {
         xhr.onreadystatechange = cb;
     }
     else if (typeof window.XDomainRequest !== 'undefined') {
-        logDebug('Creating XDomainRequest object');
+        mParticle.Logger.verbose('Creating XDomainRequest object');
 
         try {
             xhr = new window.XDomainRequest();
             xhr.onload = cb;
         }
         catch (e) {
-            logDebug('Error creating XDomainRequest object');
+            mParticle.Logger.error('Error creating XDomainRequest object');
         }
     }
 
@@ -397,7 +392,7 @@ function sanitizeAttributes(attrs) {
         if (attrs.hasOwnProperty(prop) && Validators.isValidAttributeValue(attrs[prop])) {
             sanitizedAttrs[prop] = attrs[prop];
         } else {
-            logDebug('The attribute key of ' + prop + ' must be a string, number, boolean, or null.');
+            mParticle.Logger.warning('The attribute key of ' + prop + ' must be a string, number, boolean, or null.');
         }
     }
 
@@ -558,7 +553,6 @@ function createProductStorageName(workspaceToken) {
 }
 
 module.exports = {
-    logDebug: logDebug,
     canLog: canLog,
     extend: extend,
     isObject: isObject,

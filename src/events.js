@@ -3,14 +3,14 @@ var Types = require('./types'),
     Helpers = require('./helpers'),
     Ecommerce = require('./ecommerce'),
     ServerModel = require('./serverModel'),
-    Persistence = require('./persistence'),
     SessionManager = require('./sessionManager'),
+    Persistence = require('./persistence'),
     Messages = Constants.Messages,
     sendEventToServer = require('./apiClient').sendEventToServer,
     sendEventToForwarders = require('./forwarders').sendEventToForwarders;
 
 function logEvent(type, name, data, category, cflags) {
-    Helpers.logDebug(Messages.InformationMessages.StartingLogEvent + ': ' + name);
+    mParticle.Logger.verbose(Messages.InformationMessages.StartingLogEvent + ': ' + name);
 
     if (Helpers.canLog()) {
         startNewSessionIfNeeded();
@@ -23,7 +23,7 @@ function logEvent(type, name, data, category, cflags) {
         Persistence.update();
     }
     else {
-        Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+        mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
     }
 }
 
@@ -38,11 +38,11 @@ function parseEventResponse(responseText) {
     }
 
     try {
-        Helpers.logDebug('Parsing response from server');
+        mParticle.Logger.verbose('Parsing response from server');
         settings = JSON.parse(responseText);
 
         if (settings && settings.Store) {
-            Helpers.logDebug('Parsed store from response, updating local settings');
+            mParticle.Logger.verbose('Parsed store from response, updating local settings');
 
             if (!mParticle.Store.serverSettings) {
                 mParticle.Store.serverSettings = {};
@@ -72,7 +72,7 @@ function parseEventResponse(responseText) {
         }
     }
     catch (e) {
-        Helpers.logDebug('Error parsing JSON response from server: ' + e.name);
+        mParticle.Logger.error('Error parsing JSON response from server: ' + e.name);
     }
 }
 
@@ -120,8 +120,8 @@ function startTracking(callback) {
                     callback();
                 }
             } catch (e) {
-                Helpers.logDebug('Error invoking the callback passed to startTrackingLocation.');
-                Helpers.logDebug(e);
+                mParticle.Logger.error('Error invoking the callback passed to startTrackingLocation.');
+                mParticle.Logger.error(e);
             }
         }
     }
@@ -136,7 +136,7 @@ function stopTracking() {
 }
 
 function logOptOut() {
-    Helpers.logDebug(Messages.InformationMessages.StartingLogOptOut);
+    mParticle.Logger.verbose(Messages.InformationMessages.StartingLogOptOut);
 
     sendEventToServer(ServerModel.createEventObject(Types.MessageType.OptOut, null, null, Types.EventType.Other), sendEventToForwarders, parseEventResponse);
 }
@@ -196,7 +196,7 @@ function logPurchaseEvent(transactionAttributes, product, attrs, customFlags) {
 
 function logRefundEvent(transactionAttributes, product, attrs, customFlags) {
     if (!transactionAttributes) {
-        Helpers.logDebug(Messages.ErrorMessages.TransactionRequired);
+        mParticle.Logger.error(Messages.ErrorMessages.TransactionRequired);
         return;
     }
 
@@ -256,7 +256,7 @@ function logImpressionEvent(impression, attrs, customFlags) {
 
 
 function logCommerceEvent(commerceEvent, attrs) {
-    Helpers.logDebug(Messages.InformationMessages.StartingLogCommerceEvent);
+    mParticle.Logger.verbose(Messages.InformationMessages.StartingLogCommerceEvent);
 
     attrs = Helpers.sanitizeAttributes(attrs);
 
@@ -275,7 +275,7 @@ function logCommerceEvent(commerceEvent, attrs) {
         Persistence.update();
     }
     else {
-        Helpers.logDebug(Messages.InformationMessages.AbandonLogEvent);
+        mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
     }
 }
 
@@ -291,7 +291,7 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
                 }
             };
 
-            Helpers.logDebug('DOM event triggered, handling event');
+            mParticle.Logger.verbose('DOM event triggered, handling event');
 
             logEvent(Types.MessageType.PageEvent,
                 typeof eventName === 'function' ? eventName(element) : eventName,
@@ -316,7 +316,7 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
         i;
 
     if (!selector) {
-        Helpers.logDebug('Can\'t bind event, selector is required');
+        mParticle.Logger.error('Can\'t bind event, selector is required');
         return;
     }
 
@@ -329,7 +329,7 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
     }
 
     if (elements.length) {
-        Helpers.logDebug('Found ' +
+        mParticle.Logger.verbose('Found ' +
             elements.length +
             ' element' +
             (elements.length > 1 ? 's' : '') +
@@ -350,7 +350,7 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
         }
     }
     else {
-        Helpers.logDebug('No elements found');
+        mParticle.Logger.verbose('No elements found');
     }
 }
 

@@ -26,7 +26,7 @@ function prepareAndSendForwardingStatsBatch() {
                     var xhrCallback = function() {
                         if (xhr.readyState === 4) {
                             if (xhr.status === 200 || xhr.status === 202) {
-                                Helpers.logDebug('Successfully sent  ' + xhr.statusText + ' from server');
+                                mParticle.Logger.verbose('Successfully sent  ' + xhr.statusText + ' from server');
                                 delete uploadsTable[date];
                             } else if (xhr.status.toString()[0] === '4') {
                                 if (xhr.status !== 429) {

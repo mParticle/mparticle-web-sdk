@@ -18,13 +18,13 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
         var xhr,
             xhrCallback = function() {
                 if (xhr.readyState === 4) {
-                    Helpers.logDebug('Received ' + xhr.statusText + ' from server');
+                    mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
 
                     parseEventResponse(xhr.responseText);
                 }
             };
 
-        Helpers.logDebug(Messages.InformationMessages.SendBegin);
+        mParticle.Logger.verbose(Messages.InformationMessages.SendBegin);
 
         var validUserIdentities = [];
 
@@ -45,17 +45,17 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
         // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
         // need to be set, and so require delaying events
         if (!mpid || mParticle.Store.requireDelay) {
-            Helpers.logDebug('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
+            mParticle.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
             mParticle.Store.eventQueue.push(event);
         } else {
             Helpers.processQueuedEvents(mParticle.Store.eventQueue, mpid, !mParticle.Store.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
 
             if (!event) {
-                Helpers.logDebug(Messages.ErrorMessages.EventEmpty);
+                mParticle.Logger.error(Messages.ErrorMessages.EventEmpty);
                 return;
             }
 
-            Helpers.logDebug(Messages.InformationMessages.SendHttp);
+            mParticle.Logger.verbose(Messages.InformationMessages.SendHttp);
 
             xhr = Helpers.createXHR(xhrCallback);
 
@@ -69,7 +69,7 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
                     }
                 }
                 catch (e) {
-                    Helpers.logDebug('Error sending event to mParticle servers. ' + e);
+                    mParticle.Logger.error('Error sending event to mParticle servers. ' + e);
                 }
             }
         }
@@ -80,19 +80,19 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
     var xhr, previousMPID,
         xhrCallback = function() {
             if (xhr.readyState === 4) {
-                Helpers.logDebug('Received ' + xhr.statusText + ' from server');
+                mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
                 parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method);
             }
         };
 
-    Helpers.logDebug(Messages.InformationMessages.SendIdentityBegin);
+    mParticle.Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
 
     if (!identityApiRequest) {
-        Helpers.logDebug(Messages.ErrorMessages.APIRequestEmpty);
+        mParticle.Logger.error(Messages.ErrorMessages.APIRequestEmpty);
         return;
     }
 
-    Helpers.logDebug(Messages.InformationMessages.SendIdentityHttp);
+    mParticle.Logger.verbose(Messages.InformationMessages.SendIdentityHttp);
     xhr = Helpers.createXHR(xhrCallback);
 
     if (xhr) {
@@ -115,7 +115,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
         catch (e) {
             mParticle.Store.identityCallInFlight = false;
             Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, e);
-            Helpers.logDebug('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
+            mParticle.Logger.error('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
         }
     }
 }
@@ -135,7 +135,7 @@ function sendBatchForwardingStatsToServer(forwardingStatsData, xhr) {
         }
     }
     catch (e) {
-        Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
+        mParticle.Logger.error('Error sending forwarding stats to mParticle servers.');
     }
 }
 
@@ -145,7 +145,7 @@ function sendSingleForwardingStatsToServer(forwardingStatsData) {
         var xhrCallback = function() {
             if (xhr.readyState === 4) {
                 if (xhr.status === 202) {
-                    Helpers.logDebug('Successfully sent  ' + xhr.statusText + ' from server');
+                    mParticle.Logger.verbose('Successfully sent  ' + xhr.statusText + ' from server');
                 }
             }
         };
@@ -159,7 +159,7 @@ function sendSingleForwardingStatsToServer(forwardingStatsData) {
         }
     }
     catch (e) {
-        Helpers.logDebug('Error sending forwarding stats to mParticle servers.');
+        mParticle.Logger.error('Error sending forwarding stats to mParticle servers.');
     }
 }
 

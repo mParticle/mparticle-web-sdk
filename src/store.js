@@ -133,7 +133,7 @@ function Store(config, config2) {
             if (Validators.isFunction(callback)) {
                 this.SDKConfig.identityCallback = mergedConfigs.identityCallback;
             } else {
-                Helpers.logDebug('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
+                mParticle.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
             }
         }
 
