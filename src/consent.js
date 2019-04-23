@@ -9,15 +9,15 @@ function createGDPRConsent(consented, timestamp, consentDocument, location, hard
         mParticle.Logger.error('Timestamp must be a valid number when constructing a GDPR Consent object.');
         return null;
     }
-    if (consentDocument && !typeof(consentDocument) === 'string') {
+    if (consentDocument && typeof(consentDocument) !== 'string') {
         mParticle.Logger.error('Document must be a valid string when constructing a GDPR Consent object.');
         return null;
     }
-    if (location && !typeof(location) === 'string') {
+    if (location && typeof(location) !== 'string') {
         mParticle.Logger.error('Location must be a valid string when constructing a GDPR Consent object.');
         return null;
     }
-    if (hardwareId && !typeof(hardwareId) === 'string') {
+    if (hardwareId && typeof(hardwareId) !== 'string') {
         mParticle.Logger.error('Hardware ID must be a valid string when constructing a GDPR Consent object.');
         return null;
     }

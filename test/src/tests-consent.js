@@ -28,6 +28,30 @@ describe('Consent', function() {
         done();
     });
 
+    it('Should not create consent object with invalid document', function(done) {
+        var badDocument = 123;
+        var consent = Consent.createGDPRConsent(true, 123, badDocument);
+        should.not.exist(consent);
+
+        done();
+    });
+
+    it('Should not create consent object with invalid location', function(done) {
+        var badLocation = 123;
+        var consent = Consent.createGDPRConsent(true, 123, 'foo document', badLocation);
+        should.not.exist(consent);
+
+        done();
+    });
+
+    it('Should not create consent object with invalid hardware id', function(done) {
+        var badHardwareId = 123;
+        var consent = Consent.createGDPRConsent(true, 123, 'foo document', 'foo location', badHardwareId);
+        should.not.exist(consent);
+
+        done();
+    });
+
     it('Should set current timestamp if none given', function(done) {
         var date = Date.now();
         var consent = Consent.createGDPRConsent(true);

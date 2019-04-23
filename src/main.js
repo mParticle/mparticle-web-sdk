@@ -164,7 +164,7 @@ var Polyfill = require('./polyfill'),
                         body: {
                             mpid: currentUser.getMPID(),
                             is_logged_in: mParticle.Store.isLoggedIn,
-                            matched_identities: currentUser ? currentUser.getUserIdentities().userIdentities : {},
+                            matched_identities: currentUser.getUserIdentities().userIdentities,
                             context: null,
                             is_ephemeral: false
                         }

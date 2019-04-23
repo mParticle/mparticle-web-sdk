@@ -189,12 +189,7 @@ function determineLocalStorageAvailability(storage) {
         storage.setItem('mparticle', 'test');
         result = storage.getItem('mparticle') === 'test';
         storage.removeItem('mparticle');
-
-        if (result && storage) {
-            return true;
-        } else {
-            return false;
-        }
+        return result && storage;
     }
     catch (e) {
         return false;
