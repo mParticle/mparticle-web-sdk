@@ -1908,4 +1908,47 @@ describe('identity', function() {
         clock.restore();
         done();
     });
+
+    it('List returned by Identity.getUsers() should be sorted by lastSeenTime, with nulls last', function(done) {
+        mParticle.reset(MPConfig);
+
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime()
+            },
+            1: {
+                lst: 200
+            },
+            2: {
+                lst: 400
+            },
+            3: {
+                lst: 300
+            },
+            4: {},
+            5: {
+                lst: 700
+            },
+            cu: '1'
+        });
+
+        setCookie(workspaceCookieName, cookies);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init("fst Test");
+
+        var users = mParticle.Identity.getUsers();
+
+        users.length.should.equal(5);
+
+        users[0].getMPID().should.equal('1');
+        users[1].getMPID().should.equal('5');
+        users[2].getMPID().should.equal('2');
+        users[3].getMPID().should.equal('3');
+        users[4].getMPID().should.equal('4');
+        Should(users[4].getLastSeenTime()).equal(null);
+
+        done();
+    });
 });

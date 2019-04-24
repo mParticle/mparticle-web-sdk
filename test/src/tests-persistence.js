@@ -1218,4 +1218,22 @@ describe('migrations and persistence-related', function() {
 
         done();
     });
+
+    it('lastSeenTime should be null for users in storage without an lst value', function(done) {
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'lst Test',
+                les: new Date().getTime()
+            },
+            previous: {},
+            cu: 'current'
+        });
+        setCookie(workspaceCookieName, cookies, true);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+        Should(Persistence.getFirstSeenTime('previous')).equal(null);
+
+        done();
+    });
 });

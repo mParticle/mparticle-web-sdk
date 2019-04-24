@@ -940,11 +940,8 @@ function getLastSeenTime(mpid) {
         var cookies = getPersistence();
         if (cookies && cookies[mpid] && cookies[mpid].lst) {
             return cookies[mpid].lst;
-        } else {
-            var defaultTime = new Date().getTime();
-            setLastSeenTime(mpid, defaultTime);
-            return defaultTime;
         }
+        return null;
     }
 }
 

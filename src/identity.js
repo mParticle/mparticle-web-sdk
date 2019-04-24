@@ -354,6 +354,15 @@ var IdentityAPI = {
                 }
             }
         }
+        users.sort(function(a, b) {
+            var aLastSeen = a.getLastSeenTime() || 0;
+            var bLastSeen = b.getLastSeenTime() || 0;
+            if (aLastSeen > bLastSeen) {
+                return -1;
+            } else {
+                return 1;
+            }
+        });
         return users;
     }
 };
