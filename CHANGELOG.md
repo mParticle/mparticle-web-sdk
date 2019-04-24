@@ -1,6 +1,11 @@
 ## Releases
 --
 
+#### 2.8.11 - 2019-04-24
+*  Refactor config into a class
+* Implement Logger
+* Fix consent object validation and remove unneeded null check
+
 #### 2.8.10 - 2019-04-10
 *  Prefer modules over public mParticle methods
 
