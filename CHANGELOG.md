@@ -1,8 +1,14 @@
 ## Releases
 --
 
+#### 2.8.12 - 2019-05-08
+* Implement firstSeen and lastSeen fields for MParticleUser
+* Sort MParticleUser Array returned by getUsers() by lastSeenTime
+* Bugfix - Callback validation & correct warning message
+* Add getPreviousUser() to Identity callbacks
+
 #### 2.8.11 - 2019-04-24
-*  Refactor config into a class
+* Refactor config into a class
 * Implement Logger
 * Fix consent object validation and remove unneeded null check
 
