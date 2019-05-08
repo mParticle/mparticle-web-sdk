@@ -99,7 +99,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
     if (xhr) {
         try {
             if (mParticle.Store.identityCallInFlight) {
-                callback({httpCode: HTTPCodes.activeIdentityRequest, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
+                Helpers.invokeCallback(callback, HTTPCodes.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
             } else {
                 previousMPID = (!mParticle.Store.isFirstRun && mpid) ? mpid : null;
                 if (method === 'modify') {
@@ -342,7 +342,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.11',
+    sdkVersion = '2.8.12',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -1931,7 +1931,7 @@ function hasFeatureFlag(feature) {
     }
 }
 
-function invokeCallback(callback, code, body, mParticleUser) {
+function invokeCallback(callback, code, body, mParticleUser, previousMpid) {
     if (!callback) {
         mParticle.Logger.warning('There is no callback provided');
     }
@@ -1945,6 +1945,19 @@ function invokeCallback(callback, code, body, mParticleUser) {
                         return mParticleUser;
                     } else {
                         return mParticle.Identity.getCurrentUser();
+                    }
+                },
+                getPreviousUser: function() {
+                    if (!previousMpid) {
+                        var users = mParticle.Identity.getUsers();
+                        var mostRecentUser = users.shift();
+                        var currentUser = mParticleUser || mParticle.Identity.getCurrentUser();
+                        if (mostRecentUser && currentUser && mostRecentUser.getMPID() === currentUser.getMPID()) {
+                            mostRecentUser = users.shift();
+                        }
+                        return mostRecentUser || null;
+                    } else {
+                        return mParticle.Identity.getUser(previousMpid);
                     }
                 }
             });
@@ -2297,7 +2310,7 @@ function sanitizeAttributes(attrs) {
         if (attrs.hasOwnProperty(prop) && Validators.isValidAttributeValue(attrs[prop])) {
             sanitizedAttrs[prop] = attrs[prop];
         } else {
-            mParticle.Logger.warning('The attribute key of ' + prop + ' must be a string, number, boolean, or null.');
+            mParticle.Logger.warning('The corresponding attribute value of ' + prop + ' must be a string, number, boolean, or null.');
         }
     }
 
@@ -2844,6 +2857,15 @@ var IdentityAPI = {
                 }
             }
         }
+        users.sort(function(a, b) {
+            var aLastSeen = a.getLastSeenTime() || 0;
+            var bLastSeen = b.getLastSeenTime() || 0;
+            if (aLastSeen > bLastSeen) {
+                return -1;
+            } else {
+                return 1;
+            }
+        });
         return users;
     }
 };
@@ -3159,6 +3181,12 @@ function mParticleUser(mpid, isLoggedIn) {
         },
         isLoggedIn: function() {
             return isLoggedIn;
+        },
+        getLastSeenTime: function() {
+            return Persistence.getLastSeenTime(mpid);
+        },
+        getFirstSeenTime: function() {
+            return Persistence.getFirstSeenTime(mpid);
         }
     };
 }
@@ -3327,6 +3355,17 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
 
                 if (!(prevUser) || (prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID())) {
                     mParticle.Store.mpid = identityApiResult.mpid;
+                    if (prevUser) {
+                        Persistence.setLastSeenTime(previousMPID);
+                    }
+                    Persistence.setFirstSeenTime(identityApiResult.mpid);
+                }
+
+                //this covers an edge case where, users stored before "firstSeenTime" was introduced
+                //will not have a value for "fst" until the current MPID changes, and in some cases,
+                //the current MPID will never change
+                if (method === 'identify' && prevUser && identityApiResult.mpid === prevUser.getMPID()) {
+                    Persistence.setFirstSeenTime(identityApiResult.mpid);
                 }
 
                 indexOfMPID = mParticle.Store.currentSessionMPIDs.indexOf(identityApiResult.mpid);
@@ -3703,6 +3742,14 @@ var Polyfill = require('./polyfill'),
                         httpCode: HTTPCodes.activeSession,
                         getUser: function() {
                             return mParticleUser(currentUser.getMPID());
+                        },
+                        getPreviousUser: function() {
+                            var users = mParticle.Identity.getUsers();
+                            var mostRecentUser = users.shift();
+                            if (mostRecentUser && currentUser && mostRecentUser.getMPID() === currentUser.getMPID()) {
+                                mostRecentUser = users.shift();
+                            }
+                            return mostRecentUser || null;
                         },
                         body: {
                             mpid: currentUser.getMPID(),
@@ -4934,7 +4981,6 @@ function initializeStorage() {
                 }
             }
         }
-
         this.update();
     } catch (e) {
         if (useLocalStorage() && mParticle.Store.isLocalStorageAvailable) {
@@ -5731,6 +5777,76 @@ function getConsentState(mpid) {
     }
 }
 
+function getFirstSeenTime(mpid) {
+    if (!mpid) {
+        return null;
+    }
+    var cookies = getPersistence();
+    if (cookies && cookies[mpid] && cookies[mpid].fst) {
+        return cookies[mpid].fst;
+    } else {
+        return null;
+    }
+}
+
+/**
+* set the "first seen" time for a user. the time will only be set once for a given
+* mpid after which subsequent calls will be ignored
+*/
+function setFirstSeenTime(mpid, time) {
+    if (!mpid) {
+        return;
+    }
+    if (!time) {
+        time = new Date().getTime();
+    }
+    var cookies = getPersistence();
+    if (cookies) {
+        if (!cookies[mpid]) {
+            cookies[mpid] = {};
+        }
+        if (!cookies[mpid].fst) {
+            cookies[mpid].fst = time;
+            saveCookies(cookies);
+        }
+    }
+}
+
+/**
+* returns the "last seen" time for a user. If the mpid represents the current user, the 
+* return value will always be the current time, otherwise it will be to stored "last seen" 
+* time
+*/
+function getLastSeenTime(mpid) {
+    if (!mpid) {
+        return null;
+    }
+    if (mpid === mParticle.Identity.getCurrentUser().getMPID()) {
+        //if the mpid is the current user, its last seen time is the current time
+        return new Date().getTime();
+    } else {
+        var cookies = getPersistence();
+        if (cookies && cookies[mpid] && cookies[mpid].lst) {
+            return cookies[mpid].lst;
+        }
+        return null;
+    }
+}
+
+function setLastSeenTime(mpid, time) {
+    if (!mpid) {
+        return;
+    }
+    if (!time) {
+        time = new Date().getTime();
+    }
+    var cookies = getPersistence();
+    if (cookies && cookies[mpid]) {
+        cookies[mpid].lst = time;
+        saveCookies(cookies);
+    }
+}
+
 function getDeviceId() {
     return mParticle.Store.deviceId;
 }
@@ -5801,7 +5917,11 @@ module.exports = {
     getDeviceId: getDeviceId,
     resetPersistence: resetPersistence,
     getConsentState: getConsentState,
-    forwardingStatsBatches: forwardingStatsBatches
+    forwardingStatsBatches: forwardingStatsBatches,
+    getFirstSeenTime: getFirstSeenTime,
+    getLastSeenTime: getLastSeenTime,
+    setFirstSeenTime: setFirstSeenTime,
+    setLastSeenTime: setLastSeenTime
 };
 
 },{"./consent":2,"./constants":3,"./helpers":9,"./polyfill":17}],17:[function(require,module,exports){
