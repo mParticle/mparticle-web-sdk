@@ -26,7 +26,7 @@ function hasFeatureFlag(feature) {
     }
 }
 
-function invokeCallback(callback, code, body, mParticleUser) {
+function invokeCallback(callback, code, body, mParticleUser, previousMpid) {
     if (!callback) {
         mParticle.Logger.warning('There is no callback provided');
     }
@@ -40,6 +40,19 @@ function invokeCallback(callback, code, body, mParticleUser) {
                         return mParticleUser;
                     } else {
                         return mParticle.Identity.getCurrentUser();
+                    }
+                },
+                getPreviousUser: function() {
+                    if (!previousMpid) {
+                        var users = mParticle.Identity.getUsers();
+                        var mostRecentUser = users.shift();
+                        var currentUser = mParticleUser || mParticle.Identity.getCurrentUser();
+                        if (mostRecentUser && currentUser && mostRecentUser.getMPID() === currentUser.getMPID()) {
+                            mostRecentUser = users.shift();
+                        }
+                        return mostRecentUser || null;
+                    } else {
+                        return mParticle.Identity.getUser(previousMpid);
                     }
                 }
             });

@@ -161,6 +161,14 @@ var Polyfill = require('./polyfill'),
                         getUser: function() {
                             return mParticleUser(currentUser.getMPID());
                         },
+                        getPreviousUser: function() {
+                            var users = mParticle.Identity.getUsers();
+                            var mostRecentUser = users.shift();
+                            if (mostRecentUser && currentUser && mostRecentUser.getMPID() === currentUser.getMPID()) {
+                                mostRecentUser = users.shift();
+                            }
+                            return mostRecentUser || null;
+                        },
                         body: {
                             mpid: currentUser.getMPID(),
                             is_logged_in: mParticle.Store.isLoggedIn,

@@ -1895,7 +1895,6 @@ describe('identity', function() {
                 status: 200, mpid: 'MPID1'
             }));
         };
-
         server.requests = [];
 
         mParticle.Identity.login();
@@ -1936,7 +1935,7 @@ describe('identity', function() {
         setCookie(workspaceCookieName, cookies);
         mParticle.useCookieStorage = true;
 
-        mParticle.init("fst Test");
+        mParticle.init(apiKey);
 
         var users = mParticle.Identity.getUsers();
 
@@ -1969,6 +1968,122 @@ describe('identity', function() {
         mParticle.Identity.login({userIdentities: {customerid: 'test'}});
         errorMessages.length.should.equal(0);
 
+        done();
+    });
+
+    it('Startup identity callback should include getPreviousUser()', function(done) {
+        mParticle.reset(MPConfig);
+        
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'test',
+                les: new Date().getTime()
+            },
+            testMPID: {
+                lst: 100
+            },
+            testMPID2: {
+                lst: 200
+            },
+            cu: 'testMPID'
+        });
+        setCookie(workspaceCookieName, cookies);
+        mParticle.useCookieStorage = true;
+
+        var identityResult;
+
+        function identityCallback(result) {
+            identityResult = result;
+        }
+
+        mParticle.config.identityCallback = identityCallback;
+
+        mParticle.init(apiKey);
+
+        identityResult.getUser().getMPID().should.equal('testMPID');
+        Should(identityResult.getPreviousUser()).not.equal(null);
+        Should(identityResult.getPreviousUser().getMPID()).equal('testMPID2');
+        done();
+    });
+
+    it('Identity callback should include getPreviousUser()', function(done) {
+        mParticle.reset(MPConfig);
+        
+        var cookies = JSON.stringify({
+            testMPID: {
+                lst: 200
+            },
+            testMPID2: {
+                lst: 100
+            },
+            cu: 'testMPID'
+        });
+
+        setCookie(workspaceCookieName, cookies);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+
+        var loginResult;
+
+        function identityCallback(result) {
+            loginResult = result;
+        }
+        mParticle.Identity.login({}, identityCallback);
+
+        mParticle.Identity.getCurrentUser().getMPID().should.equal('testMPID');        
+        loginResult.getUser().getMPID().should.equal('testMPID');
+        Should(loginResult.getPreviousUser()).not.equal(null);
+        loginResult.getPreviousUser().getMPID().should.equal('testMPID2');
+        done();
+    });
+    
+    it('should return the correct user for Previous User', function(done) {
+        mParticle.reset(MPConfig);
+
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime()
+            },
+            1: {
+                lst: 200
+            },
+            2: {
+                lst: 400
+            },
+            3: {
+                lst: 300
+            },
+            4: {
+                lst: 600
+            },
+            5: {
+                lst: 100
+            },
+            cu: '1'
+        });
+
+        setCookie(workspaceCookieName, cookies);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: '1'
+            }));
+        };
+
+        var identityResult;
+        mParticle.Identity.identify({}, function(result) {
+            identityResult = result;
+        });
+
+        identityResult.getUser().getMPID().should.equal('1');
+        identityResult.getPreviousUser().getMPID().should.equal('4');
         done();
     });
 });
