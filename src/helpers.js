@@ -392,7 +392,7 @@ function sanitizeAttributes(attrs) {
         if (attrs.hasOwnProperty(prop) && Validators.isValidAttributeValue(attrs[prop])) {
             sanitizedAttrs[prop] = attrs[prop];
         } else {
-            mParticle.Logger.warning('The attribute key of ' + prop + ' must be a string, number, boolean, or null.');
+            mParticle.Logger.warning('The corresponding attribute value of ' + prop + ' must be a string, number, boolean, or null.');
         }
     }
 

@@ -1951,4 +1951,24 @@ describe('identity', function() {
 
         done();
     });
+
+    it('does not error when simultaneous identity calls are out', function (done) {
+        var errorMessages = [];
+        mParticle.reset(MPConfig);
+        mParticle.config.logger = {
+            error: function(msg) {
+                errorMessages.push(msg);
+            }
+        };
+        mParticle.init(apiKey);
+
+        mParticle.Store.identityCallInFlight = true;
+    
+        mParticle.setLogLevel('warning');
+
+        mParticle.Identity.login({userIdentities: {customerid: 'test'}});
+        errorMessages.length.should.equal(0);
+
+        done();
+    });
 });

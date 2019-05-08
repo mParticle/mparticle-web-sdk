@@ -98,7 +98,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
     if (xhr) {
         try {
             if (mParticle.Store.identityCallInFlight) {
-                callback({httpCode: HTTPCodes.activeIdentityRequest, body: 'There is currently an AJAX request processing. Please wait for this to return before requesting again'});
+                Helpers.invokeCallback(callback, HTTPCodes.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
             } else {
                 previousMPID = (!mParticle.Store.isFirstRun && mpid) ? mpid : null;
                 if (method === 'modify') {
