@@ -490,7 +490,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     }
                 }
             } else {
-                Helpers.debug('Must pass an object into setUserAttributes. You passed a ' + typeof userAttributes);
+                mParticle.Logger.error('Must pass an object into setUserAttributes. You passed a ' + typeof userAttributes);
             }
         },
         /**

@@ -764,7 +764,7 @@ describe('migrations and persistence-related', function() {
     it('integration test - migrates a large localStorage cookie to cookies and properly remove MPIDs', function(done) {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = false;
-        mParticle.config.maxCookieSize = 600;
+        mParticle.config.maxCookieSize = 700;
 
         mParticle.init(apiKey);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');

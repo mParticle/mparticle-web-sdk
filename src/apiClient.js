@@ -63,7 +63,6 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
                 try {
                     xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, mParticle.Store.devToken) + '/Events');
                     xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun, mParticle.Store.currencyCode, mParticle.Store.integrationAttributes)));
-
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         sendEventToForwarders(event);
                     }
@@ -100,7 +99,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
             if (mParticle.Store.identityCallInFlight) {
                 Helpers.invokeCallback(callback, HTTPCodes.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
             } else {
-                previousMPID = (!mParticle.Store.isFirstRun && mpid) ? mpid : null;
+                previousMPID = mpid || null;
                 if (method === 'modify') {
                     xhr.open('post', Constants.identityUrl + mpid + '/' + method);
                 } else {

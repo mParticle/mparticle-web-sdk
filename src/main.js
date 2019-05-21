@@ -201,6 +201,10 @@ var Polyfill = require('./polyfill'),
                 mParticle.preInit.readyQueue = [];
             }
             mParticle.Store.isInitialized = true;
+
+            if (mParticle.Store.isFirstRun) {
+                mParticle.Store.isFirstRun = false;
+            }
         },
         setLogLevel: function(newLogLevel) {
             mParticle.Logger.setLogLevel(newLogLevel);

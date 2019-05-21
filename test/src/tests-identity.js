@@ -2086,4 +2086,26 @@ describe('identity', function() {
         identityResult.getPreviousUser().getMPID().should.equal('4');
         done();
     });
+
+    it('should set isFirtRun to false after an app is initialized', function(done) {
+        mParticle.reset(MPConfig);
+
+        mParticle.init(apiKey);
+
+        mParticle.Store.isFirstRun.should.equal(false);
+
+        server.handle = function (request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'otherMPID1'
+            }));
+        };
+
+        mParticle.Identity.login({userIdentities: {customerid: 'abc'}});
+
+        var ls = mParticle.persistence.getLocalStorage();
+        ls['testMPID'].lst.should.not.equal(null);
+
+        done();
+    });
 });
