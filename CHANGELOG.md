@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.9.0 - 2019-05-28
+* Implement User Aliasing
+* Bugfixes - Helpers.debug & set isFirstRun to false after app inits for the first time
+
 #### 2.8.12 - 2019-05-08
 * Implement firstSeen and lastSeen fields for MParticleUser
 * Sort MParticleUser Array returned by getUsers() by lastSeenTime
