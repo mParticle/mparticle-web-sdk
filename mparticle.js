@@ -64,7 +64,6 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
                 try {
                     xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, mParticle.Store.devToken) + '/Events');
                     xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun, mParticle.Store.currencyCode, mParticle.Store.integrationAttributes)));
-
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         sendEventToForwarders(event);
                     }
@@ -73,6 +72,40 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
                     mParticle.Logger.error('Error sending event to mParticle servers. ' + e);
                 }
             }
+        }
+    }
+}
+
+function sendAliasRequest(aliasRequest, callback) {
+    var xhr,
+        xhrCallback = function() {
+            if (xhr.readyState === 4) {
+                mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
+                //only parse error messages from failing requests
+                if (xhr.status !== 200 && xhr.status !== 202) {
+                    if (xhr.responseText) {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.hasOwnProperty('message')) {
+                            var errorMessage = response.message;
+                            Helpers.invokeAliasCallback(callback, xhr.status, errorMessage);
+                            return;
+                        }
+                    }
+                }
+                Helpers.invokeAliasCallback(callback, xhr.status);
+            }
+        };
+    mParticle.Logger.verbose(Messages.InformationMessages.SendAliasHttp);
+
+    xhr = Helpers.createXHR(xhrCallback);
+    if (xhr) {
+        try {
+            xhr.open('post', Helpers.createServiceUrl(Constants.aliasUrl, Constants.aliasUrl, mParticle.Store.devToken) + '/Alias');
+            xhr.send(JSON.stringify(aliasRequest));
+        }
+        catch (e) {
+            Helpers.invokeAliasCallback(callback, HTTPCodes.noHttpCoverage, e);
+            mParticle.Logger.error('Error sending alias request to mParticle servers. ' + e);
         }
     }
 }
@@ -101,7 +134,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
             if (mParticle.Store.identityCallInFlight) {
                 Helpers.invokeCallback(callback, HTTPCodes.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
             } else {
-                previousMPID = (!mParticle.Store.isFirstRun && mpid) ? mpid : null;
+                previousMPID = mpid || null;
                 if (method === 'modify') {
                     xhr.open('post', Constants.identityUrl + mpid + '/' + method);
                 } else {
@@ -168,7 +201,8 @@ module.exports = {
     sendEventToServer: sendEventToServer,
     sendIdentityRequest: sendIdentityRequest,
     sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,
-    sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer
+    sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer,
+    sendAliasRequest: sendAliasRequest
 };
 
 },{"./constants":3,"./helpers":9,"./nativeSdkHelpers":15,"./serverModel":18,"./types":21}],2:[function(require,module,exports){
@@ -342,7 +376,8 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    sdkVersion = '2.8.12',
+    aliasUrl = 'jssdks.mparticle.com/v1/identity/',
+    sdkVersion = '2.9.0',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -374,6 +409,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
             SendIOS: 'Calling iOS path: ',
             SendAndroid: 'Calling Android JS interface method: ',
             SendHttp: 'Sending event to mParticle HTTP service',
+            SendAliasHttp: 'Sending alias request to mParticle HTTP service',
             SendIdentityHttp: 'Sending event to mParticle HTTP service',
             StartingNewSession: 'Starting new Session',
             StartingLogEvent: 'Starting to log event',
@@ -381,8 +417,10 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
             StartingEndSession: 'Starting to end session',
             StartingInitialization: 'Starting to initialize',
             StartingLogCommerceEvent: 'Starting to log commerce event',
+            StartingAliasRequest: 'Starting to Alias MPIDs',
             LoadingConfig: 'Loading configuration options',
             AbandonLogEvent: 'Cannot log event, logging disabled or developer token not set',
+            AbandonAliasUsers: 'Cannot Alias Users, logging disabled or developer token not set',
             AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
             AbandonEndSession: 'Cannot end session, logging disabled or developer token not set',
             NoSessionToEnd: 'Cannot end session, no active session found'
@@ -393,8 +431,11 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
             OnUserAliasType: 'The onUserAlias value must be a function. The onUserAlias provided is of type',
             UserIdentities: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.',
             UserIdentitiesInvalidKey: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
-            UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
-
+            UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.',
+            AliasMissingMpid: 'Alias Request must contain both a destinationMpid and a sourceMpid',
+            AliasNonUniqueMpid: 'Alias Request\'s destinationMpid and sourceMpid must be unique',
+            AliasMissingTime: 'Alias Request must have both a startTime and an endTime',
+            AliasStartBeforeEndTime: 'Alias Request\'s endTime must be later than its startTime'
         }
     },
     NativeSdkPaths = {
@@ -415,7 +456,8 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         Identify: 'identify',
         Logout: 'logout',
         Login: 'login',
-        Modify: 'modify'
+        Modify: 'modify',
+        Alias: 'aliasUsers'
     },
     StorageNames = {
         localStorageName: 'mprtcl-api',             // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
@@ -438,7 +480,8 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         maxProducts: 20,                            // Number of products persisted in cartProducts and productBags
         forwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
         integrationDelayTimeout: 5000,              // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
-        maxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
+        maxCookieSize: 3000,                        // Number of bytes for cookie size to not exceed
+        aliasMaxWindow: 90                          // Max age of Alias request startTime, in days
     },
     Base64CookieKeys = {
         csm: 1,
@@ -476,6 +519,7 @@ module.exports = {
     v2ServiceUrl: v2ServiceUrl,
     v2SecureServiceUrl: v2SecureServiceUrl,
     identityUrl: identityUrl,
+    aliasUrl: aliasUrl,
     sdkVersion: sdkVersion,
     sdkVendor: sdkVendor,
     platform: platform,
@@ -1967,6 +2011,25 @@ function invokeCallback(callback, code, body, mParticleUser, previousMpid) {
     }
 }
 
+function invokeAliasCallback(callback, code, message) {
+    if (!callback) {
+        mParticle.Logger.warning('There is no callback provided');
+    }
+    try {
+        if (Validators.isFunction(callback)) {
+            var callbackMessage = {
+                httpCode: code
+            };
+            if (message) {
+                callbackMessage.message = message;
+            }
+            callback(callbackMessage);
+        }
+    } catch (e) {
+        mParticle.Logger.error('There was an error with your callback: ' + e);
+    }
+}
+
 // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
 function extend() {
     var options, name, src, copy, copyIsArray, clone,
@@ -2095,11 +2158,13 @@ function inArray(items, name) {
 
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
     var serviceScheme = window.mParticle && mParticle.Store.SDKConfig.forceHttps ? 'https://' : window.location.protocol + '//';
+    var baseUrl;
     if (mParticle.Store.SDKConfig.forceHttps) {
-        return 'https://' + secureServiceUrl + devToken;
+        baseUrl = 'https://' + secureServiceUrl;
     } else {
-        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+        baseUrl = serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl);
     }
+    return baseUrl + devToken;
 }
 
 function createXHR(cb) {
@@ -2492,6 +2557,7 @@ module.exports = {
     mergeConfigs: mergeConfigs,
     returnConvertedBoolean: returnConvertedBoolean,
     invokeCallback: invokeCallback,
+    invokeAliasCallback: invokeAliasCallback,
     hasFeatureFlag: hasFeatureFlag,
     isDelayedByIntegration: isDelayedByIntegration,
     processQueuedEvents: processQueuedEvents,
@@ -2515,7 +2581,8 @@ var Helpers = require('./helpers'),
     sendEventToServer = require('./apiClient').sendEventToServer,
     HTTPCodes = Constants.HTTPCodes,
     Events = require('./events'),
-    sendEventToForwarders = require('./forwarders').sendEventToForwarders;
+    sendEventToForwarders = require('./forwarders').sendEventToForwarders,
+    sendAliasRequest = require('./apiClient').sendAliasRequest;
 
 var Identity = {
     checkIdentitySwap: function(previousMPID, currentMPID, currentSessionMPIDs) {
@@ -2634,6 +2701,31 @@ var IdentityRequest = {
         return modifiedUserIdentities;
     },
 
+    createAliasNetworkRequest: function(aliasRequest) {
+        return {
+            request_id: Helpers.generateUniqueId(),
+            request_type: 'alias',
+            environment: mParticle.preInit.isDevelopmentMode ? 'development' : 'production',
+            api_key: mParticle.Store.devToken,
+            data: {
+                destination_mpid: aliasRequest.destinationMpid,
+                source_mpid: aliasRequest.sourceMpid,
+                start_unixtime_ms: aliasRequest.startTime,
+                end_unixtime_ms: aliasRequest.endTime,
+                device_application_stamp: mParticle.Store.deviceId
+            }
+        };
+    },
+
+    convertAliasToNative: function(aliasRequest) {
+        return {
+            DestinationMpid: aliasRequest.destinationMpid,
+            SourceMpid: aliasRequest.sourceMpid,
+            StartUnixtimeMs: aliasRequest.startTime,
+            EndUnixtimeMs: aliasRequest.endTime
+        };
+    },
+
     convertToNative: function(identityApiData) {
         var nativeIdentityRequest = [];
         if (identityApiData && identityApiData.userIdentities) {
@@ -2683,8 +2775,7 @@ var IdentityAPI = {
                 } else {
                     sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, parseIdentityResponse, mpid);
                 }
-            }
-            else {
+            } else {
                 Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
             }
@@ -2727,8 +2818,7 @@ var IdentityAPI = {
                         });
                     }
                 }
-            }
-            else {
+            } else {
                 Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
             }
@@ -2761,8 +2851,7 @@ var IdentityAPI = {
                 } else {
                     sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, parseIdentityResponse, mpid);
                 }
-            }
-            else {
+            } else {
                 Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
             }
@@ -2795,8 +2884,7 @@ var IdentityAPI = {
                 } else {
                     sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, parseIdentityResponse, mpid);
                 }
-            }
-            else {
+            } else {
                 Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonLogEvent);
                 mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
             }
@@ -2867,6 +2955,96 @@ var IdentityAPI = {
             }
         });
         return users;
+    },
+
+    /**
+    * Initiate an alias request to the mParticle server
+    * @method aliasUsers 
+    * @param {Object} aliasRequest  object representing an AliasRequest
+    * @param {Function} [callback] A callback function that is called when the aliasUsers request completes
+    */
+    aliasUsers: function(aliasRequest, callback) {
+        var message;
+        if (!aliasRequest.destinationMpid || !aliasRequest.sourceMpid) {
+            message = Messages.ValidationMessages.AliasMissingMpid;
+        }
+        if (aliasRequest.destinationMpid === aliasRequest.sourceMpid) {
+            message = Messages.ValidationMessages.AliasNonUniqueMpid;
+        }
+        if (!aliasRequest.startTime || !aliasRequest.endTime) {
+            message = Messages.ValidationMessages.AliasMissingTime;
+        }
+        if (aliasRequest.startTime > aliasRequest.endTime) {
+            message = Messages.ValidationMessages.AliasStartBeforeEndTime;
+        }
+        if (message) {
+            mParticle.Logger.warning(message);
+            Helpers.invokeAliasCallback(callback, HTTPCodes.validationIssue, message);
+            return;
+        }
+        if (Helpers.canLog()) {
+            if (mParticle.Store.webviewBridgeEnabled) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Alias, JSON.stringify(IdentityRequest.convertAliasToNative(aliasRequest)));
+                Helpers.invokeAliasCallback(callback, HTTPCodes.nativeIdentityRequest, 'Alias request sent to native sdk');
+            } else {
+                mParticle.Logger.verbose(Messages.InformationMessages.StartingAliasRequest + ': ' + aliasRequest.sourceMpid + ' -> ' + aliasRequest.destinationMpid);
+                var aliasRequestMessage = IdentityRequest.createAliasNetworkRequest(aliasRequest);
+                sendAliasRequest(aliasRequestMessage, callback);
+            }
+        } else {
+            Helpers.invokeAliasCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonAliasUsers);
+            mParticle.Logger.verbose(Messages.InformationMessages.AbandonAliasUsers);
+        }
+    },
+
+    /**
+      Create a default AliasRequest for 2 MParticleUsers. This will construct the request
+      using the sourceUser's firstSeenTime as the startTime, and its lastSeenTime as the endTime.
+     
+      In the unlikely scenario that the sourceUser does not have a firstSeenTime, which will only
+      be the case if they have not been the current user since this functionality was added, the 
+      startTime will be populated with the earliest firstSeenTime out of any stored user. Similarly,
+      if the sourceUser does not have a lastSeenTime, the endTime will be populated with the current time
+     
+      There is a limit to how old the startTime can be, represented by the config field 'aliasMaxWindow', in days.
+      If the startTime falls before the limit, it will be adjusted to the oldest allowed startTime. 
+      In rare cases, where the sourceUser's lastSeenTime also falls outside of the aliasMaxWindow limit, 
+      after applying this adjustment it will be impossible to create an aliasRequest passes the aliasUsers() 
+      validation that the startTime must be less than the endTime 
+     */
+    createAliasRequest: function(sourceUser, destinationUser) {
+        try {
+            if (!destinationUser || !sourceUser) {
+                mParticle.Logger.error('\'destinationUser\' and \'sourceUser\' must both be present');
+                return null;
+            }
+            var startTime = sourceUser.getFirstSeenTime();
+            if (!startTime) {
+                mParticle.Identity.getUsers().forEach(function(user) {
+                    if (user.getFirstSeenTime() && (!startTime || user.getFirstSeenTime() < startTime)) {
+                        startTime = user.getFirstSeenTime();
+                    }
+                });
+            }
+            var minFirstSeenTimeMs = new Date().getTime() - mParticle.Store.SDKConfig.aliasMaxWindow * 24 * 60 * 60 * 1000 ;
+            var endTime = sourceUser.getLastSeenTime() || new Date().getTime();
+            //if the startTime is greater than $maxAliasWindow ago, adjust the startTime to the earliest allowed
+            if (startTime < minFirstSeenTimeMs) {
+                startTime = minFirstSeenTimeMs;
+                if (endTime < startTime) {
+                    mParticle.Logger.warning('Source User has not been seen in the last ' + mParticle.Store.SDKConfig.maxAliasWindow + ' days, Alias Request will likely fail');
+                }
+            }
+            return {
+                destinationMpid: destinationUser.getMPID(),
+                sourceMpid: sourceUser.getMPID(),
+                startTime: startTime,
+                endTime: endTime
+            };
+        } catch (e) {
+            mParticle.Logger.error('There was a problem with creating an alias request: ' + e);
+            return null;
+        }
     }
 };
 
@@ -2993,7 +3171,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     }
                 }
             } else {
-                Helpers.debug('Must pass an object into setUserAttributes. You passed a ' + typeof userAttributes);
+                mParticle.Logger.error('Must pass an object into setUserAttributes. You passed a ' + typeof userAttributes);
             }
         },
         /**
@@ -3409,6 +3587,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
 
             if (identityApiData && identityApiData.onUserAlias && Helpers.Validators.isFunction(identityApiData.onUserAlias)) {
                 try {
+                    mParticle.Logger.warning('Deprecated function onUserAlias will be removed in future releases');
                     identityApiData.onUserAlias(prevUser, newUser);
                 }
                 catch (e) {
@@ -3783,6 +3962,10 @@ var Polyfill = require('./polyfill'),
                 mParticle.preInit.readyQueue = [];
             }
             mParticle.Store.isInitialized = true;
+
+            if (mParticle.Store.isFirstRun) {
+                mParticle.Store.isFirstRun = false;
+            }
         },
         setLogLevel: function(newLogLevel) {
             mParticle.Logger.setLogLevel(newLogLevel);
@@ -6745,6 +6928,12 @@ function Store(config, config2) {
 
         if (mergedConfigs.hasOwnProperty('minWebviewBridgeVersion')) {
             this.SDKConfig.minWebviewBridgeVersion = mergedConfigs.minWebviewBridgeVersion;
+        }
+
+        if (mergedConfigs.hasOwnProperty('aliasMaxWindow')) {
+            this.SDKConfig.aliasMaxWindow = mergedConfigs.aliasMaxWindow;
+        } else {
+            this.SDKConfig.aliasMaxWindow = Constants.DefaultConfig.aliasMaxWindow;
         }
     }
 }
