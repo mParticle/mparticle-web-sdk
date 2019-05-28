@@ -4,7 +4,8 @@ var TestsCore = require('./tests-core'),
     getLocalStorage = TestsCore.getLocalStorage,
     mParticleIOS = TestsCore.mParticleIOS,
     MPConfig = TestsCore.MPConfig,
-    mParticleAndroid = TestsCore.mParticleAndroid;
+    mParticleAndroid = TestsCore.mParticleAndroid,
+    HTTPCodes = require('../../src/constants').HTTPCodes;
 
 describe('native-sdk methods', function() {
     describe('Helper methods', function() {
@@ -574,6 +575,26 @@ describe('native-sdk methods', function() {
 
                 done();
             });
+
+            it('should send a JSON object to the native SDK\'s Alias method', function(done) {
+                var callbackResult;
+                var aliasRequest = {
+                    destinationMpid: '101',
+                    sourceMpid: '202',
+                    startTime: 300,
+                    endTime: 400
+                };
+
+                mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+                    callbackResult = callback;
+                });
+                mParticleAndroidV2Bridge.aliasUsers.should.equal('{"DestinationMpid":"101","SourceMpid":"202","StartUnixtimeMs":300,"EndUnixtimeMs":400}');
+                
+                callbackResult.httpCode.should.equal(HTTPCodes.nativeIdentityRequest);
+                callbackResult.message.should.equal('Alias request sent to native sdk');
+
+                done();
+            });
         });
 
         describe('iOS', function() {
@@ -648,7 +669,6 @@ describe('native-sdk methods', function() {
                 JSON.parse(mParticleIOSV2Bridge.data[1]).path.should.equal('removeUserAttribute');
                 JSON.parse(mParticleIOSV2Bridge.data[1]).value.should.have.property('key', 'key');
                 JSON.parse(mParticleIOSV2Bridge.data[1]).value.should.have.property('value', null);
-
 
                 done();
             });
@@ -767,6 +787,30 @@ describe('native-sdk methods', function() {
                 JSON.stringify(JSON.parse(mParticleIOSV2Bridge.data[0]).value).should.equal(JSONData);
                 mParticleIOSV2Bridge.reset();
 
+                done();
+            });
+
+            it('should send a JSON object to the native SDK\'s Alias method', function(done) {
+                var callbackResult;
+                var aliasRequest = {
+                    destinationMpid: '101',
+                    sourceMpid: '202',
+                    startTime: 300,
+                    endTime: 400
+                };
+
+                mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+                    callbackResult = callback;
+                });
+
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('aliasUsers');
+                JSON.stringify(JSON.parse(mParticleIOSV2Bridge.data[0]).value).should.equal('{"DestinationMpid":"101","SourceMpid":"202","StartUnixtimeMs":300,"EndUnixtimeMs":400}');
+                mParticleIOSV2Bridge.reset();
+
+                callbackResult.httpCode.should.equal(HTTPCodes.nativeIdentityRequest);
+                callbackResult.message.should.equal('Alias request sent to native sdk');
+                
                 done();
             });
         });

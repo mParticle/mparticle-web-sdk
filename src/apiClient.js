@@ -75,6 +75,40 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
     }
 }
 
+function sendAliasRequest(aliasRequest, callback) {
+    var xhr,
+        xhrCallback = function() {
+            if (xhr.readyState === 4) {
+                mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
+                //only parse error messages from failing requests
+                if (xhr.status !== 200 && xhr.status !== 202) {
+                    if (xhr.responseText) {
+                        var response = JSON.parse(xhr.responseText);
+                        if (response.hasOwnProperty('message')) {
+                            var errorMessage = response.message;
+                            Helpers.invokeAliasCallback(callback, xhr.status, errorMessage);
+                            return;
+                        }
+                    }
+                }
+                Helpers.invokeAliasCallback(callback, xhr.status);
+            }
+        };
+    mParticle.Logger.verbose(Messages.InformationMessages.SendAliasHttp);
+
+    xhr = Helpers.createXHR(xhrCallback);
+    if (xhr) {
+        try {
+            xhr.open('post', Helpers.createServiceUrl(Constants.aliasUrl, Constants.aliasUrl, mParticle.Store.devToken) + '/Alias');
+            xhr.send(JSON.stringify(aliasRequest));
+        }
+        catch (e) {
+            Helpers.invokeAliasCallback(callback, HTTPCodes.noHttpCoverage, e);
+            mParticle.Logger.error('Error sending alias request to mParticle servers. ' + e);
+        }
+    }
+}
+
 function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid) {
     var xhr, previousMPID,
         xhrCallback = function() {
@@ -166,5 +200,6 @@ module.exports = {
     sendEventToServer: sendEventToServer,
     sendIdentityRequest: sendIdentityRequest,
     sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,
-    sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer
+    sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer,
+    sendAliasRequest: sendAliasRequest
 };

@@ -3,6 +3,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
     v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
     identityUrl = 'https://identity.mparticle.com/v1/', //prod
+    aliasUrl = 'jssdks.mparticle.com/v1/identity/',
     sdkVersion = '2.8.12',
     sdkVendor = 'mparticle',
     platform = 'web',
@@ -35,6 +36,7 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
             SendIOS: 'Calling iOS path: ',
             SendAndroid: 'Calling Android JS interface method: ',
             SendHttp: 'Sending event to mParticle HTTP service',
+            SendAliasHttp: 'Sending alias request to mParticle HTTP service',
             SendIdentityHttp: 'Sending event to mParticle HTTP service',
             StartingNewSession: 'Starting new Session',
             StartingLogEvent: 'Starting to log event',
@@ -42,8 +44,10 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
             StartingEndSession: 'Starting to end session',
             StartingInitialization: 'Starting to initialize',
             StartingLogCommerceEvent: 'Starting to log commerce event',
+            StartingAliasRequest: 'Starting to Alias MPIDs',
             LoadingConfig: 'Loading configuration options',
             AbandonLogEvent: 'Cannot log event, logging disabled or developer token not set',
+            AbandonAliasUsers: 'Cannot Alias Users, logging disabled or developer token not set',
             AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
             AbandonEndSession: 'Cannot end session, logging disabled or developer token not set',
             NoSessionToEnd: 'Cannot end session, no active session found'
@@ -54,8 +58,11 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
             OnUserAliasType: 'The onUserAlias value must be a function. The onUserAlias provided is of type',
             UserIdentities: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.',
             UserIdentitiesInvalidKey: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
-            UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.'
-
+            UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.',
+            AliasMissingMpid: 'Alias Request must contain both a destinationMpid and a sourceMpid',
+            AliasNonUniqueMpid: 'Alias Request\'s destinationMpid and sourceMpid must be unique',
+            AliasMissingTime: 'Alias Request must have both a startTime and an endTime',
+            AliasStartBeforeEndTime: 'Alias Request\'s endTime must be later than its startTime'
         }
     },
     NativeSdkPaths = {
@@ -76,7 +83,8 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         Identify: 'identify',
         Logout: 'logout',
         Login: 'login',
-        Modify: 'modify'
+        Modify: 'modify',
+        Alias: 'aliasUsers'
     },
     StorageNames = {
         localStorageName: 'mprtcl-api',             // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
@@ -99,7 +107,8 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         maxProducts: 20,                            // Number of products persisted in cartProducts and productBags
         forwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
         integrationDelayTimeout: 5000,              // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
-        maxCookieSize: 3000                         // Number of bytes for cookie size to not exceed
+        maxCookieSize: 3000,                        // Number of bytes for cookie size to not exceed
+        aliasMaxWindow: 90                          // Max age of Alias request startTime, in days
     },
     Base64CookieKeys = {
         csm: 1,
@@ -137,6 +146,7 @@ module.exports = {
     v2ServiceUrl: v2ServiceUrl,
     v2SecureServiceUrl: v2SecureServiceUrl,
     identityUrl: identityUrl,
+    aliasUrl: aliasUrl,
     sdkVersion: sdkVersion,
     sdkVendor: sdkVendor,
     platform: platform,

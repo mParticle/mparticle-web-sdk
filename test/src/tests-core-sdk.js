@@ -405,7 +405,8 @@ describe('core SDK', function() {
             customFlags: {flag1: 'attr1'},
             workspaceToken: 'abcdef',
             requiredWebviewBridgeName: 'exampleWebviewBridgeName',
-            minWebviewBridgeVersion: 2
+            minWebviewBridgeVersion: 2,
+            aliasMaxWindow: 3
         };
 
         var mp = new Store(config);
@@ -461,6 +462,7 @@ describe('core SDK', function() {
         mp.SDKConfig.workspaceToken.should.equal(config.workspaceToken);
         mp.SDKConfig.requiredWebviewBridgeName.should.equal(config.requiredWebviewBridgeName);
         mp.SDKConfig.minWebviewBridgeVersion.should.equal(config.minWebviewBridgeVersion);
+        mp.SDKConfig.aliasMaxWindow.should.equal(config.aliasMaxWindow);
 
         mParticle.reset(MPConfig);
 
@@ -518,7 +520,6 @@ describe('core SDK', function() {
         mParticle.Store.SDKConfig.workspaceToken.should.equal(config.workspaceToken);
         mParticle.Store.SDKConfig.requiredWebviewBridgeName.should.equal(config.requiredWebviewBridgeName);
         mParticle.Store.SDKConfig.minWebviewBridgeVersion.should.equal(config.minWebviewBridgeVersion);
-
         done();
     });
 

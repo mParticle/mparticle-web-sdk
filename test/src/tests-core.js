@@ -427,6 +427,7 @@ var server = new MockHttpServer(),
         this.event = null;
         this.userAttrData = [];
         this.sessionAttrData = [];
+        this.aliasUsers = null;
 
         this.resetSessionAttrData = function() {
             self.sessionAttrData = [];
@@ -488,6 +489,9 @@ var server = new MockHttpServer(),
         this.clearCart = function() {
             self.addedToCartItem = null;
             self.clearCartCalled = true;
+        };
+        this.aliasUsers = function(item) {
+            self.aliasUsers = item;
         };
     },
 

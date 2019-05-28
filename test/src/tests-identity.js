@@ -1,4 +1,3 @@
-/* eslint-disable quotes */
 var Helpers= require('../../src/helpers'),
     TestsCore = require('./tests-core'),
     Constants = require('../../src/constants'),
@@ -14,7 +13,8 @@ var Helpers= require('../../src/helpers'),
     getEvent = TestsCore.getEvent,
     workspaceCookieName = TestsCore.workspaceCookieName,
     setCookie = TestsCore.setCookie,
-    MockForwarder = TestsCore.MockForwarder;
+    MockForwarder = TestsCore.MockForwarder,
+    HTTPCodes = Constants.HTTPCodes;
 
 describe('identity', function() {
     it('should respect consent rules on consent-change', function(done) {
@@ -2084,6 +2084,35 @@ describe('identity', function() {
 
         identityResult.getUser().getMPID().should.equal('1');
         identityResult.getPreviousUser().getMPID().should.equal('4');
+
+        done();
+    });
+
+    it('Alias request should be received when API is called validly', function(done) {
+        server.requests = [];
+        var aliasRequest = {
+            destinationMpid: 1,
+            sourceMpid: 2,
+            startTime: 3,
+            endTime: 4
+        };
+        mParticle.Identity.aliasUsers(aliasRequest);
+        server.requests.length.should.equal(1);
+
+        var request = server.requests[0];
+        request.url.should.equal('https://jssdks.mparticle.com/v1/identity/' + mParticle.Store.devToken +'/Alias');
+        var requestBody = JSON.parse(request.requestText);
+        Should(requestBody['request_id']).not.equal(null);
+        Should(requestBody['request_type']).equal('alias');
+        Should(requestBody['environment']).equal('production');
+        Should(requestBody['api_key']).equal(mParticle.Store.devToken);
+        var dataBody = requestBody['data'];
+        Should(dataBody).not.equal(null);
+        Should(dataBody['destination_mpid']).equal(1);
+        Should(dataBody['source_mpid']).equal(2);
+        Should(dataBody['start_unixtime_ms']).equal(3);
+        Should(dataBody['end_unixtime_ms']).equal(4);
+
         done();
     });
 
@@ -2106,6 +2135,312 @@ describe('identity', function() {
         var ls = mParticle.persistence.getLocalStorage();
         ls['testMPID'].lst.should.not.equal(null);
 
+        done();
+    });
+
+    it('Should reject malformed Alias Requests', function(done) {
+        mParticle.config.logLevel = 'verbose';
+        var warnMessage = null;
+
+        mParticle.config.logger = {
+            warning: function(msg) {
+                warnMessage = msg;
+            }
+        };
+        mParticle.init(apiKey);
+        var callbackResult;
+        
+        //missing sourceMpid
+        var aliasRequest = {
+            destinationMpid: 1,
+            startTime: 3,
+            endTime: 4
+        };
+        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+            callbackResult = callback;
+        });
+        callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
+        Should(callbackResult.message).equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
+        Should(warnMessage).equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
+        callbackResult = null;
+        warnMessage = null;
+
+        //missing destinationMpid
+        aliasRequest = {
+            sourceMpid: 2,
+            startTime: 3,
+            endTime: 4
+        };
+        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+            callbackResult = callback;
+        });
+        callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
+        Should(callbackResult.message).equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
+        Should(warnMessage).equal(Constants.Messages.ValidationMessages.AliasMissingMpid);
+        callbackResult = null;
+        warnMessage = null;
+
+        //same destinationMpid & sourceMpid
+        aliasRequest = {
+            destinationMpid: 1,
+            sourceMpid: 1,
+            startTime: 3,
+            endTime: 4
+        };
+        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+            callbackResult = callback;
+        });
+        callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
+        Should(callbackResult.message).equal(Constants.Messages.ValidationMessages.AliasNonUniqueMpid);
+        Should(warnMessage).equal(Constants.Messages.ValidationMessages.AliasNonUniqueMpid);
+        callbackResult = null;
+        warnMessage = null;
+
+        //endTime before startTime
+        aliasRequest = {
+            destinationMpid: 1,
+            sourceMpid: 2,
+            startTime: 4,
+            endTime: 3
+        };
+        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+            callbackResult = callback;
+        });
+        callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
+        Should(callbackResult.message).equal(Constants.Messages.ValidationMessages.AliasStartBeforeEndTime);
+        Should(warnMessage).equal(Constants.Messages.ValidationMessages.AliasStartBeforeEndTime);
+        callbackResult = null;
+        warnMessage = null;
+
+        //missing endTime and startTime
+        aliasRequest = {
+            destinationMpid: 1,
+            sourceMpid: 2
+        };
+        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+            callbackResult = callback;
+        });
+        callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
+        Should(callbackResult.message).equal(Constants.Messages.ValidationMessages.AliasMissingTime);
+        Should(warnMessage).equal(Constants.Messages.ValidationMessages.AliasMissingTime);
+        callbackResult = null;
+        warnMessage = null;
+
+        //sanity test, make sure properly formatted requests are accepted
+        aliasRequest = {
+            destinationMpid: 1,
+            sourceMpid: 2,
+            startTime: 3,
+            endTime: 4
+        };
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, '');
+        };
+
+        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+            callbackResult = callback;
+        });
+        callbackResult.httpCode.should.equal(200);
+        Should(callbackResult.message).equal(undefined);
+        Should(warnMessage).equal(null);
+        callbackResult = null;
+
+        done();
+    });
+
+    it('Should parse error info from Alias Requests', function(done) {
+        mParticle.init(apiKey);
+        var errorMessage = 'this is a sample error message';
+        var callbackResult;
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(400, JSON.stringify({
+                message: errorMessage,
+                code: 'ignored code'
+            }));
+        };
+
+        var aliasRequest = {
+            destinationMpid: 1,
+            sourceMpid: 2,
+            startTime: 3,
+            endTime: 4
+        };
+
+        mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
+            callbackResult = callback;
+        });
+
+        callbackResult.httpCode.should.equal(400);
+        callbackResult.message.should.equal(errorMessage);
+
+        done();
+    });
+
+    it('Should properly create AliasRequest', function(done) {
+        mParticle.reset(MPConfig);
+
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime()
+            },
+            1: {
+                fst: 200,
+                lst: 400
+            },
+            cu: '2'
+        });
+
+        setCookie(workspaceCookieName, cookies);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+
+        var clock = sinon.useFakeTimers();
+        clock.tick(1000);
+
+        var destinationUser = mParticle.Identity.getCurrentUser();
+        var sourceUser = mParticle.Identity.getUser('1');
+
+        var aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
+        Should(aliasRequest.sourceMpid).equal('1');
+        Should(aliasRequest.destinationMpid).equal('2');
+        Should(aliasRequest.startTime).equal(200);
+        Should(aliasRequest.endTime).equal(400);
+        clock.restore();
+
+        done();
+    });
+
+    it('Should fill in missing fst and lst in createAliasRequest', function(done) {
+        mParticle.reset(MPConfig);
+
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime()
+            },
+            1: {
+                fst: 200,
+                lst: 400
+            },
+            2: {},
+            cu: '3'
+        });
+
+        setCookie(workspaceCookieName, cookies);
+        mParticle.useCookieStorage = true;
+
+        mParticle.init(apiKey);
+
+        var clock = sinon.useFakeTimers();
+        clock.tick(1000);
+
+        var destinationUser = mParticle.Identity.getCurrentUser();
+        var sourceUser = mParticle.Identity.getUser('2');
+
+        var aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
+        Should(aliasRequest.sourceMpid).equal('2');
+        Should(aliasRequest.destinationMpid).equal('3');
+        //should grab the earliest fst out of any user if user does not have fst
+        Should(aliasRequest.startTime).equal(200);
+        //should grab currentTime if user does not have lst
+        Should(aliasRequest.endTime).equal(1000);
+
+        clock.restore();
+
+        done();
+    });
+
+    it('Should fix startTime when default is outside max window create AliasRequest', function(done) {
+        mParticle.reset(MPConfig);
+
+        var millisPerDay = 24 * 60 * 60 * 1000;
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime()
+            },
+            1: {
+                fst: 200
+            },
+            cu: '2'
+        });
+
+        setCookie(workspaceCookieName, cookies);
+        mParticle.useCookieStorage = true;
+        
+        //set max Alias startTime age to 1 day
+        mParticle.config.aliasMaxWindow = 1;
+
+        mParticle.init(apiKey);
+
+        var clock = sinon.useFakeTimers();
+        clock.tick(millisPerDay * 2);
+
+        var destinationUser = mParticle.Identity.getCurrentUser();
+        var sourceUser = mParticle.Identity.getUser('1');
+
+        var aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
+        Should(aliasRequest.sourceMpid).equal('1');
+        Should(aliasRequest.destinationMpid).equal('2');
+        var oldestAllowedStartTime = new Date().getTime() - mParticle.Store.SDKConfig.aliasMaxWindow * millisPerDay;
+        Should(aliasRequest.startTime).equal(oldestAllowedStartTime);
+        Should(aliasRequest.endTime).equal(new Date().getTime());
+        clock.restore();
+
+        done();
+    });
+
+    it('Should warn if legal aliasRequest cannot be created with MParticleUser', function(done) {
+        var millisPerDay = 24 * 60 * 60 * 1000;
+        
+        mParticle.config.logLevel = 'verbose';
+        var warnMessage = null;
+
+        mParticle.config.logger = {
+            warning: function(msg) {
+                warnMessage = msg;
+            }
+        };
+
+        var cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime()
+            },
+            1: {
+                fst: 200,
+                lst: 300
+            },
+            cu: '2'
+        });
+        setCookie(workspaceCookieName, cookies);
+        mParticle.useCookieStorage = true;
+        //set max Alias startTime age to 1 day
+        mParticle.config.aliasMaxWindow = 1;
+
+        mParticle.init(apiKey);
+
+        var clock = sinon.useFakeTimers();
+        clock.tick(millisPerDay * 2);
+
+        var destinationUser = mParticle.Identity.getCurrentUser();
+        var sourceUser = mParticle.Identity.getUser('1');
+
+        var aliasRequest = mParticle.Identity.createAliasRequest(sourceUser, destinationUser);
+        Should(aliasRequest.sourceMpid).equal('1');
+        Should(aliasRequest.destinationMpid).equal('2');
+        var oldestAllowedStartTime = new Date().getTime() - mParticle.Store.SDKConfig.aliasMaxWindow * millisPerDay;
+        Should(aliasRequest.startTime).equal(oldestAllowedStartTime);
+        Should(aliasRequest.endTime).equal(300);
+        Should(warnMessage).equal('Source User has not been seen in the last ' + mParticle.Store.SDKConfig.maxAliasWindow + ' days, Alias Request will likely fail');
+
+        clock.restore();
         done();
     });
 });

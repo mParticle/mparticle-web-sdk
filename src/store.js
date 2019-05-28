@@ -169,6 +169,12 @@ function Store(config, config2) {
         if (mergedConfigs.hasOwnProperty('minWebviewBridgeVersion')) {
             this.SDKConfig.minWebviewBridgeVersion = mergedConfigs.minWebviewBridgeVersion;
         }
+
+        if (mergedConfigs.hasOwnProperty('aliasMaxWindow')) {
+            this.SDKConfig.aliasMaxWindow = mergedConfigs.aliasMaxWindow;
+        } else {
+            this.SDKConfig.aliasMaxWindow = Constants.DefaultConfig.aliasMaxWindow;
+        }
     }
 }
 

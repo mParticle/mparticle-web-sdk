@@ -62,6 +62,25 @@ function invokeCallback(callback, code, body, mParticleUser, previousMpid) {
     }
 }
 
+function invokeAliasCallback(callback, code, message) {
+    if (!callback) {
+        mParticle.Logger.warning('There is no callback provided');
+    }
+    try {
+        if (Validators.isFunction(callback)) {
+            var callbackMessage = {
+                httpCode: code
+            };
+            if (message) {
+                callbackMessage.message = message;
+            }
+            callback(callbackMessage);
+        }
+    } catch (e) {
+        mParticle.Logger.error('There was an error with your callback: ' + e);
+    }
+}
+
 // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
 function extend() {
     var options, name, src, copy, copyIsArray, clone,
@@ -190,11 +209,13 @@ function inArray(items, name) {
 
 function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
     var serviceScheme = window.mParticle && mParticle.Store.SDKConfig.forceHttps ? 'https://' : window.location.protocol + '//';
+    var baseUrl;
     if (mParticle.Store.SDKConfig.forceHttps) {
-        return 'https://' + secureServiceUrl + devToken;
+        baseUrl = 'https://' + secureServiceUrl;
     } else {
-        return serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl) + devToken;
+        baseUrl = serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl);
     }
+    return baseUrl + devToken;
 }
 
 function createXHR(cb) {
@@ -587,6 +608,7 @@ module.exports = {
     mergeConfigs: mergeConfigs,
     returnConvertedBoolean: returnConvertedBoolean,
     invokeCallback: invokeCallback,
+    invokeAliasCallback: invokeAliasCallback,
     hasFeatureFlag: hasFeatureFlag,
     isDelayedByIntegration: isDelayedByIntegration,
     processQueuedEvents: processQueuedEvents,
