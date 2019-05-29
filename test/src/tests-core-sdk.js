@@ -354,16 +354,6 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should use http when forceHttps is false', function(done) {
-        mParticle.config.forceHttps = false;
-        mParticle.init(apiKey);
-        server.requests = [];
-        mParticle.logEvent('Test Event');
-        server.requests[0].url.should.equal('http://jssdk.mparticle.com/v2/JS/test_key/Events');
-
-        done();
-    });
-
     it('should load SDK with the included api on init and not send events to previous apikey in persistence', function(done) {
         server.requests = [];
         mParticle.logEvent('Test Event');
@@ -609,6 +599,48 @@ describe('core SDK', function() {
         var data = getEvent('hi');
         Should(data).be.ok();
 
+        done();
+    });
+
+    it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', function (done) {
+        mParticle.reset(MPConfig);
+        mParticle.init(apiKey, window.mParticle.config);
+
+        window.mParticle.config.v1SecureServiceUrl = 'custom-v1SecureServiceUrl/';
+        window.mParticle.config.v2SecureServiceUrl = 'custom-v2SecureServiceUrl/v2/JS/';
+        window.mParticle.config.identityUrl = 'custom-identityUrl/';
+        window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
+        
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.Store.SDKConfig.v1ServiceUrl = window.mParticle.config.v1ServiceUrl;
+        mParticle.Store.SDKConfig.v1SecureServiceUrl = window.mParticle.config.v1SecureServiceUrl;
+        mParticle.Store.SDKConfig.v2ServiceUrl = window.mParticle.config.v2ServiceUrl;
+        mParticle.Store.SDKConfig.v2SecureServiceUrl = window.mParticle.config.v2SecureServiceUrl;
+        mParticle.Store.SDKConfig.identityUrl = window.mParticle.config.identityUrl;
+        mParticle.Store.SDKConfig.aliasUrl = window.mParticle.config.aliasUrl;
+
+        // test events endpoint
+        server.requests = [];
+        mParticle.logEvent('test');
+        server.requests[0].url.should.equal('https://' + window.mParticle.config.v2SecureServiceUrl + 'test_key/Events');
+        
+        // test Identity endpoint
+        server.requests = [];
+        mParticle.Identity.login({userIdentities: {customerid: 'test1'}});
+        server.requests[0].url.should.equal('https://' + window.mParticle.config.identityUrl + 'login');
+        
+        // test alias endpoint
+        server.requests = [];
+        mParticle.Identity.aliasUsers({
+            destinationMpid: 1,
+            sourceMpid: 2,
+            startTime: 3,
+            endTime: 4
+        });
+
+        server.requests[0].url.should.equal('https://' + window.mParticle.config.aliasUrl + 'test_key/Alias');
+        
         done();
     });
 });

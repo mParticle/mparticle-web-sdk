@@ -18,6 +18,10 @@ function createSDKConfig(config) {
         }
     }
 
+    for (prop in Constants.DefaultUrls) {
+        sdkConfig[prop] = Constants.DefaultUrls[prop];
+    }
+
     return sdkConfig;
 }
 
@@ -72,15 +76,22 @@ function Store(config, config2) {
     this.SDKConfig = createSDKConfig(mergedConfigs);
     // Set configuration to default settings
     if (mergedConfigs) {
-        if (mergedConfigs.serviceUrl) {
-            Constants.serviceUrl = mergedConfigs.serviceUrl;
+        if (mergedConfigs.hasOwnProperty('secureServiceUrl')) {
+            this.SDKConfig.secureServiceUrl = mergedConfigs.secureServiceUrl;
         }
 
-        if (mergedConfigs.secureServiceUrl) {
-            Constants.secureServiceUrl = mergedConfigs.secureServiceUrl;
+        if (mergedConfigs.hasOwnProperty('v2SecureServiceUrl')) {
+            this.SDKConfig.v2SecureServiceUrl = mergedConfigs.v2SecureServiceUrl;
+        }
+        if (mergedConfigs.hasOwnProperty('identityUrl')) {
+            this.SDKConfig.identityUrl = mergedConfigs.identityUrl;
         }
 
-        if (mergedConfigs.logLevel) {
+        if (mergedConfigs.hasOwnProperty('aliasUrl')) {
+            this.SDKConfig.aliasUrl = mergedConfigs.aliasUrl;
+        }
+
+        if (mergedConfigs.hasOwnProperty('logLevel')) {
             this.SDKConfig.logLevel = mergedConfigs.logLevel;
         }
 

@@ -61,7 +61,7 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
 
             if (xhr) {
                 try {
-                    xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, mParticle.Store.devToken) + '/Events');
+                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken) + '/Events');
                     xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun, mParticle.Store.currencyCode, mParticle.Store.integrationAttributes)));
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         sendEventToForwarders(event);
@@ -99,7 +99,7 @@ function sendAliasRequest(aliasRequest, callback) {
     xhr = Helpers.createXHR(xhrCallback);
     if (xhr) {
         try {
-            xhr.open('post', Helpers.createServiceUrl(Constants.aliasUrl, Constants.aliasUrl, mParticle.Store.devToken) + '/Alias');
+            xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.aliasUrl, mParticle.Store.devToken) + '/Alias');
             xhr.send(JSON.stringify(aliasRequest));
         }
         catch (e) {
@@ -135,9 +135,9 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
             } else {
                 previousMPID = mpid || null;
                 if (method === 'modify') {
-                    xhr.open('post', Constants.identityUrl + mpid + '/' + method);
+                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl) + mpid + '/' + method);
                 } else {
-                    xhr.open('post', Constants.identityUrl + method);
+                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl) + method);
                 }
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.setRequestHeader('x-mp-key', mParticle.Store.devToken);
@@ -156,7 +156,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 function sendBatchForwardingStatsToServer(forwardingStatsData, xhr) {
     var url, data;
     try {
-        url = Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, mParticle.Store.devToken);
+        url = Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken);
         data = {
             uuid: Helpers.generateUniqueId(),
             data: forwardingStatsData
@@ -183,7 +183,7 @@ function sendSingleForwardingStatsToServer(forwardingStatsData) {
             }
         };
         var xhr = Helpers.createXHR(xhrCallback);
-        url = Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, mParticle.Store.devToken);
+        url = Helpers.createServiceUrl(mParticle.Store.SDKConfig.v1SecureServiceUrl, mParticle.Store.devToken);
         data = forwardingStatsData;
 
         if (xhr) {

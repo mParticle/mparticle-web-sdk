@@ -1648,7 +1648,7 @@ describe('identity', function() {
     it('should still trigger the identifyCallback when no identify request is sent because there are already cookies', function(done) {
         mParticle.reset(MPConfig);
         var les = new Date().getTime();
-        var cookies = "{'gs':{'ie':1|'dt':'test_key'|'cgid':'886e874b-862b-4822-a24a-1146cd057101'|'das':'62c91b8d-fef6-44ea-b2cc-b55714b0d827'|'csm':'WyJ0ZXN0TVBJRCJd'|'sid':'2535f9ed-ab19-4a7c-9eeb-ce4e41e0cb06'|'les': " + les + "|'ssd':1518536950916}|'testMPID':{'ui':'eyIxIjoiY3VzdG9tZXJpZDEifQ=='}|'cu':'testMPID'}";
+        var cookies = '{\'gs\':{\'ie\':1|\'dt\':\'test_key\'|\'cgid\':\'886e874b-862b-4822-a24a-1146cd057101\'|\'das\':\'62c91b8d-fef6-44ea-b2cc-b55714b0d827\'|\'csm\':\'WyJ0ZXN0TVBJRCJd\'|\'sid\':\'2535f9ed-ab19-4a7c-9eeb-ce4e41e0cb06\'|\'les\': ' + les + '|\'ssd\':1518536950916}|\'testMPID\':{\'ui\':\'eyIxIjoiY3VzdG9tZXJpZDEifQ==\'}|\'cu\':\'testMPID\'}';
         mParticle.config.useCookieStorage = true;
         setCookie(workspaceCookieName, cookies, true);
         //does not actually hit the server because identity request is not sent

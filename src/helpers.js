@@ -207,15 +207,18 @@ function inArray(items, name) {
     }
 }
 
-function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
+function createServiceUrl(secureServiceUrl, devToken) {
     var serviceScheme = window.mParticle && mParticle.Store.SDKConfig.forceHttps ? 'https://' : window.location.protocol + '//';
     var baseUrl;
     if (mParticle.Store.SDKConfig.forceHttps) {
         baseUrl = 'https://' + secureServiceUrl;
     } else {
-        baseUrl = serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl);
+        baseUrl = serviceScheme + secureServiceUrl;
     }
-    return baseUrl + devToken;
+    if (devToken) {
+        baseUrl = baseUrl + devToken;
+    }
+    return baseUrl;
 }
 
 function createXHR(cb) {

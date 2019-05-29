@@ -1,10 +1,4 @@
-var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
-    v1SecureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
-    v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
-    v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
-    identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    aliasUrl = 'jssdks.mparticle.com/v1/identity/',
-    sdkVersion = '2.9.0',
+var sdkVersion = '2.9.0',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -110,6 +104,12 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         maxCookieSize: 3000,                        // Number of bytes for cookie size to not exceed
         aliasMaxWindow: 90                          // Max age of Alias request startTime, in days
     },
+    DefaultUrls = {
+        v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
+        v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
+        identityUrl: 'identity.mparticle.com/v1/',
+        aliasUrl: 'jssdks.mparticle.com/v1/identity/'
+    },
     Base64CookieKeys = {
         csm: 1,
         sa: 1,
@@ -141,12 +141,6 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     };
 
 module.exports = {
-    v1ServiceUrl: v1ServiceUrl,
-    v1SecureServiceUrl: v1SecureServiceUrl,
-    v2ServiceUrl: v2ServiceUrl,
-    v2SecureServiceUrl: v2SecureServiceUrl,
-    identityUrl: identityUrl,
-    aliasUrl: aliasUrl,
     sdkVersion: sdkVersion,
     sdkVendor: sdkVendor,
     platform: platform,
@@ -154,6 +148,7 @@ module.exports = {
     NativeSdkPaths: NativeSdkPaths,
     StorageNames: StorageNames,
     DefaultConfig: DefaultConfig,
+    DefaultUrls: DefaultUrls,
     Base64CookieKeys:Base64CookieKeys,
     HTTPCodes: HTTPCodes,
     Features: Features,
