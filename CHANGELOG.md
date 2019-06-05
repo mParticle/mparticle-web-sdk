@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.9.1 - 2019-06-05
+* Make endpoints configurable
+
 #### 2.9.0 - 2019-05-28
 * Implement User Aliasing
 * Bugfixes - Helpers.debug & set isFirstRun to false after app inits for the first time

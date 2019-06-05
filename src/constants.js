@@ -1,4 +1,4 @@
-var sdkVersion = '2.9.0',
+var sdkVersion = '2.9.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
