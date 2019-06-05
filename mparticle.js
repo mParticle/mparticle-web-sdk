@@ -62,7 +62,7 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
 
             if (xhr) {
                 try {
-                    xhr.open('post', Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, mParticle.Store.devToken) + '/Events');
+                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken) + '/Events');
                     xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun, mParticle.Store.currencyCode, mParticle.Store.integrationAttributes)));
                     if (event.EventName !== Types.MessageType.AppStateTransition) {
                         sendEventToForwarders(event);
@@ -100,7 +100,7 @@ function sendAliasRequest(aliasRequest, callback) {
     xhr = Helpers.createXHR(xhrCallback);
     if (xhr) {
         try {
-            xhr.open('post', Helpers.createServiceUrl(Constants.aliasUrl, Constants.aliasUrl, mParticle.Store.devToken) + '/Alias');
+            xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.aliasUrl, mParticle.Store.devToken) + '/Alias');
             xhr.send(JSON.stringify(aliasRequest));
         }
         catch (e) {
@@ -136,9 +136,9 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
             } else {
                 previousMPID = mpid || null;
                 if (method === 'modify') {
-                    xhr.open('post', Constants.identityUrl + mpid + '/' + method);
+                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl) + mpid + '/' + method);
                 } else {
-                    xhr.open('post', Constants.identityUrl + method);
+                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl) + method);
                 }
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.setRequestHeader('x-mp-key', mParticle.Store.devToken);
@@ -157,7 +157,7 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 function sendBatchForwardingStatsToServer(forwardingStatsData, xhr) {
     var url, data;
     try {
-        url = Helpers.createServiceUrl(Constants.v2SecureServiceUrl, Constants.v2ServiceUrl, mParticle.Store.devToken);
+        url = Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken);
         data = {
             uuid: Helpers.generateUniqueId(),
             data: forwardingStatsData
@@ -184,7 +184,7 @@ function sendSingleForwardingStatsToServer(forwardingStatsData) {
             }
         };
         var xhr = Helpers.createXHR(xhrCallback);
-        url = Helpers.createServiceUrl(Constants.v1SecureServiceUrl, Constants.v1ServiceUrl, mParticle.Store.devToken);
+        url = Helpers.createServiceUrl(mParticle.Store.SDKConfig.v1SecureServiceUrl, mParticle.Store.devToken);
         data = forwardingStatsData;
 
         if (xhr) {
@@ -371,13 +371,7 @@ module.exports = {
 };
 
 },{"./helpers":9}],3:[function(require,module,exports){
-var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
-    v1SecureServiceUrl = 'jssdks.mparticle.com/v1/JS/',
-    v2ServiceUrl = 'jssdk.mparticle.com/v2/JS/',
-    v2SecureServiceUrl = 'jssdks.mparticle.com/v2/JS/',
-    identityUrl = 'https://identity.mparticle.com/v1/', //prod
-    aliasUrl = 'jssdks.mparticle.com/v1/identity/',
-    sdkVersion = '2.9.0',
+var sdkVersion = '2.9.1',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -483,6 +477,12 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
         maxCookieSize: 3000,                        // Number of bytes for cookie size to not exceed
         aliasMaxWindow: 90                          // Max age of Alias request startTime, in days
     },
+    DefaultUrls = {
+        v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
+        v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
+        identityUrl: 'identity.mparticle.com/v1/',
+        aliasUrl: 'jssdks.mparticle.com/v1/identity/'
+    },
     Base64CookieKeys = {
         csm: 1,
         sa: 1,
@@ -514,12 +514,6 @@ var v1ServiceUrl = 'jssdk.mparticle.com/v1/JS/',
     };
 
 module.exports = {
-    v1ServiceUrl: v1ServiceUrl,
-    v1SecureServiceUrl: v1SecureServiceUrl,
-    v2ServiceUrl: v2ServiceUrl,
-    v2SecureServiceUrl: v2SecureServiceUrl,
-    identityUrl: identityUrl,
-    aliasUrl: aliasUrl,
     sdkVersion: sdkVersion,
     sdkVendor: sdkVendor,
     platform: platform,
@@ -527,6 +521,7 @@ module.exports = {
     NativeSdkPaths: NativeSdkPaths,
     StorageNames: StorageNames,
     DefaultConfig: DefaultConfig,
+    DefaultUrls: DefaultUrls,
     Base64CookieKeys:Base64CookieKeys,
     HTTPCodes: HTTPCodes,
     Features: Features,
@@ -2156,15 +2151,18 @@ function inArray(items, name) {
     }
 }
 
-function createServiceUrl(secureServiceUrl, serviceUrl, devToken) {
+function createServiceUrl(secureServiceUrl, devToken) {
     var serviceScheme = window.mParticle && mParticle.Store.SDKConfig.forceHttps ? 'https://' : window.location.protocol + '//';
     var baseUrl;
     if (mParticle.Store.SDKConfig.forceHttps) {
         baseUrl = 'https://' + secureServiceUrl;
     } else {
-        baseUrl = serviceScheme + ((window.location.protocol === 'https:') ? secureServiceUrl : serviceUrl);
+        baseUrl = serviceScheme + secureServiceUrl;
     }
-    return baseUrl + devToken;
+    if (devToken) {
+        baseUrl = baseUrl + devToken;
+    }
+    return baseUrl;
 }
 
 function createXHR(cb) {
@@ -6778,6 +6776,10 @@ function createSDKConfig(config) {
         }
     }
 
+    for (prop in Constants.DefaultUrls) {
+        sdkConfig[prop] = Constants.DefaultUrls[prop];
+    }
+
     return sdkConfig;
 }
 
@@ -6832,15 +6834,22 @@ function Store(config, config2) {
     this.SDKConfig = createSDKConfig(mergedConfigs);
     // Set configuration to default settings
     if (mergedConfigs) {
-        if (mergedConfigs.serviceUrl) {
-            Constants.serviceUrl = mergedConfigs.serviceUrl;
+        if (mergedConfigs.hasOwnProperty('secureServiceUrl')) {
+            this.SDKConfig.secureServiceUrl = mergedConfigs.secureServiceUrl;
         }
 
-        if (mergedConfigs.secureServiceUrl) {
-            Constants.secureServiceUrl = mergedConfigs.secureServiceUrl;
+        if (mergedConfigs.hasOwnProperty('v2SecureServiceUrl')) {
+            this.SDKConfig.v2SecureServiceUrl = mergedConfigs.v2SecureServiceUrl;
+        }
+        if (mergedConfigs.hasOwnProperty('identityUrl')) {
+            this.SDKConfig.identityUrl = mergedConfigs.identityUrl;
         }
 
-        if (mergedConfigs.logLevel) {
+        if (mergedConfigs.hasOwnProperty('aliasUrl')) {
+            this.SDKConfig.aliasUrl = mergedConfigs.aliasUrl;
+        }
+
+        if (mergedConfigs.hasOwnProperty('logLevel')) {
             this.SDKConfig.logLevel = mergedConfigs.logLevel;
         }
 
