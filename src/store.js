@@ -104,7 +104,7 @@ function Store(config, config2) {
         if (mergedConfigs.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = mergedConfigs.isIOS;
         } else {
-            this.SDKConfig.isIOS = false;
+            this.SDKConfig.isIOS = mParticle.isIOS || false;
         }
 
         if (mergedConfigs.hasOwnProperty('useCookieStorage')) {

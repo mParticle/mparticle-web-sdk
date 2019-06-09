@@ -235,6 +235,16 @@ describe('native-sdk methods', function() {
             mParticle.init(apiKey);
         });
 
+        it('should set mParitcle.Store.SDKConfig.isIOS to true when mParticle.isIOS is true', function(done) {
+            mParticle.reset(MPConfig);
+            mParticle.isIOS = true;
+            mParticle.init(apiKey);
+
+            mParticle.Store.SDKConfig.isIOS.should.equal(true);
+
+            done();
+        });
+
         it('invoke setSessionAttributes of $src_key/$src_env of apikey/\'webview\' to the native SDK\'s on init if apiKey is available', function(done) {
             mParticle.reset(MPConfig);
             window.mParticleAndroid = new mParticleAndroid();
