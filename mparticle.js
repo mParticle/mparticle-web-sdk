@@ -371,7 +371,7 @@ module.exports = {
 };
 
 },{"./helpers":9}],3:[function(require,module,exports){
-var sdkVersion = '2.9.1',
+var sdkVersion = '2.9.2',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -6862,7 +6862,7 @@ function Store(config, config2) {
         if (mergedConfigs.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = mergedConfigs.isIOS;
         } else {
-            this.SDKConfig.isIOS = false;
+            this.SDKConfig.isIOS = mParticle.isIOS || false;
         }
 
         if (mergedConfigs.hasOwnProperty('useCookieStorage')) {
