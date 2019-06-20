@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.9.3 - 2019-06-20
+* Bugfix - retain mParticle.isIOS on script load
+
 #### 2.9.2 - 2019-06-10
 * Bugfix - respect mParticle.isIOS setting
 
