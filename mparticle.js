@@ -371,7 +371,7 @@ module.exports = {
 };
 
 },{"./helpers":9}],3:[function(require,module,exports){
-var sdkVersion = '2.9.2',
+var sdkVersion = '2.9.3',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -3833,6 +3833,7 @@ var Polyfill = require('./polyfill'),
         sessionManager: SessionManager,
         cookieSyncManager: CookieSyncManager,
         persistence: Persistence,
+        isIOS: window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false,
         migrations: Migrations,
         Identity: IdentityAPI,
         Validators: Validators,
