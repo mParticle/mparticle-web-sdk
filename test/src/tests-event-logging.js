@@ -36,6 +36,57 @@ describe('event logging', function() {
         done();
     });
 
+    it('should log an error with name, message, stack', function(done) {
+        var error = new Error('my error');
+        error.stack = 'my stacktrace';
+
+        mParticle.logError(error);
+
+        var data = getEvent('Error');
+
+        Should(data).be.ok();
+
+        data.should.have.property('n', 'Error');
+        data.should.have.property('attrs');
+        data.attrs.should.have.property('m', 'my error');
+        data.attrs.should.have.property('s', 'Error');
+        data.attrs.should.have.property('t', 'my stacktrace');
+
+        done();
+    });
+
+    it('should log an error with custom attrs', function(done) {
+        var error = new Error('my error');
+        error.stack = 'my stacktrace';
+
+        mParticle.logError(error, { location: 'my path', myData: 'my data' });
+
+        var data = getEvent('Error');
+
+        Should(data).be.ok();
+        data.should.have.property('n', 'Error');
+        data.should.have.property('attrs');
+        data.attrs.should.have.property('location', 'my path');
+        data.attrs.should.have.property('myData', 'my data');
+
+        done();
+    });
+
+    it('should sanitize error custom attrs', function(done) {
+        mParticle.logError('my error', { invalid: ['my invalid attr'], valid: 10 });
+
+        var data = getEvent('Error');
+
+        Should(data).be.ok();
+        data.should.have.property('n', 'Error');
+        data.should.have.property('attrs');
+        data.attrs.should.have.property('valid', 10);
+        data.attrs.should.not.have.property('invalid');
+
+        done();
+    });
+
+
     it('should log an AST with firstRun = true when first visiting a page', function(done) {
         var data = getEvent(MessageType.AppStateTransition);
         data.should.have.property('at', 1);
