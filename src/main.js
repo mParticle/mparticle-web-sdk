@@ -376,8 +376,9 @@ var Polyfill = require('./polyfill'),
         *
         * @method logError
         * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
+        * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
         */
-        logError: function(error) {
+        logError: function(error, attrs) {
             SessionManager.resetSessionTimer();
             if (!error) {
                 return;
@@ -389,13 +390,22 @@ var Polyfill = require('./polyfill'),
                 };
             }
 
+            var data = {
+                m: error.message ? error.message : error,
+                s: 'Error',
+                t: error.stack
+            };
+
+            if (attrs) {
+                var sanitized = Helpers.sanitizeAttributes(attrs);
+                for (var prop in sanitized) {
+                    data[prop] = sanitized[prop];
+                }
+            }
+
             Events.logEvent(Types.MessageType.CrashReport,
                 error.name ? error.name : 'Error',
-                {
-                    m: error.message ? error.message : error,
-                    s: 'Error',
-                    t: error.stack
-                },
+                data,
                 Types.EventType.Other);
         },
         /**

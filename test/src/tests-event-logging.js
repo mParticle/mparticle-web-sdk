@@ -86,7 +86,6 @@ describe('event logging', function() {
         done();
     });
 
-
     it('should log an AST with firstRun = true when first visiting a page', function(done) {
         var data = getEvent(MessageType.AppStateTransition);
         data.should.have.property('at', 1);
