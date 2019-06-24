@@ -739,9 +739,9 @@ var Polyfill = require('./polyfill'),
     };
 
     function completeSDKInitialization(apiKey, config) {
-        mParticle.Store = new Store(config);
-
         mParticle.Logger = new Logger(config);
+        
+        mParticle.Store = new Store(config, mParticle.Logger);
 
         mParticle.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.Store.SDKConfig.requiredWebviewBridgeName, mParticle.Store.SDKConfig.minWebviewBridgeVersion);
 

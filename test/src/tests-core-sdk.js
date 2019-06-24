@@ -1,5 +1,6 @@
 var TestsCore = require('./tests-core'),
     Store = require('../../src/store'),
+    Logger = require('../../src/logger'),
     DefaultConfig = require('../../src/constants').DefaultConfig,
     MPConfig = TestsCore.MPConfig,
     setLocalStorage = TestsCore.setLocalStorage,
@@ -368,7 +369,8 @@ describe('core SDK', function() {
     });
 
     it('should have default options as well as configured options on configuration object, overwriting when appropriate', function(done) {
-        var defaults = new Store({});
+        var logger = new Logger({});
+        var defaults = new Store({}, logger);
         // all items here should be the default values
         for (var key in DefaultConfig) {
             defaults.SDKConfig.should.have.property(key, DefaultConfig[key]);
@@ -544,6 +546,28 @@ describe('core SDK', function() {
 
         var data = getEvent('hi');
         Should(data).be.ok();
+
+        done();
+    });
+
+    it('should not error when logger  custom loggers when provided', function (done) {
+        /* Previously the Store was initialized before Logger, and since Store contains Logger, and it would throw.
+        This no longer throws because Store takes the Logger as an argument, which is now initialized first.
+        */
+        mParticle.config.logLevel = 'verbose';
+        delete mParticle.config.workspaceToken; // no workspace token would previously make the Store fail to Log this fact
+        
+        var warnMessage;
+
+        mParticle.config.logger = {
+            warning: function (msg) {
+                warnMessage = msg;
+            }
+        };
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        warnMessage.should.equal('You should have a workspaceToken on your mParticle.config object for security purposes.');
 
         done();
     });

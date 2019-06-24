@@ -25,7 +25,7 @@ function createSDKConfig(config) {
     return sdkConfig;
 }
 
-function Store(config) {
+function Store(config, logger) {
     var defaultStore = {
         isEnabled: true,
         sessionAttributes: {},
@@ -167,7 +167,7 @@ function Store(config) {
             if (Validators.isFunction(callback)) {
                 this.SDKConfig.identityCallback = config.identityCallback;
             } else {
-                mParticle.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
+                logger.warning('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
             }
         }
 
@@ -193,7 +193,7 @@ function Store(config) {
         if (config.hasOwnProperty('workspaceToken')) {
             this.SDKConfig.workspaceToken = config.workspaceToken;
         } else {
-            mParticle.Logger.warning('You should have a workspaceToken on your mParticle.config object for security purposes.');
+            logger.warning('You should have a workspaceToken on your mParticle.config object for security purposes.');
         }
 
         if (config.hasOwnProperty('requiredWebviewBridgeName')) {
