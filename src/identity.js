@@ -75,7 +75,7 @@ var IdentityRequest = {
                 sdk_version: sdkVersion
             },
             context: context,
-            environment: mParticle.preInit.isDevelopmentMode ? 'development' : 'production',
+            environment: mParticle.Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
             request_id: Helpers.generateUniqueId(),
             request_timestamp_ms: new Date().getTime(),
             previous_mpid: mpid || null,
@@ -93,7 +93,7 @@ var IdentityRequest = {
                 sdk_version: sdkVersion
             },
             context: context,
-            environment: mParticle.preInit.isDevelopmentMode ? 'development' : 'production',
+            environment: mParticle.Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
             request_id: Helpers.generateUniqueId(),
             request_timestamp_ms: new Date().getTime(),
             identity_changes: this.createIdentityChanges(currentUserIdentities, newUserIdentities)

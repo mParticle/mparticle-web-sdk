@@ -60,7 +60,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var lsProductsRaw = '{"cp":[{"Name":"iPhone"|"Sku":"SKU1"|"Price":1|"Quantity":1|"TotalAmount":1|"Attributes":null}|{"Name":"Android"|"Sku":"SKU2"|"Price":1|"Quantity":1|"TotalAmount":1|"Attributes":null}]}';
         setCookie(v3CookieKey, SDKv1CookieV3, true);
         localStorage.setItem(v3LSKey, lsProductsRaw);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         server.requests = [];
         mParticle.eCommerce.logCheckout(1);
@@ -87,7 +87,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         setLocalStorage(v3LSKey, SDKv1CookieV3Full, true);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         server.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
@@ -130,7 +130,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         setCookie(v3CookieKey, SDKv1CookieV3FullLSApostrophes, true);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         server.requests = [];
         mParticle.eCommerce.logCheckout(1);
@@ -155,7 +155,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.config.useCookieStorage = false;
 
         setLocalStorage(v3LSKey, SDKv1CookieV3FullLSApostrophes, true);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         server.requests = [];
         mParticle.eCommerce.logCheckout(1);
@@ -242,7 +242,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         setCookie(v3CookieKey, SDKv1CookieV3WithEncodedProducts, true);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         server.requests = [];
         var testName = "' ' test name ' with apostrophes";
         mParticle.eCommerce.Cart.add(mParticle.eCommerce.createProduct(testName, 'sku123', 1));
@@ -269,7 +269,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var LSBefore = localStorage.getItem('mprtcl-prodv4');
         LSBefore.should.equal(corruptLS);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var cartProducts = mParticle.Identity.getCurrentUser().getCart().getCartProducts();
         cartProducts.length.should.equal(0);
@@ -285,7 +285,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.config.useCookieStorage = false;
 
         setLocalStorage(v3LSKey, SDKv1CookieV3WithEncodedProducts, true);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         server.requests = [];
         var testName = "' ' test name ' with apostrophes";
@@ -307,7 +307,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = false;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var product1 = mParticle.eCommerce.createProduct('asdfadsf’’’’', 'asdf', 123, 1);
         var product2 = mParticle.eCommerce.createProduct('asdfads®®®®', 'asdf', 123, 1);
         mParticle.eCommerce.Cart.add([product1, product2]);
@@ -336,7 +336,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         var cookieWithoutProducts = "{'sid':'234B3BA6-7BC2-4142-9CCD-015D7C4D0597'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjE6MjQ6MDcuNzQ4OTU4MVoiLCJWYWx1ZSI6Imc9NGQzYzE0YmUtNDY3NC00MzY0LWJlOTAtZjBjYmI3ZGI4MTNhJnU9ODE2OTg0NjE2MjM0NjA2NDk0NiZjcj00NTgxOTI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537219447486|'cgid':'429d1e42-5883-4296-91e6-8157765914d5'|'das':'4d3c14be-4674-4364-be90-f0cbb7db813a'|'mpid':'8169846162346064946'}";
         setLocalStorage(v3LSKey, cookieWithoutProducts, true);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var deviceId = mParticle.getDeviceId();
         deviceId.should.equal('4d3c14be-4674-4364-be90-f0cbb7db813a');
@@ -350,7 +350,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         var cookieWithoutProducts = "{'sid':'234B3BA6-7BC2-4142-9CCD-015D7C4D0597'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjE6MjQ6MDcuNzQ4OTU4MVoiLCJWYWx1ZSI6Imc9NGQzYzE0YmUtNDY3NC00MzY0LWJlOTAtZjBjYmI3ZGI4MTNhJnU9ODE2OTg0NjE2MjM0NjA2NDk0NiZjcj00NTgxOTI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537219447486|'cgid':'429d1e42-5883-4296-91e6-8157765914d5'|'das':'4d3c14be-4674-4364-be90-f0cbb7db813a'|'mpid':'8169846162346064946'}";
         setCookie(v3CookieKey, cookieWithoutProducts, true);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var deviceId = mParticle.getDeviceId();
         deviceId.should.equal('4d3c14be-4674-4364-be90-f0cbb7db813a');
@@ -366,7 +366,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var cookieWithoutProducts = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'testMPID'}";
         setLocalStorage(v3LSKey, cookieWithoutProducts, true);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var currentUser = mParticle.Identity.getCurrentUser();
         var ui = currentUser.getUserIdentities();
@@ -384,7 +384,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var cookieWithoutProducts = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'testMPID'}";
         setCookie(v3CookieKey, cookieWithoutProducts, true);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var currentUser = mParticle.Identity.getCurrentUser();
         var ui = currentUser.getUserIdentities();
@@ -396,11 +396,11 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('integration test - saves user attributes with special characters ® and ’', function(done) {
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var currentUser = mParticle.Identity.getCurrentUser();
         currentUser.setUserAttribute('test', '®’');
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var ua = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
@@ -418,7 +418,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var rawLS = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'testMPID'}";
         setLocalStorage(v3LSKey, rawLS, true);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var sessionId = mParticle.sessionManager.getSession();
         var das = mParticle.getDeviceId();
@@ -439,7 +439,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var cookies = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'testMPID'}";
         setCookie(v3CookieKey, cookies, true);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var sessionId = mParticle.sessionManager.getSession();
         var das = mParticle.getDeviceId();
@@ -462,7 +462,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         "{'cp':'111W3siTmFtZSI6ImlQaG9uasdfZcKu4oCZIDgiLCJTa3UiOiJpUGhvbmVTS1UxMjMiLCJQcmljZSI6Njk5LCJRdWFudGl0eSI6MSwiQnJhbmQiOiJBcHBsZSIsIlZhcmlhbnQiOiI4IFBsdXMgNjRHQiIsIkNhdGVnb3J5IjoiUGhvbmVzIiwiUG9zaXRpb24iOm51bGwsIkNvdXBvbkNvZGUiOiJDb3Vwb25Db2RlMSIsIlRvdGFsQW1vdW50Ijo2OTksIkF0dHJpYnV0ZXMiOnsiZGlzY291bnQiOjUsInNlYXJjaFRlcm0iOiJhcHBsZSJ9fSx7Ik5hbWUiOiJHYWxheHnCruKAmSBTOSIsIlNrdSI6IkFuZHJvaWRTS1UxMjMiLCJQcmljZSI6Njk5LCJRdWFudGl0eSI6MSwiQnJhbmQiOiJTYW1zdW5nIiwiVmFyaWFudCI6IlM5IFBsdXMgNjRHQiIsIkNhdGVnb3J5IjoiUGhvbmVzIiwiUG9zaXRpb24iOm51bGwsIkNvdXBvbkNvZGUiOiJDb3Vwb25Db2RlMiIsIlRvdGFsQW1vdW50Ijo2OTksIkF0dHJpYnV0ZXMiOnsiZGlzY291bnQiOjEwLCJzZWFyY2hUZXJtIjoic2Ftc3VuZyJ9fV0='|'sid':'5FB9CD47-CCC5-4897-B901-61059E9C5A0C'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMjNUMTg6NDQ6MjUuMDg5OTk2NVoiLCJWYWx1ZSI6Imc9YTY3ZWZmZDAtY2UyMC00Y2M4LTg5MzgtNzc3MWY0YzQ2ZmZiJnU9MjA3Mzk0MTkzMjk4OTgyMzA5OSZjcj00NTk0NzI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537987465067|'cgid':'d1ce6cb1-5f28-4520-8ce7-f67288590944'|'das':'a67effd0-ce20-4cc8-8938-7771f4c46ffb'|'mpid':'2073941932989823099'}";
 
         setCookie(v3CookieKey, cookies, true);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         Should(mParticle.Identity.getCurrentUser().getCart().getCartProducts().length).not.be.ok();
 
@@ -479,7 +479,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle._forceNoLocalStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         (window.localStorage.getItem('mprtclv4') === null).should.equal(true);
         findCookie(v4CookieKey).cu.should.equal('testMPID');
         delete mParticle._forceNoLocalStorage;
@@ -509,7 +509,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.config.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.workspaceToken = null;
 
         var newCookies = findCookie(v4CookieKey);
@@ -547,7 +547,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.config.useCookieStorage = false;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.workspaceToken = null;
 
         var oldLS = localStorage.getItem(v4CookieKey);
@@ -571,7 +571,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
     it('migrates from nonNameSpaced products to nameSpacedProducts on localStorage', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
         var product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799);
         mParticle.eCommerce.Cart.add([product1, product2]);
@@ -580,7 +580,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         Should(oldLS).not.be.ok();
 
         mParticle.workspaceToken = 'abcdef';
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
 
         var newLS = JSON.parse(atob(localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName)));

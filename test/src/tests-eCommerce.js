@@ -3,6 +3,7 @@ var TestsCore = require('./tests-core'),
     testMPID = TestsCore.testMPID,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     MPConfig = TestsCore.MPConfig,
+    forwarderDefaultConfiguration = TestsCore.forwarderDefaultConfiguration,
     ProductActionType = TestsCore.ProductActionType,
     PromotionActionType = TestsCore.PromotionActionType,
     getEvent = TestsCore.getEvent,
@@ -328,7 +329,7 @@ describe('eCommerce', function() {
     it('should not add the (config.maxProducts + 1st) item to cookie cartItems and only send cookie cartProducts when logging', function(done) {
         mParticle.config.maxProducts = 10;
         mParticle.config.workspaceToken = workspaceToken;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var product = mParticle.eCommerce.createProduct('Product', '12345', 400);
         for (var i = 0; i < mParticle.config.maxProducts; i++) {
@@ -495,7 +496,7 @@ describe('eCommerce', function() {
 
     it('should support array of products when adding to cart', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2),
             product2 = mParticle.eCommerce.createProduct('Nexus', '67890', 300, 1);
@@ -521,7 +522,7 @@ describe('eCommerce', function() {
 
     it('should support a single product when adding to cart', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2);
 
@@ -544,23 +545,11 @@ describe('eCommerce', function() {
     it('expand product purchase commerce event', function(done) {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-        mockForwarder.configure({
-            name: 'MockCommerceForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            screenNameFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        });
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        window.mParticle.config.kitConfigs.push(config1);
+        
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.eCommerce.setCurrencyCode('foo-currency');
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
@@ -575,8 +564,8 @@ describe('eCommerce', function() {
 
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
         mParticle.eCommerce.logPurchase(transactionAttributes, product, false, eventAttributes);
-        mockForwarder.instance.receivedEvent.should.have.property('ProductAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(mockForwarder.instance.receivedEvent);
+        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(2);
 
         var plusOneEvent = expandedEvents[0];
@@ -618,23 +607,11 @@ describe('eCommerce', function() {
     it('expand product refund commerce event', function(done) {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-        mockForwarder.configure({
-            name: 'MockCommerceForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            screenNameFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        });
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
 
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
@@ -649,8 +626,8 @@ describe('eCommerce', function() {
 
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
         mParticle.eCommerce.logRefund(transactionAttributes, product, false, eventAttributes);
-        mockForwarder.instance.receivedEvent.should.have.property('ProductAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(mockForwarder.instance.receivedEvent);
+        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(2);
 
         var plusOneEvent = expandedEvents[0];
@@ -667,23 +644,11 @@ describe('eCommerce', function() {
     it('expand non-plus-one-product commerce event', function(done) {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-        mockForwarder.configure({
-            name: 'MockCommerceForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            screenNameFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        });
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
@@ -696,8 +661,8 @@ describe('eCommerce', function() {
                     4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
 
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.RemoveFromWishlist, product, eventAttributes);
-        mockForwarder.instance.receivedEvent.should.have.property('ProductAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(mockForwarder.instance.receivedEvent);
+        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var productEvent = expandedEvents[0];
@@ -721,23 +686,11 @@ describe('eCommerce', function() {
     it('expand checkout commerce event', function(done) {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-        mockForwarder.configure({
-            name: 'MockCommerceForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            screenNameFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        });
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
 
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
@@ -752,8 +705,8 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add(product, true);
         mParticle.eCommerce.logCheckout('foo-step', 'foo-options', eventAttributes);
-        mockForwarder.instance.receivedEvent.should.have.property('ProductAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(mockForwarder.instance.receivedEvent);
+        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var productEvent = expandedEvents[0];
@@ -779,31 +732,19 @@ describe('eCommerce', function() {
     it('expand promotion commerce event', function(done) {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-        mockForwarder.configure({
-            name: 'MockCommerceForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            screenNameFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        });
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        window.mParticle.config.kitConfigs.push(config1);
+        
+        mParticle.init(apiKey, window.mParticle.config);
 
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
         var promotion = mParticle.eCommerce.createPromotion('foo-id', 'foo-creative', 'foo-name', 'foo-position');
         mParticle.eCommerce.logPromotion(mParticle.PromotionType.PromotionClick, promotion, eventAttributes);
-        mockForwarder.instance.receivedEvent.should.have.property('PromotionAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(mockForwarder.instance.receivedEvent);
+        window.MockForwarder1.instance.receivedEvent.should.have.property('PromotionAction');
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var promotionEvent = expandedEvents[0];
@@ -831,23 +772,11 @@ describe('eCommerce', function() {
     it('expand impression commerce event', function(done) {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
-        mParticle.addForwarder(mockForwarder);
-        mockForwarder.configure({
-            name: 'MockCommerceForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            screenNameFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        });
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        window.mParticle.config.kitConfigs.push(config1);
+        
+        mParticle.init(apiKey, window.mParticle.config);
 
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
@@ -863,8 +792,8 @@ describe('eCommerce', function() {
         var impression = mParticle.eCommerce.createImpression('suggested products list', product);
 
         mParticle.eCommerce.logImpression(impression, eventAttributes);
-        mockForwarder.instance.receivedEvent.should.have.property('ProductImpressions');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(mockForwarder.instance.receivedEvent);
+        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductImpressions');
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
 
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 

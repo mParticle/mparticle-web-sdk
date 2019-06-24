@@ -436,23 +436,6 @@ function sanitizeAttributes(attrs) {
     return sanitizedAttrs;
 }
 
-function mergeConfigs() {
-    // accepts arguments for configurations and consolidates them
-    var configs = Array.prototype.slice.call(arguments);
-    var newConfig = {};
-    configs.forEach(function(config) {
-        if (isObject(config)) {
-            for (var prop in config) {
-                if (config.hasOwnProperty(prop)) {
-                    newConfig[prop] = config[prop];
-                }
-            }
-        }
-    });
-
-    return newConfig;
-}
-
 var Validators = {
     isValidAttributeValue: function(value) {
         return value !== undefined && !isObject(value) && !Array.isArray(value);
@@ -608,7 +591,6 @@ module.exports = {
     parseStringOrNumber: parseStringOrNumber,
     generateHash: generateHash,
     sanitizeAttributes: sanitizeAttributes,
-    mergeConfigs: mergeConfigs,
     returnConvertedBoolean: returnConvertedBoolean,
     invokeCallback: invokeCallback,
     invokeAliasCallback: invokeAliasCallback,

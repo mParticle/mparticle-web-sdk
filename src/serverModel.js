@@ -123,7 +123,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             SDKVersion: Constants.sdkVersion,
             SessionId: mParticle.Store.sessionId,
             EventDataType: messageType,
-            Debug: mParticle.preInit.isDevelopmentMode,
+            Debug: mParticle.Store.SDKConfig.isDevelopmentMode,
             Location: mParticle.Store.currentPosition,
             OptOut: optOut,
             ExpandedEventCount: 0,

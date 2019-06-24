@@ -107,6 +107,7 @@ var sdkVersion = '2.9.3',
     DefaultUrls = {
         v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
         v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
+        configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
         identityUrl: 'identity.mparticle.com/v1/',
         aliasUrl: 'jssdks.mparticle.com/v1/identity/'
     },

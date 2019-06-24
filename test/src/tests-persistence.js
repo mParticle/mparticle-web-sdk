@@ -38,7 +38,7 @@ describe('migrations and persistence-related', function() {
         setCookie(workspaceCookieName, cookies);
         var beforeInitCookieData = findCookie(workspaceCookieName);
         mParticle.config.useCookieStorage = false;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         var localStorageData = mParticle.persistence.getLocalStorage();
         var afterInitCookieData = findCookie();
@@ -56,7 +56,7 @@ describe('migrations and persistence-related', function() {
         setLocalStorage();
 
         mParticle.config.useCookieStorage = true;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
@@ -73,7 +73,7 @@ describe('migrations and persistence-related', function() {
     it('localStorage - should key cookies on mpid on first run', function(done) {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = false;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var cookies1 = mParticle.persistence.getLocalStorage();
         var props1 = ['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'sid', 'c'];
         props1.forEach(function(prop) {
@@ -107,7 +107,7 @@ describe('migrations and persistence-related', function() {
     it('cookies - should key cookies on mpid when there are no cookies yet', function(done) {
         mParticle.reset(MPConfig);
         window.mParticle.config.useCookieStorage = true;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var cookies1 = findCookie();
 
@@ -142,7 +142,7 @@ describe('migrations and persistence-related', function() {
 
     it('puts data into cookies when init-ing with useCookieStorage = true', function(done) {
         window.mParticle.config.useCookieStorage = true;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var cookieData = findCookie();
 
@@ -163,7 +163,9 @@ describe('migrations and persistence-related', function() {
     });
 
     it('puts data into localStorage when running initializeStorage with useCookieStorage = false', function(done) {
-        mParticle.init(apiKey);
+        // window.mParticle.config.useCookieStorage = false;
+
+        mParticle.init(apiKey, window.mParticle.config);
 
         var cookieData = mParticle.persistence.getCookie();
 
@@ -186,7 +188,7 @@ describe('migrations and persistence-related', function() {
         var cookieData, localStorageData;
 
         window.mParticle.config.useCookieStorage = true;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         cookieData = findCookie();
         cookieData.should.have.properties(['gs', 'cu', testMPID]);
@@ -205,7 +207,8 @@ describe('migrations and persistence-related', function() {
     it('puts data into localStorage when updating persistence with useCookieStorage = false', function(done) {
         var localStorageData, cookieData;
         // Flush out anything in expire before updating in order to silo testing persistence.update()
-        mParticle.init(apiKey);
+        // window.mParticle.config.useCookieStorage = false;
+        mParticle.init(apiKey, window.mParticle.config);
 
         localStorageData = getLocalStorage();
         cookieData = findCookie();
@@ -228,7 +231,7 @@ describe('migrations and persistence-related', function() {
             return false;
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
@@ -243,7 +246,7 @@ describe('migrations and persistence-related', function() {
     it('should set certain attributes onto global localStorage, while setting user specific to the MPID', function(done) {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = false;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.setIntegrationAttribute(128, {MCID: 'abcedfg'});
         var data = getLocalStorage();
@@ -269,7 +272,7 @@ describe('migrations and persistence-related', function() {
 
     it('should set certain attributes onto global cookies, while setting user specific to the MPID', function(done) {
         mParticle.config.useCookieStorage = true;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         var data = findCookie();
@@ -284,7 +287,7 @@ describe('migrations and persistence-related', function() {
     it('should add new MPID to cookies when returned MPID does not match anything in cookies, and have empty UI and UA', function(done) {
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var user1 = { userIdentities: { customerid: 'customerid1' } };
 
         server.handle = function(request) {
@@ -342,7 +345,7 @@ describe('migrations and persistence-related', function() {
             }
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var data = mParticle.persistence.getLocalStorage();
         data.cu.should.equal(testMPID);
@@ -386,7 +389,7 @@ describe('migrations and persistence-related', function() {
         user3data.cu.should.equal('mpid3');
 
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var data3 = mParticle.persistence.getLocalStorage();
         data3.cu.should.equal('mpid3');
 
@@ -399,7 +402,7 @@ describe('migrations and persistence-related', function() {
 
         var user2 = { userIdentities: { customerid: 'customerid2'}};
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('test1', 'test1');
 
@@ -540,7 +543,7 @@ describe('migrations and persistence-related', function() {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = true;
         mParticle.config.maxCookieSize = 1000;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -591,7 +594,7 @@ describe('migrations and persistence-related', function() {
         mParticle.config.useCookieStorage = true;
         mParticle.config.maxCookieSize = 650;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
@@ -700,7 +703,7 @@ describe('migrations and persistence-related', function() {
         mParticle.config.useCookieStorage = true;
         mParticle.config.maxCookieSize = 600;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
@@ -766,7 +769,7 @@ describe('migrations and persistence-related', function() {
         mParticle.config.useCookieStorage = false;
         mParticle.config.maxCookieSize = 700;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
@@ -805,7 +808,7 @@ describe('migrations and persistence-related', function() {
 
         mParticle.config.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var cookieData = findCookie();
 
         Should(cookieData['testMPID']).not.be.ok();
@@ -819,7 +822,7 @@ describe('migrations and persistence-related', function() {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
@@ -858,7 +861,7 @@ describe('migrations and persistence-related', function() {
 
         mParticle.config.useCookieStorage = false;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var lsData = getLocalStorage(v4LSKey);
 
         lsData.should.have.properties(['gs', 'cu', 'testMPID', 'MPID1', 'MPID2']);
@@ -873,7 +876,7 @@ describe('migrations and persistence-related', function() {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = false;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
@@ -912,7 +915,7 @@ describe('migrations and persistence-related', function() {
 
         mParticle.config.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var cookieData = findCookie();
 
         cookieData.should.have.properties(['gs', 'cu', 'testMPID', 'MPID1', 'MPID2']);
@@ -926,7 +929,7 @@ describe('migrations and persistence-related', function() {
     it('get/set consent state for single user', function(done) {
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var consentState = mParticle.Identity.getCurrentUser().getConsentState();
         should.not.exist(consentState);
         consentState = mParticle.Consent.createConsentState();
@@ -945,7 +948,7 @@ describe('migrations and persistence-related', function() {
     it('get/set consent state for multiple users', function(done) {
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -963,7 +966,7 @@ describe('migrations and persistence-related', function() {
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
         mParticle.reset(MPConfig, true);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -1006,7 +1009,7 @@ describe('migrations and persistence-related', function() {
         var LS = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
         setLocalStorage(v4LSKey, LS, true);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var sessionId = mParticle.sessionManager.getSession();
         var das = mParticle.getDeviceId();
@@ -1028,7 +1031,7 @@ describe('migrations and persistence-related', function() {
         setCookie(workspaceCookieName, cookies, true);
 
         mParticle.config.useCookieStorage = true;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var sessionId = mParticle.sessionManager.getSession();
         var das = mParticle.getDeviceId();
@@ -1047,7 +1050,7 @@ describe('migrations and persistence-related', function() {
         var products = 'eyItOTE4MjY2NTAzNTA1ODg1NjAwMyI6eyasdjfiojasdifojfsdfJjcCI6W3siTmFtZSI6ImFuZHJvaWQiLCJTa3UiOiI1MTg3MDkiLCJQcmljZSI6MjM0LCJRdWFudGl0eSI6MSwiQnJhbmQiOm51bGwsIlZhcmlhbnQiOm51bGwsIkNhdGVnb3J5IjpudWxsLCJQb3NpdGlvbiI6bnVsbCwiQ291cG9uQ29kZSI6bnVsbCwiVG90YWxBbW91bnQiOjIzNCwiQXR0cmlidXRlcyI6eyJwcm9kYXR0cjEiOiJoaSJ9fSx7Ik5hbWUiOiJ3aW5kb3dzIiwiU2t1IjoiODMzODYwIiwiUHJpY2UiOjM0NSwiUXVhbnRpdHkiOjEsIlRvdGFsQW1vdW50IjozNDUsIkF0dHJpYnV0ZXMiOm51bGx9XX19';
 
         localStorage.setItem(localStorageProductsV4, products);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var productsAfterInit = getLocalStorageProducts().testMPID;
         Should(productsAfterInit.length).not.be.ok();
@@ -1057,7 +1060,7 @@ describe('migrations and persistence-related', function() {
 
     it('should save products to persistence correctly when adding and removing products', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var iphone = mParticle.eCommerce.createProduct('iphone', 'iphonesku', 599, 1, 'iphone variant', 'iphonecategory', 'iphonebrand', null, 'iphonecoupon', {iphoneattr1: 'value1', iphoneattr2: 'value2'});
         mParticle.eCommerce.Cart.add(iphone, true);
@@ -1098,7 +1101,7 @@ describe('migrations and persistence-related', function() {
         setCookie(workspaceCookieName, cookies);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.persistence.setFirstSeenTime('current', 10000);
         var currentFirstSeenTime = mParticle.persistence.getFirstSeenTime('current');
@@ -1134,7 +1137,7 @@ describe('migrations and persistence-related', function() {
         setCookie(workspaceCookieName, cookies, true);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var clock = sinon.useFakeTimers();
         clock.tick(100);
@@ -1175,7 +1178,7 @@ describe('migrations and persistence-related', function() {
         setCookie(workspaceCookieName, cookies, true);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         Persistence.setFirstSeenTime('1', 1);
         Persistence.getFirstSeenTime('1').should.equal(1);
@@ -1208,7 +1211,7 @@ describe('migrations and persistence-related', function() {
         setCookie(workspaceCookieName, cookies, true);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         Should(Persistence.getFirstSeenTime('current')).equal(null);
 
@@ -1231,7 +1234,7 @@ describe('migrations and persistence-related', function() {
         setCookie(workspaceCookieName, cookies, true);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         Should(Persistence.getFirstSeenTime('previous')).equal(null);
 
         done();

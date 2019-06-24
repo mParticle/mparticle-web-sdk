@@ -8,6 +8,7 @@ var Helpers= require('../../src/helpers'),
     server = TestsCore.server,
     findCookie = TestsCore.findCookie,
     MPConfig = TestsCore.MPConfig,
+    forwarderDefaultConfiguration = TestsCore.forwarderDefaultConfiguration,
     getIdentityEvent = TestsCore.getIdentityEvent,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     getEvent = TestsCore.getEvent,
@@ -19,43 +20,33 @@ var Helpers= require('../../src/helpers'),
 describe('identity', function() {
     it('should respect consent rules on consent-change', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.preInit.isDevelopmentMode = true;
+        mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder('MockForwarder1');
-        mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder({
-            name: 'MockForwarder1',
-            settings: {},
-            id: 1,
-            isDebug: true,
-            hasDebugString: false,
-            isVisible: true,
-            filteringConsentRuleValues: {
-                includeOnMatch: true,
-                values:[{
-                    consentPurpose: mParticle.generateHash('1'+'foo purpose 1'),
-                    hasConsented: true
-                }]
-            }
-        });
+        mockForwarder.register(window.mParticle.config);
+
+        var config1 = forwarderDefaultConfiguration('MockForwarder1', 1);
+        config1.filteringConsentRuleValues = {
+            includeOnMatch: true,
+            values:[{
+                consentPurpose: mParticle.generateHash('1'+'foo purpose 1'),
+                hasConsented: true
+            }]
+        };
 
         var mockForwarder2 = new MockForwarder('MockForwarder2', 2);
-        mParticle.addForwarder(mockForwarder2);
+        mockForwarder2.register(window.mParticle.config);
 
-        mParticle.configureForwarder({
-            name: 'MockForwarder2',
-            settings: {},
-            id: 2,
-            isDebug: true,
-            hasDebugString: false,
-            isVisible: true,
-            filteringConsentRuleValues: {
-                includeOnMatch: true,
-                values:[{
-                    consentPurpose: mParticle.generateHash('1'+'foo purpose 2'),
-                    hasConsented: true
-                }]
-            }
-        });
+        var config2 = forwarderDefaultConfiguration('MockForwarder2', 2);
+        config2.filteringConsentRuleValues = {
+            includeOnMatch: true,
+            values:[{
+                consentPurpose: mParticle.generateHash('1'+'foo purpose 2'),
+                hasConsented: true
+            }]
+        };
+
+        window.mParticle.config.kitConfigs.push(config1);
+        window.mParticle.config.kitConfigs.push(config2);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -63,7 +54,7 @@ describe('identity', function() {
                 mpid: 'MPID1'
             }));
         };
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var activeForwarders = mParticle._getActiveForwarders();
         activeForwarders.length.should.not.be.ok();
@@ -154,7 +145,7 @@ describe('identity', function() {
 
         setLocalStorage();
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var cookies1 = mParticle.persistence.getLocalStorage();
         cookies1.cu.should.equal(testMPID);
@@ -189,7 +180,7 @@ describe('identity', function() {
 
         setLocalStorage();
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var cookiesAfterInit = findCookie();
         cookiesAfterInit.should.have.properties('gs', 'cu', testMPID);
@@ -624,7 +615,7 @@ describe('identity', function() {
             }));
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         spy.calledOnce.should.be.ok();
         mParticle.startNewSession();
         spy.calledOnce.should.be.ok();
@@ -640,7 +631,7 @@ describe('identity', function() {
             request.receive(200, JSON.stringify({}));
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         server.requests = [];
         mParticle.logEvent('Test1');
@@ -685,7 +676,7 @@ describe('identity', function() {
             }
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         // get user 1 into cookies
         server.handle = function(request) {
@@ -731,7 +722,7 @@ describe('identity', function() {
 
         mParticle.identifyRequest = user1;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var users = mParticle.Identity.getUsers();
         //this includes the original, starting user, in addition to the 3 added above
         Should(users).have.length(4);
@@ -769,7 +760,7 @@ describe('identity', function() {
             }
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         // get user 1 into cookies
         server.handle = function(request) {
@@ -818,7 +809,7 @@ describe('identity', function() {
 
         mParticle.identifyRequest = user1;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var localStorage = mParticle.persistence.getLocalStorage();
 
@@ -854,7 +845,7 @@ describe('identity', function() {
         server.requests = [];
 
         mParticle.identifyRequest = null;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var data = getEvent(1);
 
@@ -897,7 +888,7 @@ describe('identity', function() {
 
         mParticle.config.identifyRequest = user1;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.modify(user1modified);
         mParticle.Identity.getCurrentUser().setUserAttribute('foo1', 'bar1');
@@ -1000,7 +991,7 @@ describe('identity', function() {
 
         mParticle.config.identifyRequest = user1;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var user1UIs = mParticle.Identity.getCurrentUser().getUserIdentities();
 
         user1UIs.userIdentities.customerid.should.equal('1');
@@ -1049,7 +1040,7 @@ describe('identity', function() {
             }));
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var user5 = mParticle.Identity.getCurrentUser();
         user5.getUserIdentities().userIdentities.customerid.should.equal('4');
@@ -1233,7 +1224,7 @@ describe('identity', function() {
             }
         };
         mParticle.identifyRequest = identityAPIRequest1;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 2),
@@ -1639,7 +1630,7 @@ describe('identity', function() {
             mpid = resp.body.mpid;
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mpid.should.equal('MPID1');
         done();
@@ -1657,7 +1648,7 @@ describe('identity', function() {
             result = resp;
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var result;
 
@@ -1669,8 +1660,7 @@ describe('identity', function() {
         };
 
         server.requests = [];
-        mParticle.init(apiKey);
-
+        mParticle.init(apiKey, window.mParticle.config);
         //the only server request is the AST, there is no request to Identity
         server.requests.length.should.equal(1);
         result.should.have.properties('body', 'httpCode', 'getUser');
@@ -1704,7 +1694,7 @@ describe('identity', function() {
             resp.getUser().setUserAttribute('test', 'value');
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         result.should.have.property('getUser');
 
@@ -1730,7 +1720,7 @@ describe('identity', function() {
             }));
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var identityRequest = { userIdentities: {customerid: 'test123'}};
         function loginCallback (result) {
@@ -1776,7 +1766,7 @@ describe('identity', function() {
             }));
         };
 
-        // invalid customerid of type number, so mParticle.init(apiKey) will fail, but create cookies
+        // invalid customerid of type number, so mParticle.init(apiKey, window.mParticle.config) will fail, but create cookies
         // without a current user
         mParticle.config.identifyRequest = {
             userIdentities: {
@@ -1784,7 +1774,7 @@ describe('identity', function() {
             }
         };
         server.requests = [];
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var cookies = mParticle.persistence.getPersistence();
         cookies.should.have.property('gs');
@@ -1799,7 +1789,7 @@ describe('identity', function() {
         };
         server.requests = [];
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         cookies = mParticle.persistence.getPersistence();
         cookies.should.have.property('gs');
@@ -1824,7 +1814,7 @@ describe('identity', function() {
         var clock = sinon.useFakeTimers();
         clock.tick(100);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var currentUser = mParticle.Identity.getCurrentUser();
         currentUser.should.not.equal(null);
@@ -1856,7 +1846,7 @@ describe('identity', function() {
 
         server.requests = [];
         
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var currentUser = mParticle.Identity.getCurrentUser();
         currentUser.should.not.equal(null);
@@ -1935,7 +1925,7 @@ describe('identity', function() {
         setCookie(workspaceCookieName, cookies);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var users = mParticle.Identity.getUsers();
 
@@ -1959,7 +1949,7 @@ describe('identity', function() {
                 errorMessages.push(msg);
             }
         };
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Store.identityCallInFlight = true;
     
@@ -1998,7 +1988,7 @@ describe('identity', function() {
 
         mParticle.config.identityCallback = identityCallback;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         identityResult.getUser().getMPID().should.equal('testMPID');
         Should(identityResult.getPreviousUser()).not.equal(null);
@@ -2022,7 +2012,7 @@ describe('identity', function() {
         setCookie(workspaceCookieName, cookies);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var loginResult;
 
@@ -2067,7 +2057,7 @@ describe('identity', function() {
         setCookie(workspaceCookieName, cookies);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
 
         server.handle = function(request) {
@@ -2116,28 +2106,6 @@ describe('identity', function() {
         done();
     });
 
-    it('should set isFirtRun to false after an app is initialized', function(done) {
-        mParticle.reset(MPConfig);
-
-        mParticle.init(apiKey);
-
-        mParticle.Store.isFirstRun.should.equal(false);
-
-        server.handle = function (request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'otherMPID1'
-            }));
-        };
-
-        mParticle.Identity.login({userIdentities: {customerid: 'abc'}});
-
-        var ls = mParticle.persistence.getLocalStorage();
-        ls['testMPID'].lst.should.not.equal(null);
-
-        done();
-    });
-
     it('Should reject malformed Alias Requests', function(done) {
         mParticle.config.logLevel = 'verbose';
         var warnMessage = null;
@@ -2147,7 +2115,7 @@ describe('identity', function() {
                 warnMessage = msg;
             }
         };
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var callbackResult;
         
         //missing sourceMpid
@@ -2251,7 +2219,7 @@ describe('identity', function() {
     });
 
     it('Should parse error info from Alias Requests', function(done) {
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         var errorMessage = 'this is a sample error message';
         var callbackResult;
 
@@ -2298,7 +2266,7 @@ describe('identity', function() {
         setCookie(workspaceCookieName, cookies);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var clock = sinon.useFakeTimers();
         clock.tick(1000);
@@ -2335,7 +2303,7 @@ describe('identity', function() {
         setCookie(workspaceCookieName, cookies);
         mParticle.useCookieStorage = true;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var clock = sinon.useFakeTimers();
         clock.tick(1000);
@@ -2377,7 +2345,7 @@ describe('identity', function() {
         //set max Alias startTime age to 1 day
         mParticle.config.aliasMaxWindow = 1;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var clock = sinon.useFakeTimers();
         clock.tick(millisPerDay * 2);
@@ -2424,7 +2392,7 @@ describe('identity', function() {
         //set max Alias startTime age to 1 day
         mParticle.config.aliasMaxWindow = 1;
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var clock = sinon.useFakeTimers();
         clock.tick(millisPerDay * 2);
@@ -2441,6 +2409,28 @@ describe('identity', function() {
         Should(warnMessage).equal('Source User has not been seen in the last ' + mParticle.Store.SDKConfig.maxAliasWindow + ' days, Alias Request will likely fail');
 
         clock.restore();
+        done();
+    });
+
+    it('should set isFirtRun to false after an app is initialized', function(done) {
+        mParticle.reset(MPConfig);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.Store.isFirstRun.should.equal(false);
+
+        server.handle = function (request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'otherMPID1'
+            }));
+        };
+
+        mParticle.Identity.login({userIdentities: {customerid: 'abc'}});
+
+        var ls = mParticle.persistence.getLocalStorage();
+        ls['testMPID'].lst.should.not.equal(null);
+
         done();
     });
 });

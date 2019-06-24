@@ -40,6 +40,7 @@ var Polyfill = require('./polyfill'),
     HTTPCodes = IdentityAPI.HTTPCodes,
     mParticleUserCart = require('./identity').mParticleUserCart,
     mParticleUser = require('./identity').mParticleUser,
+    ApiClient = require('./apiClient'),
     Consent = require('./consent');
 
 (function(window) {
@@ -92,126 +93,30 @@ var Polyfill = require('./polyfill'),
         * @param {String} apiKey your mParticle assigned API key
         * @param {Object} [options] an options object for additional configuration
         */
-        init: function(apiKey) {
-            var config;
-            if (arguments && arguments.length) {
-                if (arguments.length > 1 && typeof arguments[1] === 'object') {
-                    config = arguments[1];
-                }
+        init: function(apiKey, config) {
+            if (!config && window.mParticle.config) {
+                window.console.warn('You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly');
+                config = window.mParticle.config;
             }
-
-            // Set user config settings
-            mParticle.Store = new Store(window.mParticle.config, config);
-
-            mParticle.Logger = new Logger(window.mParticle.config);
-
-            mParticle.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.Store.SDKConfig.requiredWebviewBridgeName, mParticle.Store.SDKConfig.minWebviewBridgeVersion);
-
-            if (mParticle.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
-                if (apiKey) {
-                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey}));
+            // Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
+            // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
+            // to it for it to be run after fetched
+            if (config) {
+                if (!config.hasOwnProperty('requestConfig') || config.requestConfig) {
+                    ApiClient.getSDKConfiguration(apiKey, config, completeSDKInitialization);
+                } else {
+                    completeSDKInitialization(apiKey, config);
                 }
             } else {
-                var currentUser;
-
-                mParticle.Store.devToken = apiKey || null;
-                mParticle.Logger.verbose(Messages.InformationMessages.StartingInitialization);
-                //check to see if localStorage is available for migrating purposes
-                mParticle.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
-
-                mParticle.Logger.verbose(Messages.InformationMessages.StartingInitialization);
-
-                // Migrate any cookies from previous versions to current cookie version
-                Migrations.migrate();
-
-                // Load any settings/identities/attributes from cookie or localStorage
-                Persistence.initializeStorage();
-
-                // If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
-                if ((Helpers.isObject(mParticle.Store.SDKConfig.identifyRequest) && Helpers.isObject(mParticle.Store.SDKConfig.identifyRequest.userIdentities) &&
-                    Object.keys(mParticle.Store.SDKConfig.identifyRequest.userIdentities).length === 0) || !mParticle.Store.SDKConfig.identifyRequest) {
-                    var modifiedUIforIdentityRequest = {};
-
-                    currentUser = mParticle.Identity.getCurrentUser();
-                    if (currentUser) {
-                        var identities = currentUser.getUserIdentities().userIdentities || {};
-                        for (var identityKey in identities) {
-                            if (identities.hasOwnProperty(identityKey)) {
-                                modifiedUIforIdentityRequest[identityKey] = identities[identityKey];
-                            }
-                        }
-                    }
-
-                    mParticle.Store.SDKConfig.identifyRequest = {
-                        userIdentities: modifiedUIforIdentityRequest
-                    };
-                }
-
-                // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
-                if (mParticle.Store.migratingToIDSyncCookies) {
-                    IdentityAPI.identify(mParticle.Store.SDKConfig.identifyRequest, mParticle.Store.SDKConfig.identityCallback);
-                    mParticle.Store.migratingToIDSyncCookies = false;
-                }
-
-                currentUser = IdentityAPI.getCurrentUser();
-                // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
-                if (!mParticle.Store.identifyCalled && mParticle.Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
-                    mParticle.Store.SDKConfig.identityCallback({
-                        httpCode: HTTPCodes.activeSession,
-                        getUser: function() {
-                            return mParticleUser(currentUser.getMPID());
-                        },
-                        getPreviousUser: function() {
-                            var users = mParticle.Identity.getUsers();
-                            var mostRecentUser = users.shift();
-                            if (mostRecentUser && currentUser && mostRecentUser.getMPID() === currentUser.getMPID()) {
-                                mostRecentUser = users.shift();
-                            }
-                            return mostRecentUser || null;
-                        },
-                        body: {
-                            mpid: currentUser.getMPID(),
-                            is_logged_in: mParticle.Store.isLoggedIn,
-                            matched_identities: currentUser.getUserIdentities().userIdentities,
-                            context: null,
-                            is_ephemeral: false
-                        }
-                    });
-                }
-
-                Forwarders.initForwarders(mParticle.Store.SDKConfig.identifyRequest.userIdentities);
-                if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
-                    ForwardingStatsUploader.startForwardingStatsTimer();
-                }
-
-                SessionManager.initialize();
-                Events.logAST();
-            }
-
-            // Call any functions that are waiting for the library to be initialized
-            if (mParticle.preInit.readyQueue && mParticle.preInit.readyQueue.length) {
-                mParticle.preInit.readyQueue.forEach(function(readyQueueItem) {
-                    if (Validators.isFunction(readyQueueItem)) {
-                        readyQueueItem();
-                    } else if (Array.isArray(readyQueueItem)) {
-                        processPreloadedItem(readyQueueItem);
-                    }
-                });
-
-                mParticle.preInit.readyQueue = [];
-            }
-            mParticle.Store.isInitialized = true;
-
-            if (mParticle.Store.isFirstRun) {
-                mParticle.Store.isFirstRun = false;
+                window.console.error('No config available on the window, please pass a config object to mParticle.init()');
+                return;
             }
         },
         setLogLevel: function(newLogLevel) {
             mParticle.Logger.setLogLevel(newLogLevel);
         },
         /**
-        * Completely resets the state of the SDK. mParticle.init(apiKey) will need to be called again.
+        * Completely resets the state of the SDK. mParticle.init(apiKey, window.mParticle.config) will need to be called again.
         * @method reset
         * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
         */
@@ -233,8 +138,7 @@ var Polyfill = require('./polyfill'),
                 integrationDelays: {},
                 featureFlags: {},
                 forwarderConstructors: [],
-                isDevelopmentMode: false,
-                configuredForwarders: []
+                isDevelopmentMode: false
             };
         },
         ready: function(f) {
@@ -806,50 +710,15 @@ var Polyfill = require('./polyfill'),
                 return {};
             }
         },
-        addForwarder: function(forwarderProcessor) {
-            mParticle.preInit.forwarderConstructors.push(forwarderProcessor);
+        addForwarder: function(forwarder) {
+            mParticle.preInit.forwarderConstructors.push(forwarder);
         },
-        configureForwarder: function(configuration) {
-            var newForwarder = null,
-                config = configuration;
-            for (var i = 0; i < mParticle.preInit.forwarderConstructors.length; i++) {
-                if (mParticle.preInit.forwarderConstructors[i].name === config.name) {
-                    if (config.isDebug === mParticle.preInit.isDevelopmentMode || config.isSandbox === mParticle.preInit.isDevelopmentMode) {
-                        newForwarder = new mParticle.preInit.forwarderConstructors[i].constructor();
-
-                        newForwarder.id = config.moduleId;
-                        newForwarder.isSandbox = config.isDebug || config.isSandbox;
-                        newForwarder.hasSandbox = config.hasDebugString === 'true';
-                        newForwarder.isVisible = config.isVisible;
-                        newForwarder.settings = config.settings;
-
-                        newForwarder.eventNameFilters = config.eventNameFilters;
-                        newForwarder.eventTypeFilters = config.eventTypeFilters;
-                        newForwarder.attributeFilters = config.attributeFilters;
-
-                        newForwarder.screenNameFilters = config.screenNameFilters;
-                        newForwarder.screenNameFilters = config.screenNameFilters;
-                        newForwarder.pageViewAttributeFilters = config.pageViewAttributeFilters;
-
-                        newForwarder.userIdentityFilters = config.userIdentityFilters;
-                        newForwarder.userAttributeFilters = config.userAttributeFilters;
-
-                        newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
-                        newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
-                        newForwarder.eventSubscriptionId = config.eventSubscriptionId;
-                        newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
-                        newForwarder.excludeAnonymousUser = config.excludeAnonymousUser;
-
-                        mParticle.preInit.configuredForwarders.push(newForwarder);
-                        break;
-                    }
-                }
-            }
-        },
+        // TODO: think about timing of release
+        // configureForwarder: function(configuration) {
+        //     Forwarders.configureForwarder(configuration);
+        // },
         configurePixel: function(settings) {
-            if (settings.isDebug === mParticle.preInit.isDevelopmentMode || settings.isProduction !== mParticle.preInit.isDevelopmentMode) {
-                mParticle.preInit.pixelConfigurations.push(settings);
-            }
+            Forwarders.configurePixel(settings);
         },
         _getActiveForwarders: function() {
             return mParticle.Store.activeForwarders;
@@ -868,6 +737,112 @@ var Polyfill = require('./polyfill'),
             mParticle.preInit.integrationDelays[module] = boolean;
         }
     };
+
+    function completeSDKInitialization(apiKey, config) {
+        mParticle.Store = new Store(config);
+
+        mParticle.Logger = new Logger(config);
+
+        mParticle.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.Store.SDKConfig.requiredWebviewBridgeName, mParticle.Store.SDKConfig.minWebviewBridgeVersion);
+
+        if (mParticle.Store.webviewBridgeEnabled) {
+            NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
+            if (apiKey) {
+                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey }));
+            }
+        } else {
+            var currentUser;
+
+            mParticle.Store.devToken = apiKey || null;
+            mParticle.Logger.verbose(Messages.InformationMessages.StartingInitialization);
+            //check to see if localStorage is available for migrating purposes
+            mParticle.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
+
+            // Migrate any cookies from previous versions to current cookie version
+            Migrations.migrate();
+
+            // Load any settings/identities/attributes from cookie or localStorage
+            Persistence.initializeStorage();
+
+            // If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
+            if ((Helpers.isObject(mParticle.Store.SDKConfig.identifyRequest) && Helpers.isObject(mParticle.Store.SDKConfig.identifyRequest.userIdentities) &&
+                Object.keys(mParticle.Store.SDKConfig.identifyRequest.userIdentities).length === 0) || !mParticle.Store.SDKConfig.identifyRequest) {
+                var modifiedUIforIdentityRequest = {};
+
+                currentUser = mParticle.Identity.getCurrentUser();
+                if (currentUser) {
+                    var identities = currentUser.getUserIdentities().userIdentities || {};
+                    for (var identityKey in identities) {
+                        if (identities.hasOwnProperty(identityKey)) {
+                            modifiedUIforIdentityRequest[identityKey] = identities[identityKey];
+                        }
+                    }
+                }
+
+                mParticle.Store.SDKConfig.identifyRequest = {
+                    userIdentities: modifiedUIforIdentityRequest
+                };
+            }
+
+            // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
+            if (mParticle.Store.migratingToIDSyncCookies) {
+                IdentityAPI.identify(mParticle.Store.SDKConfig.identifyRequest, mParticle.Store.SDKConfig.identityCallback);
+                mParticle.Store.migratingToIDSyncCookies = false;
+            }
+
+            currentUser = IdentityAPI.getCurrentUser();
+            // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
+            if (!mParticle.Store.identifyCalled && mParticle.Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
+                mParticle.Store.SDKConfig.identityCallback({
+                    httpCode: HTTPCodes.activeSession,
+                    getUser: function () {
+                        return mParticleUser(currentUser.getMPID());
+                    },
+                    getPreviousUser: function () {
+                        var users = mParticle.Identity.getUsers();
+                        var mostRecentUser = users.shift();
+                        if (mostRecentUser && currentUser && mostRecentUser.getMPID() === currentUser.getMPID()) {
+                            mostRecentUser = users.shift();
+                        }
+                        return mostRecentUser || null;
+                    },
+                    body: {
+                        mpid: currentUser.getMPID(),
+                        is_logged_in: mParticle.Store.isLoggedIn,
+                        matched_identities: currentUser.getUserIdentities().userIdentities,
+                        context: null,
+                        is_ephemeral: false
+                    }
+                });
+            }
+
+            if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
+                ForwardingStatsUploader.startForwardingStatsTimer();
+            }
+
+            Forwarders.processForwarders(config);
+            mParticle.sessionManager.initialize();
+            Events.logAST();
+
+            // Call any functions that are waiting for the library to be initialized
+            if (mParticle.preInit.readyQueue && mParticle.preInit.readyQueue.length) {
+                mParticle.preInit.readyQueue.forEach(function (readyQueueItem) {
+                    if (Validators.isFunction(readyQueueItem)) {
+                        readyQueueItem();
+                    } else if (Array.isArray(readyQueueItem)) {
+                        processPreloadedItem(readyQueueItem);
+                    }
+                });
+
+                mParticle.preInit.readyQueue = [];
+            }
+            mParticle.Store.isInitialized = true;
+
+            if (mParticle.Store.isFirstRun) {
+                mParticle.Store.isFirstRun = false;
+            }
+        }
+    }
 
     function processPreloadedItem(readyQueueItem) {
         var currentUser,
@@ -892,25 +867,18 @@ var Polyfill = require('./polyfill'),
 
     mParticle.preInit = {
         readyQueue: [],
-        configuredForwarders: [],
         featureFlags: {},
-        forwarderConstructors: [],
-        pixelConfigurations: [],
         integrationDelays: {},
-        isDevelopmentMode: false
+        isDevelopmentMode: false,
+        forwarderConstructors: []
     };
 
     if (window.mParticle && window.mParticle.config) {
-        if (window.mParticle.config.hasOwnProperty('isDevelopmentMode')) {
-            mParticle.preInit.isDevelopmentMode = Helpers.returnConvertedBoolean(window.mParticle.config.isDevelopmentMode);
-        } else {
-            mParticle.preInit.isDevelopmentMode = false;
-        }
-
         if (window.mParticle.config.hasOwnProperty('rq')) {
             mParticle.preInit.readyQueue = window.mParticle.config.rq;
         }
     }
+    module.exports = mParticle;
 
     window.mParticle = mParticle;
 })(window);

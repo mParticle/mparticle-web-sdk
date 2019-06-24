@@ -54,7 +54,7 @@ describe('event logging', function() {
 
         setLocalStorage();
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var data2 = getEvent(MessageType.AppStateTransition);
         data2.should.have.property('fr', false);
@@ -250,13 +250,13 @@ describe('event logging', function() {
         server.requests.should.have.lengthOf(0);
         mParticle.setOptOut(false);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         server.requests = [];
         mParticle.logEvent('test');
         server.requests.should.have.lengthOf(1);
 
         mParticle.setOptOut(true);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         server.requests = [];
         mParticle.logEvent('test');
         server.requests.should.have.lengthOf(0);
@@ -266,7 +266,7 @@ describe('event logging', function() {
 
     it('after logging optout, and reloading, events still should not be sent until opt out is enabled when using cookie storage', function(done) {
         mParticle.config.useCookieStorage = true;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.setOptOut(true);
         server.requests = [];
 
@@ -274,13 +274,13 @@ describe('event logging', function() {
         server.requests.should.have.lengthOf(0);
         mParticle.setOptOut(false);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         server.requests = [];
         mParticle.logEvent('test');
         server.requests.should.have.lengthOf(1);
 
         mParticle.setOptOut(true);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         server.requests = [];
         mParticle.logEvent('test');
         server.requests.should.have.lengthOf(0);
@@ -365,7 +365,7 @@ describe('event logging', function() {
         mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var successCallbackCalled = false;
         var numberTimesCalled = 0;
@@ -398,7 +398,7 @@ describe('event logging', function() {
         mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var successCallbackCalled = false;
         var numberTimesCalled = 0;
@@ -435,7 +435,7 @@ describe('event logging', function() {
         mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var currentPosition;
 
@@ -462,7 +462,7 @@ describe('event logging', function() {
         mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.startTrackingLocation();
 

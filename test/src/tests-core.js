@@ -276,10 +276,31 @@ var server = new MockHttpServer(),
         ProductRemoveFromWishlist: 21,
         ProductImpression: 22
     },
-    MockForwarder = function(forwarderName, forwarderId) {
-        var mockforwarder = this;
+    forwarderDefaultConfiguration = function (forwarderName, forwarderId, filteringEventAttributeRule) {
+        var config = {
+            name: forwarderName || 'MockForwarder',
+            settings: {},
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            screenNameFilters: [],
+            pageViewAttributeFilters: [],
+            userIdentityFilters: [],
+            userAttributeFilters: [],
+            filteringEventAttributeValue: {},
+            filteringUserAttributeValue: {},
+            moduleId: forwarderId || 1,
+            eventSubscriptionId: 1234567890,
+            isDebug: false,
+            HasDebugString: 'false',
+            isVisible: true,
+            filteringEventAttributeRule: filteringEventAttributeRule
+        };
 
-        var constructor = function() {
+        return config;
+    },
+    MockForwarder = function (forwarderName, forwarderId) {
+        var constructor = function () {
             var self = this;
 
             this.id = forwarderId || 1;
@@ -305,11 +326,11 @@ var server = new MockHttpServer(),
             this.appVersion = null;
             this.appName = null;
 
-            this.logOut = function() {
+            this.logOut = function () {
                 this.logOutCalled = true;
             };
 
-            this.init = function(settings, reportingService, testMode, id, userAttributes, userIdentities, appVersion, appName) {
+            this.init = function (settings, reportingService, testMode, id, userAttributes, userIdentities, appVersion, appName) {
                 self.reportingService = reportingService;
                 self.initCalled = true;
 
@@ -322,13 +343,13 @@ var server = new MockHttpServer(),
                 self.appName = appName;
             };
 
-            this.process = function(event) {
+            this.process = function (event) {
                 self.processCalled = true;
                 this.receivedEvent = event;
                 self.reportingService(self, event);
             };
 
-            this.setUserIdentity = function(a, b) {
+            this.setUserIdentity = function (a, b) {
                 this.userIdentities = {};
                 this.userIdentities[b] = a;
                 self.setUserIdentityCalled = true;
@@ -338,36 +359,36 @@ var server = new MockHttpServer(),
                 PriorityValue: 1
             };
 
-            this.setOptOut = function() {
+            this.setOptOut = function () {
                 this.setOptOutCalled = true;
             };
 
-            this.onUserIdentified = function(user) {
+            this.onUserIdentified = function (user) {
                 this.onUserIdentifiedCalled = true;
                 this.onUserIdentifiedUser = user;
             };
 
-            this.onIdentifyComplete = function(user) {
+            this.onIdentifyComplete = function (user) {
                 this.onIdentifyCompleteCalled = true;
                 this.onIdentifyCompleteUser = user;
             };
 
-            this.onLoginComplete = function(user) {
+            this.onLoginComplete = function (user) {
                 this.onLoginCompleteCalled = true;
                 this.onLoginCompleteUser = user;
             };
 
-            this.onLogoutComplete = function(user) {
+            this.onLogoutComplete = function (user) {
                 this.onLogoutCompleteCalled = true;
                 this.onLogoutCompleteUser = user;
             };
 
-            this.onModifyComplete = function(user) {
+            this.onModifyComplete = function (user) {
                 this.onModifyCompleteCalled = true;
                 this.onModifyCompleteUser = user;
             };
 
-            this.setUserAttribute = function(key, value) {
+            this.setUserAttribute = function (key, value) {
                 this.setUserAttributeCalled = true;
                 this.userAttributes[key] = value;
             };
@@ -376,38 +397,32 @@ var server = new MockHttpServer(),
                 this.removeUserAttributeCalled = true;
             };
 
-            mockforwarder.instance = this;
+            window[this.name + this.id] = {
+                instance: this
+            };
         };
 
         this.name = forwarderName || 'MockForwarder';
+        this.moduleId = forwarderId || 1;
         this.constructor = constructor;
-
-        this.configureDebugAndSandbox = function() {
-            mParticle.configureForwarder();
-        };
-
-        this.configure = function(filteringEventAttributeRule) {
-            var config = {
-                name: forwarderName || 'MockForwarder',
-                settings: {},
-                eventNameFilters: [],
-                eventTypeFilters: [],
-                attributeFilters: [],
-                screenNameFilters: [],
-                pageViewAttributeFilters: [],
-                userIdentityFilters: [],
-                userAttributeFilters: [],
-                filteringEventAttributeValue: {},
-                filteringUserAttributeValue: {},
-                moduleId: forwarderId || 1,
-                eventSubscriptionId: 1234567890,
-                isDebug: false,
-                HasDebugString: 'false',
-                isVisible: true,
-                filteringEventAttributeRule: filteringEventAttributeRule
+        
+        function register(config) {
+            if (!config.kits) {
+                config.kits = {};
+            }
+            config.kits[this.name] = {
+                constructor: constructor
             };
+        }
+        function getId () {
+            return forwarderId || 1;
+        }
 
-            mParticle.configureForwarder(config);
+        return {
+            register: register,
+            getId: getId,
+            constructor: constructor,
+            name: this.name
         };
     },
     mParticleAndroid = function() {
@@ -533,6 +548,7 @@ module.exports = {
     LocalStorageProductsV4WithWorkSpaceName: LocalStorageProductsV4WithWorkSpaceName,
     workspaceToken: workspaceToken,
     workspaceCookieName: workspaceCookieName,
+    forwarderDefaultConfiguration: forwarderDefaultConfiguration,
     MPConfig: MPConfig,
     server: server
 };

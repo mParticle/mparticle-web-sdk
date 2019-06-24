@@ -7,15 +7,15 @@ var Helpers = require('./helpers'),
 
 function initForwarders(userIdentities) {
     var user = mParticle.Identity.getCurrentUser();
-    if (!mParticle.Store.webviewBridgeEnabled && mParticle.preInit.configuredForwarders) {
+    if (!mParticle.Store.webviewBridgeEnabled && mParticle.Store.configuredForwarders) {
         // Some js libraries require that they be loaded first, or last, etc
-        mParticle.preInit.configuredForwarders.sort(function(x, y) {
+        mParticle.Store.configuredForwarders.sort(function(x, y) {
             x.settings.PriorityValue = x.settings.PriorityValue || 0;
             y.settings.PriorityValue = y.settings.PriorityValue || 0;
             return -1 * (x.settings.PriorityValue - y.settings.PriorityValue);
         });
 
-        mParticle.Store.activeForwarders = mParticle.preInit.configuredForwarders.filter(function(forwarder) {
+        mParticle.Store.activeForwarders = mParticle.Store.configuredForwarders.filter(function(forwarder) {
             if (!isEnabledForUserConsent(forwarder.filteringConsentRuleValues, user)) {
                 return false;
             }
@@ -421,6 +421,85 @@ function setForwarderStatsQueue(queue) {
     Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
 }
 
+function configureForwarder(configuration) {
+    var newForwarder = null,
+        config = configuration,
+        forwarders = {};
+
+    // if there are kits inside of mParticle.Store.SDKConfig.kits, then mParticle is self hosted
+    if (Helpers.isObject(mParticle.Store.SDKConfig.kits) && Object.keys(mParticle.Store.SDKConfig.kits).length > 0) {
+        forwarders = mParticle.Store.SDKConfig.kits;
+    // otherwise mParticle is loaded via script tag
+    } else if (mParticle.preInit.forwarderConstructors.length > 0) {
+        mParticle.preInit.forwarderConstructors.forEach(function (forwarder) {
+            forwarders[forwarder.name] = forwarder;
+        });
+    }
+
+    for (var name in forwarders) {
+        if (name === config.name) {
+            if (config.isDebug === mParticle.Store.SDKConfig.isDevelopmentMode || config.isSandbox === mParticle.Store.SDKConfig.isDevelopmentMode) {
+                newForwarder = new (forwarders[name]).constructor();
+
+                newForwarder.id = config.moduleId;
+                newForwarder.isSandbox = config.isDebug || config.isSandbox;
+                newForwarder.hasSandbox = config.hasDebugString === 'true';
+                newForwarder.isVisible = config.isVisible;
+                newForwarder.settings = config.settings;
+
+                newForwarder.eventNameFilters = config.eventNameFilters;
+                newForwarder.eventTypeFilters = config.eventTypeFilters;
+                newForwarder.attributeFilters = config.attributeFilters;
+
+                newForwarder.screenNameFilters = config.screenNameFilters;
+                newForwarder.screenNameFilters = config.screenNameFilters;
+                newForwarder.pageViewAttributeFilters = config.pageViewAttributeFilters;
+
+                newForwarder.userIdentityFilters = config.userIdentityFilters;
+                newForwarder.userAttributeFilters = config.userAttributeFilters;
+
+                newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
+                newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
+                newForwarder.eventSubscriptionId = config.eventSubscriptionId;
+                newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
+                newForwarder.excludeAnonymousUser = config.excludeAnonymousUser;
+
+                mParticle.Store.configuredForwarders.push(newForwarder);
+                break;
+            }
+        }
+    }
+}
+
+function configurePixel(settings) {
+    if (settings.isDebug === mParticle.Store.SDKConfig.isDevelopmentMode || settings.isProduction !== mParticle.Store.SDKConfig.isDevelopmentMode) {
+        mParticle.Store.pixelConfigurations.push(settings);
+    }
+}
+
+function processForwarders(config) {
+    if (!config) {
+        mParticle.Logger.warning('No config was passed. Cannot process forwarders');
+    } else {
+        try {
+            if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
+                config.kitConfigs.forEach(function(kitConfig) {
+                    configureForwarder(kitConfig);
+                });
+            }
+
+            if (Array.isArray(config.pixelConfigs) && config.pixelConfigs.length) {
+                config.pixelConfigs.forEach(function(pixelConfig) {
+                    configurePixel(pixelConfig);
+                });
+            }
+            initForwarders(mParticle.Store.SDKConfig.identifyRequest.userIdentities);
+        } catch (e) {
+            mParticle.Logger.error('Config was not parsed propertly. Forwarders may not be initialized.');
+        }
+    }
+}
+
 module.exports = {
     initForwarders: initForwarders,
     applyToForwarders: applyToForwarders,
@@ -433,5 +512,8 @@ module.exports = {
     getForwarderStatsQueue: getForwarderStatsQueue,
     setForwarderStatsQueue: setForwarderStatsQueue,
     isEnabledForUserConsent: isEnabledForUserConsent,
-    isEnabledForUserAttributes: isEnabledForUserAttributes
+    isEnabledForUserAttributes: isEnabledForUserAttributes,
+    configureForwarder: configureForwarder,
+    configurePixel: configurePixel,
+    processForwarders: processForwarders
 };

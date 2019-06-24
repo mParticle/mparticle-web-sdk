@@ -25,7 +25,7 @@ function createSDKConfig(config) {
     return sdkConfig;
 }
 
-function Store(config, config2) {
+function Store(config) {
     var defaultStore = {
         isEnabled: true,
         sessionAttributes: {},
@@ -60,7 +60,10 @@ function Store(config, config2) {
         isLocalStorageAvailable: null,
         storageName: null,
         prodStorageName: null,
-        activeForwarders: []
+        activeForwarders: [],
+        kits: {},
+        configuredForwarders: [],
+        pixelConfigurations: []
     };
 
     for (var key in defaultStore) {
@@ -71,118 +74,142 @@ function Store(config, config2) {
     this.prodStorageName = Helpers.createProductStorageName(config.workspaceToken);
     this.integrationDelayTimeoutStart = Date.now();
 
-    var mergedConfigs = Helpers.mergeConfigs(config, config2);
-
-    this.SDKConfig = createSDKConfig(mergedConfigs);
+    this.SDKConfig = createSDKConfig(config);
     // Set configuration to default settings
-    if (mergedConfigs) {
-        if (mergedConfigs.hasOwnProperty('secureServiceUrl')) {
-            this.SDKConfig.secureServiceUrl = mergedConfigs.secureServiceUrl;
+    if (config) {
+        if (config.hasOwnProperty('isDevelopmentMode')) {
+            this.SDKConfig.isDevelopmentMode = Helpers.returnConvertedBoolean(config.isDevelopmentMode);
+        } else {
+            this.SDKConfig.isDevelopmentMode = false;
+        }
+        
+        if (config.hasOwnProperty('serviceUrl')) {
+            this.SDKConfig.serviceUrl = config.serviceUrl;
         }
 
-        if (mergedConfigs.hasOwnProperty('v2SecureServiceUrl')) {
-            this.SDKConfig.v2SecureServiceUrl = mergedConfigs.v2SecureServiceUrl;
-        }
-        if (mergedConfigs.hasOwnProperty('identityUrl')) {
-            this.SDKConfig.identityUrl = mergedConfigs.identityUrl;
+        if (config.hasOwnProperty('secureServiceUrl')) {
+            this.SDKConfig.secureServiceUrl = config.secureServiceUrl;
         }
 
-        if (mergedConfigs.hasOwnProperty('aliasUrl')) {
-            this.SDKConfig.aliasUrl = mergedConfigs.aliasUrl;
+        if (config.hasOwnProperty('v2ServiceUrl')) {
+            this.SDKConfig.v2ServiceUrl = config.v2ServiceUrl;
         }
 
-        if (mergedConfigs.hasOwnProperty('logLevel')) {
-            this.SDKConfig.logLevel = mergedConfigs.logLevel;
+        if (config.hasOwnProperty('v2SecureServiceUrl')) {
+            this.SDKConfig.v2SecureServiceUrl = config.v2SecureServiceUrl;
         }
 
-        if (mergedConfigs.hasOwnProperty('useNativeSdk')) {
-            this.SDKConfig.useNativeSdk = mergedConfigs.useNativeSdk;
+        if (config.hasOwnProperty('identityUrl')) {
+            this.SDKConfig.identityUrl = config.identityUrl;
+        }
+
+        if (config.hasOwnProperty('aliasUrl')) {
+            this.SDKConfig.aliasUrl = config.aliasUrl;
+        }
+
+        if (config.hasOwnProperty('configUrl')) {
+            this.SDKConfig.configUrl = config.configUrl;
+        }
+
+        if (config.hasOwnProperty('logLevel')) {
+            this.SDKConfig.logLevel = config.logLevel;
+        }
+
+        if (config.hasOwnProperty('useNativeSdk')) {
+            this.SDKConfig.useNativeSdk = config.useNativeSdk;
         } else {
             this.SDKConfig.useNativeSdk = false;
         }
+        if (config.hasOwnProperty('kits')) {
+            this.SDKConfig.kits = config.kits;
+        }
 
-        if (mergedConfigs.hasOwnProperty('isIOS')) {
-            this.SDKConfig.isIOS = mergedConfigs.isIOS;
+        if (config.hasOwnProperty('isIOS')) {
+            this.SDKConfig.isIOS = config.isIOS;
         } else {
             this.SDKConfig.isIOS = mParticle.isIOS || false;
         }
 
-        if (mergedConfigs.hasOwnProperty('useCookieStorage')) {
-            this.SDKConfig.useCookieStorage = mergedConfigs.useCookieStorage;
+        if (config.hasOwnProperty('useCookieStorage')) {
+            this.SDKConfig.useCookieStorage = config.useCookieStorage;
         } else {
             this.SDKConfig.useCookieStorage = false;
         }
 
-        if (mergedConfigs.hasOwnProperty('maxProducts')) {
-            this.SDKConfig.maxProducts = mergedConfigs.maxProducts;
+        if (config.hasOwnProperty('maxProducts')) {
+            this.SDKConfig.maxProducts = config.maxProducts;
         } else {
             this.SDKConfig.maxProducts = Constants.DefaultConfig.maxProducts;
         }
 
-        if (mergedConfigs.hasOwnProperty('maxCookieSize')) {
-            this.SDKConfig.maxCookieSize = mergedConfigs.maxCookieSize;
+        if (config.hasOwnProperty('maxCookieSize')) {
+            this.SDKConfig.maxCookieSize = config.maxCookieSize;
         } else {
             this.SDKConfig.maxCookieSize = Constants.DefaultConfig.maxCookieSize;
         }
 
-        if (mergedConfigs.hasOwnProperty('appName')) {
-            this.SDKConfig.appName = mergedConfigs.appName;
+        if (config.hasOwnProperty('appName')) {
+            this.SDKConfig.appName = config.appName;
         }
 
-        if (mergedConfigs.hasOwnProperty('integrationDelayTimeout')) {
-            this.SDKConfig.integrationDelayTimeout = mergedConfigs.integrationDelayTimeout;
+        if (config.hasOwnProperty('integrationDelayTimeout')) {
+            this.SDKConfig.integrationDelayTimeout = config.integrationDelayTimeout;
         } else {
             this.SDKConfig.integrationDelayTimeout = Constants.DefaultConfig.integrationDelayTimeout;
         }
 
-        if (mergedConfigs.hasOwnProperty('identifyRequest')) {
-            this.SDKConfig.identifyRequest = mergedConfigs.identifyRequest;
+        if (config.hasOwnProperty('identifyRequest')) {
+            this.SDKConfig.identifyRequest = config.identifyRequest;
         }
 
-        if (mergedConfigs.hasOwnProperty('identityCallback')) {
-            var callback = mergedConfigs.identityCallback;
+        if (config.hasOwnProperty('identityCallback')) {
+            var callback = config.identityCallback;
             if (Validators.isFunction(callback)) {
-                this.SDKConfig.identityCallback = mergedConfigs.identityCallback;
+                this.SDKConfig.identityCallback = config.identityCallback;
             } else {
                 mParticle.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
             }
         }
 
-        if (mergedConfigs.hasOwnProperty('appVersion')) {
-            this.SDKConfig.appVersion = mergedConfigs.appVersion;
+        if (config.hasOwnProperty('appVersion')) {
+            this.SDKConfig.appVersion = config.appVersion;
         }
 
-        if (mergedConfigs.hasOwnProperty('sessionTimeout')) {
-            this.SDKConfig.sessionTimeout = mergedConfigs.sessionTimeout;
+        if (config.hasOwnProperty('sessionTimeout')) {
+            this.SDKConfig.sessionTimeout = config.sessionTimeout;
         }
 
-        if (mergedConfigs.hasOwnProperty('forceHttps')) {
-            this.SDKConfig.forceHttps = mergedConfigs.forceHttps;
+        if (config.hasOwnProperty('forceHttps')) {
+            this.SDKConfig.forceHttps = config.forceHttps;
         } else {
             this.SDKConfig.forceHttps = true;
         }
 
-        // Some forwarders require custom flags on initialization, so allow them to be set using mergedConfigs object
-        if (mergedConfigs.hasOwnProperty('customFlags')) {
-            this.SDKConfig.customFlags = mergedConfigs.customFlags;
+        // Some forwarders require custom flags on initialization, so allow them to be set using config object
+        if (config.hasOwnProperty('customFlags')) {
+            this.SDKConfig.customFlags = config.customFlags;
         }
 
-        if (mergedConfigs.hasOwnProperty('workspaceToken')) {
-            this.SDKConfig.workspaceToken = mergedConfigs.workspaceToken;
+        if (config.hasOwnProperty('workspaceToken')) {
+            this.SDKConfig.workspaceToken = config.workspaceToken;
+        } else {
+            mParticle.Logger.warning('You should have a workspaceToken on your mParticle.config object for security purposes.');
         }
 
-        if (mergedConfigs.hasOwnProperty('requiredWebviewBridgeName')) {
-            this.SDKConfig.requiredWebviewBridgeName = mergedConfigs.requiredWebviewBridgeName;
-        } else if (mergedConfigs.hasOwnProperty('workspaceToken')) {
-            this.SDKConfig.requiredWebviewBridgeName = mergedConfigs.workspaceToken;
+        if (config.hasOwnProperty('requiredWebviewBridgeName')) {
+            this.SDKConfig.requiredWebviewBridgeName = config.requiredWebviewBridgeName;
+        } else if (config.hasOwnProperty('workspaceToken')) {
+            this.SDKConfig.requiredWebviewBridgeName = config.workspaceToken;
         }
 
-        if (mergedConfigs.hasOwnProperty('minWebviewBridgeVersion')) {
-            this.SDKConfig.minWebviewBridgeVersion = mergedConfigs.minWebviewBridgeVersion;
+        if (config.hasOwnProperty('minWebviewBridgeVersion')) {
+            this.SDKConfig.minWebviewBridgeVersion = config.minWebviewBridgeVersion;
+        } else {
+            this.SDKConfig.minWebviewBridgeVersion = 1;
         }
 
-        if (mergedConfigs.hasOwnProperty('aliasMaxWindow')) {
-            this.SDKConfig.aliasMaxWindow = mergedConfigs.aliasMaxWindow;
+        if (config.hasOwnProperty('aliasMaxWindow')) {
+            this.SDKConfig.aliasMaxWindow = config.aliasMaxWindow;
         } else {
             this.SDKConfig.aliasMaxWindow = Constants.DefaultConfig.aliasMaxWindow;
         }

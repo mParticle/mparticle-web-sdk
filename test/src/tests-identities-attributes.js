@@ -12,8 +12,8 @@ describe('identities and attributes', function() {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
-        mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
 
         mParticle.logEvent('test user attributes');
@@ -33,8 +33,8 @@ describe('identities and attributes', function() {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
-        mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
 
@@ -66,8 +66,8 @@ describe('identities and attributes', function() {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
-        mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttributes({gender: 'male', age: 21});
 
         mParticle.logEvent('test user attributes');
@@ -89,8 +89,8 @@ describe('identities and attributes', function() {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
-        mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
 
@@ -109,8 +109,8 @@ describe('identities and attributes', function() {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
-        mParticle.addForwarder(mockForwarder);
-        mParticle.init(apiKey);
+        mockForwarder.register(window.mParticle.config);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
         mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
 
@@ -273,7 +273,7 @@ describe('identities and attributes', function() {
     it('should set user attribute list', function(done) {
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
 
         mParticle.logEvent('test user attributes');
@@ -292,7 +292,7 @@ describe('identities and attributes', function() {
     it('should set user attribute list case insensitive', function(done) {
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
         mParticle.Identity.getCurrentUser().setUserAttributeList('Numbers', [1, 2, 3, 4, 5, 6]);
 
@@ -324,7 +324,7 @@ describe('identities and attributes', function() {
 
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', list);
 
@@ -347,7 +347,7 @@ describe('identities and attributes', function() {
     it('should remove all user attributes', function(done) {
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
         mParticle.Identity.getCurrentUser().removeAllUserAttributes();
 
@@ -365,7 +365,7 @@ describe('identities and attributes', function() {
     it('should get user attribute lists', function(done) {
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
@@ -380,7 +380,7 @@ describe('identities and attributes', function() {
 
     it('should copy when calling get user attribute lists', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
@@ -397,7 +397,7 @@ describe('identities and attributes', function() {
 
     it('should copy when calling get user attributes', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
@@ -418,7 +418,7 @@ describe('identities and attributes', function() {
     it('should get all user attributes', function(done) {
         mParticle.reset(MPConfig);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('test', '123');
         mParticle.Identity.getCurrentUser().setUserAttribute('another test', 'blah');
@@ -433,7 +433,7 @@ describe('identities and attributes', function() {
 
     it('should not set user attribute list if value is not array', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttributeList('mykey', 1234);
 

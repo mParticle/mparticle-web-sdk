@@ -18,7 +18,7 @@ describe('native-sdk methods', function() {
             delete mParticle.minWebviewBridgeVersion;
             delete mParticle.isIOS;
 
-            mParticle.init(apiKey);
+            mParticle.init(apiKey, window.mParticle.config);
             mParticle.config = {};
         });
 
@@ -74,7 +74,7 @@ describe('native-sdk methods', function() {
             mParticle.reset(MPConfig);
             window.mParticle.config.minWebviewBridgeVersion = 1;
             mParticle.config.isIOS = true;
-            mParticle.init(apiKey);
+            mParticle.init(apiKey, window.mParticle.config);
 
             NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion).should.equal(true);
 
@@ -84,7 +84,7 @@ describe('native-sdk methods', function() {
         it('isWebviewEnabled returns true if there is an Android bridge, minWebviewBridgeVersion is 2', function(done) {
             mParticle.reset(MPConfig);
             window.mParticle.config.minWebviewBridgeVersion = 2;
-            mParticle.init(apiKey);
+            mParticle.init(apiKey, window.mParticle.config);
 
             // window.mParticle.config.minWebviewBridgeVersion = 2;
             window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
@@ -102,7 +102,7 @@ describe('native-sdk methods', function() {
                     mParticle_bridgeName_v2: { postMessage: null }
                 }
             };
-            mParticle.init(apiKey);
+            mParticle.init(apiKey, window.mParticle.config);
 
             NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion).should.equal(true);
 
@@ -130,7 +130,7 @@ describe('native-sdk methods', function() {
         it('isWebviewEnabled returns false if there is a v1 Android bridge, and minWebviewBridgeVersion is 2', function(done) {
             mParticle.reset(MPConfig);
             window.mParticle.config.minWebviewBridgeVersion = 2;
-            mParticle.init(apiKey);
+            mParticle.init(apiKey, window.mParticle.config);
             window.mParticleAndroid = new mParticleAndroid();
 
             NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion).should.equal(false);
@@ -141,7 +141,7 @@ describe('native-sdk methods', function() {
         it('isWebviewEnabled returns false if there is a v1 iOS bridge, and minWebviewBridgeVersion is 2', function(done) {
             mParticle.reset(MPConfig);
             window.mParticle.config.minWebviewBridgeVersion = 2;
-            mParticle.init(apiKey);
+            mParticle.init(apiKey, window.mParticle.config);
             mParticle.isIOS = true;
 
             NativeSdkHelpers.isWebviewEnabled('bridgeName', window.mParticle.config.minWebviewBridgeVersion).should.equal(false);
@@ -232,13 +232,13 @@ describe('native-sdk methods', function() {
             mParticle.reset(MPConfig);
             window.mParticleAndroid = new mParticleAndroid();
             window.mParticle.config.minWebviewBridgeVersion = 1;
-            mParticle.init(apiKey);
+            mParticle.init(apiKey, window.mParticle.config);
         });
 
         it('should set mParitcle.Store.SDKConfig.isIOS to true when mParticle.isIOS is true', function(done) {
             mParticle.reset(MPConfig);
             mParticle.isIOS = true;
-            mParticle.init(apiKey);
+            mParticle.init(apiKey, window.mParticle.config);
 
             mParticle.Store.SDKConfig.isIOS.should.equal(true);
 
@@ -248,17 +248,20 @@ describe('native-sdk methods', function() {
         it('invoke setSessionAttributes of $src_key/$src_env of apikey/\'webview\' to the native SDK\'s on init if apiKey is available', function(done) {
             mParticle.reset(MPConfig);
             window.mParticleAndroid = new mParticleAndroid();
-            window.mParticle.init(apiKey);
+            window.mParticle.init(apiKey, window.mParticle.config);
 
             window.mParticleAndroid.sessionAttrData.length.should.equal(2);
             JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('key', '$src_env');
             JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('value', 'webview');
             JSON.parse(window.mParticleAndroid.sessionAttrData[1]).should.have.property('key', '$src_key');
             JSON.parse(window.mParticleAndroid.sessionAttrData[1]).should.have.property('value', apiKey);
-
-            window.mParticleAndroid.resetSessionAttrData();
-
-            window.mParticle.init();
+            done();
+        });
+        
+        it('invoke only setSessionAttributes of $src_key/$src_env if apikey is missing from webview', function (done) {
+            mParticle.reset(MPConfig);
+            window.mParticleAndroid = new mParticleAndroid();
+            window.mParticle.init(null, window.mParticle.config);
 
             window.mParticleAndroid.sessionAttrData.length.should.equal(1);
             JSON.parse(window.mParticleAndroid.sessionAttrData[0]).should.have.property('key', '$src_env');
@@ -369,7 +372,7 @@ describe('native-sdk methods', function() {
             };
             mParticle.configurePixel(pixelSettings);
 
-            mParticle.init(apiKey);
+            mParticle.init(apiKey, window.mParticle.config);
             var data = getLocalStorage();
 
             Should(data).not.be.ok();
@@ -428,7 +431,7 @@ describe('native-sdk methods', function() {
                 window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
                 mParticleAndroidV2Bridge = window.mParticleAndroid_bridgeName_v2;
 
-                window.mParticle.init(apiKey);
+                window.mParticle.init(apiKey, window.mParticle.config);
                 mParticle.config = {};
             });
 
@@ -621,7 +624,7 @@ describe('native-sdk methods', function() {
                 mParticleIOSV2Bridge = window.webkit.messageHandlers.mParticle_bridgeName_v2;
 
                 mParticle.enableWebviewBridge = true;
-                window.mParticle.init(apiKey);
+                window.mParticle.init(apiKey, window.mParticle.config);
                 mParticle.config = {};
                 mParticleIOSV2Bridge.reset();
             });

@@ -1,17 +1,28 @@
 {
-  "name": "mparticle-sdk-javascript",
+  "name": "@mparticle/mparticle-web-sdk",
   "version": "2.9.3",
-  "description": "mParticle core Javascript SDK",
-  "repository": "https://github.com/mParticle/mparticle-sdk-javascript",
+  "description": "mParticle core SDK for web applications",
+  "license": "Apache-2.0",
+  "keywords": [
+    "mparticle",
+    "analytics",
+    "cdp"
+  ],
+  "files": [
+    "build/mParticle.js",
+    "src/"
+  ],
+  "browser": "src/main.js",
+  "repository": "https://github.com/mParticle/mparticle-web-sdk",
   "scripts": {
     "test": "node test/runner.js",
     "testKarma": "node test/test-karma.js",
-    "build": "browserify src/main.js -v -o build/mParticle-dev.js",
+    "build": "browserify src/main.js -v -o -s mParticle > build/mParticle-dev.js",
     "buildTest": "browserify test/src/tests-main.js -v -o test/test-bundle.js",
     "buildDocs": "yuidoc src/",
     "buildSnippet": "uglifyjs snippet.js -nm -o snippet.min.js",
     "testBrowser": "karma start --single-run --browsers=$BROWSER test/karma.config.js",
-    "watch": "watchify src/main.js -v -o build/mParticle-dev.js --debug",
+    "watch": "watchify src/main.js -v -s mParticle -o build/mParticle-dev.js --debug",
     "watchTests": "watchify test/src/tests-main.js -v -o test/test-bundle.js --debug",
     "lint": "eslint src/ test/src/"
   },

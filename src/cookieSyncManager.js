@@ -6,7 +6,7 @@ var cookieSyncManager = {
     attemptCookieSync: function(previousMPID, mpid) {
         var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
         if (mpid && !mParticle.Store.webviewBridgeEnabled) {
-            mParticle.preInit.pixelConfigurations.forEach(function(pixelSettings) {
+            mParticle.Store.pixelConfigurations.forEach(function(pixelSettings) {
                 pixelConfig = {
                     moduleId: pixelSettings.moduleId,
                     frequencyCap: pixelSettings.frequencyCap,

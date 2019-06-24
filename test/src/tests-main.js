@@ -14,9 +14,12 @@ describe('mParticle', function() {
         window.mParticle = window.mParticle || {};
         window.mParticle.config = {
             workspaceToken: workspaceToken,
-            logLevel: 'none'
+            logLevel: 'none',
+            kitConfigs: [],
+            requestConfig: false,
+            isDevelopmentMode: false
         };
-        require('../../src/main.js');
+        window.mParticle = require('../../src/main.js');
         mParticle._isTestEnv = true;
         server.requests = [];
         server.handle = function(request) {
@@ -27,15 +30,19 @@ describe('mParticle', function() {
             }));
         };
         window.mParticleAndroid = null;
-        mParticle.preInit.isDevelopmentMode = false;
+        // mParticle.preInit.isDevelopmentMode = false;
         window.mParticle.isIOS = null;
 
         mParticle.reset(MPConfig);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         window.mParticle.config = {
             workspaceToken: workspaceToken,
-            logLevel: 'none'
+            logLevel: 'none',
+            kitConfigs: [],
+            requestConfig: false,
+            isDevelopmentMode: false
         };
+        delete window.MockForwarder1;
     });
 
     require('./tests-core-sdk');

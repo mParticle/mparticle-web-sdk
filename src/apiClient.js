@@ -196,10 +196,48 @@ function sendSingleForwardingStatsToServer(forwardingStatsData) {
     }
 }
 
+function getSDKConfiguration(apiKey, config, completeSDKInitialization) {
+    var url;
+    try {
+        var xhrCallback = function () {
+            if (xhr.readyState === 4) { 
+                // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
+                if (xhr.status === 200) {
+                    config = Helpers.extend({}, config, JSON.parse(xhr.responseText));
+                    completeSDKInitialization(apiKey, config);
+                    mParticle.Logger.verbose('Successfully received configuration from server');
+                } else {
+                    // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
+                    completeSDKInitialization(apiKey, config);
+                    mParticle.Logger.verbose('Issue with receiving configuration from server, received HTTP Code of ' + xhr.status);
+                }
+            }
+        };
+
+        var xhr = Helpers.createXHR(xhrCallback);
+        url = 'https://' + Constants.DefaultUrls.configUrl + apiKey + '/config?env=';
+        if (config.isDevelopmentMode) {
+            url = url + '1';
+        } else {
+            url = url + '0';
+        }
+
+        if (xhr) {
+            xhr.open('get', url);
+            xhr.send(null);
+        }
+    }
+    catch (e) {
+        completeSDKInitialization(apiKey, config);
+        mParticle.Logger.error('Error getting forwarder configuration from mParticle servers.');
+    }
+}
+
 module.exports = {
     sendEventToServer: sendEventToServer,
     sendIdentityRequest: sendIdentityRequest,
     sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,
     sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer,
-    sendAliasRequest: sendAliasRequest
+    sendAliasRequest: sendAliasRequest,
+    getSDKConfiguration: getSDKConfiguration
 };

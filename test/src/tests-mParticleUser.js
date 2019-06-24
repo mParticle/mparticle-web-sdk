@@ -1,6 +1,7 @@
 var TestsCore = require('./tests-core'),
     apiKey = TestsCore.apiKey,
     MPConfig = TestsCore.MPConfig,
+    forwarderDefaultConfiguration = TestsCore.forwarderDefaultConfiguration,
     MockForwarder = TestsCore.MockForwarder;
 
 describe('mParticleUser', function() {
@@ -8,27 +9,13 @@ describe('mParticleUser', function() {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
-        mParticle.addForwarder(mockForwarder);
+        mockForwarder.register(window.mParticle.config);
+        
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        config1.userIdentityFilters = [4],
+        window.mParticle.config.kitConfigs.push(config1);
 
-        var forwarder = {
-            name: 'MockForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            screenNameFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [4],
-            userAttributeFilters: [],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        };
-
-        mParticle.configureForwarder(forwarder);
-
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var userIdentityRequest = {
             userIdentities: {
@@ -40,9 +27,9 @@ describe('mParticleUser', function() {
 
         mParticle.Identity.login(userIdentityRequest);
 
-        mockForwarder.instance.onUserIdentifiedUser.getUserIdentities().userIdentities.should.not.have.property('google');
-        mockForwarder.instance.onUserIdentifiedUser.getUserIdentities().userIdentities.should.have.property('customerid', 'id1');
-        mockForwarder.instance.onUserIdentifiedUser.getUserIdentities().userIdentities.should.have.property('other', 'id2');
+        window.MockForwarder1.instance.onUserIdentifiedUser.getUserIdentities().userIdentities.should.not.have.property('google');
+        window.MockForwarder1.instance.onUserIdentifiedUser.getUserIdentities().userIdentities.should.have.property('customerid', 'id1');
+        window.MockForwarder1.instance.onUserIdentifiedUser.getUserIdentities().userIdentities.should.have.property('other', 'id2');
 
         done();
     });
@@ -51,25 +38,12 @@ describe('mParticleUser', function() {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
-        mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder({
-            name: 'MockForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            screenNameFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [mParticle.generateHash('gender')],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        });
+        mockForwarder.register(window.mParticle.config);
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        config1.userAttributeFilters = [mParticle.generateHash('gender')];
+        window.mParticle.config.kitConfigs.push(config1);
 
-        mParticle.init(apiKey);
-
+        mParticle.init(apiKey, window.mParticle.config);
 
         var userIdentityRequest = {
             userIdentities: {
@@ -83,8 +57,8 @@ describe('mParticleUser', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
         mParticle.Identity.login(userIdentityRequest);
-        mockForwarder.instance.onUserIdentifiedUser.getAllUserAttributes().should.not.have.property('gender');
-        mockForwarder.instance.onUserIdentifiedUser.getAllUserAttributes().should.have.property('color', 'blue');
+        window.MockForwarder1.instance.onUserIdentifiedUser.getAllUserAttributes().should.not.have.property('gender');
+        window.MockForwarder1.instance.onUserIdentifiedUser.getAllUserAttributes().should.have.property('color', 'blue');
 
         done();
     });
@@ -94,24 +68,12 @@ describe('mParticleUser', function() {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
 
-        mParticle.addForwarder(mockForwarder);
-        mParticle.configureForwarder({
-            name: 'MockForwarder',
-            settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
-            screenNameFilters: [],
-            pageViewAttributeFilters: [],
-            userIdentityFilters: [],
-            userAttributeFilters: [mParticle.generateHash('gender')],
-            moduleId: 1,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true
-        });
+        mockForwarder.register(window.mParticle.config);
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        config1.userAttributeFilters = [mParticle.generateHash('gender')],
+        window.mParticle.config.kitConfigs.push(config1);
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var userIdentityRequest = {
             userIdentities: {
@@ -124,24 +86,24 @@ describe('mParticleUser', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.login(userIdentityRequest);
-        mockForwarder.instance.onLoginCompleteCalled.should.equal(true);
-        mockForwarder.instance.onLoginCompleteUser.getAllUserAttributes().should.not.have.property('gender');
-        mockForwarder.instance.onLoginCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
+        window.MockForwarder1.instance.onLoginCompleteCalled.should.equal(true);
+        window.MockForwarder1.instance.onLoginCompleteUser.getAllUserAttributes().should.not.have.property('gender');
+        window.MockForwarder1.instance.onLoginCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
 
         mParticle.Identity.logout(userIdentityRequest);
-        mockForwarder.instance.onLogoutCompleteCalled.should.equal(true);
-        mockForwarder.instance.onLogoutCompleteUser.getAllUserAttributes().should.not.have.property('gender');
-        mockForwarder.instance.onLogoutCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
+        window.MockForwarder1.instance.onLogoutCompleteCalled.should.equal(true);
+        window.MockForwarder1.instance.onLogoutCompleteUser.getAllUserAttributes().should.not.have.property('gender');
+        window.MockForwarder1.instance.onLogoutCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
 
         mParticle.Identity.modify(userIdentityRequest);
-        mockForwarder.instance.onModifyCompleteCalled.should.equal(true);
-        mockForwarder.instance.onModifyCompleteUser.getAllUserAttributes().should.not.have.property('gender');
-        mockForwarder.instance.onModifyCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
+        window.MockForwarder1.instance.onModifyCompleteCalled.should.equal(true);
+        window.MockForwarder1.instance.onModifyCompleteUser.getAllUserAttributes().should.not.have.property('gender');
+        window.MockForwarder1.instance.onModifyCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
 
         mParticle.Identity.identify(userIdentityRequest);
-        mockForwarder.instance.onIdentifyCompleteCalled.should.equal(true);
-        mockForwarder.instance.onIdentifyCompleteUser.getAllUserAttributes().should.not.have.property('gender');
-        mockForwarder.instance.onIdentifyCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
+        window.MockForwarder1.instance.onIdentifyCompleteCalled.should.equal(true);
+        window.MockForwarder1.instance.onIdentifyCompleteUser.getAllUserAttributes().should.not.have.property('gender');
+        window.MockForwarder1.instance.onIdentifyCompleteUser.getAllUserAttributes().should.have.property('color', 'blue');
 
         done();
     });

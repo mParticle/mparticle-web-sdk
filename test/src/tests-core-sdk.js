@@ -78,7 +78,7 @@ describe('core SDK', function() {
         mParticle.reset(MPConfig);
 
         mParticle.ready(function() { readyFuncCalled = true; });
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         Should(readyFuncCalled).equal(true);
 
@@ -216,7 +216,7 @@ describe('core SDK', function() {
         mParticle.reset(MPConfig);
 
         setLocalStorage();
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var deviceId = mParticle.getDeviceId();
 
@@ -226,7 +226,7 @@ describe('core SDK', function() {
 
     it('should return the deviceId when requested', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         var deviceId = mParticle.getDeviceId();
 
@@ -254,7 +254,7 @@ describe('core SDK', function() {
         mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         clock.tick(100);
         mParticle.logEvent('Test Event');
         var data = getEvent('Test Event');
@@ -274,7 +274,7 @@ describe('core SDK', function() {
         mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         clock.tick(100);
         mParticle.logEvent('Test Event');
 
@@ -301,7 +301,7 @@ describe('core SDK', function() {
         mParticle.reset(MPConfig);
         var clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
 
         server.requests = [];
         clock.tick(100);
@@ -359,10 +359,10 @@ describe('core SDK', function() {
         mParticle.logEvent('Test Event');
         server.requests[0].url.should.equal('https://jssdks.mparticle.com/v2/JS/test_key/Events');
 
-        mParticle.init('test');
+        mParticle.init(apiKey, window.mParticle.config);
         server.requests = [];
         mParticle.logEvent('test another');
-        server.requests[0].url.should.equal('https://jssdks.mparticle.com/v2/JS/test/Events');
+        server.requests[0].url.should.equal('https://jssdks.mparticle.com/v2/JS/test_key/Events');
 
         done();
     });
@@ -459,60 +459,6 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should merge configs when initializing sdk, with config argument taking priority over mParticle.config', function(done) {
-        var identityCallbackCalled = false;
-        mParticle.reset(MPConfig);
-        window.mParticle.config = {
-            useCookieStorage: true,
-            logLevel: 'abc',
-            useNativeSdk: true,
-            isIOS: true,
-            maxProducts: 10,
-            maxCookieSize: 2000,
-            appName: 'testApp',
-            integrationDelayTimeout: 100
-        };
-        
-        var config = {
-            identifyRequest: {userIdentities: {
-                customerid: 'test'
-            }},
-            identityCallback: function() {
-                identityCallbackCalled = true;
-            },
-            appVersion: 'v2.0.0',
-            sessionTimeout: 3000,
-            forceHttps: false,
-            customFlags: {flag1: 'attr1'},
-            workspaceToken: 'abcdef',
-            requiredWebviewBridgeName: 'exampleWebviewBridgeName',
-            integrationDelayTimeout: 200,
-            minWebviewBridgeVersion: 2
-        };
-
-        mParticle.init(apiKey, config);
-
-        // all items here should be the overwritten values
-        mParticle.Store.SDKConfig.useCookieStorage.should.equal(window.mParticle.config.useCookieStorage);
-        mParticle.Store.SDKConfig.logLevel.should.equal(window.mParticle.config.logLevel);
-        mParticle.Store.SDKConfig.useNativeSdk.should.equal(window.mParticle.config.useNativeSdk);
-        mParticle.Store.SDKConfig.isIOS.should.equal(window.mParticle.config.isIOS);
-        mParticle.Store.SDKConfig.maxProducts.should.equal(window.mParticle.config.maxProducts);
-        mParticle.Store.SDKConfig.maxCookieSize.should.equal(window.mParticle.config.maxCookieSize);
-        mParticle.Store.SDKConfig.appName.should.equal(window.mParticle.config.appName);
-        mParticle.Store.SDKConfig.integrationDelayTimeout.should.equal(config.integrationDelayTimeout);
-        JSON.stringify(mParticle.Store.SDKConfig.identifyRequest).should.equal(JSON.stringify(config.identifyRequest));
-        Should(identityCallbackCalled).equal(true);
-        mParticle.Store.SDKConfig.appVersion.should.equal(config.appVersion);
-        mParticle.Store.SDKConfig.sessionTimeout.should.equal(3000);
-        mParticle.Store.SDKConfig.forceHttps.should.equal(config.forceHttps);
-        mParticle.Store.SDKConfig.customFlags.should.equal(config.customFlags);
-        mParticle.Store.SDKConfig.workspaceToken.should.equal(config.workspaceToken);
-        mParticle.Store.SDKConfig.requiredWebviewBridgeName.should.equal(config.requiredWebviewBridgeName);
-        mParticle.Store.SDKConfig.minWebviewBridgeVersion.should.equal(config.minWebviewBridgeVersion);
-        done();
-    });
-
     it('should use custom loggers when provided', function(done) {
         mParticle.config.logLevel = 'verbose';
         var errorMessage;
@@ -531,7 +477,7 @@ describe('core SDK', function() {
             }
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         infoMessage.should.equal('Parsed store from response, updating local settings');
 
         mParticle.eCommerce.createProduct();
@@ -553,7 +499,7 @@ describe('core SDK', function() {
             }
         };
 
-        mParticle.init(apiKey);
+        mParticle.init(apiKey, window.mParticle.config);
         
         infoMessages.length.should.equal(0);
 
@@ -641,6 +587,94 @@ describe('core SDK', function() {
 
         server.requests[0].url.should.equal('https://' + window.mParticle.config.aliasUrl + 'test_key/Alias');
         
+        done();
+    });
+
+    it('should hit url with query parameter of env=1 for debug mode for forwarders', function (done) {
+        mParticle.reset(MPConfig);
+        mParticle.config.isDevelopmentMode = true;
+        mParticle.config.requestConfig = true;
+        server.requests = [];
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        (server.requests[0].url.indexOf('?env=1') > 0).should.equal(true);
+        
+        server.requests = [];
+        mParticle.config.requestConfig = true;
+        mParticle.config.isDevelopmentMode = false;
+        mParticle.init(apiKey, window.mParticle.config);
+
+        (server.requests[0].url.indexOf('?env=0') > 0).should.equal(true);
+        done();
+    });
+
+    it('should fetch from /config and keep everything properly on the store', function (done) {
+        mParticle.reset(MPConfig);
+        var config = { appName: 'appNameTest', serviceUrl: 'testServiceUrl', secureServiceUrl: 'secureTestServiceUrl', minWebviewBridgeVersion: 1, workspaceToken: 'token1' };
+
+        server.handle = function (request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify(config));
+        };
+
+        window.mParticle.config.requestConfig = true;
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.Store.SDKConfig.appName = config.appName;
+        mParticle.Store.SDKConfig.serviceUrl = config.serviceUrl;
+        mParticle.Store.SDKConfig.secureServiceUrl = config.secureServiceUrl;
+        mParticle.Store.SDKConfig.minWebviewBridgeVersion = config.minWebviewBridgeVersion;
+        mParticle.Store.SDKConfig.workspaceToken = config.workspaceToken;
+
+        done();
+    });
+
+    it('should initialize and log events even with a failed /config fetch and empty config', function (done) {
+        // this instance occurs when self hosting and the user only passes an object into init
+        mParticle.reset(MPConfig);
+
+        server.handle = function (request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(400, '');
+        };
+        
+        // force config to be only requestConfig = true;
+        delete window.mParticle.config.kitConfigs;
+        delete window.mParticle.config.isDevelopmentMode;
+        delete window.mParticle.config.logLevel;
+        delete window.mParticle.config.workspaceToken;
+        delete window.mParticle.config.requestConfig;
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.Store.isInitialized.should.equal(true);
+        
+        // have to manually call identify although it was called as part of init because we can only mock the server response once
+        server.handle = function (request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(200, JSON.stringify({
+                mpid: 'MPID1'
+            }));
+        };
+
+        mParticle.Identity.identify({userIdentities: {customerid: 'test'}});
+        server.requests = [];
+
+        mParticle.logEvent('test');
+        server.requests.length.should.equal(1);
+
+        done();
+    });
+
+    it('should initialize without a config object passed to init', function (done) {
+        // this instance occurs when self hosting and the user only passes an object into init
+        mParticle.reset(MPConfig);
+
+        mParticle.init(apiKey);
+
+        mParticle.Store.isInitialized.should.equal(true);
+
         done();
     });
 });
