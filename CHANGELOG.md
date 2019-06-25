@@ -1,6 +1,12 @@
 ## Releases
 --
 
+#### 2.9.4 - 2019-06-25
+* Modify files for self hosting
+    * Add a /config endpoint
+    * Accept 2nd argument to init for configuration
+* Bugfix - Initialize Logger before Store
+
 #### 2.9.3 - 2019-06-20
 * Bugfix - retain mParticle.isIOS on script load
 
