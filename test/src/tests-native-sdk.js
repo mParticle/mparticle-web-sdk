@@ -419,6 +419,17 @@ describe('native-sdk methods', function() {
 
             done();
         });
+
+        it('should send events via the mParticle.ready method ', function(done) {
+            mParticle.ready(function() {
+                mParticle.logEvent('test');
+            });
+
+            window.mParticleAndroid.logEventCalled.should.equal(true);
+            JSON.parse(window.mParticleAndroid.event).EventName.should.equal('test');
+
+            done();
+        });
     });
 
     describe('bridge version 2', function() {
@@ -605,6 +616,17 @@ describe('native-sdk methods', function() {
                 
                 callbackResult.httpCode.should.equal(HTTPCodes.nativeIdentityRequest);
                 callbackResult.message.should.equal('Alias request sent to native sdk');
+
+                done();
+            });
+
+            it('should send events via the mParticle.ready method ', function (done) {
+                mParticle.ready(function () {
+                    mParticle.logEvent('test');
+                });
+
+                mParticleAndroidV2Bridge.logEventCalled.should.equal(true);
+                JSON.parse(mParticleAndroidV2Bridge.event).EventName.should.equal('test');
 
                 done();
             });
@@ -824,6 +846,16 @@ describe('native-sdk methods', function() {
                 callbackResult.httpCode.should.equal(HTTPCodes.nativeIdentityRequest);
                 callbackResult.message.should.equal('Alias request sent to native sdk');
                 
+                done();
+            });
+
+            it('should send events via the mParticle.ready method ', function (done) {
+                mParticle.ready(function () {
+                    mParticle.logEvent('test');
+                });
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('EventName', 'test');
+
                 done();
             });
         });

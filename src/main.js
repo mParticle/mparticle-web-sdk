@@ -823,24 +823,24 @@ var Polyfill = require('./polyfill'),
             Forwarders.processForwarders(config);
             mParticle.sessionManager.initialize();
             Events.logAST();
-
-            // Call any functions that are waiting for the library to be initialized
-            if (mParticle.preInit.readyQueue && mParticle.preInit.readyQueue.length) {
-                mParticle.preInit.readyQueue.forEach(function (readyQueueItem) {
-                    if (Validators.isFunction(readyQueueItem)) {
-                        readyQueueItem();
-                    } else if (Array.isArray(readyQueueItem)) {
-                        processPreloadedItem(readyQueueItem);
-                    }
-                });
-
-                mParticle.preInit.readyQueue = [];
-            }
-            mParticle.Store.isInitialized = true;
-
-            if (mParticle.Store.isFirstRun) {
-                mParticle.Store.isFirstRun = false;
-            }
+            
+        }
+        // Call any functions that are waiting for the library to be initialized
+        if (mParticle.preInit.readyQueue && mParticle.preInit.readyQueue.length) {
+            mParticle.preInit.readyQueue.forEach(function (readyQueueItem) {
+                if (Validators.isFunction(readyQueueItem)) {
+                    readyQueueItem();
+                } else if (Array.isArray(readyQueueItem)) {
+                    processPreloadedItem(readyQueueItem);
+                }
+            });
+            
+            mParticle.preInit.readyQueue = [];
+        }
+        mParticle.Store.isInitialized = true;
+        
+        if (mParticle.Store.isFirstRun) {
+            mParticle.Store.isFirstRun = false;
         }
     }
 
