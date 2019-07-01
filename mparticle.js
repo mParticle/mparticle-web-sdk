@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.mParticle = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 var Helpers = require('./helpers'),
     Constants = require('./constants'),
     NativeSdkHelpers = require('./nativeSdkHelpers'),
@@ -409,7 +409,7 @@ module.exports = {
 };
 
 },{"./helpers":9}],3:[function(require,module,exports){
-var sdkVersion = '2.9.4',
+var sdkVersion = '2.9.5',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -4142,8 +4142,9 @@ var Polyfill = require('./polyfill'),
         *
         * @method logError
         * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
+        * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
         */
-        logError: function(error) {
+        logError: function(error, attrs) {
             SessionManager.resetSessionTimer();
             if (!error) {
                 return;
@@ -4155,13 +4156,22 @@ var Polyfill = require('./polyfill'),
                 };
             }
 
+            var data = {
+                m: error.message ? error.message : error,
+                s: 'Error',
+                t: error.stack
+            };
+
+            if (attrs) {
+                var sanitized = Helpers.sanitizeAttributes(attrs);
+                for (var prop in sanitized) {
+                    data[prop] = sanitized[prop];
+                }
+            }
+
             Events.logEvent(Types.MessageType.CrashReport,
                 error.name ? error.name : 'Error',
-                {
-                    m: error.message ? error.message : error,
-                    s: 'Error',
-                    t: error.stack
-                },
+                data,
                 Types.EventType.Other);
         },
         /**
@@ -4685,24 +4695,24 @@ var Polyfill = require('./polyfill'),
             Forwarders.processForwarders(config);
             mParticle.sessionManager.initialize();
             Events.logAST();
-
-            // Call any functions that are waiting for the library to be initialized
-            if (mParticle.preInit.readyQueue && mParticle.preInit.readyQueue.length) {
-                mParticle.preInit.readyQueue.forEach(function (readyQueueItem) {
-                    if (Validators.isFunction(readyQueueItem)) {
-                        readyQueueItem();
-                    } else if (Array.isArray(readyQueueItem)) {
-                        processPreloadedItem(readyQueueItem);
-                    }
-                });
-
-                mParticle.preInit.readyQueue = [];
-            }
-            mParticle.Store.isInitialized = true;
-
-            if (mParticle.Store.isFirstRun) {
-                mParticle.Store.isFirstRun = false;
-            }
+            
+        }
+        // Call any functions that are waiting for the library to be initialized
+        if (mParticle.preInit.readyQueue && mParticle.preInit.readyQueue.length) {
+            mParticle.preInit.readyQueue.forEach(function (readyQueueItem) {
+                if (Validators.isFunction(readyQueueItem)) {
+                    readyQueueItem();
+                } else if (Array.isArray(readyQueueItem)) {
+                    processPreloadedItem(readyQueueItem);
+                }
+            });
+            
+            mParticle.preInit.readyQueue = [];
+        }
+        mParticle.Store.isInitialized = true;
+        
+        if (mParticle.Store.isFirstRun) {
+            mParticle.Store.isFirstRun = false;
         }
     }
 
@@ -4740,9 +4750,10 @@ var Polyfill = require('./polyfill'),
             mParticle.preInit.readyQueue = window.mParticle.config.rq;
         }
     }
-    module.exports = mParticle;
 
     window.mParticle = mParticle;
+    
+    module.exports = mParticle;
 })(window);
 
 },{"./apiClient":1,"./consent":2,"./constants":3,"./cookieSyncManager":4,"./ecommerce":5,"./events":6,"./forwarders":7,"./forwardingStatsUploader":8,"./helpers":9,"./identity":10,"./logger":11,"./migrations":14,"./nativeSdkHelpers":15,"./persistence":16,"./polyfill":17,"./sessionManager":19,"./store":20,"./types":21}],14:[function(require,module,exports){
@@ -7367,5 +7378,4 @@ module.exports = {
     PromotionActionType:PromotionActionType
 };
 
-},{}]},{},[13])(13)
-});
+},{}]},{},[13]);
