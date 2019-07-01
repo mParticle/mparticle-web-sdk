@@ -1,6 +1,11 @@
 ## Releases
 --
 
+#### 2.9.5 - 2019-07-01
+* Bugfix - set isInitialized in both web and webview contexts
+* Feature: log error custom attributes
+* Update build parameters
+
 #### 2.9.4 - 2019-06-25
 * Modify files for self hosting
     * Add a /config endpoint
