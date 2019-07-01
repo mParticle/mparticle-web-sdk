@@ -888,7 +888,8 @@ var Polyfill = require('./polyfill'),
             mParticle.preInit.readyQueue = window.mParticle.config.rq;
         }
     }
-    module.exports = mParticle;
 
     window.mParticle = mParticle;
+    
+    module.exports = mParticle;
 })(window);

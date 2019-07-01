@@ -17,12 +17,12 @@
   "scripts": {
     "test": "node test/runner.js",
     "testKarma": "node test/test-karma.js",
-    "build": "browserify src/main.js -v -o -s mParticle > build/mParticle-dev.js",
-    "buildTest": "browserify test/src/tests-main.js -v -o test/test-bundle.js",
+    "build": "browserify src/main.js -v -o build/mParticle-dev.js",
+    "buildTest": "browserify test/src/tests-main.js -v -o test/test-bundle.js  --debug",
     "buildDocs": "yuidoc src/",
     "buildSnippet": "uglifyjs snippet.js -nm -o snippet.min.js",
     "testBrowser": "karma start --single-run --browsers=$BROWSER test/karma.config.js",
-    "watch": "watchify src/main.js -v -s mParticle -o build/mParticle-dev.js --debug",
+    "watch": "watchify src/main.js -v -o build/mParticle-dev.js --debug",
     "watchTests": "watchify test/src/tests-main.js -v -o test/test-bundle.js --debug",
     "lint": "eslint src/ test/src/"
   },
