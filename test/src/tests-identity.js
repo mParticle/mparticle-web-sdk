@@ -2412,6 +2412,29 @@ describe('identity', function() {
         done();
     });
 
+    it('Alias request should have environment \'development\' when isDevelopmentMode is true', function (done) {
+        mParticle.reset(MPConfig);
+        window.mParticle.config.isDevelopmentMode = true;
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        server.requests = [];
+        var aliasRequest = {
+            destinationMpid: 1,
+            sourceMpid: 2,
+            startTime: 3,
+            endTime: 4
+        };
+        mParticle.Identity.aliasUsers(aliasRequest);
+        server.requests.length.should.equal(1);
+
+        var request = server.requests[0];
+        var requestBody = JSON.parse(request.requestText);
+        Should(requestBody['environment']).equal('development');
+
+        done();
+    });
+
     it('should set isFirtRun to false after an app is initialized', function(done) {
         mParticle.reset(MPConfig);
 

@@ -879,7 +879,6 @@ var Polyfill = require('./polyfill'),
         readyQueue: [],
         featureFlags: {},
         integrationDelays: {},
-        isDevelopmentMode: false,
         forwarderConstructors: []
     };
 

@@ -136,7 +136,7 @@ var IdentityRequest = {
         return {
             request_id: Helpers.generateUniqueId(),
             request_type: 'alias',
-            environment: mParticle.preInit.isDevelopmentMode ? 'development' : 'production',
+            environment: mParticle.Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
             api_key: mParticle.Store.devToken,
             data: {
                 destination_mpid: aliasRequest.destinationMpid,

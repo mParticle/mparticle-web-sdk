@@ -30,7 +30,6 @@ describe('mParticle', function() {
             }));
         };
         window.mParticleAndroid = null;
-        // mParticle.preInit.isDevelopmentMode = false;
         window.mParticle.isIOS = null;
 
         mParticle.reset(MPConfig);
