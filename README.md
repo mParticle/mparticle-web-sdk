@@ -30,14 +30,16 @@ To integrate the SDK add the following snippet to your site after customizing `m
 ```javascript
 <script type="text/javascript">
     (function (apiKey) {
-        window.mParticle = window.mParticle || {EventType:{ Unknown:0,Navigation:1,Location:2,Search:3,Transaction:4,UserContent:5,UserPreference:6,Social:7,Other:8}};
+        window.mParticle = window.mParticle || {};
+        window.mParticle.EventType = {Unknown:0, Navigation:1, Location:2, Search:3, Transaction:4, UserContent:5, UserPreference:6, Social:7, Other:8};
         window.mParticle.eCommerce = { Cart: {} };
         window.mParticle.Identity = {};
         window.mParticle.config = window.mParticle.config || {};
         window.mParticle.config.rq = [];
+        window.mParticle.config.snippetVersion = 2.1;
         window.mParticle.ready = function (f) {
-            window.mParticle.config.rq.push(f);
-        };
+        window.mParticle.config.rq.push(f);
+    };
 
         function a(o,t){return function(){t&&(o=t+'.'+o);var e=Array.prototype.slice.call(arguments);e.unshift(o),window.mParticle.config.rq.push(e)}}var x=['endSession','logError','logEvent','logForm','logLink','logPageView','setSessionAttribute','setAppName','setAppVersion','setOptOut','setPosition','startNewSession','startTrackingLocation','stopTrackingLocation'],y=['setCurrencyCode','logCheckout'],z=['identify','login','logout','modify'];x.forEach(function(o){window.mParticle[o]=a(o)}),y.forEach(function(o){window.mParticle.eCommerce[o]=a(o,'eCommerce')}),z.forEach(function(o){window.mParticle.Identity[o]=a(o,'Identity')});
 

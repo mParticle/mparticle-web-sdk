@@ -1,9 +1,11 @@
 (function (apiKey) {
-    window.mParticle = window.mParticle || {EventType:{ Unknown:0, Navigation:1, Location:2, Search:3, Transaction:4, UserContent:5, UserPreference:6, Social:7, Other:8}};
+    window.mParticle = window.mParticle || {};
+    window.mParticle.EventType = { Unknown: 0, Navigation: 1, Location: 2, Search: 3, Transaction: 4, UserContent: 5, UserPreference: 6, Social: 7, Other: 8 };
     window.mParticle.eCommerce = { Cart: {} };
     window.mParticle.Identity = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
+    window.mParticle.config.snippetVersion = 2.1;
     window.mParticle.ready = function (f) {
         window.mParticle.config.rq.push(f);
     };
