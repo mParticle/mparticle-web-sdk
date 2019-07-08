@@ -409,7 +409,7 @@ module.exports = {
 };
 
 },{"./helpers":9}],3:[function(require,module,exports){
-var sdkVersion = '2.9.5',
+var sdkVersion = '2.9.6',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -2806,7 +2806,7 @@ var IdentityRequest = {
         return {
             request_id: Helpers.generateUniqueId(),
             request_type: 'alias',
-            environment: mParticle.preInit.isDevelopmentMode ? 'development' : 'production',
+            environment: mParticle.Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
             api_key: mParticle.Store.devToken,
             data: {
                 destination_mpid: aliasRequest.destinationMpid,
@@ -4741,7 +4741,6 @@ var Polyfill = require('./polyfill'),
         readyQueue: [],
         featureFlags: {},
         integrationDelays: {},
-        isDevelopmentMode: false,
         forwarderConstructors: []
     };
 
