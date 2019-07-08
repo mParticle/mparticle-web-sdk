@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.9.6 - 2019-07-08
+* Bugfix - Alias requests respect isDevelopmentMode setting
+
 #### 2.9.5 - 2019-07-01
 * Bugfix - set isInitialized in both web and webview contexts
 * Feature: log error custom attributes
