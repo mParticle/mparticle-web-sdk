@@ -16,6 +16,10 @@
   "repository": "https://github.com/mParticle/mparticle-web-sdk",
   "scripts": {
     "test": "node test/runner.js",
+    "test:integration": "npm run test:requirejs",
+    "test:requirejs": "npm run test:requirejs:before && npm run test:requirejs:after",
+    "test:requirejs:before": "FILE_ORDER=before_mp karma start test/karma.requirejs.config.js",
+    "test:requirejs:after": "FILE_ORDER=after_mp karma start test/karma.requirejs.config.js",
     "testKarma": "node test/test-karma.js",
     "build": "browserify src/main.js -v -o build/mParticle-dev.js",
     "buildTest": "browserify test/src/tests-main.js -v -o test/test-bundle.js  --debug",

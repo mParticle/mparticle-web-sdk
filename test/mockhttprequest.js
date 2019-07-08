@@ -468,5 +468,8 @@ MockHttpServer.prototype = {
         // Instances should override this.
     }
 };
-
-module.exports = MockHttpServer
+try {
+    module.exports = MockHttpServer
+} catch (e) {
+    console.log('\'module\' not supported');
+}
