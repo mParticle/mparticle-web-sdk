@@ -1039,7 +1039,11 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         }
 
         if (callback) {
-            Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
+            if (xhr.status === 0) {
+                Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, identityApiResult || null, newUser);
+            } else {
+                Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
+            }
         } else {
             if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
                 mParticle.Logger.error('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);

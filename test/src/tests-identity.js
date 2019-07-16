@@ -2456,4 +2456,28 @@ describe('identity', function() {
 
         done();
     });
+
+    it('should send back an httpCode of -1 when there is a no coverage (http code returns 0)', function(done) {
+        mParticle.reset(MPConfig);
+
+        var result;
+
+        function identityCallback(response) {
+            result = response;
+        }
+        server.handle = function (request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(0, JSON.stringify({
+                body: null
+            }));
+        };
+
+        mParticle.config.identityCallback = identityCallback;
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        result.httpCode.should.equal(-1);
+
+        done();
+    });
 });
