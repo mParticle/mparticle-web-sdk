@@ -409,7 +409,7 @@ module.exports = {
 };
 
 },{"./helpers":9}],3:[function(require,module,exports){
-var sdkVersion = '2.9.6',
+var sdkVersion = '2.9.7',
     sdkVendor = 'mparticle',
     platform = 'web',
     Messages = {
@@ -3709,7 +3709,11 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
         }
 
         if (callback) {
-            Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
+            if (xhr.status === 0) {
+                Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, identityApiResult || null, newUser);
+            } else {
+                Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
+            }
         } else {
             if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
                 mParticle.Logger.error('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
@@ -4663,6 +4667,13 @@ var Polyfill = require('./polyfill'),
             }
 
             currentUser = IdentityAPI.getCurrentUser();
+
+            if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
+                ForwardingStatsUploader.startForwardingStatsTimer();
+            }
+
+            Forwarders.processForwarders(config);
+
             // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
             if (!mParticle.Store.identifyCalled && mParticle.Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
                 mParticle.Store.SDKConfig.identityCallback({
@@ -4688,11 +4699,6 @@ var Polyfill = require('./polyfill'),
                 });
             }
 
-            if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
-                ForwardingStatsUploader.startForwardingStatsTimer();
-            }
-
-            Forwarders.processForwarders(config);
             mParticle.sessionManager.initialize();
             Events.logAST();
             
