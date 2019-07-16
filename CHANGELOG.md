@@ -1,6 +1,10 @@
 ## Releases
 --
 
+#### 2.9.7 - 2019-07-16
+* Bugfix - noHttpCoverage code properly sent to callback
+* Bugfix - Configure forwarders prior to identify callback
+
 #### 2.9.6 - 2019-07-08
 * Bugfix - Alias requests respect isDevelopmentMode setting
 
