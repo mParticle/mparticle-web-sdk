@@ -1542,4 +1542,33 @@ describe('forwarders', function() {
 
         done();
     });
+
+    it('configures forwarders before events are logged via identify callback', function (done) {
+        mParticle.reset(MPConfig);
+
+        window.mParticle.config.identifyRequest = {
+            userIdentities: {
+                google: 'google123'
+            }
+        };
+
+        window.mParticle.config.identityCallback = function () {
+            mParticle.logEvent('test event');
+        };
+
+        var mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+        window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
+
+        mParticle.init(apiKey, window.mParticle.config);
+        window.MockForwarder1.instance.should.have.property('processCalled', true);
+
+        //mock a page reload which has no configuredForwarders
+        mParticle.Store.configuredForwarders = []; 
+        mParticle.init(apiKey, window.mParticle.config);
+
+        window.MockForwarder1.instance.should.have.property('processCalled', true);
+
+        done();
+    });
 });

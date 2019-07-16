@@ -801,6 +801,13 @@ var Polyfill = require('./polyfill'),
             }
 
             currentUser = IdentityAPI.getCurrentUser();
+
+            if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
+                ForwardingStatsUploader.startForwardingStatsTimer();
+            }
+
+            Forwarders.processForwarders(config);
+
             // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
             if (!mParticle.Store.identifyCalled && mParticle.Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
                 mParticle.Store.SDKConfig.identityCallback({
@@ -826,11 +833,6 @@ var Polyfill = require('./polyfill'),
                 });
             }
 
-            if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
-                ForwardingStatsUploader.startForwardingStatsTimer();
-            }
-
-            Forwarders.processForwarders(config);
             mParticle.sessionManager.initialize();
             Events.logAST();
             
