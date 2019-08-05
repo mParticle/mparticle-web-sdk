@@ -1,4 +1,4 @@
-var Helpers = require('./helpers');
+import Helpers from './helpers';
 
 function createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId) {
     if (typeof(consented) !== 'boolean') {
@@ -124,10 +124,10 @@ function createConsentState(consentState) {
             return this;
         }
         var gdprConsentCopy = createGDPRConsent(gdprConsent.Consented,
-                gdprConsent.Timestamp,
-                gdprConsent.ConsentDocument,
-                gdprConsent.Location,
-                gdprConsent.HardwareId);
+            gdprConsent.Timestamp,
+            gdprConsent.ConsentDocument,
+            gdprConsent.Location,
+            gdprConsent.HardwareId);
         if (gdprConsentCopy) {
             gdpr[normalizedPurpose] = gdprConsentCopy;
         }
@@ -155,8 +155,7 @@ function createConsentState(consentState) {
     };
 }
 
-
-module.exports = {
+export default {
     createGDPRConsent: createGDPRConsent,
     Serialization: ConsentSerialization,
     createConsentState: createConsentState

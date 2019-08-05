@@ -1,7 +1,9 @@
-var TestsCore = require('./tests-core'),
-    Store = require('../../src/store'),
-    Logger = require('../../src/logger'),
-    DefaultConfig = require('../../src/constants').DefaultConfig,
+import TestsCore from './tests-core';
+import Store from '../../src/store';
+import Logger from '../../src/logger';
+import Constants from '../../src/constants';
+
+var DefaultConfig = Constants.DefaultConfig,
     MPConfig = TestsCore.MPConfig,
     setLocalStorage = TestsCore.setLocalStorage,
     das = TestsCore.das,
@@ -17,7 +19,7 @@ describe('core SDK', function() {
 
         var data = getEvent(MessageType.SessionStart);
 
-        Should(data).be.ok();
+        data.should.be.ok();
 
         data.should.have.property('sid');
 
@@ -508,7 +510,7 @@ describe('core SDK', function() {
         mParticle.setLogLevel('verbose');
 
         mParticle.logEvent('hi');
-        infoMessages[0].should.equal('Starting to log event: hi');
+        infoMessages[1].should.equal('Starting to log event: hi');
 
         done();
     });

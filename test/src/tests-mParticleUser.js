@@ -1,5 +1,6 @@
-var TestsCore = require('./tests-core'),
-    apiKey = TestsCore.apiKey,
+import TestsCore from './tests-core';
+
+var apiKey = TestsCore.apiKey,
     MPConfig = TestsCore.MPConfig,
     forwarderDefaultConfiguration = TestsCore.forwarderDefaultConfiguration,
     MockForwarder = TestsCore.MockForwarder;

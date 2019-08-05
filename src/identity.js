@@ -1,30 +1,28 @@
-var Helpers = require('./helpers'),
-    Constants = require('./constants'),
-    ServerModel = require('./serverModel'),
-    Forwarders = require('./forwarders'),
-    Persistence = require('./persistence'),
-    Types = require('./types'),
-    Messages = Constants.Messages,
-    NativeSdkHelpers = require('./nativeSdkHelpers'),
-    Validators = Helpers.Validators,
-    sendIdentityRequest = require('./apiClient').sendIdentityRequest,
-    CookieSyncManager = require('./cookieSyncManager'),
-    sendEventToServer = require('./apiClient').sendEventToServer,
-    HTTPCodes = Constants.HTTPCodes,
-    Events = require('./events'),
-    sendEventToForwarders = require('./forwarders').sendEventToForwarders,
-    sendAliasRequest = require('./apiClient').sendAliasRequest;
+import Helpers from './helpers';
+import Constants from './constants';
+import ServerModel from './serverModel';
+import Forwarders from './forwarders';
+import Persistence from './persistence';
+import Types from './types';
+import NativeSdkHelpers from './nativeSdkHelpers';
+import ApiClient from './apiClient';
+import CookieSyncManager from './cookieSyncManager';
+import Events from './events';
 
-var Identity = {
-    checkIdentitySwap: function(previousMPID, currentMPID, currentSessionMPIDs) {
-        if (previousMPID && currentMPID && previousMPID !== currentMPID) {
-            var cookies = Persistence.useLocalStorage() ? Persistence.getLocalStorage() : Persistence.getCookie();
-            cookies.cu = currentMPID;
-            cookies.gs.csm = currentSessionMPIDs;
-            Persistence.saveCookies(cookies);
-        }
+var Messages = Constants.Messages,
+    Validators = Helpers.Validators,
+    HTTPCodes = Constants.HTTPCodes,
+    sendEventToForwarders = Forwarders.sendEventToForwarders,
+    sendIdentityRequest = ApiClient.sendIdentityRequest;
+
+function checkIdentitySwap(previousMPID, currentMPID, currentSessionMPIDs) {
+    if (previousMPID && currentMPID && previousMPID !== currentMPID) {
+        var cookies = Persistence.useLocalStorage() ? Persistence.getLocalStorage() : Persistence.getCookie();
+        cookies.cu = currentMPID;
+        cookies.gs.csm = currentSessionMPIDs;
+        Persistence.saveCookies(cookies);
     }
-};
+}
 
 var IdentityRequest = {
     createKnownIdentities: function(identityApiData, deviceId) {
@@ -420,7 +418,7 @@ var IdentityAPI = {
             } else {
                 mParticle.Logger.verbose(Messages.InformationMessages.StartingAliasRequest + ': ' + aliasRequest.sourceMpid + ' -> ' + aliasRequest.destinationMpid);
                 var aliasRequestMessage = IdentityRequest.createAliasNetworkRequest(aliasRequest);
-                sendAliasRequest(aliasRequestMessage, callback);
+                ApiClient.sendAliasRequest(aliasRequestMessage, callback);
             }
         } else {
             Helpers.invokeAliasCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages.InformationMessages.AbandonAliasUsers);
@@ -991,9 +989,9 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 Persistence.saveUserIdentitiesToCookies(identityApiResult.mpid, newIdentities);
                 CookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid);
 
-                Identity.checkIdentitySwap(previousMPID, identityApiResult.mpid, mParticle.Store.currentSessionMPIDs);
+                checkIdentitySwap(previousMPID, identityApiResult.mpid, mParticle.Store.currentSessionMPIDs);
 
-                Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, sendEventToServer, sendEventToForwarders, Events.parseEventResponse);
+                Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, ApiClient.sendEventToServer, sendEventToForwarders, Events.parseEventResponse);
 
                 //if there is any previous migration data
                 if (Object.keys(mParticle.Store.migrationData).length) {
@@ -1058,10 +1056,10 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
     }
 }
 
-module.exports = {
-    IdentityAPI: IdentityAPI,
-    Identity: Identity,
+export default {
+    checkIdentitySwap: checkIdentitySwap,
     IdentityRequest: IdentityRequest,
+    IdentityAPI: IdentityAPI,
     mParticleUser: mParticleUser,
     mParticleUserCart: mParticleUserCart
 };

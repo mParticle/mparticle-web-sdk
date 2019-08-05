@@ -1,5 +1,6 @@
+import Helpers from '../../src/helpers';
+
 var server = new MockHttpServer(),
-    Helpers = require('../../src/helpers'),
     apiKey = 'test_key',
     testMPID = 'testMPID',
     v3CookieKey = 'mprtcl-v3',
@@ -521,7 +522,7 @@ var server = new MockHttpServer(),
         };
     };
 
-module.exports = {
+var TestsCore = {
     apiKey: apiKey,
     testMPID: testMPID,
     getLocalStorageProducts: getLocalStorageProducts,
@@ -552,3 +553,5 @@ module.exports = {
     MPConfig: MPConfig,
     server: server
 };
+
+export default TestsCore;

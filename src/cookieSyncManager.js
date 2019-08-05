@@ -1,6 +1,7 @@
-var Constants = require('./constants'),
-    Persistence = require('./persistence'),
-    Messages = Constants.Messages;
+import Constants from './constants';
+import Persistence from './persistence';
+
+var Messages = Constants.Messages;
 
 var cookieSyncManager = {
     attemptCookieSync: function(previousMPID, mpid) {
@@ -24,7 +25,7 @@ var cookieSyncManager = {
                         if (!cookies[mpid].csd) {
                             cookies[mpid].csd = {};
                         }
-                        cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
+                        performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
                     }
                     return;
                 } else {
@@ -37,25 +38,15 @@ var cookieSyncManager = {
                         if (lastSyncDateForModule) {
                             // Check to see if we need to refresh cookieSync
                             if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
-                                cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
+                                performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
                             }
                         } else {
-                            cookieSyncManager.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
+                            performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
                         }
                     }
                 }
             });
         }
-    },
-
-    performCookieSync: function(url, moduleId, mpid, cookieSyncDates) {
-        var img = document.createElement('img');
-
-        mParticle.Logger.verbose(Messages.InformationMessages.CookieSync);
-
-        img.src = url;
-        cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
-        Persistence.saveUserCookieSyncDatesToCookies(mpid, cookieSyncDates);
     },
 
     replaceMPID: function(string, mpid) {
@@ -67,4 +58,14 @@ var cookieSyncManager = {
     }
 };
 
-module.exports = cookieSyncManager;
+function performCookieSync(url, moduleId, mpid, cookieSyncDates) {
+    var img = document.createElement('img');
+
+    mParticle.Logger.verbose(Messages.InformationMessages.CookieSync);
+
+    img.src = url;
+    cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
+    Persistence.saveUserCookieSyncDatesToCookies(mpid, cookieSyncDates);
+}
+
+export default cookieSyncManager;

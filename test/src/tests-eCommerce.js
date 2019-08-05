@@ -1,5 +1,6 @@
-var TestsCore = require('./tests-core'),
-    apiKey = TestsCore.apiKey,
+import TestsCore from './tests-core';
+
+var apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
     MPConfig = TestsCore.MPConfig,
@@ -44,15 +45,16 @@ describe('eCommerce', function() {
 
     it('should log ecommerce event', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone',
-            '12345',
-            '400',
-            2,
-            'Plus',
-            'Phones',
-            'Apple',
-            1,
-            'my-coupon-code',
-            { customkey: 'customvalue' }),
+                '12345',
+                '400',
+                2,
+                'Plus',
+                'Phones',
+                'Apple',
+                1,
+                'my-coupon-code',
+                { customkey: 'customvalue' }
+            ),
             transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
                 'test-affiliation',
                 'coupon-code',
@@ -92,15 +94,16 @@ describe('eCommerce', function() {
 
     it('should log badly formed ecommerce event', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone',
-            '12345',
-            Infinity,
-            '2-foo',
-            'Plus',
-            'Phones',
-            'Apple',
-            '1-foo',
-            'my-coupon-code',
-            { customkey: 'customvalue' }),
+                '12345',
+                Infinity,
+                '2-foo',
+                'Plus',
+                'Phones',
+                'Apple',
+                '1-foo',
+                'my-coupon-code',
+                { customkey: 'customvalue' }
+            ),
             transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
                 'test-affiliation',
                 'coupon-code',
@@ -473,12 +476,12 @@ describe('eCommerce', function() {
 
     it('should set product position to 0 if null', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone',
-            '12345',
-            400,
-            2,
-            'Apple',
-            'Plus',
-            'Phones'),
+                '12345',
+                400,
+                2,
+                'Apple',
+                'Plus',
+                'Phones'),
             transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
                 'test-affiliation',
                 'coupon-code',
@@ -558,9 +561,9 @@ describe('eCommerce', function() {
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
         var product = mParticle.eCommerce.createProduct('Foo name',
-                    'Foo sku',
-                    100.00,
-                    4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            'Foo sku',
+            100.00,
+            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
 
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
         mParticle.eCommerce.logPurchase(transactionAttributes, product, false, eventAttributes);
@@ -620,9 +623,9 @@ describe('eCommerce', function() {
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
         var product = mParticle.eCommerce.createProduct('Foo name',
-                    'Foo sku',
-                    100.00,
-                    4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            'Foo sku',
+            100.00,
+            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
 
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
         mParticle.eCommerce.logRefund(transactionAttributes, product, false, eventAttributes);
@@ -656,9 +659,9 @@ describe('eCommerce', function() {
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
         var product = mParticle.eCommerce.createProduct('Foo name',
-                    'Foo sku',
-                    100.00,
-                    4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            'Foo sku',
+            100.00,
+            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
 
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.RemoveFromWishlist, product, eventAttributes);
         window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
@@ -699,9 +702,9 @@ describe('eCommerce', function() {
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
         var product = mParticle.eCommerce.createProduct('Foo name',
-                    'Foo sku',
-                    100.00,
-                    4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            'Foo sku',
+            100.00,
+            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
 
         mParticle.eCommerce.Cart.add(product, true);
         mParticle.eCommerce.logCheckout('foo-step', 'foo-options', eventAttributes);
@@ -785,9 +788,9 @@ describe('eCommerce', function() {
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
         var product = mParticle.eCommerce.createProduct('Foo name',
-                    'Foo sku',
-                    100.00,
-                    4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            'Foo sku',
+            100.00,
+            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
 
         var impression = mParticle.eCommerce.createImpression('suggested products list', product);
 

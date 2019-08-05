@@ -1,9 +1,11 @@
-var Types = require('./types'),
-    Helpers = require('./helpers'),
-    Validators = Helpers.Validators,
-    Messages = require('./constants').Messages,
-    ServerModel = require('./serverModel');
+import Types from './types';
+import Helpers from './helpers';
+import Constants from './constants';
+import ServerModel from './serverModel';
 
+var Validators = Helpers.Validators,
+    Messages = Constants.Messages;
+    
 function convertTransactionAttributesToProductAction(transactionAttributes, productAction) {
     productAction.TransactionId = transactionAttributes.Id;
     productAction.Affiliation = transactionAttributes.Affiliation;
@@ -317,10 +319,10 @@ function expandProductImpression(commerceEvent) {
                     attributes['Product Impression List'] = productImpression.ProductImpressionList;
                 }
                 var appEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-                        generateExpandedEcommerceName('Impression'),
-                        attributes,
-                        Types.EventType.Transaction
-                    );
+                    generateExpandedEcommerceName('Impression'),
+                    attributes,
+                    Types.EventType.Transaction
+                );
                 appEvents.push(appEvent);
             });
         }
@@ -349,10 +351,10 @@ function expandPromotionAction(commerceEvent) {
         extractPromotionAttributes(attributes, promotion);
 
         var appEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-                generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
-                attributes,
-                Types.EventType.Transaction
-            );
+            generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
+            attributes,
+            Types.EventType.Transaction
+        );
         appEvents.push(appEvent);
     });
     return appEvents;
@@ -434,17 +436,12 @@ function createCommerceEventObject(customFlags) {
     return null;
 }
 
-module.exports = {
+export default {
     convertTransactionAttributesToProductAction: convertTransactionAttributesToProductAction,
     getProductActionEventName: getProductActionEventName,
     getPromotionActionEventName: getPromotionActionEventName,
     convertProductActionToEventType: convertProductActionToEventType,
     convertPromotionActionToEventType: convertPromotionActionToEventType,
-    generateExpandedEcommerceName: generateExpandedEcommerceName,
-    extractProductAttributes: extractProductAttributes,
-    extractActionAttributes: extractActionAttributes,
-    extractPromotionAttributes: extractPromotionAttributes,
-    extractTransactionId: extractTransactionId,
     buildProductList: buildProductList,
     createProduct: createProduct,
     createPromotion: createPromotion,

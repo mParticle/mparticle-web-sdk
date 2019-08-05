@@ -1,5 +1,6 @@
-var TestsCore = require('./tests-core'),
-    apiKey = TestsCore.apiKey,
+import TestsCore from './tests-core';
+
+var apiKey = TestsCore.apiKey,
     getEvent = TestsCore.getEvent,
     getLocalStorage = TestsCore.getLocalStorage,
     testMPID = TestsCore.testMPID,
@@ -319,7 +320,7 @@ describe('identities and attributes', function() {
         done();
     });
 
-    it('should make a copy of user attribute list', function (done) {
+    it('should make a copy of user attribute list', function(done) {
         var list = [1, 2, 3, 4, 5];
 
         mParticle.reset(MPConfig);

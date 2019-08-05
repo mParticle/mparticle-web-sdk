@@ -1,5 +1,7 @@
-var TestsCore = require('./tests-core'),
-    setLocalStorage = TestsCore.setLocalStorage,
+import TestsCore from './tests-core';
+import CookieSyncManager from '../../src/cookieSyncManager';
+
+var setLocalStorage = TestsCore.setLocalStorage,
     testMPID = TestsCore.testMPID,
     MPConfig = TestsCore.MPConfig,
     MockForwarder = TestsCore.MockForwarder,
@@ -187,7 +189,7 @@ describe('cookie syncing', function() {
     });
 
     it('should replace mpID properly', function(done) {
-        var result = mParticle.cookieSyncManager.replaceMPID('www.google.com?mpid=%%mpid%%?foo=bar', 123);
+        var result = CookieSyncManager.replaceMPID('www.google.com?mpid=%%mpid%%?foo=bar', 123);
 
         result.should.equal('www.google.com?mpid=123?foo=bar');
 
@@ -195,7 +197,7 @@ describe('cookie syncing', function() {
     });
 
     it('should remove \'amp;\' from the URLs', function(done) {
-        var result = mParticle.cookieSyncManager.replaceAmp('www.google.com?mpid=%%mpid%%&amp;foo=bar');
+        var result = CookieSyncManager.replaceAmp('www.google.com?mpid=%%mpid%%&amp;foo=bar');
 
         result.should.equal('www.google.com?mpid=%%mpid%%&foo=bar');
 

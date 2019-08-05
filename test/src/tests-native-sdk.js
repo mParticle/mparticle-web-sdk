@@ -1,11 +1,13 @@
-var TestsCore = require('./tests-core'),
-    NativeSdkHelpers = require('../../src/nativeSdkHelpers'),
-    apiKey = TestsCore.apiKey,
+import TestsCore from './tests-core';
+import NativeSdkHelpers from '../../src/nativeSdkHelpers';
+import Constants from '../../src/constants';
+
+var apiKey = TestsCore.apiKey,
     getLocalStorage = TestsCore.getLocalStorage,
     mParticleIOS = TestsCore.mParticleIOS,
     MPConfig = TestsCore.MPConfig,
     mParticleAndroid = TestsCore.mParticleAndroid,
-    HTTPCodes = require('../../src/constants').HTTPCodes;
+    HTTPCodes = Constants.HTTPCodes;
 
 describe('native-sdk methods', function() {
     describe('Helper methods', function() {

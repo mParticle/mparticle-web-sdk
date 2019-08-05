@@ -1,9 +1,10 @@
-var Helpers = require('./helpers'),
-    Constants = require('./constants'),
-    NativeSdkHelpers = require('./nativeSdkHelpers'),
-    HTTPCodes = Constants.HTTPCodes,
-    ServerModel = require('./serverModel'),
-    Types = require('./types'),
+import Helpers from './helpers';
+import Constants from './constants';
+import NativeSdkHelpers from './nativeSdkHelpers';
+import ServerModel from './serverModel';
+import Types from './types';
+
+var HTTPCodes = Constants.HTTPCodes,
     Messages = Constants.Messages;
 
 function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
@@ -199,7 +200,7 @@ function sendSingleForwardingStatsToServer(forwardingStatsData) {
 function getSDKConfiguration(apiKey, config, completeSDKInitialization) {
     var url;
     try {
-        var xhrCallback = function () {
+        var xhrCallback = function() {
             if (xhr.readyState === 4) { 
                 // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
                 if (xhr.status === 200) {
@@ -233,7 +234,7 @@ function getSDKConfiguration(apiKey, config, completeSDKInitialization) {
     }
 }
 
-module.exports = {
+export default {
     sendEventToServer: sendEventToServer,
     sendIdentityRequest: sendIdentityRequest,
     sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,

@@ -1,7 +1,8 @@
+import Persistence from '../../src/persistence';
+import TestsCore from './tests-core';
+
 /* eslint-disable quotes*/
-var TestsCore = require('./tests-core'),
-    Persistence = require('../../src/persistence'),
-    apiKey = TestsCore.apiKey,
+var apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
     findCookie = TestsCore.findCookie,
     MPConfig = TestsCore.MPConfig,
@@ -14,8 +15,8 @@ var TestsCore = require('./tests-core'),
     setLocalStorage = TestsCore.setLocalStorage,
     server = TestsCore.server,
     v4LSKey = 'mprtcl-v4',
-    getEvent = TestsCore.getEvent,
-    should = require('should');
+    getEvent = TestsCore.getEvent;
+
 describe('migrations and persistence-related', function() {
     beforeEach(function() {
         delete mParticle.config.useCookieStorage;
@@ -931,14 +932,14 @@ describe('migrations and persistence-related', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         var consentState = mParticle.Identity.getCurrentUser().getConsentState();
-        should.not.exist(consentState);
+        (consentState === null).should.be.ok();
         consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState('foo purpose', mParticle.Consent.createGDPRConsent(true, 10));
 
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
         var storedConsentState = mParticle.Identity.getCurrentUser().getConsentState();
-        should.exist(storedConsentState);
+        storedConsentState.should.be.ok();
         storedConsentState.getGDPRConsentState().should.have.property('foo purpose');
         storedConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Consented', true);
         storedConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Timestamp', 10);
@@ -959,7 +960,7 @@ describe('migrations and persistence-related', function() {
 
         mParticle.Identity.login();
         var user1StoredConsentState = mParticle.Identity.getCurrentUser().getConsentState();
-        should.not.exist(user1StoredConsentState);
+        (user1StoredConsentState === null).should.be.ok();
         var consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState('foo purpose', mParticle.Consent.createGDPRConsent(true, 10));
 
@@ -977,7 +978,7 @@ describe('migrations and persistence-related', function() {
         mParticle.Identity.login();
 
         var user2StoredConsentState = mParticle.Identity.getCurrentUser().getConsentState();
-        should.not.exist(user2StoredConsentState);
+        (user2StoredConsentState === null).should.be.ok();
 
         consentState.removeGDPRConsentState('foo purpose');
         consentState.addGDPRConsentState('foo purpose 2', mParticle.Consent.createGDPRConsent(false, 11));

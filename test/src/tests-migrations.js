@@ -1,7 +1,9 @@
+import Migrations from '../../src/migrations';
+import Persistence from '../../src/persistence';
+import TestsCore from './tests-core';
+
 /* eslint-disable quotes */
-var TestsCore = require('./tests-core'),
-    Persistence = require('../../src/persistence'),
-    apiKey = TestsCore.apiKey,
+var apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
     v3CookieKey = TestsCore.v3CookieKey,
     MPConfig = TestsCore.MPConfig,
@@ -36,7 +38,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
     it('unit test - should migrate from SDKv1CookieV3 to SDKv2CookieV4 using convertSDKv1CookiesV3ToSDKv2CookiesV4', function(done) {
         mParticle.reset(MPConfig);
-        var v4Cookies = JSON.parse(mParticle.migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookieV3));
+        var v4Cookies = JSON.parse(Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookieV3));
 
         v4Cookies.should.have.properties('gs', SDKv1CookieV3Parsed.mpid, 'cu');
         v4Cookies.cu.should.equal(SDKv1CookieV3Parsed.mpid);
@@ -108,7 +110,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('unit test - should migrate from SDKv1CookieV3 with apostrophes to SDKv2CookieV4 using convertSDKv1CookiesV3ToSDKv2CookiesV4', function(done) {
         mParticle.reset(MPConfig);
 
-        var v4Cookies = JSON.parse(mParticle.migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookieV3FullLSApostrophes));
+        var v4Cookies = JSON.parse(Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookieV3FullLSApostrophes));
 
         v4Cookies.should.have.properties('gs', SDKv1CookieV3FullLSApostrophesParsed.mpid, 'cu');
         v4Cookies.cu.should.equal(SDKv1CookieV3FullLSApostrophesParsed.mpid);
@@ -203,7 +205,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
             pb:     {productBag1: [product1, product2]}
         };
 
-        mParticle.migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(JSON.stringify(SDKv1CookieV3));
+        Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(JSON.stringify(SDKv1CookieV3));
 
         var localStorageProducts = getLocalStorageProducts();
 
@@ -216,7 +218,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = true;
 
-        var v4Cookies = JSON.parse(mParticle.migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(decodeURIComponent(SDKv1CookieV3WithEncodedProducts)));
+        var v4Cookies = JSON.parse(Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(decodeURIComponent(SDKv1CookieV3WithEncodedProducts)));
         v4Cookies.should.have.properties(testMPID, 'gs', 'cu');
 
         v4Cookies.cu.should.equal(SDKv1CookieV3WithEncodedProductsParsed.mpid);

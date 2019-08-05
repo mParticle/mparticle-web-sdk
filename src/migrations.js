@@ -1,9 +1,10 @@
-var Persistence = require('./persistence'),
-    Constants = require('./constants'),
-    StorageNames = Constants.StorageNames,
-    Helpers = require('./helpers'),
-    SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
-    Base64 = require('./polyfill').Base64,
+import Persistence from './persistence';
+import Constants from './constants';
+import Helpers from './helpers';
+import Polyfill from './polyfill';
+
+var StorageNames = Constants.StorageNames,
+    Base64 = Polyfill.Base64,
     CookiesGlobalSettingsKeys = {
         das: 1
     },
@@ -14,7 +15,7 @@ var Persistence = require('./persistence'),
 //  if there is a cookie or localStorage:
 //  1. determine which version it is ('mprtcl-api', 'mprtcl-v2', 'mprtcl-v3', 'mprtcl-v4')
 //  2. return if 'mprtcl-v4', otherwise migrate to mprtclv4 schema
- // 3. if 'mprtcl-api', could be JSSDKv2 or JSSDKv1. JSSDKv2 cookie has a 'globalSettings' key on it
+// 3. if 'mprtcl-api', could be JSSDKv2 or JSSDKv1. JSSDKv2 cookie has a 'globalSettings' key on it
 function migrate() {
     try {
         migrateCookies();
@@ -226,34 +227,7 @@ function migrateLocalStorage() {
     }
 }
 
-function convertUIFromArrayToObject(cookie) {
-    try {
-        if (cookie && Helpers.isObject(cookie)) {
-            for (var mpid in cookie) {
-                if (cookie.hasOwnProperty(mpid)) {
-                    if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                        if (cookie[mpid].ui && Array.isArray(cookie[mpid].ui)) {
-                            cookie[mpid].ui = cookie[mpid].ui.reduce(function(accum, identity) {
-                                if (identity.Type && Helpers.Validators.isStringOrNumber(identity.Identity)) {
-                                    accum[identity.Type] = identity.Identity;
-                                }
-                                return accum;
-                            }, {});
-                        }
-                    }
-                }
-            }
-        }
-
-        return cookie;
-    }
-    catch (e) {
-        mParticle.Logger.error('An error ocurred when converting the user identities array to an object', e);
-    }
-}
-
-module.exports = {
+export default {
     migrate: migrate,
-    convertUIFromArrayToObject: convertUIFromArrayToObject,
     convertSDKv1CookiesV3ToSDKv2CookiesV4: convertSDKv1CookiesV3ToSDKv2CookiesV4
 };

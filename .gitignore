@@ -5,3 +5,4 @@ out/
 build/mParticle-dev.js
 build/mParticle.js
 test/reports
+test/test-bundle.js.map

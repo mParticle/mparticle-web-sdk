@@ -1,5 +1,6 @@
-var Types = require('../../src/types'),
-    EventType = Types.EventType,
+import Types from '../../src/types';
+
+var EventType = Types.EventType,
     CommerceEventType = Types.CommerceEventType,
     ProductActionType = Types.ProductActionType,
     PromotionType = Types.PromotionActionType,

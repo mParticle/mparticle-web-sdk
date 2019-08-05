@@ -1,22 +1,38 @@
-module.exports = function(config) {
+const { DEBUG } = process.env;
+
+let files = [
+    'mockhttprequest.js',
+    'geomock.js',
+    '../node_modules/sinon-browser-only/sinon.js',
+    '../build/mParticle-dev.js',
+    'test-bundle.js'
+];
+
+let browsers = ['ChromeHeadless', 'FirefoxHeadless'];
+let singleRun = true;
+
+if (DEBUG === 'true') {
+    browsers = ['Chrome', 'Firefox'];
+    singleRun = false;
+}
+
+module.exports = function (config) {
     config.set({
-        frameworks: ['mocha', 'chai'],
-        files: ['test-bundle.js'],
+        frameworks: ['mocha', 'should' ],
+        files,
         reporters: ['progress', 'junit'],
-        port: 9876,
         colors: true,
-        logLevel: config.LOG_INFO,
-        browsers: [
-            'ChromeHeadless',
-            'Chrome',
-            'FirefoxHeadless',
-            'Safari',
-            'Edge',
-            'IE',
-            'Firefox'
-        ],
-        autoWatch: false,
+        browsers,
         concurrency: Infinity,
+        singleRun,
+        debug: true,
+        logLevel: config.LOG_INFO,
+        browserConsoleLogOptions: {
+            terminal: false
+        },
+        client: {
+            captureConsole: false
+        },
         customLaunchers: {
             FirefoxHeadless: {
                 base: 'Firefox',

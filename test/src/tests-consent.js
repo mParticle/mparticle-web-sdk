@@ -1,29 +1,26 @@
-var should = require('should'),
-    Consent = require('../../src/consent');
+import Consent from '../../src/consent';
 
-describe('Consent', function() {
+describe('Consent', function () {
     it('Should not create consent object without consented boolean', function(done) {
         var consent = Consent.createGDPRConsent();
-        should.not.exist(consent);
+        (consent === null).should.be.ok();
 
         consent = Consent.createGDPRConsent(0);
-        should.not.exist(consent);
 
         consent = Consent.createGDPRConsent('foo bar');
-        should.not.exist(consent);
+        (consent === null).should.be.ok();
 
         done();
     });
 
     it('Should create basic consent object with only consented boolean', function(done) {
         var consent = Consent.createGDPRConsent(true);
-        should.exist(consent);
+        consent.should.be.ok();
 
         consent.Consented.should.equal(true);
 
-
         consent = Consent.createGDPRConsent(false);
-        should.exist(consent);
+        consent.should.be.ok();
         consent.Consented.should.equal(false);
         done();
     });
@@ -31,7 +28,7 @@ describe('Consent', function() {
     it('Should not create consent object with invalid document', function(done) {
         var badDocument = 123;
         var consent = Consent.createGDPRConsent(true, 123, badDocument);
-        should.not.exist(consent);
+        (consent === null).should.be.ok();
 
         done();
     });
@@ -39,7 +36,7 @@ describe('Consent', function() {
     it('Should not create consent object with invalid location', function(done) {
         var badLocation = 123;
         var consent = Consent.createGDPRConsent(true, 123, 'foo document', badLocation);
-        should.not.exist(consent);
+        (consent === null).should.be.ok();
 
         done();
     });
@@ -47,7 +44,7 @@ describe('Consent', function() {
     it('Should not create consent object with invalid hardware id', function(done) {
         var badHardwareId = 123;
         var consent = Consent.createGDPRConsent(true, 123, 'foo document', 'foo location', badHardwareId);
-        should.not.exist(consent);
+        (consent === null).should.be.ok();
 
         done();
     });
@@ -66,7 +63,7 @@ describe('Consent', function() {
             'foo document',
             'foo location',
             'foo hardware id');
-        should.exist(consent);
+        consent.should.be.ok();
         consent.should.have.property('Consented', true);
         consent.should.have.property('Timestamp', 10);
         consent.should.have.property('ConsentDocument', 'foo document');
@@ -77,13 +74,13 @@ describe('Consent', function() {
 
     it('Should create basic ConsentState object', function(done) {
         var consentState = Consent.createConsentState();
-        should.exist(consentState);
+        consentState.should.be.ok();
         done();
     });
 
     it('Should add GDPR ConsentState object', function(done) {
         var consentState = Consent.createConsentState();
-        should.exist(consentState);
+        consentState.should.be.ok();
 
         consentState
             .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
@@ -91,7 +88,7 @@ describe('Consent', function() {
 
         consentState.getGDPRConsentState().should.have.property('foo');
         consentState.getGDPRConsentState().foo.should.have.property('Consented', true);
-        should.not.exist(consentState.GDPR);
+        (consentState.GDPR === undefined).should.be.ok();
 
         consentState.getGDPRConsentState().should.have.property('bar');
         consentState.getGDPRConsentState().bar.should.have.property('Consented', false);
@@ -126,7 +123,7 @@ describe('Consent', function() {
 
     it('Can\'t modify GDPR ConsentState object', function(done) {
         var consentState = Consent.createConsentState();
-        should.exist(consentState);
+        consentState.should.be.ok();
 
         consentState
             .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
@@ -143,7 +140,7 @@ describe('Consent', function() {
 
     it('Should copy GDPR ConsentState object', function(done) {
         var consentState = Consent.createConsentState();
-        should.exist(consentState);
+        consentState.should.be.ok();
 
         consentState
             .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
@@ -171,7 +168,7 @@ describe('Consent', function() {
 
     it('Should remove GDPR ConsentState object', function(done) {
         var consentState = Consent.createConsentState();
-        should.exist(consentState);
+        consentState.should.be.ok();
 
         consentState
             .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
@@ -189,7 +186,7 @@ describe('Consent', function() {
 
     it('Should normalize GDPR consent purposes on add', function(done) {
         var consentState = Consent.createConsentState();
-        should.exist(consentState);
+        consentState.should.be.ok();
 
         consentState
             .addGDPRConsentState('foo', Consent.createGDPRConsent(true, 1))
@@ -212,7 +209,7 @@ describe('Consent', function() {
 
     it('Should normalize GDPR consent purposes on remove', function(done) {
         var consentState = Consent.createConsentState();
-        should.exist(consentState);
+        consentState.should.be.ok();
 
         consentState
             .addGDPRConsentState('foo', Consent.createGDPRConsent(true, 1))
@@ -236,7 +233,7 @@ describe('Consent', function() {
 
     it('Should not set junk GDPR object', function(done) {
         var consentState = Consent.createConsentState();
-        should.exist(consentState);
+        consentState.should.be.ok();
 
         consentState
             .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
@@ -287,7 +284,7 @@ describe('Consent', function() {
 
         consentStateCopy.getGDPRConsentState().should.have.property('bar');
         var consentCopy2 = consentStateCopy.getGDPRConsentState().bar;
-        
+
         consentCopy2.should.have.property('Consented', false);
         consentCopy2.should.have.property('Timestamp', 5);
         consentCopy2.should.have.property('ConsentDocument', 'foo document 2');

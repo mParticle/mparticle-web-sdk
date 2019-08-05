@@ -1,9 +1,9 @@
-var Helpers = require('./helpers'),
-    Types = require('./types'),
-    Constants = require('./constants'),
-    MParticleUser = require('./mParticleUser'),
-    ApiClient = require('./apiClient'),
-    Persistence = require('./persistence');
+import Helpers from './helpers';
+import Types from './types';
+import Constants from './constants';
+import getFilteredMparticleUser from './mParticleUser';
+import ApiClient from './apiClient';
+import Persistence from './persistence';
 
 function initForwarders(userIdentities) {
     var user = mParticle.Identity.getCurrentUser();
@@ -338,7 +338,7 @@ function setForwarderUserIdentities(userIdentities) {
 
 function setForwarderOnUserIdentified(user) {
     mParticle.Store.activeForwarders.forEach(function(forwarder) {
-        var filteredUser = MParticleUser.getFilteredMparticleUser(user.getMPID(), forwarder);
+        var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
         if (forwarder.onUserIdentified) {
             var result = forwarder.onUserIdentified(filteredUser);
             if (result) {
@@ -352,7 +352,7 @@ function setForwarderOnIdentityComplete(user, identityMethod) {
     var result;
 
     mParticle.Store.activeForwarders.forEach(function(forwarder) {
-        var filteredUser = MParticleUser.getFilteredMparticleUser(user.getMPID(), forwarder);
+        var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
         if (identityMethod === 'identify') {
             if (forwarder.onIdentifyComplete) {
                 result = forwarder.onIdentifyComplete(filteredUser);
@@ -500,7 +500,7 @@ function processForwarders(config) {
     }
 }
 
-module.exports = {
+export default {
     initForwarders: initForwarders,
     applyToForwarders: applyToForwarders,
     sendEventToForwarders: sendEventToForwarders,
@@ -508,12 +508,10 @@ module.exports = {
     setForwarderUserIdentities: setForwarderUserIdentities,
     setForwarderOnUserIdentified: setForwarderOnUserIdentified,
     setForwarderOnIdentityComplete: setForwarderOnIdentityComplete,
-    prepareForwardingStats: prepareForwardingStats,
     getForwarderStatsQueue: getForwarderStatsQueue,
     setForwarderStatsQueue: setForwarderStatsQueue,
     isEnabledForUserConsent: isEnabledForUserConsent,
     isEnabledForUserAttributes: isEnabledForUserAttributes,
-    configureForwarder: configureForwarder,
     configurePixel: configurePixel,
     processForwarders: processForwarders
 };

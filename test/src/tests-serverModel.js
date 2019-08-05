@@ -1,9 +1,7 @@
-var should = require('should'),
-    Consent = require('../../src/consent'),
-    ServerModel = require('../../src/serverModel');
+import ServerModel from '../../src/serverModel';
+import Consent from '../../src/consent';
 
 describe('Server Model', function() {
-
     it('Should convert complete consent object', function(done) {
         var consentState = Consent.createConsentState();
         consentState.addGDPRConsentState('foo', Consent.createGDPRConsent(
@@ -13,7 +11,7 @@ describe('Server Model', function() {
             'foo location',
             'foo hardware id'));
         var consent = ServerModel.convertToConsentStateDTO(consentState);
-        should.exist(consent);
+        consent.should.be.ok();
 
         consent.should.have.property('gdpr');
         consent.gdpr.should.have.property('foo');

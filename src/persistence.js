@@ -1,11 +1,14 @@
-var Helpers = require('./helpers'),
-    Constants = require('./constants'),
-    Base64 = require('./polyfill').Base64,
+import Helpers from './helpers';
+import Constants from './constants';
+import Polyfill from './polyfill';
+import Consent from './consent';
+
+var Base64 = Polyfill.Base64,
     Messages = Constants.Messages,
     Base64CookieKeys = Constants.Base64CookieKeys,
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
-    StorageNames = Constants.StorageNames,
-    Consent = require('./consent');
+    StorageNames = Constants.StorageNames;
+
 
 function useLocalStorage() {
     return (!mParticle.Store.SDKConfig.useCookieStorage && mParticle.Store.isLocalStorageAvailable);
@@ -14,8 +17,8 @@ function useLocalStorage() {
 function initializeStorage() {
     try {
         var storage,
-            localStorageData = this.getLocalStorage(),
-            cookies = this.getCookie(),
+            localStorageData = getLocalStorage(),
+            cookies = getCookie(),
             allData;
 
         // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
@@ -45,7 +48,7 @@ function initializeStorage() {
                 } else if (cookies) {
                     allData = cookies;
                 }
-                this.storeDataInMemory(allData);
+                storeDataInMemory(allData);
             }
             else {
                 // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
@@ -56,14 +59,14 @@ function initializeStorage() {
                     } else {
                         allData = cookies;
                     }
-                    this.storeDataInMemory(allData);
-                    this.expireCookies(mParticle.Store.storageName);
+                    storeDataInMemory(allData);
+                    expireCookies(mParticle.Store.storageName);
                 } else {
-                    this.storeDataInMemory(localStorageData);
+                    storeDataInMemory(localStorageData);
                 }
             }
         } else {
-            this.storeDataInMemory(cookies);
+            storeDataInMemory(cookies);
         }
 
         try {
@@ -93,7 +96,7 @@ function initializeStorage() {
                 }
             }
         }
-        this.update();
+        update();
     } catch (e) {
         if (useLocalStorage() && mParticle.Store.isLocalStorageAvailable) {
             localStorage.removeItem(mParticle.Store.storageName);
@@ -107,10 +110,10 @@ function initializeStorage() {
 function update() {
     if (!mParticle.Store.webviewBridgeEnabled) {
         if (mParticle.Store.SDKConfig.useCookieStorage) {
-            this.setCookie();
+            setCookie();
         }
 
-        this.setLocalStorage();
+        setLocalStorage();
     }
 }
 
@@ -251,7 +254,7 @@ function setLocalStorage() {
 
     var key = mParticle.Store.storageName,
         allLocalStorageProducts = getAllUserProductsFromLS(),
-        localStorageData = this.getLocalStorage() || {},
+        localStorageData = getLocalStorage() || {},
         currentUser = mParticle.Identity.getCurrentUser(),
         mpid = currentUser ? currentUser.getMPID() : null,
         currentUserProducts = {
@@ -288,7 +291,7 @@ function setLocalStorage() {
             mParticle.Store.nonCurrentUserMPIDs = {};
         }
 
-        localStorageData = this.setGlobalStorageAttributes(localStorageData);
+        localStorageData = setGlobalStorageAttributes(localStorageData);
 
         try {
             window.localStorage.setItem(encodeURIComponent(key), encodeCookies(JSON.stringify(localStorageData)));
@@ -350,7 +353,7 @@ function retrieveDeviceId() {
     if (mParticle.Store.deviceId) {
         return mParticle.Store.deviceId;
     } else {
-        return this.parseDeviceId(mParticle.Store.serverSettings);
+        return parseDeviceId(mParticle.Store.serverSettings);
     }
 }
 
@@ -439,7 +442,7 @@ function setCookie() {
     }
     var date = new Date(),
         key = mParticle.Store.storageName,
-        cookies = this.getCookie() || {},
+        cookies = getCookie() || {},
         expires = new Date(date.getTime() +
             (mParticle.Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
         cookieDomain,
@@ -466,7 +469,7 @@ function setCookie() {
 
     cookies.l = mParticle.Store.isLoggedIn ? 1 : 0;
 
-    cookies = this.setGlobalStorageAttributes(cookies);
+    cookies = setGlobalStorageAttributes(cookies);
 
     if (Object.keys(mParticle.Store.nonCurrentUserMPIDs).length) {
         cookies = Helpers.extend({}, cookies, mParticle.Store.nonCurrentUserMPIDs);
@@ -556,7 +559,7 @@ function createFullEncodedCookie(cookies, expires, domain) {
 }
 
 function findPrevCookiesBasedOnUI(identityApiData) {
-    var cookies = this.getCookie() || this.getLocalStorage();
+    var cookies = getCookie() || getLocalStorage();
     var matchedUser;
 
     if (identityApiData) {
@@ -581,7 +584,7 @@ function findPrevCookiesBasedOnUI(identityApiData) {
     }
 
     if (matchedUser) {
-        this.storeDataInMemory(cookies, matchedUser);
+        storeDataInMemory(cookies, matchedUser);
     }
 }
 
@@ -730,10 +733,6 @@ function getDomain(doc, locationHostname) {
     return '';
 }
 
-function decodeProducts() {
-    return JSON.parse(Base64.decode(localStorage.getItem(mParticle.Store.prodStorageName)));
-}
-
 function getUserIdentities(mpid) {
     var cookies = getPersistence();
 
@@ -775,7 +774,6 @@ function setCartProducts(allProducts) {
         mParticle.Logger.error('Error with setting products on localStorage.');
     }
 }
-
 function saveUserIdentitiesToCookies(mpid, userIdentities) {
     if (userIdentities) {
         var cookies = getPersistence();
@@ -825,8 +823,8 @@ function saveUserCookieSyncDatesToCookies(mpid, csd) {
 }
 
 function saveUserConsentStateToCookies(mpid, consentState) {
-    //it's currently not supported to set persistence
-    //for any MPID that's not the current one.
+    //it's currently not supported to set persistence	
+    //for any MPID that's not the current one.	
     if (consentState || consentState === null) {
         var cookies = getPersistence();
         if (cookies) {
@@ -988,7 +986,7 @@ var forwardingStatsBatches = {
     forwardingStatsEventQueue: []
 };
 
-module.exports = {
+export default {
     useLocalStorage: useLocalStorage,
     initializeStorage: initializeStorage,
     update: update,
@@ -996,7 +994,6 @@ module.exports = {
     getUserProductsFromLS: getUserProductsFromLS,
     getAllUserProductsFromLS: getAllUserProductsFromLS,
     setLocalStorage: setLocalStorage,
-    setGlobalStorageAttributes: setGlobalStorageAttributes,
     getLocalStorage: getLocalStorage,
     storeDataInMemory: storeDataInMemory,
     retrieveDeviceId: retrieveDeviceId,
@@ -1012,10 +1009,8 @@ module.exports = {
     replaceQuotesWithApostrophes: replaceQuotesWithApostrophes,
     createCookieString: createCookieString,
     revertCookieString: revertCookieString,
-    encodeCookies: encodeCookies,
     decodeCookies: decodeCookies,
     getCookieDomain: getCookieDomain,
-    decodeProducts: decodeProducts,
     getUserIdentities: getUserIdentities,
     getAllUserAttributes: getAllUserAttributes,
     getCartProducts: getCartProducts,

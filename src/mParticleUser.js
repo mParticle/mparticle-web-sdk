@@ -1,8 +1,8 @@
-var Persistence = require('./persistence'),
-    Types = require('./types'),
-    Helpers = require('./helpers');
+import Persistence from './persistence';
+import Types from './types';
+import Helpers from './helpers';
 
-function getFilteredMparticleUser(mpid, forwarder) {
+export default function getFilteredMparticleUser(mpid, forwarder) {
     return {
         getUserIdentities: function() {
             var currentUserIdentities = {};
@@ -61,7 +61,3 @@ function getFilteredMparticleUser(mpid, forwarder) {
         }
     };
 }
-
-module.exports = {
-    getFilteredMparticleUser: getFilteredMparticleUser
-};

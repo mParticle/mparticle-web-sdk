@@ -1,7 +1,8 @@
-var sdkVersion = '2.9.7',
-    sdkVendor = 'mparticle',
-    platform = 'web',
-    Messages = {
+var Constants = {
+    sdkVersion: '2.9.7',
+    sdkVendor: 'mparticle',
+    platform: 'web',
+    Messages: {
         ErrorMessages: {
             NoToken: 'A token must be specified.',
             EventNameInvalidType: 'Event name must be a valid string value.',
@@ -59,7 +60,7 @@ var sdkVersion = '2.9.7',
             AliasStartBeforeEndTime: 'Alias Request\'s endTime must be later than its startTime'
         }
     },
-    NativeSdkPaths = {
+    NativeSdkPaths: {
         LogEvent: 'logEvent',
         SetUserTag: 'setUserTag',
         RemoveUserTag: 'removeUserTag',
@@ -80,7 +81,7 @@ var sdkVersion = '2.9.7',
         Modify: 'modify',
         Alias: 'aliasUsers'
     },
-    StorageNames = {
+    StorageNames: {
         localStorageName: 'mprtcl-api',             // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
         localStorageNameV3: 'mprtcl-v3',            // v3 Name of the mP localstorage, final version on SDKv1
         cookieName: 'mprtcl-api',                   // v1 Name of the cookie stored on the user's machine
@@ -92,7 +93,7 @@ var sdkVersion = '2.9.7',
         currentStorageName: 'mprtcl-v4',
         currentStorageProductsName: 'mprtcl-prodv4'
     },
-    DefaultConfig = {
+    DefaultConfig: {
         cookieDomain: null, 			            // If null, defaults to current location.host
         cookieExpiration: 365,			            // Cookie expiration time in days
         logLevel: null,					            // What logging will be provided in the console
@@ -104,14 +105,14 @@ var sdkVersion = '2.9.7',
         maxCookieSize: 3000,                        // Number of bytes for cookie size to not exceed
         aliasMaxWindow: 90                          // Max age of Alias request startTime, in days
     },
-    DefaultUrls = {
+    DefaultUrls: {
         v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
         v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
         configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
         identityUrl: 'identity.mparticle.com/v1/',
         aliasUrl: 'jssdks.mparticle.com/v1/identity/'
     },
-    Base64CookieKeys = {
+    Base64CookieKeys: {
         csm: 1,
         sa: 1,
         ss: 1,
@@ -121,14 +122,14 @@ var sdkVersion = '2.9.7',
         ia: 1,
         con: 1
     },
-    SDKv2NonMPIDCookieKeys = {
+    SDKv2NonMPIDCookieKeys: {
         gs: 1,
         cu: 1,
         l: 1,
         globalSettings: 1,
         currentUserMPID: 1
     },
-    HTTPCodes = {
+    HTTPCodes: {
         noHttpCoverage: -1,
         activeIdentityRequest: -2,
         activeSession: -3,
@@ -137,21 +138,9 @@ var sdkVersion = '2.9.7',
         loggingDisabledOrMissingAPIKey: -6,
         tooManyRequests: 429
     },
-    Features = {
+    Features: {
         Batching: 'batching'
-    };
-
-module.exports = {
-    sdkVersion: sdkVersion,
-    sdkVendor: sdkVendor,
-    platform: platform,
-    Messages: Messages,
-    NativeSdkPaths: NativeSdkPaths,
-    StorageNames: StorageNames,
-    DefaultConfig: DefaultConfig,
-    DefaultUrls: DefaultUrls,
-    Base64CookieKeys:Base64CookieKeys,
-    HTTPCodes: HTTPCodes,
-    Features: Features,
-    SDKv2NonMPIDCookieKeys: SDKv2NonMPIDCookieKeys
+    }
 };
+
+export default Constants;

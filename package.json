@@ -9,25 +9,26 @@
     "cdp"
   ],
   "files": [
-    "build/mParticle.js",
+    "build/mParticle.common.js",
     "src/"
   ],
-  "browser": "src/main.js",
+  "main": "build/mParticle.common.js",
+  "module": "src/main.js",
   "repository": "https://github.com/mParticle/mparticle-web-sdk",
   "scripts": {
-    "test": "node test/runner.js",
+    "test": "npm run build && npm run build:tests:prod && DEBUG=false karma start test/karma.config.js",
+    "test:debug": "DEBUG=true karma start test/karma.config.js",
     "test:integration": "npm run test:requirejs",
     "test:requirejs": "npm run test:requirejs:before && npm run test:requirejs:after",
     "test:requirejs:before": "FILE_ORDER=before_mp karma start test/karma.requirejs.config.js",
     "test:requirejs:after": "FILE_ORDER=after_mp karma start test/karma.requirejs.config.js",
-    "testKarma": "node test/test-karma.js",
-    "build": "browserify src/main.js -v -o build/mParticle-dev.js",
-    "buildTest": "browserify test/src/tests-main.js -v -o test/test-bundle.js  --debug",
-    "buildDocs": "yuidoc src/",
-    "buildSnippet": "uglifyjs snippet.js -nm -o snippet.min.js",
-    "testBrowser": "karma start --single-run --browsers=$BROWSER test/karma.config.js",
-    "watch": "watchify src/main.js -v -o build/mParticle-dev.js --debug",
-    "watchTests": "watchify test/src/tests-main.js -v -o test/test-bundle.js --debug",
+    "build": "ENVIRONMENT=prod rollup --config rollup.config.js",
+    "build:dev": "ENVIRONMENT=dev rollup --config rollup.config.js",
+    "build:tests:prod": "ENVIRONMENT=prod rollup --config rollup.test.config.js",
+    "build:docs": "yuidoc src/",
+    "build:snippet": "uglifyjs snippet.js -nm -o snippet.min.js",
+    "watch": "ENVIRONMENT=dev rollup --config rollup.config.js -w",
+    "watch:tests": "ENVIRONMENT=dev rollup --config rollup.test.config.js -w",
     "lint": "eslint src/ test/src/"
   },
   "pre-commit": [
@@ -36,7 +37,7 @@
   "devDependencies": {
     "browser-sync": "^2.26.3",
     "chai": "^4.2.0",
-    "eslint": "^3.17.1",
+    "eslint": "^6.1.0",
     "karma": "^4.0.1",
     "karma-chai": "^0.1.0",
     "karma-chrome-launcher": "^2.2.0",
@@ -46,14 +47,17 @@
     "karma-junit-reporter": "^1.2.0",
     "karma-mocha": "^1.3.0",
     "karma-safari-launcher": "^1.0.0",
+    "karma-should": "^1.0.0",
     "mocha": "^6.0.2",
     "pre-commit": "^1.2.2",
+    "rollup": "^1.16.7",
+    "rollup-plugin-commonjs": "^10.0.1",
+    "rollup-plugin-node-resolve": "^5.2.0",
     "shelljs": "^0.7.8",
     "should": "^7.1.0",
     "sinon": "^4.1.2",
     "sinon-browser-only": "^1.12.1",
     "uglify-js": "^3.4.9",
-    "watchify": "^3.9.0",
     "yuidocjs": "^0.10.2"
   }
 }

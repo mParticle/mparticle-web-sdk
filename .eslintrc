@@ -2,7 +2,13 @@
     "env": {
         "browser": true,
         "node": true
-
+    },
+    "parserOptions": {
+        "ecmaVersion": 6,
+        "sourceType": "module",
+        "ecmaFeatures": {
+            "modules": true,
+        },
     },
     "globals": {
         "mParticle": true,
@@ -50,13 +56,17 @@
         ],
         "comma-spacing": [
             "error",
-            { before: false, after: true }
+            { "before": false, "after": true }
         ],
+        "for-direction": "error",
         "quote-props": [
             "error",
             "as-needed",
-            { keywords: false, unnecessary: true, numbers: false }
+            { "keywords": false, "unnecessary": true, "numbers": false }
         ],
-        "no-multi-spaces": "error",
+        "no-useless-escape": "off",
+        "no-prototype-builtins": "off",
+        "no-multi-spaces": ["error", {"ignoreEOLComments": true}],
+        "no-implicit-globals": "error",
     }
 }

@@ -306,13 +306,13 @@ var ApplicationTransitionType = {
     AppInit: 1
 };
 
-module.exports = {
+export default {
     MessageType: MessageType,
     EventType: EventType,
     CommerceEventType: CommerceEventType,
     IdentityType: IdentityType,
     ProfileMessageType: ProfileMessageType,
     ApplicationTransitionType: ApplicationTransitionType,
-    ProductActionType:ProductActionType,
-    PromotionActionType:PromotionActionType
+    ProductActionType: ProductActionType,
+    PromotionActionType: PromotionActionType
 };

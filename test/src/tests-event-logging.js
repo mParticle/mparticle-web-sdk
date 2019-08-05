@@ -1,5 +1,6 @@
-var TestsCore = require('./tests-core'),
-    getEvent = TestsCore.getEvent,
+import TestsCore from './tests-core';
+
+var getEvent = TestsCore.getEvent,
     getIdentityEvent = TestsCore.getIdentityEvent,
     apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
@@ -372,7 +373,6 @@ describe('event logging', function() {
     });
 
     it('should send consent state with each event logged', function(done) {
-
         var consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState('foo purpose',
             mParticle.Consent.createGDPRConsent(true, 10, 'foo document', 'foo location', 'foo hardwareId'));

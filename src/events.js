@@ -1,20 +1,20 @@
-var Types = require('./types'),
-    Constants = require('./constants'),
-    Helpers = require('./helpers'),
-    Ecommerce = require('./ecommerce'),
-    ServerModel = require('./serverModel'),
-    SessionManager = require('./sessionManager'),
-    Persistence = require('./persistence'),
-    Messages = Constants.Messages,
-    sendEventToServer = require('./apiClient').sendEventToServer,
-    sendEventToForwarders = require('./forwarders').sendEventToForwarders;
+import Types from './types';
+import Constants from './constants';
+import Helpers from './helpers';
+import Ecommerce from './ecommerce';
+import ServerModel from './serverModel';
+import Persistence from './persistence';
+import ApiClient from './apiClient';
+import Forwarders from './forwarders';
+
+var Messages = Constants.Messages,
+    sendEventToServer = ApiClient.sendEventToServer,
+    sendEventToForwarders = Forwarders.sendEventToForwarders;
 
 function logEvent(type, name, data, category, cflags) {
     mParticle.Logger.verbose(Messages.InformationMessages.StartingLogEvent + ': ' + name);
 
     if (Helpers.canLog()) {
-        startNewSessionIfNeeded();
-
         if (data) {
             data = Helpers.sanitizeAttributes(data);
         }
@@ -261,7 +261,6 @@ function logCommerceEvent(commerceEvent, attrs) {
     attrs = Helpers.sanitizeAttributes(attrs);
 
     if (Helpers.canLog()) {
-        startNewSessionIfNeeded();
         if (mParticle.Store.webviewBridgeEnabled) {
             // Don't send shopping cart to parent sdks
             commerceEvent.ShoppingCart = {};
@@ -354,21 +353,7 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
     }
 }
 
-function startNewSessionIfNeeded() {
-    if (!mParticle.Store.webviewBridgeEnabled) {
-        var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
-
-        if (!mParticle.Store.sessionId && cookies) {
-            if (cookies.sid) {
-                mParticle.Store.sessionId = cookies.sid;
-            } else {
-                SessionManager.startNewSession();
-            }
-        }
-    }
-}
-
-module.exports = {
+export default {
     logEvent: logEvent,
     startTracking: startTracking,
     stopTracking: stopTracking,
@@ -381,7 +366,5 @@ module.exports = {
     logOptOut: logOptOut,
     logAST: logAST,
     parseEventResponse: parseEventResponse,
-    logCommerceEvent: logCommerceEvent,
-    addEventHandler: addEventHandler,
-    startNewSessionIfNeeded: startNewSessionIfNeeded
+    addEventHandler: addEventHandler
 };

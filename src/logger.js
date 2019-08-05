@@ -54,4 +54,4 @@ function ConsoleLogger() {
     };
 }
 
-module.exports = Logger;
+export default Logger;

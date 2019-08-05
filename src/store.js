@@ -1,6 +1,7 @@
-var Constants = require('./constants'),
-    Helpers = require('./helpers'),
-    Validators = Helpers.Validators;
+import Constants from './constants';
+import Helpers from './helpers';
+
+var Validators = Helpers.Validators;
 
 function createSDKConfig(config) {
     var sdkConfig = {};
@@ -25,7 +26,7 @@ function createSDKConfig(config) {
     return sdkConfig;
 }
 
-function Store(config, logger) {
+export default function Store(config, logger) {
     var defaultStore = {
         isEnabled: true,
         sessionAttributes: {},
@@ -215,5 +216,3 @@ function Store(config, logger) {
         }
     }
 }
-
-module.exports = Store;

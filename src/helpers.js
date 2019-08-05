@@ -1,6 +1,6 @@
-var Types = require('./types'),
-    Constants = require('./constants'),
-    StorageNames = Constants.StorageNames,
+import Types from './types';
+import Constants from './constants';
+var StorageNames = Constants.StorageNames,
     pluses = /\+/g;
 
 function canLog() {
@@ -10,7 +10,6 @@ function canLog() {
 
     return false;
 }
-
 
 function returnConvertedBoolean(data) {
     if (data === 'false' || data === '0') {
@@ -266,17 +265,17 @@ function generateUniqueId(a) {
     // Added support for crypto for better random
 
     return a                            // if the placeholder was passed, return
-            ? generateRandomValue(a)    // a random number
-            : (                         // or otherwise a concatenated string:
+        ? generateRandomValue(a)    // a random number
+        : (                         // or otherwise a concatenated string:
             [1e7] +                     // 10000000 +
             -1e3 +                      // -1000 +
             -4e3 +                      // -4000 +
             -8e3 +                      // -80000000 +
             -1e11                       // -100000000000,
-            ).replace(                  // replacing
-                /[018]/g,               // zeroes, ones, and eights with
-                generateUniqueId        // random hex digits
-            );
+        ).replace(                  // replacing
+            /[018]/g,               // zeroes, ones, and eights with
+            generateUniqueId        // random hex digits
+        );
 }
 
 function filterUserIdentities(userIdentitiesObject, filterList) {
@@ -572,7 +571,7 @@ function createProductStorageName(workspaceToken) {
     }
 }
 
-module.exports = {
+export default {
     canLog: canLog,
     extend: extend,
     isObject: isObject,

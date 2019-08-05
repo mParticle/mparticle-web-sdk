@@ -1,5 +1,9 @@
-var TestsCore = require('./tests-core'),
-    getEvent = TestsCore.getEvent,
+import TestsCore from './tests-core';
+import Forwarders from '../../src/forwarders';
+import Helpers from '../../src/helpers';
+import Consent from '../../src/consent';
+
+var getEvent = TestsCore.getEvent,
     getForwarderEvent = TestsCore.getForwarderEvent,
     server = TestsCore.server,
     apiKey = TestsCore.apiKey,
@@ -7,10 +11,8 @@ var TestsCore = require('./tests-core'),
     forwarderDefaultConfiguration = TestsCore.forwarderDefaultConfiguration,
     MPConfig = TestsCore.MPConfig,
     MessageType = TestsCore.MessageType,
-    MockForwarder = TestsCore.MockForwarder,
-    Forwarders = require('../../src/forwarders'),
-    Helpers = require('../../src/helpers'),
-    Consent = require('../../src/consent');
+    MockForwarder = TestsCore.MockForwarder;
+
 
 describe('forwarders', function() {
     it('should add forwarders via dynamic script loading via the addForwarder method', function (done) {
@@ -120,7 +122,6 @@ describe('forwarders', function() {
         };
         window.mParticle.config.kitConfigs.push(config);
 
-        
         mParticle.init(apiKey, window.mParticle.config);
 
         var consentState = Consent
@@ -280,7 +281,7 @@ describe('forwarders', function() {
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
-        
+
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.isDebug = true;
 
@@ -484,7 +485,6 @@ describe('forwarders', function() {
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.userIdentityFilters = [mParticle.IdentityType.Google];
         window.mParticle.config.kitConfigs.push(config1);
-        
         mParticle.Identity.modify({userIdentities: {google: 'test@google.com', email: 'test@gmail.com', customerid: '123'}});
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -536,7 +536,7 @@ describe('forwarders', function() {
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.userAttributeFilters = [Helpers.generateHash('gender'), Helpers.generateHash('age')];
         window.mParticle.config.kitConfigs.push(config1);
-    
+
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.userAttributesFilterOnInitTest.should.not.have.property('gender');
 
@@ -1120,7 +1120,7 @@ describe('forwarders', function() {
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
 
-        mParticle._configureFeatures({batching: true});
+        mParticle._configureFeatures({ batching: true });
 
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.logEvent('not in forwarder');
@@ -1324,7 +1324,7 @@ describe('forwarders', function() {
     });
 
     it('should clear integration attributes when an empty object or a null is passed', function(done) {
-        mParticle.setIntegrationAttribute(128, {MCID: 'abcdefg'});
+        mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
         var adobeIntegrationAttributes = mParticle.getIntegrationAttributes(128);
         Object.keys(adobeIntegrationAttributes).length.should.equal(1);
 

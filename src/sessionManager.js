@@ -1,9 +1,13 @@
-var Helpers = require('./helpers'),
-    Messages = require('./constants').Messages,
-    Types = require('./types'),
-    IdentityAPI = require('./identity').IdentityAPI,
-    Persistence = require('./persistence'),
-    logEvent = require('./events').logEvent;
+import Helpers from './helpers';
+import Constants from './constants';
+import Types from './types';
+import Identity from './identity';
+import Persistence from './persistence';
+import Events from './events';
+
+var IdentityAPI = Identity.IdentityAPI,
+    Messages = Constants.Messages,
+    logEvent = Events.logEvent;
 
 function initialize() {
     if (mParticle.Store.sessionId) {
@@ -130,13 +134,28 @@ function resetSessionTimer() {
         clearSessionTimeout();
         setSessionTimer();
     }
+    startNewSessionIfNeeded();
 }
 
 function clearSessionTimeout() {
     clearTimeout(mParticle.Store.globalTimer);
 }
 
-module.exports = {
+function startNewSessionIfNeeded() {
+    if (!mParticle.Store.webviewBridgeEnabled) {
+        var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
+
+        if (!mParticle.Store.sessionId && cookies) {
+            if (cookies.sid) {
+                mParticle.Store.sessionId = cookies.sid;
+            } else {
+                startNewSession();
+            }
+        }
+    }
+}
+
+export default {
     initialize: initialize,
     getSession: getSession,
     startNewSession: startNewSession,

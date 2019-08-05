@@ -1,4 +1,6 @@
-var Messages = require('./constants').Messages;
+import Constants from './constants';
+
+var Messages = Constants.Messages;
 
 var androidBridgeNameBase = 'mParticleAndroid';
 var iosBridgeNameBase = 'mParticle';
@@ -121,10 +123,8 @@ function sendViaBridgeV2(path, value, requiredWebviewBridgeName) {
     }
 }
 
-module.exports = {
+export default {
     isWebviewEnabled: isWebviewEnabled,
-    isBridgeV2Available:isBridgeV2Available,
-    sendToNative: sendToNative,
-    sendViaBridgeV1: sendViaBridgeV1,
-    sendViaBridgeV2: sendViaBridgeV2
+    isBridgeV2Available: isBridgeV2Available,
+    sendToNative: sendToNative
 };

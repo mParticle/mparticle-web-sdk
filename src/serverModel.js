@@ -1,9 +1,10 @@
-var Types = require('./types'),
-    MessageType = Types.MessageType,
+import Types from './types';
+import Helpers from './helpers';
+import Constants from './constants';
+
+var MessageType = Types.MessageType,
     ApplicationTransitionType = Types.ApplicationTransitionType,
-    Constants = require('./constants'),
-    Helpers = require('./helpers'),
-    parseNumber = require('./helpers').parseNumber;
+    parseNumber = Helpers.parseNumber;
 
 function convertCustomFlags(event, dto) {
     var valueArray = [];
@@ -246,7 +247,7 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
     return dto;
 }
 
-module.exports = {
+export default {
     createEventObject: createEventObject,
     convertEventToDTO: convertEventToDTO,
     convertToConsentStateDTO: convertToConsentStateDTO

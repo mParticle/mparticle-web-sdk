@@ -1,6 +1,7 @@
-var Helpers = require('../../src/helpers'),
-    TestsCore = require('./tests-core'),
-    apiKey = TestsCore.apiKey,
+import Helpers from '../../src/helpers';
+import TestsCore from './tests-core';
+
+var apiKey = TestsCore.apiKey,
     Validators = Helpers.Validators;
 
 describe('helpers', function() {

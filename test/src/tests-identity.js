@@ -1,7 +1,9 @@
-var Helpers= require('../../src/helpers'),
-    TestsCore = require('./tests-core'),
-    Constants = require('../../src/constants'),
-    getLocalStorage = TestsCore.getLocalStorage,
+import Constants from '../../src/constants';
+import TestsCore from './tests-core';
+import Helpers from '../../src/helpers';
+import Identity from '../../src/identity';
+
+var getLocalStorage = TestsCore.getLocalStorage,
     setLocalStorage = TestsCore.setLocalStorage,
     apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
@@ -91,7 +93,7 @@ describe('identity', function() {
 
     it('should not do an identity swap if there is no MPID change', function(done) {
         var cookiesBefore = getLocalStorage();
-        mParticle._Identity.checkIdentitySwap(testMPID, testMPID);
+        Identity.checkIdentitySwap(testMPID, testMPID);
 
         var cookiesAfter = mParticle.persistence.getLocalStorage();
 
@@ -103,7 +105,7 @@ describe('identity', function() {
     it('should do an identity swap if there is an MPID change', function(done) {
         var cookiesBefore = getLocalStorage();
 
-        mParticle._Identity.checkIdentitySwap(testMPID, 'currentMPID');
+        Identity.checkIdentitySwap(testMPID, 'currentMPID');
 
         var cookiesAfter = mParticle.persistence.getLocalStorage();
         cookiesBefore.cu.should.equal(testMPID);
