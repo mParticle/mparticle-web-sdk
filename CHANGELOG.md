@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.9.8 - 2019-08-07
+* Migrate to ES6 Modules; Replace Browserify with Rollup
+
 #### 2.9.7 - 2019-07-16
 * Bugfix - noHttpCoverage code properly sent to callback
 * Bugfix - Configure forwarders prior to identify callback
