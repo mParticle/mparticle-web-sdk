@@ -1,6 +1,9 @@
 ## Releases
 --
 
+#### 2.9.9 - 2019-08-07
+* Bugfix - Check all event attributes when forwarding rules are set
+
 #### 2.9.8 - 2019-08-07
 * Migrate to ES6 Modules; Replace Browserify with Rollup
 
