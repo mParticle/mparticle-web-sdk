@@ -770,6 +770,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
+            Foo: 'Bar',
             ForwardingRule: 'Forward'
         });
 
@@ -780,7 +781,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should forward event if event attribute forwarding rule is set and includeOnMatch is true but attributes do not match', function(done) {
+    it('should not forward event if event attribute forwarding rule is set and includeOnMatch is true but attributes do not match', function(done) {
         mParticle.reset(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -796,7 +797,7 @@ describe('forwarders', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.logEvent('send this event to forwarder', mParticle.EventType.Navigation, {
-            Test: 'Non-Matching'
+            Forwarding: 'Non-Matching'
         });
 
         var event = window.MockForwarder1.instance.receivedEvent;

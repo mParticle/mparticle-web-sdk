@@ -240,8 +240,10 @@ function sendEventToForwarders(event) {
                                 value: Helpers.generateHash(event.EventAttributes[prop]).toString()
                             };
                         }
-
-                        break;
+                        
+                        if (foundProp) {
+                            break;
+                        }
                     }
                 }
 
