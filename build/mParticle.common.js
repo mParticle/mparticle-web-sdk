@@ -562,7 +562,7 @@ var Types = {
 };
 
 var Constants = {
-    sdkVersion: '2.9.8',
+    sdkVersion: '2.9.9',
     sdkVendor: 'mparticle',
     platform: 'web',
     Messages: {
@@ -3477,8 +3477,10 @@ function sendEventToForwarders(event) {
                                 value: Helpers.generateHash(event.EventAttributes[prop]).toString()
                             };
                         }
-
-                        break;
+                        
+                        if (foundProp) {
+                            break;
+                        }
                     }
                 }
 
