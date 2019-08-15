@@ -1,8 +1,8 @@
 const { DEBUG } = process.env;
 
 let files = [
-    'mockhttprequest.js',
-    'geomock.js',
+    'lib/mockhttprequest.js',
+    'lib/geomock.js',
     '../node_modules/sinon-browser-only/sinon.js',
     '../build/mParticle-dev.js',
     'test-bundle.js'

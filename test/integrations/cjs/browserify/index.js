@@ -1,0 +1,1 @@
+var mParticle = require('../../../../build/mParticle.common.js');

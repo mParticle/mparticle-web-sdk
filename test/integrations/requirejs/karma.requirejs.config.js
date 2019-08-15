@@ -4,17 +4,17 @@ let files = [];
 switch (FILE_ORDER) {
     case 'before_mp':
         files = [
-            'mockhttprequest.js',
-            'lib/require.2.3.6.min.js',
-            '../build/mParticle-dev.js',
+            '../../lib/mockhttprequest.js',
+            '../../lib/require.2.3.6.min.js',
+            '../../../build/mParticle-dev.js',
             'test-requirejs.js'
         ];
         break;
     case 'after_mp':
         files = [
-            'mockhttprequest.js',
-            '../build/mParticle-dev.js',
-            'lib/require.2.3.6.min.js',
+            '../../lib/mockhttprequest.js',
+            '../../../build/mParticle-dev.js',
+            '../../lib/require.2.3.6.min.js',
             'test-requirejs.js'
         ];
         break;
@@ -47,7 +47,7 @@ module.exports = function(config) {
             }
         },
         junitReporter: {
-            outputDir: 'reports/',
+            outputDir: '../../reports/',
             outputFile: 'test-requirejs.xml'
         }
     });

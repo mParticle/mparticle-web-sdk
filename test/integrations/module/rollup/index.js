@@ -1,0 +1,1 @@
+import mParticle from '../../../../src/main.js';
