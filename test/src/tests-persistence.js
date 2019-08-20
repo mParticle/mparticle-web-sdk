@@ -1,5 +1,6 @@
 import Persistence from '../../src/persistence';
 import TestsCore from './tests-core';
+import sinon from 'sinon';
 
 /* eslint-disable quotes*/
 var apiKey = TestsCore.apiKey,

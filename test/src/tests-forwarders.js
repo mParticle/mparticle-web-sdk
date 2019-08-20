@@ -2,6 +2,7 @@ import TestsCore from './tests-core';
 import Forwarders from '../../src/forwarders';
 import Helpers from '../../src/helpers';
 import Consent from '../../src/consent';
+import sinon from 'sinon';
 
 var getEvent = TestsCore.getEvent,
     getForwarderEvent = TestsCore.getForwarderEvent,

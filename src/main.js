@@ -96,7 +96,10 @@ var mParticle = {
             window.console.warn('You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly');
             config = window.mParticle.config;
         }
-        // Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
+
+        runPreConfigFetchInitialization(apiKey, config);
+
+        // /config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
         // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
         // to it for it to be run after fetched
         if (config) {
@@ -743,12 +746,7 @@ var mParticle = {
 };
 
 function completeSDKInitialization(apiKey, config) {
-    mParticle.Logger = new Logger(config);
-
-    mParticle.Store = new Store(config, mParticle.Logger);
-
-    mParticle.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.Store.SDKConfig.requiredWebviewBridgeName, mParticle.Store.SDKConfig.minWebviewBridgeVersion);
-
+    mParticle.Store.configurationLoaded = true;
     if (mParticle.Store.webviewBridgeEnabled) {
         NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
         if (apiKey) {
@@ -756,17 +754,6 @@ function completeSDKInitialization(apiKey, config) {
         }
     } else {
         var currentUser;
-
-        mParticle.Store.devToken = apiKey || null;
-        mParticle.Logger.verbose(Messages.InformationMessages.StartingInitialization);
-        //check to see if localStorage is available for migrating purposes
-        mParticle.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
-
-        // Migrate any cookies from previous versions to current cookie version
-        Migrations.migrate();
-
-        // Load any settings/identities/attributes from cookie or localStorage
-        Persistence.initializeStorage();
 
         // If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
         if ((Helpers.isObject(mParticle.Store.SDKConfig.identifyRequest) && Helpers.isObject(mParticle.Store.SDKConfig.identifyRequest.userIdentities) &&
@@ -829,7 +816,6 @@ function completeSDKInitialization(apiKey, config) {
 
         mParticle.sessionManager.initialize();
         Events.logAST();
-
     }
     // Call any functions that are waiting for the library to be initialized
     if (mParticle.preInit.readyQueue && mParticle.preInit.readyQueue.length) {
@@ -847,6 +833,26 @@ function completeSDKInitialization(apiKey, config) {
 
     if (mParticle.Store.isFirstRun) {
         mParticle.Store.isFirstRun = false;
+    }
+}
+
+function runPreConfigFetchInitialization(apiKey, config) {
+    mParticle.Logger = new Logger(config);
+    mParticle.Store = new Store(config, mParticle.Logger);
+    mParticle.Store.devToken = apiKey || null;
+    mParticle.Logger.verbose(Messages.InformationMessages.StartingInitialization);
+
+    //check to see if localStorage is available for migrating purposes
+    mParticle.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
+    
+    mParticle.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle.Store.SDKConfig.requiredWebviewBridgeName, mParticle.Store.SDKConfig.minWebviewBridgeVersion);
+    
+    if (!mParticle.Store.webviewBridgeEnabled) {
+        // Migrate any cookies from previous versions to current cookie version
+        Migrations.migrate();
+    
+        // Load any settings/identities/attributes from cookie or localStorage
+        Persistence.initializeStorage();
     }
 }
 

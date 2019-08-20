@@ -44,13 +44,12 @@ function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
 
         mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays, mParticle.Store.integrationDelayTimeoutStart, Date.now());
         // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
-        // need to be set, and so require delaying events
-        if (!mpid || mParticle.Store.requireDelay) {
+        // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
+        if (!mpid || mParticle.Store.requireDelay || !mParticle.Store.configurationLoaded) {
             mParticle.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
             mParticle.Store.eventQueue.push(event);
         } else {
             Helpers.processQueuedEvents(mParticle.Store.eventQueue, mpid, !mParticle.Store.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
-
             if (!event) {
                 mParticle.Logger.error(Messages.ErrorMessages.EventEmpty);
                 return;

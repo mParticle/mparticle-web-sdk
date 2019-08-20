@@ -58,3 +58,4 @@ import './tests-native-sdk';
 import './tests-consent';
 import './tests-serverModel';
 import './tests-mParticleUser';
+import './tests-self-hosting-specific';

@@ -944,7 +944,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
     mParticle.Store.identityCallInFlight = false;
 
     try {
-        mParticle.Logger.verbose('Parsing identity response from server');
+        mParticle.Logger.verbose('Parsing "' + method + '" identity response from server');
         if (xhr.responseText) {
             identityApiResult = JSON.parse(xhr.responseText);
             if (identityApiResult.hasOwnProperty('is_logged_in')) {
@@ -990,9 +990,7 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 CookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid);
 
                 checkIdentitySwap(previousMPID, identityApiResult.mpid, mParticle.Store.currentSessionMPIDs);
-
-                Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, ApiClient.sendEventToServer, sendEventToForwarders, Events.parseEventResponse);
-
+                
                 //if there is any previous migration data
                 if (Object.keys(mParticle.Store.migrationData).length) {
                     newIdentities = mParticle.Store.migrationData.userIdentities || {};
@@ -1034,6 +1032,8 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
                 Forwarders.setForwarderOnIdentityComplete(newUser, method);
                 Forwarders.setForwarderOnUserIdentified(newUser, method);
             }
+
+            Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, ApiClient.sendEventToServer, sendEventToForwarders, Events.parseEventResponse);
         }
 
         if (callback) {

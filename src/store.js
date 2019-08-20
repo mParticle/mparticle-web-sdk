@@ -49,6 +49,7 @@ export default function Store(config, logger) {
         currencyCode: null,
         globalTimer: null,
         context: '',
+        configurationLoaded: false,
         identityCallInFlight: false,
         SDKConfig: {},
         migratingToIDSyncCookies: false,

@@ -1,4 +1,5 @@
 import TestsCore from './tests-core';
+import sinon from 'sinon';
 
 var getEvent = TestsCore.getEvent,
     getIdentityEvent = TestsCore.getIdentityEvent,

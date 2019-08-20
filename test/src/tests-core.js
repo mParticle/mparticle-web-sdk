@@ -151,11 +151,16 @@ var server = new MockHttpServer(),
             return mParticle.persistence.getLocalStorage();
         }
     },
-    getEvent = function(eventName, isForwarding) {
-        var requests = getRequests(isForwarding ? 'Forwarding' : 'Events'),
-            matchedEvent = null;
+    getEvent = function(eventName, isForwarding, server) {
+        var requests = getRequests(isForwarding ? 'Forwarding' : 'Events', server),
+            matchedEvent = null,
+            data;
         requests.forEach(function(item) {
-            var data = JSON.parse(item.requestText);
+            if (item.requestText) {
+                data = JSON.parse(item.requestText);
+            } else if (item.requestBody) {
+                data = JSON.parse(item.requestBody);
+            }
             if (data.n === eventName) {
                 matchedEvent = data;
             }
@@ -181,14 +186,20 @@ var server = new MockHttpServer(),
             return null;
         }
     },
-    getRequests = function(path) {
+    getRequests = function (path, mockServer) {
         var requests = [];
         var version = path === 'Forwarding' ? 'v1' : 'v2',
             fullPath = '/' + version+ '/JS/' + apiKey + '/' + path;
-
-        server.requests.forEach(function(item) {
-            if (item.urlParts.path == fullPath) {
-                requests.push(item);
+        mockServer = mockServer || server;
+        mockServer.requests.forEach(function(item) {
+            if (item.urlParts) {
+                if (item.urlParts.path == fullPath) {
+                    requests.push(item);
+                }
+            } else if (item.url) {
+                if (item.url.includes(fullPath)) {
+                    requests.push(item);
+                }
             }
         });
 

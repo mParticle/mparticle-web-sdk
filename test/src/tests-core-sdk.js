@@ -2,6 +2,7 @@ import TestsCore from './tests-core';
 import Store from '../../src/store';
 import Logger from '../../src/logger';
 import Constants from '../../src/constants';
+import sinon from 'sinon';
 
 var DefaultConfig = Constants.DefaultConfig,
     MPConfig = TestsCore.MPConfig,

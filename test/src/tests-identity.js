@@ -2,6 +2,7 @@ import Constants from '../../src/constants';
 import TestsCore from './tests-core';
 import Helpers from '../../src/helpers';
 import Identity from '../../src/identity';
+import sinon from 'sinon';
 
 var getLocalStorage = TestsCore.getLocalStorage,
     setLocalStorage = TestsCore.setLocalStorage,
