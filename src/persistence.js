@@ -754,12 +754,16 @@ function getAllUserAttributes(mpid) {
 }
 
 function getCartProducts(mpid) {
-    var allCartProducts = JSON.parse(Base64.decode(localStorage.getItem(mParticle.Store.prodStorageName)));
-    if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
-        return allCartProducts[mpid].cp;
-    } else {
-        return [];
+    var allCartProducts,
+        cartProductsString = localStorage.getItem(mParticle.Store.prodStorageName);
+    if (cartProductsString) {
+        allCartProducts = JSON.parse(Base64.decode(cartProductsString));
+        if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
+            return allCartProducts[mpid].cp;
+        }
     }
+
+    return [];
 }
 
 function setCartProducts(allProducts) {

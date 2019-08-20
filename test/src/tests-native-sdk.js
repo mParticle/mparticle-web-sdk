@@ -632,6 +632,25 @@ describe('native-sdk methods', function() {
 
                 done();
             });
+
+            it('should send an event with a product list when calling logPurchase', function (done) {
+                var product = mParticle.eCommerce.createProduct('product1', 'sku', 10, 1);
+                var product2 = mParticle.eCommerce.createProduct('product2', 'sku', 10, 1);
+
+                mParticle.eCommerce.Cart.add([product, product2]);
+
+                var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('TAid1', 'aff1', 'coupon', 1798, 10, 5);
+                var clearCartBoolean = true;
+                var customAttributes = { value: 10 };
+                var customFlags = { foo: 'bar' };
+                mParticleAndroidV2Bridge.data = [];
+                mParticle.eCommerce.logPurchase(transactionAttributes, [product, product2], clearCartBoolean, customAttributes, customFlags);
+
+                JSON.parse(mParticleAndroidV2Bridge.event).ProductAction.ProductList[0].Name.should.equal('product1');
+                JSON.parse(mParticleAndroidV2Bridge.event).ProductAction.ProductList[1].Name.should.equal('product2');
+
+                done();
+            });
         });
 
         describe('iOS', function() {
@@ -857,6 +876,30 @@ describe('native-sdk methods', function() {
                 });
                 JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
                 JSON.parse(mParticleIOSV2Bridge.data[0]).value.should.have.property('EventName', 'test');
+
+                done();
+            });
+
+            it('should send an event with a product list when calling logPurchase', function (done) {
+                var product = mParticle.eCommerce.createProduct('product1', 'sku', 10, 1);
+                var product2 = mParticle.eCommerce.createProduct('product2', 'sku', 10, 1);
+
+                mParticle.eCommerce.Cart.add([product, product2]);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(['path', 'value']);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('addToCart');
+                JSON.stringify(JSON.parse(mParticleIOSV2Bridge.data[0]).value).should.equal(JSON.stringify([product, product2]));
+                
+                var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('TAid1', 'aff1', 'coupon', 1798, 10, 5);
+                var clearCartBoolean = true;
+                var customAttributes = { value: 10 };
+                var customFlags = { foo: 'bar' };
+                mParticleIOSV2Bridge.data = [];
+                mParticle.eCommerce.logPurchase(transactionAttributes, [product, product2], clearCartBoolean, customAttributes, customFlags);
+
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal('logEvent');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.ProductAction.ProductList.length.should.equal(2);
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.ProductAction.ProductList[0].Name.should.equal('product1');
+                JSON.parse(mParticleIOSV2Bridge.data[0]).value.ProductAction.ProductList[1].Name.should.equal('product2');
 
                 done();
             });
