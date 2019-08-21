@@ -299,18 +299,19 @@ describe('identity', function() {
             deviceId = 'abc',
             context = null;
 
-        oldIdentities[0] = 'id1';
-        oldIdentities[1] = 'id2';
-        oldIdentities[2] = 'id3';
-        oldIdentities[3] = 'id4';
-        oldIdentities[4] = 'id5';
-        oldIdentities[5] = 'id6';
-        oldIdentities[6] = 'id7';
-        oldIdentities[7] = 'id8';
-        oldIdentities[9] = 'id9';
-        oldIdentities[10] = 'id10';
-        oldIdentities[11] = 'id11';
-        oldIdentities[12] = 'id12';
+        oldIdentities['other'] = 'id1';
+        oldIdentities['customerid'] = 'id2';
+        oldIdentities['facebook'] = 'id3';
+        oldIdentities['twitter'] = 'id4';
+        oldIdentities['google'] = 'id5';
+        oldIdentities['microsoft'] = 'id6';
+        oldIdentities['yahoo'] = 'id7';
+        oldIdentities['email'] = 'id8';
+        oldIdentities['facebookcustomaudienceid'] = 'id9';
+        oldIdentities['other1'] = 'id10';
+        oldIdentities['other2'] = 'id11';
+        oldIdentities['other3'] = 'id12';
+        oldIdentities['other4'] = 'id13';
         var newIdentities = {};
         newIdentities.other = 'id14';
         newIdentities.customerid = 'id15';
@@ -321,9 +322,10 @@ describe('identity', function() {
         newIdentities.yahoo = 'id20';
         newIdentities.email = 'id21';
         newIdentities.facebookcustomaudienceid = 'id22';
-        newIdentities.other2 = 'id23';
-        newIdentities.other3 = 'id24';
-        newIdentities.other4 = 'id25';
+        newIdentities.other1 = 'id23';
+        newIdentities.other2 = 'id24';
+        newIdentities.other3 = 'id25';
+        newIdentities.other4 = 'id26';
 
         var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(oldIdentities, newIdentities, platform, sdkVendor, sdkVersion, deviceId, context, testMPID);
         identityRequest.should.have.properties(['client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms']);
@@ -378,18 +380,23 @@ describe('identity', function() {
 
         identityRequest.identity_changes[9].should.have.properties(['identity_type', 'new_value', 'old_value']);
         identityRequest.identity_changes[9].old_value.should.equal('id10');
-        identityRequest.identity_changes[9].identity_type.should.equal('other2');
+        identityRequest.identity_changes[9].identity_type.should.equal('other1');
         identityRequest.identity_changes[9].new_value.should.equal('id23');
 
         identityRequest.identity_changes[10].should.have.properties(['identity_type', 'new_value', 'old_value']);
         identityRequest.identity_changes[10].old_value.should.equal('id11');
-        identityRequest.identity_changes[10].identity_type.should.equal('other3');
+        identityRequest.identity_changes[10].identity_type.should.equal('other2');
         identityRequest.identity_changes[10].new_value.should.equal('id24');
 
         identityRequest.identity_changes[11].should.have.properties(['identity_type', 'new_value', 'old_value']);
         identityRequest.identity_changes[11].old_value.should.equal('id12');
-        identityRequest.identity_changes[11].identity_type.should.equal('other4');
+        identityRequest.identity_changes[11].identity_type.should.equal('other3');
         identityRequest.identity_changes[11].new_value.should.equal('id25');
+
+        identityRequest.identity_changes[12].should.have.properties(['identity_type', 'new_value', 'old_value']);
+        identityRequest.identity_changes[12].old_value.should.equal('id13');
+        identityRequest.identity_changes[12].identity_type.should.equal('other4');
+        identityRequest.identity_changes[12].new_value.should.equal('id26');
 
         done();
     });
@@ -551,7 +558,7 @@ describe('identity', function() {
 
     it('should have old_value === null when there is no previous identity of a certain type and a new identity of that type', function(done) {
         var oldIdentities = {};
-        oldIdentities[2] = 'old_facebook_id';
+        oldIdentities['facebook'] = 'old_facebook_id';
         var newIdentities = {};
         newIdentities.other = 'new_other_id';
         newIdentities.facebook = 'new_facebook_id';
@@ -573,8 +580,8 @@ describe('identity', function() {
 
     it('should have new_value === null when there is a previous identity of a certain type and no new identity of that type', function(done) {
         var oldIdentities = {};
-        oldIdentities[0] = 'old_other_id';
-        oldIdentities[2] = 'old_facebook_id';
+        oldIdentities['other'] = 'old_other_id';
+        oldIdentities['facebook'] = 'old_facebook_id';
         var newIdentities = {};
         newIdentities.facebook = 'new_facebook_id';
 

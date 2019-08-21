@@ -2,9 +2,12 @@ node_modules/
 .vscode/
 test-bundle.js
 out/
-build/mParticle-dev.js
 build/mParticle.js
 test/reports
 test/integrations/cjs/dist
 test/integrations/module/dist
 test/test-bundle.js.map
+build/mParticle-dev.js
+build/mParticle-dev.js.map
+build/mParticle.common.js
+build/mParticle.common.js.map

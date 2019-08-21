@@ -104,7 +104,7 @@ var IdentityRequest = {
         if (newIdentities && Helpers.isObject(newIdentities) && previousIdentities && Helpers.isObject(previousIdentities)) {
             for (key in newIdentities) {
                 identityChanges.push({
-                    old_value: previousIdentities[Types.IdentityType.getIdentityType(key)] || null,
+                    old_value: previousIdentities[key] || null,
                     new_value: newIdentities[key],
                     identity_type: key
                 });
