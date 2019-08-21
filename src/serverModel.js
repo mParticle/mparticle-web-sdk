@@ -123,6 +123,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             EventAttributes: data,
             SDKVersion: Constants.sdkVersion,
             SessionId: mParticle.Store.sessionId,
+            SessionStartDate: mParticle.Store.sessionStartDate ? mParticle.Store.sessionStartDate.getTime() : null,
             EventDataType: messageType,
             Debug: mParticle.Store.SDKConfig.isDevelopmentMode,
             Location: mParticle.Store.currentPosition,
@@ -143,6 +144,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             eventObject.EventAttributes = mParticle.Store.sessionAttributes;
 
             mParticle.Store.currentSessionMPIDs = [];
+            mParticle.Store.sessionStartDate = null;
         }
 
         eventObject.Timestamp = mParticle.Store.dateLastEventSent.getTime();
@@ -165,6 +167,7 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
         sdk: event.SDKVersion,
         sid: event.SessionId,
         sl: event.SessionLength,
+        ssd: event.SessionStartDate,
         dt: event.EventDataType,
         dbg: event.Debug,
         ct: event.Timestamp,

@@ -358,6 +358,61 @@ describe('core SDK', function() {
         done();
     });
 
+    it('should set session start date in dto', function (done) {
+        mParticle.logEvent('Test Event');
+
+        var data = getEvent('Test Event');
+
+        data.ssd.should.be.above(0);
+
+        done();
+    });
+
+    it('should update session start date when manually ending session then starting a new one', function (done) {
+        mParticle.logEvent('Test Event');
+
+        var firstSessionStartDate = getEvent('Test Event').ssd;
+
+        mParticle.endSession();
+        var sessionEndEventSessionStartDate = getEvent(2).ssd;
+        sessionEndEventSessionStartDate.should.equal(firstSessionStartDate);
+
+        mParticle.logEvent('Another Test');
+        var newSessionStartDate = getEvent('Another Test').ssd;
+        newSessionStartDate.should.be.above(sessionEndEventSessionStartDate);
+
+        done();
+    });
+
+    it('should update session start date when session times out,then starting a new one', function (done) {
+        mParticle.reset(MPConfig);
+        mParticle.config.sessionTimeout = 1;
+
+        var clock = sinon.useFakeTimers();
+        mParticle.init(apiKey, mParticle.config);
+
+        clock.tick(10);
+        
+        mParticle.logEvent('Test Event');
+        var firstSessionStartDate = getEvent('Test Event').ssd;
+
+        // trigger session timeout which ends session automatically
+        clock.tick(60000);
+
+        var sessionEndEventSessionStartDate = getEvent(2).ssd;
+        sessionEndEventSessionStartDate.should.equal(firstSessionStartDate);
+
+        clock.tick(100);
+
+        mParticle.logEvent('Another Test');
+        var newSessionStartDate = getEvent('Another Test').ssd;
+        newSessionStartDate.should.be.above(sessionEndEventSessionStartDate);
+        
+        clock.restore();
+
+        done();
+    });
+
     it('should load SDK with the included api on init and not send events to previous apikey in persistence', function(done) {
         server.requests = [];
         mParticle.logEvent('Test Event');
