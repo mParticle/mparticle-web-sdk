@@ -563,7 +563,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-        sdkVersion: '2.9.9',
+        sdkVersion: '2.9.10',
         sdkVendor: 'mparticle',
         platform: 'web',
         Messages: {
@@ -2349,12 +2349,16 @@ var mParticle = (function () {
     }
 
     function getCartProducts(mpid) {
-        var allCartProducts = JSON.parse(Base64$1.decode(localStorage.getItem(mParticle.Store.prodStorageName)));
-        if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
-            return allCartProducts[mpid].cp;
-        } else {
-            return [];
+        var allCartProducts,
+            cartProductsString = localStorage.getItem(mParticle.Store.prodStorageName);
+        if (cartProductsString) {
+            allCartProducts = JSON.parse(Base64$1.decode(cartProductsString));
+            if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
+                return allCartProducts[mpid].cp;
+            }
         }
+
+        return [];
     }
 
     function setCartProducts(allProducts) {
@@ -2814,6 +2818,7 @@ var mParticle = (function () {
                 EventAttributes: data,
                 SDKVersion: Constants.sdkVersion,
                 SessionId: mParticle.Store.sessionId,
+                SessionStartDate: mParticle.Store.sessionStartDate ? mParticle.Store.sessionStartDate.getTime() : null,
                 EventDataType: messageType,
                 Debug: mParticle.Store.SDKConfig.isDevelopmentMode,
                 Location: mParticle.Store.currentPosition,
@@ -2834,6 +2839,7 @@ var mParticle = (function () {
                 eventObject.EventAttributes = mParticle.Store.sessionAttributes;
 
                 mParticle.Store.currentSessionMPIDs = [];
+                mParticle.Store.sessionStartDate = null;
             }
 
             eventObject.Timestamp = mParticle.Store.dateLastEventSent.getTime();
@@ -2856,6 +2862,7 @@ var mParticle = (function () {
             sdk: event.SDKVersion,
             sid: event.SessionId,
             sl: event.SessionLength,
+            ssd: event.SessionStartDate,
             dt: event.EventDataType,
             dbg: event.Debug,
             ct: event.Timestamp,
@@ -3044,13 +3051,12 @@ var mParticle = (function () {
 
             mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays, mParticle.Store.integrationDelayTimeoutStart, Date.now());
             // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
-            // need to be set, and so require delaying events
-            if (!mpid || mParticle.Store.requireDelay) {
+            // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
+            if (!mpid || mParticle.Store.requireDelay || !mParticle.Store.configurationLoaded) {
                 mParticle.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
                 mParticle.Store.eventQueue.push(event);
             } else {
                 Helpers.processQueuedEvents(mParticle.Store.eventQueue, mpid, !mParticle.Store.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
-
                 if (!event) {
                     mParticle.Logger.error(Messages$3.ErrorMessages.EventEmpty);
                     return;
@@ -4661,7 +4667,7 @@ var mParticle = (function () {
             if (newIdentities && Helpers.isObject(newIdentities) && previousIdentities && Helpers.isObject(previousIdentities)) {
                 for (key in newIdentities) {
                     identityChanges.push({
-                        old_value: previousIdentities[Types.IdentityType.getIdentityType(key)] || null,
+                        old_value: previousIdentities[key] || null,
                         new_value: newIdentities[key],
                         identity_type: key
                     });
@@ -5501,7 +5507,7 @@ var mParticle = (function () {
         mParticle.Store.identityCallInFlight = false;
 
         try {
-            mParticle.Logger.verbose('Parsing identity response from server');
+            mParticle.Logger.verbose('Parsing "' + method + '" identity response from server');
             if (xhr.responseText) {
                 identityApiResult = JSON.parse(xhr.responseText);
                 if (identityApiResult.hasOwnProperty('is_logged_in')) {
@@ -5547,9 +5553,7 @@ var mParticle = (function () {
                     cookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid);
 
                     checkIdentitySwap(previousMPID, identityApiResult.mpid, mParticle.Store.currentSessionMPIDs);
-
-                    Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, ApiClient.sendEventToServer, sendEventToForwarders$2, Events.parseEventResponse);
-
+                    
                     //if there is any previous migration data
                     if (Object.keys(mParticle.Store.migrationData).length) {
                         newIdentities = mParticle.Store.migrationData.userIdentities || {};
@@ -5591,6 +5595,8 @@ var mParticle = (function () {
                     Forwarders.setForwarderOnIdentityComplete(newUser, method);
                     Forwarders.setForwarderOnUserIdentified(newUser, method);
                 }
+
+                Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, ApiClient.sendEventToServer, sendEventToForwarders$2, Events.parseEventResponse);
             }
 
             if (callback) {
@@ -5829,6 +5835,7 @@ var mParticle = (function () {
             currencyCode: null,
             globalTimer: null,
             context: '',
+            configurationLoaded: false,
             identityCallInFlight: false,
             SDKConfig: {},
             migratingToIDSyncCookies: false,
@@ -6391,7 +6398,10 @@ var mParticle = (function () {
                 window.console.warn('You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly');
                 config = window.mParticle.config;
             }
-            // Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
+
+            runPreConfigFetchInitialization(apiKey, config);
+
+            // /config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
             // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
             // to it for it to be run after fetched
             if (config) {
@@ -7038,12 +7048,7 @@ var mParticle = (function () {
     };
 
     function completeSDKInitialization(apiKey, config) {
-        mParticle$1.Logger = new Logger(config);
-
-        mParticle$1.Store = new Store(config, mParticle$1.Logger);
-
-        mParticle$1.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle$1.Store.SDKConfig.requiredWebviewBridgeName, mParticle$1.Store.SDKConfig.minWebviewBridgeVersion);
-
+        mParticle$1.Store.configurationLoaded = true;
         if (mParticle$1.Store.webviewBridgeEnabled) {
             NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
             if (apiKey) {
@@ -7051,17 +7056,6 @@ var mParticle = (function () {
             }
         } else {
             var currentUser;
-
-            mParticle$1.Store.devToken = apiKey || null;
-            mParticle$1.Logger.verbose(Messages$8.InformationMessages.StartingInitialization);
-            //check to see if localStorage is available for migrating purposes
-            mParticle$1.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
-
-            // Migrate any cookies from previous versions to current cookie version
-            Migrations.migrate();
-
-            // Load any settings/identities/attributes from cookie or localStorage
-            Persistence.initializeStorage();
 
             // If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
             if ((Helpers.isObject(mParticle$1.Store.SDKConfig.identifyRequest) && Helpers.isObject(mParticle$1.Store.SDKConfig.identifyRequest.userIdentities) &&
@@ -7124,7 +7118,6 @@ var mParticle = (function () {
 
             mParticle$1.sessionManager.initialize();
             Events.logAST();
-
         }
         // Call any functions that are waiting for the library to be initialized
         if (mParticle$1.preInit.readyQueue && mParticle$1.preInit.readyQueue.length) {
@@ -7142,6 +7135,26 @@ var mParticle = (function () {
 
         if (mParticle$1.Store.isFirstRun) {
             mParticle$1.Store.isFirstRun = false;
+        }
+    }
+
+    function runPreConfigFetchInitialization(apiKey, config) {
+        mParticle$1.Logger = new Logger(config);
+        mParticle$1.Store = new Store(config, mParticle$1.Logger);
+        mParticle$1.Store.devToken = apiKey || null;
+        mParticle$1.Logger.verbose(Messages$8.InformationMessages.StartingInitialization);
+
+        //check to see if localStorage is available for migrating purposes
+        mParticle$1.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
+        
+        mParticle$1.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle$1.Store.SDKConfig.requiredWebviewBridgeName, mParticle$1.Store.SDKConfig.minWebviewBridgeVersion);
+        
+        if (!mParticle$1.Store.webviewBridgeEnabled) {
+            // Migrate any cookies from previous versions to current cookie version
+            Migrations.migrate();
+        
+            // Load any settings/identities/attributes from cookie or localStorage
+            Persistence.initializeStorage();
         }
     }
 
