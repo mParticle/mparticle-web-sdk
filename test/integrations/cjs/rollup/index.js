@@ -1,1 +1,1 @@
-import mParticle from '../../../../build/mParticle.common.js';
+import mParticle from '../../../../dist/mparticle.common.js';

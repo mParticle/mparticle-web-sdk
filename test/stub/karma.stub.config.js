@@ -1,24 +1,20 @@
 const { DEBUG } = process.env;
 
 let files = [
-    'lib/mockhttprequest.js',
-    'lib/geomock.js',
-    '../node_modules/sinon-browser-only/sinon.js',
-    '../dist/mparticle.js',
-    'test-bundle.js'
+    'test-stub-bundle.js'
 ];
 
-let browsers = ['ChromeHeadless', 'FirefoxHeadless'];
+let browsers = ['ChromeHeadless'];
 let singleRun = true;
 
 if (DEBUG === 'true') {
-    browsers = ['Chrome', 'Firefox'];
+    browsers = ['Chrome'];
     singleRun = false;
 }
 
 module.exports = function (config) {
     config.set({
-        frameworks: ['mocha', 'should' ],
+        frameworks: ['mocha', 'should'],
         files,
         reporters: ['progress', 'junit'],
         colors: true,
@@ -40,7 +36,7 @@ module.exports = function (config) {
             }
         },
         junitReporter: {
-            outputDir: 'reports/',
+            outputDir: '../reports/',
             outputFile: 'test-karma.xml'
         }
     });

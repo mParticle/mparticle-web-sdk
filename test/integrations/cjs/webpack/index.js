@@ -1,1 +1,1 @@
-import mParticle from '../../../../build/mParticle.common';
+import mParticle from '../../../../dist/mparticle.common';

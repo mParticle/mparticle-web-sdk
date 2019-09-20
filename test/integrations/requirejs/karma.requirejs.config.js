@@ -6,14 +6,14 @@ switch (FILE_ORDER) {
         files = [
             '../../lib/mockhttprequest.js',
             '../../lib/require.2.3.6.min.js',
-            '../../../build/mParticle-dev.js',
+            '../../../dist/mparticle.js',
             'test-requirejs.js'
         ];
         break;
     case 'after_mp':
         files = [
             '../../lib/mockhttprequest.js',
-            '../../../build/mParticle-dev.js',
+            '../../../dist/mparticle.js',
             '../../lib/require.2.3.6.min.js',
             'test-requirejs.js'
         ];

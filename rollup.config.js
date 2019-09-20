@@ -12,7 +12,7 @@ const defaultOutput = {
 const iifeBuild = {
     ...defaultOutput,
     output: {
-        file: 'build/mParticle-dev.js',
+        file: 'dist/mparticle.js',
         format: 'iife',
         name: 'mParticle',
         sourcemap: ENVIRONMENT !== 'prod',
@@ -23,7 +23,7 @@ const iifeBuild = {
 const cjsBuild = {
     ...defaultOutput,
     output: {
-        file: 'build/mParticle.common.js',
+        file: 'dist/mparticle.common.js',
         format: 'cjs',
         name: 'mParticle',
         sourcemap: ENVIRONMENT !== 'prod',
@@ -31,4 +31,14 @@ const cjsBuild = {
     }
 }
 
-export default [iifeBuild, cjsBuild];
+const stubBuild = {
+    input: 'src/stub/mParticle-stub.js',
+    output: {
+        file: 'dist/mparticle.stub.js',
+        format: 'iife',
+        name: 'mParticle',
+        strict: false
+    }
+}
+
+export default [iifeBuild, cjsBuild, stubBuild];
