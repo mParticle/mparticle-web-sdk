@@ -32,7 +32,7 @@ const cjsBuild = {
 }
 
 const stubBuild = {
-    input: 'src/stub/mParticle-stub.js',
+    input: 'src/stub/mparticle.stub.js',
     output: {
         file: 'dist/mparticle.stub.js',
         format: 'iife',

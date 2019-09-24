@@ -1,4 +1,4 @@
-import mParticle from '../../src/stub/mParticle-stub.js';
+import mParticle from '../../src/stub/mparticle.stub.js';
 
 describe('mParticle stubs', function () {
     it('should invoke all mParticle root methods without errors', function (done) {
