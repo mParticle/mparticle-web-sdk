@@ -251,7 +251,8 @@ var MessageType = {
     OptOut: 6,
     AppStateTransition: 10,
     Profile: 14,
-    Commerce: 16
+    Commerce: 16,
+    Media: 20
 };
 
 var EventType = {
@@ -562,7 +563,7 @@ var Types = {
 };
 
 var Constants = {
-    sdkVersion: '2.9.10',
+    sdkVersion: '2.9.11',
     sdkVendor: 'mparticle',
     platform: 'web',
     Messages: {
@@ -2711,8 +2712,8 @@ function convertCustomFlags(event, dto) {
             if (Array.isArray(event.CustomFlags[prop])) {
                 event.CustomFlags[prop].forEach(function(customFlagProperty) {
                     if (typeof customFlagProperty === 'number'
-                    || typeof customFlagProperty === 'string'
-                    || typeof customFlagProperty === 'boolean') {
+                        || typeof customFlagProperty === 'string'
+                        || typeof customFlagProperty === 'boolean') {
                         valueArray.push(customFlagProperty.toString());
                     }
                 });
@@ -2791,39 +2792,46 @@ function convertToConsentStateDTO(state) {
     return jsonObject;
 }
 
-function createEventObject(messageType, name, data, eventType, customFlags) {
-    var eventObject,
-        dtoUserIdentities = {},
-        currentUser = mParticle.Identity.getCurrentUser(),
-        userIdentities = currentUser ? currentUser.getUserIdentities().userIdentities : {},
-        optOut = (messageType === Types.MessageType.OptOut ? !mParticle.Store.isEnabled : null);
+function createEventObject(event) {
+    var uploadObject = {};
+    var eventObject = {};
+    var dtoUserIdentities = {};
+    var currentUser = mParticle.Identity.getCurrentUser();
+    var userIdentities = currentUser ? currentUser.getUserIdentities().userIdentities : {};
+    var optOut = (event.messageType === Types.MessageType.OptOut ? !mParticle.Store.isEnabled : null);
 
-    data = Helpers.sanitizeAttributes(data);
-
-    if (mParticle.Store.sessionId || messageType == Types.MessageType.OptOut || mParticle.Store.webviewBridgeEnabled) {
+    if (mParticle.Store.sessionId || event.messageType == Types.MessageType.OptOut || mParticle.Store.webviewBridgeEnabled) {
         for (var identityKey in userIdentities) {
             dtoUserIdentities[Types.IdentityType.getIdentityType(identityKey)] = userIdentities[identityKey];
         }
 
-        if (messageType !== Types.MessageType.SessionEnd) {
+        if (event.messageType !== Types.MessageType.SessionEnd) {
             mParticle.Store.dateLastEventSent = new Date();
         }
-        eventObject = {
-            EventName: name || messageType,
-            EventCategory: eventType,
+
+        if (event.hasOwnProperty('toEventAPIObject')) {
+            eventObject = event.toEventAPIObject();
+        } else {
+            eventObject = {
+                EventName: event.name || event.messageType,
+                EventCategory: event.eventType,
+                EventAttributes: Helpers.sanitizeAttributes(event.data),
+                EventDataType: event.messageType,
+                CustomFlags: event.customFlags || {}
+            };
+        }
+
+        uploadObject = {
             UserAttributes: currentUser ? currentUser.getAllUserAttributes() : {},
             UserIdentities: dtoUserIdentities,
             Store: mParticle.Store.serverSettings,
-            EventAttributes: data,
             SDKVersion: Constants.sdkVersion,
             SessionId: mParticle.Store.sessionId,
             SessionStartDate: mParticle.Store.sessionStartDate ? mParticle.Store.sessionStartDate.getTime() : null,
-            EventDataType: messageType,
             Debug: mParticle.Store.SDKConfig.isDevelopmentMode,
             Location: mParticle.Store.currentPosition,
             OptOut: optOut,
             ExpandedEventCount: 0,
-            CustomFlags: customFlags,
             AppVersion: mParticle.Store.SDKConfig.appVersion,
             ClientGeneratedId: mParticle.Store.clientId,
             DeviceId: mParticle.Store.deviceId,
@@ -2832,7 +2840,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             IntegrationAttributes: mParticle.Store.integrationAttributes
         };
 
-        if (messageType === Types.MessageType.SessionEnd) {
+        if (event.messageType === Types.MessageType.SessionEnd) {
             eventObject.SessionLength = mParticle.Store.dateLastEventSent.getTime() - mParticle.Store.sessionStartDate.getTime();
             eventObject.currentSessionMPIDs = mParticle.Store.currentSessionMPIDs;
             eventObject.EventAttributes = mParticle.Store.sessionAttributes;
@@ -2841,9 +2849,9 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             mParticle.Store.sessionStartDate = null;
         }
 
-        eventObject.Timestamp = mParticle.Store.dateLastEventSent.getTime();
+        uploadObject.Timestamp = mParticle.Store.dateLastEventSent.getTime();
 
-        return eventObject;
+        return Helpers.extend({}, eventObject, uploadObject);
     }
 
     return null;
@@ -4076,11 +4084,12 @@ function expandProductImpression(commerceEvent) {
                 if (productImpression.ProductImpressionList) {
                     attributes['Product Impression List'] = productImpression.ProductImpressionList;
                 }
-                var appEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-                    generateExpandedEcommerceName('Impression'),
-                    attributes,
-                    Types.EventType.Transaction
-                );
+                var appEvent = ServerModel.createEventObject({
+                    messageType: Types.MessageType.PageEvent,
+                    name: generateExpandedEcommerceName('Impression'),
+                    data: attributes,
+                    eventType: Types.EventType.Transaction
+                });
                 appEvents.push(appEvent);
             });
         }
@@ -4108,11 +4117,12 @@ function expandPromotionAction(commerceEvent) {
         var attributes = Helpers.extend(false, {}, commerceEvent.EventAttributes);
         extractPromotionAttributes(attributes, promotion);
 
-        var appEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-            generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
-            attributes,
-            Types.EventType.Transaction
-        );
+        var appEvent = ServerModel.createEventObject({
+            messageType: Types.MessageType.PageEvent,
+            name: generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
+            data: attributes,
+            eventType: Types.EventType.Transaction
+        });
         appEvents.push(appEvent);
     });
     return appEvents;
@@ -4132,11 +4142,12 @@ function expandProductAction(commerceEvent) {
         if (commerceEvent.CurrencyCode) {
             attributes['Currency Code'] = commerceEvent.CurrencyCode;
         }
-        var plusOneEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-            generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType), true),
-            attributes,
-            Types.EventType.Transaction
-        );
+        var plusOneEvent = ServerModel.createEventObject({
+            messageType: Types.MessageType.PageEvent,
+            name: generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType), true),
+            data: attributes,
+            eventType: Types.EventType.Transaction
+        });
         appEvents.push(plusOneEvent);
     }
     else {
@@ -4159,11 +4170,12 @@ function expandProductAction(commerceEvent) {
         }
         extractProductAttributes(attributes, product);
 
-        var productEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-            generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType)),
-            attributes,
-            Types.EventType.Transaction
-        );
+        var productEvent = ServerModel.createEventObject({
+            messageType: Types.MessageType.PageEvent,
+            name: generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType)),
+            data: attributes,
+            eventType: Types.EventType.Transaction
+        });
         appEvents.push(productEvent);
     });
 
@@ -4177,7 +4189,7 @@ function createCommerceEventObject(customFlags) {
     mParticle.Logger.verbose(Messages$4.InformationMessages.StartingLogCommerceEvent);
 
     if (Helpers.canLog()) {
-        baseEvent = ServerModel.createEventObject(Types.MessageType.Commerce);
+        baseEvent = ServerModel.createEventObject({ messageType: Types.MessageType.Commerce });
         baseEvent.EventName = 'eCommerce - ';
         baseEvent.CurrencyCode = mParticle.Store.currencyCode;
         baseEvent.ShoppingCart = {
@@ -4213,15 +4225,21 @@ var Messages$5 = Constants.Messages,
     sendEventToServer$1 = ApiClient.sendEventToServer,
     sendEventToForwarders$1 = Forwarders.sendEventToForwarders;
 
-function logEvent(type, name, data, category, cflags) {
-    mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogEvent + ': ' + name);
 
+function logEvent(event) {
+    mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogEvent + ': ' + event.name);
     if (Helpers.canLog()) {
-        if (data) {
-            data = Helpers.sanitizeAttributes(data);
+        if (event.data) {
+            event.data = Helpers.sanitizeAttributes(event.data);
         }
+        var uploadObject = ServerModel.createEventObject(event);
 
-        sendEventToServer$1(ServerModel.createEventObject(type, name, data, category, cflags), sendEventToForwarders$1, parseEventResponse);
+        // TODO: Disabled for the time being until we can define an HTTP Request for BaseEvents
+        if (event.messageType === Types.MessageType.Media) {
+            sendEventToForwarders$1(uploadObject);
+        } else {
+            sendEventToServer$1(uploadObject, sendEventToForwarders$1, parseEventResponse);
+        }
         Persistence.update();
     }
     else {
@@ -4340,11 +4358,15 @@ function stopTracking() {
 function logOptOut() {
     mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogOptOut);
 
-    sendEventToServer$1(ServerModel.createEventObject(Types.MessageType.OptOut, null, null, Types.EventType.Other), sendEventToForwarders$1, parseEventResponse);
+    var event = ServerModel.createEventObject({
+        messageType: Types.MessageType.OptOut,
+        eventType: Types.EventType.Other
+    });
+    sendEventToServer$1(event, sendEventToForwarders$1, parseEventResponse);
 }
 
 function logAST() {
-    logEvent(Types.MessageType.AppStateTransition);
+    logEvent({ messageType: Types.MessageType.AppStateTransition });
 }
 
 function logCheckoutEvent(step, options, attrs, customFlags) {
@@ -4494,10 +4516,12 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
 
             mParticle.Logger.verbose('DOM event triggered, handling event');
 
-            logEvent(Types.MessageType.PageEvent,
-                typeof eventName === 'function' ? eventName(element) : eventName,
-                typeof data === 'function' ? data(element) : data,
-                eventType || Types.EventType.Other);
+            logEvent({
+                messageType: Types.MessageType.PageEvent,
+                name: typeof eventName === 'function' ? eventName(element) : eventName,
+                data: typeof data === 'function' ? data(element) : data,
+                eventType: eventType || Types.EventType.Other
+            });
 
             // TODO: Handle middle-clicks and special keys (ctrl, alt, etc)
             if ((element.href && element.target !== '_blank') || element.submit) {
@@ -4799,7 +4823,7 @@ var IdentityAPI = {
                     Helpers.invokeCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Logout request sent to native sdk');
                 } else {
                     sendIdentityRequest$1(identityApiRequest, 'logout', callback, identityApiData, parseIdentityResponse, mpid);
-                    evt = ServerModel.createEventObject(Types.MessageType.Profile);
+                    evt = ServerModel.createEventObject({ messageType: Types.MessageType.Profile });
                     evt.ProfileMessageType = Types.ProfileMessageType.Logout;
                     if (mParticle.Store.activeForwarders.length) {
                         mParticle.Store.activeForwarders.forEach(function(forwarder) {
@@ -5679,7 +5703,7 @@ function startNewSession() {
             mParticle.Store.SDKConfig.identityCallback = null;
         }
 
-        logEvent$1(Types.MessageType.SessionStart);
+        logEvent$1({ messageType: Types.MessageType.SessionStart });
     }
     else {
         mParticle.Logger.verbose(Messages$7.InformationMessages.AbandonStartSession);
@@ -5690,7 +5714,7 @@ function endSession(override) {
     mParticle.Logger.verbose(Messages$7.InformationMessages.StartingEndSession);
 
     if (override) {
-        logEvent$1(Types.MessageType.SessionEnd);
+        logEvent$1({ messageType: Types.MessageType.SessionEnd });
 
         mParticle.Store.sessionId = null;
         mParticle.Store.dateLastEventSent = null;
@@ -5725,7 +5749,7 @@ function endSession(override) {
             if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
                 setSessionTimer();
             } else {
-                logEvent$1(Types.MessageType.SessionEnd);
+                logEvent$1({ messageType: Types.MessageType.SessionEnd });
 
                 mParticle.Store.sessionId = null;
                 mParticle.Store.dateLastEventSent = null;
@@ -6546,11 +6570,34 @@ var mParticle$1 = {
         // Sends true as an over ride vs when endSession is called from the setInterval
         SessionManager.endSession(true);
     },
+
+    /**
+     * Logs a Base Event to mParticle's servers
+     * @param {Object} event Base Event Object
+     */
+    logBaseEvent: function (event) {
+        SessionManager.resetSessionTimer();
+        if (typeof (event.name) !== 'string') {
+            mParticle$1.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType);
+            return;
+        }
+
+        if (!event.type) {
+            event.type = Types.EventType.Unknown;
+        }
+
+        if (!Helpers.canLog()) {
+            mParticle$1.Logger.error(Messages$8.ErrorMessages.LoggingDisabled);
+            return;
+        }
+
+        Events.logEvent(event);
+    },
     /**
     * Logs an event to mParticle's servers
     * @method logEvent
     * @param {String} eventName The name of the event
-    * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+    * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
     * @param {Object} [eventInfo] Attributes for the event
     * @param {Object} [customFlags] Additional customFlags
     */
@@ -6575,7 +6622,13 @@ var mParticle$1 = {
             return;
         }
 
-        Events.logEvent(Types.MessageType.PageEvent, eventName, eventInfo, eventType, customFlags);
+        Events.logEvent({
+            messageType: Types.MessageType.PageEvent,
+            name: eventName,
+            data: eventInfo,
+            eventType: eventType,
+            customFlags: customFlags
+        });
     },
     /**
     * Used to log custom errors
@@ -6609,10 +6662,12 @@ var mParticle$1 = {
             }
         }
 
-        Events.logEvent(Types.MessageType.CrashReport,
-            error.name ? error.name : 'Error',
-            data,
-            Types.EventType.Other);
+        Events.logEvent({
+            messageType: Types.MessageType.CrashReport,
+            name: error.name ? error.name : 'Error',
+            data: data,
+            eventType: Types.EventType.Other
+        });
     },
     /**
     * Logs `click` events
@@ -6668,7 +6723,13 @@ var mParticle$1 = {
             }
         }
 
-        Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, customFlags);
+        Events.logEvent({
+            messageType: Types.MessageType.PageView,
+            name: eventName,
+            data: attrs,
+            eventType: Types.EventType.Unknown,
+            customFlags: customFlags
+        });
     },
     Consent: {
         createGDPRConsent: Consent.createGDPRConsent,
