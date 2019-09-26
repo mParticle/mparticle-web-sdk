@@ -215,7 +215,7 @@ function getSDKConfiguration(apiKey, config, completeSDKInitialization) {
         };
 
         var xhr = Helpers.createXHR(xhrCallback);
-        url = 'https://' + Constants.DefaultUrls.configUrl + apiKey + '/config?env=';
+        url = 'https://' + mParticle.Store.SDKConfig.configUrl + apiKey + '/config?env=';
         if (config.isDevelopmentMode) {
             url = url + '1';
         } else {

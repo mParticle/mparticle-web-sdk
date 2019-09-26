@@ -672,6 +672,18 @@ describe('core SDK', function() {
         done();
     });
 
+    it('should user configUrl when specified on config object', function (done) {
+        mParticle.config.configUrl = 'testConfigUrl/';
+        mParticle.config.requestConfig = true;
+
+        server.requests = [];
+        mParticle.init(apiKey, window.mParticle.config);
+
+        server.requests[0].url.should.equal('https://testConfigUrl/test_key/config?env=0');
+
+        done();
+    });
+
     it('should hit url with query parameter of env=1 for debug mode for forwarders', function (done) {
         mParticle.reset(MPConfig);
         mParticle.config.isDevelopmentMode = true;
