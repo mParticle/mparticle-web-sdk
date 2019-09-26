@@ -7,12 +7,13 @@
         "ecmaVersion": 6,
         "sourceType": "module",
         "ecmaFeatures": {
-            "modules": true,
-        },
+            "modules": true
+        }
     },
     "globals": {
         "mParticle": true,
         "describe": true,
+        "assert": true,
         "Should": true,
         "MockHttpServer": true,
         "it": true,
@@ -28,7 +29,9 @@
         "indent": [
             "error",
             4,
-            { "SwitchCase": 1}
+            {
+                "SwitchCase": 1
+            }
         ],
         "linebreak-style": [
             "error",
@@ -44,7 +47,9 @@
         ],
         "no-unneeded-ternary": [
             "error",
-            { "defaultAssignment": false }
+            {
+                "defaultAssignment": false
+            }
         ],
         "comma-dangle": [
             "error",
@@ -56,17 +61,29 @@
         ],
         "comma-spacing": [
             "error",
-            { "before": false, "after": true }
+            {
+                "before": false,
+                "after": true
+            }
         ],
         "for-direction": "error",
         "quote-props": [
             "error",
             "as-needed",
-            { "keywords": false, "unnecessary": true, "numbers": false }
+            {
+                "keywords": false,
+                "unnecessary": true,
+                "numbers": false
+            }
         ],
         "no-useless-escape": "off",
         "no-prototype-builtins": "off",
-        "no-multi-spaces": ["error", {"ignoreEOLComments": true}],
-        "no-implicit-globals": "error",
+        "no-multi-spaces": [
+            "error",
+            {
+                "ignoreEOLComments": true
+            }
+        ],
+        "no-implicit-globals": "error"
     }
 }

@@ -58,7 +58,7 @@ function startNewSession() {
             mParticle.Store.SDKConfig.identityCallback = null;
         }
 
-        logEvent(Types.MessageType.SessionStart);
+        logEvent({ messageType: Types.MessageType.SessionStart });
     }
     else {
         mParticle.Logger.verbose(Messages.InformationMessages.AbandonStartSession);
@@ -69,7 +69,7 @@ function endSession(override) {
     mParticle.Logger.verbose(Messages.InformationMessages.StartingEndSession);
 
     if (override) {
-        logEvent(Types.MessageType.SessionEnd);
+        logEvent({ messageType: Types.MessageType.SessionEnd });
 
         mParticle.Store.sessionId = null;
         mParticle.Store.dateLastEventSent = null;
@@ -104,7 +104,7 @@ function endSession(override) {
             if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
                 setSessionTimer();
             } else {
-                logEvent(Types.MessageType.SessionEnd);
+                logEvent({ messageType: Types.MessageType.SessionEnd });
 
                 mParticle.Store.sessionId = null;
                 mParticle.Store.dateLastEventSent = null;

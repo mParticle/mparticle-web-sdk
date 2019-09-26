@@ -17,8 +17,8 @@ function convertCustomFlags(event, dto) {
             if (Array.isArray(event.CustomFlags[prop])) {
                 event.CustomFlags[prop].forEach(function(customFlagProperty) {
                     if (typeof customFlagProperty === 'number'
-                    || typeof customFlagProperty === 'string'
-                    || typeof customFlagProperty === 'boolean') {
+                        || typeof customFlagProperty === 'string'
+                        || typeof customFlagProperty === 'boolean') {
                         valueArray.push(customFlagProperty.toString());
                     }
                 });
@@ -97,39 +97,46 @@ function convertToConsentStateDTO(state) {
     return jsonObject;
 }
 
-function createEventObject(messageType, name, data, eventType, customFlags) {
-    var eventObject,
-        dtoUserIdentities = {},
-        currentUser = mParticle.Identity.getCurrentUser(),
-        userIdentities = currentUser ? currentUser.getUserIdentities().userIdentities : {},
-        optOut = (messageType === Types.MessageType.OptOut ? !mParticle.Store.isEnabled : null);
+function createEventObject(event) {
+    var uploadObject = {};
+    var eventObject = {};
+    var dtoUserIdentities = {};
+    var currentUser = mParticle.Identity.getCurrentUser();
+    var userIdentities = currentUser ? currentUser.getUserIdentities().userIdentities : {};
+    var optOut = (event.messageType === Types.MessageType.OptOut ? !mParticle.Store.isEnabled : null);
 
-    data = Helpers.sanitizeAttributes(data);
-
-    if (mParticle.Store.sessionId || messageType == Types.MessageType.OptOut || mParticle.Store.webviewBridgeEnabled) {
+    if (mParticle.Store.sessionId || event.messageType == Types.MessageType.OptOut || mParticle.Store.webviewBridgeEnabled) {
         for (var identityKey in userIdentities) {
             dtoUserIdentities[Types.IdentityType.getIdentityType(identityKey)] = userIdentities[identityKey];
         }
 
-        if (messageType !== Types.MessageType.SessionEnd) {
+        if (event.messageType !== Types.MessageType.SessionEnd) {
             mParticle.Store.dateLastEventSent = new Date();
         }
-        eventObject = {
-            EventName: name || messageType,
-            EventCategory: eventType,
+
+        if (event.hasOwnProperty('toEventAPIObject')) {
+            eventObject = event.toEventAPIObject();
+        } else {
+            eventObject = {
+                EventName: event.name || event.messageType,
+                EventCategory: event.eventType,
+                EventAttributes: Helpers.sanitizeAttributes(event.data),
+                EventDataType: event.messageType,
+                CustomFlags: event.customFlags || {}
+            };
+        }
+
+        uploadObject = {
             UserAttributes: currentUser ? currentUser.getAllUserAttributes() : {},
             UserIdentities: dtoUserIdentities,
             Store: mParticle.Store.serverSettings,
-            EventAttributes: data,
             SDKVersion: Constants.sdkVersion,
             SessionId: mParticle.Store.sessionId,
             SessionStartDate: mParticle.Store.sessionStartDate ? mParticle.Store.sessionStartDate.getTime() : null,
-            EventDataType: messageType,
             Debug: mParticle.Store.SDKConfig.isDevelopmentMode,
             Location: mParticle.Store.currentPosition,
             OptOut: optOut,
             ExpandedEventCount: 0,
-            CustomFlags: customFlags,
             AppVersion: mParticle.Store.SDKConfig.appVersion,
             ClientGeneratedId: mParticle.Store.clientId,
             DeviceId: mParticle.Store.deviceId,
@@ -138,7 +145,7 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             IntegrationAttributes: mParticle.Store.integrationAttributes
         };
 
-        if (messageType === Types.MessageType.SessionEnd) {
+        if (event.messageType === Types.MessageType.SessionEnd) {
             eventObject.SessionLength = mParticle.Store.dateLastEventSent.getTime() - mParticle.Store.sessionStartDate.getTime();
             eventObject.currentSessionMPIDs = mParticle.Store.currentSessionMPIDs;
             eventObject.EventAttributes = mParticle.Store.sessionAttributes;
@@ -147,9 +154,9 @@ function createEventObject(messageType, name, data, eventType, customFlags) {
             mParticle.Store.sessionStartDate = null;
         }
 
-        eventObject.Timestamp = mParticle.Store.dateLastEventSent.getTime();
+        uploadObject.Timestamp = mParticle.Store.dateLastEventSent.getTime();
 
-        return eventObject;
+        return Helpers.extend({}, eventObject, uploadObject);
     }
 
     return null;

@@ -11,15 +11,21 @@ var Messages = Constants.Messages,
     sendEventToServer = ApiClient.sendEventToServer,
     sendEventToForwarders = Forwarders.sendEventToForwarders;
 
-function logEvent(type, name, data, category, cflags) {
-    mParticle.Logger.verbose(Messages.InformationMessages.StartingLogEvent + ': ' + name);
 
+function logEvent(event) {
+    mParticle.Logger.verbose(Messages.InformationMessages.StartingLogEvent + ': ' + event.name);
     if (Helpers.canLog()) {
-        if (data) {
-            data = Helpers.sanitizeAttributes(data);
+        if (event.data) {
+            event.data = Helpers.sanitizeAttributes(event.data);
         }
+        var uploadObject = ServerModel.createEventObject(event);
 
-        sendEventToServer(ServerModel.createEventObject(type, name, data, category, cflags), sendEventToForwarders, parseEventResponse);
+        // TODO: Disabled for the time being until we can define an HTTP Request for BaseEvents
+        if (event.messageType === Types.MessageType.Media) {
+            sendEventToForwarders(uploadObject);
+        } else {
+            sendEventToServer(uploadObject, sendEventToForwarders, parseEventResponse);
+        }
         Persistence.update();
     }
     else {
@@ -138,11 +144,15 @@ function stopTracking() {
 function logOptOut() {
     mParticle.Logger.verbose(Messages.InformationMessages.StartingLogOptOut);
 
-    sendEventToServer(ServerModel.createEventObject(Types.MessageType.OptOut, null, null, Types.EventType.Other), sendEventToForwarders, parseEventResponse);
+    var event = ServerModel.createEventObject({
+        messageType: Types.MessageType.OptOut,
+        eventType: Types.EventType.Other
+    });
+    sendEventToServer(event, sendEventToForwarders, parseEventResponse);
 }
 
 function logAST() {
-    logEvent(Types.MessageType.AppStateTransition);
+    logEvent({ messageType: Types.MessageType.AppStateTransition });
 }
 
 function logCheckoutEvent(step, options, attrs, customFlags) {
@@ -292,10 +302,12 @@ function addEventHandler(domEvent, selector, eventName, data, eventType) {
 
             mParticle.Logger.verbose('DOM event triggered, handling event');
 
-            logEvent(Types.MessageType.PageEvent,
-                typeof eventName === 'function' ? eventName(element) : eventName,
-                typeof data === 'function' ? data(element) : data,
-                eventType || Types.EventType.Other);
+            logEvent({
+                messageType: Types.MessageType.PageEvent,
+                name: typeof eventName === 'function' ? eventName(element) : eventName,
+                data: typeof data === 'function' ? data(element) : data,
+                eventType: eventType || Types.EventType.Other
+            });
 
             // TODO: Handle middle-clicks and special keys (ctrl, alt, etc)
             if ((element.href && element.target !== '_blank') || element.submit) {

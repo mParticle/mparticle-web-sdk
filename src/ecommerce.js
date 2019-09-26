@@ -318,11 +318,12 @@ function expandProductImpression(commerceEvent) {
                 if (productImpression.ProductImpressionList) {
                     attributes['Product Impression List'] = productImpression.ProductImpressionList;
                 }
-                var appEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-                    generateExpandedEcommerceName('Impression'),
-                    attributes,
-                    Types.EventType.Transaction
-                );
+                var appEvent = ServerModel.createEventObject({
+                    messageType: Types.MessageType.PageEvent,
+                    name: generateExpandedEcommerceName('Impression'),
+                    data: attributes,
+                    eventType: Types.EventType.Transaction
+                });
                 appEvents.push(appEvent);
             });
         }
@@ -350,11 +351,12 @@ function expandPromotionAction(commerceEvent) {
         var attributes = Helpers.extend(false, {}, commerceEvent.EventAttributes);
         extractPromotionAttributes(attributes, promotion);
 
-        var appEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-            generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
-            attributes,
-            Types.EventType.Transaction
-        );
+        var appEvent = ServerModel.createEventObject({
+            messageType: Types.MessageType.PageEvent,
+            name: generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
+            data: attributes,
+            eventType: Types.EventType.Transaction
+        });
         appEvents.push(appEvent);
     });
     return appEvents;
@@ -374,11 +376,12 @@ function expandProductAction(commerceEvent) {
         if (commerceEvent.CurrencyCode) {
             attributes['Currency Code'] = commerceEvent.CurrencyCode;
         }
-        var plusOneEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-            generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType), true),
-            attributes,
-            Types.EventType.Transaction
-        );
+        var plusOneEvent = ServerModel.createEventObject({
+            messageType: Types.MessageType.PageEvent,
+            name: generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType), true),
+            data: attributes,
+            eventType: Types.EventType.Transaction
+        });
         appEvents.push(plusOneEvent);
     }
     else {
@@ -401,11 +404,12 @@ function expandProductAction(commerceEvent) {
         }
         extractProductAttributes(attributes, product);
 
-        var productEvent = ServerModel.createEventObject(Types.MessageType.PageEvent,
-            generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType)),
-            attributes,
-            Types.EventType.Transaction
-        );
+        var productEvent = ServerModel.createEventObject({
+            messageType: Types.MessageType.PageEvent,
+            name: generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType)),
+            data: attributes,
+            eventType: Types.EventType.Transaction
+        });
         appEvents.push(productEvent);
     });
 
@@ -419,7 +423,7 @@ function createCommerceEventObject(customFlags) {
     mParticle.Logger.verbose(Messages.InformationMessages.StartingLogCommerceEvent);
 
     if (Helpers.canLog()) {
-        baseEvent = ServerModel.createEventObject(Types.MessageType.Commerce);
+        baseEvent = ServerModel.createEventObject({ messageType: Types.MessageType.Commerce });
         baseEvent.EventName = 'eCommerce - ';
         baseEvent.CurrencyCode = mParticle.Store.currencyCode;
         baseEvent.ShoppingCart = {

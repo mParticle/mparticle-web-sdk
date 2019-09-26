@@ -245,11 +245,34 @@ var mParticle = {
         // Sends true as an over ride vs when endSession is called from the setInterval
         SessionManager.endSession(true);
     },
+
+    /**
+     * Logs a Base Event to mParticle's servers
+     * @param {Object} event Base Event Object
+     */
+    logBaseEvent: function (event) {
+        SessionManager.resetSessionTimer();
+        if (typeof (event.name) !== 'string') {
+            mParticle.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
+            return;
+        }
+
+        if (!event.type) {
+            event.type = Types.EventType.Unknown;
+        }
+
+        if (!Helpers.canLog()) {
+            mParticle.Logger.error(Messages.ErrorMessages.LoggingDisabled);
+            return;
+        }
+
+        Events.logEvent(event);
+    },
     /**
     * Logs an event to mParticle's servers
     * @method logEvent
     * @param {String} eventName The name of the event
-    * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+    * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
     * @param {Object} [eventInfo] Attributes for the event
     * @param {Object} [customFlags] Additional customFlags
     */
@@ -274,7 +297,13 @@ var mParticle = {
             return;
         }
 
-        Events.logEvent(Types.MessageType.PageEvent, eventName, eventInfo, eventType, customFlags);
+        Events.logEvent({
+            messageType: Types.MessageType.PageEvent,
+            name: eventName,
+            data: eventInfo,
+            eventType: eventType,
+            customFlags: customFlags
+        });
     },
     /**
     * Used to log custom errors
@@ -308,10 +337,12 @@ var mParticle = {
             }
         }
 
-        Events.logEvent(Types.MessageType.CrashReport,
-            error.name ? error.name : 'Error',
-            data,
-            Types.EventType.Other);
+        Events.logEvent({
+            messageType: Types.MessageType.CrashReport,
+            name: error.name ? error.name : 'Error',
+            data: data,
+            eventType: Types.EventType.Other
+        });
     },
     /**
     * Logs `click` events
@@ -367,7 +398,13 @@ var mParticle = {
             }
         }
 
-        Events.logEvent(Types.MessageType.PageView, eventName, attrs, Types.EventType.Unknown, customFlags);
+        Events.logEvent({
+            messageType: Types.MessageType.PageView,
+            name: eventName,
+            data: attrs,
+            eventType: Types.EventType.Unknown,
+            customFlags: customFlags
+        });
     },
     Consent: {
         createGDPRConsent: Consent.createGDPRConsent,

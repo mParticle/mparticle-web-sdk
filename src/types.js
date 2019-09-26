@@ -7,7 +7,8 @@ var MessageType = {
     OptOut: 6,
     AppStateTransition: 10,
     Profile: 14,
-    Commerce: 16
+    Commerce: 16,
+    Media: 20
 };
 
 var EventType = {

@@ -237,7 +237,7 @@ var IdentityAPI = {
                     Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
                 } else {
                     sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, parseIdentityResponse, mpid);
-                    evt = ServerModel.createEventObject(Types.MessageType.Profile);
+                    evt = ServerModel.createEventObject({ messageType: Types.MessageType.Profile });
                     evt.ProfileMessageType = Types.ProfileMessageType.Logout;
                     if (mParticle.Store.activeForwarders.length) {
                         mParticle.Store.activeForwarders.forEach(function(forwarder) {
