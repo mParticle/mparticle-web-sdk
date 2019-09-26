@@ -1,11 +1,15 @@
 ## Releases
 --
 
+#### 2.9.11 - 2019-09-26
+* Feat - Add Base Event functionality to core for future child SDK use
+* Update .eslintrc, fix urls in yuidoc comments
+
 #### 2.9.10 - 2019-08-21
 * Add integration tests for bundlers (webpack, browserify, rollup)
 * Bugfix - Make getCartProducts more robust
 * Bugfix - Fix immediate logging for self hosting
-* Feat - Feat - add session start to server DTO
+* Feat - add session start to server DTO
 * Bugfix - update modify old_value
 
 #### 2.9.9 - 2019-08-07
