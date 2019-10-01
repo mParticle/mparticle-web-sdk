@@ -1,6 +1,11 @@
 ## Releases
 --
 
+#### 2.9.12 - 2019-10-02
+* Support event batching and beacon API; provide new Events API v3 endpoint which supports batching
+* Implement Typescript and Babel compilation
+* Feat - Enable configuration of config endpoint
+
 #### 2.9.11 - 2019-09-26
 * Feat - Add Base Event functionality to core for future child SDK use
 * Update .eslintrc, fix urls in yuidoc comments
