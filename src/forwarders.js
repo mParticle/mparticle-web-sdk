@@ -1,11 +1,9 @@
 import Helpers from './helpers';
 import Types from './types';
-import Constants from './constants';
 import getFilteredMparticleUser from './mParticleUser';
-import ApiClient from './apiClient';
 import Persistence from './persistence';
 
-function initForwarders(userIdentities) {
+function initForwarders(userIdentities, forwardingStatsCallback) {
     var user = mParticle.Identity.getCurrentUser();
     if (!mParticle.Store.webviewBridgeEnabled && mParticle.Store.configuredForwarders) {
         // Some js libraries require that they be loaded first, or last, etc
@@ -31,7 +29,7 @@ function initForwarders(userIdentities) {
 
             if (!forwarder.initialized) {
                 forwarder.init(forwarder.settings,
-                    prepareForwardingStats,
+                    forwardingStatsCallback,
                     false,
                     null,
                     filteredUserAttributes,
@@ -388,33 +386,6 @@ function setForwarderOnIdentityComplete(user, identityMethod) {
     });
 }
 
-function prepareForwardingStats(forwarder, event) {
-    var forwardingStatsData,
-        queue = getForwarderStatsQueue();
-
-    if (forwarder && forwarder.isVisible) {
-        forwardingStatsData = {
-            mid: forwarder.id,
-            esid: forwarder.eventSubscriptionId,
-            n: event.EventName,
-            attrs: event.EventAttributes,
-            sdk: event.SDKVersion,
-            dt: event.EventDataType,
-            et: event.EventCategory,
-            dbg: event.Debug,
-            ct: event.Timestamp,
-            eec: event.ExpandedEventCount
-        };
-
-        if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
-            queue.push(forwardingStatsData);
-            setForwarderStatsQueue(queue);
-        } else {
-            ApiClient.sendSingleForwardingStatsToServer(forwardingStatsData);
-        }
-    }
-}
-
 function getForwarderStatsQueue() {
     return Persistence.forwardingStatsBatches.forwardingStatsEventQueue;
 }
@@ -479,7 +450,7 @@ function configurePixel(settings) {
     }
 }
 
-function processForwarders(config) {
+function processForwarders(config, forwardingStatsCallback) {
     if (!config) {
         mParticle.Logger.warning('No config was passed. Cannot process forwarders');
     } else {
@@ -495,7 +466,7 @@ function processForwarders(config) {
                     configurePixel(pixelConfig);
                 });
             }
-            initForwarders(mParticle.Store.SDKConfig.identifyRequest.userIdentities);
+            initForwarders(mParticle.Store.SDKConfig.identifyRequest.userIdentities, forwardingStatsCallback);
         } catch (e) {
             mParticle.Logger.error('Config was not parsed propertly. Forwarders may not be initialized.');
         }

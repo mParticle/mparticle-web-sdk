@@ -228,6 +228,11 @@ function createProduct(name,
         return null;
     }
 
+    if (position && !Validators.isNumber(position)) {
+        mParticle.Logger.error('Position must be a number, it will be set to null.');
+        position = null;
+    }
+
     if (!quantity) {
         quantity = 1;
     }

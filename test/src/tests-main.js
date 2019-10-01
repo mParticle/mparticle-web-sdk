@@ -4,13 +4,22 @@ var testMPID = TestsCore.testMPID,
     MPConfig = TestsCore.MPConfig,
     apiKey = TestsCore.apiKey,
     workspaceToken = TestsCore.workspaceToken,
-    server = TestsCore.server;
+    server = TestsCore.server,
+    userApi = null;
 
 before(function() {
     server.start();
 });
 
 beforeEach(function() {
+    //mocha can't clean up after itself, so this lets
+    //tests mock the current user and restores in between runs.
+    if (!userApi) {
+        userApi = window.mParticle.Identity.getCurrentUser;
+    } else {
+        window.mParticle.Identity.getCurrentUser = userApi;
+    }
+    
     window.mParticle = window.mParticle || {};
     window.mParticle.config = {
         workspaceToken: workspaceToken,
@@ -59,3 +68,5 @@ import './tests-consent';
 import './tests-serverModel';
 import './tests-mParticleUser';
 import './tests-self-hosting-specific';
+import './tests-runtimeToBatchEventsDTO';
+import './tests-apiClient';

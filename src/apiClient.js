@@ -3,75 +3,167 @@ import Constants from './constants';
 import NativeSdkHelpers from './nativeSdkHelpers';
 import ServerModel from './serverModel';
 import Types from './types';
+import { BatchUploader } from './batchUploader';
+import Persistence from './persistence';
+import Forwarders from './forwarders';
 
 var HTTPCodes = Constants.HTTPCodes,
-    Messages = Constants.Messages;
+    Messages = Constants.Messages,
+    uploader = null;
 
-function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
+function queueEventForBatchUpload(event) {
+    if (!uploader){
+        var millis = Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatchingIntervalMillis);
+        uploader = new BatchUploader(mParticle, millis);
+    }
+    uploader.queueEvent(event);
+}
+
+function shouldEnableBatching() {
+    if (!window.fetch) {
+        return false;
+    }
+    var eventsV3Percentage = Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3);
+    if (!eventsV3Percentage || !Helpers.Validators.isNumber(eventsV3Percentage)) {
+        return false;
+    }
+    var rampNumber = Helpers.getRampNumber(mParticle.Store.deviceId);
+    return eventsV3Percentage >= rampNumber;
+}
+
+function processQueuedEvents() {
     var mpid,
         currentUser = mParticle.Identity.getCurrentUser();
     if (currentUser) {
         mpid = currentUser.getMPID();
     }
+    if (mParticle.Store.eventQueue.length && mpid) {
+        var localQueueCopy = mParticle.Store.eventQueue;
+        mParticle.Store.eventQueue = [];
+        appendUserInfoToEvents(currentUser, localQueueCopy);
+        localQueueCopy.forEach(function(event) {
+            sendEventToServer(event);
+        });
+    }
+}
+
+function appendUserInfoToEvents(user, events) {
+    events.forEach(function(event) {
+        if (!event.MPID) {
+            ServerModel.appendUserInfo(user, event);
+        }
+    });
+}
+
+function sendEventToServer(event) {
     if (mParticle.Store.webviewBridgeEnabled) {
         NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
+        return;
+    }
+    
+    var mpid,
+        currentUser = mParticle.Identity.getCurrentUser();
+    if (currentUser) {
+        mpid = currentUser.getMPID();
+    }
+    mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays, mParticle.Store.integrationDelayTimeoutStart, Date.now());
+    // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
+    // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
+    if (!mpid || mParticle.Store.requireDelay || !mParticle.Store.configurationLoaded) {
+        mParticle.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
+        mParticle.Store.eventQueue.push(event);
+        return;
+    }
+
+    processQueuedEvents();
+
+    if (shouldEnableBatching()) {
+        queueEventForBatchUpload(event);
     } else {
-        var xhr,
-            xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
+        sendSingleEventToServer(event);
+    }
 
-                    parseEventResponse(xhr.responseText);
-                }
-            };
+    if (event && event.EventName !== Types.MessageType.AppStateTransition) {
+        Forwarders.sendEventToForwarders(event);
+    }
+}
 
-        mParticle.Logger.verbose(Messages.InformationMessages.SendBegin);
-
-        var validUserIdentities = [];
-
-        // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
-        if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
-            for (var key in event.UserIdentities) {
-                var userIdentity = {};
-                userIdentity.Identity = event.UserIdentities[key];
-                userIdentity.Type = Helpers.parseNumber(key);
-                validUserIdentities.push(userIdentity);
+function sendSingleEventToServer(event) {
+    if (event.EventDataType === Types.MessageType.Media) {
+        return;
+    }
+    var xhr,
+        xhrCallback = function() {
+            if (xhr.readyState === 4) {
+                mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
+                parseEventResponse(xhr.responseText);
             }
-            event.UserIdentities = validUserIdentities;
-        } else {
-            event.UserIdentities = [];
+        };
+    
+    if (!event) {
+        mParticle.Logger.error(Messages.ErrorMessages.EventEmpty);
+        return;
+    }
+    mParticle.Logger.verbose(Messages.InformationMessages.SendHttp);
+    xhr = Helpers.createXHR(xhrCallback);
+    if (xhr) {
+        try {
+            xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken) + '/Events');
+            xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun)));
         }
+        catch (e) {
+            mParticle.Logger.error('Error sending event to mParticle servers. ' + e);
+        }
+    }
+    
+}
 
-        mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays, mParticle.Store.integrationDelayTimeoutStart, Date.now());
-        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
-        // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
-        if (!mpid || mParticle.Store.requireDelay || !mParticle.Store.configurationLoaded) {
-            mParticle.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
-            mParticle.Store.eventQueue.push(event);
-        } else {
-            Helpers.processQueuedEvents(mParticle.Store.eventQueue, mpid, !mParticle.Store.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
-            if (!event) {
-                mParticle.Logger.error(Messages.ErrorMessages.EventEmpty);
-                return;
+function parseEventResponse(responseText) {
+    var now = new Date(),
+        settings,
+        prop,
+        fullProp;
+
+    if (!responseText) {
+        return;
+    }
+
+    try {
+        mParticle.Logger.verbose('Parsing response from server');
+        settings = JSON.parse(responseText);
+
+        if (settings && settings.Store) {
+            mParticle.Logger.verbose('Parsed store from response, updating local settings');
+
+            if (!mParticle.Store.serverSettings) {
+                mParticle.Store.serverSettings = {};
             }
 
-            mParticle.Logger.verbose(Messages.InformationMessages.SendHttp);
+            for (prop in settings.Store) {
+                if (!settings.Store.hasOwnProperty(prop)) {
+                    continue;
+                }
 
-            xhr = Helpers.createXHR(xhrCallback);
+                fullProp = settings.Store[prop];
 
-            if (xhr) {
-                try {
-                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun, mParticle.Store.currencyCode, mParticle.Store.integrationAttributes)));
-                    if (event.EventName !== Types.MessageType.AppStateTransition) {
-                        sendEventToForwarders(event);
+                if (!fullProp.Value || new Date(fullProp.Expires) < now) {
+                    // This setting should be deleted from the local store if it exists
+
+                    if (mParticle.Store.serverSettings.hasOwnProperty(prop)) {
+                        delete mParticle.Store.serverSettings[prop];
                     }
                 }
-                catch (e) {
-                    mParticle.Logger.error('Error sending event to mParticle servers. ' + e);
+                else {
+                    // This is a valid setting
+                    mParticle.Store.serverSettings[prop] = fullProp;
                 }
             }
+
+            Persistence.update();
         }
+    }
+    catch (e) {
+        mParticle.Logger.error('Error parsing JSON response from server: ' + e.name);
     }
 }
 
@@ -233,11 +325,42 @@ function getSDKConfiguration(apiKey, config, completeSDKInitialization) {
     }
 }
 
+function prepareForwardingStats(forwarder, event) {
+    var forwardingStatsData,
+        queue = Forwarders.getForwarderStatsQueue();
+
+    if (forwarder && forwarder.isVisible) {
+        forwardingStatsData = {
+            mid: forwarder.id,
+            esid: forwarder.eventSubscriptionId,
+            n: event.EventName,
+            attrs: event.EventAttributes,
+            sdk: event.SDKVersion,
+            dt: event.EventDataType,
+            et: event.EventCategory,
+            dbg: event.Debug,
+            ct: event.Timestamp,
+            eec: event.ExpandedEventCount
+        };
+
+        if (Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)) {
+            queue.push(forwardingStatsData);
+            Forwarders.setForwarderStatsQueue(queue);
+        } else {
+            sendSingleForwardingStatsToServer(forwardingStatsData);
+        }
+    }
+}
+
 export default {
     sendEventToServer: sendEventToServer,
     sendIdentityRequest: sendIdentityRequest,
     sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,
     sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer,
     sendAliasRequest: sendAliasRequest,
-    getSDKConfiguration: getSDKConfiguration
+    getSDKConfiguration: getSDKConfiguration,
+    prepareForwardingStats: prepareForwardingStats,
+    processQueuedEvents: processQueuedEvents,
+    appendUserInfoToEvents: appendUserInfoToEvents,
+    shouldEnableBatching: shouldEnableBatching
 };

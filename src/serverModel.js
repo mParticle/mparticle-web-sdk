@@ -36,6 +36,47 @@ function convertCustomFlags(event, dto) {
     }
 }
 
+function appendUserInfo(user, event) {
+    if (!event) {
+        return;
+    }
+    if (!user) {
+        event.MPID = null;
+        event.ConsentState = null;
+        event.UserAttributes = null;
+        event.UserIdentities = null;
+        return;
+    }
+    if (event.MPID && event.MPID === user.getMPID()) {
+        return;
+    }
+    event.MPID = user.getMPID();
+    event.ConsentState = user.getConsentState();
+    event.UserAttributes = user.getAllUserAttributes();
+
+    var userIdentities = user.getUserIdentities().userIdentities;
+    var dtoUserIdentities = {};
+    for (var identityKey in userIdentities) {
+        var identityType = Types.IdentityType.getIdentityType(identityKey);
+        if (identityType !== false) {
+            dtoUserIdentities[identityType] = userIdentities[identityKey];
+        }
+    }
+
+    var validUserIdentities = [];
+    if (Helpers.isObject(dtoUserIdentities)) {
+        if (Object.keys(dtoUserIdentities).length) {
+            for (var key in dtoUserIdentities) {
+                var userIdentity = {};
+                userIdentity.Identity = dtoUserIdentities[key];
+                userIdentity.Type = Helpers.parseNumber(key);
+                validUserIdentities.push(userIdentity);
+            }
+        }
+    }
+    event.UserIdentities = validUserIdentities;
+}
+
 function convertProductListToDTO(productList) {
     if (!productList) {
         return [];
@@ -100,20 +141,9 @@ function convertToConsentStateDTO(state) {
 function createEventObject(event) {
     var uploadObject = {};
     var eventObject = {};
-    var dtoUserIdentities = {};
-    var currentUser = mParticle.Identity.getCurrentUser();
-    var userIdentities = currentUser ? currentUser.getUserIdentities().userIdentities : {};
     var optOut = (event.messageType === Types.MessageType.OptOut ? !mParticle.Store.isEnabled : null);
 
     if (mParticle.Store.sessionId || event.messageType == Types.MessageType.OptOut || mParticle.Store.webviewBridgeEnabled) {
-        for (var identityKey in userIdentities) {
-            dtoUserIdentities[Types.IdentityType.getIdentityType(identityKey)] = userIdentities[identityKey];
-        }
-
-        if (event.messageType !== Types.MessageType.SessionEnd) {
-            mParticle.Store.dateLastEventSent = new Date();
-        }
-
         if (event.hasOwnProperty('toEventAPIObject')) {
             eventObject = event.toEventAPIObject();
         } else {
@@ -126,9 +156,11 @@ function createEventObject(event) {
             };
         }
 
+        if (event.messageType !== Types.MessageType.SessionEnd) {
+            mParticle.Store.dateLastEventSent = new Date();
+        }
+
         uploadObject = {
-            UserAttributes: currentUser ? currentUser.getAllUserAttributes() : {},
-            UserIdentities: dtoUserIdentities,
             Store: mParticle.Store.serverSettings,
             SDKVersion: Constants.sdkVersion,
             SessionId: mParticle.Store.sessionId,
@@ -140,11 +172,14 @@ function createEventObject(event) {
             AppVersion: mParticle.Store.SDKConfig.appVersion,
             ClientGeneratedId: mParticle.Store.clientId,
             DeviceId: mParticle.Store.deviceId,
-            MPID: currentUser ? currentUser.getMPID() : null,
-            ConsentState: currentUser ? currentUser.getConsentState() : null,
-            IntegrationAttributes: mParticle.Store.integrationAttributes
+            IntegrationAttributes: mParticle.Store.integrationAttributes,
+            CurrencyCode: mParticle.Store.currencyCode
         };
 
+        eventObject.CurrencyCode = mParticle.Store.currencyCode;
+        var currentUser = mParticle.Identity.getCurrentUser();
+        appendUserInfo(currentUser, eventObject);
+        
         if (event.messageType === Types.MessageType.SessionEnd) {
             eventObject.SessionLength = mParticle.Store.dateLastEventSent.getTime() - mParticle.Store.sessionStartDate.getTime();
             eventObject.currentSessionMPIDs = mParticle.Store.currentSessionMPIDs;
@@ -162,7 +197,7 @@ function createEventObject(event) {
     return null;
 }
 
-function convertEventToDTO(event, isFirstRun, currencyCode) {
+function convertEventToDTO(event, isFirstRun) {
     var dto = {
         n: event.EventName,
         et: event.EventCategory,
@@ -206,7 +241,7 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
     }
 
     if (event.EventDataType === MessageType.Commerce) {
-        dto.cu = currencyCode;
+        dto.cu = event.CurrencyCode;
 
         if (event.ShoppingCart) {
             dto.sc = {
@@ -260,5 +295,6 @@ function convertEventToDTO(event, isFirstRun, currencyCode) {
 export default {
     createEventObject: createEventObject,
     convertEventToDTO: convertEventToDTO,
-    convertToConsentStateDTO: convertToConsentStateDTO
+    convertToConsentStateDTO: convertToConsentStateDTO,
+    appendUserInfo: appendUserInfo
 };

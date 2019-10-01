@@ -13,7 +13,7 @@
     "src/"
   ],
   "main": "dist/mparticle.common.js",
-  "module": "src/main.js",
+  "module": "src/dist/mparticle.esm.js",
   "repository": "https://github.com/mParticle/mparticle-web-sdk",
   "scripts": {
     "build": "ENVIRONMENT=prod rollup --config rollup.config.js",
@@ -26,6 +26,7 @@
     "build:webpack:cjs": "webpack --config test/integrations/cjs/webpack/webpack.config.js && npm run test:karma:webpack:cjs",
     "build:rollup:module": "rollup --config test/integrations/module/rollup/rollup.config.js  && npm run test:karma:rollup:module",
     "build:webpack:module": "webpack --config test/integrations/module/webpack/webpack.config.js && npm run test:karma:webpack:module",
+    "build:ts": "tsc -p .",
     "test": "npm run build && npm run build:tests:prod && DEBUG=false karma start test/karma.config.js",
     "test:debug": "DEBUG=true karma start test/karma.config.js",
     "test:stub": "npm run build:tests:prod && karma start test/stub/karma.stub.config.js",
@@ -42,16 +43,29 @@
     "test:karma:rollup:module": "BUNDLER=rollup karma start test/integrations/module/karma.rollup.config.js",
     "watch": "ENVIRONMENT=dev rollup --config rollup.config.js -w",
     "watch:tests": "ENVIRONMENT=dev rollup --config rollup.test.config.js -w",
-    "lint": "eslint src/ test/src/"
+    "lint": "eslint src/ test/src/",
+    "gts:check": "gts check",
+    "gts:fix": "gts fix"
   },
   "pre-commit": [
     "lint"
   ],
   "devDependencies": {
+    "@babel/core": "^7.6.0",
+    "@babel/plugin-proposal-class-properties": "^7.5.5",
+    "@babel/plugin-proposal-object-rest-spread": "^7.5.5",
+    "@babel/plugin-transform-runtime": "^7.6.0",
+    "@babel/preset-env": "^7.6.0",
+    "@babel/preset-typescript": "^7.6.0",
+    "@types/chai": "^4.2.3",
+    "@types/mocha": "^5.2.7",
+    "@types/node": "^10.0.3",
+    "babel-preset-minify": "^0.5.1",
     "browser-sync": "^2.26.3",
     "browserify": "^16.3.0",
     "chai": "^4.2.0",
     "eslint": "^6.4.0",
+    "gts": "^1.1.0",
     "karma": "^4.0.1",
     "karma-chai": "^0.1.0",
     "karma-chrome-launcher": "^2.2.0",
@@ -65,14 +79,21 @@
     "mocha": "^6.0.2",
     "pre-commit": "^1.2.2",
     "rollup": "^1.19.4",
-    "rollup-plugin-commonjs": "^10.0.2",
+    "rollup-plugin-babel": "^4.3.3",
+    "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup-plugin-typescript": "^1.0.1",
     "shelljs": "^0.7.8",
     "should": "^7.1.0",
     "sinon": "^7.4.1",
+    "tslib": "^1.10.0",
+    "typescript": "^3.6.2",
     "uglify-js": "^3.4.9",
     "webpack": "^4.39.1",
     "webpack-cli": "^3.3.6",
     "yuidocjs": "^0.10.2"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.6.0"
   }
 }

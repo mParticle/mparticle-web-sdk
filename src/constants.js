@@ -103,11 +103,13 @@ var Constants = {
         forwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
         integrationDelayTimeout: 5000,              // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
         maxCookieSize: 3000,                        // Number of bytes for cookie size to not exceed
-        aliasMaxWindow: 90                          // Max age of Alias request startTime, in days
+        aliasMaxWindow: 90,                         // Max age of Alias request startTime, in days
+        uploadInterval: 0                           // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload
     },
     DefaultUrls: {
         v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
         v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
+        v3SecureServiceUrl: 'jssdks.mparticle.com/v3/JS/',
         configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
         identityUrl: 'identity.mparticle.com/v1/',
         aliasUrl: 'jssdks.mparticle.com/v1/identity/'
@@ -138,8 +140,10 @@ var Constants = {
         loggingDisabledOrMissingAPIKey: -6,
         tooManyRequests: 429
     },
-    Features: {
-        Batching: 'batching'
+    FeatureFlags: {
+        ReportBatching: 'reportBatching',
+        EventsV3: 'eventsV3',
+        EventBatchingIntervalMillis: 'eventBatchingIntervalMillis'
     }
 };
 

@@ -1,2085 +1,94 @@
+function createCommonjsModule(fn, module) {
+	return module = { exports: {} }, fn(module, module.exports), module.exports;
+}
+
+var _typeof_1 = createCommonjsModule(function (module) {
+function _typeof2(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof2 = function _typeof2(obj) { return typeof obj; }; } else { _typeof2 = function _typeof2(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof2(obj); }
+
+function _typeof(obj) {
+  if (typeof Symbol === "function" && _typeof2(Symbol.iterator) === "symbol") {
+    module.exports = _typeof = function _typeof(obj) {
+      return _typeof2(obj);
+    };
+  } else {
+    module.exports = _typeof = function _typeof(obj) {
+      return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : _typeof2(obj);
+    };
+  }
+
+  return _typeof(obj);
+}
+
+module.exports = _typeof;
+});
+
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
-var Base64 = {
-    _keyStr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
-
-    // Input must be a string
-    encode: function encode(input) {
-        try {
-            if (window.btoa && window.atob) {
-                return window.btoa(unescape(encodeURIComponent(input)));
-            }
-        } catch (e) {
-            window.console.log('Error encoding cookie values into Base64:' + e);
-        }
-        return this._encode(input);
-    },
-
-    _encode: function _encode(input) {
-        var output = '';
-        var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
-        var i = 0;
-
-        input = UTF8.encode(input);
-
-        while (i < input.length) {
-            chr1 = input.charCodeAt(i++);
-            chr2 = input.charCodeAt(i++);
-            chr3 = input.charCodeAt(i++);
-
-            enc1 = chr1 >> 2;
-            enc2 = (chr1 & 3) << 4 | chr2 >> 4;
-            enc3 = (chr2 & 15) << 2 | chr3 >> 6;
-            enc4 = chr3 & 63;
-
-            if (isNaN(chr2)) {
-                enc3 = enc4 = 64;
-            } else if (isNaN(chr3)) {
-                enc4 = 64;
-            }
-
-            output = output + Base64._keyStr.charAt(enc1) + Base64._keyStr.charAt(enc2) + Base64._keyStr.charAt(enc3) + Base64._keyStr.charAt(enc4);
-        }
-        return output;
-    },
-
-    decode: function decode(input) {
-        try {
-            if (window.btoa && window.atob) {
-                return decodeURIComponent(escape(window.atob(input)));
-            }
-        } catch (e) {
-            //log(e);
-        }
-        return Base64._decode(input);
-    },
-
-    _decode: function _decode(input) {
-        var output = '';
-        var chr1, chr2, chr3;
-        var enc1, enc2, enc3, enc4;
-        var i = 0;
-
-        input = input.replace(/[^A-Za-z0-9\+\/\=]/g, '');
-
-        while (i < input.length) {
-            enc1 = Base64._keyStr.indexOf(input.charAt(i++));
-            enc2 = Base64._keyStr.indexOf(input.charAt(i++));
-            enc3 = Base64._keyStr.indexOf(input.charAt(i++));
-            enc4 = Base64._keyStr.indexOf(input.charAt(i++));
-
-            chr1 = enc1 << 2 | enc2 >> 4;
-            chr2 = (enc2 & 15) << 4 | enc3 >> 2;
-            chr3 = (enc3 & 3) << 6 | enc4;
-
-            output = output + String.fromCharCode(chr1);
-
-            if (enc3 !== 64) {
-                output = output + String.fromCharCode(chr2);
-            }
-            if (enc4 !== 64) {
-                output = output + String.fromCharCode(chr3);
-            }
-        }
-        output = UTF8.decode(output);
-        return output;
-    }
-};
-
-var UTF8 = {
-    encode: function encode(s) {
-        var utftext = '';
-
-        for (var n = 0; n < s.length; n++) {
-            var c = s.charCodeAt(n);
-
-            if (c < 128) {
-                utftext += String.fromCharCode(c);
-            } else if (c > 127 && c < 2048) {
-                utftext += String.fromCharCode(c >> 6 | 192);
-                utftext += String.fromCharCode(c & 63 | 128);
-            } else {
-                utftext += String.fromCharCode(c >> 12 | 224);
-                utftext += String.fromCharCode(c >> 6 & 63 | 128);
-                utftext += String.fromCharCode(c & 63 | 128);
-            }
-        }
-        return utftext;
-    },
-
-    decode: function decode(utftext) {
-        var s = '';
-        var i = 0;
-        var c = 0,
-            c1 = 0,
-            c2 = 0;
-
-        while (i < utftext.length) {
-            c = utftext.charCodeAt(i);
-            if (c < 128) {
-                s += String.fromCharCode(c);
-                i++;
-            } else if (c > 191 && c < 224) {
-                c1 = utftext.charCodeAt(i + 1);
-                s += String.fromCharCode((c & 31) << 6 | c1 & 63);
-                i += 2;
-            } else {
-                c1 = utftext.charCodeAt(i + 1);
-                c2 = utftext.charCodeAt(i + 2);
-                s += String.fromCharCode((c & 15) << 12 | (c1 & 63) << 6 | c2 & 63);
-                i += 3;
-            }
-        }
-        return s;
-    }
-};
-
-var Polyfill = {
-    // forEach polyfill
-    // Production steps of ECMA-262, Edition 5, 15.4.4.18
-    // Reference: http://es5.github.io/#x15.4.4.18
-    forEach: function(callback, thisArg) {
-        var T, k;
-
-        if (this == null) {
-            throw new TypeError(' this is null or not defined');
-        }
-
-        var O = Object(this);
-        var len = O.length >>> 0;
-
-        if (typeof callback !== 'function') {
-            throw new TypeError(callback + ' is not a function');
-        }
-
-        if (arguments.length > 1) {
-            T = thisArg;
-        }
-
-        k = 0;
-
-        while (k < len) {
-            var kValue;
-            if (k in O) {
-                kValue = O[k];
-                callback.call(T, kValue, k, O);
-            }
-            k++;
-        }
-    },
-
-    // map polyfill
-    // Production steps of ECMA-262, Edition 5, 15.4.4.19
-    // Reference: http://es5.github.io/#x15.4.4.19
-    map: function(callback, thisArg) {
-        var T, A, k;
-
-        if (this === null) {
-            throw new TypeError(' this is null or not defined');
-        }
-
-        var O = Object(this);
-        var len = O.length >>> 0;
-
-        if (typeof callback !== 'function') {
-            throw new TypeError(callback + ' is not a function');
-        }
-
-        if (arguments.length > 1) {
-            T = thisArg;
-        }
-
-        A = new Array(len);
-
-        k = 0;
-
-        while (k < len) {
-            var kValue, mappedValue;
-            if (k in O) {
-                kValue = O[k];
-                mappedValue = callback.call(T, kValue, k, O);
-                A[k] = mappedValue;
-            }
-            k++;
-        }
-
-        return A;
-    },
-
-    // filter polyfill
-    // Prodcution steps of ECMA-262, Edition 5
-    // Reference: http://es5.github.io/#x15.4.4.20
-    filter: function(fun/*, thisArg*/) {
-
-        if (this === void 0 || this === null) {
-            throw new TypeError();
-        }
-
-        var t = Object(this);
-        var len = t.length >>> 0;
-        if (typeof fun !== 'function') {
-            throw new TypeError();
-        }
-
-        var res = [];
-        var thisArg = arguments.length >= 2 ? arguments[1] : void 0;
-        for (var i = 0; i < len; i++) {
-            if (i in t) {
-                var val = t[i];
-                if (fun.call(thisArg, val, i, t)) {
-                    res.push(val);
-                }
-            }
-        }
-
-        return res;
-    },
-
-    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
-    isArray: function(arg) {
-        return Object.prototype.toString.call(arg) === '[object Array]';
-    },
-
-    Base64: Base64
-};
-
-var MessageType = {
-    SessionStart: 1,
-    SessionEnd: 2,
-    PageView: 3,
-    PageEvent: 4,
-    CrashReport: 5,
-    OptOut: 6,
-    AppStateTransition: 10,
-    Profile: 14,
-    Commerce: 16,
-    Media: 20
-};
-
-var EventType = {
-    Unknown: 0,
-    Navigation: 1,
-    Location: 2,
-    Search: 3,
-    Transaction: 4,
-    UserContent: 5,
-    UserPreference: 6,
-    Social: 7,
-    Other: 8,
-    getName: function(id) {
-        switch (id) {
-            case EventType.Navigation:
-                return 'Navigation';
-            case EventType.Location:
-                return 'Location';
-            case EventType.Search:
-                return 'Search';
-            case EventType.Transaction:
-                return 'Transaction';
-            case EventType.UserContent:
-                return 'User Content';
-            case EventType.UserPreference:
-                return 'User Preference';
-            case EventType.Social:
-                return 'Social';
-            case CommerceEventType.ProductAddToCart:
-                return 'Product Added to Cart';
-            case CommerceEventType.ProductAddToWishlist:
-                return 'Product Added to Wishlist';
-            case CommerceEventType.ProductCheckout:
-                return 'Product Checkout';
-            case CommerceEventType.ProductCheckoutOption:
-                return 'Product Checkout Options';
-            case CommerceEventType.ProductClick:
-                return 'Product Click';
-            case CommerceEventType.ProductImpression:
-                return 'Product Impression';
-            case CommerceEventType.ProductPurchase:
-                return 'Product Purchased';
-            case CommerceEventType.ProductRefund:
-                return 'Product Refunded';
-            case CommerceEventType.ProductRemoveFromCart:
-                return 'Product Removed From Cart';
-            case CommerceEventType.ProductRemoveFromWishlist:
-                return 'Product Removed from Wishlist';
-            case CommerceEventType.ProductViewDetail:
-                return 'Product View Details';
-            case CommerceEventType.PromotionClick:
-                return 'Promotion Click';
-            case CommerceEventType.PromotionView:
-                return 'Promotion View';
-            default:
-                return 'Other';
-        }
-    }
-};
-
-// Continuation of enum above, but in seperate object since we don't expose these to end user
-var CommerceEventType = {
-    ProductAddToCart: 10,
-    ProductRemoveFromCart: 11,
-    ProductCheckout: 12,
-    ProductCheckoutOption: 13,
-    ProductClick: 14,
-    ProductViewDetail: 15,
-    ProductPurchase: 16,
-    ProductRefund: 17,
-    PromotionView: 18,
-    PromotionClick: 19,
-    ProductAddToWishlist: 20,
-    ProductRemoveFromWishlist: 21,
-    ProductImpression: 22
-};
-
-var IdentityType = {
-    Other: 0,
-    CustomerId: 1,
-    Facebook: 2,
-    Twitter: 3,
-    Google: 4,
-    Microsoft: 5,
-    Yahoo: 6,
-    Email: 7,
-    FacebookCustomAudienceId: 9,
-    Other2: 10,
-    Other3: 11,
-    Other4: 12
-};
-
-IdentityType.isValid = function(identityType) {
-    if (typeof identityType === 'number') {
-        for (var prop in IdentityType) {
-            if (IdentityType.hasOwnProperty(prop)) {
-                if (IdentityType[prop] === identityType) {
-                    return true;
-                }
-            }
-        }
-    }
-
-    return false;
-};
-
-IdentityType.getName = function(identityType) {
-    switch (identityType) {
-        case window.mParticle.IdentityType.CustomerId:
-            return 'Customer ID';
-        case window.mParticle.IdentityType.Facebook:
-            return 'Facebook ID';
-        case window.mParticle.IdentityType.Twitter:
-            return 'Twitter ID';
-        case window.mParticle.IdentityType.Google:
-            return 'Google ID';
-        case window.mParticle.IdentityType.Microsoft:
-            return 'Microsoft ID';
-        case window.mParticle.IdentityType.Yahoo:
-            return 'Yahoo ID';
-        case window.mParticle.IdentityType.Email:
-            return 'Email';
-        case window.mParticle.IdentityType.FacebookCustomAudienceId:
-            return 'Facebook App User ID';
-        default:
-            return 'Other ID';
-    }
-};
-
-IdentityType.getIdentityType = function(identityName) {
-    switch (identityName) {
-        case 'other':
-            return IdentityType.Other;
-        case 'customerid':
-            return IdentityType.CustomerId;
-        case 'facebook':
-            return IdentityType.Facebook;
-        case 'twitter':
-            return IdentityType.Twitter;
-        case 'google':
-            return IdentityType.Google;
-        case 'microsoft':
-            return IdentityType.Microsoft;
-        case 'yahoo':
-            return IdentityType.Yahoo;
-        case 'email':
-            return IdentityType.Email;
-        case 'facebookcustomaudienceid':
-            return IdentityType.FacebookCustomAudienceId;
-        case 'other1':
-            return IdentityType.Other1;
-        case 'other2':
-            return IdentityType.Other2;
-        case 'other3':
-            return IdentityType.Other3;
-        case 'other4':
-            return IdentityType.Other4;
-        default:
-            return false;
-    }
-};
-
-IdentityType.getIdentityName = function(identityType) {
-    switch (identityType) {
-        case IdentityType.Other:
-            return 'other';
-        case IdentityType.CustomerId:
-            return 'customerid';
-        case IdentityType.Facebook:
-            return 'facebook';
-        case IdentityType.Twitter:
-            return 'twitter';
-        case IdentityType.Google:
-            return 'google';
-        case IdentityType.Microsoft:
-            return 'microsoft';
-        case IdentityType.Yahoo:
-            return 'yahoo';
-        case IdentityType.Email:
-            return 'email';
-        case IdentityType.FacebookCustomAudienceId:
-            return 'facebookcustomaudienceid';
-        case IdentityType.Other1:
-            return 'other1';
-        case IdentityType.Other2:
-            return 'other2';
-        case IdentityType.Other3:
-            return 'other3';
-        case IdentityType.Other4:
-            return 'other4';
-    }
-};
-
-var ProductActionType = {
-    Unknown: 0,
-    AddToCart: 1,
-    RemoveFromCart: 2,
-    Checkout: 3,
-    CheckoutOption: 4,
-    Click: 5,
-    ViewDetail: 6,
-    Purchase: 7,
-    Refund: 8,
-    AddToWishlist: 9,
-    RemoveFromWishlist: 10
-};
-
-ProductActionType.getName = function(id) {
-    switch (id) {
-        case ProductActionType.AddToCart:
-            return 'Add to Cart';
-        case ProductActionType.RemoveFromCart:
-            return 'Remove from Cart';
-        case ProductActionType.Checkout:
-            return 'Checkout';
-        case ProductActionType.CheckoutOption:
-            return 'Checkout Option';
-        case ProductActionType.Click:
-            return 'Click';
-        case ProductActionType.ViewDetail:
-            return 'View Detail';
-        case ProductActionType.Purchase:
-            return 'Purchase';
-        case ProductActionType.Refund:
-            return 'Refund';
-        case ProductActionType.AddToWishlist:
-            return 'Add to Wishlist';
-        case ProductActionType.RemoveFromWishlist:
-            return 'Remove from Wishlist';
-        default:
-            return 'Unknown';
-    }
-};
-
-// these are the action names used by server and mobile SDKs when expanding a CommerceEvent
-ProductActionType.getExpansionName = function(id) {
-    switch (id) {
-        case ProductActionType.AddToCart:
-            return 'add_to_cart';
-        case ProductActionType.RemoveFromCart:
-            return 'remove_from_cart';
-        case ProductActionType.Checkout:
-            return 'checkout';
-        case ProductActionType.CheckoutOption:
-            return 'checkout_option';
-        case ProductActionType.Click:
-            return 'click';
-        case ProductActionType.ViewDetail:
-            return 'view_detail';
-        case ProductActionType.Purchase:
-            return 'purchase';
-        case ProductActionType.Refund:
-            return 'refund';
-        case ProductActionType.AddToWishlist:
-            return 'add_to_wishlist';
-        case ProductActionType.RemoveFromWishlist:
-            return 'remove_from_wishlist';
-        default:
-            return 'unknown';
-    }
-};
-
-var PromotionActionType = {
-    Unknown: 0,
-    PromotionView: 1,
-    PromotionClick: 2
-};
-
-PromotionActionType.getName = function(id) {
-    switch (id) {
-        case PromotionActionType.PromotionView:
-            return 'view';
-        case PromotionActionType.PromotionClick:
-            return 'click';
-        default:
-            return 'unknown';
-    }
-};
-
-// these are the names that the server and mobile SDKs use while expanding CommerceEvent
-PromotionActionType.getExpansionName = function(id) {
-    switch (id) {
-        case PromotionActionType.PromotionView:
-            return 'view';
-        case PromotionActionType.PromotionClick:
-            return 'click';
-        default:
-            return 'unknown';
-    }
-};
-
-var ProfileMessageType = {
-    Logout: 3
-};
-var ApplicationTransitionType = {
-    AppInit: 1
-};
-
-var Types = {
-    MessageType: MessageType,
-    EventType: EventType,
-    CommerceEventType: CommerceEventType,
-    IdentityType: IdentityType,
-    ProfileMessageType: ProfileMessageType,
-    ApplicationTransitionType: ApplicationTransitionType,
-    ProductActionType: ProductActionType,
-    PromotionActionType: PromotionActionType
-};
-
-var Constants = {
-    sdkVersion: '2.9.11',
-    sdkVendor: 'mparticle',
-    platform: 'web',
-    Messages: {
-        ErrorMessages: {
-            NoToken: 'A token must be specified.',
-            EventNameInvalidType: 'Event name must be a valid string value.',
-            EventDataInvalidType: 'Event data must be a valid object hash.',
-            LoggingDisabled: 'Event logging is currently disabled.',
-            CookieParseError: 'Could not parse cookie',
-            EventEmpty: 'Event object is null or undefined, cancelling send',
-            APIRequestEmpty: 'APIRequest is null or undefined, cancelling send',
-            NoEventType: 'Event type must be specified.',
-            TransactionIdRequired: 'Transaction ID is required',
-            TransactionRequired: 'A transaction attributes object is required',
-            PromotionIdRequired: 'Promotion ID is required',
-            BadAttribute: 'Attribute value cannot be object or array',
-            BadKey: 'Key value cannot be object or array',
-            BadLogPurchase: 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions'
-        },
-        InformationMessages: {
-            CookieSearch: 'Searching for cookie',
-            CookieFound: 'Cookie found, parsing values',
-            CookieNotFound: 'Cookies not found',
-            CookieSet: 'Setting cookie',
-            CookieSync: 'Performing cookie sync',
-            SendBegin: 'Starting to send event',
-            SendIdentityBegin: 'Starting to send event to identity server',
-            SendWindowsPhone: 'Sending event to Windows Phone container',
-            SendIOS: 'Calling iOS path: ',
-            SendAndroid: 'Calling Android JS interface method: ',
-            SendHttp: 'Sending event to mParticle HTTP service',
-            SendAliasHttp: 'Sending alias request to mParticle HTTP service',
-            SendIdentityHttp: 'Sending event to mParticle HTTP service',
-            StartingNewSession: 'Starting new Session',
-            StartingLogEvent: 'Starting to log event',
-            StartingLogOptOut: 'Starting to log user opt in/out',
-            StartingEndSession: 'Starting to end session',
-            StartingInitialization: 'Starting to initialize',
-            StartingLogCommerceEvent: 'Starting to log commerce event',
-            StartingAliasRequest: 'Starting to Alias MPIDs',
-            LoadingConfig: 'Loading configuration options',
-            AbandonLogEvent: 'Cannot log event, logging disabled or developer token not set',
-            AbandonAliasUsers: 'Cannot Alias Users, logging disabled or developer token not set',
-            AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
-            AbandonEndSession: 'Cannot end session, logging disabled or developer token not set',
-            NoSessionToEnd: 'Cannot end session, no active session found'
-        },
-        ValidationMessages: {
-            ModifyIdentityRequestUserIdentitiesPresent: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again',
-            IdentityRequesetInvalidKey: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.',
-            OnUserAliasType: 'The onUserAlias value must be a function. The onUserAlias provided is of type',
-            UserIdentities: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.',
-            UserIdentitiesInvalidKey: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
-            UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.',
-            AliasMissingMpid: 'Alias Request must contain both a destinationMpid and a sourceMpid',
-            AliasNonUniqueMpid: 'Alias Request\'s destinationMpid and sourceMpid must be unique',
-            AliasMissingTime: 'Alias Request must have both a startTime and an endTime',
-            AliasStartBeforeEndTime: 'Alias Request\'s endTime must be later than its startTime'
-        }
-    },
-    NativeSdkPaths: {
-        LogEvent: 'logEvent',
-        SetUserTag: 'setUserTag',
-        RemoveUserTag: 'removeUserTag',
-        SetUserAttribute: 'setUserAttribute',
-        RemoveUserAttribute: 'removeUserAttribute',
-        SetSessionAttribute: 'setSessionAttribute',
-        AddToCart: 'addToCart',
-        RemoveFromCart: 'removeFromCart',
-        ClearCart: 'clearCart',
-        LogOut: 'logOut',
-        SetUserAttributeList: 'setUserAttributeList',
-        RemoveAllUserAttributes: 'removeAllUserAttributes',
-        GetUserAttributesLists: 'getUserAttributesLists',
-        GetAllUserAttributes: 'getAllUserAttributes',
-        Identify: 'identify',
-        Logout: 'logout',
-        Login: 'login',
-        Modify: 'modify',
-        Alias: 'aliasUsers'
-    },
-    StorageNames: {
-        localStorageName: 'mprtcl-api',             // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
-        localStorageNameV3: 'mprtcl-v3',            // v3 Name of the mP localstorage, final version on SDKv1
-        cookieName: 'mprtcl-api',                   // v1 Name of the cookie stored on the user's machine
-        cookieNameV2: 'mprtcl-v2',                  // v2 Name of the cookie stored on the user's machine. Removed keys with no values, moved cartProducts and productBags to localStorage.
-        cookieNameV3: 'mprtcl-v3',                  // v3 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, final version on SDKv1
-        localStorageNameV4: 'mprtcl-v4',            // v4 Name of the mP localstorage, Current Version
-        localStorageProductsV4: 'mprtcl-prodv4',    // The name for mP localstorage that contains products for cartProducs and productBags
-        cookieNameV4: 'mprtcl-v4',                  // v4 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, current version on SDK v2
-        currentStorageName: 'mprtcl-v4',
-        currentStorageProductsName: 'mprtcl-prodv4'
-    },
-    DefaultConfig: {
-        cookieDomain: null, 			            // If null, defaults to current location.host
-        cookieExpiration: 365,			            // Cookie expiration time in days
-        logLevel: null,					            // What logging will be provided in the console
-        timeout: 300,					            // timeout in milliseconds for logging functions
-        sessionTimeout: 30,				            // Session timeout in minutes
-        maxProducts: 20,                            // Number of products persisted in cartProducts and productBags
-        forwarderStatsTimeout: 5000,                // Milliseconds for forwarderStats timeout
-        integrationDelayTimeout: 5000,              // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
-        maxCookieSize: 3000,                        // Number of bytes for cookie size to not exceed
-        aliasMaxWindow: 90                          // Max age of Alias request startTime, in days
-    },
-    DefaultUrls: {
-        v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
-        v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
-        configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
-        identityUrl: 'identity.mparticle.com/v1/',
-        aliasUrl: 'jssdks.mparticle.com/v1/identity/'
-    },
-    Base64CookieKeys: {
-        csm: 1,
-        sa: 1,
-        ss: 1,
-        ua: 1,
-        ui: 1,
-        csd: 1,
-        ia: 1,
-        con: 1
-    },
-    SDKv2NonMPIDCookieKeys: {
-        gs: 1,
-        cu: 1,
-        l: 1,
-        globalSettings: 1,
-        currentUserMPID: 1
-    },
-    HTTPCodes: {
-        noHttpCoverage: -1,
-        activeIdentityRequest: -2,
-        activeSession: -3,
-        validationIssue: -4,
-        nativeIdentityRequest: -5,
-        loggingDisabledOrMissingAPIKey: -6,
-        tooManyRequests: 429
-    },
-    Features: {
-        Batching: 'batching'
-    }
-};
-
-var StorageNames = Constants.StorageNames,
-    pluses = /\+/g;
-
-function canLog() {
-    if (mParticle.Store.isEnabled && (mParticle.Store.devToken || mParticle.Store.webviewBridgeEnabled)) {
-        return true;
-    }
-
-    return false;
-}
-
-function returnConvertedBoolean(data) {
-    if (data === 'false' || data === '0') {
-        return false;
-    } else {
-        return Boolean(data);
-    }
-}
-
-function hasFeatureFlag(feature) {
-    if (mParticle.preInit.featureFlags) {
-        return mParticle.preInit.featureFlags[feature];
-    }
-}
-
-function invokeCallback(callback, code, body, mParticleUser, previousMpid) {
-    if (!callback) {
-        mParticle.Logger.warning('There is no callback provided');
-    }
-    try {
-        if (Validators.isFunction(callback)) {
-            callback({
-                httpCode: code,
-                body: body,
-                getUser: function() {
-                    if (mParticleUser) {
-                        return mParticleUser;
-                    } else {
-                        return mParticle.Identity.getCurrentUser();
-                    }
-                },
-                getPreviousUser: function() {
-                    if (!previousMpid) {
-                        var users = mParticle.Identity.getUsers();
-                        var mostRecentUser = users.shift();
-                        var currentUser = mParticleUser || mParticle.Identity.getCurrentUser();
-                        if (mostRecentUser && currentUser && mostRecentUser.getMPID() === currentUser.getMPID()) {
-                            mostRecentUser = users.shift();
-                        }
-                        return mostRecentUser || null;
-                    } else {
-                        return mParticle.Identity.getUser(previousMpid);
-                    }
-                }
-            });
-        }
-    } catch (e) {
-        mParticle.Logger.error('There was an error with your callback: ' + e);
-    }
-}
-
-function invokeAliasCallback(callback, code, message) {
-    if (!callback) {
-        mParticle.Logger.warning('There is no callback provided');
-    }
-    try {
-        if (Validators.isFunction(callback)) {
-            var callbackMessage = {
-                httpCode: code
-            };
-            if (message) {
-                callbackMessage.message = message;
-            }
-            callback(callbackMessage);
-        }
-    } catch (e) {
-        mParticle.Logger.error('There was an error with your callback: ' + e);
-    }
-}
-
-// Standalone version of jQuery.extend, from https://github.com/dansdom/extend
-function extend() {
-    var options, name, src, copy, copyIsArray, clone,
-        target = arguments[0] || {},
-        i = 1,
-        length = arguments.length,
-        deep = false,
-        // helper which replicates the jquery internal functions
-        objectHelper = {
-            hasOwn: Object.prototype.hasOwnProperty,
-            class2type: {},
-            type: function(obj) {
-                return obj == null ?
-                    String(obj) :
-                    objectHelper.class2type[Object.prototype.toString.call(obj)] || 'object';
-            },
-            isPlainObject: function(obj) {
-                if (!obj || objectHelper.type(obj) !== 'object' || obj.nodeType || objectHelper.isWindow(obj)) {
-                    return false;
-                }
-
-                try {
-                    if (obj.constructor &&
-                        !objectHelper.hasOwn.call(obj, 'constructor') &&
-                        !objectHelper.hasOwn.call(obj.constructor.prototype, 'isPrototypeOf')) {
-                        return false;
-                    }
-                } catch (e) {
-                    return false;
-                }
-
-                var key;
-                for (key in obj) { } // eslint-disable-line no-empty
-
-                return key === undefined || objectHelper.hasOwn.call(obj, key);
-            },
-            isArray: Array.isArray || function(obj) {
-                return objectHelper.type(obj) === 'array';
-            },
-            isFunction: function(obj) {
-                return objectHelper.type(obj) === 'function';
-            },
-            isWindow: function(obj) {
-                return obj != null && obj == obj.window;
-            }
-        };  // end of objectHelper
-
-    // Handle a deep copy situation
-    if (typeof target === 'boolean') {
-        deep = target;
-        target = arguments[1] || {};
-        // skip the boolean and the target
-        i = 2;
-    }
-
-    // Handle case when target is a string or something (possible in deep copy)
-    if (typeof target !== 'object' && !objectHelper.isFunction(target)) {
-        target = {};
-    }
-
-    // If no second argument is used then this can extend an object that is using this method
-    if (length === i) {
-        target = this;
-        --i;
-    }
-
-    for (; i < length; i++) {
-        // Only deal with non-null/undefined values
-        if ((options = arguments[i]) != null) {
-            // Extend the base object
-            for (name in options) {
-                src = target[name];
-                copy = options[name];
-
-                // Prevent never-ending loop
-                if (target === copy) {
-                    continue;
-                }
-
-                // Recurse if we're merging plain objects or arrays
-                if (deep && copy && (objectHelper.isPlainObject(copy) || (copyIsArray = objectHelper.isArray(copy)))) {
-                    if (copyIsArray) {
-                        copyIsArray = false;
-                        clone = src && objectHelper.isArray(src) ? src : [];
-
-                    } else {
-                        clone = src && objectHelper.isPlainObject(src) ? src : {};
-                    }
-
-                    // Never move original objects, clone them
-                    target[name] = extend(deep, clone, copy);
-
-                    // Don't bring in undefined values
-                } else if (copy !== undefined) {
-                    target[name] = copy;
-                }
-            }
-        }
-    }
-
-    // Return the modified object
-    return target;
-}
-
-function isObject(value) {
-    var objType = Object.prototype.toString.call(value);
-
-    return objType === '[object Object]'
-        || objType === '[object Error]';
-}
-
-function inArray(items, name) {
-    var i = 0;
-
-    if (Array.prototype.indexOf) {
-        return items.indexOf(name, 0) >= 0;
-    }
-    else {
-        for (var n = items.length; i < n; i++) {
-            if (i in items && items[i] === name) {
-                return true;
-            }
-        }
-    }
-}
-
-function createServiceUrl(secureServiceUrl, devToken) {
-    var serviceScheme = window.mParticle && mParticle.Store.SDKConfig.forceHttps ? 'https://' : window.location.protocol + '//';
-    var baseUrl;
-    if (mParticle.Store.SDKConfig.forceHttps) {
-        baseUrl = 'https://' + secureServiceUrl;
-    } else {
-        baseUrl = serviceScheme + secureServiceUrl;
-    }
-    if (devToken) {
-        baseUrl = baseUrl + devToken;
-    }
-    return baseUrl;
-}
-
-function createXHR(cb) {
-    var xhr;
-
-    try {
-        xhr = new window.XMLHttpRequest();
-    }
-    catch (e) {
-        mParticle.Logger.error('Error creating XMLHttpRequest object.');
-    }
-
-    if (xhr && cb && 'withCredentials' in xhr) {
-        xhr.onreadystatechange = cb;
-    }
-    else if (typeof window.XDomainRequest !== 'undefined') {
-        mParticle.Logger.verbose('Creating XDomainRequest object');
-
-        try {
-            xhr = new window.XDomainRequest();
-            xhr.onload = cb;
-        }
-        catch (e) {
-            mParticle.Logger.error('Error creating XDomainRequest object');
-        }
-    }
-
-    return xhr;
-}
-
-function generateRandomValue(a) {
-    var randomValue;
-    if (window.crypto && window.crypto.getRandomValues) {
-        randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
-    }
-    if (randomValue) {
-        return (a ^ randomValue[0] % 16 >> a/4).toString(16);
-    }
-
-    return (a ^ Math.random() * 16 >> a/4).toString(16);
-}
-
-function generateUniqueId(a) {
-    // https://gist.github.com/jed/982883
-    // Added support for crypto for better random
-
-    return a                            // if the placeholder was passed, return
-        ? generateRandomValue(a)    // a random number
-        : (                         // or otherwise a concatenated string:
-            [1e7] +                     // 10000000 +
-            -1e3 +                      // -1000 +
-            -4e3 +                      // -4000 +
-            -8e3 +                      // -80000000 +
-            -1e11                       // -100000000000,
-        ).replace(                  // replacing
-            /[018]/g,               // zeroes, ones, and eights with
-            generateUniqueId        // random hex digits
-        );
-}
-
-function filterUserIdentities(userIdentitiesObject, filterList) {
-    var filteredUserIdentities = [];
-
-    if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-        for (var userIdentityName in userIdentitiesObject) {
-            if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-                var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
-                if (!inArray(filterList, userIdentityType)) {
-                    var identity = {
-                        Type: userIdentityType,
-                        Identity: userIdentitiesObject[userIdentityName]
-                    };
-                    if (userIdentityType === mParticle.IdentityType.CustomerId) {
-                        filteredUserIdentities.unshift(identity);
-                    } else {
-                        filteredUserIdentities.push(identity);
-                    }
-                }
-            }
-        }
-    }
-
-    return filteredUserIdentities;
-}
-
-function filterUserIdentitiesForForwarders(userIdentitiesObject, filterList) {
-    var filteredUserIdentities = {};
-
-    if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-        for (var userIdentityName in userIdentitiesObject) {
-            if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-                var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
-                if (!inArray(filterList, userIdentityType)) {
-                    filteredUserIdentities[userIdentityName] = userIdentitiesObject[userIdentityName];
-                }
-            }
-        }
-    }
-
-    return filteredUserIdentities;
-}
-
-function filterUserAttributes(userAttributes, filterList) {
-    var filteredUserAttributes = {};
-
-    if (userAttributes && Object.keys(userAttributes).length) {
-        for (var userAttribute in userAttributes) {
-            if (userAttributes.hasOwnProperty(userAttribute)) {
-                var hashedUserAttribute = generateHash(userAttribute);
-                if (!inArray(filterList, hashedUserAttribute)) {
-                    filteredUserAttributes[userAttribute] = userAttributes[userAttribute];
-                }
-            }
-        }
-    }
-
-    return filteredUserAttributes;
-}
-
-function findKeyInObject(obj, key) {
-    if (key && obj) {
-        for (var prop in obj) {
-            if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
-                return prop;
-            }
-        }
-    }
-
-    return null;
-}
-
-function decoded(s) {
-    return decodeURIComponent(s.replace(pluses, ' '));
-}
-
-function converted(s) {
-    if (s.indexOf('"') === 0) {
-        s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-    }
-
-    return s;
-}
-
-function isEventType(type) {
-    for (var prop in Types.EventType) {
-        if (Types.EventType.hasOwnProperty(prop)) {
-            if (Types.EventType[prop] === type) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-function parseNumber(value) {
-    if (isNaN(value) || !isFinite(value)) {
-        return 0;
-    }
-    var floatValue = parseFloat(value);
-    return isNaN(floatValue) ? 0 : floatValue;
-}
-
-function parseStringOrNumber(value) {
-    if (Validators.isStringOrNumber(value)) {
-        return value;
-    } else {
-        return null;
-    }
-}
-
-function generateHash(name) {
-    var hash = 0,
-        i = 0,
-        character;
-
-    if (name === undefined || name === null) {
-        return 0;
-    }
-
-    name = name.toString().toLowerCase();
-
-    if (Array.prototype.reduce) {
-        return name.split('').reduce(function(a, b) { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
-    }
-
-    if (name.length === 0) {
-        return hash;
-    }
-
-    for (i = 0; i < name.length; i++) {
-        character = name.charCodeAt(i);
-        hash = ((hash << 5) - hash) + character;
-        hash = hash & hash;
-    }
-
-    return hash;
-}
-
-function sanitizeAttributes(attrs) {
-    if (!attrs || !isObject(attrs)) {
-        return null;
-    }
-
-    var sanitizedAttrs = {};
-
-    for (var prop in attrs) {
-        // Make sure that attribute values are not objects or arrays, which are not valid
-        if (attrs.hasOwnProperty(prop) && Validators.isValidAttributeValue(attrs[prop])) {
-            sanitizedAttrs[prop] = attrs[prop];
-        } else {
-            mParticle.Logger.warning('The corresponding attribute value of ' + prop + ' must be a string, number, boolean, or null.');
-        }
-    }
-
-    return sanitizedAttrs;
-}
-
-var Validators = {
-    isValidAttributeValue: function(value) {
-        return value !== undefined && !isObject(value) && !Array.isArray(value);
-    },
-
-    // Neither null nor undefined can be a valid Key
-    isValidKeyValue: function(key) {
-        return Boolean(key && !isObject(key) && !Array.isArray(key));
-    },
-
-    isStringOrNumber: function(value) {
-        return (typeof value === 'string' || typeof value === 'number');
-    },
-
-    isFunction: function(fn) {
-        return typeof fn === 'function';
-    },
-
-    validateIdentities: function(identityApiData, method) {
-        var validIdentityRequestKeys = {
-            userIdentities: 1,
-            onUserAlias: 1,
-            copyUserAttributes: 1
-        };
-        if (identityApiData) {
-            if (method === 'modify') {
-                if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
-                    return {
-                        valid: false,
-                        error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
-                    };
-                }
-            }
-            for (var key in identityApiData) {
-                if (identityApiData.hasOwnProperty(key)) {
-                    if (!validIdentityRequestKeys[key]) {
-                        return {
-                            valid: false,
-                            error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
-                        };
-                    }
-                    if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
-                        return {
-                            valid: false,
-                            error: Constants.Messages.ValidationMessages.OnUserAliasType + typeof identityApiData[key]
-                        };
-                    }
-                }
-            }
-            if (Object.keys(identityApiData).length === 0) {
-                return {
-                    valid: true
-                };
-            } else {
-                // identityApiData.userIdentities can't be undefined
-                if (identityApiData.userIdentities === undefined) {
-                    return {
-                        valid: false,
-                        error: Constants.Messages.ValidationMessages.UserIdentities
-                    };
-                // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
-                } else if (identityApiData.userIdentities !== null && !isObject(identityApiData.userIdentities)) {
-                    return {
-                        valid: false,
-                        error: Constants.Messages.ValidationMessages.UserIdentities
-                    };
-                }
-                if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
-                    for (var identityType in identityApiData.userIdentities) {
-                        if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
-                            if (Types.IdentityType.getIdentityType(identityType) === false) {
-                                return {
-                                    valid: false,
-                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
-                                };
-                            }
-                            if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
-                                return {
-                                    valid: false,
-                                    error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
-                                };
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return {
-            valid: true
-        };
-    }
-};
-
-function isDelayedByIntegration(delayedIntegrations, timeoutStart, now) {
-    if (now - timeoutStart > mParticle.Store.SDKConfig.integrationDelayTimeout) {
-        return false;
-    }
-    for (var integration in delayedIntegrations) {
-        if (delayedIntegrations[integration] === true) {
-            return true;
-        } else {
-            continue;
-        }
-    }
-    return false;
-}
-
-// events exist in the eventQueue because they were triggered when the identityAPI request was in flight
+var Base64={_keyStr:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",// Input must be a string
+encode:function(a){try{if(window.btoa&&window.atob)return window.btoa(unescape(encodeURIComponent(a)))}catch(a){window.console.log("Error encoding cookie values into Base64:"+a);}return this._encode(a)},_encode:function(a){var b,c,d,e,f,g,h,j="",k=0;for(a=UTF8.encode(a);k<a.length;)b=a.charCodeAt(k++),c=a.charCodeAt(k++),d=a.charCodeAt(k++),e=b>>2,f=(3&b)<<4|c>>4,g=(15&c)<<2|d>>6,h=63&d,isNaN(c)?g=h=64:isNaN(d)&&(h=64),j=j+Base64._keyStr.charAt(e)+Base64._keyStr.charAt(f)+Base64._keyStr.charAt(g)+Base64._keyStr.charAt(h);return j},decode:function(a){try{if(window.btoa&&window.atob)return decodeURIComponent(escape(window.atob(a)))}catch(a){//log(e);
+}return Base64._decode(a)},_decode:function(a){var b,c,d,e,f,g,h,j="",k=0;for(a=a.replace(/[^A-Za-z0-9\+\/\=]/g,"");k<a.length;)e=Base64._keyStr.indexOf(a.charAt(k++)),f=Base64._keyStr.indexOf(a.charAt(k++)),g=Base64._keyStr.indexOf(a.charAt(k++)),h=Base64._keyStr.indexOf(a.charAt(k++)),b=e<<2|f>>4,c=(15&f)<<4|g>>2,d=(3&g)<<6|h,j+=String.fromCharCode(b),64!==g&&(j+=String.fromCharCode(c)),64!==h&&(j+=String.fromCharCode(d));return j=UTF8.decode(j),j}},UTF8={encode:function(a){for(var b,d="",e=0;e<a.length;e++)b=a.charCodeAt(e),128>b?d+=String.fromCharCode(b):127<b&&2048>b?(d+=String.fromCharCode(192|b>>6),d+=String.fromCharCode(128|63&b)):(d+=String.fromCharCode(224|b>>12),d+=String.fromCharCode(128|63&b>>6),d+=String.fromCharCode(128|63&b));return d},decode:function(a){for(var b="",d=0,e=0,f=0,g=0;d<a.length;)e=a.charCodeAt(d),128>e?(b+=String.fromCharCode(e),d++):191<e&&224>e?(f=a.charCodeAt(d+1),b+=String.fromCharCode((31&e)<<6|63&f),d+=2):(f=a.charCodeAt(d+1),g=a.charCodeAt(d+2),b+=String.fromCharCode((15&e)<<12|(63&f)<<6|63&g),d+=3);return b}};var Polyfill = {Base64:Base64};
+
+var MessageType={SessionStart:1,SessionEnd:2,PageView:3,PageEvent:4,CrashReport:5,OptOut:6,AppStateTransition:10,Profile:14,Commerce:16,Media:20},EventType={Unknown:0,Navigation:1,Location:2,Search:3,Transaction:4,UserContent:5,UserPreference:6,Social:7,Other:8,getName:function getName(a){return a===EventType.Navigation?"Navigation":a===EventType.Location?"Location":a===EventType.Search?"Search":a===EventType.Transaction?"Transaction":a===EventType.UserContent?"User Content":a===EventType.UserPreference?"User Preference":a===EventType.Social?"Social":a===CommerceEventType.ProductAddToCart?"Product Added to Cart":a===CommerceEventType.ProductAddToWishlist?"Product Added to Wishlist":a===CommerceEventType.ProductCheckout?"Product Checkout":a===CommerceEventType.ProductCheckoutOption?"Product Checkout Options":a===CommerceEventType.ProductClick?"Product Click":a===CommerceEventType.ProductImpression?"Product Impression":a===CommerceEventType.ProductPurchase?"Product Purchased":a===CommerceEventType.ProductRefund?"Product Refunded":a===CommerceEventType.ProductRemoveFromCart?"Product Removed From Cart":a===CommerceEventType.ProductRemoveFromWishlist?"Product Removed from Wishlist":a===CommerceEventType.ProductViewDetail?"Product View Details":a===CommerceEventType.PromotionClick?"Promotion Click":a===CommerceEventType.PromotionView?"Promotion View":"Other"}},CommerceEventType={ProductAddToCart:10,ProductRemoveFromCart:11,ProductCheckout:12,ProductCheckoutOption:13,ProductClick:14,ProductViewDetail:15,ProductPurchase:16,ProductRefund:17,PromotionView:18,PromotionClick:19,ProductAddToWishlist:20,ProductRemoveFromWishlist:21,ProductImpression:22},IdentityType={Other:0,CustomerId:1,Facebook:2,Twitter:3,Google:4,Microsoft:5,Yahoo:6,Email:7,FacebookCustomAudienceId:9,Other2:10,Other3:11,Other4:12};IdentityType.isValid=function(a){if("number"==typeof a)for(var b in IdentityType)if(IdentityType.hasOwnProperty(b)&&IdentityType[b]===a)return !0;return !1},IdentityType.getName=function(a){return a===window.mParticle.IdentityType.CustomerId?"Customer ID":a===window.mParticle.IdentityType.Facebook?"Facebook ID":a===window.mParticle.IdentityType.Twitter?"Twitter ID":a===window.mParticle.IdentityType.Google?"Google ID":a===window.mParticle.IdentityType.Microsoft?"Microsoft ID":a===window.mParticle.IdentityType.Yahoo?"Yahoo ID":a===window.mParticle.IdentityType.Email?"Email":a===window.mParticle.IdentityType.FacebookCustomAudienceId?"Facebook App User ID":"Other ID"},IdentityType.getIdentityType=function(a){return "other"===a?IdentityType.Other:"customerid"===a?IdentityType.CustomerId:"facebook"===a?IdentityType.Facebook:"twitter"===a?IdentityType.Twitter:"google"===a?IdentityType.Google:"microsoft"===a?IdentityType.Microsoft:"yahoo"===a?IdentityType.Yahoo:"email"===a?IdentityType.Email:"facebookcustomaudienceid"===a?IdentityType.FacebookCustomAudienceId:"other1"===a?IdentityType.Other1:"other2"===a?IdentityType.Other2:"other3"===a?IdentityType.Other3:!("other4"!=a)&&IdentityType.Other4},IdentityType.getIdentityName=function(a){return a===IdentityType.Other?"other":a===IdentityType.CustomerId?"customerid":a===IdentityType.Facebook?"facebook":a===IdentityType.Twitter?"twitter":a===IdentityType.Google?"google":a===IdentityType.Microsoft?"microsoft":a===IdentityType.Yahoo?"yahoo":a===IdentityType.Email?"email":a===IdentityType.FacebookCustomAudienceId?"facebookcustomaudienceid":a===IdentityType.Other1?"other1":a===IdentityType.Other2?"other2":a===IdentityType.Other3?"other3":a===IdentityType.Other4?"other4":void 0};var ProductActionType={Unknown:0,AddToCart:1,RemoveFromCart:2,Checkout:3,CheckoutOption:4,Click:5,ViewDetail:6,Purchase:7,Refund:8,AddToWishlist:9,RemoveFromWishlist:10};ProductActionType.getName=function(a){return a===ProductActionType.AddToCart?"Add to Cart":a===ProductActionType.RemoveFromCart?"Remove from Cart":a===ProductActionType.Checkout?"Checkout":a===ProductActionType.CheckoutOption?"Checkout Option":a===ProductActionType.Click?"Click":a===ProductActionType.ViewDetail?"View Detail":a===ProductActionType.Purchase?"Purchase":a===ProductActionType.Refund?"Refund":a===ProductActionType.AddToWishlist?"Add to Wishlist":a===ProductActionType.RemoveFromWishlist?"Remove from Wishlist":"Unknown"},ProductActionType.getExpansionName=function(a){return a===ProductActionType.AddToCart?"add_to_cart":a===ProductActionType.RemoveFromCart?"remove_from_cart":a===ProductActionType.Checkout?"checkout":a===ProductActionType.CheckoutOption?"checkout_option":a===ProductActionType.Click?"click":a===ProductActionType.ViewDetail?"view_detail":a===ProductActionType.Purchase?"purchase":a===ProductActionType.Refund?"refund":a===ProductActionType.AddToWishlist?"add_to_wishlist":a===ProductActionType.RemoveFromWishlist?"remove_from_wishlist":"unknown"};var PromotionActionType={Unknown:0,PromotionView:1,PromotionClick:2};PromotionActionType.getName=function(a){return a===PromotionActionType.PromotionView?"view":a===PromotionActionType.PromotionClick?"click":"unknown"},PromotionActionType.getExpansionName=function(a){return a===PromotionActionType.PromotionView?"view":a===PromotionActionType.PromotionClick?"click":"unknown"};var ProfileMessageType={Logout:3},ApplicationTransitionType={AppInit:1};var Types = {MessageType:MessageType,EventType:EventType,CommerceEventType:CommerceEventType,IdentityType:IdentityType,ProfileMessageType:ProfileMessageType,ApplicationTransitionType:ApplicationTransitionType,ProductActionType:ProductActionType,PromotionActionType:PromotionActionType};
+
+var Constants={sdkVersion:"2.9.11",sdkVendor:"mparticle",platform:"web",Messages:{ErrorMessages:{NoToken:"A token must be specified.",EventNameInvalidType:"Event name must be a valid string value.",EventDataInvalidType:"Event data must be a valid object hash.",LoggingDisabled:"Event logging is currently disabled.",CookieParseError:"Could not parse cookie",EventEmpty:"Event object is null or undefined, cancelling send",APIRequestEmpty:"APIRequest is null or undefined, cancelling send",NoEventType:"Event type must be specified.",TransactionIdRequired:"Transaction ID is required",TransactionRequired:"A transaction attributes object is required",PromotionIdRequired:"Promotion ID is required",BadAttribute:"Attribute value cannot be object or array",BadKey:"Key value cannot be object or array",BadLogPurchase:"Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions"},InformationMessages:{CookieSearch:"Searching for cookie",CookieFound:"Cookie found, parsing values",CookieNotFound:"Cookies not found",CookieSet:"Setting cookie",CookieSync:"Performing cookie sync",SendBegin:"Starting to send event",SendIdentityBegin:"Starting to send event to identity server",SendWindowsPhone:"Sending event to Windows Phone container",SendIOS:"Calling iOS path: ",SendAndroid:"Calling Android JS interface method: ",SendHttp:"Sending event to mParticle HTTP service",SendAliasHttp:"Sending alias request to mParticle HTTP service",SendIdentityHttp:"Sending event to mParticle HTTP service",StartingNewSession:"Starting new Session",StartingLogEvent:"Starting to log event",StartingLogOptOut:"Starting to log user opt in/out",StartingEndSession:"Starting to end session",StartingInitialization:"Starting to initialize",StartingLogCommerceEvent:"Starting to log commerce event",StartingAliasRequest:"Starting to Alias MPIDs",LoadingConfig:"Loading configuration options",AbandonLogEvent:"Cannot log event, logging disabled or developer token not set",AbandonAliasUsers:"Cannot Alias Users, logging disabled or developer token not set",AbandonStartSession:"Cannot start session, logging disabled or developer token not set",AbandonEndSession:"Cannot end session, logging disabled or developer token not set",NoSessionToEnd:"Cannot end session, no active session found"},ValidationMessages:{ModifyIdentityRequestUserIdentitiesPresent:"identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again",IdentityRequesetInvalidKey:"There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.",OnUserAliasType:"The onUserAlias value must be a function. The onUserAlias provided is of type",UserIdentities:"The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.",UserIdentitiesInvalidKey:"There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.",UserIdentitiesInvalidValues:"All user identity values must be strings or null. Request not sent to server. Please fix and try again.",AliasMissingMpid:"Alias Request must contain both a destinationMpid and a sourceMpid",AliasNonUniqueMpid:"Alias Request's destinationMpid and sourceMpid must be unique",AliasMissingTime:"Alias Request must have both a startTime and an endTime",AliasStartBeforeEndTime:"Alias Request's endTime must be later than its startTime"}},NativeSdkPaths:{LogEvent:"logEvent",SetUserTag:"setUserTag",RemoveUserTag:"removeUserTag",SetUserAttribute:"setUserAttribute",RemoveUserAttribute:"removeUserAttribute",SetSessionAttribute:"setSessionAttribute",AddToCart:"addToCart",RemoveFromCart:"removeFromCart",ClearCart:"clearCart",LogOut:"logOut",SetUserAttributeList:"setUserAttributeList",RemoveAllUserAttributes:"removeAllUserAttributes",GetUserAttributesLists:"getUserAttributesLists",GetAllUserAttributes:"getAllUserAttributes",Identify:"identify",Logout:"logout",Login:"login",Modify:"modify",Alias:"aliasUsers"},StorageNames:{localStorageName:"mprtcl-api",// Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
+localStorageNameV3:"mprtcl-v3",// v3 Name of the mP localstorage, final version on SDKv1
+cookieName:"mprtcl-api",// v1 Name of the cookie stored on the user's machine
+cookieNameV2:"mprtcl-v2",// v2 Name of the cookie stored on the user's machine. Removed keys with no values, moved cartProducts and productBags to localStorage.
+cookieNameV3:"mprtcl-v3",// v3 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, final version on SDKv1
+localStorageNameV4:"mprtcl-v4",// v4 Name of the mP localstorage, Current Version
+localStorageProductsV4:"mprtcl-prodv4",// The name for mP localstorage that contains products for cartProducs and productBags
+cookieNameV4:"mprtcl-v4",// v4 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, current version on SDK v2
+currentStorageName:"mprtcl-v4",currentStorageProductsName:"mprtcl-prodv4"},DefaultConfig:{cookieDomain:null,// If null, defaults to current location.host
+cookieExpiration:365,// Cookie expiration time in days
+logLevel:null,// What logging will be provided in the console
+timeout:300,// timeout in milliseconds for logging functions
+sessionTimeout:30,// Session timeout in minutes
+maxProducts:20,// Number of products persisted in cartProducts and productBags
+forwarderStatsTimeout:5e3,// Milliseconds for forwarderStats timeout
+integrationDelayTimeout:5e3,// Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
+maxCookieSize:3e3,// Number of bytes for cookie size to not exceed
+aliasMaxWindow:90,// Max age of Alias request startTime, in days
+uploadInterval:2e3// Maximum milliseconds in between batch uploads
+},DefaultUrls:{v1SecureServiceUrl:"jssdks.mparticle.com/v1/JS/",v2SecureServiceUrl:"jssdks.mparticle.com/v2/JS/",v3SecureServiceUrl:"jssdks.mparticle.com/v3/JS/",configUrl:"jssdkcdns.mparticle.com/JS/v2/",identityUrl:"identity.mparticle.com/v1/",aliasUrl:"jssdks.mparticle.com/v1/identity/"},Base64CookieKeys:{csm:1,sa:1,ss:1,ua:1,ui:1,csd:1,ia:1,con:1},SDKv2NonMPIDCookieKeys:{gs:1,cu:1,l:1,globalSettings:1,currentUserMPID:1},HTTPCodes:{noHttpCoverage:-1,activeIdentityRequest:-2,activeSession:-3,validationIssue:-4,nativeIdentityRequest:-5,loggingDisabledOrMissingAPIKey:-6,tooManyRequests:429},FeatureFlags:{ReportBatching:"FeatureFlags.ReportBatching",EventBatching:"FeatureFlags.EventBatching",EventBatchingIntervalMillis:"FeatureFlags.EventBatchingIntervalMillis"}};
+
+var StorageNames=Constants.StorageNames,pluses=/\+/g;function canLog(){return !!(mParticle.Store.isEnabled&&(mParticle.Store.devToken||mParticle.Store.webviewBridgeEnabled))}function returnConvertedBoolean(a){return "false"!==a&&"0"!==a&&!!a}function getFeatureFlag(a){return mParticle.Store.SDKConfig.flags.hasOwnProperty(a)?mParticle.Store.SDKConfig.flags[a]:null}function invokeCallback(a,b,c,d,e){a||mParticle.Logger.warning("There is no callback provided");try{Validators.isFunction(a)&&a({httpCode:b,body:c,getUser:function getUser(){return d?d:mParticle.Identity.getCurrentUser()},getPreviousUser:function getPreviousUser(){if(!e){var a=mParticle.Identity.getUsers(),b=a.shift(),c=d||mParticle.Identity.getCurrentUser();return b&&c&&b.getMPID()===c.getMPID()&&(b=a.shift()),b||null}return mParticle.Identity.getUser(e)}});}catch(a){mParticle.Logger.error("There was an error with your callback: "+a);}}function invokeAliasCallback(a,b,c){a||mParticle.Logger.warning("There is no callback provided");try{if(Validators.isFunction(a)){var d={httpCode:b};c&&(d.message=c),a(d);}}catch(a){mParticle.Logger.error("There was an error with your callback: "+a);}}// Standalone version of jQuery.extend, from https://github.com/dansdom/extend
+function extend(){var a,b,c,d,e,f,g=arguments[0]||{},h=1,j=arguments.length,k=!1,// helper which replicates the jquery internal functions
+l={hasOwn:Object.prototype.hasOwnProperty,class2type:{},type:function type(a){return null==a?a+"":l.class2type[Object.prototype.toString.call(a)]||"object"},isPlainObject:function isPlainObject(a){if(!a||"object"!==l.type(a)||a.nodeType||l.isWindow(a))return !1;try{if(a.constructor&&!l.hasOwn.call(a,"constructor")&&!l.hasOwn.call(a.constructor.prototype,"isPrototypeOf"))return !1}catch(a){return !1}for(var b in a);// eslint-disable-line no-empty
+return b===void 0||l.hasOwn.call(a,b)},isArray:Array.isArray||function(a){return "array"===l.type(a)},isFunction:function isFunction(a){return "function"===l.type(a)},isWindow:function isWindow(a){return null!=a&&a==a.window}};// end of objectHelper
+// Handle a deep copy situation
+for("boolean"==typeof g&&(k=g,g=arguments[1]||{},h=2),"object"===_typeof_1(g)||l.isFunction(g)||(g={}),j===h&&(g=this,--h);h<j;h++)// Only deal with non-null/undefined values
+if(null!=(a=arguments[h]))// Extend the base object
+for(b in a)// Prevent never-ending loop
+(c=g[b],d=a[b],g!==d)&&(k&&d&&(l.isPlainObject(d)||(e=l.isArray(d)))?(e?(e=!1,f=c&&l.isArray(c)?c:[]):f=c&&l.isPlainObject(c)?c:{},g[b]=extend(k,f,d)):void 0!==d&&(g[b]=d));// Recurse if we're merging plain objects or arrays
+// Return the modified object
+return g}function isObject(a){var b=Object.prototype.toString.call(a);return "[object Object]"===b||"[object Error]"===b}function inArray(a,b){var c=0;if(Array.prototype.indexOf)return 0<=a.indexOf(b,0);for(var d=a.length;c<d;c++)if(c in a&&a[c]===b)return !0}function createServiceUrl(a,b){var c,d=window.mParticle&&mParticle.Store.SDKConfig.forceHttps?"https://":window.location.protocol+"//";return c=mParticle.Store.SDKConfig.forceHttps?"https://"+a:d+a,b&&(c+=b),c}function createXHR(a){var b;try{b=new window.XMLHttpRequest;}catch(a){mParticle.Logger.error("Error creating XMLHttpRequest object.");}if(b&&a&&"withCredentials"in b)b.onreadystatechange=a;else if("undefined"!=typeof window.XDomainRequest){mParticle.Logger.verbose("Creating XDomainRequest object");try{b=new window.XDomainRequest,b.onload=a;}catch(a){mParticle.Logger.error("Error creating XDomainRequest object");}}return b}function generateRandomValue(b){var a;return window.crypto&&window.crypto.getRandomValues&&(a=window.crypto.getRandomValues(new Uint8Array(1))),a?(b^a[0]%16>>b/4).toString(16):(b^16*Math.random()>>b/4).toString(16)}function generateUniqueId(b){// https://gist.github.com/jed/982883
+// Added support for crypto for better random
+return b// if the placeholder was passed, return
+?generateRandomValue(b)// a random number
+:// or otherwise a concatenated string:
+"10000000-1000-4000-8000-100000000000"// -100000000000,
+.replace(// replacing
+/[018]/g,// zeroes, ones, and eights with
+generateUniqueId// random hex digits
+)}function filterUserIdentities(a,b){var c=[];if(a&&Object.keys(a).length)for(var d in a)if(a.hasOwnProperty(d)){var e=Types.IdentityType.getIdentityType(d);if(!inArray(b,e)){var f={Type:e,Identity:a[d]};e===mParticle.IdentityType.CustomerId?c.unshift(f):c.push(f);}}return c}function filterUserIdentitiesForForwarders(a,b){var c={};if(a&&Object.keys(a).length)for(var d in a)if(a.hasOwnProperty(d)){var e=Types.IdentityType.getIdentityType(d);inArray(b,e)||(c[d]=a[d]);}return c}function filterUserAttributes(a,b){var c={};if(a&&Object.keys(a).length)for(var d in a)if(a.hasOwnProperty(d)){var e=generateHash(d);inArray(b,e)||(c[d]=a[d]);}return c}function findKeyInObject(a,b){if(b&&a)for(var c in a)if(a.hasOwnProperty(c)&&c.toLowerCase()===b.toLowerCase())return c;return null}function decoded(a){return decodeURIComponent(a.replace(pluses," "))}function converted(a){return 0===a.indexOf("\"")&&(a=a.slice(1,-1).replace(/\\"/g,"\"").replace(/\\\\/g,"\\")),a}function isEventType(a){for(var b in Types.EventType)if(Types.EventType.hasOwnProperty(b)&&Types.EventType[b]===a)return !0;return !1}function parseNumber(a){if(isNaN(a)||!isFinite(a))return 0;var b=parseFloat(a);return isNaN(b)?0:b}function parseStringOrNumber(a){return Validators.isStringOrNumber(a)?a:null}function generateHash(a){var b,c=0,d=0;if(void 0===a||null===a)return 0;if(a=a.toString().toLowerCase(),Array.prototype.reduce)return a.split("").reduce(function(c,d){return c=(c<<5)-c+d.charCodeAt(0),c&c},0);if(0===a.length)return c;for(d=0;d<a.length;d++)b=a.charCodeAt(d),c=(c<<5)-c+b,c&=c;return c}function sanitizeAttributes(a){if(!a||!isObject(a))return null;var b={};for(var c in a)// Make sure that attribute values are not objects or arrays, which are not valid
+a.hasOwnProperty(c)&&Validators.isValidAttributeValue(a[c])?b[c]=a[c]:mParticle.Logger.warning("The corresponding attribute value of "+c+" must be a string, number, boolean, or null.");return b}var Validators={isValidAttributeValue:function isValidAttributeValue(a){return a!==void 0&&!isObject(a)&&!Array.isArray(a)},// Neither null nor undefined can be a valid Key
+isValidKeyValue:function isValidKeyValue(a){return !(!a||isObject(a)||Array.isArray(a))},isStringOrNumber:function isStringOrNumber(a){return "string"==typeof a||"number"==typeof a},isFunction:function isFunction(a){return "function"==typeof a},validateIdentities:function validateIdentities(a,b){var c={userIdentities:1,onUserAlias:1,copyUserAttributes:1};if(a){if("modify"===b&&(isObject(a.userIdentities)&&!Object.keys(a.userIdentities).length||!isObject(a.userIdentities)))return {valid:!1,error:Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent};for(var d in a)if(a.hasOwnProperty(d)){if(!c[d])return {valid:!1,error:Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey};if("onUserAlias"===d&&!Validators.isFunction(a[d]))return {valid:!1,error:Constants.Messages.ValidationMessages.OnUserAliasType+_typeof_1(a[d])}}if(0===Object.keys(a).length)return {valid:!0};// identityApiData.userIdentities can't be undefined
+if(void 0===a.userIdentities)return {valid:!1,error:Constants.Messages.ValidationMessages.UserIdentities};// identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
+if(null!==a.userIdentities&&!isObject(a.userIdentities))return {valid:!1,error:Constants.Messages.ValidationMessages.UserIdentities};if(isObject(a.userIdentities)&&Object.keys(a.userIdentities).length)for(var e in a.userIdentities)if(a.userIdentities.hasOwnProperty(e)){if(!1===Types.IdentityType.getIdentityType(e))return {valid:!1,error:Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey};if("string"!=typeof a.userIdentities[e]&&null!==a.userIdentities[e])return {valid:!1,error:Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues}}}return {valid:!0}}};function isDelayedByIntegration(a,b,c){if(c-b>mParticle.Store.SDKConfig.integrationDelayTimeout)return !1;for(var d in a){if(!0===a[d])return !0;continue}return !1}// events exist in the eventQueue because they were triggered when the identityAPI request was in flight
 // once API request returns and there is an MPID, eventQueue items are reassigned with the returned MPID and flushed
-function processQueuedEvents(eventQueue, mpid, requireDelay, sendEventToServer, sendEventToForwarders, parseEventResponse) {
-    if (eventQueue.length && mpid && requireDelay) {
-        var localQueueCopy = eventQueue;
-        mParticle.Store.eventQueue = [];
-        localQueueCopy.forEach(function(event) {
-            event.MPID = mpid;
-            sendEventToServer(event, sendEventToForwarders, parseEventResponse);
-        });
-    }
-}
-
-function createMainStorageName(workspaceToken) {
-    if (workspaceToken) {
-        return StorageNames.currentStorageName + '_' + workspaceToken;
-    } else {
-        return StorageNames.currentStorageName;
-    }
-}
-
-function createProductStorageName(workspaceToken) {
-    if (workspaceToken) {
-        return StorageNames.currentStorageProductsName + '_' + workspaceToken;
-    } else {
-        return StorageNames.currentStorageProductsName;
-    }
-}
-
-var Helpers = {
-    canLog: canLog,
-    extend: extend,
-    isObject: isObject,
-    inArray: inArray,
-    createServiceUrl: createServiceUrl,
-    createXHR: createXHR,
-    generateUniqueId: generateUniqueId,
-    filterUserIdentities: filterUserIdentities,
-    filterUserIdentitiesForForwarders: filterUserIdentitiesForForwarders,
-    filterUserAttributes: filterUserAttributes,
-    findKeyInObject: findKeyInObject,
-    decoded: decoded,
-    converted: converted,
-    isEventType: isEventType,
-    parseNumber: parseNumber,
-    parseStringOrNumber: parseStringOrNumber,
-    generateHash: generateHash,
-    sanitizeAttributes: sanitizeAttributes,
-    returnConvertedBoolean: returnConvertedBoolean,
-    invokeCallback: invokeCallback,
-    invokeAliasCallback: invokeAliasCallback,
-    hasFeatureFlag: hasFeatureFlag,
-    isDelayedByIntegration: isDelayedByIntegration,
-    processQueuedEvents: processQueuedEvents,
-    createMainStorageName: createMainStorageName,
-    createProductStorageName: createProductStorageName,
-    Validators: Validators
-};
-
-var Messages = Constants.Messages;
-
-var androidBridgeNameBase = 'mParticleAndroid';
-var iosBridgeNameBase = 'mParticle';
-
-function isBridgeV2Available(bridgeName) {
-    if (!bridgeName) {
-        return false;
-    }
-    var androidBridgeName = androidBridgeNameBase + '_' + bridgeName + '_v2';
-    var iosBridgeName = iosBridgeNameBase + '_' + bridgeName + '_v2';
-
-    // iOS v2 bridge
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.hasOwnProperty(iosBridgeName)) {
-        return true;
-    }
-    // other iOS v2 bridge
-    if (window.mParticle.uiwebviewBridgeName === iosBridgeName) {
-        return true;
-    }
-    // android
-    if (window.hasOwnProperty(androidBridgeName)) {
-        return true;
-    }
-    return false;
-}
-
-function isWebviewEnabled(requiredWebviewBridgeName, minWebviewBridgeVersion) {
-    mParticle.Store.bridgeV2Available = isBridgeV2Available(requiredWebviewBridgeName);
-    mParticle.Store.bridgeV1Available = isBridgeV1Available();
-
-    if (minWebviewBridgeVersion === 2) {
-        return mParticle.Store.bridgeV2Available;
-    }
-
-    // iOS BridgeV1 can be available via mParticle.isIOS, but return false if uiwebviewBridgeName doesn't match requiredWebviewBridgeName
-    if (window.mParticle.uiwebviewBridgeName && window.mParticle.uiwebviewBridgeName !== (iosBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2')) {
-        return false;
-    }
-
-    if (minWebviewBridgeVersion < 2) {
-        // ios
-        return mParticle.Store.bridgeV2Available || mParticle.Store.bridgeV1Available;
-    }
-
-    return false;
-}
-
-function isBridgeV1Available() {
-    if (mParticle.Store.SDKConfig.useNativeSdk || window.mParticleAndroid
-        || mParticle.Store.SDKConfig.isIOS) {
-        return true;
-    }
-
-    return false;
-}
-
-function sendToNative(path, value) {
-    if (mParticle.Store.bridgeV2Available && mParticle.Store.SDKConfig.minWebviewBridgeVersion === 2) {
-        sendViaBridgeV2(path, value, mParticle.Store.SDKConfig.requiredWebviewBridgeName);
-        return;
-    }
-    if (mParticle.Store.bridgeV2Available && mParticle.Store.SDKConfig.minWebviewBridgeVersion < 2) {
-        sendViaBridgeV2(path, value, mParticle.Store.SDKConfig.requiredWebviewBridgeName);
-        return;
-    }
-    if (mParticle.Store.bridgeV1Available && mParticle.Store.SDKConfig.minWebviewBridgeVersion < 2) {
-        sendViaBridgeV1(path, value);
-        return;
-    }
-}
-
-function sendViaBridgeV1(path, value) {
-    if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
-        mParticle.Logger.verbose(Messages.InformationMessages.SendAndroid + path);
-        window.mParticleAndroid[path](value);
-    }
-    else if (mParticle.Store.SDKConfig.isIOS) {
-        mParticle.Logger.verbose(Messages.InformationMessages.SendIOS + path);
-        sendViaIframeToIOS(path, value);
-    }
-}
-
-function sendViaIframeToIOS(path, value) {
-    var iframe = document.createElement('IFRAME');
-    iframe.setAttribute('src', 'mp-sdk://' + path + '/' + encodeURIComponent(value));
-    document.documentElement.appendChild(iframe);
-    iframe.parentNode.removeChild(iframe);
-    iframe = null;
-}
-
-function sendViaBridgeV2(path, value, requiredWebviewBridgeName) {
-    if (!requiredWebviewBridgeName) {
-        return;
-    }
-
-    var androidBridgeName = androidBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2',
-        androidBridge = window[androidBridgeName],
-        iosBridgeName = iosBridgeNameBase + '_' + requiredWebviewBridgeName + '_v2',
-        iOSBridgeMessageHandler,
-        iOSBridgeNonMessageHandler;
-
-    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers[iosBridgeName]) {
-        iOSBridgeMessageHandler = window.webkit.messageHandlers[iosBridgeName];
-    }
-
-    if (window.mParticle.uiwebviewBridgeName === iosBridgeName) {
-        iOSBridgeNonMessageHandler = window.mParticle[iosBridgeName];
-    }
-
-    if (androidBridge && androidBridge.hasOwnProperty(path)) {
-        mParticle.Logger.verbose(Messages.InformationMessages.SendAndroid + path);
-        androidBridge[path](value);
-        return;
-    } else if (iOSBridgeMessageHandler) {
-        mParticle.Logger.verbose(Messages.InformationMessages.SendIOS + path);
-        iOSBridgeMessageHandler.postMessage(JSON.stringify({path:path, value: value ? JSON.parse(value) : null}));
-    } else if (iOSBridgeNonMessageHandler) {
-        mParticle.Logger.verbose(Messages.InformationMessages.SendIOS + path);
-        sendViaIframeToIOS(path, value);
-    }
-}
-
-var NativeSdkHelpers = {
-    isWebviewEnabled: isWebviewEnabled,
-    isBridgeV2Available: isBridgeV2Available,
-    sendToNative: sendToNative
-};
-
-function createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId) {
-    if (typeof(consented) !== 'boolean') {
-        mParticle.Logger.error('Consented boolean is required when constructing a GDPR Consent object.');
-        return null;
-    }
-    if (timestamp && isNaN(timestamp)) {
-        mParticle.Logger.error('Timestamp must be a valid number when constructing a GDPR Consent object.');
-        return null;
-    }
-    if (consentDocument && typeof(consentDocument) !== 'string') {
-        mParticle.Logger.error('Document must be a valid string when constructing a GDPR Consent object.');
-        return null;
-    }
-    if (location && typeof(location) !== 'string') {
-        mParticle.Logger.error('Location must be a valid string when constructing a GDPR Consent object.');
-        return null;
-    }
-    if (hardwareId && typeof(hardwareId) !== 'string') {
-        mParticle.Logger.error('Hardware ID must be a valid string when constructing a GDPR Consent object.');
-        return null;
-    }
-    return {
-        Consented: consented,
-        Timestamp: timestamp || Date.now(),
-        ConsentDocument: consentDocument,
-        Location: location,
-        HardwareId: hardwareId
-    };
-}
-
-var ConsentSerialization = {
-    toMinifiedJsonObject: function(state) {
-        var jsonObject = {};
-        if (state) {
-            var gdprConsentState = state.getGDPRConsentState();
-            if (gdprConsentState) {
-                jsonObject.gdpr = {};
-                for (var purpose in gdprConsentState){
-                    if (gdprConsentState.hasOwnProperty(purpose)) {
-                        var gdprConsent = gdprConsentState[purpose];
-                        jsonObject.gdpr[purpose] = {};
-                        if (typeof(gdprConsent.Consented) === 'boolean') {
-                            jsonObject.gdpr[purpose].c = gdprConsent.Consented;
-                        }
-                        if (typeof(gdprConsent.Timestamp) === 'number') {
-                            jsonObject.gdpr[purpose].ts = gdprConsent.Timestamp;
-                        }
-                        if (typeof(gdprConsent.ConsentDocument) === 'string') {
-                            jsonObject.gdpr[purpose].d = gdprConsent.ConsentDocument;
-                        }
-                        if (typeof(gdprConsent.Location) === 'string') {
-                            jsonObject.gdpr[purpose].l = gdprConsent.Location;
-                        }
-                        if (typeof(gdprConsent.HardwareId) === 'string') {
-                            jsonObject.gdpr[purpose].h = gdprConsent.HardwareId;
-                        }
-                    }
-                }
-            }
-        }
-        return jsonObject;
-    },
-
-    fromMinifiedJsonObject: function(json) {
-        var state = createConsentState();
-        if (json.gdpr) {
-            for (var purpose in json.gdpr){
-                if (json.gdpr.hasOwnProperty(purpose)) {
-                    var gdprConsent = createGDPRConsent(json.gdpr[purpose].c,
-                        json.gdpr[purpose].ts,
-                        json.gdpr[purpose].d,
-                        json.gdpr[purpose].l,
-                        json.gdpr[purpose].h);
-                    state.addGDPRConsentState(purpose, gdprConsent);
-                }
-            }
-        }
-        return state;
-    }
-};
-
-function createConsentState(consentState) {
-    var gdpr = {};
-
-    if (consentState) {
-        setGDPRConsentState(consentState.getGDPRConsentState());
-    }
-
-    function canonicalizeForDeduplication(purpose) {
-        if (typeof(purpose) !== 'string') {
-            return null;
-        }
-        var trimmedPurpose = purpose.trim();
-        if (!trimmedPurpose.length) {
-            return null;
-        }
-        return trimmedPurpose.toLowerCase();
-    }
-
-    function setGDPRConsentState(gdprConsentState) {
-        if (!gdprConsentState) {
-            gdpr = {};
-        } else if (Helpers.isObject(gdprConsentState)) {
-            gdpr = {};
-            for (var purpose in gdprConsentState){
-                if (gdprConsentState.hasOwnProperty(purpose)) {
-                    addGDPRConsentState(purpose, gdprConsentState[purpose]);
-                }
-            }
-        }
-        return this;
-    }
-
-    function addGDPRConsentState(purpose, gdprConsent) {
-        var normalizedPurpose = canonicalizeForDeduplication(purpose);
-        if (!normalizedPurpose) {
-            mParticle.Logger.error('addGDPRConsentState() invoked with bad purpose. Purpose must be a string.');
-            return this;
-        }
-        if (!Helpers.isObject(gdprConsent)) {
-            mParticle.Logger.error('addGDPRConsentState() invoked with bad or empty GDPR consent object.');
-            return this;
-        }
-        var gdprConsentCopy = createGDPRConsent(gdprConsent.Consented,
-            gdprConsent.Timestamp,
-            gdprConsent.ConsentDocument,
-            gdprConsent.Location,
-            gdprConsent.HardwareId);
-        if (gdprConsentCopy) {
-            gdpr[normalizedPurpose] = gdprConsentCopy;
-        }
-        return this;
-    }
-
-    function removeGDPRConsentState(purpose) {
-        var normalizedPurpose = canonicalizeForDeduplication(purpose);
-        if (!normalizedPurpose) {
-            return this;
-        }
-        delete gdpr[normalizedPurpose];
-        return this;
-    }
-
-    function getGDPRConsentState() {
-        return Helpers.extend({}, gdpr);
-    }
-
-    return {
-        setGDPRConsentState: setGDPRConsentState,
-        addGDPRConsentState: addGDPRConsentState,
-        getGDPRConsentState: getGDPRConsentState,
-        removeGDPRConsentState: removeGDPRConsentState
-    };
-}
-
-var Consent = {
-    createGDPRConsent: createGDPRConsent,
-    Serialization: ConsentSerialization,
-    createConsentState: createConsentState
-};
-
-var Base64$1 = Polyfill.Base64,
-    Messages$1 = Constants.Messages,
-    Base64CookieKeys = Constants.Base64CookieKeys,
-    SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
-    StorageNames$1 = Constants.StorageNames;
-
-
-function useLocalStorage() {
-    return (!mParticle.Store.SDKConfig.useCookieStorage && mParticle.Store.isLocalStorageAvailable);
-}
-
-function initializeStorage() {
-    try {
-        var storage,
-            localStorageData = getLocalStorage(),
-            cookies = getCookie(),
-            allData;
-
-        // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
-        if (!localStorageData && !cookies) {
-            mParticle.Store.isFirstRun = true;
-            mParticle.Store.mpid = 0;
-        } else {
-            mParticle.Store.isFirstRun = false;
-        }
-
-        if (!mParticle.Store.isLocalStorageAvailable) {
-            mParticle.Store.SDKConfig.useCookieStorage = true;
-        }
-
-        if (mParticle.Store.isLocalStorageAvailable) {
-            storage = window.localStorage;
-            if (mParticle.Store.SDKConfig.useCookieStorage) {
-                // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
-                // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
-                if (localStorageData) {
-                    if (cookies) {
-                        allData = Helpers.extend(false, localStorageData, cookies);
-                    } else {
-                        allData = localStorageData;
-                    }
-                    storage.removeItem(mParticle.Store.storageName);
-                } else if (cookies) {
-                    allData = cookies;
-                }
-                storeDataInMemory(allData);
-            }
-            else {
-                // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
-                // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
-                if (cookies) {
-                    if (localStorageData) {
-                        allData = Helpers.extend(false, localStorageData, cookies);
-                    } else {
-                        allData = cookies;
-                    }
-                    storeDataInMemory(allData);
-                    expireCookies(mParticle.Store.storageName);
-                } else {
-                    storeDataInMemory(localStorageData);
-                }
-            }
-        } else {
-            storeDataInMemory(cookies);
-        }
-
-        try {
-            if (mParticle.Store.isLocalStorageAvailable) {
-                var encodedProducts = localStorage.getItem(mParticle.Store.prodStorageName);
-
-                if (encodedProducts) {
-                    var decodedProducts = JSON.parse(Base64$1.decode(encodedProducts));
-                }
-                if (mParticle.Store.mpid) {
-                    storeProductsInMemory(decodedProducts, mParticle.Store.mpid);
-                }
-            }
-        } catch (e) {
-            if (mParticle.Store.isLocalStorageAvailable) {
-                localStorage.removeItem(mParticle.Store.prodStorageName);
-            }
-            mParticle.Store.cartProducts = [];
-            mParticle.Logger.error('Error loading products in initialization: ' + e);
-        }
-
-
-        for (var key in allData) {
-            if (allData.hasOwnProperty(key)) {
-                if (!SDKv2NonMPIDCookieKeys[key]) {
-                    mParticle.Store.nonCurrentUserMPIDs[key] = allData[key];
-                }
-            }
-        }
-        update();
-    } catch (e) {
-        if (useLocalStorage() && mParticle.Store.isLocalStorageAvailable) {
-            localStorage.removeItem(mParticle.Store.storageName);
-        } else {
-            expireCookies(mParticle.Store.storageName);
-        }
-        mParticle.Logger.error('Error initializing storage: ' + e);
-    }
-}
-
-function update() {
-    if (!mParticle.Store.webviewBridgeEnabled) {
-        if (mParticle.Store.SDKConfig.useCookieStorage) {
-            setCookie();
-        }
-
-        setLocalStorage();
-    }
-}
-
-function storeProductsInMemory(products, mpid) {
-    if (products) {
-        try {
-            mParticle.Store.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
-        }
-        catch(e) {
-            mParticle.Logger.error(Messages$1.ErrorMessages.CookieParseError);
-        }
-    }
-}
-
-function storeDataInMemory(obj, currentMPID) {
-    try {
-        if (!obj) {
-            mParticle.Logger.verbose(Messages$1.InformationMessages.CookieNotFound);
-            mParticle.Store.clientId = mParticle.Store.clientId || Helpers.generateUniqueId();
-            mParticle.Store.deviceId = mParticle.Store.deviceId || Helpers.generateUniqueId();
-        } else {
-            // Set MPID first, then change object to match MPID data
-            if (currentMPID) {
-                mParticle.Store.mpid = currentMPID;
-            } else {
-                mParticle.Store.mpid = obj.cu || 0;
-            }
-
-            obj.gs = obj.gs || {};
-
-            mParticle.Store.sessionId = obj.gs.sid || mParticle.Store.sessionId;
-            mParticle.Store.isEnabled = (typeof obj.gs.ie !== 'undefined') ? obj.gs.ie : mParticle.Store.isEnabled;
-            mParticle.Store.sessionAttributes = obj.gs.sa || mParticle.Store.sessionAttributes;
-            mParticle.Store.serverSettings = obj.gs.ss || mParticle.Store.serverSettings;
-            mParticle.Store.devToken = mParticle.Store.devToken || obj.gs.dt;
-            mParticle.Store.SDKConfig.appVersion = mParticle.Store.SDKConfig.appVersion || obj.gs.av;
-            mParticle.Store.clientId = obj.gs.cgid || mParticle.Store.clientId || Helpers.generateUniqueId();
-            mParticle.Store.deviceId = obj.gs.das || mParticle.Store.deviceId || Helpers.generateUniqueId();
-            mParticle.Store.integrationAttributes = obj.gs.ia || {};
-            mParticle.Store.context = obj.gs.c || mParticle.Store.context;
-            mParticle.Store.currentSessionMPIDs = obj.gs.csm || mParticle.Store.currentSessionMPIDs;
-
-            mParticle.Store.isLoggedIn = obj.l === true;
-
-            if (obj.gs.les) {
-                mParticle.Store.dateLastEventSent = new Date(obj.gs.les);
-            }
-
-            if (obj.gs.ssd) {
-                mParticle.Store.sessionStartDate = new Date(obj.gs.ssd);
-            } else {
-                mParticle.Store.sessionStartDate = new Date();
-            }
-
-            if (currentMPID) {
-                obj = obj[currentMPID];
-            } else {
-                obj = obj[obj.cu];
-            }
-        }
-    }
-    catch (e) {
-        mParticle.Logger.error(Messages$1.ErrorMessages.CookieParseError);
-    }
-}
-
-function determineLocalStorageAvailability(storage) {
-    var result;
-
-    if (mParticle._forceNoLocalStorage) {
-        storage = undefined;
-    }
-
-    try {
-        storage.setItem('mparticle', 'test');
-        result = storage.getItem('mparticle') === 'test';
-        storage.removeItem('mparticle');
-        return result && storage;
-    }
-    catch (e) {
-        return false;
-    }
-}
-
-function getUserProductsFromLS(mpid) {
-    if (!mParticle.Store.isLocalStorageAvailable) {
-        return [];
-    }
-
-    var decodedProducts,
-        userProducts,
-        parsedProducts,
-        encodedProducts = localStorage.getItem(mParticle.Store.prodStorageName);
-    if (encodedProducts) {
-        decodedProducts = Base64$1.decode(encodedProducts);
-    }
-    // if there is an MPID, we are retrieving the user's products, which is an array
-    if (mpid) {
-        try {
-            if (decodedProducts) {
-                parsedProducts = JSON.parse(decodedProducts);
-            }
-            if (decodedProducts && parsedProducts[mpid] && parsedProducts[mpid].cp && Array.isArray(parsedProducts[mpid].cp)) {
-                userProducts = parsedProducts[mpid].cp;
-            } else {
-                userProducts = [];
-            }
-            return userProducts;
-        } catch (e) {
-            return [];
-        }
-    } else {
-        return [];
-    }
-}
-
-function getAllUserProductsFromLS() {
-    var decodedProducts,
-        encodedProducts = localStorage.getItem(mParticle.Store.prodStorageName),
-        parsedDecodedProducts;
-    if (encodedProducts) {
-        decodedProducts = Base64$1.decode(encodedProducts);
-    }
-    // returns an object with keys of MPID and values of array of products
-    try {
-        parsedDecodedProducts = JSON.parse(decodedProducts);
-    } catch (e) {
-        parsedDecodedProducts = {};
-    }
-
-    return parsedDecodedProducts;
-}
-
-function setLocalStorage() {
-    if (!mParticle.Store.isLocalStorageAvailable) {
-        return;
-    }
-
-    var key = mParticle.Store.storageName,
-        allLocalStorageProducts = getAllUserProductsFromLS(),
-        localStorageData = getLocalStorage() || {},
-        currentUser = mParticle.Identity.getCurrentUser(),
-        mpid = currentUser ? currentUser.getMPID() : null,
-        currentUserProducts = {
-            cp: allLocalStorageProducts[mpid] ? allLocalStorageProducts[mpid].cp : []
-        };
-    if (mpid) {
-        allLocalStorageProducts = allLocalStorageProducts || {};
-        allLocalStorageProducts[mpid] = currentUserProducts;
-        try {
-            window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName), Base64$1.encode(JSON.stringify(allLocalStorageProducts)));
-        }
-        catch (e) {
-            mParticle.Logger.error('Error with setting products on localStorage.');
-        }
-    }
-
-    if (!mParticle.Store.SDKConfig.useCookieStorage) {
-        localStorageData.gs = localStorageData.gs || {};
-
-        localStorageData.l = mParticle.Store.isLoggedIn ? 1 : 0;
-
-        if (mParticle.Store.sessionId) {
-            localStorageData.gs.csm = mParticle.Store.currentSessionMPIDs;
-        }
-
-        localStorageData.gs.ie = mParticle.Store.isEnabled;
-
-        if (mpid) {
-            localStorageData.cu = mpid;
-        }
-
-        if (Object.keys(mParticle.Store.nonCurrentUserMPIDs).length) {
-            localStorageData = Helpers.extend({}, localStorageData, mParticle.Store.nonCurrentUserMPIDs);
-            mParticle.Store.nonCurrentUserMPIDs = {};
-        }
-
-        localStorageData = setGlobalStorageAttributes(localStorageData);
-
-        try {
-            window.localStorage.setItem(encodeURIComponent(key), encodeCookies(JSON.stringify(localStorageData)));
-        }
-        catch (e) {
-            mParticle.Logger.error('Error with setting localStorage item.');
-        }
-    }
-}
-
-function setGlobalStorageAttributes(data) {
-    var store = mParticle.Store;
-    data.gs.sid = store.sessionId;
-    data.gs.ie = store.isEnabled;
-    data.gs.sa = store.sessionAttributes;
-    data.gs.ss = store.serverSettings;
-    data.gs.dt = store.devToken;
-    data.gs.les = store.dateLastEventSent ? store.dateLastEventSent.getTime() : null;
-    data.gs.av = store.SDKConfig.appVersion;
-    data.gs.cgid = store.clientId;
-    data.gs.das = store.deviceId;
-    data.gs.c = store.context;
-    data.gs.ssd = store.sessionStartDate ? store.sessionStartDate.getTime() : null;
-    data.gs.ia = store.integrationAttributes;
-
-    return data;
-}
-
-function getLocalStorage() {
-    if (!mParticle.Store.isLocalStorageAvailable) {
-        return null;
-    }
-
-    var key = mParticle.Store.storageName,
-        localStorageData = decodeCookies(window.localStorage.getItem(key)),
-        obj = {},
-        j;
-    if (localStorageData) {
-        localStorageData = JSON.parse(localStorageData);
-        for (j in localStorageData) {
-            if (localStorageData.hasOwnProperty(j)) {
-                obj[j] = localStorageData[j];
-            }
-        }
-    }
-
-    if (Object.keys(obj).length) {
-        return obj;
-    }
-
-    return null;
-}
-
-function removeLocalStorage(localStorageName) {
-    localStorage.removeItem(localStorageName);
-}
-
-function retrieveDeviceId() {
-    if (mParticle.Store.deviceId) {
-        return mParticle.Store.deviceId;
-    } else {
-        return parseDeviceId(mParticle.Store.serverSettings);
-    }
-}
-
-function parseDeviceId(serverSettings) {
-    try {
-        var paramsObj = {},
-            parts;
-
-        if (serverSettings && serverSettings.uid && serverSettings.uid.Value) {
-            serverSettings.uid.Value.split('&').forEach(function(param) {
-                parts = param.split('=');
-                paramsObj[parts[0]] = parts[1];
-            });
-
-            if (paramsObj['g']) {
-                return paramsObj['g'];
-            }
-        }
-
-        return Helpers.generateUniqueId();
-    }
-    catch (e) {
-        return Helpers.generateUniqueId();
-    }
-}
-
-function expireCookies(cookieName) {
-    var date = new Date(),
-        expires,
-        domain,
-        cookieDomain;
-
-    cookieDomain = getCookieDomain();
-
-    if (cookieDomain === '') {
-        domain = '';
-    } else {
-        domain = ';domain=' + cookieDomain;
-    }
-
-    date.setTime(date.getTime() - (24 * 60 * 60 * 1000));
-    expires = '; expires=' + date.toUTCString();
-    document.cookie = cookieName + '=' + '' + expires + '; path=/' + domain;
-}
-
-function getCookie() {
-    var cookies = window.document.cookie.split('; '),
-        key = mParticle.Store.storageName,
-        i,
-        l,
-        parts,
-        name,
-        cookie,
-        result = key ? undefined : {};
-
-    mParticle.Logger.verbose(Messages$1.InformationMessages.CookieSearch);
-
-    for (i = 0, l = cookies.length; i < l; i++) {
-        parts = cookies[i].split('=');
-        name = Helpers.decoded(parts.shift());
-        cookie = Helpers.decoded(parts.join('='));
-
-        if (key && key === name) {
-            result = Helpers.converted(cookie);
-            break;
-        }
-
-        if (!key) {
-            result[name] = Helpers.converted(cookie);
-        }
-    }
-
-    if (result) {
-        mParticle.Logger.verbose(Messages$1.InformationMessages.CookieFound);
-        return JSON.parse(decodeCookies(result));
-    } else {
-        return null;
-    }
-}
-
-function setCookie() {
-    var mpid,
-        currentUser = mParticle.Identity.getCurrentUser();
-    if (currentUser) {
-        mpid = currentUser.getMPID();
-    }
-    var date = new Date(),
-        key = mParticle.Store.storageName,
-        cookies = getCookie() || {},
-        expires = new Date(date.getTime() +
-            (mParticle.Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
-        cookieDomain,
-        domain,
-        encodedCookiesWithExpirationAndPath;
-
-    cookieDomain = getCookieDomain();
-
-    if (cookieDomain === '') {
-        domain = '';
-    } else {
-        domain = ';domain=' + cookieDomain;
-    }
-
-    cookies.gs = cookies.gs || {};
-
-    if (mParticle.Store.sessionId) {
-        cookies.gs.csm = mParticle.Store.currentSessionMPIDs;
-    }
-
-    if (mpid) {
-        cookies.cu = mpid;
-    }
-
-    cookies.l = mParticle.Store.isLoggedIn ? 1 : 0;
-
-    cookies = setGlobalStorageAttributes(cookies);
-
-    if (Object.keys(mParticle.Store.nonCurrentUserMPIDs).length) {
-        cookies = Helpers.extend({}, cookies, mParticle.Store.nonCurrentUserMPIDs);
-        mParticle.Store.nonCurrentUserMPIDs = {};
-    }
-
-    encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain, mParticle.Store.SDKConfig.maxCookieSize);
-
-    mParticle.Logger.verbose(Messages$1.InformationMessages.CookieSet);
-
-    window.document.cookie =
-        encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
-}
-
-/*  This function determines if a cookie is greater than the configured maxCookieSize.
+function processQueuedEvents(a,b,c,d,e,f){if(a.length&&b&&c){mParticle.Store.eventQueue=[],a.forEach(function(a){a.MPID=b,d(a,e,f);});}}function createMainStorageName(a){return a?StorageNames.currentStorageName+"_"+a:StorageNames.currentStorageName}function createProductStorageName(a){return a?StorageNames.currentStorageProductsName+"_"+a:StorageNames.currentStorageProductsName}var Helpers = {canLog:canLog,extend:extend,isObject:isObject,inArray:inArray,createServiceUrl:createServiceUrl,createXHR:createXHR,generateUniqueId:generateUniqueId,filterUserIdentities:filterUserIdentities,filterUserIdentitiesForForwarders:filterUserIdentitiesForForwarders,filterUserAttributes:filterUserAttributes,findKeyInObject:findKeyInObject,decoded:decoded,converted:converted,isEventType:isEventType,parseNumber:parseNumber,parseStringOrNumber:parseStringOrNumber,generateHash:generateHash,sanitizeAttributes:sanitizeAttributes,returnConvertedBoolean:returnConvertedBoolean,invokeCallback:invokeCallback,invokeAliasCallback:invokeAliasCallback,getFeatureFlag:getFeatureFlag,isDelayedByIntegration:isDelayedByIntegration,processQueuedEvents:processQueuedEvents,createMainStorageName:createMainStorageName,createProductStorageName:createProductStorageName,Validators:Validators};
+
+var Messages=Constants.Messages,androidBridgeNameBase="mParticleAndroid",iosBridgeNameBase="mParticle";function isBridgeV2Available(a){if(!a)return !1;var b=iosBridgeNameBase+"_"+a+"_v2";// iOS v2 bridge
+return !!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.hasOwnProperty(b))||!(window.mParticle.uiwebviewBridgeName!==b)||!!window.hasOwnProperty(androidBridgeNameBase+"_"+a+"_v2");// other iOS v2 bridge
+// android
+}function isWebviewEnabled(a,b){return mParticle.Store.bridgeV2Available=isBridgeV2Available(a),mParticle.Store.bridgeV1Available=isBridgeV1Available(),2===b?mParticle.Store.bridgeV2Available:!(window.mParticle.uiwebviewBridgeName&&window.mParticle.uiwebviewBridgeName!==iosBridgeNameBase+"_"+a+"_v2")&&!!(2>b)&&(mParticle.Store.bridgeV2Available||mParticle.Store.bridgeV1Available);// iOS BridgeV1 can be available via mParticle.isIOS, but return false if uiwebviewBridgeName doesn't match requiredWebviewBridgeName
+}function isBridgeV1Available(){return !!(mParticle.Store.SDKConfig.useNativeSdk||window.mParticleAndroid||mParticle.Store.SDKConfig.isIOS)}function sendToNative(a,b){return mParticle.Store.bridgeV2Available&&2===mParticle.Store.SDKConfig.minWebviewBridgeVersion?void sendViaBridgeV2(a,b,mParticle.Store.SDKConfig.requiredWebviewBridgeName):mParticle.Store.bridgeV2Available&&2>mParticle.Store.SDKConfig.minWebviewBridgeVersion?void sendViaBridgeV2(a,b,mParticle.Store.SDKConfig.requiredWebviewBridgeName):mParticle.Store.bridgeV1Available&&2>mParticle.Store.SDKConfig.minWebviewBridgeVersion?void sendViaBridgeV1(a,b):void 0}function sendViaBridgeV1(a,b){window.mParticleAndroid&&window.mParticleAndroid.hasOwnProperty(a)?(mParticle.Logger.verbose(Messages.InformationMessages.SendAndroid+a),window.mParticleAndroid[a](b)):mParticle.Store.SDKConfig.isIOS&&(mParticle.Logger.verbose(Messages.InformationMessages.SendIOS+a),sendViaIframeToIOS(a,b));}function sendViaIframeToIOS(a,b){var c=document.createElement("IFRAME");c.setAttribute("src","mp-sdk://"+a+"/"+encodeURIComponent(b)),document.documentElement.appendChild(c),c.parentNode.removeChild(c),c=null;}function sendViaBridgeV2(a,b,c){if(c){var d,e,f=window[androidBridgeNameBase+"_"+c+"_v2"],g=iosBridgeNameBase+"_"+c+"_v2";return window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers[g]&&(d=window.webkit.messageHandlers[g]),window.mParticle.uiwebviewBridgeName===g&&(e=window.mParticle[g]),f&&f.hasOwnProperty(a)?(mParticle.Logger.verbose(Messages.InformationMessages.SendAndroid+a),void f[a](b)):void(d?(mParticle.Logger.verbose(Messages.InformationMessages.SendIOS+a),d.postMessage(JSON.stringify({path:a,value:b?JSON.parse(b):null}))):e&&(mParticle.Logger.verbose(Messages.InformationMessages.SendIOS+a),sendViaIframeToIOS(a,b)))}}var NativeSdkHelpers = {isWebviewEnabled:isWebviewEnabled,isBridgeV2Available:isBridgeV2Available,sendToNative:sendToNative};
+
+function createGDPRConsent(a,b,c,d,e){return "boolean"==typeof a?b&&isNaN(b)?(mParticle.Logger.error("Timestamp must be a valid number when constructing a GDPR Consent object."),null):c&&"string"!=typeof c?(mParticle.Logger.error("Document must be a valid string when constructing a GDPR Consent object."),null):d&&"string"!=typeof d?(mParticle.Logger.error("Location must be a valid string when constructing a GDPR Consent object."),null):e&&"string"!=typeof e?(mParticle.Logger.error("Hardware ID must be a valid string when constructing a GDPR Consent object."),null):{Consented:a,Timestamp:b||Date.now(),ConsentDocument:c,Location:d,HardwareId:e}:(mParticle.Logger.error("Consented boolean is required when constructing a GDPR Consent object."),null)}var ConsentSerialization={toMinifiedJsonObject:function toMinifiedJsonObject(a){var b={};if(a){var c=a.getGDPRConsentState();if(c)for(var d in b.gdpr={},c)if(c.hasOwnProperty(d)){var e=c[d];b.gdpr[d]={},"boolean"==typeof e.Consented&&(b.gdpr[d].c=e.Consented),"number"==typeof e.Timestamp&&(b.gdpr[d].ts=e.Timestamp),"string"==typeof e.ConsentDocument&&(b.gdpr[d].d=e.ConsentDocument),"string"==typeof e.Location&&(b.gdpr[d].l=e.Location),"string"==typeof e.HardwareId&&(b.gdpr[d].h=e.HardwareId);}}return b},fromMinifiedJsonObject:function fromMinifiedJsonObject(a){var b=createConsentState();if(a.gdpr)for(var c in a.gdpr)if(a.gdpr.hasOwnProperty(c)){var d=createGDPRConsent(a.gdpr[c].c,a.gdpr[c].ts,a.gdpr[c].d,a.gdpr[c].l,a.gdpr[c].h);b.addGDPRConsentState(c,d);}return b}};function createConsentState(a){function b(a){if("string"!=typeof a)return null;var b=a.trim();return b.length?b.toLowerCase():null}function c(a){if(!a)g={};else if(Helpers.isObject(a))for(var b in g={},a)a.hasOwnProperty(b)&&d(b,a[b]);return this}function d(a,c){var d=b(a);if(!d)return mParticle.Logger.error("addGDPRConsentState() invoked with bad purpose. Purpose must be a string."),this;if(!Helpers.isObject(c))return mParticle.Logger.error("addGDPRConsentState() invoked with bad or empty GDPR consent object."),this;var e=createGDPRConsent(c.Consented,c.Timestamp,c.ConsentDocument,c.Location,c.HardwareId);return e&&(g[d]=e),this}function e(a){var c=b(a);return c?(delete g[c],this):this}function f(){return Helpers.extend({},g)}var g={};return a&&c(a.getGDPRConsentState()),{setGDPRConsentState:c,addGDPRConsentState:d,getGDPRConsentState:f,removeGDPRConsentState:e}}var Consent = {createGDPRConsent:createGDPRConsent,Serialization:ConsentSerialization,createConsentState:createConsentState};
+
+var Base64$1=Polyfill.Base64,Messages$1=Constants.Messages,Base64CookieKeys=Constants.Base64CookieKeys,SDKv2NonMPIDCookieKeys=Constants.SDKv2NonMPIDCookieKeys,StorageNames$1=Constants.StorageNames;function useLocalStorage(){return !mParticle.Store.SDKConfig.useCookieStorage&&mParticle.Store.isLocalStorageAvailable}function initializeStorage(){try{var a,b,c=getLocalStorage(),d=getCookie();// Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
+c||d?mParticle.Store.isFirstRun=!1:(mParticle.Store.isFirstRun=!0,mParticle.Store.mpid=0),mParticle.Store.isLocalStorageAvailable||(mParticle.Store.SDKConfig.useCookieStorage=!0),mParticle.Store.isLocalStorageAvailable?(a=window.localStorage,mParticle.Store.SDKConfig.useCookieStorage?(c?(b=d?Helpers.extend(!1,c,d):c,a.removeItem(mParticle.Store.storageName)):d&&(b=d),storeDataInMemory(b)):d?(b=c?Helpers.extend(!1,c,d):d,storeDataInMemory(b),expireCookies(mParticle.Store.storageName)):storeDataInMemory(c)):storeDataInMemory(d);try{if(mParticle.Store.isLocalStorageAvailable){var e=localStorage.getItem(mParticle.Store.prodStorageName);if(e)var f=JSON.parse(Base64$1.decode(e));mParticle.Store.mpid&&storeProductsInMemory(f,mParticle.Store.mpid);}}catch(a){mParticle.Store.isLocalStorageAvailable&&localStorage.removeItem(mParticle.Store.prodStorageName),mParticle.Store.cartProducts=[],mParticle.Logger.error("Error loading products in initialization: "+a);}for(var g in b)b.hasOwnProperty(g)&&(SDKv2NonMPIDCookieKeys[g]||(mParticle.Store.nonCurrentUserMPIDs[g]=b[g]));update();}catch(a){useLocalStorage()&&mParticle.Store.isLocalStorageAvailable?localStorage.removeItem(mParticle.Store.storageName):expireCookies(mParticle.Store.storageName),mParticle.Logger.error("Error initializing storage: "+a);}}function update(){mParticle.Store.webviewBridgeEnabled||(mParticle.Store.SDKConfig.useCookieStorage&&setCookie(),setLocalStorage());}function storeProductsInMemory(a,b){if(a)try{mParticle.Store.cartProducts=a[b]&&a[b].cp?a[b].cp:[];}catch(a){mParticle.Logger.error(Messages$1.ErrorMessages.CookieParseError);}}function storeDataInMemory(a,b){try{a?(mParticle.Store.mpid=b?b:a.cu||0,a.gs=a.gs||{},mParticle.Store.sessionId=a.gs.sid||mParticle.Store.sessionId,mParticle.Store.isEnabled="undefined"==typeof a.gs.ie?mParticle.Store.isEnabled:a.gs.ie,mParticle.Store.sessionAttributes=a.gs.sa||mParticle.Store.sessionAttributes,mParticle.Store.serverSettings=a.gs.ss||mParticle.Store.serverSettings,mParticle.Store.devToken=mParticle.Store.devToken||a.gs.dt,mParticle.Store.SDKConfig.appVersion=mParticle.Store.SDKConfig.appVersion||a.gs.av,mParticle.Store.clientId=a.gs.cgid||mParticle.Store.clientId||Helpers.generateUniqueId(),mParticle.Store.deviceId=a.gs.das||mParticle.Store.deviceId||Helpers.generateUniqueId(),mParticle.Store.integrationAttributes=a.gs.ia||{},mParticle.Store.context=a.gs.c||mParticle.Store.context,mParticle.Store.currentSessionMPIDs=a.gs.csm||mParticle.Store.currentSessionMPIDs,mParticle.Store.isLoggedIn=!0===a.l,a.gs.les&&(mParticle.Store.dateLastEventSent=new Date(a.gs.les)),mParticle.Store.sessionStartDate=a.gs.ssd?new Date(a.gs.ssd):new Date,a=b?a[b]:a[a.cu]):(mParticle.Logger.verbose(Messages$1.InformationMessages.CookieNotFound),mParticle.Store.clientId=mParticle.Store.clientId||Helpers.generateUniqueId(),mParticle.Store.deviceId=mParticle.Store.deviceId||Helpers.generateUniqueId());}catch(a){mParticle.Logger.error(Messages$1.ErrorMessages.CookieParseError);}}function determineLocalStorageAvailability(a){var b;mParticle._forceNoLocalStorage&&(a=void 0);try{return a.setItem("mparticle","test"),b="test"===a.getItem("mparticle"),a.removeItem("mparticle"),b&&a}catch(a){return !1}}function getUserProductsFromLS(a){if(!mParticle.Store.isLocalStorageAvailable)return [];var b,c,d,e=localStorage.getItem(mParticle.Store.prodStorageName);// if there is an MPID, we are retrieving the user's products, which is an array
+if(e&&(b=Base64$1.decode(e)),a)try{return b&&(d=JSON.parse(b)),c=b&&d[a]&&d[a].cp&&Array.isArray(d[a].cp)?d[a].cp:[],c}catch(a){return []}else return []}function getAllUserProductsFromLS(){var a,b,c=localStorage.getItem(mParticle.Store.prodStorageName);c&&(a=Base64$1.decode(c));// returns an object with keys of MPID and values of array of products
+try{b=JSON.parse(a);}catch(a){b={};}return b}function setLocalStorage(){if(mParticle.Store.isLocalStorageAvailable){var a=mParticle.Store.storageName,b=getAllUserProductsFromLS(),c=getLocalStorage()||{},d=mParticle.Identity.getCurrentUser(),e=d?d.getMPID():null,f={cp:b[e]?b[e].cp:[]};if(e){b=b||{},b[e]=f;try{window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName),Base64$1.encode(JSON.stringify(b)));}catch(a){mParticle.Logger.error("Error with setting products on localStorage.");}}if(!mParticle.Store.SDKConfig.useCookieStorage){c.gs=c.gs||{},c.l=mParticle.Store.isLoggedIn?1:0,mParticle.Store.sessionId&&(c.gs.csm=mParticle.Store.currentSessionMPIDs),c.gs.ie=mParticle.Store.isEnabled,e&&(c.cu=e),Object.keys(mParticle.Store.nonCurrentUserMPIDs).length&&(c=Helpers.extend({},c,mParticle.Store.nonCurrentUserMPIDs),mParticle.Store.nonCurrentUserMPIDs={}),c=setGlobalStorageAttributes(c);try{window.localStorage.setItem(encodeURIComponent(a),encodeCookies(JSON.stringify(c)));}catch(a){mParticle.Logger.error("Error with setting localStorage item.");}}}}function setGlobalStorageAttributes(a){var b=mParticle.Store;return a.gs.sid=b.sessionId,a.gs.ie=b.isEnabled,a.gs.sa=b.sessionAttributes,a.gs.ss=b.serverSettings,a.gs.dt=b.devToken,a.gs.les=b.dateLastEventSent?b.dateLastEventSent.getTime():null,a.gs.av=b.SDKConfig.appVersion,a.gs.cgid=b.clientId,a.gs.das=b.deviceId,a.gs.c=b.context,a.gs.ssd=b.sessionStartDate?b.sessionStartDate.getTime():null,a.gs.ia=b.integrationAttributes,a}function getLocalStorage(){if(!mParticle.Store.isLocalStorageAvailable)return null;var a,b=mParticle.Store.storageName,c=decodeCookies(window.localStorage.getItem(b)),d={};if(c)for(a in c=JSON.parse(c),c)c.hasOwnProperty(a)&&(d[a]=c[a]);return Object.keys(d).length?d:null}function removeLocalStorage(a){localStorage.removeItem(a);}function retrieveDeviceId(){return mParticle.Store.deviceId?mParticle.Store.deviceId:parseDeviceId(mParticle.Store.serverSettings)}function parseDeviceId(a){try{var b,c={};return a&&a.uid&&a.uid.Value&&(a.uid.Value.split("&").forEach(function(a){b=a.split("="),c[b[0]]=b[1];}),c.g)?c.g:Helpers.generateUniqueId()}catch(a){return Helpers.generateUniqueId()}}function expireCookies(a){var b,c,d,e=new Date;d=getCookieDomain(),c=""===d?"":";domain="+d,e.setTime(e.getTime()-86400000),b="; expires="+e.toUTCString(),document.cookie=a+"="+b+"; path=/"+c;}function getCookie(){var a,b,c,d,e,f=window.document.cookie.split("; "),g=mParticle.Store.storageName,h=g?void 0:{};for(mParticle.Logger.verbose(Messages$1.InformationMessages.CookieSearch),a=0,b=f.length;a<b;a++){if(c=f[a].split("="),d=Helpers.decoded(c.shift()),e=Helpers.decoded(c.join("=")),g&&g===d){h=Helpers.converted(e);break}g||(h[d]=Helpers.converted(e));}return h?(mParticle.Logger.verbose(Messages$1.InformationMessages.CookieFound),JSON.parse(decodeCookies(h))):null}function setCookie(){var a,b=mParticle.Identity.getCurrentUser();b&&(a=b.getMPID());var c,d,e,f=new Date,g=mParticle.Store.storageName,h=getCookie()||{},i=new Date(f.getTime()+1e3*(60*(60*(24*mParticle.Store.SDKConfig.cookieExpiration)))).toGMTString();c=getCookieDomain(),d=""===c?"":";domain="+c,h.gs=h.gs||{},mParticle.Store.sessionId&&(h.gs.csm=mParticle.Store.currentSessionMPIDs),a&&(h.cu=a),h.l=mParticle.Store.isLoggedIn?1:0,h=setGlobalStorageAttributes(h),Object.keys(mParticle.Store.nonCurrentUserMPIDs).length&&(h=Helpers.extend({},h,mParticle.Store.nonCurrentUserMPIDs),mParticle.Store.nonCurrentUserMPIDs={}),e=reduceAndEncodeCookies(h,i,d,mParticle.Store.SDKConfig.maxCookieSize),mParticle.Logger.verbose(Messages$1.InformationMessages.CookieSet),window.document.cookie=encodeURIComponent(g)+"="+e;}/*  This function determines if a cookie is greater than the configured maxCookieSize.
         - If it is, we remove an MPID and its associated UI/UA/CSD from the cookie.
         - Once removed, check size, and repeat.
         - Never remove the currentUser's MPID from the cookie.
@@ -2090,2929 +99,1143 @@ function setCookie() {
         a. Remove at random MPIDs on the cookie that are not part of the currentSessionMPIDs
         b. Then remove MPIDs based on order in currentSessionMPIDs array, which
         stores MPIDs based on earliest login.
-*/
-function reduceAndEncodeCookies(cookies, expires, domain, maxCookieSize) {
-    var encodedCookiesWithExpirationAndPath,
-        currentSessionMPIDs = cookies.gs.csm ? cookies.gs.csm : [];
-    // Comment 1 above
-    if (!currentSessionMPIDs.length) {
-        for (var key in cookies) {
-            if (cookies.hasOwnProperty(key)) {
-                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
-                if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
-                    if (!SDKv2NonMPIDCookieKeys[key] && key !== cookies.cu) {
-                        delete cookies[key];
-                    }
-                }
-            }
-        }
-    } else {
-        // Comment 2 above - First create an object of all MPIDs on the cookie
-        var MPIDsOnCookie = {};
-        for (var potentialMPID in cookies) {
-            if (cookies.hasOwnProperty(potentialMPID)) {
-                if (!SDKv2NonMPIDCookieKeys[potentialMPID] && potentialMPID !==cookies.cu) {
-                    MPIDsOnCookie[potentialMPID] = 1;
-                }
-            }
-        }
-        // Comment 2a above
-        if (Object.keys(MPIDsOnCookie).length) {
-            for (var mpid in MPIDsOnCookie) {
-                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
-                if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
-                    if (MPIDsOnCookie.hasOwnProperty(mpid)) {
-                        if (currentSessionMPIDs.indexOf(mpid) === -1) {
-                            delete cookies[mpid];
-                        }
-                    }
-                }
-            }
-        }
-        // Comment 2b above
-        for (var i = 0; i < currentSessionMPIDs.length; i++) {
-            encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
-            if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
-                var MPIDtoRemove = currentSessionMPIDs[i];
-                if (cookies[MPIDtoRemove]) {
-                    mParticle.Logger.verbose('Size of new encoded cookie is larger than maxCookieSize setting of ' + maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(cookies[MPIDtoRemove], 0, 2));
-                    delete cookies[MPIDtoRemove];
-                } else {
-                    mParticle.Logger.error('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
-                }
-            } else {
-                break;
-            }
-        }
-    }
-
-    return encodedCookiesWithExpirationAndPath;
-}
-
-function createFullEncodedCookie(cookies, expires, domain) {
-    return encodeCookies(JSON.stringify(cookies)) + ';expires=' + expires +';path=/' + domain;
-}
-
-function findPrevCookiesBasedOnUI(identityApiData) {
-    var cookies = getCookie() || getLocalStorage();
-    var matchedUser;
-
-    if (identityApiData) {
-        for (var requestedIdentityType in identityApiData.userIdentities) {
-            if (cookies && Object.keys(cookies).length) {
-                for (var key in cookies) {
-                    // any value in cookies that has an MPID key will be an MPID to search through
-                    // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-                    if (cookies[key].mpid) {
-                        var cookieUIs = cookies[key].ui;
-                        for (var cookieUIType in cookieUIs) {
-                            if (requestedIdentityType === cookieUIType
-                                && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
-                                matchedUser = key;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (matchedUser) {
-        storeDataInMemory(cookies, matchedUser);
-    }
-}
-
-function encodeCookies(cookie) {
-    cookie = JSON.parse(cookie);
-    for (var key in cookie.gs) {
-        if (cookie.gs.hasOwnProperty(key)) {
-            // base64 encode any value that is an object or Array in globalSettings first
-            if (Base64CookieKeys[key]) {
-                if (cookie.gs[key]) {
-                    if (Array.isArray(cookie.gs[key]) && cookie.gs[key].length) {
-                        cookie.gs[key] = Base64$1.encode(JSON.stringify(cookie.gs[key]));
-                    } else if (Helpers.isObject(cookie.gs[key]) && Object.keys(cookie.gs[key]).length) {
-                        cookie.gs[key] = Base64$1.encode(JSON.stringify(cookie.gs[key]));
-                    } else {
-                        delete cookie.gs[key];
-                    }
-                } else {
-                    delete cookie.gs[key];
-                }
-            } else if (key === 'ie') {
-                cookie.gs[key] = cookie.gs[key] ? 1 : 0;
-            } else if (!cookie.gs[key]) {
-                delete cookie.gs[key];
-            }
-        }
-    }
-
-    for (var mpid in cookie) {
-        if (cookie.hasOwnProperty(mpid)) {
-            if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                for (key in cookie[mpid]) {
-                    if (cookie[mpid].hasOwnProperty(key)) {
-                        if (Base64CookieKeys[key]) {
-                            if (Helpers.isObject(cookie[mpid][key]) && Object.keys(cookie[mpid][key]).length) {
-                                cookie[mpid][key] = Base64$1.encode(JSON.stringify(cookie[mpid][key]));
-                            } else {
-                                delete cookie[mpid][key];
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return createCookieString(JSON.stringify(cookie));
-}
-
-function decodeCookies(cookie) {
-    try {
-        if (cookie) {
-            cookie = JSON.parse(revertCookieString(cookie));
-            if (Helpers.isObject(cookie) && Object.keys(cookie).length) {
-                for (var key in cookie.gs) {
-                    if (cookie.gs.hasOwnProperty(key)) {
-                        if (Base64CookieKeys[key]) {
-                            cookie.gs[key] = JSON.parse(Base64$1.decode(cookie.gs[key]));
-                        } else if (key === 'ie') {
-                            cookie.gs[key] = Boolean(cookie.gs[key]);
-                        }
-                    }
-                }
-
-                for (var mpid in cookie) {
-                    if (cookie.hasOwnProperty(mpid)) {
-                        if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                            for (key in cookie[mpid]) {
-                                if (cookie[mpid].hasOwnProperty(key)) {
-                                    if (Base64CookieKeys[key]) {
-                                        if (cookie[mpid][key].length) {
-                                            cookie[mpid][key] = JSON.parse(Base64$1.decode(cookie[mpid][key]));
-                                        }
-                                    }
-                                }
-                            }
-                        } else if (mpid === 'l') {
-                            cookie[mpid] = Boolean(cookie[mpid]);
-                        }
-                    }
-                }
-            }
-
-            return JSON.stringify(cookie);
-        }
-    } catch (e) {
-        mParticle.Logger.error('Problem with decoding cookie', e);
-    }
-}
-
-function replaceCommasWithPipes(string) {
-    return string.replace(/,/g, '|');
-}
-
-function replacePipesWithCommas(string) {
-    return string.replace(/\|/g, ',');
-}
-
-function replaceApostrophesWithQuotes(string) {
-    return string.replace(/\'/g, '"');
-}
-
-function replaceQuotesWithApostrophes(string) {
-    return string.replace(/\"/g, '\'');
-}
-
-function createCookieString(string) {
-    return replaceCommasWithPipes(replaceQuotesWithApostrophes(string));
-}
-
-function revertCookieString(string) {
-    return replacePipesWithCommas(replaceApostrophesWithQuotes(string));
-}
-
-function getCookieDomain() {
-    if (mParticle.Store.SDKConfig.cookieDomain) {
-        return mParticle.Store.SDKConfig.cookieDomain;
-    } else {
-        var rootDomain = getDomain(document, location.hostname);
-        if (rootDomain === '') {
-            return '';
-        } else {
-            return '.' + rootDomain;
-        }
-    }
-}
-
-// This function loops through the parts of a full hostname, attempting to set a cookie on that domain. It will set a cookie at the highest level possible.
+*/function reduceAndEncodeCookies(a,b,c,d){var e,f=a.gs.csm?a.gs.csm:[];// Comment 1 above
+if(!f.length)for(var g in a)a.hasOwnProperty(g)&&(e=createFullEncodedCookie(a,b,c),e.length>d&&!SDKv2NonMPIDCookieKeys[g]&&g!==a.cu&&delete a[g]);else{// Comment 2 above - First create an object of all MPIDs on the cookie
+var h={};for(var j in a)a.hasOwnProperty(j)&&(SDKv2NonMPIDCookieKeys[j]||j===a.cu||(h[j]=1));// Comment 2a above
+if(Object.keys(h).length)for(var k in h)e=createFullEncodedCookie(a,b,c),e.length>d&&h.hasOwnProperty(k)&&-1===f.indexOf(k)&&delete a[k];// Comment 2b above
+for(var l,m=0;m<f.length&&(e=createFullEncodedCookie(a,b,c),e.length>d);m++)l=f[m],a[l]?(mParticle.Logger.verbose("Size of new encoded cookie is larger than maxCookieSize setting of "+d+". Removing from cookie the earliest logged in MPID containing: "+JSON.stringify(a[l],0,2)),delete a[l]):mParticle.Logger.error("Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of "+d+". We recommend using a maxCookieSize of 1500.");}return e}function createFullEncodedCookie(a,b,c){return encodeCookies(JSON.stringify(a))+";expires="+b+";path=/"+c}function findPrevCookiesBasedOnUI(a){var b,c=getCookie()||getLocalStorage();if(a)for(var d in a.userIdentities)if(c&&Object.keys(c).length)for(var e in c)// any value in cookies that has an MPID key will be an MPID to search through
+// other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
+if(c[e].mpid){var f=c[e].ui;for(var g in f)if(d===g&&a.userIdentities[d]===f[g]){b=e;break}}b&&storeDataInMemory(c,b);}function encodeCookies(a){for(var b in a=JSON.parse(a),a.gs)a.gs.hasOwnProperty(b)&&(Base64CookieKeys[b]?a.gs[b]?Array.isArray(a.gs[b])&&a.gs[b].length?a.gs[b]=Base64$1.encode(JSON.stringify(a.gs[b])):Helpers.isObject(a.gs[b])&&Object.keys(a.gs[b]).length?a.gs[b]=Base64$1.encode(JSON.stringify(a.gs[b])):delete a.gs[b]:delete a.gs[b]:"ie"===b?a.gs[b]=a.gs[b]?1:0:!a.gs[b]&&delete a.gs[b]);for(var c in a)if(a.hasOwnProperty(c)&&!SDKv2NonMPIDCookieKeys[c])for(b in a[c])a[c].hasOwnProperty(b)&&Base64CookieKeys[b]&&(Helpers.isObject(a[c][b])&&Object.keys(a[c][b]).length?a[c][b]=Base64$1.encode(JSON.stringify(a[c][b])):delete a[c][b]);return createCookieString(JSON.stringify(a))}function decodeCookies(a){try{if(a){if(a=JSON.parse(revertCookieString(a)),Helpers.isObject(a)&&Object.keys(a).length){for(var b in a.gs)a.gs.hasOwnProperty(b)&&(Base64CookieKeys[b]?a.gs[b]=JSON.parse(Base64$1.decode(a.gs[b])):"ie"===b&&(a.gs[b]=!!a.gs[b]));for(var c in a)if(a.hasOwnProperty(c))if(!SDKv2NonMPIDCookieKeys[c])for(b in a[c])a[c].hasOwnProperty(b)&&Base64CookieKeys[b]&&a[c][b].length&&(a[c][b]=JSON.parse(Base64$1.decode(a[c][b])));else"l"===c&&(a[c]=!!a[c]);}return JSON.stringify(a)}}catch(a){mParticle.Logger.error("Problem with decoding cookie",a);}}function replaceCommasWithPipes(a){return a.replace(/,/g,"|")}function replacePipesWithCommas(a){return a.replace(/\|/g,",")}function replaceApostrophesWithQuotes(a){return a.replace(/\'/g,"\"")}function replaceQuotesWithApostrophes(a){return a.replace(/\"/g,"'")}function createCookieString(a){return replaceCommasWithPipes(replaceQuotesWithApostrophes(a))}function revertCookieString(a){return replacePipesWithCommas(replaceApostrophesWithQuotes(a))}function getCookieDomain(){if(mParticle.Store.SDKConfig.cookieDomain)return mParticle.Store.SDKConfig.cookieDomain;var a=getDomain(document,location.hostname);return ""===a?"":"."+a}// This function loops through the parts of a full hostname, attempting to set a cookie on that domain. It will set a cookie at the highest level possible.
 // For example subdomain.domain.co.uk would try the following combinations:
 // "co.uk" -> fail
 // "domain.co.uk" -> success, return
 // "subdomain.domain.co.uk" -> skipped, because already found
-function getDomain(doc, locationHostname) {
-    var i,
-        testParts,
-        mpTest = 'mptest=cookie',
-        hostname = locationHostname.split('.');
-    for (i = hostname.length - 1; i >= 0; i--) {
-        testParts = hostname.slice(i).join('.');
-        doc.cookie = mpTest + ';domain=.' + testParts + ';';
-        if (doc.cookie.indexOf(mpTest) > -1){
-            doc.cookie = mpTest.split('=')[0] + '=;domain=.' + testParts + ';expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-            return testParts;
-        }
-    }
-    return '';
-}
-
-function getUserIdentities(mpid) {
-    var cookies = getPersistence();
-
-    if (cookies && cookies[mpid] && cookies[mpid].ui) {
-        return cookies[mpid].ui;
-    } else {
-        return {};
-    }
-}
-
-function getAllUserAttributes(mpid) {
-    var cookies = getPersistence();
-
-    if (cookies && cookies[mpid] && cookies[mpid].ua) {
-        return cookies[mpid].ua;
-    } else {
-        return {};
-    }
-}
-
-function getCartProducts(mpid) {
-    var allCartProducts,
-        cartProductsString = localStorage.getItem(mParticle.Store.prodStorageName);
-    if (cartProductsString) {
-        allCartProducts = JSON.parse(Base64$1.decode(cartProductsString));
-        if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
-            return allCartProducts[mpid].cp;
-        }
-    }
-
-    return [];
-}
-
-function setCartProducts(allProducts) {
-    if (!mParticle.Store.isLocalStorageAvailable) {
-        return;
-    }
-
-    try {
-        window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName), Base64$1.encode(JSON.stringify(allProducts)));
-    }
-    catch (e) {
-        mParticle.Logger.error('Error with setting products on localStorage.');
-    }
-}
-function saveUserIdentitiesToCookies(mpid, userIdentities) {
-    if (userIdentities) {
-        var cookies = getPersistence();
-        if (cookies) {
-            if (cookies[mpid]) {
-                cookies[mpid].ui = userIdentities;
-            } else {
-                cookies[mpid] = {
-                    ui: userIdentities
-                };
-            }
-            saveCookies(cookies);
-        }
-    }
-}
-
-function saveUserAttributesToCookies(mpid, userAttributes) {
-    var cookies = getPersistence();
-    if (userAttributes) {
-        if (cookies) {
-            if (cookies[mpid]) {
-                cookies[mpid].ui = userAttributes;
-            } else {
-                cookies[mpid] = {
-                    ui: userAttributes
-                };
-            }
-        }
-        saveCookies(cookies);
-    }
-}
-
-function saveUserCookieSyncDatesToCookies(mpid, csd) {
-    if (csd) {
-        var cookies = getPersistence();
-        if (cookies) {
-            if (cookies[mpid]) {
-                cookies[mpid].csd = csd;
-            } else {
-                cookies[mpid] = {
-                    csd: csd
-                };
-            }
-        }
-        saveCookies(cookies);
-    }
-}
-
-function saveUserConsentStateToCookies(mpid, consentState) {
-    //it's currently not supported to set persistence	
-    //for any MPID that's not the current one.	
-    if (consentState || consentState === null) {
-        var cookies = getPersistence();
-        if (cookies) {
-            if (cookies[mpid]) {
-                cookies[mpid].con = Consent.Serialization.toMinifiedJsonObject(consentState);
-            } else {
-                cookies[mpid] = {
-                    con: Consent.Serialization.toMinifiedJsonObject(consentState)
-                };
-            }
-            saveCookies(cookies);
-        }
-    }
-}
-
-function saveCookies(cookies) {
-    var encodedCookies = encodeCookies(JSON.stringify(cookies)),
-        date = new Date(),
-        key = mParticle.Store.storageName,
-        expires = new Date(date.getTime() +
-        (mParticle.Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
-        cookieDomain = getCookieDomain(),
-        domain;
-
-    if (cookieDomain === '') {
-        domain = '';
-    } else {
-        domain = ';domain=' + cookieDomain;
-    }
-
-    if (mParticle.Store.SDKConfig.useCookieStorage) {
-        var encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain, mParticle.Store.SDKConfig.maxCookieSize);
-        window.document.cookie =
-            encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
-    } else {
-        if (mParticle.Store.isLocalStorageAvailable) {
-            localStorage.setItem(mParticle.Store.storageName, encodedCookies);
-        }
-    }
-}
-
-function getPersistence() {
-    var cookies;
-    if (mParticle.Store.SDKConfig.useCookieStorage) {
-        cookies = getCookie();
-    } else {
-        cookies = getLocalStorage();
-    }
-
-    return cookies;
-}
-
-function getConsentState(mpid) {
-    var cookies = getPersistence();
-
-    if (cookies && cookies[mpid] && cookies[mpid].con) {
-        return Consent.Serialization.fromMinifiedJsonObject(cookies[mpid].con);
-    } else {
-        return null;
-    }
-}
-
-function getFirstSeenTime(mpid) {
-    if (!mpid) {
-        return null;
-    }
-    var cookies = getPersistence();
-    if (cookies && cookies[mpid] && cookies[mpid].fst) {
-        return cookies[mpid].fst;
-    } else {
-        return null;
-    }
-}
-
-/**
+function getDomain(a,b){var c,d,e=b.split(".");for(c=e.length-1;0<=c;c--)if(d=e.slice(c).join("."),a.cookie="mptest=cookie;domain=."+d+";",-1<a.cookie.indexOf("mptest=cookie"))return a.cookie="mptest=;domain=."+d+";expires=Thu, 01 Jan 1970 00:00:01 GMT;",d;return ""}function getUserIdentities(a){var b=getPersistence();return b&&b[a]&&b[a].ui?b[a].ui:{}}function getAllUserAttributes(a){var b=getPersistence();return b&&b[a]&&b[a].ua?b[a].ua:{}}function getCartProducts(a){var b,c=localStorage.getItem(mParticle.Store.prodStorageName);return c&&(b=JSON.parse(Base64$1.decode(c)),b&&b[a]&&b[a].cp)?b[a].cp:[]}function setCartProducts(a){if(mParticle.Store.isLocalStorageAvailable)try{window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName),Base64$1.encode(JSON.stringify(a)));}catch(a){mParticle.Logger.error("Error with setting products on localStorage.");}}function saveUserIdentitiesToCookies(a,b){if(b){var c=getPersistence();c&&(c[a]?c[a].ui=b:c[a]={ui:b},saveCookies(c));}}function saveUserAttributesToCookies(a,b){var c=getPersistence();b&&(c&&(c[a]?c[a].ui=b:c[a]={ui:b}),saveCookies(c));}function saveUserCookieSyncDatesToCookies(a,b){if(b){var c=getPersistence();c&&(c[a]?c[a].csd=b:c[a]={csd:b}),saveCookies(c);}}function saveUserConsentStateToCookies(a,b){//it's currently not supported to set persistence	
+//for any MPID that's not the current one.	
+if(b||null===b){var c=getPersistence();c&&(c[a]?c[a].con=Consent.Serialization.toMinifiedJsonObject(b):c[a]={con:Consent.Serialization.toMinifiedJsonObject(b)},saveCookies(c));}}function saveCookies(a){var b,c=encodeCookies(JSON.stringify(a)),d=new Date,e=mParticle.Store.storageName,f=new Date(d.getTime()+1e3*(60*(60*(24*mParticle.Store.SDKConfig.cookieExpiration)))).toGMTString(),g=getCookieDomain();if(b=""===g?"":";domain="+g,mParticle.Store.SDKConfig.useCookieStorage){var h=reduceAndEncodeCookies(a,f,b,mParticle.Store.SDKConfig.maxCookieSize);window.document.cookie=encodeURIComponent(e)+"="+h;}else mParticle.Store.isLocalStorageAvailable&&localStorage.setItem(mParticle.Store.storageName,c);}function getPersistence(){var a;return a=mParticle.Store.SDKConfig.useCookieStorage?getCookie():getLocalStorage(),a}function getConsentState(a){var b=getPersistence();return b&&b[a]&&b[a].con?Consent.Serialization.fromMinifiedJsonObject(b[a].con):null}function getFirstSeenTime(a){if(!a)return null;var b=getPersistence();return b&&b[a]&&b[a].fst?b[a].fst:null}/**
 * set the "first seen" time for a user. the time will only be set once for a given
 * mpid after which subsequent calls will be ignored
-*/
-function setFirstSeenTime(mpid, time) {
-    if (!mpid) {
-        return;
-    }
-    if (!time) {
-        time = new Date().getTime();
-    }
-    var cookies = getPersistence();
-    if (cookies) {
-        if (!cookies[mpid]) {
-            cookies[mpid] = {};
-        }
-        if (!cookies[mpid].fst) {
-            cookies[mpid].fst = time;
-            saveCookies(cookies);
-        }
-    }
-}
-
-/**
+*/function setFirstSeenTime(a,b){if(a){b||(b=new Date().getTime());var c=getPersistence();c&&(!c[a]&&(c[a]={}),!c[a].fst&&(c[a].fst=b,saveCookies(c)));}}/**
 * returns the "last seen" time for a user. If the mpid represents the current user, the 
 * return value will always be the current time, otherwise it will be to stored "last seen" 
 * time
-*/
-function getLastSeenTime(mpid) {
-    if (!mpid) {
-        return null;
+*/function getLastSeenTime(a){if(!a)return null;if(a===mParticle.Identity.getCurrentUser().getMPID())//if the mpid is the current user, its last seen time is the current time
+return new Date().getTime();var b=getPersistence();return b&&b[a]&&b[a].lst?b[a].lst:null}function setLastSeenTime(a,b){if(a){b||(b=new Date().getTime());var c=getPersistence();c&&c[a]&&(c[a].lst=b,saveCookies(c));}}function getDeviceId(){return mParticle.Store.deviceId}function resetPersistence(){if(removeLocalStorage(StorageNames$1.localStorageName),removeLocalStorage(StorageNames$1.localStorageNameV3),removeLocalStorage(StorageNames$1.localStorageNameV4),removeLocalStorage(mParticle.Store.prodStorageName),removeLocalStorage(StorageNames$1.localStorageProductsV4),expireCookies(StorageNames$1.cookieName),expireCookies(StorageNames$1.cookieNameV2),expireCookies(StorageNames$1.cookieNameV3),expireCookies(StorageNames$1.cookieNameV4),mParticle._isTestEnv){removeLocalStorage(Helpers.createMainStorageName("abcdef")),expireCookies(Helpers.createMainStorageName("abcdef")),removeLocalStorage(Helpers.createProductStorageName("abcdef"));}}// Forwarder Batching Code
+var forwardingStatsBatches={uploadsTable:{},forwardingStatsEventQueue:[]};var Persistence = {useLocalStorage:useLocalStorage,initializeStorage:initializeStorage,update:update,determineLocalStorageAvailability:determineLocalStorageAvailability,getUserProductsFromLS:getUserProductsFromLS,getAllUserProductsFromLS:getAllUserProductsFromLS,setLocalStorage:setLocalStorage,getLocalStorage:getLocalStorage,storeDataInMemory:storeDataInMemory,retrieveDeviceId:retrieveDeviceId,parseDeviceId:parseDeviceId,expireCookies:expireCookies,getCookie:getCookie,setCookie:setCookie,reduceAndEncodeCookies:reduceAndEncodeCookies,findPrevCookiesBasedOnUI:findPrevCookiesBasedOnUI,replaceCommasWithPipes:replaceCommasWithPipes,replacePipesWithCommas:replacePipesWithCommas,replaceApostrophesWithQuotes:replaceApostrophesWithQuotes,replaceQuotesWithApostrophes:replaceQuotesWithApostrophes,createCookieString:createCookieString,revertCookieString:revertCookieString,decodeCookies:decodeCookies,getCookieDomain:getCookieDomain,getUserIdentities:getUserIdentities,getAllUserAttributes:getAllUserAttributes,getCartProducts:getCartProducts,setCartProducts:setCartProducts,saveCookies:saveCookies,saveUserIdentitiesToCookies:saveUserIdentitiesToCookies,saveUserAttributesToCookies:saveUserAttributesToCookies,saveUserCookieSyncDatesToCookies:saveUserCookieSyncDatesToCookies,saveUserConsentStateToCookies:saveUserConsentStateToCookies,getPersistence:getPersistence,getDeviceId:getDeviceId,resetPersistence:resetPersistence,getConsentState:getConsentState,forwardingStatsBatches:forwardingStatsBatches,getFirstSeenTime:getFirstSeenTime,getLastSeenTime:getLastSeenTime,setFirstSeenTime:setFirstSeenTime,setLastSeenTime:setLastSeenTime};
+
+var Messages$2=Constants.Messages,cookieSyncManager={attemptCookieSync:function attemptCookieSync(a,b){var c,d,e,f,g;b&&!mParticle.Store.webviewBridgeEnabled&&mParticle.Store.pixelConfigurations.forEach(function(h){c={moduleId:h.moduleId,frequencyCap:h.frequencyCap,pixelUrl:cookieSyncManager.replaceAmp(h.pixelUrl),redirectUrl:h.redirectUrl?cookieSyncManager.replaceAmp(h.redirectUrl):null},e=cookieSyncManager.replaceMPID(c.pixelUrl,b),f=c.redirectUrl?cookieSyncManager.replaceMPID(c.redirectUrl,b):"",g=e+encodeURIComponent(f);var i=Persistence.getPersistence();return a&&a!==b?void(i&&i[b]&&(!i[b].csd&&(i[b].csd={}),performCookieSync(g,c.moduleId,b,i[b].csd))):void(i[b]&&(!i[b].csd&&(i[b].csd={}),d=i[b].csd[c.moduleId.toString()]?i[b].csd[c.moduleId.toString()]:null,d?new Date().getTime()>new Date(d).getTime()+24*(60*(1e3*(60*c.frequencyCap)))&&performCookieSync(g,c.moduleId,b,i[b].csd):performCookieSync(g,c.moduleId,b,i[b].csd)))});},replaceMPID:function replaceMPID(a,b){return a.replace("%%mpid%%",b)},replaceAmp:function replaceAmp(a){return a.replace(/&amp;/g,"&")}};function performCookieSync(a,b,c,d){var e=document.createElement("img");mParticle.Logger.verbose(Messages$2.InformationMessages.CookieSync),e.src=a,d[b.toString()]=new Date().getTime(),Persistence.saveUserCookieSyncDatesToCookies(c,d);}
+
+var MessageType$1=Types.MessageType,ApplicationTransitionType$1=Types.ApplicationTransitionType,parseNumber$1=Helpers.parseNumber;function convertCustomFlags(a,b){var c=[];for(var d in b.flags={},a.CustomFlags)c=[],a.CustomFlags.hasOwnProperty(d)&&(Array.isArray(a.CustomFlags[d])?a.CustomFlags[d].forEach(function(a){("number"==typeof a||"string"==typeof a||"boolean"==typeof a)&&c.push(a.toString());}):("number"==typeof a.CustomFlags[d]||"string"==typeof a.CustomFlags[d]||"boolean"==typeof a.CustomFlags[d])&&c.push(a.CustomFlags[d].toString()),c.length&&(b.flags[d]=c));}function convertProductListToDTO(a){return a?a.map(function(a){return convertProductToDTO(a)}):[]}function convertProductToDTO(a){return {id:Helpers.parseStringOrNumber(a.Sku),nm:Helpers.parseStringOrNumber(a.Name),pr:parseNumber$1(a.Price),qt:parseNumber$1(a.Quantity),br:Helpers.parseStringOrNumber(a.Brand),va:Helpers.parseStringOrNumber(a.Variant),ca:Helpers.parseStringOrNumber(a.Category),ps:parseNumber$1(a.Position),cc:Helpers.parseStringOrNumber(a.CouponCode),tpa:parseNumber$1(a.TotalAmount),attrs:a.Attributes}}function convertToConsentStateDTO(a){if(!a)return null;var b={},c=a.getGDPRConsentState();if(c){var d={};for(var e in b.gdpr=d,c)if(c.hasOwnProperty(e)){var f=c[e];b.gdpr[e]={},"boolean"==typeof f.Consented&&(d[e].c=f.Consented),"number"==typeof f.Timestamp&&(d[e].ts=f.Timestamp),"string"==typeof f.ConsentDocument&&(d[e].d=f.ConsentDocument),"string"==typeof f.Location&&(d[e].l=f.Location),"string"==typeof f.HardwareId&&(d[e].h=f.HardwareId);}}return b}function createEventObject(a){var b={},c={},d={},e=mParticle.Identity.getCurrentUser(),f=e?e.getUserIdentities().userIdentities:{},g=a.messageType===Types.MessageType.OptOut?!mParticle.Store.isEnabled:null;if(mParticle.Store.sessionId||a.messageType==Types.MessageType.OptOut||mParticle.Store.webviewBridgeEnabled){for(var h in f)d[Types.IdentityType.getIdentityType(h)]=f[h];return a.messageType!==Types.MessageType.SessionEnd&&(mParticle.Store.dateLastEventSent=new Date),c=a.hasOwnProperty("toEventAPIObject")?a.toEventAPIObject():{EventName:a.name||a.messageType,EventCategory:a.eventType,EventAttributes:Helpers.sanitizeAttributes(a.data),EventDataType:a.messageType,CustomFlags:a.customFlags||{}},b={UserAttributes:e?e.getAllUserAttributes():{},UserIdentities:d,Store:mParticle.Store.serverSettings,SDKVersion:Constants.sdkVersion,SessionId:mParticle.Store.sessionId,SessionStartDate:mParticle.Store.sessionStartDate?mParticle.Store.sessionStartDate.getTime():null,Debug:mParticle.Store.SDKConfig.isDevelopmentMode,Location:mParticle.Store.currentPosition,OptOut:g,ExpandedEventCount:0,AppVersion:mParticle.Store.SDKConfig.appVersion,ClientGeneratedId:mParticle.Store.clientId,DeviceId:mParticle.Store.deviceId,MPID:e?e.getMPID():null,ConsentState:e?e.getConsentState():null,IntegrationAttributes:mParticle.Store.integrationAttributes},a.messageType===Types.MessageType.SessionEnd&&(c.SessionLength=mParticle.Store.dateLastEventSent.getTime()-mParticle.Store.sessionStartDate.getTime(),c.currentSessionMPIDs=mParticle.Store.currentSessionMPIDs,c.EventAttributes=mParticle.Store.sessionAttributes,mParticle.Store.currentSessionMPIDs=[],mParticle.Store.sessionStartDate=null),b.Timestamp=mParticle.Store.dateLastEventSent.getTime(),Helpers.extend({},c,b)}return null}function convertEventToDTO(a,b,c){var d={n:a.EventName,et:a.EventCategory,ua:a.UserAttributes,ui:a.UserIdentities,ia:a.IntegrationAttributes,str:a.Store,attrs:a.EventAttributes,sdk:a.SDKVersion,sid:a.SessionId,sl:a.SessionLength,ssd:a.SessionStartDate,dt:a.EventDataType,dbg:a.Debug,ct:a.Timestamp,lc:a.Location,o:a.OptOut,eec:a.ExpandedEventCount,av:a.AppVersion,cgid:a.ClientGeneratedId,das:a.DeviceId,mpid:a.MPID,smpids:a.currentSessionMPIDs},e=convertToConsentStateDTO(a.ConsentState);return e&&(d.con=e),a.EventDataType===MessageType$1.AppStateTransition&&(d.fr=b,d.iu=!1,d.at=ApplicationTransitionType$1.AppInit,d.lr=window.location.href||null,d.attrs=null),a.CustomFlags&&convertCustomFlags(a,d),a.EventDataType===MessageType$1.Commerce?(d.cu=c,a.ShoppingCart&&(d.sc={pl:convertProductListToDTO(a.ShoppingCart.ProductList)}),a.ProductAction?d.pd={an:a.ProductAction.ProductActionType,cs:parseNumber$1(a.ProductAction.CheckoutStep),co:a.ProductAction.CheckoutOptions,pl:convertProductListToDTO(a.ProductAction.ProductList),ti:a.ProductAction.TransactionId,ta:a.ProductAction.Affiliation,tcc:a.ProductAction.CouponCode,tr:parseNumber$1(a.ProductAction.TotalAmount),ts:parseNumber$1(a.ProductAction.ShippingAmount),tt:parseNumber$1(a.ProductAction.TaxAmount)}:a.PromotionAction?d.pm={an:a.PromotionAction.PromotionActionType,pl:a.PromotionAction.PromotionList.map(function(a){return {id:a.Id,nm:a.Name,cr:a.Creative,ps:a.Position?a.Position:0}})}:a.ProductImpressions&&(d.pi=a.ProductImpressions.map(function(a){return {pil:a.ProductImpressionList,pl:convertProductListToDTO(a.ProductList)}}))):a.EventDataType===MessageType$1.Profile&&(d.pet=a.ProfileMessageType),d}var ServerModel = {createEventObject:createEventObject,convertEventToDTO:convertEventToDTO,convertToConsentStateDTO:convertToConsentStateDTO};
+
+function getFilteredMparticleUser(a,b){return {getUserIdentities:function getUserIdentities(){var c={},d=Persistence.getUserIdentities(a);for(var e in d)d.hasOwnProperty(e)&&(c[Types.IdentityType.getIdentityName(Helpers.parseNumber(e))]=d[e]);return c=Helpers.filterUserIdentitiesForForwarders(c,b.userIdentityFilters),{userIdentities:c}},getMPID:function getMPID(){return a},getUserAttributesLists:function getUserAttributesLists(a){var b,c={};for(var d in b=this.getAllUserAttributes(),b)b.hasOwnProperty(d)&&Array.isArray(b[d])&&(c[d]=b[d].slice());return c=Helpers.filterUserAttributes(c,a.userAttributeFilters),c},getAllUserAttributes:function getAllUserAttributes(){var c={},d=Persistence.getAllUserAttributes(a);if(d)for(var e in d)d.hasOwnProperty(e)&&(c[e]=Array.isArray(d[e])?d[e].slice():d[e]);return c=Helpers.filterUserAttributes(c,b.userAttributeFilters),c}}}
+
+var runtime_1 = createCommonjsModule(function (module) {
+/**
+ * Copyright (c) 2014-present, Facebook, Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+var runtime = (function (exports) {
+
+  var Op = Object.prototype;
+  var hasOwn = Op.hasOwnProperty;
+  var undefined$1; // More compressible than void 0.
+  var $Symbol = typeof Symbol === "function" ? Symbol : {};
+  var iteratorSymbol = $Symbol.iterator || "@@iterator";
+  var asyncIteratorSymbol = $Symbol.asyncIterator || "@@asyncIterator";
+  var toStringTagSymbol = $Symbol.toStringTag || "@@toStringTag";
+
+  function wrap(innerFn, outerFn, self, tryLocsList) {
+    // If outerFn provided and outerFn.prototype is a Generator, then outerFn.prototype instanceof Generator.
+    var protoGenerator = outerFn && outerFn.prototype instanceof Generator ? outerFn : Generator;
+    var generator = Object.create(protoGenerator.prototype);
+    var context = new Context(tryLocsList || []);
+
+    // The ._invoke method unifies the implementations of the .next,
+    // .throw, and .return methods.
+    generator._invoke = makeInvokeMethod(innerFn, self, context);
+
+    return generator;
+  }
+  exports.wrap = wrap;
+
+  // Try/catch helper to minimize deoptimizations. Returns a completion
+  // record like context.tryEntries[i].completion. This interface could
+  // have been (and was previously) designed to take a closure to be
+  // invoked without arguments, but in all the cases we care about we
+  // already have an existing method we want to call, so there's no need
+  // to create a new function object. We can even get away with assuming
+  // the method takes exactly one argument, since that happens to be true
+  // in every case, so we don't have to touch the arguments object. The
+  // only additional allocation required is the completion record, which
+  // has a stable shape and so hopefully should be cheap to allocate.
+  function tryCatch(fn, obj, arg) {
+    try {
+      return { type: "normal", arg: fn.call(obj, arg) };
+    } catch (err) {
+      return { type: "throw", arg: err };
     }
-    if (mpid === mParticle.Identity.getCurrentUser().getMPID()) {
-        //if the mpid is the current user, its last seen time is the current time
-        return new Date().getTime();
+  }
+
+  var GenStateSuspendedStart = "suspendedStart";
+  var GenStateSuspendedYield = "suspendedYield";
+  var GenStateExecuting = "executing";
+  var GenStateCompleted = "completed";
+
+  // Returning this object from the innerFn has the same effect as
+  // breaking out of the dispatch switch statement.
+  var ContinueSentinel = {};
+
+  // Dummy constructor functions that we use as the .constructor and
+  // .constructor.prototype properties for functions that return Generator
+  // objects. For full spec compliance, you may wish to configure your
+  // minifier not to mangle the names of these two functions.
+  function Generator() {}
+  function GeneratorFunction() {}
+  function GeneratorFunctionPrototype() {}
+
+  // This is a polyfill for %IteratorPrototype% for environments that
+  // don't natively support it.
+  var IteratorPrototype = {};
+  IteratorPrototype[iteratorSymbol] = function () {
+    return this;
+  };
+
+  var getProto = Object.getPrototypeOf;
+  var NativeIteratorPrototype = getProto && getProto(getProto(values([])));
+  if (NativeIteratorPrototype &&
+      NativeIteratorPrototype !== Op &&
+      hasOwn.call(NativeIteratorPrototype, iteratorSymbol)) {
+    // This environment has a native %IteratorPrototype%; use it instead
+    // of the polyfill.
+    IteratorPrototype = NativeIteratorPrototype;
+  }
+
+  var Gp = GeneratorFunctionPrototype.prototype =
+    Generator.prototype = Object.create(IteratorPrototype);
+  GeneratorFunction.prototype = Gp.constructor = GeneratorFunctionPrototype;
+  GeneratorFunctionPrototype.constructor = GeneratorFunction;
+  GeneratorFunctionPrototype[toStringTagSymbol] =
+    GeneratorFunction.displayName = "GeneratorFunction";
+
+  // Helper for defining the .next, .throw, and .return methods of the
+  // Iterator interface in terms of a single ._invoke method.
+  function defineIteratorMethods(prototype) {
+    ["next", "throw", "return"].forEach(function(method) {
+      prototype[method] = function(arg) {
+        return this._invoke(method, arg);
+      };
+    });
+  }
+
+  exports.isGeneratorFunction = function(genFun) {
+    var ctor = typeof genFun === "function" && genFun.constructor;
+    return ctor
+      ? ctor === GeneratorFunction ||
+        // For the native GeneratorFunction constructor, the best we can
+        // do is to check its .name property.
+        (ctor.displayName || ctor.name) === "GeneratorFunction"
+      : false;
+  };
+
+  exports.mark = function(genFun) {
+    if (Object.setPrototypeOf) {
+      Object.setPrototypeOf(genFun, GeneratorFunctionPrototype);
     } else {
-        var cookies = getPersistence();
-        if (cookies && cookies[mpid] && cookies[mpid].lst) {
-            return cookies[mpid].lst;
+      genFun.__proto__ = GeneratorFunctionPrototype;
+      if (!(toStringTagSymbol in genFun)) {
+        genFun[toStringTagSymbol] = "GeneratorFunction";
+      }
+    }
+    genFun.prototype = Object.create(Gp);
+    return genFun;
+  };
+
+  // Within the body of any async function, `await x` is transformed to
+  // `yield regeneratorRuntime.awrap(x)`, so that the runtime can test
+  // `hasOwn.call(value, "__await")` to determine if the yielded value is
+  // meant to be awaited.
+  exports.awrap = function(arg) {
+    return { __await: arg };
+  };
+
+  function AsyncIterator(generator) {
+    function invoke(method, arg, resolve, reject) {
+      var record = tryCatch(generator[method], generator, arg);
+      if (record.type === "throw") {
+        reject(record.arg);
+      } else {
+        var result = record.arg;
+        var value = result.value;
+        if (value &&
+            typeof value === "object" &&
+            hasOwn.call(value, "__await")) {
+          return Promise.resolve(value.__await).then(function(value) {
+            invoke("next", value, resolve, reject);
+          }, function(err) {
+            invoke("throw", err, resolve, reject);
+          });
         }
-        return null;
+
+        return Promise.resolve(value).then(function(unwrapped) {
+          // When a yielded Promise is resolved, its final value becomes
+          // the .value of the Promise<{value,done}> result for the
+          // current iteration.
+          result.value = unwrapped;
+          resolve(result);
+        }, function(error) {
+          // If a rejected Promise was yielded, throw the rejection back
+          // into the async generator function so it can be handled there.
+          return invoke("throw", error, resolve, reject);
+        });
+      }
     }
-}
 
-function setLastSeenTime(mpid, time) {
-    if (!mpid) {
-        return;
+    var previousPromise;
+
+    function enqueue(method, arg) {
+      function callInvokeWithMethodAndArg() {
+        return new Promise(function(resolve, reject) {
+          invoke(method, arg, resolve, reject);
+        });
+      }
+
+      return previousPromise =
+        // If enqueue has been called before, then we want to wait until
+        // all previous Promises have been resolved before calling invoke,
+        // so that results are always delivered in the correct order. If
+        // enqueue has not been called before, then it is important to
+        // call invoke immediately, without waiting on a callback to fire,
+        // so that the async generator function has the opportunity to do
+        // any necessary setup in a predictable way. This predictability
+        // is why the Promise constructor synchronously invokes its
+        // executor callback, and why async functions synchronously
+        // execute code before the first await. Since we implement simple
+        // async functions in terms of async generators, it is especially
+        // important to get this right, even though it requires care.
+        previousPromise ? previousPromise.then(
+          callInvokeWithMethodAndArg,
+          // Avoid propagating failures to Promises returned by later
+          // invocations of the iterator.
+          callInvokeWithMethodAndArg
+        ) : callInvokeWithMethodAndArg();
     }
-    if (!time) {
-        time = new Date().getTime();
-    }
-    var cookies = getPersistence();
-    if (cookies && cookies[mpid]) {
-        cookies[mpid].lst = time;
-        saveCookies(cookies);
-    }
-}
 
-function getDeviceId() {
-    return mParticle.Store.deviceId;
-}
+    // Define the unified helper method that is used to implement .next,
+    // .throw, and .return (see defineIteratorMethods).
+    this._invoke = enqueue;
+  }
 
-function resetPersistence() {
-    removeLocalStorage(StorageNames$1.localStorageName);
-    removeLocalStorage(StorageNames$1.localStorageNameV3);
-    removeLocalStorage(StorageNames$1.localStorageNameV4);
-    removeLocalStorage(mParticle.Store.prodStorageName);
-    removeLocalStorage(StorageNames$1.localStorageProductsV4);
+  defineIteratorMethods(AsyncIterator.prototype);
+  AsyncIterator.prototype[asyncIteratorSymbol] = function () {
+    return this;
+  };
+  exports.AsyncIterator = AsyncIterator;
 
-    expireCookies(StorageNames$1.cookieName);
-    expireCookies(StorageNames$1.cookieNameV2);
-    expireCookies(StorageNames$1.cookieNameV3);
-    expireCookies(StorageNames$1.cookieNameV4);
-    if (mParticle._isTestEnv) {
-        var testWorkspaceToken = 'abcdef';
-        removeLocalStorage(Helpers.createMainStorageName(testWorkspaceToken));
-        expireCookies(Helpers.createMainStorageName(testWorkspaceToken));
-        removeLocalStorage(Helpers.createProductStorageName(testWorkspaceToken));
-    }
-}
+  // Note that simple async functions are implemented on top of
+  // AsyncIterator objects; they just return a Promise for the value of
+  // the final result produced by the iterator.
+  exports.async = function(innerFn, outerFn, self, tryLocsList) {
+    var iter = new AsyncIterator(
+      wrap(innerFn, outerFn, self, tryLocsList)
+    );
 
-// Forwarder Batching Code
-var forwardingStatsBatches = {
-    uploadsTable: {},
-    forwardingStatsEventQueue: []
-};
+    return exports.isGeneratorFunction(outerFn)
+      ? iter // If outerFn is a generator, return the full iterator.
+      : iter.next().then(function(result) {
+          return result.done ? result.value : iter.next();
+        });
+  };
 
-var Persistence = {
-    useLocalStorage: useLocalStorage,
-    initializeStorage: initializeStorage,
-    update: update,
-    determineLocalStorageAvailability: determineLocalStorageAvailability,
-    getUserProductsFromLS: getUserProductsFromLS,
-    getAllUserProductsFromLS: getAllUserProductsFromLS,
-    setLocalStorage: setLocalStorage,
-    getLocalStorage: getLocalStorage,
-    storeDataInMemory: storeDataInMemory,
-    retrieveDeviceId: retrieveDeviceId,
-    parseDeviceId: parseDeviceId,
-    expireCookies: expireCookies,
-    getCookie: getCookie,
-    setCookie: setCookie,
-    reduceAndEncodeCookies: reduceAndEncodeCookies,
-    findPrevCookiesBasedOnUI: findPrevCookiesBasedOnUI,
-    replaceCommasWithPipes: replaceCommasWithPipes,
-    replacePipesWithCommas: replacePipesWithCommas,
-    replaceApostrophesWithQuotes: replaceApostrophesWithQuotes,
-    replaceQuotesWithApostrophes: replaceQuotesWithApostrophes,
-    createCookieString: createCookieString,
-    revertCookieString: revertCookieString,
-    decodeCookies: decodeCookies,
-    getCookieDomain: getCookieDomain,
-    getUserIdentities: getUserIdentities,
-    getAllUserAttributes: getAllUserAttributes,
-    getCartProducts: getCartProducts,
-    setCartProducts: setCartProducts,
-    saveCookies: saveCookies,
-    saveUserIdentitiesToCookies: saveUserIdentitiesToCookies,
-    saveUserAttributesToCookies: saveUserAttributesToCookies,
-    saveUserCookieSyncDatesToCookies: saveUserCookieSyncDatesToCookies,
-    saveUserConsentStateToCookies: saveUserConsentStateToCookies,
-    getPersistence: getPersistence,
-    getDeviceId: getDeviceId,
-    resetPersistence: resetPersistence,
-    getConsentState: getConsentState,
-    forwardingStatsBatches: forwardingStatsBatches,
-    getFirstSeenTime: getFirstSeenTime,
-    getLastSeenTime: getLastSeenTime,
-    setFirstSeenTime: setFirstSeenTime,
-    setLastSeenTime: setLastSeenTime
-};
+  function makeInvokeMethod(innerFn, self, context) {
+    var state = GenStateSuspendedStart;
 
-var Messages$2 = Constants.Messages;
+    return function invoke(method, arg) {
+      if (state === GenStateExecuting) {
+        throw new Error("Generator is already running");
+      }
 
-var cookieSyncManager = {
-    attemptCookieSync: function(previousMPID, mpid) {
-        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
-        if (mpid && !mParticle.Store.webviewBridgeEnabled) {
-            mParticle.Store.pixelConfigurations.forEach(function(pixelSettings) {
-                pixelConfig = {
-                    moduleId: pixelSettings.moduleId,
-                    frequencyCap: pixelSettings.frequencyCap,
-                    pixelUrl: cookieSyncManager.replaceAmp(pixelSettings.pixelUrl),
-                    redirectUrl: pixelSettings.redirectUrl ? cookieSyncManager.replaceAmp(pixelSettings.redirectUrl) : null
-                };
-
-                url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
-                redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
-                urlWithRedirect = url + encodeURIComponent(redirect);
-                var cookies = Persistence.getPersistence();
-
-                if (previousMPID && previousMPID !== mpid) {
-                    if (cookies && cookies[mpid]) {
-                        if (!cookies[mpid].csd) {
-                            cookies[mpid].csd = {};
-                        }
-                        performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
-                    }
-                    return;
-                } else {
-                    if (cookies[mpid]) {
-                        if (!cookies[mpid].csd) {
-                            cookies[mpid].csd = {};
-                        }
-                        lastSyncDateForModule = cookies[mpid].csd[(pixelConfig.moduleId).toString()] ? cookies[mpid].csd[(pixelConfig.moduleId).toString()] : null;
-
-                        if (lastSyncDateForModule) {
-                            // Check to see if we need to refresh cookieSync
-                            if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
-                                performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
-                            }
-                        } else {
-                            performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
-                        }
-                    }
-                }
-            });
+      if (state === GenStateCompleted) {
+        if (method === "throw") {
+          throw arg;
         }
+
+        // Be forgiving, per 25.3.3.3.3 of the spec:
+        // https://people.mozilla.org/~jorendorff/es6-draft.html#sec-generatorresume
+        return doneResult();
+      }
+
+      context.method = method;
+      context.arg = arg;
+
+      while (true) {
+        var delegate = context.delegate;
+        if (delegate) {
+          var delegateResult = maybeInvokeDelegate(delegate, context);
+          if (delegateResult) {
+            if (delegateResult === ContinueSentinel) continue;
+            return delegateResult;
+          }
+        }
+
+        if (context.method === "next") {
+          // Setting context._sent for legacy support of Babel's
+          // function.sent implementation.
+          context.sent = context._sent = context.arg;
+
+        } else if (context.method === "throw") {
+          if (state === GenStateSuspendedStart) {
+            state = GenStateCompleted;
+            throw context.arg;
+          }
+
+          context.dispatchException(context.arg);
+
+        } else if (context.method === "return") {
+          context.abrupt("return", context.arg);
+        }
+
+        state = GenStateExecuting;
+
+        var record = tryCatch(innerFn, self, context);
+        if (record.type === "normal") {
+          // If an exception is thrown from innerFn, we leave state ===
+          // GenStateExecuting and loop back for another invocation.
+          state = context.done
+            ? GenStateCompleted
+            : GenStateSuspendedYield;
+
+          if (record.arg === ContinueSentinel) {
+            continue;
+          }
+
+          return {
+            value: record.arg,
+            done: context.done
+          };
+
+        } else if (record.type === "throw") {
+          state = GenStateCompleted;
+          // Dispatch the exception by looping back around to the
+          // context.dispatchException(context.arg) call above.
+          context.method = "throw";
+          context.arg = record.arg;
+        }
+      }
+    };
+  }
+
+  // Call delegate.iterator[context.method](context.arg) and handle the
+  // result, either by returning a { value, done } result from the
+  // delegate iterator, or by modifying context.method and context.arg,
+  // setting context.delegate to null, and returning the ContinueSentinel.
+  function maybeInvokeDelegate(delegate, context) {
+    var method = delegate.iterator[context.method];
+    if (method === undefined$1) {
+      // A .throw or .return when the delegate iterator has no .throw
+      // method always terminates the yield* loop.
+      context.delegate = null;
+
+      if (context.method === "throw") {
+        // Note: ["return"] must be used for ES3 parsing compatibility.
+        if (delegate.iterator["return"]) {
+          // If the delegate iterator has a return method, give it a
+          // chance to clean up.
+          context.method = "return";
+          context.arg = undefined$1;
+          maybeInvokeDelegate(delegate, context);
+
+          if (context.method === "throw") {
+            // If maybeInvokeDelegate(context) changed context.method from
+            // "return" to "throw", let that override the TypeError below.
+            return ContinueSentinel;
+          }
+        }
+
+        context.method = "throw";
+        context.arg = new TypeError(
+          "The iterator does not provide a 'throw' method");
+      }
+
+      return ContinueSentinel;
+    }
+
+    var record = tryCatch(method, delegate.iterator, context.arg);
+
+    if (record.type === "throw") {
+      context.method = "throw";
+      context.arg = record.arg;
+      context.delegate = null;
+      return ContinueSentinel;
+    }
+
+    var info = record.arg;
+
+    if (! info) {
+      context.method = "throw";
+      context.arg = new TypeError("iterator result is not an object");
+      context.delegate = null;
+      return ContinueSentinel;
+    }
+
+    if (info.done) {
+      // Assign the result of the finished delegate to the temporary
+      // variable specified by delegate.resultName (see delegateYield).
+      context[delegate.resultName] = info.value;
+
+      // Resume execution at the desired location (see delegateYield).
+      context.next = delegate.nextLoc;
+
+      // If context.method was "throw" but the delegate handled the
+      // exception, let the outer generator proceed normally. If
+      // context.method was "next", forget context.arg since it has been
+      // "consumed" by the delegate iterator. If context.method was
+      // "return", allow the original .return call to continue in the
+      // outer generator.
+      if (context.method !== "return") {
+        context.method = "next";
+        context.arg = undefined$1;
+      }
+
+    } else {
+      // Re-yield the result returned by the delegate method.
+      return info;
+    }
+
+    // The delegate iterator is finished, so forget it and continue with
+    // the outer generator.
+    context.delegate = null;
+    return ContinueSentinel;
+  }
+
+  // Define Generator.prototype.{next,throw,return} in terms of the
+  // unified ._invoke helper method.
+  defineIteratorMethods(Gp);
+
+  Gp[toStringTagSymbol] = "Generator";
+
+  // A Generator should always return itself as the iterator object when the
+  // @@iterator function is called on it. Some browsers' implementations of the
+  // iterator prototype chain incorrectly implement this, causing the Generator
+  // object to not be returned from this call. This ensures that doesn't happen.
+  // See https://github.com/facebook/regenerator/issues/274 for more details.
+  Gp[iteratorSymbol] = function() {
+    return this;
+  };
+
+  Gp.toString = function() {
+    return "[object Generator]";
+  };
+
+  function pushTryEntry(locs) {
+    var entry = { tryLoc: locs[0] };
+
+    if (1 in locs) {
+      entry.catchLoc = locs[1];
+    }
+
+    if (2 in locs) {
+      entry.finallyLoc = locs[2];
+      entry.afterLoc = locs[3];
+    }
+
+    this.tryEntries.push(entry);
+  }
+
+  function resetTryEntry(entry) {
+    var record = entry.completion || {};
+    record.type = "normal";
+    delete record.arg;
+    entry.completion = record;
+  }
+
+  function Context(tryLocsList) {
+    // The root entry object (effectively a try statement without a catch
+    // or a finally block) gives us a place to store values thrown from
+    // locations where there is no enclosing try statement.
+    this.tryEntries = [{ tryLoc: "root" }];
+    tryLocsList.forEach(pushTryEntry, this);
+    this.reset(true);
+  }
+
+  exports.keys = function(object) {
+    var keys = [];
+    for (var key in object) {
+      keys.push(key);
+    }
+    keys.reverse();
+
+    // Rather than returning an object with a next method, we keep
+    // things simple and return the next function itself.
+    return function next() {
+      while (keys.length) {
+        var key = keys.pop();
+        if (key in object) {
+          next.value = key;
+          next.done = false;
+          return next;
+        }
+      }
+
+      // To avoid creating an additional object, we just hang the .value
+      // and .done properties off the next function object itself. This
+      // also ensures that the minifier will not anonymize the function.
+      next.done = true;
+      return next;
+    };
+  };
+
+  function values(iterable) {
+    if (iterable) {
+      var iteratorMethod = iterable[iteratorSymbol];
+      if (iteratorMethod) {
+        return iteratorMethod.call(iterable);
+      }
+
+      if (typeof iterable.next === "function") {
+        return iterable;
+      }
+
+      if (!isNaN(iterable.length)) {
+        var i = -1, next = function next() {
+          while (++i < iterable.length) {
+            if (hasOwn.call(iterable, i)) {
+              next.value = iterable[i];
+              next.done = false;
+              return next;
+            }
+          }
+
+          next.value = undefined$1;
+          next.done = true;
+
+          return next;
+        };
+
+        return next.next = next;
+      }
+    }
+
+    // Return an iterator with no values.
+    return { next: doneResult };
+  }
+  exports.values = values;
+
+  function doneResult() {
+    return { value: undefined$1, done: true };
+  }
+
+  Context.prototype = {
+    constructor: Context,
+
+    reset: function(skipTempReset) {
+      this.prev = 0;
+      this.next = 0;
+      // Resetting context._sent for legacy support of Babel's
+      // function.sent implementation.
+      this.sent = this._sent = undefined$1;
+      this.done = false;
+      this.delegate = null;
+
+      this.method = "next";
+      this.arg = undefined$1;
+
+      this.tryEntries.forEach(resetTryEntry);
+
+      if (!skipTempReset) {
+        for (var name in this) {
+          // Not sure about the optimal order of these conditions:
+          if (name.charAt(0) === "t" &&
+              hasOwn.call(this, name) &&
+              !isNaN(+name.slice(1))) {
+            this[name] = undefined$1;
+          }
+        }
+      }
     },
 
-    replaceMPID: function(string, mpid) {
-        return string.replace('%%mpid%%', mpid);
+    stop: function() {
+      this.done = true;
+
+      var rootEntry = this.tryEntries[0];
+      var rootRecord = rootEntry.completion;
+      if (rootRecord.type === "throw") {
+        throw rootRecord.arg;
+      }
+
+      return this.rval;
     },
 
-    replaceAmp: function(string) {
-        return string.replace(/&amp;/g, '&');
-    }
-};
+    dispatchException: function(exception) {
+      if (this.done) {
+        throw exception;
+      }
 
-function performCookieSync(url, moduleId, mpid, cookieSyncDates) {
-    var img = document.createElement('img');
+      var context = this;
+      function handle(loc, caught) {
+        record.type = "throw";
+        record.arg = exception;
+        context.next = loc;
 
-    mParticle.Logger.verbose(Messages$2.InformationMessages.CookieSync);
-
-    img.src = url;
-    cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
-    Persistence.saveUserCookieSyncDatesToCookies(mpid, cookieSyncDates);
-}
-
-var MessageType$1 = Types.MessageType,
-    ApplicationTransitionType$1 = Types.ApplicationTransitionType,
-    parseNumber$1 = Helpers.parseNumber;
-
-function convertCustomFlags(event, dto) {
-    var valueArray = [];
-    dto.flags = {};
-
-    for (var prop in event.CustomFlags) {
-        valueArray = [];
-
-        if (event.CustomFlags.hasOwnProperty(prop)) {
-            if (Array.isArray(event.CustomFlags[prop])) {
-                event.CustomFlags[prop].forEach(function(customFlagProperty) {
-                    if (typeof customFlagProperty === 'number'
-                        || typeof customFlagProperty === 'string'
-                        || typeof customFlagProperty === 'boolean') {
-                        valueArray.push(customFlagProperty.toString());
-                    }
-                });
-            }
-            else if (typeof event.CustomFlags[prop] === 'number'
-            || typeof event.CustomFlags[prop] === 'string'
-            || typeof event.CustomFlags[prop] === 'boolean') {
-                valueArray.push(event.CustomFlags[prop].toString());
-            }
-
-            if (valueArray.length) {
-                dto.flags[prop] = valueArray;
-            }
+        if (caught) {
+          // If the dispatched exception was caught by a catch block,
+          // then let that catch block handle the exception normally.
+          context.method = "next";
+          context.arg = undefined$1;
         }
+
+        return !! caught;
+      }
+
+      for (var i = this.tryEntries.length - 1; i >= 0; --i) {
+        var entry = this.tryEntries[i];
+        var record = entry.completion;
+
+        if (entry.tryLoc === "root") {
+          // Exception thrown outside of any try block that could handle
+          // it, so set the completion value of the entire function to
+          // throw the exception.
+          return handle("end");
+        }
+
+        if (entry.tryLoc <= this.prev) {
+          var hasCatch = hasOwn.call(entry, "catchLoc");
+          var hasFinally = hasOwn.call(entry, "finallyLoc");
+
+          if (hasCatch && hasFinally) {
+            if (this.prev < entry.catchLoc) {
+              return handle(entry.catchLoc, true);
+            } else if (this.prev < entry.finallyLoc) {
+              return handle(entry.finallyLoc);
+            }
+
+          } else if (hasCatch) {
+            if (this.prev < entry.catchLoc) {
+              return handle(entry.catchLoc, true);
+            }
+
+          } else if (hasFinally) {
+            if (this.prev < entry.finallyLoc) {
+              return handle(entry.finallyLoc);
+            }
+
+          } else {
+            throw new Error("try statement without catch or finally");
+          }
+        }
+      }
+    },
+
+    abrupt: function(type, arg) {
+      for (var i = this.tryEntries.length - 1; i >= 0; --i) {
+        var entry = this.tryEntries[i];
+        if (entry.tryLoc <= this.prev &&
+            hasOwn.call(entry, "finallyLoc") &&
+            this.prev < entry.finallyLoc) {
+          var finallyEntry = entry;
+          break;
+        }
+      }
+
+      if (finallyEntry &&
+          (type === "break" ||
+           type === "continue") &&
+          finallyEntry.tryLoc <= arg &&
+          arg <= finallyEntry.finallyLoc) {
+        // Ignore the finally entry if control is not jumping to a
+        // location outside the try/catch block.
+        finallyEntry = null;
+      }
+
+      var record = finallyEntry ? finallyEntry.completion : {};
+      record.type = type;
+      record.arg = arg;
+
+      if (finallyEntry) {
+        this.method = "next";
+        this.next = finallyEntry.finallyLoc;
+        return ContinueSentinel;
+      }
+
+      return this.complete(record);
+    },
+
+    complete: function(record, afterLoc) {
+      if (record.type === "throw") {
+        throw record.arg;
+      }
+
+      if (record.type === "break" ||
+          record.type === "continue") {
+        this.next = record.arg;
+      } else if (record.type === "return") {
+        this.rval = this.arg = record.arg;
+        this.method = "return";
+        this.next = "end";
+      } else if (record.type === "normal" && afterLoc) {
+        this.next = afterLoc;
+      }
+
+      return ContinueSentinel;
+    },
+
+    finish: function(finallyLoc) {
+      for (var i = this.tryEntries.length - 1; i >= 0; --i) {
+        var entry = this.tryEntries[i];
+        if (entry.finallyLoc === finallyLoc) {
+          this.complete(entry.completion, entry.afterLoc);
+          resetTryEntry(entry);
+          return ContinueSentinel;
+        }
+      }
+    },
+
+    "catch": function(tryLoc) {
+      for (var i = this.tryEntries.length - 1; i >= 0; --i) {
+        var entry = this.tryEntries[i];
+        if (entry.tryLoc === tryLoc) {
+          var record = entry.completion;
+          if (record.type === "throw") {
+            var thrown = record.arg;
+            resetTryEntry(entry);
+          }
+          return thrown;
+        }
+      }
+
+      // The context.catch method must only be called with a location
+      // argument that corresponds to a known catch block.
+      throw new Error("illegal catch attempt");
+    },
+
+    delegateYield: function(iterable, resultName, nextLoc) {
+      this.delegate = {
+        iterator: values(iterable),
+        resultName: resultName,
+        nextLoc: nextLoc
+      };
+
+      if (this.method === "next") {
+        // Deliberately forget the last sent value so that we don't
+        // accidentally pass it on to the delegate.
+        this.arg = undefined$1;
+      }
+
+      return ContinueSentinel;
     }
+  };
+
+  // Regardless of whether this script is executing as a CommonJS module
+  // or not, return the runtime object so that we can declare the variable
+  // regeneratorRuntime in the outer scope, which allows this module to be
+  // injected easily by `bin/regenerator --include-runtime script.js`.
+  return exports;
+
+}(
+  // If this script is executing as a CommonJS module, use module.exports
+  // as the regeneratorRuntime namespace. Otherwise create a new empty
+  // object. Either way, the resulting object will be used to initialize
+  // the regeneratorRuntime variable at the top of this file.
+   module.exports 
+));
+
+try {
+  regeneratorRuntime = runtime;
+} catch (accidentalStrictMode) {
+  // This module should not be running in strict mode, so the above
+  // assignment should always work unless something is misconfigured. Just
+  // in case runtime.js accidentally runs in strict mode, we can escape
+  // strict mode using a global Function call. This could conceivably fail
+  // if a Content Security Policy forbids using Function, but in that case
+  // the proper solution is to fix the accidental strict mode problem. If
+  // you've misconfigured your bundler to force strict mode and applied a
+  // CSP to forbid Function, and you're not willing to fix either of those
+  // problems, please detail your unique predicament in a GitHub issue.
+  Function("r", "regeneratorRuntime = r")(runtime);
+}
+});
+
+var regenerator = runtime_1;
+
+function _arrayWithoutHoles(arr) {
+  if (Array.isArray(arr)) {
+    for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) {
+      arr2[i] = arr[i];
+    }
+
+    return arr2;
+  }
 }
 
-function convertProductListToDTO(productList) {
-    if (!productList) {
-        return [];
-    }
+var arrayWithoutHoles = _arrayWithoutHoles;
 
-    return productList.map(function(product) {
-        return convertProductToDTO(product);
+function _iterableToArray(iter) {
+  if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter);
+}
+
+var iterableToArray = _iterableToArray;
+
+function _nonIterableSpread() {
+  throw new TypeError("Invalid attempt to spread non-iterable instance");
+}
+
+var nonIterableSpread = _nonIterableSpread;
+
+function _toConsumableArray(arr) {
+  return arrayWithoutHoles(arr) || iterableToArray(arr) || nonIterableSpread();
+}
+
+var toConsumableArray = _toConsumableArray;
+
+function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) {
+  try {
+    var info = gen[key](arg);
+    var value = info.value;
+  } catch (error) {
+    reject(error);
+    return;
+  }
+
+  if (info.done) {
+    resolve(value);
+  } else {
+    Promise.resolve(value).then(_next, _throw);
+  }
+}
+
+function _asyncToGenerator(fn) {
+  return function () {
+    var self = this,
+        args = arguments;
+    return new Promise(function (resolve, reject) {
+      var gen = fn.apply(self, args);
+
+      function _next(value) {
+        asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value);
+      }
+
+      function _throw(err) {
+        asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err);
+      }
+
+      _next(undefined);
     });
+  };
 }
 
-function convertProductToDTO(product) {
-    return {
-        id: Helpers.parseStringOrNumber(product.Sku),
-        nm: Helpers.parseStringOrNumber(product.Name),
-        pr: parseNumber$1(product.Price),
-        qt: parseNumber$1(product.Quantity),
-        br: Helpers.parseStringOrNumber(product.Brand),
-        va: Helpers.parseStringOrNumber(product.Variant),
-        ca: Helpers.parseStringOrNumber(product.Category),
-        ps: parseNumber$1(product.Position),
-        cc: Helpers.parseStringOrNumber(product.CouponCode),
-        tpa: parseNumber$1(product.TotalAmount),
-        attrs: product.Attributes
-    };
+var asyncToGenerator = _asyncToGenerator;
+
+function _classCallCheck(instance, Constructor) {
+  if (!(instance instanceof Constructor)) {
+    throw new TypeError("Cannot call a class as a function");
+  }
 }
 
-function convertToConsentStateDTO(state) {
-    if (!state) {
-        return null;
-    }
-    var jsonObject = {};
-    var gdprConsentState = state.getGDPRConsentState();
-    if (gdprConsentState) {
-        var gdpr = {};
-        jsonObject.gdpr = gdpr;
-        for (var purpose in gdprConsentState){
-            if (gdprConsentState.hasOwnProperty(purpose)) {
-                var gdprConsent = gdprConsentState[purpose];
-                jsonObject.gdpr[purpose] = {};
-                if (typeof(gdprConsent.Consented) === 'boolean') {
-                    gdpr[purpose].c = gdprConsent.Consented;
-                }
-                if (typeof(gdprConsent.Timestamp) === 'number') {
-                    gdpr[purpose].ts = gdprConsent.Timestamp;
-                }
-                if (typeof(gdprConsent.ConsentDocument) === 'string') {
-                    gdpr[purpose].d = gdprConsent.ConsentDocument;
-                }
-                if (typeof(gdprConsent.Location) === 'string') {
-                    gdpr[purpose].l = gdprConsent.Location;
-                }
-                if (typeof(gdprConsent.HardwareId) === 'string') {
-                    gdpr[purpose].h = gdprConsent.HardwareId;
-                }
-            }
-        }
-    }
+var classCallCheck = _classCallCheck;
 
-    return jsonObject;
+function _defineProperties(target, props) {
+  for (var i = 0; i < props.length; i++) {
+    var descriptor = props[i];
+    descriptor.enumerable = descriptor.enumerable || false;
+    descriptor.configurable = true;
+    if ("value" in descriptor) descriptor.writable = true;
+    Object.defineProperty(target, descriptor.key, descriptor);
+  }
 }
 
-function createEventObject(event) {
-    var uploadObject = {};
-    var eventObject = {};
-    var dtoUserIdentities = {};
-    var currentUser = mParticle.Identity.getCurrentUser();
-    var userIdentities = currentUser ? currentUser.getUserIdentities().userIdentities : {};
-    var optOut = (event.messageType === Types.MessageType.OptOut ? !mParticle.Store.isEnabled : null);
-
-    if (mParticle.Store.sessionId || event.messageType == Types.MessageType.OptOut || mParticle.Store.webviewBridgeEnabled) {
-        for (var identityKey in userIdentities) {
-            dtoUserIdentities[Types.IdentityType.getIdentityType(identityKey)] = userIdentities[identityKey];
-        }
-
-        if (event.messageType !== Types.MessageType.SessionEnd) {
-            mParticle.Store.dateLastEventSent = new Date();
-        }
-
-        if (event.hasOwnProperty('toEventAPIObject')) {
-            eventObject = event.toEventAPIObject();
-        } else {
-            eventObject = {
-                EventName: event.name || event.messageType,
-                EventCategory: event.eventType,
-                EventAttributes: Helpers.sanitizeAttributes(event.data),
-                EventDataType: event.messageType,
-                CustomFlags: event.customFlags || {}
-            };
-        }
-
-        uploadObject = {
-            UserAttributes: currentUser ? currentUser.getAllUserAttributes() : {},
-            UserIdentities: dtoUserIdentities,
-            Store: mParticle.Store.serverSettings,
-            SDKVersion: Constants.sdkVersion,
-            SessionId: mParticle.Store.sessionId,
-            SessionStartDate: mParticle.Store.sessionStartDate ? mParticle.Store.sessionStartDate.getTime() : null,
-            Debug: mParticle.Store.SDKConfig.isDevelopmentMode,
-            Location: mParticle.Store.currentPosition,
-            OptOut: optOut,
-            ExpandedEventCount: 0,
-            AppVersion: mParticle.Store.SDKConfig.appVersion,
-            ClientGeneratedId: mParticle.Store.clientId,
-            DeviceId: mParticle.Store.deviceId,
-            MPID: currentUser ? currentUser.getMPID() : null,
-            ConsentState: currentUser ? currentUser.getConsentState() : null,
-            IntegrationAttributes: mParticle.Store.integrationAttributes
-        };
-
-        if (event.messageType === Types.MessageType.SessionEnd) {
-            eventObject.SessionLength = mParticle.Store.dateLastEventSent.getTime() - mParticle.Store.sessionStartDate.getTime();
-            eventObject.currentSessionMPIDs = mParticle.Store.currentSessionMPIDs;
-            eventObject.EventAttributes = mParticle.Store.sessionAttributes;
-
-            mParticle.Store.currentSessionMPIDs = [];
-            mParticle.Store.sessionStartDate = null;
-        }
-
-        uploadObject.Timestamp = mParticle.Store.dateLastEventSent.getTime();
-
-        return Helpers.extend({}, eventObject, uploadObject);
-    }
-
-    return null;
+function _createClass(Constructor, protoProps, staticProps) {
+  if (protoProps) _defineProperties(Constructor.prototype, protoProps);
+  if (staticProps) _defineProperties(Constructor, staticProps);
+  return Constructor;
 }
 
-function convertEventToDTO(event, isFirstRun, currencyCode) {
-    var dto = {
-        n: event.EventName,
-        et: event.EventCategory,
-        ua: event.UserAttributes,
-        ui: event.UserIdentities,
-        ia: event.IntegrationAttributes,
-        str: event.Store,
-        attrs: event.EventAttributes,
-        sdk: event.SDKVersion,
-        sid: event.SessionId,
-        sl: event.SessionLength,
-        ssd: event.SessionStartDate,
-        dt: event.EventDataType,
-        dbg: event.Debug,
-        ct: event.Timestamp,
-        lc: event.Location,
-        o: event.OptOut,
-        eec: event.ExpandedEventCount,
-        av: event.AppVersion,
-        cgid: event.ClientGeneratedId,
-        das: event.DeviceId,
-        mpid: event.MPID,
-        smpids: event.currentSessionMPIDs
-    };
+var createClass = _createClass;
 
-    var consent = convertToConsentStateDTO(event.ConsentState);
-    if (consent) {
-        dto.con = consent;
-    }
-
-    if (event.EventDataType === MessageType$1.AppStateTransition) {
-        dto.fr = isFirstRun;
-        dto.iu = false;
-        dto.at = ApplicationTransitionType$1.AppInit;
-        dto.lr = window.location.href || null;
-        dto.attrs = null;
-    }
-
-    if (event.CustomFlags) {
-        convertCustomFlags(event, dto);
-    }
-
-    if (event.EventDataType === MessageType$1.Commerce) {
-        dto.cu = currencyCode;
-
-        if (event.ShoppingCart) {
-            dto.sc = {
-                pl: convertProductListToDTO(event.ShoppingCart.ProductList)
-            };
-        }
-
-        if (event.ProductAction) {
-            dto.pd = {
-                an: event.ProductAction.ProductActionType,
-                cs: parseNumber$1(event.ProductAction.CheckoutStep),
-                co: event.ProductAction.CheckoutOptions,
-                pl: convertProductListToDTO(event.ProductAction.ProductList),
-                ti: event.ProductAction.TransactionId,
-                ta: event.ProductAction.Affiliation,
-                tcc: event.ProductAction.CouponCode,
-                tr: parseNumber$1(event.ProductAction.TotalAmount),
-                ts: parseNumber$1(event.ProductAction.ShippingAmount),
-                tt: parseNumber$1(event.ProductAction.TaxAmount)
-            };
-        }
-        else if (event.PromotionAction) {
-            dto.pm = {
-                an: event.PromotionAction.PromotionActionType,
-                pl: event.PromotionAction.PromotionList.map(function(promotion) {
-                    return {
-                        id: promotion.Id,
-                        nm: promotion.Name,
-                        cr: promotion.Creative,
-                        ps: promotion.Position ? promotion.Position : 0
-                    };
-                })
-            };
-        }
-        else if (event.ProductImpressions) {
-            dto.pi = event.ProductImpressions.map(function(impression) {
-                return {
-                    pil: impression.ProductImpressionList,
-                    pl: convertProductListToDTO(impression.ProductList)
-                };
-            });
-        }
-    }
-    else if (event.EventDataType === MessageType$1.Profile) {
-        dto.pet = event.ProfileMessageType;
-    }
-
-    return dto;
-}
-
-var ServerModel = {
-    createEventObject: createEventObject,
-    convertEventToDTO: convertEventToDTO,
-    convertToConsentStateDTO: convertToConsentStateDTO
-};
-
-function getFilteredMparticleUser(mpid, forwarder) {
-    return {
-        getUserIdentities: function() {
-            var currentUserIdentities = {};
-            var identities = Persistence.getUserIdentities(mpid);
-
-            for (var identityType in identities) {
-                if (identities.hasOwnProperty(identityType)) {
-                    currentUserIdentities[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = identities[identityType];
-                }
-            }
-
-            currentUserIdentities = Helpers.filterUserIdentitiesForForwarders(currentUserIdentities, forwarder.userIdentityFilters);
-
-            return {
-                userIdentities: currentUserIdentities
-            };
-        },
-        getMPID: function() {
-            return mpid;
-        },
-        getUserAttributesLists: function(forwarder) {
-            var userAttributes,
-                userAttributesLists = {};
-
-            userAttributes = this.getAllUserAttributes();
-            for (var key in userAttributes) {
-                if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
-                    userAttributesLists[key] = userAttributes[key].slice();
-                }
-            }
-
-            userAttributesLists = Helpers.filterUserAttributes(userAttributesLists, forwarder.userAttributeFilters);
-
-            return userAttributesLists;
-        },
-        getAllUserAttributes: function() {
-            var userAttributesCopy = {};
-            var userAttributes = Persistence.getAllUserAttributes(mpid);
-
-            if (userAttributes) {
-                for (var prop in userAttributes) {
-                    if (userAttributes.hasOwnProperty(prop)) {
-                        if (Array.isArray(userAttributes[prop])) {
-                            userAttributesCopy[prop] = userAttributes[prop].slice();
-                        }
-                        else {
-                            userAttributesCopy[prop] = userAttributes[prop];
-                        }
-                    }
-                }
-            }
-
-            userAttributesCopy = Helpers.filterUserAttributes(userAttributesCopy, forwarder.userAttributeFilters);
-
-            return userAttributesCopy;
-        }
-    };
-}
-
-var HTTPCodes = Constants.HTTPCodes,
-    Messages$3 = Constants.Messages;
-
-function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
-    var mpid,
-        currentUser = mParticle.Identity.getCurrentUser();
-    if (currentUser) {
-        mpid = currentUser.getMPID();
-    }
-    if (mParticle.Store.webviewBridgeEnabled) {
-        NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
-    } else {
-        var xhr,
-            xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
-
-                    parseEventResponse(xhr.responseText);
-                }
-            };
-
-        mParticle.Logger.verbose(Messages$3.InformationMessages.SendBegin);
-
-        var validUserIdentities = [];
-
-        // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
-        if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
-            for (var key in event.UserIdentities) {
-                var userIdentity = {};
-                userIdentity.Identity = event.UserIdentities[key];
-                userIdentity.Type = Helpers.parseNumber(key);
-                validUserIdentities.push(userIdentity);
-            }
-            event.UserIdentities = validUserIdentities;
-        } else {
-            event.UserIdentities = [];
-        }
-
-        mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays, mParticle.Store.integrationDelayTimeoutStart, Date.now());
-        // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
-        // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
-        if (!mpid || mParticle.Store.requireDelay || !mParticle.Store.configurationLoaded) {
-            mParticle.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
-            mParticle.Store.eventQueue.push(event);
-        } else {
-            Helpers.processQueuedEvents(mParticle.Store.eventQueue, mpid, !mParticle.Store.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
-            if (!event) {
-                mParticle.Logger.error(Messages$3.ErrorMessages.EventEmpty);
-                return;
-            }
-
-            mParticle.Logger.verbose(Messages$3.InformationMessages.SendHttp);
-
-            xhr = Helpers.createXHR(xhrCallback);
-
-            if (xhr) {
-                try {
-                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken) + '/Events');
-                    xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun, mParticle.Store.currencyCode, mParticle.Store.integrationAttributes)));
-                    if (event.EventName !== Types.MessageType.AppStateTransition) {
-                        sendEventToForwarders(event);
-                    }
-                }
-                catch (e) {
-                    mParticle.Logger.error('Error sending event to mParticle servers. ' + e);
-                }
-            }
-        }
-    }
-}
-
-function sendAliasRequest(aliasRequest, callback) {
-    var xhr,
-        xhrCallback = function() {
-            if (xhr.readyState === 4) {
-                mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
-                //only parse error messages from failing requests
-                if (xhr.status !== 200 && xhr.status !== 202) {
-                    if (xhr.responseText) {
-                        var response = JSON.parse(xhr.responseText);
-                        if (response.hasOwnProperty('message')) {
-                            var errorMessage = response.message;
-                            Helpers.invokeAliasCallback(callback, xhr.status, errorMessage);
-                            return;
-                        }
-                    }
-                }
-                Helpers.invokeAliasCallback(callback, xhr.status);
-            }
-        };
-    mParticle.Logger.verbose(Messages$3.InformationMessages.SendAliasHttp);
-
-    xhr = Helpers.createXHR(xhrCallback);
-    if (xhr) {
-        try {
-            xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.aliasUrl, mParticle.Store.devToken) + '/Alias');
-            xhr.send(JSON.stringify(aliasRequest));
-        }
-        catch (e) {
-            Helpers.invokeAliasCallback(callback, HTTPCodes.noHttpCoverage, e);
-            mParticle.Logger.error('Error sending alias request to mParticle servers. ' + e);
-        }
-    }
-}
-
-function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid) {
-    var xhr, previousMPID,
-        xhrCallback = function() {
-            if (xhr.readyState === 4) {
-                mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
-                parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method);
-            }
-        };
-
-    mParticle.Logger.verbose(Messages$3.InformationMessages.SendIdentityBegin);
-
-    if (!identityApiRequest) {
-        mParticle.Logger.error(Messages$3.ErrorMessages.APIRequestEmpty);
-        return;
-    }
-
-    mParticle.Logger.verbose(Messages$3.InformationMessages.SendIdentityHttp);
-    xhr = Helpers.createXHR(xhrCallback);
-
-    if (xhr) {
-        try {
-            if (mParticle.Store.identityCallInFlight) {
-                Helpers.invokeCallback(callback, HTTPCodes.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
-            } else {
-                previousMPID = mpid || null;
-                if (method === 'modify') {
-                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl) + mpid + '/' + method);
-                } else {
-                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl) + method);
-                }
-                xhr.setRequestHeader('Content-Type', 'application/json');
-                xhr.setRequestHeader('x-mp-key', mParticle.Store.devToken);
-                mParticle.Store.identityCallInFlight = true;
-                xhr.send(JSON.stringify(identityApiRequest));
-            }
-        }
-        catch (e) {
-            mParticle.Store.identityCallInFlight = false;
-            Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, e);
-            mParticle.Logger.error('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
-        }
-    }
-}
-
-function sendBatchForwardingStatsToServer(forwardingStatsData, xhr) {
-    var url, data;
-    try {
-        url = Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken);
-        data = {
-            uuid: Helpers.generateUniqueId(),
-            data: forwardingStatsData
-        };
-
-        if (xhr) {
-            xhr.open('post', url + '/Forwarding');
-            xhr.send(JSON.stringify(data));
-        }
-    }
-    catch (e) {
-        mParticle.Logger.error('Error sending forwarding stats to mParticle servers.');
-    }
-}
-
-function sendSingleForwardingStatsToServer(forwardingStatsData) {
-    var url, data;
-    try {
-        var xhrCallback = function() {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 202) {
-                    mParticle.Logger.verbose('Successfully sent  ' + xhr.statusText + ' from server');
-                }
-            }
-        };
-        var xhr = Helpers.createXHR(xhrCallback);
-        url = Helpers.createServiceUrl(mParticle.Store.SDKConfig.v1SecureServiceUrl, mParticle.Store.devToken);
-        data = forwardingStatsData;
-
-        if (xhr) {
-            xhr.open('post', url + '/Forwarding');
-            xhr.send(JSON.stringify(data));
-        }
-    }
-    catch (e) {
-        mParticle.Logger.error('Error sending forwarding stats to mParticle servers.');
-    }
-}
-
-function getSDKConfiguration(apiKey, config, completeSDKInitialization) {
-    var url;
-    try {
-        var xhrCallback = function() {
-            if (xhr.readyState === 4) { 
-                // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
-                if (xhr.status === 200) {
-                    config = Helpers.extend({}, config, JSON.parse(xhr.responseText));
-                    completeSDKInitialization(apiKey, config);
-                    mParticle.Logger.verbose('Successfully received configuration from server');
-                } else {
-                    // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
-                    completeSDKInitialization(apiKey, config);
-                    mParticle.Logger.verbose('Issue with receiving configuration from server, received HTTP Code of ' + xhr.status);
-                }
-            }
-        };
-
-        var xhr = Helpers.createXHR(xhrCallback);
-        url = 'https://' + Constants.DefaultUrls.configUrl + apiKey + '/config?env=';
-        if (config.isDevelopmentMode) {
-            url = url + '1';
-        } else {
-            url = url + '0';
-        }
-
-        if (xhr) {
-            xhr.open('get', url);
-            xhr.send(null);
-        }
-    }
-    catch (e) {
-        completeSDKInitialization(apiKey, config);
-        mParticle.Logger.error('Error getting forwarder configuration from mParticle servers.');
-    }
-}
-
-var ApiClient = {
-    sendEventToServer: sendEventToServer,
-    sendIdentityRequest: sendIdentityRequest,
-    sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,
-    sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer,
-    sendAliasRequest: sendAliasRequest,
-    getSDKConfiguration: getSDKConfiguration
-};
-
-function initForwarders(userIdentities) {
-    var user = mParticle.Identity.getCurrentUser();
-    if (!mParticle.Store.webviewBridgeEnabled && mParticle.Store.configuredForwarders) {
-        // Some js libraries require that they be loaded first, or last, etc
-        mParticle.Store.configuredForwarders.sort(function(x, y) {
-            x.settings.PriorityValue = x.settings.PriorityValue || 0;
-            y.settings.PriorityValue = y.settings.PriorityValue || 0;
-            return -1 * (x.settings.PriorityValue - y.settings.PriorityValue);
-        });
-
-        mParticle.Store.activeForwarders = mParticle.Store.configuredForwarders.filter(function(forwarder) {
-            if (!isEnabledForUserConsent(forwarder.filteringConsentRuleValues, user)) {
-                return false;
-            }
-            if (!isEnabledForUserAttributes(forwarder.filteringUserAttributeValue, user)) {
-                return false;
-            }
-            if (!isEnabledForUnknownUser(forwarder.excludeAnonymousUser, user)) {
-                return false;
-            }
-
-            var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
-            var filteredUserAttributes = Helpers.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
-
-            if (!forwarder.initialized) {
-                forwarder.init(forwarder.settings,
-                    prepareForwardingStats,
-                    false,
-                    null,
-                    filteredUserAttributes,
-                    filteredUserIdentities,
-                    mParticle.Store.SDKConfig.appVersion,
-                    mParticle.Store.SDKConfig.appName,
-                    mParticle.Store.SDKConfig.customFlags,
-                    mParticle.Store.clientId);
-                forwarder.initialized = true;
-            }
-
-            return true;
-        });
-    }
-}
-
-function isEnabledForUserConsent(consentRules, user) {
-    if (!consentRules
-        || !consentRules.values
-        || !consentRules.values.length) {
-        return true;
-    }
-    if (!user) {
-        return false;
-    }
-    var purposeHashes = {};
-    var GDPRConsentHashPrefix = '1';
-    var consentState = user.getConsentState();
-    if (consentState) {
-        var gdprConsentState = consentState.getGDPRConsentState();
-        if (gdprConsentState) {
-            for (var purpose in gdprConsentState) {
-                if (gdprConsentState.hasOwnProperty(purpose)) {
-                    var purposeHash = Helpers.generateHash(GDPRConsentHashPrefix + purpose).toString();
-                    purposeHashes[purposeHash] = gdprConsentState[purpose].Consented;
-                }
-            }
-        }
-    }
-    var isMatch = false;
-    consentRules.values.forEach(function(consentRule) {
-        if (!isMatch) {
-            var purposeHash = consentRule.consentPurpose;
-            var hasConsented = consentRule.hasConsented;
-            if (purposeHashes.hasOwnProperty(purposeHash)
-                && purposeHashes[purposeHash] === hasConsented) {
-                isMatch = true;
-            }
-        }
+function _defineProperty(obj, key, value) {
+  if (key in obj) {
+    Object.defineProperty(obj, key, {
+      value: value,
+      enumerable: true,
+      configurable: true,
+      writable: true
     });
+  } else {
+    obj[key] = value;
+  }
 
-    return consentRules.includeOnMatch === isMatch;
+  return obj;
 }
 
-function isEnabledForUserAttributes(filterObject, user) {
-    if (!filterObject ||
-        !Helpers.isObject(filterObject) ||
-        !Object.keys(filterObject).length) {
-        return true;
+var defineProperty = _defineProperty;
+
+function convertEvents(a, b) { if (a === void 0 || null === a)
+    return null; if (void 0 === b || null === b || 1 > b.length)
+    return null; var c = [], d = !0, e = !1, f = void 0; try {
+    for (var g, h = b[Symbol.iterator](); !(d = (g = h.next()).done); d = !0) {
+        var i = g.value, j = convertEvent(i);
+        j && c.push(j);
     }
-
-    var attrHash,
-        valueHash,
-        userAttributes;
-
-    if (!user) {
-        return false;
-    } else {
-        userAttributes = user.getAllUserAttributes();
-    }
-
-    var isMatch = false;
-
+}
+catch (a) {
+    e = !0, f = a;
+}
+finally {
     try {
-        if (userAttributes && Helpers.isObject(userAttributes) && Object.keys(userAttributes).length) {
-            for (var attrName in userAttributes) {
-                if (userAttributes.hasOwnProperty(attrName)) {
-                    attrHash = Helpers.generateHash(attrName).toString();
-                    valueHash = Helpers.generateHash(userAttributes[attrName]).toString();
-
-                    if ((attrHash === filterObject.userAttributeName) && (valueHash === filterObject.userAttributeValue)) {
-                        isMatch = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (filterObject) {
-            return filterObject.includeOnMatch === isMatch;
-        } else {
-            return true;
-        }
-    } catch (e) {
-        // in any error scenario, err on side of returning true and forwarding event
-        return true;
+        d || null == h["return"] || h["return"]();
     }
-}
-
-function isEnabledForUnknownUser(excludeAnonymousUserBoolean, user) {
-    if (!user || !user.isLoggedIn()) {
-        if (excludeAnonymousUserBoolean) {
-            return false;
-        }
+    finally {
+        if (e)
+            throw f;
     }
-    return true;
-}
+} var k = b[b.length - 1], l = { source_request_id: Helpers.generateUniqueId(), mpid: a, environment: k.Debug ? "development" : "production", events: c, mp_deviceid: k.DeviceId, sdk_version: k.SDKVersion, device_info: { platform: "web", screen_width: window.screen.width, screen_height: window.screen.height }, user_attributes: k.UserAttributes, user_identities: convertUserIdentities(k.UserIdentities), consent_state: convertConsentState(k.ConsentState) }; return l; }
+function convertConsentState(a) { if (!a)
+    return null; var b = { gdpr: convertGdprConsentState(a.getGDPRConsentState()) }; return b; }
+function convertGdprConsentState(a) { if (!a)
+    return null; var b = {}; for (var c in a)
+    a.hasOwnProperty(c) && (b[c] = { consented: a[c].Consented, hardware_id: a[c].HardwareId, document: a[c].ConsentDocument, timestamp_unixtime_ms: a[c].Timestamp, location: a[c].Location }); return b; }
+function convertUserIdentities(a) { var b = {}; for (var c in a)
+    if (a.hasOwnProperty(c)) {
+        var d = window.parseInt(c, 10);
+        switch (d) {
+            case Types.IdentityType.CustomerId:
+                b.customer_id = a[c];
+                break;
+            case Types.IdentityType.Email:
+                b.email = a[c];
+                break;
+            case Types.IdentityType.Facebook:
+                b.facebook = a[c];
+                break;
+            case Types.IdentityType.FacebookCustomAudienceId:
+                b.facebook_custom_audience_id = a[c];
+                break;
+            case Types.IdentityType.Google:
+                b.google = a[c];
+                break;
+            case Types.IdentityType.Microsoft:
+                b.microsoft = a[c];
+                break;
+            case Types.IdentityType.Other:
+                b.other = a[c];
+                break;
+            case Types.IdentityType.Other2:
+                b.other_id_2 = a[c];
+                break;
+            case Types.IdentityType.Other3:
+                b.other_id_3 = a[c];
+                break;
+            case Types.IdentityType.Other4:
+                b.other_id_4 = a[c];
+                break;
+            default:
+        }
+    } return b; }
+function convertEvent(a) { switch (a.EventDataType) {
+    case Types.MessageType.AppStateTransition: return convertAST(a);
+    case Types.MessageType.Commerce: break;
+    case Types.MessageType.CrashReport: break;
+    case Types.MessageType.OptOut: break;
+    case Types.MessageType.PageEvent: return convertCustomEvent(a);
+    case Types.MessageType.PageView: break;
+    case Types.MessageType.Profile: break;
+    case Types.MessageType.SessionEnd: break;
+    case Types.MessageType.SessionStart: break;
+    default:
+} return null; }
+function convertAST(a) { var b = convertBaseEventData(a), c = { application_transition_type: "application_initialized", is_first_run: a.IsFirstRun, is_upgrade: !1 }; return c = Object.assign(c, b), { event_type: "application_state_transition", data: c }; }
+function convertCustomEvent(a) { var b = convertBaseEventData(a), c = { custom_event_type: convertSdkEventType(a.EventCategory), custom_flags: a.CustomFlags, event_name: a.EventName }; return c = Object.assign(c, b), { event_type: "custom_event", data: c }; }
+function convertSdkEventType(a) { return a === Types.EventType.Other ? "other" : a === Types.EventType.Location ? "location" : a === Types.EventType.Navigation ? "navigation" : a === Types.EventType.Search ? "search" : a === Types.EventType.Social ? "social" : a === Types.EventType.Transaction ? "transaction" : a === Types.EventType.UserContent ? "user_content" : a === Types.EventType.UserPreference ? "user_preference" : a === Types.CommerceEventType.ProductAddToCart ? "add_to_cart" : a === Types.CommerceEventType.ProductAddToWishlist ? "add_to_wishlist" : a === Types.CommerceEventType.ProductCheckout ? "checkout" : a === Types.CommerceEventType.ProductCheckoutOption ? "checkout_option" : a === Types.CommerceEventType.ProductClick ? "click" : a === Types.CommerceEventType.ProductImpression ? "impression" : a === Types.CommerceEventType.ProductPurchase ? "purchase" : a === Types.CommerceEventType.ProductRefund ? "refund" : a === Types.CommerceEventType.ProductRemoveFromCart ? "remove_from_cart" : a === Types.CommerceEventType.ProductRemoveFromWishlist ? "remove_from_wishlist" : a === Types.CommerceEventType.ProductViewDetail ? "view_detail" : a === Types.CommerceEventType.PromotionClick ? "promotion_click" : a === Types.CommerceEventType.PromotionView ? "promotion_view" : "unknown"; }
+function convertBaseEventData(a) { var b = { timestamp_unixtime_ms: a.Timestamp, session_uuid: a.SessionId, session_start_unixtime_ms: a.SessionStartDate, custom_attributes: a.EventAttributes, location: a.Location }; return b; }
 
-function applyToForwarders(functionName, functionArgs) {
-    if (mParticle.Store.activeForwarders.length) {
-        mParticle.Store.activeForwarders.forEach(function(forwarder) {
-            var forwarderFunction = forwarder[functionName];
-            if (forwarderFunction) {
+var BatchUploader = /*#__PURE__*/ function () {
+    function a(b, c) { var d = this; classCallCheck(this, a), defineProperty(this, "uploadIntervalMillis", void 0), defineProperty(this, "pendingEvents", void 0), defineProperty(this, "pendingUploads", void 0), defineProperty(this, "mp", void 0), defineProperty(this, "initialDelayMilliseconds", 500), this.mp = b, this.uploadIntervalMillis = c, this.pendingEvents = [], this.pendingUploads = [], setTimeout(function () { d.prepareAndUpload(!0, !1); }, this.uploadIntervalMillis + this.initialDelayMilliseconds); var e = this; window.addEventListener("beforeunload", function () { e.prepareAndUpload(!1, e.isBeaconAvailable()); }); }
+    return createClass(a, [{ key: "isBeaconAvailable", value: function isBeaconAvailable() { return !!navigator.sendBeacon; } }, { key: "queueEvent", value: function queueEvent(a) { a && (a.IsFirstRun = this.mp.Store.isFirstRun, this.pendingEvents.push(a), this.mp.Logger.verbose("Queuing event: ".concat(JSON.stringify(a))), this.mp.Logger.verbose("Queued event count: ".concat(this.pendingEvents.length))); } /**
+                 * This implements crucial logic to:
+                 * - bucket pending events by MPID, and then by Session, and upload individual batches for each bucket.
+                 *
+                 * In the future this should enforce other requirements such as maximum batch size.
+                 *
+                 * @param sdkEvents current pending events
+                 * @param defaultUser the user to reference for events that are missing data
+                 */
+        }, { key: "prepareAndUpload",
+            value: function () { var b = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function b(c, d) { var e, f, g, h, i, j, k, l = this; return regenerator.wrap(function (b) { for (;;)
+                switch (b.prev = b.next) {
+                    case 0: return e = this.mp.Identity.getCurrentUser(), f = this.pendingEvents, this.pendingEvents = [], g = a.createNewUploads(f, e), g && g.length && (h = this.pendingUploads).push.apply(h, toConsumableArray(g)), i = this.pendingUploads, this.pendingUploads = [], b.next = 9, a.upload(this.mp, i, d);
+                    case 9: j = b.sent, j && j.length && (k = this.pendingUploads).unshift.apply(k, toConsumableArray(j)), c && setTimeout(function () { l.prepareAndUpload(!0, !1); }, this.uploadIntervalMillis);
+                    case 12:
+                    case "end": return b.stop();
+                } }, b, this); })); return function prepareAndUpload() { return b.apply(this, arguments); }; }() }], [{ key: "createNewUploads", value: function createNewUploads(a, b) {
+                if (!b || !a || !a.length)
+                    return null; //bucket by MPID, and then by session, ordered by timestamp
+                var c = [], d = new Map, e = !0, f = !1, g = void 0;
                 try {
-                    var result = forwarder[functionName](functionArgs);
-
-                    if (result) {
-                        mParticle.Logger.verbose(result);
+                    for (var h, i, j = a[Symbol.iterator](); !(e = (h = j.next()).done); e = !0) {
+                        i = h.value, i.MPID || (i.MPID = b.getMPID(), i.UserIdentities = Persistence.getUserIdentities(i.MPID), i.UserAttributes = Persistence.getAllUserAttributes(i.MPID), i.ConsentState = Persistence.getConsentState(i.MPID));
+                        var B = d.get(i.MPID);
+                        B || (B = []), B.push(i), d.set(i.MPID, B);
                     }
                 }
-                catch (e) {
-                    mParticle.Logger.verbose(e);
+                catch (a) {
+                    f = !0, g = a;
                 }
-            }
-        });
-    }
-}
-
-function sendEventToForwarders(event) {
-    var clonedEvent,
-        hashedEventName,
-        hashedEventType,
-        filterUserIdentities = function(event, filterList) {
-            if (event.UserIdentities && event.UserIdentities.length) {
-                event.UserIdentities.forEach(function(userIdentity, i) {
-                    if (Helpers.inArray(filterList, userIdentity.Type)) {
-                        event.UserIdentities.splice(i, 1);
-
-                        if (i > 0) {
-                            i--;
+                finally {
+                    try {
+                        e || null == j["return"] || j["return"]();
+                    }
+                    finally {
+                        if (f)
+                            throw g;
+                    }
+                }
+                for (var k = 0, l = Array.from(d.entries()); k < l.length; k++) {
+                    var m = l[k], n = m[0], o = m[1], p = new Map, q = !0, r = !1, s = void 0;
+                    try {
+                        for (var t, u = o[Symbol.iterator](); !(q = (t = u.next()).done); q = !0) {
+                            var v = t.value, w = p.get(v.SessionId);
+                            w || (w = []), w.push(v), p.set(v.SessionId, w);
                         }
                     }
-                });
-            }
-        },
-
-        filterAttributes = function(event, filterList) {
-            var hash;
-
-            if (!filterList) {
-                return;
-            }
-
-            for (var attrName in event.EventAttributes) {
-                if (event.EventAttributes.hasOwnProperty(attrName)) {
-                    hash = Helpers.generateHash(event.EventCategory + event.EventName + attrName);
-
-                    if (Helpers.inArray(filterList, hash)) {
-                        delete event.EventAttributes[attrName];
+                    catch (a) {
+                        r = !0, s = a;
+                    }
+                    finally {
+                        try {
+                            q || null == u["return"] || u["return"]();
+                        }
+                        finally {
+                            if (r)
+                                throw s;
+                        }
+                    }
+                    for (var x = 0, y = Array.from(p.entries()); x < y.length; x++) {
+                        var z = y[x], A = convertEvents(n, z[1]);
+                        A && c.push(A);
                     }
                 }
-            }
-        },
-        inFilteredList = function(filterList, hash) {
-            if (filterList && filterList.length) {
-                if (Helpers.inArray(filterList, hash)) {
-                    return true;
-                }
-            }
-
-            return false;
-        },
-        forwardingRuleMessageTypes = [
-            Types.MessageType.PageEvent,
-            Types.MessageType.PageView,
-            Types.MessageType.Commerce
-        ];
-
-    if (!mParticle.Store.webviewBridgeEnabled && mParticle.Store.activeForwarders) {
-        hashedEventName = Helpers.generateHash(event.EventCategory + event.EventName);
-        hashedEventType = Helpers.generateHash(event.EventCategory);
-
-        for (var i = 0; i < mParticle.Store.activeForwarders.length; i++) {
-            // Check attribute forwarding rule. This rule allows users to only forward an event if a
-            // specific attribute exists and has a specific value. Alternatively, they can specify
-            // that an event not be forwarded if the specified attribute name and value exists.
-            // The two cases are controlled by the "includeOnMatch" boolean value.
-            // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
-
-            if (forwardingRuleMessageTypes.indexOf(event.EventDataType) > -1
-                && mParticle.Store.activeForwarders[i].filteringEventAttributeValue
-                && mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName
-                && mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue) {
-
-                var foundProp = null;
-
-                // Attempt to find the attribute in the collection of event attributes
-                if (event.EventAttributes) {
-                    for (var prop in event.EventAttributes) {
-                        var hashedEventAttributeName;
-                        hashedEventAttributeName = Helpers.generateHash(prop).toString();
-
-                        if (hashedEventAttributeName === mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName) {
-                            foundProp = {
-                                name: hashedEventAttributeName,
-                                value: Helpers.generateHash(event.EventAttributes[prop]).toString()
-                            };
-                        }
-                        
-                        if (foundProp) {
+                return c;
+            } }, { key: "upload", value: function () { var a = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function a(b, c, d) { var e, f, g, h, j; return regenerator.wrap(function (a) { for (;;)
+                switch (a.prev = a.next) {
+                    case 0:
+                        if (c && !(1 > c.length)) {
+                            a.next = 2;
                             break;
                         }
-                    }
-                }
-
-                var isMatch = foundProp !== null && foundProp.value === mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue;
-
-                var shouldInclude = mParticle.Store.activeForwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
-
-                if (!shouldInclude) {
-                    continue;
-                }
-            }
-
-            // Clone the event object, as we could be sending different attributes to each forwarder
-            clonedEvent = {};
-            clonedEvent = Helpers.extend(true, clonedEvent, event);
-            // Check event filtering rules
-            if (event.EventDataType === Types.MessageType.PageEvent
-                && (inFilteredList(mParticle.Store.activeForwarders[i].eventNameFilters, hashedEventName)
-                    || inFilteredList(mParticle.Store.activeForwarders[i].eventTypeFilters, hashedEventType))) {
-                continue;
-            }
-            else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(mParticle.Store.activeForwarders[i].eventTypeFilters, hashedEventType)) {
-                continue;
-            }
-            else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(mParticle.Store.activeForwarders[i].screenNameFilters, hashedEventName)) {
-                continue;
-            }
-
-            // Check attribute filtering rules
-            if (clonedEvent.EventAttributes) {
-                if (event.EventDataType === Types.MessageType.PageEvent) {
-                    filterAttributes(clonedEvent, mParticle.Store.activeForwarders[i].attributeFilters);
-                }
-                else if (event.EventDataType === Types.MessageType.PageView) {
-                    filterAttributes(clonedEvent, mParticle.Store.activeForwarders[i].pageViewAttributeFilters);
-                }
-            }
-
-            // Check user identity filtering rules
-            filterUserIdentities(clonedEvent, mParticle.Store.activeForwarders[i].userIdentityFilters);
-
-            // Check user attribute filtering rules
-            clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, mParticle.Store.activeForwarders[i].userAttributeFilters);
-
-            mParticle.Logger.verbose('Sending message to forwarder: ' + mParticle.Store.activeForwarders[i].name);
-
-            if (mParticle.Store.activeForwarders[i].process) {
-                var result = mParticle.Store.activeForwarders[i].process(clonedEvent);
-
-                if (result) {
-                    mParticle.Logger.verbose(result);
-                }
-            }
-
-        }
-    }
-}
-
-function callSetUserAttributeOnForwarders(key, value) {
-    if (mParticle.Store.activeForwarders.length) {
-        mParticle.Store.activeForwarders.forEach(function(forwarder) {
-            if (forwarder.setUserAttribute &&
-                forwarder.userAttributeFilters &&
-                !Helpers.inArray(forwarder.userAttributeFilters, Helpers.generateHash(key))) {
-
-                try {
-                    var result = forwarder.setUserAttribute(key, value);
-
-                    if (result) {
-                        mParticle.Logger.verbose(result);
-                    }
-                }
-                catch (e) {
-                    mParticle.Logger.error(e);
-                }
-            }
-        });
-    }
-}
-
-function setForwarderUserIdentities(userIdentities) {
-    mParticle.Store.activeForwarders.forEach(function(forwarder) {
-        var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
-        if (forwarder.setUserIdentity) {
-            filteredUserIdentities.forEach(function(identity) {
-                var result = forwarder.setUserIdentity(identity.Identity, identity.Type);
-                if (result) {
-                    mParticle.Logger.verbose(result);
-                }
-            });
-        }
-    });
-}
-
-function setForwarderOnUserIdentified(user) {
-    mParticle.Store.activeForwarders.forEach(function(forwarder) {
-        var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
-        if (forwarder.onUserIdentified) {
-            var result = forwarder.onUserIdentified(filteredUser);
-            if (result) {
-                mParticle.Logger.verbose(result);
-            }
-        }
-    });
-}
-
-function setForwarderOnIdentityComplete(user, identityMethod) {
-    var result;
-
-    mParticle.Store.activeForwarders.forEach(function(forwarder) {
-        var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
-        if (identityMethod === 'identify') {
-            if (forwarder.onIdentifyComplete) {
-                result = forwarder.onIdentifyComplete(filteredUser);
-                if (result) {
-                    mParticle.Logger.verbose(result);
-                }
-            }
-        }
-        else if (identityMethod === 'login') {
-            if (forwarder.onLoginComplete) {
-                result = forwarder.onLoginComplete(filteredUser);
-                if (result) {
-                    mParticle.Logger.verbose(result);
-                }
-            }
-        } else if (identityMethod === 'logout') {
-            if (forwarder.onLogoutComplete) {
-                result = forwarder.onLogoutComplete(filteredUser);
-                if (result) {
-                    mParticle.Logger.verbose(result);
-                }
-            }
-        } else if (identityMethod === 'modify') {
-            if (forwarder.onModifyComplete) {
-                result = forwarder.onModifyComplete(filteredUser);
-                if (result) {
-                    mParticle.Logger.verbose(result);
-                }
-            }
-        }
-    });
-}
-
-function prepareForwardingStats(forwarder, event) {
-    var forwardingStatsData,
-        queue = getForwarderStatsQueue();
-
-    if (forwarder && forwarder.isVisible) {
-        forwardingStatsData = {
-            mid: forwarder.id,
-            esid: forwarder.eventSubscriptionId,
-            n: event.EventName,
-            attrs: event.EventAttributes,
-            sdk: event.SDKVersion,
-            dt: event.EventDataType,
-            et: event.EventCategory,
-            dbg: event.Debug,
-            ct: event.Timestamp,
-            eec: event.ExpandedEventCount
-        };
-
-        if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
-            queue.push(forwardingStatsData);
-            setForwarderStatsQueue(queue);
-        } else {
-            ApiClient.sendSingleForwardingStatsToServer(forwardingStatsData);
-        }
-    }
-}
-
-function getForwarderStatsQueue() {
-    return Persistence.forwardingStatsBatches.forwardingStatsEventQueue;
-}
-
-function setForwarderStatsQueue(queue) {
-    Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
-}
-
-function configureForwarder(configuration) {
-    var newForwarder = null,
-        config = configuration,
-        forwarders = {};
-
-    // if there are kits inside of mParticle.Store.SDKConfig.kits, then mParticle is self hosted
-    if (Helpers.isObject(mParticle.Store.SDKConfig.kits) && Object.keys(mParticle.Store.SDKConfig.kits).length > 0) {
-        forwarders = mParticle.Store.SDKConfig.kits;
-    // otherwise mParticle is loaded via script tag
-    } else if (mParticle.preInit.forwarderConstructors.length > 0) {
-        mParticle.preInit.forwarderConstructors.forEach(function (forwarder) {
-            forwarders[forwarder.name] = forwarder;
-        });
-    }
-
-    for (var name in forwarders) {
-        if (name === config.name) {
-            if (config.isDebug === mParticle.Store.SDKConfig.isDevelopmentMode || config.isSandbox === mParticle.Store.SDKConfig.isDevelopmentMode) {
-                newForwarder = new (forwarders[name]).constructor();
-
-                newForwarder.id = config.moduleId;
-                newForwarder.isSandbox = config.isDebug || config.isSandbox;
-                newForwarder.hasSandbox = config.hasDebugString === 'true';
-                newForwarder.isVisible = config.isVisible;
-                newForwarder.settings = config.settings;
-
-                newForwarder.eventNameFilters = config.eventNameFilters;
-                newForwarder.eventTypeFilters = config.eventTypeFilters;
-                newForwarder.attributeFilters = config.attributeFilters;
-
-                newForwarder.screenNameFilters = config.screenNameFilters;
-                newForwarder.screenNameFilters = config.screenNameFilters;
-                newForwarder.pageViewAttributeFilters = config.pageViewAttributeFilters;
-
-                newForwarder.userIdentityFilters = config.userIdentityFilters;
-                newForwarder.userAttributeFilters = config.userAttributeFilters;
-
-                newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
-                newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
-                newForwarder.eventSubscriptionId = config.eventSubscriptionId;
-                newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
-                newForwarder.excludeAnonymousUser = config.excludeAnonymousUser;
-
-                mParticle.Store.configuredForwarders.push(newForwarder);
-                break;
-            }
-        }
-    }
-}
-
-function configurePixel(settings) {
-    if (settings.isDebug === mParticle.Store.SDKConfig.isDevelopmentMode || settings.isProduction !== mParticle.Store.SDKConfig.isDevelopmentMode) {
-        mParticle.Store.pixelConfigurations.push(settings);
-    }
-}
-
-function processForwarders(config) {
-    if (!config) {
-        mParticle.Logger.warning('No config was passed. Cannot process forwarders');
-    } else {
-        try {
-            if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
-                config.kitConfigs.forEach(function(kitConfig) {
-                    configureForwarder(kitConfig);
-                });
-            }
-
-            if (Array.isArray(config.pixelConfigs) && config.pixelConfigs.length) {
-                config.pixelConfigs.forEach(function(pixelConfig) {
-                    configurePixel(pixelConfig);
-                });
-            }
-            initForwarders(mParticle.Store.SDKConfig.identifyRequest.userIdentities);
-        } catch (e) {
-            mParticle.Logger.error('Config was not parsed propertly. Forwarders may not be initialized.');
-        }
-    }
-}
-
-var Forwarders = {
-    initForwarders: initForwarders,
-    applyToForwarders: applyToForwarders,
-    sendEventToForwarders: sendEventToForwarders,
-    callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
-    setForwarderUserIdentities: setForwarderUserIdentities,
-    setForwarderOnUserIdentified: setForwarderOnUserIdentified,
-    setForwarderOnIdentityComplete: setForwarderOnIdentityComplete,
-    getForwarderStatsQueue: getForwarderStatsQueue,
-    setForwarderStatsQueue: setForwarderStatsQueue,
-    isEnabledForUserConsent: isEnabledForUserConsent,
-    isEnabledForUserAttributes: isEnabledForUserAttributes,
-    configurePixel: configurePixel,
-    processForwarders: processForwarders
-};
-
-var Validators$1 = Helpers.Validators,
-    Messages$4 = Constants.Messages;
-    
-function convertTransactionAttributesToProductAction(transactionAttributes, productAction) {
-    productAction.TransactionId = transactionAttributes.Id;
-    productAction.Affiliation = transactionAttributes.Affiliation;
-    productAction.CouponCode = transactionAttributes.CouponCode;
-    productAction.TotalAmount = transactionAttributes.Revenue;
-    productAction.ShippingAmount = transactionAttributes.Shipping;
-    productAction.TaxAmount = transactionAttributes.Tax;
-}
-
-function getProductActionEventName(productActionType) {
-    switch (productActionType) {
-        case Types.ProductActionType.AddToCart:
-            return 'AddToCart';
-        case Types.ProductActionType.AddToWishlist:
-            return 'AddToWishlist';
-        case Types.ProductActionType.Checkout:
-            return 'Checkout';
-        case Types.ProductActionType.CheckoutOption:
-            return 'CheckoutOption';
-        case Types.ProductActionType.Click:
-            return 'Click';
-        case Types.ProductActionType.Purchase:
-            return 'Purchase';
-        case Types.ProductActionType.Refund:
-            return 'Refund';
-        case Types.ProductActionType.RemoveFromCart:
-            return 'RemoveFromCart';
-        case Types.ProductActionType.RemoveFromWishlist:
-            return 'RemoveFromWishlist';
-        case Types.ProductActionType.ViewDetail:
-            return 'ViewDetail';
-        case Types.ProductActionType.Unknown:
-        default:
-            return 'Unknown';
-    }
-}
-
-function getPromotionActionEventName(promotionActionType) {
-    switch (promotionActionType) {
-        case Types.PromotionActionType.PromotionClick:
-            return 'PromotionClick';
-        case Types.PromotionActionType.PromotionView:
-            return 'PromotionView';
-        default:
-            return 'Unknown';
-    }
-}
-
-function convertProductActionToEventType(productActionType) {
-    switch (productActionType) {
-        case Types.ProductActionType.AddToCart:
-            return Types.CommerceEventType.ProductAddToCart;
-        case Types.ProductActionType.AddToWishlist:
-            return Types.CommerceEventType.ProductAddToWishlist;
-        case Types.ProductActionType.Checkout:
-            return Types.CommerceEventType.ProductCheckout;
-        case Types.ProductActionType.CheckoutOption:
-            return Types.CommerceEventType.ProductCheckoutOption;
-        case Types.ProductActionType.Click:
-            return Types.CommerceEventType.ProductClick;
-        case Types.ProductActionType.Purchase:
-            return Types.CommerceEventType.ProductPurchase;
-        case Types.ProductActionType.Refund:
-            return Types.CommerceEventType.ProductRefund;
-        case Types.ProductActionType.RemoveFromCart:
-            return Types.CommerceEventType.ProductRemoveFromCart;
-        case Types.ProductActionType.RemoveFromWishlist:
-            return Types.CommerceEventType.ProductRemoveFromWishlist;
-        case Types.ProductActionType.Unknown:
-            return Types.EventType.Unknown;
-        case Types.ProductActionType.ViewDetail:
-            return Types.CommerceEventType.ProductViewDetail;
-        default:
-            mParticle.Logger.error('Could not convert product action type ' + productActionType + ' to event type');
-            return null;
-    }
-}
-
-function convertPromotionActionToEventType(promotionActionType) {
-    switch (promotionActionType) {
-        case Types.PromotionActionType.PromotionClick:
-            return Types.CommerceEventType.PromotionClick;
-        case Types.PromotionActionType.PromotionView:
-            return Types.CommerceEventType.PromotionView;
-        default:
-            mParticle.Logger.error('Could not convert promotion action type ' + promotionActionType + ' to event type');
-            return null;
-    }
-}
-
-function generateExpandedEcommerceName(eventName, plusOne) {
-    return 'eCommerce - ' + eventName + ' - ' + (plusOne ? 'Total' : 'Item');
-}
-
-function extractProductAttributes(attributes, product) {
-    if (product.CouponCode) {
-        attributes['Coupon Code'] = product.CouponCode;
-    }
-    if (product.Brand) {
-        attributes['Brand'] = product.Brand;
-    }
-    if (product.Category) {
-        attributes['Category'] = product.Category;
-    }
-    if (product.Name) {
-        attributes['Name'] = product.Name;
-    }
-    if (product.Sku) {
-        attributes['Id'] = product.Sku;
-    }
-    if (product.Price) {
-        attributes['Item Price'] = product.Price;
-    }
-    if (product.Quantity) {
-        attributes['Quantity'] = product.Quantity;
-    }
-    if (product.Position) {
-        attributes['Position'] = product.Position;
-    }
-    if (product.Variant) {
-        attributes['Variant'] = product.Variant;
-    }
-    attributes['Total Product Amount'] = product.TotalAmount || 0;
-
-}
-
-function extractTransactionId(attributes, productAction) {
-    if (productAction.TransactionId) {
-        attributes['Transaction Id'] = productAction.TransactionId;
-    }
-}
-
-function extractActionAttributes(attributes, productAction) {
-    extractTransactionId(attributes, productAction);
-
-    if (productAction.Affiliation) {
-        attributes['Affiliation'] = productAction.Affiliation;
-    }
-
-    if (productAction.CouponCode) {
-        attributes['Coupon Code'] = productAction.CouponCode;
-    }
-
-    if (productAction.TotalAmount) {
-        attributes['Total Amount'] = productAction.TotalAmount;
-    }
-
-    if (productAction.ShippingAmount) {
-        attributes['Shipping Amount'] = productAction.ShippingAmount;
-    }
-
-    if (productAction.TaxAmount) {
-        attributes['Tax Amount'] = productAction.TaxAmount;
-    }
-
-    if (productAction.CheckoutOptions) {
-        attributes['Checkout Options'] = productAction.CheckoutOptions;
-    }
-
-    if (productAction.CheckoutStep) {
-        attributes['Checkout Step'] = productAction.CheckoutStep;
-    }
-}
-
-function extractPromotionAttributes(attributes, promotion) {
-    if (promotion.Id) {
-        attributes['Id'] = promotion.Id;
-    }
-
-    if (promotion.Creative) {
-        attributes['Creative'] = promotion.Creative;
-    }
-
-    if (promotion.Name) {
-        attributes['Name'] = promotion.Name;
-    }
-
-    if (promotion.Position) {
-        attributes['Position'] = promotion.Position;
-    }
-}
-
-function buildProductList(event, product) {
-    if (product) {
-        if (Array.isArray(product)) {
-            return product;
-        }
-
-        return [product];
-    }
-
-    return event.ShoppingCart.ProductList;
-}
-
-function createProduct(name,
-    sku,
-    price,
-    quantity,
-    variant,
-    category,
-    brand,
-    position,
-    couponCode,
-    attributes) {
-
-    attributes = Helpers.sanitizeAttributes(attributes);
-
-    if (typeof name !== 'string') {
-        mParticle.Logger.error('Name is required when creating a product');
-        return null;
-    }
-
-    if (!Validators$1.isStringOrNumber(sku)) {
-        mParticle.Logger.error('SKU is required when creating a product, and must be a string or a number');
-        return null;
-    }
-
-    if (!Validators$1.isStringOrNumber(price)) {
-        mParticle.Logger.error('Price is required when creating a product, and must be a string or a number');
-        return null;
-    }
-
-    if (!quantity) {
-        quantity = 1;
-    }
-
-    return {
-        Name: name,
-        Sku: sku,
-        Price: price,
-        Quantity: quantity,
-        Brand: brand,
-        Variant: variant,
-        Category: category,
-        Position: position,
-        CouponCode: couponCode,
-        TotalAmount: quantity * price,
-        Attributes: attributes
-    };
-}
-
-function createPromotion(id, creative, name, position) {
-    if (!Validators$1.isStringOrNumber(id)) {
-        mParticle.Logger.error(Messages$4.ErrorMessages.PromotionIdRequired);
-        return null;
-    }
-
-    return {
-        Id: id,
-        Creative: creative,
-        Name: name,
-        Position: position
-    };
-}
-
-function createImpression(name, product) {
-    if (typeof name !== 'string') {
-        mParticle.Logger.error('Name is required when creating an impression.');
-        return null;
-    }
-
-    if (!product) {
-        mParticle.Logger.error('Product is required when creating an impression.');
-        return null;
-    }
-
-    return {
-        Name: name,
-        Product: product
-    };
-}
-
-function createTransactionAttributes(id,
-    affiliation,
-    couponCode,
-    revenue,
-    shipping,
-    tax) {
-
-    if (!Validators$1.isStringOrNumber(id)) {
-        mParticle.Logger.error(Messages$4.ErrorMessages.TransactionIdRequired);
-        return null;
-    }
-
-    return {
-        Id: id,
-        Affiliation: affiliation,
-        CouponCode: couponCode,
-        Revenue: revenue,
-        Shipping: shipping,
-        Tax: tax
-    };
-}
-
-function expandProductImpression(commerceEvent) {
-    var appEvents = [];
-    if (!commerceEvent.ProductImpressions) {
-        return appEvents;
-    }
-    commerceEvent.ProductImpressions.forEach(function(productImpression) {
-        if (productImpression.ProductList) {
-            productImpression.ProductList.forEach(function(product) {
-                var attributes = Helpers.extend(false, {}, commerceEvent.EventAttributes);
-                if (product.Attributes) {
-                    for (var attribute in product.Attributes) {
-                        attributes[attribute] = product.Attributes[attribute];
-                    }
-                }
-                extractProductAttributes(attributes, product);
-                if (productImpression.ProductImpressionList) {
-                    attributes['Product Impression List'] = productImpression.ProductImpressionList;
-                }
-                var appEvent = ServerModel.createEventObject({
-                    messageType: Types.MessageType.PageEvent,
-                    name: generateExpandedEcommerceName('Impression'),
-                    data: attributes,
-                    eventType: Types.EventType.Transaction
-                });
-                appEvents.push(appEvent);
-            });
-        }
-    });
-
-    return appEvents;
-}
-
-function expandCommerceEvent(event) {
-    if (!event) {
-        return null;
-    }
-    return expandProductAction(event)
-        .concat(expandPromotionAction(event))
-        .concat(expandProductImpression(event));
-}
-
-function expandPromotionAction(commerceEvent) {
-    var appEvents = [];
-    if (!commerceEvent.PromotionAction) {
-        return appEvents;
-    }
-    var promotions = commerceEvent.PromotionAction.PromotionList;
-    promotions.forEach(function(promotion) {
-        var attributes = Helpers.extend(false, {}, commerceEvent.EventAttributes);
-        extractPromotionAttributes(attributes, promotion);
-
-        var appEvent = ServerModel.createEventObject({
-            messageType: Types.MessageType.PageEvent,
-            name: generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
-            data: attributes,
-            eventType: Types.EventType.Transaction
-        });
-        appEvents.push(appEvent);
-    });
-    return appEvents;
-}
-
-function expandProductAction(commerceEvent) {
-    var appEvents = [];
-    if (!commerceEvent.ProductAction) {
-        return appEvents;
-    }
-    var shouldExtractActionAttributes = false;
-    if (commerceEvent.ProductAction.ProductActionType === Types.ProductActionType.Purchase ||
-        commerceEvent.ProductAction.ProductActionType === Types.ProductActionType.Refund) {
-        var attributes = Helpers.extend(false, {}, commerceEvent.EventAttributes);
-        attributes['Product Count'] = commerceEvent.ProductAction.ProductList ? commerceEvent.ProductAction.ProductList.length : 0;
-        extractActionAttributes(attributes, commerceEvent.ProductAction);
-        if (commerceEvent.CurrencyCode) {
-            attributes['Currency Code'] = commerceEvent.CurrencyCode;
-        }
-        var plusOneEvent = ServerModel.createEventObject({
-            messageType: Types.MessageType.PageEvent,
-            name: generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType), true),
-            data: attributes,
-            eventType: Types.EventType.Transaction
-        });
-        appEvents.push(plusOneEvent);
-    }
-    else {
-        shouldExtractActionAttributes = true;
-    }
-
-    var products = commerceEvent.ProductAction.ProductList;
-
-    if (!products) {
-        return appEvents;
-    }
-
-    products.forEach(function(product) {
-        var attributes = Helpers.extend(false, commerceEvent.EventAttributes, product.Attributes);
-        if (shouldExtractActionAttributes) {
-            extractActionAttributes(attributes, commerceEvent.ProductAction);
-        }
-        else {
-            extractTransactionId(attributes, commerceEvent.ProductAction);
-        }
-        extractProductAttributes(attributes, product);
-
-        var productEvent = ServerModel.createEventObject({
-            messageType: Types.MessageType.PageEvent,
-            name: generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType)),
-            data: attributes,
-            eventType: Types.EventType.Transaction
-        });
-        appEvents.push(productEvent);
-    });
-
-    return appEvents;
-}
-
-function createCommerceEventObject(customFlags) {
-    var baseEvent,
-        currentUser = mParticle.Identity.getCurrentUser();
-
-    mParticle.Logger.verbose(Messages$4.InformationMessages.StartingLogCommerceEvent);
-
-    if (Helpers.canLog()) {
-        baseEvent = ServerModel.createEventObject({ messageType: Types.MessageType.Commerce });
-        baseEvent.EventName = 'eCommerce - ';
-        baseEvent.CurrencyCode = mParticle.Store.currencyCode;
-        baseEvent.ShoppingCart = {
-            ProductList: currentUser ? currentUser.getCart().getCartProducts() : []
-        };
-        baseEvent.CustomFlags = customFlags;
-
-        return baseEvent;
-    }
-    else {
-        mParticle.Logger.verbose(Messages$4.InformationMessages.AbandonLogEvent);
-    }
-
-    return null;
-}
-
-var Ecommerce = {
-    convertTransactionAttributesToProductAction: convertTransactionAttributesToProductAction,
-    getProductActionEventName: getProductActionEventName,
-    getPromotionActionEventName: getPromotionActionEventName,
-    convertProductActionToEventType: convertProductActionToEventType,
-    convertPromotionActionToEventType: convertPromotionActionToEventType,
-    buildProductList: buildProductList,
-    createProduct: createProduct,
-    createPromotion: createPromotion,
-    createImpression: createImpression,
-    createTransactionAttributes: createTransactionAttributes,
-    expandCommerceEvent: expandCommerceEvent,
-    createCommerceEventObject: createCommerceEventObject
-};
-
-var Messages$5 = Constants.Messages,
-    sendEventToServer$1 = ApiClient.sendEventToServer,
-    sendEventToForwarders$1 = Forwarders.sendEventToForwarders;
-
-
-function logEvent(event) {
-    mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogEvent + ': ' + event.name);
-    if (Helpers.canLog()) {
-        if (event.data) {
-            event.data = Helpers.sanitizeAttributes(event.data);
-        }
-        var uploadObject = ServerModel.createEventObject(event);
-
-        // TODO: Disabled for the time being until we can define an HTTP Request for BaseEvents
-        if (event.messageType === Types.MessageType.Media) {
-            sendEventToForwarders$1(uploadObject);
-        } else {
-            sendEventToServer$1(uploadObject, sendEventToForwarders$1, parseEventResponse);
-        }
-        Persistence.update();
-    }
-    else {
-        mParticle.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent);
-    }
-}
-
-function parseEventResponse(responseText) {
-    var now = new Date(),
-        settings,
-        prop,
-        fullProp;
-
-    if (!responseText) {
-        return;
-    }
-
-    try {
-        mParticle.Logger.verbose('Parsing response from server');
-        settings = JSON.parse(responseText);
-
-        if (settings && settings.Store) {
-            mParticle.Logger.verbose('Parsed store from response, updating local settings');
-
-            if (!mParticle.Store.serverSettings) {
-                mParticle.Store.serverSettings = {};
-            }
-
-            for (prop in settings.Store) {
-                if (!settings.Store.hasOwnProperty(prop)) {
-                    continue;
-                }
-
-                fullProp = settings.Store[prop];
-
-                if (!fullProp.Value || new Date(fullProp.Expires) < now) {
-                    // This setting should be deleted from the local store if it exists
-
-                    if (mParticle.Store.serverSettings.hasOwnProperty(prop)) {
-                        delete mParticle.Store.serverSettings[prop];
-                    }
-                }
-                else {
-                    // This is a valid setting
-                    mParticle.Store.serverSettings[prop] = fullProp;
-                }
-            }
-
-            Persistence.update();
-        }
-    }
-    catch (e) {
-        mParticle.Logger.error('Error parsing JSON response from server: ' + e.name);
-    }
-}
-
-function startTracking(callback) {
-    if (!mParticle.Store.isTracking) {
-        if ('geolocation' in navigator) {
-            mParticle.Store.watchPositionId = navigator.geolocation.watchPosition(successTracking, errorTracking);
-        }
-    } else {
-        var position = {
-            coords: {
-                latitude: mParticle.Store.currentPosition.lat,
-                longitude: mParticle.Store.currentPosition.lng
-            }
-        };
-        triggerCallback(callback, position);
-    }
-
-    function successTracking(position) {
-        mParticle.Store.currentPosition = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-        };
-
-        triggerCallback(callback, position);
-        // prevents callback from being fired multiple times
-        callback = null;
-
-        mParticle.Store.isTracking = true;
-    }
-
-    function errorTracking() {
-        triggerCallback(callback);
-        // prevents callback from being fired multiple times
-        callback = null;
-        mParticle.Store.isTracking = false;
-    }
-
-    function triggerCallback(callback, position) {
-        if (callback) {
-            try {
-                if (position) {
-                    callback(position);
-                } else {
-                    callback();
-                }
-            } catch (e) {
-                mParticle.Logger.error('Error invoking the callback passed to startTrackingLocation.');
-                mParticle.Logger.error(e);
-            }
-        }
-    }
-}
-
-function stopTracking() {
-    if (mParticle.Store.isTracking) {
-        navigator.geolocation.clearWatch(mParticle.Store.watchPositionId);
-        mParticle.Store.currentPosition = null;
-        mParticle.Store.isTracking = false;
-    }
-}
-
-function logOptOut() {
-    mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogOptOut);
-
-    var event = ServerModel.createEventObject({
-        messageType: Types.MessageType.OptOut,
-        eventType: Types.EventType.Other
-    });
-    sendEventToServer$1(event, sendEventToForwarders$1, parseEventResponse);
-}
-
-function logAST() {
-    logEvent({ messageType: Types.MessageType.AppStateTransition });
-}
-
-function logCheckoutEvent(step, options, attrs, customFlags) {
-    var event = Ecommerce.createCommerceEventObject(customFlags);
-
-    if (event) {
-        event.EventName += Ecommerce.getProductActionEventName(Types.ProductActionType.Checkout);
-        event.EventCategory = Types.CommerceEventType.ProductCheckout;
-        event.ProductAction = {
-            ProductActionType: Types.ProductActionType.Checkout,
-            CheckoutStep: step,
-            CheckoutOptions: options,
-            ProductList: event.ShoppingCart.ProductList
-        };
-
-        logCommerceEvent(event, attrs);
-    }
-}
-
-function logProductActionEvent(productActionType, product, attrs, customFlags) {
-    var event = Ecommerce.createCommerceEventObject(customFlags);
-
-    if (event) {
-        event.EventCategory = Ecommerce.convertProductActionToEventType(productActionType);
-        event.EventName += Ecommerce.getProductActionEventName(productActionType);
-        event.ProductAction = {
-            ProductActionType: productActionType,
-            ProductList: Array.isArray(product) ? product : [product]
-        };
-
-        logCommerceEvent(event, attrs);
-    }
-}
-
-function logPurchaseEvent(transactionAttributes, product, attrs, customFlags) {
-    var event = Ecommerce.createCommerceEventObject(customFlags);
-
-    if (event) {
-        event.EventName += Ecommerce.getProductActionEventName(Types.ProductActionType.Purchase);
-        event.EventCategory = Types.CommerceEventType.ProductPurchase;
-        event.ProductAction = {
-            ProductActionType: Types.ProductActionType.Purchase
-        };
-        event.ProductAction.ProductList = Ecommerce.buildProductList(event, product);
-
-        Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
-
-        logCommerceEvent(event, attrs);
-    }
-}
-
-function logRefundEvent(transactionAttributes, product, attrs, customFlags) {
-    if (!transactionAttributes) {
-        mParticle.Logger.error(Messages$5.ErrorMessages.TransactionRequired);
-        return;
-    }
-
-    var event = Ecommerce.createCommerceEventObject(customFlags);
-
-    if (event) {
-        event.EventName += Ecommerce.getProductActionEventName(Types.ProductActionType.Refund);
-        event.EventCategory = Types.CommerceEventType.ProductRefund;
-        event.ProductAction = {
-            ProductActionType: Types.ProductActionType.Refund
-        };
-        event.ProductAction.ProductList = Ecommerce.buildProductList(event, product);
-
-        Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
-
-        logCommerceEvent(event, attrs);
-    }
-}
-
-function logPromotionEvent(promotionType, promotion, attrs, customFlags) {
-    var event = Ecommerce.createCommerceEventObject(customFlags);
-
-    if (event) {
-        event.EventName += Ecommerce.getPromotionActionEventName(promotionType);
-        event.EventCategory = Ecommerce.convertPromotionActionToEventType(promotionType);
-        event.PromotionAction = {
-            PromotionActionType: promotionType,
-            PromotionList: [promotion]
-        };
-
-        logCommerceEvent(event, attrs);
-    }
-}
-
-function logImpressionEvent(impression, attrs, customFlags) {
-    var event = Ecommerce.createCommerceEventObject(customFlags);
-
-    if (event) {
-        event.EventName += 'Impression';
-        event.EventCategory = Types.CommerceEventType.ProductImpression;
-        if (!Array.isArray(impression)) {
-            impression = [impression];
-        }
-
-        event.ProductImpressions = [];
-
-        impression.forEach(function(impression) {
-            event.ProductImpressions.push({
-                ProductImpressionList: impression.Name,
-                ProductList: Array.isArray(impression.Product) ? impression.Product : [impression.Product]
-            });
-        });
-
-        logCommerceEvent(event, attrs);
-    }
-}
-
-
-function logCommerceEvent(commerceEvent, attrs) {
-    mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogCommerceEvent);
-
-    attrs = Helpers.sanitizeAttributes(attrs);
-
-    if (Helpers.canLog()) {
-        if (mParticle.Store.webviewBridgeEnabled) {
-            // Don't send shopping cart to parent sdks
-            commerceEvent.ShoppingCart = {};
-        }
-
-        if (attrs) {
-            commerceEvent.EventAttributes = attrs;
-        }
-
-        sendEventToServer$1(commerceEvent, sendEventToForwarders$1, parseEventResponse);
-        Persistence.update();
-    }
-    else {
-        mParticle.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent);
-    }
-}
-
-function addEventHandler(domEvent, selector, eventName, data, eventType) {
-    var elements = [],
-        handler = function(e) {
-            var timeoutHandler = function() {
-                if (element.href) {
-                    window.location.href = element.href;
-                }
-                else if (element.submit) {
-                    element.submit();
-                }
-            };
-
-            mParticle.Logger.verbose('DOM event triggered, handling event');
-
-            logEvent({
-                messageType: Types.MessageType.PageEvent,
-                name: typeof eventName === 'function' ? eventName(element) : eventName,
-                data: typeof data === 'function' ? data(element) : data,
-                eventType: eventType || Types.EventType.Other
-            });
-
-            // TODO: Handle middle-clicks and special keys (ctrl, alt, etc)
-            if ((element.href && element.target !== '_blank') || element.submit) {
-                // Give xmlhttprequest enough time to execute before navigating a link or submitting form
-
-                if (e.preventDefault) {
-                    e.preventDefault();
-                }
-                else {
-                    e.returnValue = false;
-                }
-
-                setTimeout(timeoutHandler, mParticle.Store.SDKConfig.timeout);
-            }
-        },
-        element,
-        i;
-
-    if (!selector) {
-        mParticle.Logger.error('Can\'t bind event, selector is required');
-        return;
-    }
-
-    // Handle a css selector string or a dom element
-    if (typeof selector === 'string') {
-        elements = document.querySelectorAll(selector);
-    }
-    else if (selector.nodeType) {
-        elements = [selector];
-    }
-
-    if (elements.length) {
-        mParticle.Logger.verbose('Found ' +
-            elements.length +
-            ' element' +
-            (elements.length > 1 ? 's' : '') +
-            ', attaching event handlers');
-
-        for (i = 0; i < elements.length; i++) {
-            element = elements[i];
-
-            if (element.addEventListener) {
-                element.addEventListener(domEvent, handler, false);
-            }
-            else if (element.attachEvent) {
-                element.attachEvent('on' + domEvent, handler);
-            }
-            else {
-                element['on' + domEvent] = handler;
-            }
-        }
-    }
-    else {
-        mParticle.Logger.verbose('No elements found');
-    }
-}
-
-var Events = {
-    logEvent: logEvent,
-    startTracking: startTracking,
-    stopTracking: stopTracking,
-    logCheckoutEvent: logCheckoutEvent,
-    logProductActionEvent: logProductActionEvent,
-    logPurchaseEvent: logPurchaseEvent,
-    logRefundEvent: logRefundEvent,
-    logPromotionEvent: logPromotionEvent,
-    logImpressionEvent: logImpressionEvent,
-    logOptOut: logOptOut,
-    logAST: logAST,
-    parseEventResponse: parseEventResponse,
-    addEventHandler: addEventHandler
-};
-
-var Messages$6 = Constants.Messages,
-    Validators$2 = Helpers.Validators,
-    HTTPCodes$1 = Constants.HTTPCodes,
-    sendEventToForwarders$2 = Forwarders.sendEventToForwarders,
-    sendIdentityRequest$1 = ApiClient.sendIdentityRequest;
-
-function checkIdentitySwap(previousMPID, currentMPID, currentSessionMPIDs) {
-    if (previousMPID && currentMPID && previousMPID !== currentMPID) {
-        var cookies = Persistence.useLocalStorage() ? Persistence.getLocalStorage() : Persistence.getCookie();
-        cookies.cu = currentMPID;
-        cookies.gs.csm = currentSessionMPIDs;
-        Persistence.saveCookies(cookies);
-    }
-}
-
-var IdentityRequest = {
-    createKnownIdentities: function(identityApiData, deviceId) {
-        var identitiesResult = {};
-
-        if (identityApiData && identityApiData.userIdentities && Helpers.isObject(identityApiData.userIdentities)) {
-            for (var identity in identityApiData.userIdentities) {
-                identitiesResult[identity] = identityApiData.userIdentities[identity];
-            }
-        }
-        identitiesResult.device_application_stamp = deviceId;
-
-        return identitiesResult;
-    },
-
-    preProcessIdentityRequest: function(identityApiData, callback, method) {
-        mParticle.Logger.verbose(Messages$6.InformationMessages.StartingLogEvent + ': ' + method);
-
-        var identityValidationResult = Validators$2.validateIdentities(identityApiData, method);
-
-        if (!identityValidationResult.valid) {
-            mParticle.Logger.error('ERROR: ' + identityValidationResult.error);
-            return {
-                valid: false,
-                error: identityValidationResult.error
-            };
-        }
-
-        if (callback && !Validators$2.isFunction(callback)) {
-            var error = 'The optional callback must be a function. You tried entering a(n) ' + typeof callback;
-            mParticle.Logger.error(error);
-            return {
-                valid: false,
-                error: error
-            };
-        }
-
-        return {
-            valid: true
-        };
-    },
-
-    createIdentityRequest: function(identityApiData, platform, sdkVendor, sdkVersion, deviceId, context, mpid) {
-        var APIRequest = {
-            client_sdk: {
-                platform: platform,
-                sdk_vendor: sdkVendor,
-                sdk_version: sdkVersion
-            },
-            context: context,
-            environment: mParticle.Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
-            request_id: Helpers.generateUniqueId(),
-            request_timestamp_ms: new Date().getTime(),
-            previous_mpid: mpid || null,
-            known_identities: this.createKnownIdentities(identityApiData, deviceId)
-        };
-
-        return APIRequest;
-    },
-
-    createModifyIdentityRequest: function(currentUserIdentities, newUserIdentities, platform, sdkVendor, sdkVersion, context) {
-        return {
-            client_sdk: {
-                platform: platform,
-                sdk_vendor: sdkVendor,
-                sdk_version: sdkVersion
-            },
-            context: context,
-            environment: mParticle.Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
-            request_id: Helpers.generateUniqueId(),
-            request_timestamp_ms: new Date().getTime(),
-            identity_changes: this.createIdentityChanges(currentUserIdentities, newUserIdentities)
-        };
-    },
-
-    createIdentityChanges: function(previousIdentities, newIdentities) {
-        var identityChanges = [];
-        var key;
-        if (newIdentities && Helpers.isObject(newIdentities) && previousIdentities && Helpers.isObject(previousIdentities)) {
-            for (key in newIdentities) {
-                identityChanges.push({
-                    old_value: previousIdentities[key] || null,
-                    new_value: newIdentities[key],
-                    identity_type: key
-                });
-            }
-        }
-
-        return identityChanges;
-    },
-
-    modifyUserIdentities: function(previousUserIdentities, newUserIdentities) {
-        var modifiedUserIdentities = {};
-
-        for (var key in newUserIdentities) {
-            modifiedUserIdentities[Types.IdentityType.getIdentityType(key)] = newUserIdentities[key];
-        }
-
-        for (key in previousUserIdentities) {
-            if (!modifiedUserIdentities[key]) {
-                modifiedUserIdentities[key] = previousUserIdentities[key];
-            }
-        }
-
-        return modifiedUserIdentities;
-    },
-
-    createAliasNetworkRequest: function(aliasRequest) {
-        return {
-            request_id: Helpers.generateUniqueId(),
-            request_type: 'alias',
-            environment: mParticle.Store.SDKConfig.isDevelopmentMode ? 'development' : 'production',
-            api_key: mParticle.Store.devToken,
-            data: {
-                destination_mpid: aliasRequest.destinationMpid,
-                source_mpid: aliasRequest.sourceMpid,
-                start_unixtime_ms: aliasRequest.startTime,
-                end_unixtime_ms: aliasRequest.endTime,
-                device_application_stamp: mParticle.Store.deviceId
-            }
-        };
-    },
-
-    convertAliasToNative: function(aliasRequest) {
-        return {
-            DestinationMpid: aliasRequest.destinationMpid,
-            SourceMpid: aliasRequest.sourceMpid,
-            StartUnixtimeMs: aliasRequest.startTime,
-            EndUnixtimeMs: aliasRequest.endTime
-        };
-    },
-
-    convertToNative: function(identityApiData) {
-        var nativeIdentityRequest = [];
-        if (identityApiData && identityApiData.userIdentities) {
-            for (var key in identityApiData.userIdentities) {
-                if (identityApiData.userIdentities.hasOwnProperty(key)) {
-                    nativeIdentityRequest.push({
-                        Type: Types.IdentityType.getIdentityType(key),
-                        Identity: identityApiData.userIdentities[key]
-                    });
-                }
-            }
-
-            return {
-                UserIdentities: nativeIdentityRequest
-            };
-        }
-    }
-};
-/**
-* Invoke these methods on the mParticle.Identity object.
-* Example: mParticle.Identity.getCurrentUser().
-* @class mParticle.Identity
-*/
-var IdentityAPI = {
-    HTTPCodes: HTTPCodes$1,
-    /**
+                        return a.abrupt("return", null);
+                    case 2: b.Logger.verbose("Uploading batches: ".concat(JSON.stringify(c))), b.Logger.verbose("Batch count: ".concat(c.length)), e = Helpers.createServiceUrl(b.Store.SDKConfig.v3SecureServiceUrl, b.Store.devToken) + "/events", f = 0;
+                    case 6:
+                        if (!(f < c.length)) {
+                            a.next = 38;
+                            break;
+                        }
+                        if (g = { method: "POST", headers: { Accept: "application/json", "Content-Type": "text/plain;charset=UTF-8" }, body: JSON.stringify(c[f]) }, a.prev = 8, !d) {
+                            a.next = 14;
+                            break;
+                        }
+                        h = new Blob([g.body], { type: "text/plain;charset=UTF-8" }), navigator.sendBeacon(e, h), a.next = 29;
+                        break;
+                    case 14: return b.Logger.verbose("Uploading request ID: ".concat(c[f].source_request_id)), a.next = 17, fetch(e, g);
+                    case 17:
+                        if (j = a.sent, !j.ok) {
+                            a.next = 22;
+                            break;
+                        }
+                        b.Logger.verbose("Upload success for request ID: ".concat(c[f].source_request_id)), a.next = 29;
+                        break;
+                    case 22:
+                        if (!(500 <= j.status || 429 === j.status)) {
+                            a.next = 26;
+                            break;
+                        }
+                        return a.abrupt("return", c.slice(f, c.length));
+                    case 26:
+                        if (!(401 <= j.status)) {
+                            a.next = 29;
+                            break;
+                        }
+                        return b.Logger.error("HTTP error status ".concat(j.status, " while uploading - please verify your API key.")), a.abrupt("return", null);
+                    case 29:
+                        a.next = 35;
+                        break;
+                    case 31: return a.prev = 31, a.t0 = a["catch"](8), b.Logger.error("Exception while uploading: ".concat(a.t0)), a.abrupt("return", c.slice(f, c.length));
+                    case 35:
+                        f++, a.next = 6;
+                        break;
+                    case 38: return a.abrupt("return", null);
+                    case 39:
+                    case "end": return a.stop();
+                } }, a, null, [[8, 31]]); })); return function upload() { return a.apply(this, arguments); }; }() }]), a;
+}();
+
+var HTTPCodes=Constants.HTTPCodes,Messages$3=Constants.Messages,uploader=null;function queueEventForServer(a){if(!uploader){var b=Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatchingIntervalMillis);uploader=new BatchUploader(mParticle,b);}uploader.queueEvent(a);}function shouldEnableBatching(){return !!window.fetch&&!0===Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatching)}function sendEventToServer(a,b,c){shouldEnableBatching()?queueEventForServer(a):sendSingleEventToServer(a,b,c);}function sendSingleEventToServer(a,b,c){var d,e=mParticle.Identity.getCurrentUser();if(e&&(d=e.getMPID()),mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent,JSON.stringify(a));else{var f,g=function(){4===f.readyState&&(mParticle.Logger.verbose("Received "+f.statusText+" from server"),c(f.responseText));};mParticle.Logger.verbose(Messages$3.InformationMessages.SendBegin);var h=[];// convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
+if(Helpers.isObject(a.UserIdentities)&&Object.keys(a.UserIdentities).length){for(var i in a.UserIdentities){var j={};j.Identity=a.UserIdentities[i],j.Type=Helpers.parseNumber(i),h.push(j);}a.UserIdentities=h;}else a.UserIdentities=[];// We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
+// need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
+if(mParticle.Store.requireDelay=Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays,mParticle.Store.integrationDelayTimeoutStart,Date.now()),!d||mParticle.Store.requireDelay||!mParticle.Store.configurationLoaded)mParticle.Logger.verbose("Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay."),mParticle.Store.eventQueue.push(a);else{if(Helpers.processQueuedEvents(mParticle.Store.eventQueue,d,!mParticle.Store.requiredDelay,sendEventToServer,b,c),!a)return void mParticle.Logger.error(Messages$3.ErrorMessages.EventEmpty);if(mParticle.Logger.verbose(Messages$3.InformationMessages.SendHttp),f=Helpers.createXHR(g),f)try{f.open("post",Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl,mParticle.Store.devToken)+"/Events"),f.send(JSON.stringify(ServerModel.convertEventToDTO(a,mParticle.Store.isFirstRun,mParticle.Store.currencyCode,mParticle.Store.integrationAttributes))),a.EventName!==Types.MessageType.AppStateTransition&&b(a);}catch(a){mParticle.Logger.error("Error sending event to mParticle servers. "+a);}}}}function sendAliasRequest(a,b){var c,d=function(){if(4===c.readyState){//only parse error messages from failing requests
+if(mParticle.Logger.verbose("Received "+c.statusText+" from server"),200!==c.status&&202!==c.status&&c.responseText){var a=JSON.parse(c.responseText);if(a.hasOwnProperty("message")){var d=a.message;return void Helpers.invokeAliasCallback(b,c.status,d)}}Helpers.invokeAliasCallback(b,c.status);}};if(mParticle.Logger.verbose(Messages$3.InformationMessages.SendAliasHttp),c=Helpers.createXHR(d),c)try{c.open("post",Helpers.createServiceUrl(mParticle.Store.SDKConfig.aliasUrl,mParticle.Store.devToken)+"/Alias"),c.send(JSON.stringify(a));}catch(a){Helpers.invokeAliasCallback(b,HTTPCodes.noHttpCoverage,a),mParticle.Logger.error("Error sending alias request to mParticle servers. "+a);}}function sendIdentityRequest(a,b,c,d,e,f){var g,h,i=function(){4===g.readyState&&(mParticle.Logger.verbose("Received "+g.statusText+" from server"),e(g,h,c,d,b));};if(mParticle.Logger.verbose(Messages$3.InformationMessages.SendIdentityBegin),!a)return void mParticle.Logger.error(Messages$3.ErrorMessages.APIRequestEmpty);if(mParticle.Logger.verbose(Messages$3.InformationMessages.SendIdentityHttp),g=Helpers.createXHR(i),g)try{mParticle.Store.identityCallInFlight?Helpers.invokeCallback(c,HTTPCodes.activeIdentityRequest,"There is currently an Identity request processing. Please wait for this to return before requesting again"):(h=f||null,"modify"===b?g.open("post",Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl)+f+"/"+b):g.open("post",Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl)+b),g.setRequestHeader("Content-Type","application/json"),g.setRequestHeader("x-mp-key",mParticle.Store.devToken),mParticle.Store.identityCallInFlight=!0,g.send(JSON.stringify(a)));}catch(a){mParticle.Store.identityCallInFlight=!1,Helpers.invokeCallback(c,HTTPCodes.noHttpCoverage,a),mParticle.Logger.error("Error sending identity request to servers with status code "+g.status+" - "+a);}}function sendBatchForwardingStatsToServer(a,b){var c,d;try{c=Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl,mParticle.Store.devToken),d={uuid:Helpers.generateUniqueId(),data:a},b&&(b.open("post",c+"/Forwarding"),b.send(JSON.stringify(d)));}catch(a){mParticle.Logger.error("Error sending forwarding stats to mParticle servers.");}}function sendSingleForwardingStatsToServer(a){var b,c;try{var d=function(){4===e.readyState&&202===e.status&&mParticle.Logger.verbose("Successfully sent  "+e.statusText+" from server");},e=Helpers.createXHR(d);b=Helpers.createServiceUrl(mParticle.Store.SDKConfig.v1SecureServiceUrl,mParticle.Store.devToken),c=a,e&&(e.open("post",b+"/Forwarding"),e.send(JSON.stringify(c)));}catch(a){mParticle.Logger.error("Error sending forwarding stats to mParticle servers.");}}function getSDKConfiguration(a,b,c){var d;try{var e=function(){4===f.readyState&&(200===f.status?(b=Helpers.extend({},b,JSON.parse(f.responseText)),c(a,b),mParticle.Logger.verbose("Successfully received configuration from server")):(c(a,b),mParticle.Logger.verbose("Issue with receiving configuration from server, received HTTP Code of "+f.status)));},f=Helpers.createXHR(e);d="https://"+mParticle.Store.SDKConfig.configUrl+a+"/config?env=",d+=b.isDevelopmentMode?"1":"0",f&&(f.open("get",d),f.send(null));}catch(d){c(a,b),mParticle.Logger.error("Error getting forwarder configuration from mParticle servers.");}}var ApiClient = {sendEventToServer:sendEventToServer,sendIdentityRequest:sendIdentityRequest,sendBatchForwardingStatsToServer:sendBatchForwardingStatsToServer,sendSingleForwardingStatsToServer:sendSingleForwardingStatsToServer,sendAliasRequest:sendAliasRequest,getSDKConfiguration:getSDKConfiguration};
+
+function initForwarders(a){var b=mParticle.Identity.getCurrentUser();!mParticle.Store.webviewBridgeEnabled&&mParticle.Store.configuredForwarders&&(mParticle.Store.configuredForwarders.sort(function(a,b){return a.settings.PriorityValue=a.settings.PriorityValue||0,b.settings.PriorityValue=b.settings.PriorityValue||0,-1*(a.settings.PriorityValue-b.settings.PriorityValue)}),mParticle.Store.activeForwarders=mParticle.Store.configuredForwarders.filter(function(c){if(!isEnabledForUserConsent(c.filteringConsentRuleValues,b))return !1;if(!isEnabledForUserAttributes(c.filteringUserAttributeValue,b))return !1;if(!isEnabledForUnknownUser(c.excludeAnonymousUser,b))return !1;var d=Helpers.filterUserIdentities(a,c.userIdentityFilters),e=Helpers.filterUserAttributes(b?b.getAllUserAttributes():{},c.userAttributeFilters);return c.initialized||(c.init(c.settings,prepareForwardingStats,!1,null,e,d,mParticle.Store.SDKConfig.appVersion,mParticle.Store.SDKConfig.appName,mParticle.Store.SDKConfig.customFlags,mParticle.Store.clientId),c.initialized=!0),!0}));}function isEnabledForUserConsent(a,b){if(!a||!a.values||!a.values.length)return !0;if(!b)return !1;var c={},d=b.getConsentState();if(d){var e=d.getGDPRConsentState();if(e)for(var f in e)if(e.hasOwnProperty(f)){var g=Helpers.generateHash("1"+f).toString();c[g]=e[f].Consented;}}var h=!1;return a.values.forEach(function(a){if(!h){var b=a.consentPurpose,d=a.hasConsented;c.hasOwnProperty(b)&&c[b]===d&&(h=!0);}}),a.includeOnMatch===h}function isEnabledForUserAttributes(a,b){if(!a||!Helpers.isObject(a)||!Object.keys(a).length)return !0;var c,d,e;if(!b)return !1;e=b.getAllUserAttributes();var f=!1;try{if(e&&Helpers.isObject(e)&&Object.keys(e).length)for(var g in e)if(e.hasOwnProperty(g)&&(c=Helpers.generateHash(g).toString(),d=Helpers.generateHash(e[g]).toString(),c===a.userAttributeName&&d===a.userAttributeValue)){f=!0;break}return !a||a.includeOnMatch===f}catch(a){// in any error scenario, err on side of returning true and forwarding event
+return !0}}function isEnabledForUnknownUser(a,b){return !!(b&&b.isLoggedIn()||!a)}function applyToForwarders(a,b){mParticle.Store.activeForwarders.length&&mParticle.Store.activeForwarders.forEach(function(c){var d=c[a];if(d)try{var e=c[a](b);e&&mParticle.Logger.verbose(e);}catch(a){mParticle.Logger.verbose(a);}});}function sendEventToForwarders(a){var b,c,d,e=function(a,b){a.UserIdentities&&a.UserIdentities.length&&a.UserIdentities.forEach(function(c,d){Helpers.inArray(b,c.Type)&&(a.UserIdentities.splice(d,1),0<d&&d--);});},f=function(a,b){var c;if(b)for(var d in a.EventAttributes)a.EventAttributes.hasOwnProperty(d)&&(c=Helpers.generateHash(a.EventCategory+a.EventName+d),Helpers.inArray(b,c)&&delete a.EventAttributes[d]);},g=function(a,b){return !!(a&&a.length&&Helpers.inArray(a,b))},h=[Types.MessageType.PageEvent,Types.MessageType.PageView,Types.MessageType.Commerce];if(!mParticle.Store.webviewBridgeEnabled&&mParticle.Store.activeForwarders){c=Helpers.generateHash(a.EventCategory+a.EventName),d=Helpers.generateHash(a.EventCategory);for(var j=0;j<mParticle.Store.activeForwarders.length;j++){// Check attribute forwarding rule. This rule allows users to only forward an event if a
+// specific attribute exists and has a specific value. Alternatively, they can specify
+// that an event not be forwarded if the specified attribute name and value exists.
+// The two cases are controlled by the "includeOnMatch" boolean value.
+// Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
+if(-1<h.indexOf(a.EventDataType)&&mParticle.Store.activeForwarders[j].filteringEventAttributeValue&&mParticle.Store.activeForwarders[j].filteringEventAttributeValue.eventAttributeName&&mParticle.Store.activeForwarders[j].filteringEventAttributeValue.eventAttributeValue){var k=null;// Attempt to find the attribute in the collection of event attributes
+if(a.EventAttributes)for(var l in a.EventAttributes){var m;if(m=Helpers.generateHash(l).toString(),m===mParticle.Store.activeForwarders[j].filteringEventAttributeValue.eventAttributeName&&(k={name:m,value:Helpers.generateHash(a.EventAttributes[l]).toString()}),k)break}var n=null!==k&&k.value===mParticle.Store.activeForwarders[j].filteringEventAttributeValue.eventAttributeValue,o=!0===mParticle.Store.activeForwarders[j].filteringEventAttributeValue.includeOnMatch?n:!n;if(!o)continue}// Clone the event object, as we could be sending different attributes to each forwarder
+// Check event filtering rules
+if(b={},b=Helpers.extend(!0,b,a),a.EventDataType===Types.MessageType.PageEvent&&(g(mParticle.Store.activeForwarders[j].eventNameFilters,c)||g(mParticle.Store.activeForwarders[j].eventTypeFilters,d)))continue;else if(a.EventDataType===Types.MessageType.Commerce&&g(mParticle.Store.activeForwarders[j].eventTypeFilters,d))continue;else if(a.EventDataType===Types.MessageType.PageView&&g(mParticle.Store.activeForwarders[j].screenNameFilters,c))continue;// Check attribute filtering rules
+if(b.EventAttributes&&(a.EventDataType===Types.MessageType.PageEvent?f(b,mParticle.Store.activeForwarders[j].attributeFilters):a.EventDataType===Types.MessageType.PageView&&f(b,mParticle.Store.activeForwarders[j].pageViewAttributeFilters)),e(b,mParticle.Store.activeForwarders[j].userIdentityFilters),b.UserAttributes=Helpers.filterUserAttributes(b.UserAttributes,mParticle.Store.activeForwarders[j].userAttributeFilters),mParticle.Logger.verbose("Sending message to forwarder: "+mParticle.Store.activeForwarders[j].name),mParticle.Store.activeForwarders[j].process){var p=mParticle.Store.activeForwarders[j].process(b);p&&mParticle.Logger.verbose(p);}}}}function callSetUserAttributeOnForwarders(a,b){mParticle.Store.activeForwarders.length&&mParticle.Store.activeForwarders.forEach(function(c){if(c.setUserAttribute&&c.userAttributeFilters&&!Helpers.inArray(c.userAttributeFilters,Helpers.generateHash(a)))try{var d=c.setUserAttribute(a,b);d&&mParticle.Logger.verbose(d);}catch(a){mParticle.Logger.error(a);}});}function setForwarderUserIdentities(a){mParticle.Store.activeForwarders.forEach(function(b){var c=Helpers.filterUserIdentities(a,b.userIdentityFilters);b.setUserIdentity&&c.forEach(function(a){var c=b.setUserIdentity(a.Identity,a.Type);c&&mParticle.Logger.verbose(c);});});}function setForwarderOnUserIdentified(a){mParticle.Store.activeForwarders.forEach(function(b){var c=getFilteredMparticleUser(a.getMPID(),b);if(b.onUserIdentified){var d=b.onUserIdentified(c);d&&mParticle.Logger.verbose(d);}});}function setForwarderOnIdentityComplete(a,b){var c;mParticle.Store.activeForwarders.forEach(function(d){var e=getFilteredMparticleUser(a.getMPID(),d);"identify"===b?d.onIdentifyComplete&&(c=d.onIdentifyComplete(e),c&&mParticle.Logger.verbose(c)):"login"===b?d.onLoginComplete&&(c=d.onLoginComplete(e),c&&mParticle.Logger.verbose(c)):"logout"===b?d.onLogoutComplete&&(c=d.onLogoutComplete(e),c&&mParticle.Logger.verbose(c)):"modify"==b&&d.onModifyComplete&&(c=d.onModifyComplete(e),c&&mParticle.Logger.verbose(c));});}function prepareForwardingStats(a,b){var c,d=getForwarderStatsQueue();a&&a.isVisible&&(c={mid:a.id,esid:a.eventSubscriptionId,n:b.EventName,attrs:b.EventAttributes,sdk:b.SDKVersion,dt:b.EventDataType,et:b.EventCategory,dbg:b.Debug,ct:b.Timestamp,eec:b.ExpandedEventCount},Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)?(d.push(c),setForwarderStatsQueue(d)):ApiClient.sendSingleForwardingStatsToServer(c));}function getForwarderStatsQueue(){return Persistence.forwardingStatsBatches.forwardingStatsEventQueue}function setForwarderStatsQueue(a){Persistence.forwardingStatsBatches.forwardingStatsEventQueue=a;}function configureForwarder(a){var b=null,c=a,d={};// if there are kits inside of mParticle.Store.SDKConfig.kits, then mParticle is self hosted
+for(var e in Helpers.isObject(mParticle.Store.SDKConfig.kits)&&0<Object.keys(mParticle.Store.SDKConfig.kits).length?d=mParticle.Store.SDKConfig.kits:0<mParticle.preInit.forwarderConstructors.length&&mParticle.preInit.forwarderConstructors.forEach(function(a){d[a.name]=a;}),d)if(e===c.name&&(c.isDebug===mParticle.Store.SDKConfig.isDevelopmentMode||c.isSandbox===mParticle.Store.SDKConfig.isDevelopmentMode)){b=new d[e].constructor,b.id=c.moduleId,b.isSandbox=c.isDebug||c.isSandbox,b.hasSandbox="true"===c.hasDebugString,b.isVisible=c.isVisible,b.settings=c.settings,b.eventNameFilters=c.eventNameFilters,b.eventTypeFilters=c.eventTypeFilters,b.attributeFilters=c.attributeFilters,b.screenNameFilters=c.screenNameFilters,b.screenNameFilters=c.screenNameFilters,b.pageViewAttributeFilters=c.pageViewAttributeFilters,b.userIdentityFilters=c.userIdentityFilters,b.userAttributeFilters=c.userAttributeFilters,b.filteringEventAttributeValue=c.filteringEventAttributeValue,b.filteringUserAttributeValue=c.filteringUserAttributeValue,b.eventSubscriptionId=c.eventSubscriptionId,b.filteringConsentRuleValues=c.filteringConsentRuleValues,b.excludeAnonymousUser=c.excludeAnonymousUser,mParticle.Store.configuredForwarders.push(b);break}}function configurePixel(a){(a.isDebug===mParticle.Store.SDKConfig.isDevelopmentMode||a.isProduction!==mParticle.Store.SDKConfig.isDevelopmentMode)&&mParticle.Store.pixelConfigurations.push(a);}function processForwarders(a){if(!a)mParticle.Logger.warning("No config was passed. Cannot process forwarders");else try{Array.isArray(a.kitConfigs)&&a.kitConfigs.length&&a.kitConfigs.forEach(function(a){configureForwarder(a);}),Array.isArray(a.pixelConfigs)&&a.pixelConfigs.length&&a.pixelConfigs.forEach(function(a){configurePixel(a);}),initForwarders(mParticle.Store.SDKConfig.identifyRequest.userIdentities);}catch(a){mParticle.Logger.error("Config was not parsed propertly. Forwarders may not be initialized.");}}var Forwarders = {initForwarders:initForwarders,applyToForwarders:applyToForwarders,sendEventToForwarders:sendEventToForwarders,callSetUserAttributeOnForwarders:callSetUserAttributeOnForwarders,setForwarderUserIdentities:setForwarderUserIdentities,setForwarderOnUserIdentified:setForwarderOnUserIdentified,setForwarderOnIdentityComplete:setForwarderOnIdentityComplete,getForwarderStatsQueue:getForwarderStatsQueue,setForwarderStatsQueue:setForwarderStatsQueue,isEnabledForUserConsent:isEnabledForUserConsent,isEnabledForUserAttributes:isEnabledForUserAttributes,configurePixel:configurePixel,processForwarders:processForwarders};
+
+var Validators$1=Helpers.Validators,Messages$4=Constants.Messages;function convertTransactionAttributesToProductAction(a,b){b.TransactionId=a.Id,b.Affiliation=a.Affiliation,b.CouponCode=a.CouponCode,b.TotalAmount=a.Revenue,b.ShippingAmount=a.Shipping,b.TaxAmount=a.Tax;}function getProductActionEventName(a){switch(a){case Types.ProductActionType.AddToCart:return "AddToCart";case Types.ProductActionType.AddToWishlist:return "AddToWishlist";case Types.ProductActionType.Checkout:return "Checkout";case Types.ProductActionType.CheckoutOption:return "CheckoutOption";case Types.ProductActionType.Click:return "Click";case Types.ProductActionType.Purchase:return "Purchase";case Types.ProductActionType.Refund:return "Refund";case Types.ProductActionType.RemoveFromCart:return "RemoveFromCart";case Types.ProductActionType.RemoveFromWishlist:return "RemoveFromWishlist";case Types.ProductActionType.ViewDetail:return "ViewDetail";case Types.ProductActionType.Unknown:default:return "Unknown";}}function getPromotionActionEventName(a){return a===Types.PromotionActionType.PromotionClick?"PromotionClick":a===Types.PromotionActionType.PromotionView?"PromotionView":"Unknown"}function convertProductActionToEventType(a){return a===Types.ProductActionType.AddToCart?Types.CommerceEventType.ProductAddToCart:a===Types.ProductActionType.AddToWishlist?Types.CommerceEventType.ProductAddToWishlist:a===Types.ProductActionType.Checkout?Types.CommerceEventType.ProductCheckout:a===Types.ProductActionType.CheckoutOption?Types.CommerceEventType.ProductCheckoutOption:a===Types.ProductActionType.Click?Types.CommerceEventType.ProductClick:a===Types.ProductActionType.Purchase?Types.CommerceEventType.ProductPurchase:a===Types.ProductActionType.Refund?Types.CommerceEventType.ProductRefund:a===Types.ProductActionType.RemoveFromCart?Types.CommerceEventType.ProductRemoveFromCart:a===Types.ProductActionType.RemoveFromWishlist?Types.CommerceEventType.ProductRemoveFromWishlist:a===Types.ProductActionType.Unknown?Types.EventType.Unknown:a===Types.ProductActionType.ViewDetail?Types.CommerceEventType.ProductViewDetail:(mParticle.Logger.error("Could not convert product action type "+a+" to event type"),null)}function convertPromotionActionToEventType(a){return a===Types.PromotionActionType.PromotionClick?Types.CommerceEventType.PromotionClick:a===Types.PromotionActionType.PromotionView?Types.CommerceEventType.PromotionView:(mParticle.Logger.error("Could not convert promotion action type "+a+" to event type"),null)}function generateExpandedEcommerceName(a,b){return "eCommerce - "+a+" - "+(b?"Total":"Item")}function extractProductAttributes(a,b){b.CouponCode&&(a["Coupon Code"]=b.CouponCode),b.Brand&&(a.Brand=b.Brand),b.Category&&(a.Category=b.Category),b.Name&&(a.Name=b.Name),b.Sku&&(a.Id=b.Sku),b.Price&&(a["Item Price"]=b.Price),b.Quantity&&(a.Quantity=b.Quantity),b.Position&&(a.Position=b.Position),b.Variant&&(a.Variant=b.Variant),a["Total Product Amount"]=b.TotalAmount||0;}function extractTransactionId(a,b){b.TransactionId&&(a["Transaction Id"]=b.TransactionId);}function extractActionAttributes(a,b){extractTransactionId(a,b),b.Affiliation&&(a.Affiliation=b.Affiliation),b.CouponCode&&(a["Coupon Code"]=b.CouponCode),b.TotalAmount&&(a["Total Amount"]=b.TotalAmount),b.ShippingAmount&&(a["Shipping Amount"]=b.ShippingAmount),b.TaxAmount&&(a["Tax Amount"]=b.TaxAmount),b.CheckoutOptions&&(a["Checkout Options"]=b.CheckoutOptions),b.CheckoutStep&&(a["Checkout Step"]=b.CheckoutStep);}function extractPromotionAttributes(a,b){b.Id&&(a.Id=b.Id),b.Creative&&(a.Creative=b.Creative),b.Name&&(a.Name=b.Name),b.Position&&(a.Position=b.Position);}function buildProductList(a,b){return b?Array.isArray(b)?b:[b]:a.ShoppingCart.ProductList}function createProduct(a,b,c,d,e,f,g,h,i,j){return (j=Helpers.sanitizeAttributes(j),"string"!=typeof a)?(mParticle.Logger.error("Name is required when creating a product"),null):Validators$1.isStringOrNumber(b)?Validators$1.isStringOrNumber(c)?(d||(d=1),{Name:a,Sku:b,Price:c,Quantity:d,Brand:g,Variant:e,Category:f,Position:h,CouponCode:i,TotalAmount:d*c,Attributes:j}):(mParticle.Logger.error("Price is required when creating a product, and must be a string or a number"),null):(mParticle.Logger.error("SKU is required when creating a product, and must be a string or a number"),null)}function createPromotion(a,b,c,d){return Validators$1.isStringOrNumber(a)?{Id:a,Creative:b,Name:c,Position:d}:(mParticle.Logger.error(Messages$4.ErrorMessages.PromotionIdRequired),null)}function createImpression(a,b){return "string"==typeof a?b?{Name:a,Product:b}:(mParticle.Logger.error("Product is required when creating an impression."),null):(mParticle.Logger.error("Name is required when creating an impression."),null)}function createTransactionAttributes(a,b,c,d,e,f){return Validators$1.isStringOrNumber(a)?{Id:a,Affiliation:b,CouponCode:c,Revenue:d,Shipping:e,Tax:f}:(mParticle.Logger.error(Messages$4.ErrorMessages.TransactionIdRequired),null)}function expandProductImpression(a){var b=[];return a.ProductImpressions?(a.ProductImpressions.forEach(function(c){c.ProductList&&c.ProductList.forEach(function(d){var e=Helpers.extend(!1,{},a.EventAttributes);if(d.Attributes)for(var f in d.Attributes)e[f]=d.Attributes[f];extractProductAttributes(e,d),c.ProductImpressionList&&(e["Product Impression List"]=c.ProductImpressionList);var g=ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:generateExpandedEcommerceName("Impression"),data:e,eventType:Types.EventType.Transaction});b.push(g);});}),b):b}function expandCommerceEvent(a){return a?expandProductAction(a).concat(expandPromotionAction(a)).concat(expandProductImpression(a)):null}function expandPromotionAction(a){var b=[];if(!a.PromotionAction)return b;var c=a.PromotionAction.PromotionList;return c.forEach(function(c){var d=Helpers.extend(!1,{},a.EventAttributes);extractPromotionAttributes(d,c);var e=ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(a.PromotionAction.PromotionActionType)),data:d,eventType:Types.EventType.Transaction});b.push(e);}),b}function expandProductAction(a){var b=[];if(!a.ProductAction)return b;var c=!1;if(a.ProductAction.ProductActionType===Types.ProductActionType.Purchase||a.ProductAction.ProductActionType===Types.ProductActionType.Refund){var d=Helpers.extend(!1,{},a.EventAttributes);d["Product Count"]=a.ProductAction.ProductList?a.ProductAction.ProductList.length:0,extractActionAttributes(d,a.ProductAction),a.CurrencyCode&&(d["Currency Code"]=a.CurrencyCode);var e=ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(a.ProductAction.ProductActionType),!0),data:d,eventType:Types.EventType.Transaction});b.push(e);}else c=!0;var f=a.ProductAction.ProductList;return f?(f.forEach(function(d){var e=Helpers.extend(!1,a.EventAttributes,d.Attributes);c?extractActionAttributes(e,a.ProductAction):extractTransactionId(e,a.ProductAction),extractProductAttributes(e,d);var f=ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(a.ProductAction.ProductActionType)),data:e,eventType:Types.EventType.Transaction});b.push(f);}),b):b}function createCommerceEventObject(a){var b,c=mParticle.Identity.getCurrentUser();return (mParticle.Logger.verbose(Messages$4.InformationMessages.StartingLogCommerceEvent),Helpers.canLog())?(b=ServerModel.createEventObject({messageType:Types.MessageType.Commerce}),b.EventName="eCommerce - ",b.CurrencyCode=mParticle.Store.currencyCode,b.ShoppingCart={ProductList:c?c.getCart().getCartProducts():[]},b.CustomFlags=a,b):(mParticle.Logger.verbose(Messages$4.InformationMessages.AbandonLogEvent),null)}var Ecommerce = {convertTransactionAttributesToProductAction:convertTransactionAttributesToProductAction,getProductActionEventName:getProductActionEventName,getPromotionActionEventName:getPromotionActionEventName,convertProductActionToEventType:convertProductActionToEventType,convertPromotionActionToEventType:convertPromotionActionToEventType,buildProductList:buildProductList,createProduct:createProduct,createPromotion:createPromotion,createImpression:createImpression,createTransactionAttributes:createTransactionAttributes,expandCommerceEvent:expandCommerceEvent,createCommerceEventObject:createCommerceEventObject};
+
+var Messages$5=Constants.Messages,sendEventToServer$1=ApiClient.sendEventToServer,sendEventToForwarders$1=Forwarders.sendEventToForwarders;function logEvent(a){if(mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogEvent+": "+a.name),Helpers.canLog()){a.data&&(a.data=Helpers.sanitizeAttributes(a.data));var b=ServerModel.createEventObject(a);// TODO: Disabled for the time being until we can define an HTTP Request for BaseEvents
+a.messageType===Types.MessageType.Media?sendEventToForwarders$1(b):sendEventToServer$1(b,sendEventToForwarders$1,parseEventResponse),Persistence.update();}else mParticle.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent);}function parseEventResponse(a){var b,c,d,e=new Date;if(a)try{if(mParticle.Logger.verbose("Parsing response from server"),b=JSON.parse(a),b&&b.Store){for(c in mParticle.Logger.verbose("Parsed store from response, updating local settings"),mParticle.Store.serverSettings||(mParticle.Store.serverSettings={}),b.Store)b.Store.hasOwnProperty(c)&&(d=b.Store[c],!d.Value||new Date(d.Expires)<e?mParticle.Store.serverSettings.hasOwnProperty(c)&&delete mParticle.Store.serverSettings[c]:mParticle.Store.serverSettings[c]=d);Persistence.update();}}catch(a){mParticle.Logger.error("Error parsing JSON response from server: "+a.name);}}function startTracking(a){function b(b){// prevents callback from being fired multiple times
+mParticle.Store.currentPosition={lat:b.coords.latitude,lng:b.coords.longitude},d(a,b),a=null,mParticle.Store.isTracking=!0;}function c(){// prevents callback from being fired multiple times
+d(a),a=null,mParticle.Store.isTracking=!1;}function d(a,b){if(a)try{b?a(b):a();}catch(a){mParticle.Logger.error("Error invoking the callback passed to startTrackingLocation."),mParticle.Logger.error(a);}}if(!mParticle.Store.isTracking)"geolocation"in navigator&&(mParticle.Store.watchPositionId=navigator.geolocation.watchPosition(b,c));else{var e={coords:{latitude:mParticle.Store.currentPosition.lat,longitude:mParticle.Store.currentPosition.lng}};d(a,e);}}function stopTracking(){mParticle.Store.isTracking&&(navigator.geolocation.clearWatch(mParticle.Store.watchPositionId),mParticle.Store.currentPosition=null,mParticle.Store.isTracking=!1);}function logOptOut(){mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogOptOut);var a=ServerModel.createEventObject({messageType:Types.MessageType.OptOut,eventType:Types.EventType.Other});sendEventToServer$1(a,sendEventToForwarders$1,parseEventResponse);}function logAST(){logEvent({messageType:Types.MessageType.AppStateTransition});}function logCheckoutEvent(a,b,c,d){var e=Ecommerce.createCommerceEventObject(d);e&&(e.EventName+=Ecommerce.getProductActionEventName(Types.ProductActionType.Checkout),e.EventCategory=Types.CommerceEventType.ProductCheckout,e.ProductAction={ProductActionType:Types.ProductActionType.Checkout,CheckoutStep:a,CheckoutOptions:b,ProductList:e.ShoppingCart.ProductList},logCommerceEvent(e,c));}function logProductActionEvent(a,b,c,d){var e=Ecommerce.createCommerceEventObject(d);e&&(e.EventCategory=Ecommerce.convertProductActionToEventType(a),e.EventName+=Ecommerce.getProductActionEventName(a),e.ProductAction={ProductActionType:a,ProductList:Array.isArray(b)?b:[b]},logCommerceEvent(e,c));}function logPurchaseEvent(a,b,c,d){var e=Ecommerce.createCommerceEventObject(d);e&&(e.EventName+=Ecommerce.getProductActionEventName(Types.ProductActionType.Purchase),e.EventCategory=Types.CommerceEventType.ProductPurchase,e.ProductAction={ProductActionType:Types.ProductActionType.Purchase},e.ProductAction.ProductList=Ecommerce.buildProductList(e,b),Ecommerce.convertTransactionAttributesToProductAction(a,e.ProductAction),logCommerceEvent(e,c));}function logRefundEvent(a,b,c,d){if(!a)return void mParticle.Logger.error(Messages$5.ErrorMessages.TransactionRequired);var e=Ecommerce.createCommerceEventObject(d);e&&(e.EventName+=Ecommerce.getProductActionEventName(Types.ProductActionType.Refund),e.EventCategory=Types.CommerceEventType.ProductRefund,e.ProductAction={ProductActionType:Types.ProductActionType.Refund},e.ProductAction.ProductList=Ecommerce.buildProductList(e,b),Ecommerce.convertTransactionAttributesToProductAction(a,e.ProductAction),logCommerceEvent(e,c));}function logPromotionEvent(a,b,c,d){var e=Ecommerce.createCommerceEventObject(d);e&&(e.EventName+=Ecommerce.getPromotionActionEventName(a),e.EventCategory=Ecommerce.convertPromotionActionToEventType(a),e.PromotionAction={PromotionActionType:a,PromotionList:[b]},logCommerceEvent(e,c));}function logImpressionEvent(a,b,c){var d=Ecommerce.createCommerceEventObject(c);d&&(d.EventName+="Impression",d.EventCategory=Types.CommerceEventType.ProductImpression,!Array.isArray(a)&&(a=[a]),d.ProductImpressions=[],a.forEach(function(a){d.ProductImpressions.push({ProductImpressionList:a.Name,ProductList:Array.isArray(a.Product)?a.Product:[a.Product]});}),logCommerceEvent(d,b));}function logCommerceEvent(a,b){mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogCommerceEvent),b=Helpers.sanitizeAttributes(b),Helpers.canLog()?(mParticle.Store.webviewBridgeEnabled&&(a.ShoppingCart={}),b&&(a.EventAttributes=b),sendEventToServer$1(a,sendEventToForwarders$1,parseEventResponse),Persistence.update()):mParticle.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent);}function addEventHandler(a,b,c,d,f){var g,h,e=[],j=function(a){var b=function(){g.href?window.location.href=g.href:g.submit&&g.submit();};mParticle.Logger.verbose("DOM event triggered, handling event"),logEvent({messageType:Types.MessageType.PageEvent,name:"function"==typeof c?c(g):c,data:"function"==typeof d?d(g):d,eventType:f||Types.EventType.Other}),(g.href&&"_blank"!==g.target||g.submit)&&(a.preventDefault?a.preventDefault():a.returnValue=!1,setTimeout(b,mParticle.Store.SDKConfig.timeout));};if(!b)return void mParticle.Logger.error("Can't bind event, selector is required");// Handle a css selector string or a dom element
+if("string"==typeof b?e=document.querySelectorAll(b):b.nodeType&&(e=[b]),e.length)for(mParticle.Logger.verbose("Found "+e.length+" element"+(1<e.length?"s":"")+", attaching event handlers"),h=0;h<e.length;h++)g=e[h],g.addEventListener?g.addEventListener(a,j,!1):g.attachEvent?g.attachEvent("on"+a,j):g["on"+a]=j;else mParticle.Logger.verbose("No elements found");}var Events = {logEvent:logEvent,startTracking:startTracking,stopTracking:stopTracking,logCheckoutEvent:logCheckoutEvent,logProductActionEvent:logProductActionEvent,logPurchaseEvent:logPurchaseEvent,logRefundEvent:logRefundEvent,logPromotionEvent:logPromotionEvent,logImpressionEvent:logImpressionEvent,logOptOut:logOptOut,logAST:logAST,parseEventResponse:parseEventResponse,addEventHandler:addEventHandler};
+
+var Messages$6=Constants.Messages,Validators$2=Helpers.Validators,HTTPCodes$1=Constants.HTTPCodes,sendEventToForwarders$2=Forwarders.sendEventToForwarders,sendIdentityRequest$1=ApiClient.sendIdentityRequest;function checkIdentitySwap(a,b,c){if(a&&b&&a!==b){var d=Persistence.useLocalStorage()?Persistence.getLocalStorage():Persistence.getCookie();d.cu=b,d.gs.csm=c,Persistence.saveCookies(d);}}var IdentityRequest={createKnownIdentities:function createKnownIdentities(a,b){var c={};if(a&&a.userIdentities&&Helpers.isObject(a.userIdentities))for(var d in a.userIdentities)c[d]=a.userIdentities[d];return c.device_application_stamp=b,c},preProcessIdentityRequest:function preProcessIdentityRequest(a,b,c){mParticle.Logger.verbose(Messages$6.InformationMessages.StartingLogEvent+": "+c);var d=Validators$2.validateIdentities(a,c);if(!d.valid)return mParticle.Logger.error("ERROR: "+d.error),{valid:!1,error:d.error};if(b&&!Validators$2.isFunction(b)){var e="The optional callback must be a function. You tried entering a(n) "+_typeof_1(b);return mParticle.Logger.error(e),{valid:!1,error:e}}return {valid:!0}},createIdentityRequest:function createIdentityRequest(a,b,c,d,e,f,g){var h={client_sdk:{platform:b,sdk_vendor:c,sdk_version:d},context:f,environment:mParticle.Store.SDKConfig.isDevelopmentMode?"development":"production",request_id:Helpers.generateUniqueId(),request_timestamp_ms:new Date().getTime(),previous_mpid:g||null,known_identities:this.createKnownIdentities(a,e)};return h},createModifyIdentityRequest:function createModifyIdentityRequest(a,b,c,d,e,f){return {client_sdk:{platform:c,sdk_vendor:d,sdk_version:e},context:f,environment:mParticle.Store.SDKConfig.isDevelopmentMode?"development":"production",request_id:Helpers.generateUniqueId(),request_timestamp_ms:new Date().getTime(),identity_changes:this.createIdentityChanges(a,b)}},createIdentityChanges:function createIdentityChanges(a,b){var c,d=[];if(b&&Helpers.isObject(b)&&a&&Helpers.isObject(a))for(c in b)d.push({old_value:a[c]||null,new_value:b[c],identity_type:c});return d},modifyUserIdentities:function modifyUserIdentities(a,b){var c={};for(var d in b)c[Types.IdentityType.getIdentityType(d)]=b[d];for(d in a)c[d]||(c[d]=a[d]);return c},createAliasNetworkRequest:function createAliasNetworkRequest(a){return {request_id:Helpers.generateUniqueId(),request_type:"alias",environment:mParticle.Store.SDKConfig.isDevelopmentMode?"development":"production",api_key:mParticle.Store.devToken,data:{destination_mpid:a.destinationMpid,source_mpid:a.sourceMpid,start_unixtime_ms:a.startTime,end_unixtime_ms:a.endTime,device_application_stamp:mParticle.Store.deviceId}}},convertAliasToNative:function convertAliasToNative(a){return {DestinationMpid:a.destinationMpid,SourceMpid:a.sourceMpid,StartUnixtimeMs:a.startTime,EndUnixtimeMs:a.endTime}},convertToNative:function convertToNative(a){var b=[];if(a&&a.userIdentities){for(var c in a.userIdentities)a.userIdentities.hasOwnProperty(c)&&b.push({Type:Types.IdentityType.getIdentityType(c),Identity:a.userIdentities[c]});return {UserIdentities:b}}}},IdentityAPI={HTTPCodes:HTTPCodes$1,/**
     * Initiate a logout request to the mParticle server
     * @method identify
     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
     * @param {Function} [callback] A callback function that is called when the identify request completes
-    */
-    identify: function(identityApiData, callback) {
-        var mpid,
-            currentUser = mParticle.Identity.getCurrentUser(),
-            preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'identify');
-        if (currentUser) {
-            mpid = currentUser.getMPID();
-        }
-
-        if (preProcessResult.valid) {
-            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mParticle.Store.deviceId, mParticle.Store.context, mpid);
-
-            if (Helpers.canLog()) {
-                if (mParticle.Store.webviewBridgeEnabled) {
-                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
-                    Helpers.invokeCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Identify request sent to native sdk');
-                } else {
-                    sendIdentityRequest$1(identityApiRequest, 'identify', callback, identityApiData, parseIdentityResponse, mpid);
-                }
-            } else {
-                Helpers.invokeCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$6.InformationMessages.AbandonLogEvent);
-                mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent);
-            }
-        } else {
-            Helpers.invokeCallback(callback, HTTPCodes$1.validationIssue, preProcessResult.error);
-            mParticle.Logger.verbose(preProcessResult);
-        }
-    },
-    /**
+    */identify:function identify(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"identify");if(d&&(c=d.getMPID()),e.valid){var f=IdentityRequest.createIdentityRequest(a,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.deviceId,mParticle.Store.context,c);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Identify request sent to native sdk")):sendIdentityRequest$1(f,"identify",b,a,parseIdentityResponse,c):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
     * Initiate a logout request to the mParticle server
     * @method logout
     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
     * @param {Function} [callback] A callback function that is called when the logout request completes
-    */
-    logout: function(identityApiData, callback) {
-        var mpid,
-            currentUser = mParticle.Identity.getCurrentUser(),
-            preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'logout');
-        if (currentUser) {
-            mpid = currentUser.getMPID();
-        }
-
-        if (preProcessResult.valid) {
-            var evt,
-                identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mParticle.Store.deviceId, mParticle.Store.context, mpid);
-
-            if (Helpers.canLog()) {
-                if (mParticle.Store.webviewBridgeEnabled) {
-                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
-                    Helpers.invokeCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Logout request sent to native sdk');
-                } else {
-                    sendIdentityRequest$1(identityApiRequest, 'logout', callback, identityApiData, parseIdentityResponse, mpid);
-                    evt = ServerModel.createEventObject({ messageType: Types.MessageType.Profile });
-                    evt.ProfileMessageType = Types.ProfileMessageType.Logout;
-                    if (mParticle.Store.activeForwarders.length) {
-                        mParticle.Store.activeForwarders.forEach(function(forwarder) {
-                            if (forwarder.logOut) {
-                                forwarder.logOut(evt);
-                            }
-                        });
-                    }
-                }
-            } else {
-                Helpers.invokeCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$6.InformationMessages.AbandonLogEvent);
-                mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent);
-            }
-        } else {
-            Helpers.invokeCallback(callback, HTTPCodes$1.validationIssue, preProcessResult.error);
-            mParticle.Logger.verbose(preProcessResult);
-        }
-    },
-    /**
+    */logout:function logout(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"logout");if(d&&(c=d.getMPID()),e.valid){var f,g=IdentityRequest.createIdentityRequest(a,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.deviceId,mParticle.Store.context,c);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Logout request sent to native sdk")):(sendIdentityRequest$1(g,"logout",b,a,parseIdentityResponse,c),f=ServerModel.createEventObject({messageType:Types.MessageType.Profile}),f.ProfileMessageType=Types.ProfileMessageType.Logout,mParticle.Store.activeForwarders.length&&mParticle.Store.activeForwarders.forEach(function(a){a.logOut&&a.logOut(f);})):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
     * Initiate a login request to the mParticle server
     * @method login
     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
     * @param {Function} [callback] A callback function that is called when the login request completes
-    */
-    login: function(identityApiData, callback) {
-        var mpid,
-            currentUser = mParticle.Identity.getCurrentUser(),
-            preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'login');
-        if (currentUser) {
-            mpid = currentUser.getMPID();
-        }
-
-        if (preProcessResult.valid) {
-            var identityApiRequest = IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mParticle.Store.deviceId, mParticle.Store.context, mpid);
-
-            if (Helpers.canLog()) {
-                if (mParticle.Store.webviewBridgeEnabled) {
-                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
-                    Helpers.invokeCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Login request sent to native sdk');
-                } else {
-                    sendIdentityRequest$1(identityApiRequest, 'login', callback, identityApiData, parseIdentityResponse, mpid);
-                }
-            } else {
-                Helpers.invokeCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$6.InformationMessages.AbandonLogEvent);
-                mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent);
-            }
-        } else {
-            Helpers.invokeCallback(callback, HTTPCodes$1.validationIssue, preProcessResult.error);
-            mParticle.Logger.verbose(preProcessResult);
-        }
-    },
-    /**
+    */login:function login(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"login");if(d&&(c=d.getMPID()),e.valid){var f=IdentityRequest.createIdentityRequest(a,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.deviceId,mParticle.Store.context,c);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Login request sent to native sdk")):sendIdentityRequest$1(f,"login",b,a,parseIdentityResponse,c):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
     * Initiate a modify request to the mParticle server
     * @method modify
     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
     * @param {Function} [callback] A callback function that is called when the modify request completes
-    */
-    modify: function(identityApiData, callback) {
-        var mpid,
-            currentUser = mParticle.Identity.getCurrentUser(),
-            preProcessResult = IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'modify');
-        if (currentUser) {
-            mpid = currentUser.getMPID();
-        }
-        var newUserIdentities = (identityApiData && identityApiData.userIdentities) ? identityApiData.userIdentities : {};
-        if (preProcessResult.valid) {
-            var identityApiRequest = IdentityRequest.createModifyIdentityRequest(currentUser ? currentUser.getUserIdentities().userIdentities : {}, newUserIdentities, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mParticle.Store.context);
-
-            if (Helpers.canLog()) {
-                if (mParticle.Store.webviewBridgeEnabled) {
-                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(IdentityRequest.convertToNative(identityApiData)));
-                    Helpers.invokeCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Modify request sent to native sdk');
-                } else {
-                    sendIdentityRequest$1(identityApiRequest, 'modify', callback, identityApiData, parseIdentityResponse, mpid);
-                }
-            } else {
-                Helpers.invokeCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$6.InformationMessages.AbandonLogEvent);
-                mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent);
-            }
-        } else {
-            Helpers.invokeCallback(callback, HTTPCodes$1.validationIssue, preProcessResult.error);
-            mParticle.Logger.verbose(preProcessResult);
-        }
-    },
-    /**
+    */modify:function modify(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"modify");d&&(c=d.getMPID());var f=a&&a.userIdentities?a.userIdentities:{};if(e.valid){var g=IdentityRequest.createModifyIdentityRequest(d?d.getUserIdentities().userIdentities:{},f,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.context);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Modify request sent to native sdk")):sendIdentityRequest$1(g,"modify",b,a,parseIdentityResponse,c):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
     * Returns a user object with methods to interact with the current user
     * @method getCurrentUser
     * @return {Object} the current user object
-    */
-    getCurrentUser: function() {
-        var mpid = mParticle.Store.mpid;
-        if (mpid) {
-            mpid = mParticle.Store.mpid.slice();
-            return mParticleUser(mpid, mParticle.Store.isLoggedIn);
-        } else if (mParticle.Store.webviewBridgeEnabled) {
-            return mParticleUser();
-        } else {
-            return null;
-        }
-    },
-
-    /**
+    */getCurrentUser:function getCurrentUser(){var a=mParticle.Store.mpid;return a?(a=mParticle.Store.mpid.slice(),mParticleUser(a,mParticle.Store.isLoggedIn)):mParticle.Store.webviewBridgeEnabled?mParticleUser():null},/**
     * Returns a the user object associated with the mpid parameter or 'null' if no such
     * user exists
     * @method getUser
     * @param {String} mpid of the desired user
     * @return {Object} the user for  mpid
-    */
-    getUser: function(mpid) {
-        var cookies = Persistence.getPersistence();
-        if (cookies) {
-            if (cookies[mpid] && !Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(mpid)) {
-                return mParticleUser(mpid);
-            } else {
-                return null;
-            }
-        } else {
-            return null;
-        }
-    },
-
-    /**
+    */getUser:function getUser(a){var b=Persistence.getPersistence();return b?b[a]&&!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(a)?mParticleUser(a):null:null},/**
     * Returns all users, including the current user and all previous users that are stored on the device.
     * @method getUsers
     * @return {Array} array of users
-    */
-    getUsers: function() {
-        var cookies = Persistence.getPersistence();
-        var users = [];
-        if (cookies) {
-            for (var key in cookies) {
-                if (!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(key)) {
-                    users.push(mParticleUser(key));
-                }
-            }
-        }
-        users.sort(function(a, b) {
-            var aLastSeen = a.getLastSeenTime() || 0;
-            var bLastSeen = b.getLastSeenTime() || 0;
-            if (aLastSeen > bLastSeen) {
-                return -1;
-            } else {
-                return 1;
-            }
-        });
-        return users;
-    },
-
-    /**
+    */getUsers:function getUsers(){var a=Persistence.getPersistence(),b=[];if(a)for(var c in a)Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(c)||b.push(mParticleUser(c));return b.sort(function(c,a){var b=c.getLastSeenTime()||0,d=a.getLastSeenTime()||0;return b>d?-1:1}),b},/**
     * Initiate an alias request to the mParticle server
     * @method aliasUsers 
     * @param {Object} aliasRequest  object representing an AliasRequest
     * @param {Function} [callback] A callback function that is called when the aliasUsers request completes
-    */
-    aliasUsers: function(aliasRequest, callback) {
-        var message;
-        if (!aliasRequest.destinationMpid || !aliasRequest.sourceMpid) {
-            message = Messages$6.ValidationMessages.AliasMissingMpid;
-        }
-        if (aliasRequest.destinationMpid === aliasRequest.sourceMpid) {
-            message = Messages$6.ValidationMessages.AliasNonUniqueMpid;
-        }
-        if (!aliasRequest.startTime || !aliasRequest.endTime) {
-            message = Messages$6.ValidationMessages.AliasMissingTime;
-        }
-        if (aliasRequest.startTime > aliasRequest.endTime) {
-            message = Messages$6.ValidationMessages.AliasStartBeforeEndTime;
-        }
-        if (message) {
-            mParticle.Logger.warning(message);
-            Helpers.invokeAliasCallback(callback, HTTPCodes$1.validationIssue, message);
-            return;
-        }
-        if (Helpers.canLog()) {
-            if (mParticle.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Alias, JSON.stringify(IdentityRequest.convertAliasToNative(aliasRequest)));
-                Helpers.invokeAliasCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Alias request sent to native sdk');
-            } else {
-                mParticle.Logger.verbose(Messages$6.InformationMessages.StartingAliasRequest + ': ' + aliasRequest.sourceMpid + ' -> ' + aliasRequest.destinationMpid);
-                var aliasRequestMessage = IdentityRequest.createAliasNetworkRequest(aliasRequest);
-                ApiClient.sendAliasRequest(aliasRequestMessage, callback);
-            }
-        } else {
-            Helpers.invokeAliasCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$6.InformationMessages.AbandonAliasUsers);
-            mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonAliasUsers);
-        }
-    },
-
-    /**
+    */aliasUsers:function aliasUsers(a,b){var c;if(a.destinationMpid&&a.sourceMpid||(c=Messages$6.ValidationMessages.AliasMissingMpid),a.destinationMpid===a.sourceMpid&&(c=Messages$6.ValidationMessages.AliasNonUniqueMpid),a.startTime&&a.endTime||(c=Messages$6.ValidationMessages.AliasMissingTime),a.startTime>a.endTime&&(c=Messages$6.ValidationMessages.AliasStartBeforeEndTime),c)return mParticle.Logger.warning(c),void Helpers.invokeAliasCallback(b,HTTPCodes$1.validationIssue,c);if(!Helpers.canLog())Helpers.invokeAliasCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonAliasUsers),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonAliasUsers);else if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Alias,JSON.stringify(IdentityRequest.convertAliasToNative(a))),Helpers.invokeAliasCallback(b,HTTPCodes$1.nativeIdentityRequest,"Alias request sent to native sdk");else{mParticle.Logger.verbose(Messages$6.InformationMessages.StartingAliasRequest+": "+a.sourceMpid+" -> "+a.destinationMpid);var d=IdentityRequest.createAliasNetworkRequest(a);ApiClient.sendAliasRequest(d,b);}},/**
       Create a default AliasRequest for 2 MParticleUsers. This will construct the request
       using the sourceUser's firstSeenTime as the startTime, and its lastSeenTime as the endTime.
      
@@ -5026,1783 +1249,236 @@ var IdentityAPI = {
       In rare cases, where the sourceUser's lastSeenTime also falls outside of the aliasMaxWindow limit, 
       after applying this adjustment it will be impossible to create an aliasRequest passes the aliasUsers() 
       validation that the startTime must be less than the endTime 
-     */
-    createAliasRequest: function(sourceUser, destinationUser) {
-        try {
-            if (!destinationUser || !sourceUser) {
-                mParticle.Logger.error('\'destinationUser\' and \'sourceUser\' must both be present');
-                return null;
-            }
-            var startTime = sourceUser.getFirstSeenTime();
-            if (!startTime) {
-                mParticle.Identity.getUsers().forEach(function(user) {
-                    if (user.getFirstSeenTime() && (!startTime || user.getFirstSeenTime() < startTime)) {
-                        startTime = user.getFirstSeenTime();
-                    }
-                });
-            }
-            var minFirstSeenTimeMs = new Date().getTime() - mParticle.Store.SDKConfig.aliasMaxWindow * 24 * 60 * 60 * 1000 ;
-            var endTime = sourceUser.getLastSeenTime() || new Date().getTime();
-            //if the startTime is greater than $maxAliasWindow ago, adjust the startTime to the earliest allowed
-            if (startTime < minFirstSeenTimeMs) {
-                startTime = minFirstSeenTimeMs;
-                if (endTime < startTime) {
-                    mParticle.Logger.warning('Source User has not been seen in the last ' + mParticle.Store.SDKConfig.maxAliasWindow + ' days, Alias Request will likely fail');
-                }
-            }
-            return {
-                destinationMpid: destinationUser.getMPID(),
-                sourceMpid: sourceUser.getMPID(),
-                startTime: startTime,
-                endTime: endTime
-            };
-        } catch (e) {
-            mParticle.Logger.error('There was a problem with creating an alias request: ' + e);
-            return null;
-        }
-    }
-};
-
-/**
+     */createAliasRequest:function createAliasRequest(a,b){try{if(!b||!a)return mParticle.Logger.error("'destinationUser' and 'sourceUser' must both be present"),null;var c=a.getFirstSeenTime();c||mParticle.Identity.getUsers().forEach(function(a){a.getFirstSeenTime()&&(!c||a.getFirstSeenTime()<c)&&(c=a.getFirstSeenTime());});var d=new Date().getTime()-1e3*(60*(60*(24*mParticle.Store.SDKConfig.aliasMaxWindow))),e=a.getLastSeenTime()||new Date().getTime();return c<d&&(c=d,e<c&&mParticle.Logger.warning("Source User has not been seen in the last "+mParticle.Store.SDKConfig.maxAliasWindow+" days, Alias Request will likely fail")),{destinationMpid:b.getMPID(),sourceMpid:a.getMPID(),startTime:c,endTime:e}}catch(a){return mParticle.Logger.error("There was a problem with creating an alias request: "+a),null}}};/**
+* Invoke these methods on the mParticle.Identity object.
+* Example: mParticle.Identity.getCurrentUser().
+* @class mParticle.Identity
+*/ /**
 * Invoke these methods on the mParticle.Identity.getCurrentUser() object.
 * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
 * @class mParticle.Identity.getCurrentUser()
-*/
-function mParticleUser(mpid, isLoggedIn) {
-    return {
-        /**
+*/function mParticleUser(a,b){return {/**
         * Get user identities for current user
         * @method getUserIdentities
         * @return {Object} an object with userIdentities as its key
-        */
-        getUserIdentities: function() {
-            var currentUserIdentities = {};
-
-            var identities = Persistence.getUserIdentities(mpid);
-
-            for (var identityType in identities) {
-                if (identities.hasOwnProperty(identityType)) {
-                    currentUserIdentities[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = identities[identityType];
-                }
-            }
-
-            return {
-                userIdentities: currentUserIdentities
-            };
-        },
-        /**
+        */getUserIdentities:function getUserIdentities(){var b={},c=Persistence.getUserIdentities(a);for(var d in c)c.hasOwnProperty(d)&&(b[Types.IdentityType.getIdentityName(Helpers.parseNumber(d))]=c[d]);return {userIdentities:b}},/**
         * Get the MPID of the current user
         * @method getMPID
         * @return {String} the current user MPID as a string
-        */
-        getMPID: function() {
-            return mpid;
-        },
-        /**
+        */getMPID:function getMPID(){return a},/**
         * Sets a user tag
         * @method setUserTag
         * @param {String} tagName
-        */
-        setUserTag: function(tagName) {
-            if (!Validators$2.isValidKeyValue(tagName)) {
-                mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);
-                return;
-            }
-
-            this.setUserAttribute(tagName, null);
-        },
-        /**
+        */setUserTag:function setUserTag(a){return Validators$2.isValidKeyValue(a)?void this.setUserAttribute(a,null):void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey)},/**
         * Removes a user tag
         * @method removeUserTag
         * @param {String} tagName
-        */
-        removeUserTag: function(tagName) {
-            if (!Validators$2.isValidKeyValue(tagName)) {
-                mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);
-                return;
-            }
-
-            this.removeUserAttribute(tagName);
-        },
-        /**
+        */removeUserTag:function removeUserTag(a){return Validators$2.isValidKeyValue(a)?void this.removeUserAttribute(a):void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey)},/**
         * Sets a user attribute
         * @method setUserAttribute
         * @param {String} key
         * @param {String} value
-        */
-        setUserAttribute: function(key, value) {
-            var cookies,
-                userAttributes;
-
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (Helpers.canLog()) {
-                if (!Validators$2.isValidAttributeValue(value)) {
-                    mParticle.Logger.error(Messages$6.ErrorMessages.BadAttribute);
-                    return;
-                }
-
-                if (!Validators$2.isValidKeyValue(key)) {
-                    mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);
-                    return;
-                }
-                if (mParticle.Store.webviewBridgeEnabled) {
-                    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({ key: key, value: value }));
-                } else {
-                    cookies = Persistence.getPersistence();
-
-                    userAttributes = this.getAllUserAttributes();
-
-                    var existingProp = Helpers.findKeyInObject(userAttributes, key);
-
-                    if (existingProp) {
-                        delete userAttributes[existingProp];
-                    }
-
-                    userAttributes[key] = value;
-                    if (cookies && cookies[mpid]) {
-                        cookies[mpid].ua = userAttributes;
-                        Persistence.saveCookies(cookies, mpid);
-                    }
-
-                    Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
-                    Forwarders.callSetUserAttributeOnForwarders(key, value);
-                }
-            }
-        },
-        /**
+        */setUserAttribute:function setUserAttribute(b,c){var d,e;if(mParticle.sessionManager.resetSessionTimer(),Helpers.canLog()){if(!Validators$2.isValidAttributeValue(c))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadAttribute);if(!Validators$2.isValidKeyValue(b))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute,JSON.stringify({key:b,value:c}));else{d=Persistence.getPersistence(),e=this.getAllUserAttributes();var f=Helpers.findKeyInObject(e,b);f&&delete e[f],e[b]=c,d&&d[a]&&(d[a].ua=e,Persistence.saveCookies(d,a)),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities()),Forwarders.callSetUserAttributeOnForwarders(b,c);}}},/**
         * Set multiple user attributes
         * @method setUserAttributes
         * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
-        */
-        setUserAttributes: function(userAttributes) {
-            mParticle.sessionManager.resetSessionTimer();
-            if (Helpers.isObject(userAttributes)) {
-                if (Helpers.canLog()) {
-                    for (var key in userAttributes) {
-                        if (userAttributes.hasOwnProperty(key)) {
-                            this.setUserAttribute(key, userAttributes[key]);
-                        }
-                    }
-                }
-            } else {
-                mParticle.Logger.error('Must pass an object into setUserAttributes. You passed a ' + typeof userAttributes);
-            }
-        },
-        /**
+        */setUserAttributes:function setUserAttributes(a){if(mParticle.sessionManager.resetSessionTimer(),!Helpers.isObject(a))mParticle.Logger.error("Must pass an object into setUserAttributes. You passed a "+_typeof_1(a));else if(Helpers.canLog())for(var b in a)a.hasOwnProperty(b)&&this.setUserAttribute(b,a[b]);},/**
         * Removes a specific user attribute
         * @method removeUserAttribute
         * @param {String} key
-        */
-        removeUserAttribute: function(key) {
-            var cookies, userAttributes;
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (!Validators$2.isValidKeyValue(key)) {
-                mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);
-                return;
-            }
-
-            if (mParticle.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute, JSON.stringify({ key: key, value: null }));
-            } else {
-                cookies = Persistence.getPersistence();
-
-                userAttributes = this.getAllUserAttributes();
-
-                var existingProp = Helpers.findKeyInObject(userAttributes, key);
-
-                if (existingProp) {
-                    key = existingProp;
-                }
-
-                delete userAttributes[key];
-
-                if (cookies && cookies[mpid]) {
-                    cookies[mpid].ua = userAttributes;
-                    Persistence.saveCookies(cookies, mpid);
-                }
-
-                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
-                Forwarders.applyToForwarders('removeUserAttribute', key);
-            }
-        },
-        /**
+        */removeUserAttribute:function removeUserAttribute(b){var c,d;if(mParticle.sessionManager.resetSessionTimer(),!Validators$2.isValidKeyValue(b))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute,JSON.stringify({key:b,value:null}));else{c=Persistence.getPersistence(),d=this.getAllUserAttributes();var e=Helpers.findKeyInObject(d,b);e&&(b=e),delete d[b],c&&c[a]&&(c[a].ua=d,Persistence.saveCookies(c,a)),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities()),Forwarders.applyToForwarders("removeUserAttribute",b);}},/**
         * Sets a list of user attributes
         * @method setUserAttributeList
         * @param {String} key
         * @param {Array} value an array of values
-        */
-        setUserAttributeList: function(key, value) {
-            var cookies, userAttributes;
-
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (!Validators$2.isValidKeyValue(key)) {
-                mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);
-                return;
-            }
-
-            if (!Array.isArray(value)) {
-                mParticle.Logger.error('The value you passed in to setUserAttributeList must be an array. You passed in a ' + typeof value);
-                return;
-            }
-
-            var arrayCopy = value.slice();
-
-            if (mParticle.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({ key: key, value: arrayCopy }));
-            } else {
-                cookies = Persistence.getPersistence();
-
-                userAttributes = this.getAllUserAttributes();
-
-                var existingProp = Helpers.findKeyInObject(userAttributes, key);
-
-                if (existingProp) {
-                    delete userAttributes[existingProp];
-                }
-
-                userAttributes[key] = arrayCopy;
-                if (cookies && cookies[mpid]) {
-                    cookies[mpid].ua = userAttributes;
-                    Persistence.saveCookies(cookies, mpid);
-                }
-
-                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
-                Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
-            }
-        },
-        /**
+        */setUserAttributeList:function setUserAttributeList(b,c){var d,e;if(mParticle.sessionManager.resetSessionTimer(),!Validators$2.isValidKeyValue(b))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);if(!Array.isArray(c))return void mParticle.Logger.error("The value you passed in to setUserAttributeList must be an array. You passed in a "+_typeof_1(c));var f=c.slice();if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList,JSON.stringify({key:b,value:f}));else{d=Persistence.getPersistence(),e=this.getAllUserAttributes();var g=Helpers.findKeyInObject(e,b);g&&delete e[g],e[b]=f,d&&d[a]&&(d[a].ua=e,Persistence.saveCookies(d,a)),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities()),Forwarders.callSetUserAttributeOnForwarders(b,f);}},/**
         * Removes all user attributes
         * @method removeAllUserAttributes
-        */
-        removeAllUserAttributes: function() {
-            var cookies, userAttributes;
-
-            mParticle.sessionManager.resetSessionTimer();
-
-            if (mParticle.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
-            } else {
-                cookies = Persistence.getPersistence();
-
-                userAttributes = this.getAllUserAttributes();
-
-                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
-                if (userAttributes) {
-                    for (var prop in userAttributes) {
-                        if (userAttributes.hasOwnProperty(prop)) {
-                            Forwarders.applyToForwarders('removeUserAttribute', prop);
-                        }
-                    }
-                }
-
-                if (cookies && cookies[mpid]) {
-                    cookies[mpid].ua = {};
-                    Persistence.saveCookies(cookies, mpid);
-                }
-            }
-        },
-        /**
+        */removeAllUserAttributes:function removeAllUserAttributes(){var b,c;if(mParticle.sessionManager.resetSessionTimer(),mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);else{if(b=Persistence.getPersistence(),c=this.getAllUserAttributes(),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities()),c)for(var d in c)c.hasOwnProperty(d)&&Forwarders.applyToForwarders("removeUserAttribute",d);b&&b[a]&&(b[a].ua={},Persistence.saveCookies(b,a));}},/**
         * Returns all user attribute keys that have values that are arrays
         * @method getUserAttributesLists
         * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
-        */
-        getUserAttributesLists: function() {
-            var userAttributes,
-                userAttributesLists = {};
-
-            userAttributes = this.getAllUserAttributes();
-            for (var key in userAttributes) {
-                if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
-                    userAttributesLists[key] = userAttributes[key].slice();
-                }
-            }
-
-            return userAttributesLists;
-        },
-        /**
+        */getUserAttributesLists:function getUserAttributesLists(){var a,b={};for(var c in a=this.getAllUserAttributes(),a)a.hasOwnProperty(c)&&Array.isArray(a[c])&&(b[c]=a[c].slice());return b},/**
         * Returns all user attributes
         * @method getAllUserAttributes
         * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
-        */
-        getAllUserAttributes: function() {
-            var userAttributesCopy = {};
-            var userAttributes = Persistence.getAllUserAttributes(mpid);
-
-            if (userAttributes) {
-                for (var prop in userAttributes) {
-                    if (userAttributes.hasOwnProperty(prop)) {
-                        if (Array.isArray(userAttributes[prop])) {
-                            userAttributesCopy[prop] = userAttributes[prop].slice();
-                        }
-                        else {
-                            userAttributesCopy[prop] = userAttributes[prop];
-                        }
-                    }
-                }
-            }
-
-            return userAttributesCopy;
-        },
-        /**
+        */getAllUserAttributes:function getAllUserAttributes(){var b={},c=Persistence.getAllUserAttributes(a);if(c)for(var d in c)c.hasOwnProperty(d)&&(b[d]=Array.isArray(c[d])?c[d].slice():c[d]);return b},/**
         * Returns the cart object for the current user
         * @method getCart
         * @return a cart object
-        */
-        getCart: function() {
-            return mParticleUserCart(mpid);
-        },
-
-        /**
+        */getCart:function getCart(){return mParticleUserCart(a)},/**
         * Returns the Consent State stored locally for this user.
         * @method getConsentState
         * @return a ConsentState object
-        */
-        getConsentState: function() {
-            return Persistence.getConsentState(mpid);
-        },
-        /**
+        */getConsentState:function getConsentState(){return Persistence.getConsentState(a)},/**
         * Sets the Consent State stored locally for this user.
         * @method setConsentState
         * @param {Object} consent state
-        */
-        setConsentState: function(state) {
-            Persistence.saveUserConsentStateToCookies(mpid, state);
-            Forwarders.initForwarders(this.getUserIdentities().userIdentities);
-        },
-        isLoggedIn: function() {
-            return isLoggedIn;
-        },
-        getLastSeenTime: function() {
-            return Persistence.getLastSeenTime(mpid);
-        },
-        getFirstSeenTime: function() {
-            return Persistence.getFirstSeenTime(mpid);
-        }
-    };
-}
-
-/**
+        */setConsentState:function setConsentState(b){Persistence.saveUserConsentStateToCookies(a,b),Forwarders.initForwarders(this.getUserIdentities().userIdentities);},isLoggedIn:function isLoggedIn(){return b},getLastSeenTime:function getLastSeenTime(){return Persistence.getLastSeenTime(a)},getFirstSeenTime:function getFirstSeenTime(){return Persistence.getFirstSeenTime(a)}}}/**
 * Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
 * Example: mParticle.Identity.getCurrentUser().getCart().add(...);
 * @class mParticle.Identity.getCurrentUser().getCart()
-*/
-function mParticleUserCart(mpid){
-    return {
-        /**
+*/function mParticleUserCart(a){return {/**
         * Adds a cart product to the user cart
         * @method add
         * @param {Object} product the product
         * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
-        */
-        add: function(product, logEvent) {
-            var allProducts,
-                userProducts,
-                arrayCopy;
-
-            arrayCopy = Array.isArray(product) ? product.slice() : [product];
-            arrayCopy.forEach(function(product) {
-                product.Attributes = Helpers.sanitizeAttributes(product.Attributes);
-            });
-
-            if (mParticle.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.AddToCart, JSON.stringify(arrayCopy));
-            } else {
-                mParticle.sessionManager.resetSessionTimer();
-
-                userProducts = Persistence.getUserProductsFromLS(mpid);
-
-                userProducts = userProducts.concat(arrayCopy);
-
-                if (logEvent === true) {
-                    Events.logProductActionEvent(Types.ProductActionType.AddToCart, arrayCopy);
-                }
-
-                var productsForMemory = {};
-                productsForMemory[mpid] = {cp: userProducts};
-
-                if (userProducts.length > mParticle.Store.SDKConfig.maxProducts) {
-                    mParticle.Logger.verbose('The cart contains ' + userProducts.length + ' items. Only ' + mParticle.Store.SDKConfig.maxProducts + ' can currently be saved in cookies.');
-                    userProducts = userProducts.slice(-mParticle.Store.SDKConfig.maxProducts);
-                }
-
-                allProducts = Persistence.getAllUserProductsFromLS();
-                allProducts[mpid].cp = userProducts;
-
-                Persistence.setCartProducts(allProducts);
-            }
-        },
-        /**
+        */add:function add(b,c){var d,e,f;if(f=Array.isArray(b)?b.slice():[b],f.forEach(function(a){a.Attributes=Helpers.sanitizeAttributes(a.Attributes);}),mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.AddToCart,JSON.stringify(f));else{mParticle.sessionManager.resetSessionTimer(),e=Persistence.getUserProductsFromLS(a),e=e.concat(f),!0===c&&Events.logProductActionEvent(Types.ProductActionType.AddToCart,f);e.length>mParticle.Store.SDKConfig.maxProducts&&(mParticle.Logger.verbose("The cart contains "+e.length+" items. Only "+mParticle.Store.SDKConfig.maxProducts+" can currently be saved in cookies."),e=e.slice(-mParticle.Store.SDKConfig.maxProducts)),d=Persistence.getAllUserProductsFromLS(),d[a].cp=e,Persistence.setCartProducts(d);}},/**
         * Removes a cart product from the current user cart
         * @method remove
         * @param {Object} product the product
         * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
-        */
-        remove: function(product, logEvent) {
-            var allProducts,
-                userProducts,
-                cartIndex = -1,
-                cartItem = null;
-
-            if (mParticle.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart, JSON.stringify(product));
-            } else {
-                mParticle.sessionManager.resetSessionTimer();
-
-                userProducts = Persistence.getUserProductsFromLS(mpid);
-
-                if (userProducts) {
-                    userProducts.forEach(function(cartProduct, i) {
-                        if (cartProduct.Sku === product.Sku) {
-                            cartIndex = i;
-                            cartItem = cartProduct;
-                        }
-                    });
-
-                    if (cartIndex > -1) {
-                        userProducts.splice(cartIndex, 1);
-
-                        if (logEvent === true) {
-                            Events.logProductActionEvent(Types.ProductActionType.RemoveFromCart, cartItem);
-                        }
-                    }
-                }
-
-                var productsForMemory = {};
-                productsForMemory[mpid] = {cp: userProducts};
-
-                allProducts = Persistence.getAllUserProductsFromLS();
-
-                allProducts[mpid].cp = userProducts;
-
-                Persistence.setCartProducts(allProducts);
-            }
-        },
-        /**
+        */remove:function remove(b,c){var d,e,f=-1,g=null;if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart,JSON.stringify(b));else{mParticle.sessionManager.resetSessionTimer(),e=Persistence.getUserProductsFromLS(a),e&&(e.forEach(function(a,c){a.Sku===b.Sku&&(f=c,g=a);}),-1<f&&(e.splice(f,1),!0===c&&Events.logProductActionEvent(Types.ProductActionType.RemoveFromCart,g)));d=Persistence.getAllUserProductsFromLS(),d[a].cp=e,Persistence.setCartProducts(d);}},/**
         * Clears the user's cart
         * @method clear
-        */
-        clear: function() {
-            var allProducts;
-
-            if (mParticle.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.ClearCart);
-            } else {
-                mParticle.sessionManager.resetSessionTimer();
-                allProducts = Persistence.getAllUserProductsFromLS();
-
-                if (allProducts && allProducts[mpid] && allProducts[mpid].cp) {
-                    allProducts[mpid].cp = [];
-
-                    allProducts[mpid].cp = [];
-
-                    Persistence.setCartProducts(allProducts);
-                }
-            }
-        },
-        /**
+        */clear:function clear(){var b;mParticle.Store.webviewBridgeEnabled?NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.ClearCart):(mParticle.sessionManager.resetSessionTimer(),b=Persistence.getAllUserProductsFromLS(),b&&b[a]&&b[a].cp&&(b[a].cp=[],b[a].cp=[],Persistence.setCartProducts(b)));},/**
         * Returns all cart products
         * @method getCartProducts
         * @return {Array} array of cart products
-        */
-        getCartProducts: function() {
-            return Persistence.getCartProducts(mpid);
-        }
-    };
-}
+        */getCartProducts:function getCartProducts(){return Persistence.getCartProducts(a)}}}function parseIdentityResponse(a,b,c,d,e){var f,g,h,i=mParticle.Identity.getCurrentUser(),j={},k=i?i.getUserIdentities().userIdentities:{};for(var l in k)j[Types.IdentityType.getIdentityType(l)]=k[l];var m={};mParticle.Store.identityCallInFlight=!1;try{if(mParticle.Logger.verbose("Parsing \""+e+"\" identity response from server"),a.responseText&&(g=JSON.parse(a.responseText),g.hasOwnProperty("is_logged_in")&&(mParticle.Store.isLoggedIn=g.is_logged_in)),200===a.status){if("modify"===e)m=IdentityRequest.modifyUserIdentities(j,d.userIdentities),Persistence.saveUserIdentitiesToCookies(i.getMPID(),m);else{//if there is any previous migration data
+if(g=JSON.parse(a.responseText),mParticle.Logger.verbose("Successfully parsed Identity Response"),(!i||i.getMPID()&&g.mpid&&g.mpid!==i.getMPID())&&(mParticle.Store.mpid=g.mpid,i&&Persistence.setLastSeenTime(b),Persistence.setFirstSeenTime(g.mpid)),"identify"==e&&i&&g.mpid===i.getMPID()&&Persistence.setFirstSeenTime(g.mpid),h=mParticle.Store.currentSessionMPIDs.indexOf(g.mpid),mParticle.Store.sessionId&&g.mpid&&b!==g.mpid&&0>h&&mParticle.Store.currentSessionMPIDs.push(g.mpid),-1<h&&(mParticle.Store.currentSessionMPIDs=mParticle.Store.currentSessionMPIDs.slice(0,h).concat(mParticle.Store.currentSessionMPIDs.slice(h+1,mParticle.Store.currentSessionMPIDs.length)),mParticle.Store.currentSessionMPIDs.push(g.mpid)),Persistence.saveUserIdentitiesToCookies(g.mpid,m),cookieSyncManager.attemptCookieSync(b,g.mpid),checkIdentitySwap(b,g.mpid,mParticle.Store.currentSessionMPIDs),Object.keys(mParticle.Store.migrationData).length){m=mParticle.Store.migrationData.userIdentities||{};var n=mParticle.Store.migrationData.userAttributes||{};Persistence.saveUserAttributesToCookies(g.mpid,n);}else d&&d.userIdentities&&Object.keys(d.userIdentities).length&&(m=IdentityRequest.modifyUserIdentities(j,d.userIdentities));Persistence.saveUserIdentitiesToCookies(g.mpid,m),Persistence.update(),Persistence.findPrevCookiesBasedOnUI(d),mParticle.Store.context=g.context||mParticle.Store.context;}if(f=IdentityAPI.getCurrentUser(),d&&d.onUserAlias&&Helpers.Validators.isFunction(d.onUserAlias))try{mParticle.Logger.warning("Deprecated function onUserAlias will be removed in future releases"),d.onUserAlias(i,f);}catch(a){mParticle.Logger.error("There was an error with your onUserAlias function - "+a);}var o=Persistence.getCookie()||Persistence.getLocalStorage();f&&(Persistence.storeDataInMemory(o,f.getMPID()),(!i||f.getMPID()!==i.getMPID()||i.isLoggedIn()!==f.isLoggedIn())&&Forwarders.initForwarders(f.getUserIdentities().userIdentities),Forwarders.setForwarderUserIdentities(f.getUserIdentities().userIdentities),Forwarders.setForwarderOnIdentityComplete(f,e),Forwarders.setForwarderOnUserIdentified(f,e)),Helpers.processQueuedEvents(mParticle.Store.eventQueue,g.mpid,!mParticle.Store.requireDelay,ApiClient.sendEventToServer,sendEventToForwarders$2,Events.parseEventResponse);}c?0===a.status?Helpers.invokeCallback(c,HTTPCodes$1.noHttpCoverage,g||null,f):Helpers.invokeCallback(c,a.status,g||null,f):g&&g.errors&&g.errors.length&&mParticle.Logger.error("Received HTTP response code of "+a.status+" - "+g.errors[0].message);}catch(b){c&&Helpers.invokeCallback(c,a.status,g||null),mParticle.Logger.error("Error parsing JSON response from Identity server: "+b);}}var Identity = {checkIdentitySwap:checkIdentitySwap,IdentityRequest:IdentityRequest,IdentityAPI:IdentityAPI,mParticleUser:mParticleUser,mParticleUserCart:mParticleUserCart};
 
-function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, method) {
-    var prevUser = mParticle.Identity.getCurrentUser(),
-        newUser,
-        identityApiResult,
-        indexOfMPID;
+var IdentityAPI$1=Identity.IdentityAPI,Messages$7=Constants.Messages,logEvent$1=Events.logEvent;function initialize(){if(mParticle.Store.sessionId){var a=6e4*mParticle.Store.SDKConfig.sessionTimeout;if(new Date>new Date(mParticle.Store.dateLastEventSent.getTime()+a))endSession(),startNewSession();else{var b=Persistence.getPersistence();b&&!b.cu&&(IdentityAPI$1.identify(mParticle.Store.SDKConfig.identifyRequest,mParticle.Store.SDKConfig.identityCallback),mParticle.Store.identifyCalled=!0,mParticle.Store.SDKConfig.identityCallback=null);}}else startNewSession();}function getSession(){return mParticle.Store.sessionId}function startNewSession(){if(mParticle.Logger.verbose(Messages$7.InformationMessages.StartingNewSession),Helpers.canLog()){mParticle.Store.sessionId=Helpers.generateUniqueId().toUpperCase();var a=mParticle.Identity.getCurrentUser(),b=a?a.getMPID():null;if(b&&(mParticle.Store.currentSessionMPIDs=[b]),!mParticle.Store.sessionStartDate){var c=new Date;mParticle.Store.sessionStartDate=c,mParticle.Store.dateLastEventSent=c;}setSessionTimer(),mParticle.Store.identifyCalled||(IdentityAPI$1.identify(mParticle.Store.SDKConfig.identifyRequest,mParticle.Store.SDKConfig.identityCallback),mParticle.Store.identifyCalled=!0,mParticle.Store.SDKConfig.identityCallback=null),logEvent$1({messageType:Types.MessageType.SessionStart});}else mParticle.Logger.verbose(Messages$7.InformationMessages.AbandonStartSession);}function endSession(a){if(mParticle.Logger.verbose(Messages$7.InformationMessages.StartingEndSession),a)logEvent$1({messageType:Types.MessageType.SessionEnd}),mParticle.Store.sessionId=null,mParticle.Store.dateLastEventSent=null,mParticle.Store.sessionAttributes={},Persistence.update();else if(Helpers.canLog()){var b,c,d;if(c=Persistence.getCookie()||Persistence.getLocalStorage(),!c)return;if(c.gs&&!c.gs.sid)return void mParticle.Logger.verbose(Messages$7.InformationMessages.NoSessionToEnd);// sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
+if(c.gs.sid&&mParticle.Store.sessionId!==c.gs.sid&&(mParticle.Store.sessionId=c.gs.sid),c.gs&&c.gs.les){b=6e4*mParticle.Store.SDKConfig.sessionTimeout;var e=new Date().getTime();d=e-c.gs.les,d<b?setSessionTimer():(logEvent$1({messageType:Types.MessageType.SessionEnd}),mParticle.Store.sessionId=null,mParticle.Store.dateLastEventSent=null,mParticle.Store.sessionStartDate=null,mParticle.Store.sessionAttributes={},Persistence.update());}}else mParticle.Logger.verbose(Messages$7.InformationMessages.AbandonEndSession);}function setSessionTimer(){var a=6e4*mParticle.Store.SDKConfig.sessionTimeout;mParticle.Store.globalTimer=window.setTimeout(function(){endSession();},a);}function resetSessionTimer(){mParticle.Store.webviewBridgeEnabled||(!mParticle.Store.sessionId&&startNewSession(),clearSessionTimeout(),setSessionTimer()),startNewSessionIfNeeded();}function clearSessionTimeout(){clearTimeout(mParticle.Store.globalTimer);}function startNewSessionIfNeeded(){if(!mParticle.Store.webviewBridgeEnabled){var a=Persistence.getCookie()||Persistence.getLocalStorage();!mParticle.Store.sessionId&&a&&(a.sid?mParticle.Store.sessionId=a.sid:startNewSession());}}var SessionManager = {initialize:initialize,getSession:getSession,startNewSession:startNewSession,endSession:endSession,setSessionTimer:setSessionTimer,resetSessionTimer:resetSessionTimer,clearSessionTimeout:clearSessionTimeout};
 
-    var userIdentitiesForModify = {},
-        userIdentities = prevUser ? prevUser.getUserIdentities().userIdentities : {};
-    for (var identityKey in userIdentities) {
-        userIdentitiesForModify[Types.IdentityType.getIdentityType(identityKey)] = userIdentities[identityKey];
-    }
+var Validators$3=Helpers.Validators;function createSDKConfig(a){var b={};for(var c in Constants.DefaultConfig)Constants.DefaultConfig.hasOwnProperty(c)&&(b[c]=Constants.DefaultConfig[c]);if(a)for(c in a)a.hasOwnProperty(c)&&(b[c]=a[c]);for(c in Constants.DefaultUrls)b[c]=Constants.DefaultUrls[c];return b}function Store(a,b){var c={isEnabled:!0,sessionAttributes:{},currentSessionMPIDs:[],consentState:null,sessionId:null,isFirstRun:null,clientId:null,deviceId:null,devToken:null,migrationData:{},serverSettings:{},dateLastEventSent:null,sessionStartDate:null,currentPosition:null,isTracking:!1,watchPositionId:null,cartProducts:[],eventQueue:[],currencyCode:null,globalTimer:null,context:"",configurationLoaded:!1,identityCallInFlight:!1,SDKConfig:{},migratingToIDSyncCookies:!1,nonCurrentUserMPIDs:{},identifyCalled:!1,isLoggedIn:!1,cookieSyncDates:{},integrationAttributes:{},requireDelay:!0,isLocalStorageAvailable:null,storageName:null,prodStorageName:null,activeForwarders:[],kits:{},configuredForwarders:[],pixelConfigurations:[]};for(var d in c)this[d]=c[d];// Set configuration to default settings
+if(this.storageName=Helpers.createMainStorageName(a.workspaceToken),this.prodStorageName=Helpers.createProductStorageName(a.workspaceToken),this.integrationDelayTimeoutStart=Date.now(),this.SDKConfig=createSDKConfig(a),a){if(this.SDKConfig.isDevelopmentMode=!!a.hasOwnProperty("isDevelopmentMode")&&Helpers.returnConvertedBoolean(a.isDevelopmentMode),a.hasOwnProperty("serviceUrl")&&(this.SDKConfig.serviceUrl=a.serviceUrl),a.hasOwnProperty("secureServiceUrl")&&(this.SDKConfig.secureServiceUrl=a.secureServiceUrl),a.hasOwnProperty("v2ServiceUrl")&&(this.SDKConfig.v2ServiceUrl=a.v2ServiceUrl),a.hasOwnProperty("v2SecureServiceUrl")&&(this.SDKConfig.v2SecureServiceUrl=a.v2SecureServiceUrl),a.hasOwnProperty("identityUrl")&&(this.SDKConfig.identityUrl=a.identityUrl),a.hasOwnProperty("aliasUrl")&&(this.SDKConfig.aliasUrl=a.aliasUrl),a.hasOwnProperty("configUrl")&&(this.SDKConfig.configUrl=a.configUrl),a.hasOwnProperty("logLevel")&&(this.SDKConfig.logLevel=a.logLevel),this.SDKConfig.useNativeSdk=!!a.hasOwnProperty("useNativeSdk")&&a.useNativeSdk,a.hasOwnProperty("kits")&&(this.SDKConfig.kits=a.kits),this.SDKConfig.isIOS=a.hasOwnProperty("isIOS")?a.isIOS:mParticle.isIOS||!1,this.SDKConfig.useCookieStorage=!!a.hasOwnProperty("useCookieStorage")&&a.useCookieStorage,this.SDKConfig.maxProducts=a.hasOwnProperty("maxProducts")?a.maxProducts:Constants.DefaultConfig.maxProducts,this.SDKConfig.maxCookieSize=a.hasOwnProperty("maxCookieSize")?a.maxCookieSize:Constants.DefaultConfig.maxCookieSize,a.hasOwnProperty("appName")&&(this.SDKConfig.appName=a.appName),this.SDKConfig.integrationDelayTimeout=a.hasOwnProperty("integrationDelayTimeout")?a.integrationDelayTimeout:Constants.DefaultConfig.integrationDelayTimeout,a.hasOwnProperty("identifyRequest")&&(this.SDKConfig.identifyRequest=a.identifyRequest),a.hasOwnProperty("identityCallback")){var e=a.identityCallback;Validators$3.isFunction(e)?this.SDKConfig.identityCallback=a.identityCallback:b.warning("The optional callback must be a function. You tried entering a(n) "+_typeof_1(e)," . Callback not set. Please set your callback again.");}a.hasOwnProperty("appVersion")&&(this.SDKConfig.appVersion=a.appVersion),a.hasOwnProperty("sessionTimeout")&&(this.SDKConfig.sessionTimeout=a.sessionTimeout),this.SDKConfig.forceHttps=!a.hasOwnProperty("forceHttps")||a.forceHttps,a.hasOwnProperty("customFlags")&&(this.SDKConfig.customFlags=a.customFlags),a.hasOwnProperty("workspaceToken")?this.SDKConfig.workspaceToken=a.workspaceToken:b.warning("You should have a workspaceToken on your mParticle.config object for security purposes."),a.hasOwnProperty("requiredWebviewBridgeName")?this.SDKConfig.requiredWebviewBridgeName=a.requiredWebviewBridgeName:a.hasOwnProperty("workspaceToken")&&(this.SDKConfig.requiredWebviewBridgeName=a.workspaceToken),this.SDKConfig.minWebviewBridgeVersion=a.hasOwnProperty("minWebviewBridgeVersion")?a.minWebviewBridgeVersion:1,this.SDKConfig.aliasMaxWindow=a.hasOwnProperty("aliasMaxWindow")?a.aliasMaxWindow:Constants.DefaultConfig.aliasMaxWindow,a.hasOwnProperty("flags")||(this.SDKConfig.flags={}),this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventBatching)||(this.SDKConfig.flags[Constants.FeatureFlags.EventBatching]=!1),this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventBatchingIntervalMillis)||(this.SDKConfig.flags[Constants.FeatureFlags.EventBatchingIntervalMillis]=Constants.DefaultConfig.uploadInterval),this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.ReportBatching)||(this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching]=!1);}}
 
-    var newIdentities = {};
+function Logger(a){var b=a.logLevel||"warning";this.logger=a.hasOwnProperty("logger")?a.logger:new ConsoleLogger,this.verbose=function(a){"none"!==b&&this.logger.verbose&&"verbose"===b&&this.logger.verbose(a);},this.warning=function(a){"none"!==b&&this.logger.warning&&("verbose"===b||"warning"===b)&&this.logger.warning(a);},this.error=function(a){"none"!==b&&this.logger.error&&this.logger.error(a);},this.setLogLevel=function(a){b=a;};}function ConsoleLogger(){this.verbose=function(a){window.console&&window.console.info&&window.console.info(a);},this.error=function(a){window.console&&window.console.error&&window.console.error(a);},this.warning=function(a){window.console&&window.console.warn&&window.console.warn(a);};}
 
-    mParticle.Store.identityCallInFlight = false;
-
-    try {
-        mParticle.Logger.verbose('Parsing "' + method + '" identity response from server');
-        if (xhr.responseText) {
-            identityApiResult = JSON.parse(xhr.responseText);
-            if (identityApiResult.hasOwnProperty('is_logged_in')) {
-                mParticle.Store.isLoggedIn = identityApiResult.is_logged_in;
-            }
-        }
-        if (xhr.status === 200) {
-            if (method === 'modify') {
-                newIdentities = IdentityRequest.modifyUserIdentities(userIdentitiesForModify, identityApiData.userIdentities);
-                Persistence.saveUserIdentitiesToCookies(prevUser.getMPID(), newIdentities);
-            } else {
-                identityApiResult = JSON.parse(xhr.responseText);
-
-                mParticle.Logger.verbose('Successfully parsed Identity Response');
-
-                if (!(prevUser) || (prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID())) {
-                    mParticle.Store.mpid = identityApiResult.mpid;
-                    if (prevUser) {
-                        Persistence.setLastSeenTime(previousMPID);
-                    }
-                    Persistence.setFirstSeenTime(identityApiResult.mpid);
-                }
-
-                //this covers an edge case where, users stored before "firstSeenTime" was introduced
-                //will not have a value for "fst" until the current MPID changes, and in some cases,
-                //the current MPID will never change
-                if (method === 'identify' && prevUser && identityApiResult.mpid === prevUser.getMPID()) {
-                    Persistence.setFirstSeenTime(identityApiResult.mpid);
-                }
-
-                indexOfMPID = mParticle.Store.currentSessionMPIDs.indexOf(identityApiResult.mpid);
-
-                if (mParticle.Store.sessionId && identityApiResult.mpid && previousMPID !== identityApiResult.mpid && indexOfMPID < 0) {
-                    mParticle.Store.currentSessionMPIDs.push(identityApiResult.mpid);
-                }
-
-                if (indexOfMPID > -1) {
-                    mParticle.Store.currentSessionMPIDs = (mParticle.Store.currentSessionMPIDs.slice(0, indexOfMPID)).concat(mParticle.Store.currentSessionMPIDs.slice(indexOfMPID + 1, mParticle.Store.currentSessionMPIDs.length));
-                    mParticle.Store.currentSessionMPIDs.push(identityApiResult.mpid);
-                }
-
-                Persistence.saveUserIdentitiesToCookies(identityApiResult.mpid, newIdentities);
-                cookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid);
-
-                checkIdentitySwap(previousMPID, identityApiResult.mpid, mParticle.Store.currentSessionMPIDs);
-                
-                //if there is any previous migration data
-                if (Object.keys(mParticle.Store.migrationData).length) {
-                    newIdentities = mParticle.Store.migrationData.userIdentities || {};
-                    var userAttributes = mParticle.Store.migrationData.userAttributes || {};
-                    Persistence.saveUserAttributesToCookies(identityApiResult.mpid, userAttributes);
-                } else {
-                    if (identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length) {
-                        newIdentities = IdentityRequest.modifyUserIdentities(userIdentitiesForModify, identityApiData.userIdentities);
-                    }
-                }
-
-                Persistence.saveUserIdentitiesToCookies(identityApiResult.mpid, newIdentities);
-                Persistence.update();
-
-                Persistence.findPrevCookiesBasedOnUI(identityApiData);
-
-                mParticle.Store.context = identityApiResult.context || mParticle.Store.context;
-            }
-
-            newUser = IdentityAPI.getCurrentUser();
-
-            if (identityApiData && identityApiData.onUserAlias && Helpers.Validators.isFunction(identityApiData.onUserAlias)) {
-                try {
-                    mParticle.Logger.warning('Deprecated function onUserAlias will be removed in future releases');
-                    identityApiData.onUserAlias(prevUser, newUser);
-                }
-                catch (e) {
-                    mParticle.Logger.error('There was an error with your onUserAlias function - ' + e);
-                }
-            }
-            var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
-
-            if (newUser) {
-                Persistence.storeDataInMemory(cookies, newUser.getMPID());
-                if (!prevUser || newUser.getMPID() !== prevUser.getMPID() || prevUser.isLoggedIn() !== newUser.isLoggedIn()) {
-                    Forwarders.initForwarders(newUser.getUserIdentities().userIdentities);
-                }
-                Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);
-                Forwarders.setForwarderOnIdentityComplete(newUser, method);
-                Forwarders.setForwarderOnUserIdentified(newUser, method);
-            }
-
-            Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, ApiClient.sendEventToServer, sendEventToForwarders$2, Events.parseEventResponse);
-        }
-
-        if (callback) {
-            if (xhr.status === 0) {
-                Helpers.invokeCallback(callback, HTTPCodes$1.noHttpCoverage, identityApiResult || null, newUser);
-            } else {
-                Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
-            }
-        } else {
-            if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
-                mParticle.Logger.error('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
-            }
-        }
-    }
-    catch (e) {
-        if (callback) {
-            Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
-        }
-        mParticle.Logger.error('Error parsing JSON response from Identity server: ' + e);
-    }
-}
-
-var Identity = {
-    checkIdentitySwap: checkIdentitySwap,
-    IdentityRequest: IdentityRequest,
-    IdentityAPI: IdentityAPI,
-    mParticleUser: mParticleUser,
-    mParticleUserCart: mParticleUserCart
-};
-
-var IdentityAPI$1 = Identity.IdentityAPI,
-    Messages$7 = Constants.Messages,
-    logEvent$1 = Events.logEvent;
-
-function initialize() {
-    if (mParticle.Store.sessionId) {
-        var sessionTimeoutInMilliseconds = mParticle.Store.SDKConfig.sessionTimeout * 60000;
-
-        if (new Date() > new Date(mParticle.Store.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
-            endSession();
-            startNewSession();
-        } else {
-            var cookies = Persistence.getPersistence();
-            if (cookies && !cookies.cu) {
-                IdentityAPI$1.identify(mParticle.Store.SDKConfig.identifyRequest, mParticle.Store.SDKConfig.identityCallback);
-                mParticle.Store.identifyCalled = true;
-                mParticle.Store.SDKConfig.identityCallback = null;
-            }
-        }
-    } else {
-        startNewSession();
-    }
-}
-
-function getSession() {
-    return mParticle.Store.sessionId;
-}
-
-function startNewSession() {
-    mParticle.Logger.verbose(Messages$7.InformationMessages.StartingNewSession);
-
-    if (Helpers.canLog()) {
-        mParticle.Store.sessionId = Helpers.generateUniqueId().toUpperCase();
-        var currentUser = mParticle.Identity.getCurrentUser(),
-            mpid = currentUser ? currentUser.getMPID() : null;
-        if (mpid) {
-            mParticle.Store.currentSessionMPIDs = [mpid];
-        }
-
-        if (!mParticle.Store.sessionStartDate) {
-            var date = new Date();
-            mParticle.Store.sessionStartDate = date;
-            mParticle.Store.dateLastEventSent = date;
-        }
-
-        setSessionTimer();
-
-        if (!mParticle.Store.identifyCalled) {
-            IdentityAPI$1.identify(mParticle.Store.SDKConfig.identifyRequest, mParticle.Store.SDKConfig.identityCallback);
-            mParticle.Store.identifyCalled = true;
-            mParticle.Store.SDKConfig.identityCallback = null;
-        }
-
-        logEvent$1({ messageType: Types.MessageType.SessionStart });
-    }
-    else {
-        mParticle.Logger.verbose(Messages$7.InformationMessages.AbandonStartSession);
-    }
-}
-
-function endSession(override) {
-    mParticle.Logger.verbose(Messages$7.InformationMessages.StartingEndSession);
-
-    if (override) {
-        logEvent$1({ messageType: Types.MessageType.SessionEnd });
-
-        mParticle.Store.sessionId = null;
-        mParticle.Store.dateLastEventSent = null;
-        mParticle.Store.sessionAttributes = {};
-        Persistence.update();
-    } else if (Helpers.canLog()) {
-        var sessionTimeoutInMilliseconds,
-            cookies,
-            timeSinceLastEventSent;
-
-        cookies = Persistence.getCookie() || Persistence.getLocalStorage();
-
-        if (!cookies) {
-            return;
-        }
-
-        if (cookies.gs && !cookies.gs.sid) {
-            mParticle.Logger.verbose(Messages$7.InformationMessages.NoSessionToEnd);
-            return;
-        }
-
-        // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
-        if (cookies.gs.sid && mParticle.Store.sessionId !== cookies.gs.sid) {
-            mParticle.Store.sessionId = cookies.gs.sid;
-        }
-
-        if (cookies.gs && cookies.gs.les) {
-            sessionTimeoutInMilliseconds = mParticle.Store.SDKConfig.sessionTimeout * 60000;
-            var newDate = new Date().getTime();
-            timeSinceLastEventSent = newDate - cookies.gs.les;
-
-            if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
-                setSessionTimer();
-            } else {
-                logEvent$1({ messageType: Types.MessageType.SessionEnd });
-
-                mParticle.Store.sessionId = null;
-                mParticle.Store.dateLastEventSent = null;
-                mParticle.Store.sessionStartDate = null;
-                mParticle.Store.sessionAttributes = {};
-                Persistence.update();
-            }
-        }
-    } else {
-        mParticle.Logger.verbose(Messages$7.InformationMessages.AbandonEndSession);
-    }
-}
-
-function setSessionTimer() {
-    var sessionTimeoutInMilliseconds = mParticle.Store.SDKConfig.sessionTimeout * 60000;
-
-    mParticle.Store.globalTimer = window.setTimeout(function() {
-        endSession();
-    }, sessionTimeoutInMilliseconds);
-}
-
-function resetSessionTimer() {
-    if (!mParticle.Store.webviewBridgeEnabled) {
-        if (!mParticle.Store.sessionId) {
-            startNewSession();
-        }
-        clearSessionTimeout();
-        setSessionTimer();
-    }
-    startNewSessionIfNeeded();
-}
-
-function clearSessionTimeout() {
-    clearTimeout(mParticle.Store.globalTimer);
-}
-
-function startNewSessionIfNeeded() {
-    if (!mParticle.Store.webviewBridgeEnabled) {
-        var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
-
-        if (!mParticle.Store.sessionId && cookies) {
-            if (cookies.sid) {
-                mParticle.Store.sessionId = cookies.sid;
-            } else {
-                startNewSession();
-            }
-        }
-    }
-}
-
-var SessionManager = {
-    initialize: initialize,
-    getSession: getSession,
-    startNewSession: startNewSession,
-    endSession: endSession,
-    setSessionTimer: setSessionTimer,
-    resetSessionTimer: resetSessionTimer,
-    clearSessionTimeout: clearSessionTimeout
-};
-
-var Validators$3 = Helpers.Validators;
-
-function createSDKConfig(config) {
-    var sdkConfig = {};
-    for (var prop in Constants.DefaultConfig) {
-        if (Constants.DefaultConfig.hasOwnProperty(prop)) {
-            sdkConfig[prop] = Constants.DefaultConfig[prop];
-        }
-    }
-
-    if (config) {
-        for (prop in config) {
-            if (config.hasOwnProperty(prop)) {
-                sdkConfig[prop] = config[prop];
-            }
-        }
-    }
-
-    for (prop in Constants.DefaultUrls) {
-        sdkConfig[prop] = Constants.DefaultUrls[prop];
-    }
-
-    return sdkConfig;
-}
-
-function Store(config, logger) {
-    var defaultStore = {
-        isEnabled: true,
-        sessionAttributes: {},
-        currentSessionMPIDs: [],
-        consentState: null,
-        sessionId: null,
-        isFirstRun: null,
-        clientId: null,
-        deviceId: null,
-        devToken: null,
-        migrationData: {},
-        serverSettings: {},
-        dateLastEventSent: null,
-        sessionStartDate: null,
-        currentPosition: null,
-        isTracking: false,
-        watchPositionId: null,
-        cartProducts: [],
-        eventQueue: [],
-        currencyCode: null,
-        globalTimer: null,
-        context: '',
-        configurationLoaded: false,
-        identityCallInFlight: false,
-        SDKConfig: {},
-        migratingToIDSyncCookies: false,
-        nonCurrentUserMPIDs: {},
-        identifyCalled: false,
-        isLoggedIn: false,
-        cookieSyncDates: {},
-        integrationAttributes: {},
-        requireDelay: true,
-        isLocalStorageAvailable: null,
-        storageName: null,
-        prodStorageName: null,
-        activeForwarders: [],
-        kits: {},
-        configuredForwarders: [],
-        pixelConfigurations: []
-    };
-
-    for (var key in defaultStore) {
-        this[key] = defaultStore[key];
-    }
-
-    this.storageName = Helpers.createMainStorageName(config.workspaceToken);
-    this.prodStorageName = Helpers.createProductStorageName(config.workspaceToken);
-    this.integrationDelayTimeoutStart = Date.now();
-
-    this.SDKConfig = createSDKConfig(config);
-    // Set configuration to default settings
-    if (config) {
-        if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = Helpers.returnConvertedBoolean(config.isDevelopmentMode);
-        } else {
-            this.SDKConfig.isDevelopmentMode = false;
-        }
-        
-        if (config.hasOwnProperty('serviceUrl')) {
-            this.SDKConfig.serviceUrl = config.serviceUrl;
-        }
-
-        if (config.hasOwnProperty('secureServiceUrl')) {
-            this.SDKConfig.secureServiceUrl = config.secureServiceUrl;
-        }
-
-        if (config.hasOwnProperty('v2ServiceUrl')) {
-            this.SDKConfig.v2ServiceUrl = config.v2ServiceUrl;
-        }
-
-        if (config.hasOwnProperty('v2SecureServiceUrl')) {
-            this.SDKConfig.v2SecureServiceUrl = config.v2SecureServiceUrl;
-        }
-
-        if (config.hasOwnProperty('identityUrl')) {
-            this.SDKConfig.identityUrl = config.identityUrl;
-        }
-
-        if (config.hasOwnProperty('aliasUrl')) {
-            this.SDKConfig.aliasUrl = config.aliasUrl;
-        }
-
-        if (config.hasOwnProperty('configUrl')) {
-            this.SDKConfig.configUrl = config.configUrl;
-        }
-
-        if (config.hasOwnProperty('logLevel')) {
-            this.SDKConfig.logLevel = config.logLevel;
-        }
-
-        if (config.hasOwnProperty('useNativeSdk')) {
-            this.SDKConfig.useNativeSdk = config.useNativeSdk;
-        } else {
-            this.SDKConfig.useNativeSdk = false;
-        }
-        if (config.hasOwnProperty('kits')) {
-            this.SDKConfig.kits = config.kits;
-        }
-
-        if (config.hasOwnProperty('isIOS')) {
-            this.SDKConfig.isIOS = config.isIOS;
-        } else {
-            this.SDKConfig.isIOS = mParticle.isIOS || false;
-        }
-
-        if (config.hasOwnProperty('useCookieStorage')) {
-            this.SDKConfig.useCookieStorage = config.useCookieStorage;
-        } else {
-            this.SDKConfig.useCookieStorage = false;
-        }
-
-        if (config.hasOwnProperty('maxProducts')) {
-            this.SDKConfig.maxProducts = config.maxProducts;
-        } else {
-            this.SDKConfig.maxProducts = Constants.DefaultConfig.maxProducts;
-        }
-
-        if (config.hasOwnProperty('maxCookieSize')) {
-            this.SDKConfig.maxCookieSize = config.maxCookieSize;
-        } else {
-            this.SDKConfig.maxCookieSize = Constants.DefaultConfig.maxCookieSize;
-        }
-
-        if (config.hasOwnProperty('appName')) {
-            this.SDKConfig.appName = config.appName;
-        }
-
-        if (config.hasOwnProperty('integrationDelayTimeout')) {
-            this.SDKConfig.integrationDelayTimeout = config.integrationDelayTimeout;
-        } else {
-            this.SDKConfig.integrationDelayTimeout = Constants.DefaultConfig.integrationDelayTimeout;
-        }
-
-        if (config.hasOwnProperty('identifyRequest')) {
-            this.SDKConfig.identifyRequest = config.identifyRequest;
-        }
-
-        if (config.hasOwnProperty('identityCallback')) {
-            var callback = config.identityCallback;
-            if (Validators$3.isFunction(callback)) {
-                this.SDKConfig.identityCallback = config.identityCallback;
-            } else {
-                logger.warning('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
-            }
-        }
-
-        if (config.hasOwnProperty('appVersion')) {
-            this.SDKConfig.appVersion = config.appVersion;
-        }
-
-        if (config.hasOwnProperty('sessionTimeout')) {
-            this.SDKConfig.sessionTimeout = config.sessionTimeout;
-        }
-
-        if (config.hasOwnProperty('forceHttps')) {
-            this.SDKConfig.forceHttps = config.forceHttps;
-        } else {
-            this.SDKConfig.forceHttps = true;
-        }
-
-        // Some forwarders require custom flags on initialization, so allow them to be set using config object
-        if (config.hasOwnProperty('customFlags')) {
-            this.SDKConfig.customFlags = config.customFlags;
-        }
-
-        if (config.hasOwnProperty('workspaceToken')) {
-            this.SDKConfig.workspaceToken = config.workspaceToken;
-        } else {
-            logger.warning('You should have a workspaceToken on your mParticle.config object for security purposes.');
-        }
-
-        if (config.hasOwnProperty('requiredWebviewBridgeName')) {
-            this.SDKConfig.requiredWebviewBridgeName = config.requiredWebviewBridgeName;
-        } else if (config.hasOwnProperty('workspaceToken')) {
-            this.SDKConfig.requiredWebviewBridgeName = config.workspaceToken;
-        }
-
-        if (config.hasOwnProperty('minWebviewBridgeVersion')) {
-            this.SDKConfig.minWebviewBridgeVersion = config.minWebviewBridgeVersion;
-        } else {
-            this.SDKConfig.minWebviewBridgeVersion = 1;
-        }
-
-        if (config.hasOwnProperty('aliasMaxWindow')) {
-            this.SDKConfig.aliasMaxWindow = config.aliasMaxWindow;
-        } else {
-            this.SDKConfig.aliasMaxWindow = Constants.DefaultConfig.aliasMaxWindow;
-        }
-    }
-}
-
-function Logger(config) {
-    var logLevel = config.logLevel || 'warning';
-    if (config.hasOwnProperty('logger')) {
-        this.logger = config.logger;
-    } else {
-        this.logger = new ConsoleLogger();
-    }
-
-    this.verbose = function(msg) {
-        if (logLevel !== 'none') {
-            if (this.logger.verbose && logLevel === 'verbose') {
-                this.logger.verbose(msg);
-            }
-        }
-    };
-
-    this.warning = function(msg) {
-        if (logLevel !== 'none') {
-            if ((this.logger.warning && (logLevel === 'verbose' || logLevel === 'warning'))) {
-                this.logger.warning(msg);
-            }
-        }
-    };
-
-    this.error = function(msg) {
-        if (logLevel !== 'none') {
-            if (this.logger.error) {
-                this.logger.error(msg);
-            }
-        }
-    };
-
-    this.setLogLevel = function (newLogLevel) {
-        logLevel = newLogLevel;
-    };
-}
-
-function ConsoleLogger() {
-    this.verbose = function (msg) {
-        if (window.console && window.console.info) {
-            window.console.info(msg);
-        }
-    };
-
-    this.error = function (msg) {
-        if (window.console && window.console.error) {
-            window.console.error(msg);
-        }
-    };
-    this.warning = function (msg) {
-        if (window.console && window.console.warn) {
-            window.console.warn(msg);
-        }
-    };
-}
-
-var StorageNames$2 = Constants.StorageNames,
-    Base64$2 = Polyfill.Base64,
-    CookiesGlobalSettingsKeys = {
-        das: 1
-    },
-    MPIDKeys = {
-        ui: 1
-    };
-
-//  if there is a cookie or localStorage:
+var StorageNames$2=Constants.StorageNames,Base64$2=Polyfill.Base64,CookiesGlobalSettingsKeys={das:1},MPIDKeys={ui:1};//  if there is a cookie or localStorage:
 //  1. determine which version it is ('mprtcl-api', 'mprtcl-v2', 'mprtcl-v3', 'mprtcl-v4')
 //  2. return if 'mprtcl-v4', otherwise migrate to mprtclv4 schema
 // 3. if 'mprtcl-api', could be JSSDKv2 or JSSDKv1. JSSDKv2 cookie has a 'globalSettings' key on it
-function migrate() {
-    try {
-        migrateCookies();
-    } catch (e) {
-        Persistence.expireCookies(StorageNames$2.cookieNameV3);
-        Persistence.expireCookies(StorageNames$2.cookieNameV4);
-        mParticle.Logger.error('Error migrating cookie: ' + e);
-    }
+function migrate(){try{migrateCookies();}catch(a){Persistence.expireCookies(StorageNames$2.cookieNameV3),Persistence.expireCookies(StorageNames$2.cookieNameV4),mParticle.Logger.error("Error migrating cookie: "+a);}if(mParticle.Store.isLocalStorageAvailable)try{migrateLocalStorage();}catch(a){localStorage.removeItem(StorageNames$2.localStorageNameV3),localStorage.removeItem(StorageNames$2.localStorageNameV4),mParticle.Logger.error("Error migrating localStorage: "+a);}}function migrateCookies(){var a,b,c,d,e,f,g=window.document.cookie.split("; ");for(mParticle.Logger.verbose(Constants.Messages.InformationMessages.CookieSearch),b=0,c=g.length;b<c;b++){//most recent version needs no migration
+if(d=g[b].split("="),e=Helpers.decoded(d.shift()),f=Helpers.decoded(d.join("=")),e===mParticle.Store.storageName)return;if(e===StorageNames$2.cookieNameV4)return finishCookieMigration(f,StorageNames$2.cookieNameV4),void(mParticle.Store.isLocalStorageAvailable&&migrateProductsToNameSpace());// migration path for SDKv1CookiesV3, doesn't need to be encoded
+if(e===StorageNames$2.cookieNameV3){a=convertSDKv1CookiesV3ToSDKv2CookiesV4(f),finishCookieMigration(a,StorageNames$2.cookieNameV3);break}}}function finishCookieMigration(a,b){var c,d,e=new Date,f=Persistence.getCookieDomain();c=new Date(e.getTime()+1e3*(60*(60*(24*StorageNames$2.CookieExpiration)))).toGMTString(),d=""===f?"":";domain="+f,mParticle.Logger.verbose(Constants.Messages.InformationMessages.CookieSet),window.document.cookie=encodeURIComponent(mParticle.Store.storageName)+"="+a+";expires="+c+";path=/"+d,Persistence.expireCookies(b),mParticle.Store.migratingToIDSyncCookies=!0;}function convertSDKv1CookiesV3ToSDKv2CookiesV4(a){a=Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(a));var b=JSON.parse(a),c=JSON.parse(restructureToV4Cookie(a));return b.mpid&&(c.gs.csm.push(b.mpid),c.gs.csm=Base64$2.encode(JSON.stringify(c.gs.csm)),migrateProductsFromSDKv1ToSDKv2CookiesV4(b,b.mpid)),JSON.stringify(c)}function restructureToV4Cookie(a){try{var b={gs:{csm:[]}};for(var c in a=JSON.parse(a),a)a.hasOwnProperty(c)&&(CookiesGlobalSettingsKeys[c]?b.gs[c]=a[c]:"mpid"===c?b.cu=a[c]:a.mpid&&(b[a.mpid]=b[a.mpid]||{},MPIDKeys[c]&&(b[a.mpid][c]=a[c])));return JSON.stringify(b)}catch(a){mParticle.Logger.error("Failed to restructure previous cookie into most current cookie schema");}}function migrateProductsToNameSpace(){var a=StorageNames$2.localStorageProductsV4,b=localStorage.getItem(StorageNames$2.localStorageProductsV4);localStorage.setItem(mParticle.Store.prodStorageName,b),localStorage.removeItem(a);}function migrateProductsFromSDKv1ToSDKv2CookiesV4(a,b){if(mParticle.Store.isLocalStorageAvailable){var c={};if(c[b]={},a.cp){try{c[b].cp=JSON.parse(Base64$2.decode(a.cp));}catch(d){c[b].cp=a.cp;}Array.isArray(c[b].cp)||(c[b].cp=[]);}localStorage.setItem(mParticle.Store.prodStorageName,Base64$2.encode(JSON.stringify(c)));}}function migrateLocalStorage(){function a(a,b){try{window.localStorage.setItem(encodeURIComponent(mParticle.Store.storageName),a);}catch(a){mParticle.Logger.error("Error with setting localStorage item.");}window.localStorage.removeItem(encodeURIComponent(b));}var b,c,d,e,f=StorageNames$2.localStorageNameV3,g=StorageNames$2.localStorageNameV4,h=window.localStorage.getItem(mParticle.Store.storageName);if(!h){if(c=window.localStorage.getItem(g),c)return a(c,g),void migrateProductsToNameSpace();if(d=window.localStorage.getItem(f),d){// localStorage may contain only products, or the full persistence
+// when there is an MPID on the cookie, it is the full persistence
+if(mParticle.Store.migratingToIDSyncCookies=!0,e=d.slice(),d=JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(d))),d.mpid)return d=JSON.parse(convertSDKv1CookiesV3ToSDKv2CookiesV4(e)),void a(JSON.stringify(d),f);// if no MPID, it is only the products
+if((d.cp||d.pb)&&!d.mpid)return b=Persistence.getCookie(),b?(migrateProductsFromSDKv1ToSDKv2CookiesV4(d,b.cu),void localStorage.removeItem(StorageNames$2.localStorageNameV3)):void localStorage.removeItem(StorageNames$2.localStorageNameV3)}}}var Migrations = {migrate:migrate,convertSDKv1CookiesV3ToSDKv2CookiesV4:convertSDKv1CookiesV3ToSDKv2CookiesV4};
 
-    if (mParticle.Store.isLocalStorageAvailable) {
-        try {
-            migrateLocalStorage();
-        } catch (e) {
-            localStorage.removeItem(StorageNames$2.localStorageNameV3);
-            localStorage.removeItem(StorageNames$2.localStorageNameV4);
-            mParticle.Logger.error('Error migrating localStorage: ' + e);
-        }
-    }
-}
+function startForwardingStatsTimer(){mParticle._forwardingStatsTimer=setInterval(function(){prepareAndSendForwardingStatsBatch();},mParticle.Store.SDKConfig.forwarderStatsTimeout);}function prepareAndSendForwardingStatsBatch(){var a=Forwarders.getForwarderStatsQueue(),b=Persistence.forwardingStatsBatches.uploadsTable,c=Date.now();for(var d in a.length&&(b[c]={uploading:!1,data:a},Forwarders.setForwarderStatsQueue([])),b)(function(a){if(b.hasOwnProperty(a)&&!1===b[a].uploading){var c=function(){4===d.readyState&&(200===d.status||202===d.status?(mParticle.Logger.verbose("Successfully sent  "+d.statusText+" from server"),delete b[a]):"4"===d.status.toString()[0]?429!==d.status&&delete b[a]:b[a].uploading=!1);},d=Helpers.createXHR(c),e=b[a].data;b[a].uploading=!0,ApiClient.sendBatchForwardingStatsToServer(e,d);}})(d);}
 
-function migrateCookies() {
-    var cookies = window.document.cookie.split('; '),
-        foundCookie,
-        i,
-        l,
-        parts,
-        name,
-        cookie;
-
-    mParticle.Logger.verbose(Constants.Messages.InformationMessages.CookieSearch);
-
-    for (i = 0, l = cookies.length; i < l; i++) {
-        parts = cookies[i].split('=');
-        name = Helpers.decoded(parts.shift());
-        cookie = Helpers.decoded(parts.join('=')),
-        foundCookie;
-
-        //most recent version needs no migration
-        if (name === mParticle.Store.storageName) {
-            return;
-        }
-        if (name === StorageNames$2.cookieNameV4) {
-            // adds cookies to new namespace, removes previous cookie
-            finishCookieMigration(cookie, StorageNames$2.cookieNameV4);
-            if (mParticle.Store.isLocalStorageAvailable) {
-                migrateProductsToNameSpace();
-            }
-            return;
-        // migration path for SDKv1CookiesV3, doesn't need to be encoded
-        }
-        if (name === StorageNames$2.cookieNameV3) {
-            foundCookie = convertSDKv1CookiesV3ToSDKv2CookiesV4(cookie);
-            finishCookieMigration(foundCookie, StorageNames$2.cookieNameV3);
-            break;
-        }
-    }
-}
-
-function finishCookieMigration(cookie, cookieName) {
-    var date = new Date(),
-        cookieDomain = Persistence.getCookieDomain(),
-        expires,
-        domain;
-
-    expires = new Date(date.getTime() +
-    (StorageNames$2.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString();
-
-    if (cookieDomain === '') {
-        domain = '';
-    } else {
-        domain = ';domain=' + cookieDomain;
-    }
-
-    mParticle.Logger.verbose(Constants.Messages.InformationMessages.CookieSet);
-
-    window.document.cookie =
-    encodeURIComponent(mParticle.Store.storageName) + '=' + cookie +
-    ';expires=' + expires +
-    ';path=/' + domain;
-
-    Persistence.expireCookies(cookieName);
-    mParticle.Store.migratingToIDSyncCookies = true;
-}
-
-function convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookiesV3) {
-    SDKv1CookiesV3 = Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(SDKv1CookiesV3));
-    var parsedSDKv1CookiesV3 = JSON.parse(SDKv1CookiesV3);
-    var parsedCookiesV4 = JSON.parse(restructureToV4Cookie(SDKv1CookiesV3));
-
-    if (parsedSDKv1CookiesV3.mpid) {
-        parsedCookiesV4.gs.csm.push(parsedSDKv1CookiesV3.mpid);
-        // all other values are already encoded, so we have to encode any new values
-        parsedCookiesV4.gs.csm = Base64$2.encode(JSON.stringify(parsedCookiesV4.gs.csm));
-        migrateProductsFromSDKv1ToSDKv2CookiesV4(parsedSDKv1CookiesV3, parsedSDKv1CookiesV3.mpid);
-    }
-
-    return JSON.stringify(parsedCookiesV4);
-}
-
-function restructureToV4Cookie(cookies) {
-    try {
-        var cookiesV4Schema = { gs: {csm: []} };
-        cookies = JSON.parse(cookies);
-
-        for (var key in cookies) {
-            if (cookies.hasOwnProperty(key)) {
-                if (CookiesGlobalSettingsKeys[key]) {
-                    cookiesV4Schema.gs[key] = cookies[key];
-                } else if (key === 'mpid') {
-                    cookiesV4Schema.cu = cookies[key];
-                } else if (cookies.mpid) {
-                    cookiesV4Schema[cookies.mpid] = cookiesV4Schema[cookies.mpid] || {};
-                    if (MPIDKeys[key]) {
-                        cookiesV4Schema[cookies.mpid][key] = cookies[key];
-                    }
-                }
-            }
-        }
-        return JSON.stringify(cookiesV4Schema);
-    }
-    catch (e) {
-        mParticle.Logger.error('Failed to restructure previous cookie into most current cookie schema');
-    }
-}
-
-function migrateProductsToNameSpace() {
-    var lsProdV4Name = StorageNames$2.localStorageProductsV4;
-    var products = localStorage.getItem(StorageNames$2.localStorageProductsV4);
-    localStorage.setItem(mParticle.Store.prodStorageName, products);
-    localStorage.removeItem(lsProdV4Name);
-}
-
-function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
-    if (!mParticle.Store.isLocalStorageAvailable) {
-        return;
-    }
-
-    var localStorageProducts = {};
-    localStorageProducts[mpid] = {};
-    if (cookies.cp) {
-        try {
-            localStorageProducts[mpid].cp = JSON.parse(Base64$2.decode(cookies.cp));
-        }
-        catch (e) {
-            localStorageProducts[mpid].cp = cookies.cp;
-        }
-
-        if (!Array.isArray(localStorageProducts[mpid].cp)) {
-            localStorageProducts[mpid].cp = [];
-        }
-    }
-
-    localStorage.setItem(mParticle.Store.prodStorageName, Base64$2.encode(JSON.stringify(localStorageProducts)));
-}
-
-function migrateLocalStorage() {
-    var cookies,
-        v3LSName = StorageNames$2.localStorageNameV3,
-        v4LSName = StorageNames$2.localStorageNameV4,
-        currentVersionLSData = window.localStorage.getItem(mParticle.Store.storageName),
-        v4LSData,
-        v3LSData,
-        v3LSDataStringCopy;
-
-    if (currentVersionLSData) {
-        return;
-    }
-
-    v4LSData = window.localStorage.getItem(v4LSName);
-    if (v4LSData) {
-        finishLSMigration(v4LSData, v4LSName);
-        migrateProductsToNameSpace();
-        return;
-    }
-
-    v3LSData = window.localStorage.getItem(v3LSName);
-    if (v3LSData) {
-        mParticle.Store.migratingToIDSyncCookies = true;
-        v3LSDataStringCopy = v3LSData.slice();
-        v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
-        // localStorage may contain only products, or the full persistence
-        // when there is an MPID on the cookie, it is the full persistence
-        if (v3LSData.mpid) {
-            v3LSData = JSON.parse(convertSDKv1CookiesV3ToSDKv2CookiesV4(v3LSDataStringCopy));
-            finishLSMigration(JSON.stringify(v3LSData), v3LSName);
-            return;
-        // if no MPID, it is only the products
-        } else if ((v3LSData.cp || v3LSData.pb) && !v3LSData.mpid) {
-            cookies = Persistence.getCookie();
-            if (cookies) {
-                migrateProductsFromSDKv1ToSDKv2CookiesV4(v3LSData, cookies.cu);
-                localStorage.removeItem(StorageNames$2.localStorageNameV3);
-                return;
-            } else {
-                localStorage.removeItem(StorageNames$2.localStorageNameV3);
-                return;
-            }
-        }
-    }
-
-    function finishLSMigration(data, lsName) {
-        try {
-            window.localStorage.setItem(encodeURIComponent(mParticle.Store.storageName), data);
-        }
-        catch (e) {
-            mParticle.Logger.error('Error with setting localStorage item.');
-        }
-        window.localStorage.removeItem(encodeURIComponent(lsName));
-    }
-}
-
-var Migrations = {
-    migrate: migrate,
-    convertSDKv1CookiesV3ToSDKv2CookiesV4: convertSDKv1CookiesV3ToSDKv2CookiesV4
-};
-
-function startForwardingStatsTimer() {
-    mParticle._forwardingStatsTimer = setInterval(function() {
-        prepareAndSendForwardingStatsBatch();
-    }, mParticle.Store.SDKConfig.forwarderStatsTimeout);
-}
-
-function prepareAndSendForwardingStatsBatch() {
-    var forwarderQueue = Forwarders.getForwarderStatsQueue(),
-        uploadsTable = Persistence.forwardingStatsBatches.uploadsTable,
-        now = Date.now();
-
-    if (forwarderQueue.length) {
-        uploadsTable[now] = {uploading: false, data: forwarderQueue};
-        Forwarders.setForwarderStatsQueue([]);
-    }
-
-    for (var date in uploadsTable) {
-        (function(date) {
-            if (uploadsTable.hasOwnProperty(date)) {
-                if (uploadsTable[date].uploading === false) {
-                    var xhrCallback = function() {
-                        if (xhr.readyState === 4) {
-                            if (xhr.status === 200 || xhr.status === 202) {
-                                mParticle.Logger.verbose('Successfully sent  ' + xhr.statusText + ' from server');
-                                delete uploadsTable[date];
-                            } else if (xhr.status.toString()[0] === '4') {
-                                if (xhr.status !== 429) {
-                                    delete uploadsTable[date];
-                                }
-                            }
-                            else {
-                                uploadsTable[date].uploading = false;
-                            }
-                        }
-                    };
-
-                    var xhr = Helpers.createXHR(xhrCallback);
-                    var forwardingStatsData = uploadsTable[date].data;
-                    uploadsTable[date].uploading = true;
-                    ApiClient.sendBatchForwardingStatsToServer(forwardingStatsData, xhr);
-                }
-            }
-        })(date);
-    }
-}
-
-//
-
-var getDeviceId$1 = Persistence.getDeviceId,
-    Messages$8 = Constants.Messages,
-    Validators$4 = Helpers.Validators,
-    mParticleUser$1 = Identity.mParticleUser,
-    IdentityAPI$2 = Identity.IdentityAPI,
-    mParticleUserCart$1 = Identity.mParticleUserCart,
-    HTTPCodes$2 = Constants.HTTPCodes;
-
-if (!Array.prototype.forEach) {
-    Array.prototype.forEach = Polyfill.forEach;
-}
-
-if (!Array.prototype.map) {
-    Array.prototype.map = Polyfill.map;
-}
-
-if (!Array.prototype.filter) {
-    Array.prototype.filter = Polyfill.filter;
-}
-
-if (!Array.isArray) {
-    Array.prototype.isArray = Polyfill.isArray;
-}
-
-/**
+var getDeviceId$1=Persistence.getDeviceId,Messages$8=Constants.Messages,Validators$4=Helpers.Validators,mParticleUser$1=Identity.mParticleUser,IdentityAPI$2=Identity.IdentityAPI,mParticleUserCart$1=Identity.mParticleUserCart,HTTPCodes$2=Constants.HTTPCodes;Array.prototype.forEach||(Array.prototype.forEach=Polyfill.forEach),Array.prototype.map||(Array.prototype.map=Polyfill.map),Array.prototype.filter||(Array.prototype.filter=Polyfill.filter),Array.isArray||(Array.prototype.isArray=Polyfill.isArray);/**
 * Invoke these methods on the mParticle object.
 * Example: mParticle.endSession()
 *
 * @class mParticle
-*/
-
-var mParticle$1 = {
-    config: window.mParticle ? window.mParticle.config : {},
-    Store: {},
-    getDeviceId: getDeviceId$1,
-    generateHash: Helpers.generateHash,
-    sessionManager: SessionManager,
-    cookieSyncManager: cookieSyncManager,
-    persistence: Persistence,
-    isIOS: window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false,
-    Identity: IdentityAPI$2,
-    Validators: Validators$4,
-    _Identity: Identity,
-    _IdentityRequest: Identity.IdentityRequest,
-    IdentityType: Types.IdentityType,
-    EventType: Types.EventType,
-    CommerceEventType: Types.CommerceEventType,
-    PromotionType: Types.PromotionActionType,
-    ProductActionType: Types.ProductActionType,
-    /**
+*/var mParticle$1={config:window.mParticle?window.mParticle.config:{},Store:{},getDeviceId:getDeviceId$1,generateHash:Helpers.generateHash,sessionManager:SessionManager,cookieSyncManager:cookieSyncManager,persistence:Persistence,isIOS:!!(window.mParticle&&window.mParticle.isIOS)&&window.mParticle.isIOS,Identity:IdentityAPI$2,Validators:Validators$4,_Identity:Identity,_IdentityRequest:Identity.IdentityRequest,IdentityType:Types.IdentityType,EventType:Types.EventType,CommerceEventType:Types.CommerceEventType,PromotionType:Types.PromotionActionType,ProductActionType:Types.ProductActionType,/**
     * Initializes the mParticle SDK
     *
     * @method init
     * @param {String} apiKey your mParticle assigned API key
     * @param {Object} [options] an options object for additional configuration
-    */
-    init: function(apiKey, config) {
-        if (!config && window.mParticle.config) {
-            window.console.warn('You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly');
-            config = window.mParticle.config;
-        }
-
-        runPreConfigFetchInitialization(apiKey, config);
-
-        // /config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
-        // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
-        // to it for it to be run after fetched
-        if (config) {
-            if (!config.hasOwnProperty('requestConfig') || config.requestConfig) {
-                ApiClient.getSDKConfiguration(apiKey, config, completeSDKInitialization);
-            } else {
-                completeSDKInitialization(apiKey, config);
-            }
-        } else {
-            window.console.error('No config available on the window, please pass a config object to mParticle.init()');
-            return;
-        }
-    },
-    setLogLevel: function(newLogLevel) {
-        mParticle$1.Logger.setLogLevel(newLogLevel);
-    },
-    /**
+    */init:function init(a,b){// /config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
+// Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
+// to it for it to be run after fetched
+return !b&&window.mParticle.config&&(window.console.warn("You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly"),b=window.mParticle.config),runPreConfigFetchInitialization(a,b),b?void(!b.hasOwnProperty("requestConfig")||b.requestConfig?ApiClient.getSDKConfiguration(a,b,completeSDKInitialization):completeSDKInitialization(a,b)):void window.console.error("No config available on the window, please pass a config object to mParticle.init()")},setLogLevel:function setLogLevel(a){mParticle$1.Logger.setLogLevel(a);},/**
     * Completely resets the state of the SDK. mParticle.init(apiKey, window.mParticle.config) will need to be called again.
     * @method reset
     * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
-    */
-    reset: function(config, keepPersistence) {
-        if (mParticle$1.Store) {
-            delete mParticle$1.Store;
-        }
-        mParticle$1.Store = new Store(config);
-        mParticle$1.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
-        Events.stopTracking();
-        if (!keepPersistence) {
-            Persistence.resetPersistence();
-        }
-        Persistence.forwardingStatsBatches.uploadsTable = {};
-        Persistence.forwardingStatsBatches.forwardingStatsEventQueue = [];
-        mParticle$1.preInit = {
-            readyQueue: [],
-            pixelConfigurations: [],
-            integrationDelays: {},
-            featureFlags: {},
-            forwarderConstructors: [],
-            isDevelopmentMode: false
-        };
-    },
-    ready: function(f) {
-        if (mParticle$1.Store.isInitialized && typeof f === 'function') {
-            f();
-        }
-        else {
-            mParticle$1.preInit.readyQueue.push(f);
-        }
-    },
-    /**
+    */reset:function reset(a,b){mParticle$1.Store&&delete mParticle$1.Store,mParticle$1.Store=new Store(a),mParticle$1.Store.isLocalStorageAvailable=Persistence.determineLocalStorageAvailability(window.localStorage),Events.stopTracking(),b||Persistence.resetPersistence(),Persistence.forwardingStatsBatches.uploadsTable={},Persistence.forwardingStatsBatches.forwardingStatsEventQueue=[],mParticle$1.preInit={readyQueue:[],pixelConfigurations:[],integrationDelays:{},forwarderConstructors:[],isDevelopmentMode:!1};},ready:function ready(a){mParticle$1.Store.isInitialized&&"function"==typeof a?a():mParticle$1.preInit.readyQueue.push(a);},/**
     * Returns the mParticle SDK version number
     * @method getVersion
     * @return {String} mParticle SDK version number
-    */
-    getVersion: function() {
-        return Constants.sdkVersion;
-    },
-    /**
+    */getVersion:function getVersion(){return Constants.sdkVersion},/**
     * Sets the app version
     * @method setAppVersion
     * @param {String} version version number
-    */
-    setAppVersion: function(version) {
-        mParticle$1.Store.SDKConfig.appVersion = version;
-        Persistence.update();
-    },
-    /**
+    */setAppVersion:function setAppVersion(a){mParticle$1.Store.SDKConfig.appVersion=a,Persistence.update();},/**
     * Gets the app name
     * @method getAppName
     * @return {String} App name
-    */
-    getAppName: function() {
-        return mParticle$1.Store.SDKConfig.appName;
-    },
-    /**
+    */getAppName:function getAppName(){return mParticle$1.Store.SDKConfig.appName},/**
     * Sets the app name
     * @method setAppName
     * @param {String} name App Name
-    */
-    setAppName: function(name) {
-        mParticle$1.Store.SDKConfig.appName = name;
-    },
-    /**
+    */setAppName:function setAppName(a){mParticle$1.Store.SDKConfig.appName=a;},/**
     * Gets the app version
     * @method getAppVersion
     * @return {String} App version
-    */
-    getAppVersion: function() {
-        return mParticle$1.Store.SDKConfig.appVersion;
-    },
-    /**
+    */getAppVersion:function getAppVersion(){return mParticle$1.Store.SDKConfig.appVersion},/**
     * Stops tracking the location of the user
     * @method stopTrackingLocation
-    */
-    stopTrackingLocation: function() {
-        SessionManager.resetSessionTimer();
-        Events.stopTracking();
-    },
-    /**
+    */stopTrackingLocation:function stopTrackingLocation(){SessionManager.resetSessionTimer(),Events.stopTracking();},/**
     * Starts tracking the location of the user
     * @method startTrackingLocation
     * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
-    */
-    startTrackingLocation: function(callback) {
-        if (!Validators$4.isFunction(callback)) {
-            mParticle$1.Logger.warning('Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.');
-        }
-
-        SessionManager.resetSessionTimer();
-        Events.startTracking(callback);
-    },
-    /**
+    */startTrackingLocation:function startTrackingLocation(a){Validators$4.isFunction(a)||mParticle$1.Logger.warning("Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location."),SessionManager.resetSessionTimer(),Events.startTracking(a);},/**
     * Sets the position of the user
     * @method setPosition
     * @param {Number} lattitude lattitude digit
     * @param {Number} longitude longitude digit
-    */
-    setPosition: function(lat, lng) {
-        SessionManager.resetSessionTimer();
-        if (typeof lat === 'number' && typeof lng === 'number') {
-            mParticle$1.Store.currentPosition = {
-                lat: lat,
-                lng: lng
-            };
-        }
-        else {
-            mParticle$1.Logger.error('Position latitude and/or longitude must both be of type number');
-        }
-    },
-    /**
+    */setPosition:function setPosition(a,b){SessionManager.resetSessionTimer(),"number"==typeof a&&"number"==typeof b?mParticle$1.Store.currentPosition={lat:a,lng:b}:mParticle$1.Logger.error("Position latitude and/or longitude must both be of type number");},/**
     * Starts a new session
     * @method startNewSession
-    */
-    startNewSession: function() {
-        SessionManager.startNewSession();
-    },
-    /**
+    */startNewSession:function startNewSession(){SessionManager.startNewSession();},/**
     * Ends the current session
     * @method endSession
-    */
-    endSession: function() {
-        // Sends true as an over ride vs when endSession is called from the setInterval
-        SessionManager.endSession(true);
-    },
-
-    /**
+    */endSession:function endSession(){// Sends true as an over ride vs when endSession is called from the setInterval
+SessionManager.endSession(!0);},/**
      * Logs a Base Event to mParticle's servers
      * @param {Object} event Base Event Object
-     */
-    logBaseEvent: function (event) {
-        SessionManager.resetSessionTimer();
-        if (typeof (event.name) !== 'string') {
-            mParticle$1.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType);
-            return;
-        }
-
-        if (!event.type) {
-            event.type = Types.EventType.Unknown;
-        }
-
-        if (!Helpers.canLog()) {
-            mParticle$1.Logger.error(Messages$8.ErrorMessages.LoggingDisabled);
-            return;
-        }
-
-        Events.logEvent(event);
-    },
-    /**
+     */logBaseEvent:function logBaseEvent(a){return (SessionManager.resetSessionTimer(),"string"!=typeof a.name)?void mParticle$1.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType):(a.type||(a.type=Types.EventType.Unknown),Helpers.canLog()?void Events.logEvent(a):void mParticle$1.Logger.error(Messages$8.ErrorMessages.LoggingDisabled))},/**
     * Logs an event to mParticle's servers
     * @method logEvent
     * @param {String} eventName The name of the event
     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
     * @param {Object} [eventInfo] Attributes for the event
     * @param {Object} [customFlags] Additional customFlags
-    */
-    logEvent: function(eventName, eventType, eventInfo, customFlags) {
-        SessionManager.resetSessionTimer();
-        if (typeof (eventName) !== 'string') {
-            mParticle$1.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType);
-            return;
-        }
-
-        if (!eventType) {
-            eventType = Types.EventType.Unknown;
-        }
-
-        if (!Helpers.isEventType(eventType)) {
-            mParticle$1.Logger.error('Invalid event type: ' + eventType + ', must be one of: \n' + JSON.stringify(Types.EventType));
-            return;
-        }
-
-        if (!Helpers.canLog()) {
-            mParticle$1.Logger.error(Messages$8.ErrorMessages.LoggingDisabled);
-            return;
-        }
-
-        Events.logEvent({
-            messageType: Types.MessageType.PageEvent,
-            name: eventName,
-            data: eventInfo,
-            eventType: eventType,
-            customFlags: customFlags
-        });
-    },
-    /**
+    */logEvent:function logEvent(a,b,c,d){return (SessionManager.resetSessionTimer(),"string"!=typeof a)?void mParticle$1.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType):(b||(b=Types.EventType.Unknown),Helpers.isEventType(b)?Helpers.canLog()?void Events.logEvent({messageType:Types.MessageType.PageEvent,name:a,data:c,eventType:b,customFlags:d}):void mParticle$1.Logger.error(Messages$8.ErrorMessages.LoggingDisabled):void mParticle$1.Logger.error("Invalid event type: "+b+", must be one of: \n"+JSON.stringify(Types.EventType)))},/**
     * Used to log custom errors
     *
     * @method logError
     * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
     * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
-    */
-    logError: function(error, attrs) {
-        SessionManager.resetSessionTimer();
-        if (!error) {
-            return;
-        }
-
-        if (typeof error === 'string') {
-            error = {
-                message: error
-            };
-        }
-
-        var data = {
-            m: error.message ? error.message : error,
-            s: 'Error',
-            t: error.stack
-        };
-
-        if (attrs) {
-            var sanitized = Helpers.sanitizeAttributes(attrs);
-            for (var prop in sanitized) {
-                data[prop] = sanitized[prop];
-            }
-        }
-
-        Events.logEvent({
-            messageType: Types.MessageType.CrashReport,
-            name: error.name ? error.name : 'Error',
-            data: data,
-            eventType: Types.EventType.Other
-        });
-    },
-    /**
+    */logError:function logError(a,b){if(SessionManager.resetSessionTimer(),!!a){"string"==typeof a&&(a={message:a});var c={m:a.message?a.message:a,s:"Error",t:a.stack};if(b){var d=Helpers.sanitizeAttributes(b);for(var e in d)c[e]=d[e];}Events.logEvent({messageType:Types.MessageType.CrashReport,name:a.name?a.name:"Error",data:c,eventType:Types.EventType.Other});}},/**
     * Logs `click` events
     * @method logLink
     * @param {String} selector The selector to add a 'click' event to (ex. #purchase-event)
     * @param {String} [eventName] The name of the event
     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
     * @param {Object} [eventInfo] Attributes for the event
-    */
-    logLink: function(selector, eventName, eventType, eventInfo) {
-        SessionManager.resetSessionTimer();
-        Events.addEventHandler('click', selector, eventName, eventInfo, eventType);
-    },
-    /**
+    */logLink:function logLink(a,b,c,d){SessionManager.resetSessionTimer(),Events.addEventHandler("click",a,b,d,c);},/**
     * Logs `submit` events
     * @method logForm
     * @param {String} selector The selector to add the event handler to (ex. #search-event)
     * @param {String} [eventName] The name of the event
     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
     * @param {Object} [eventInfo] Attributes for the event
-    */
-    logForm: function(selector, eventName, eventType, eventInfo) {
-        SessionManager.resetSessionTimer();
-        Events.addEventHandler('submit', selector, eventName, eventInfo, eventType);
-    },
-    /**
+    */logForm:function logForm(a,b,c,d){SessionManager.resetSessionTimer(),Events.addEventHandler("submit",a,b,d,c);},/**
     * Logs a page view
     * @method logPageView
     * @param {String} eventName The name of the event. Defaults to 'PageView'.
     * @param {Object} [attrs] Attributes for the event
     * @param {Object} [customFlags] Custom flags for the event
-    */
-    logPageView: function(eventName, attrs, customFlags) {
-        SessionManager.resetSessionTimer();
-
-        if (Helpers.canLog()) {
-            if (!Validators$4.isStringOrNumber(eventName)) {
-                eventName = 'PageView';
-            }
-            if (!attrs) {
-                attrs = {
-                    hostname: window.location.hostname,
-                    title: window.document.title
-                };
-            }
-            else if (!Helpers.isObject(attrs)){
-                mParticle$1.Logger.error('The attributes argument must be an object. A ' + typeof attrs + ' was entered. Please correct and retry.');
-                return;
-            }
-            if (customFlags && !Helpers.isObject(customFlags)) {
-                mParticle$1.Logger.error('The customFlags argument must be an object. A ' + typeof customFlags + ' was entered. Please correct and retry.');
-                return;
-            }
-        }
-
-        Events.logEvent({
-            messageType: Types.MessageType.PageView,
-            name: eventName,
-            data: attrs,
-            eventType: Types.EventType.Unknown,
-            customFlags: customFlags
-        });
-    },
-    Consent: {
-        createGDPRConsent: Consent.createGDPRConsent,
-        createConsentState: Consent.createConsentState
-    },
-    /**
+    */logPageView:function logPageView(a,b,c){if(SessionManager.resetSessionTimer(),Helpers.canLog()){if(Validators$4.isStringOrNumber(a)||(a="PageView"),!b)b={hostname:window.location.hostname,title:window.document.title};else if(!Helpers.isObject(b))return void mParticle$1.Logger.error("The attributes argument must be an object. A "+_typeof_1(b)+" was entered. Please correct and retry.");if(c&&!Helpers.isObject(c))return void mParticle$1.Logger.error("The customFlags argument must be an object. A "+_typeof_1(c)+" was entered. Please correct and retry.")}Events.logEvent({messageType:Types.MessageType.PageView,name:a,data:b,eventType:Types.EventType.Unknown,customFlags:c});},Consent:{createGDPRConsent:Consent.createGDPRConsent,createConsentState:Consent.createConsentState},/**
     * Invoke these methods on the mParticle.eCommerce object.
     * Example: mParticle.eCommerce.createImpresion(...)
     * @class mParticle.eCommerce
-    */
-    eCommerce: {
-        /**
+    */eCommerce:{/**
         * Invoke these methods on the mParticle.eCommerce.Cart object.
         * Example: mParticle.eCommerce.Cart.add(...)
         * @class mParticle.eCommerce.Cart
-        */
-        Cart: {
-            /**
+        */Cart:{/**
             * Adds a product to the cart
             * @method add
             * @param {Object} product The product you want to add to the cart
             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-            */
-            add: function(product, logEventBoolean) {
-                var mpid,
-                    currentUser = mParticle$1.Identity.getCurrentUser();
-                if (currentUser) {
-                    mpid = currentUser.getMPID();
-                }
-                mParticleUserCart$1(mpid).add(product, logEventBoolean);
-            },
-            /**
+            */add:function add(a,b){var c,d=mParticle$1.Identity.getCurrentUser();d&&(c=d.getMPID()),mParticleUserCart$1(c).add(a,b);},/**
             * Removes a product from the cart
             * @method remove
             * @param {Object} product The product you want to add to the cart
             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-            */
-            remove: function(product, logEventBoolean) {
-                var mpid,
-                    currentUser = mParticle$1.Identity.getCurrentUser();
-                if (currentUser) {
-                    mpid = currentUser.getMPID();
-                }
-                mParticleUserCart$1(mpid).remove(product, logEventBoolean);
-            },
-            /**
+            */remove:function remove(a,b){var c,d=mParticle$1.Identity.getCurrentUser();d&&(c=d.getMPID()),mParticleUserCart$1(c).remove(a,b);},/**
             * Clears the cart
             * @method clear
-            */
-            clear: function() {
-                var mpid,
-                    currentUser = mParticle$1.Identity.getCurrentUser();
-                if (currentUser) {
-                    mpid = currentUser.getMPID();
-                }
-                mParticleUserCart$1(mpid).clear();
-            }
-        },
-        /**
+            */clear:function clear(){var a,b=mParticle$1.Identity.getCurrentUser();b&&(a=b.getMPID()),mParticleUserCart$1(a).clear();}},/**
         * Sets the currency code
         * @for mParticle.eCommerce
         * @method setCurrencyCode
         * @param {String} code The currency code
-        */
-        setCurrencyCode: function(code) {
-            if (typeof code !== 'string') {
-                mParticle$1.Logger.error('Code must be a string');
-                return;
-            }
-            SessionManager.resetSessionTimer();
-            mParticle$1.Store.currencyCode = code;
-        },
-        /**
+        */setCurrencyCode:function setCurrencyCode(a){return "string"==typeof a?void(SessionManager.resetSessionTimer(),mParticle$1.Store.currencyCode=a):void mParticle$1.Logger.error("Code must be a string")},/**
         * Creates a product
         * @for mParticle.eCommerce
         * @method createProduct
@@ -6816,12 +1492,7 @@ var mParticle$1 = {
         * @param {Number} [position] product position
         * @param {String} [coupon] product coupon
         * @param {Object} [attributes] product attributes
-        */
-        createProduct: function(name, sku, price, quantity, variant, category, brand, position, coupon, attributes) {
-            SessionManager.resetSessionTimer();
-            return Ecommerce.createProduct(name, sku, price, quantity, variant, category, brand, position, coupon, attributes);
-        },
-        /**
+        */createProduct:function createProduct(a,b,c,d,e,f,g,h,i,j){return SessionManager.resetSessionTimer(),Ecommerce.createProduct(a,b,c,d,e,f,g,h,i,j)},/**
         * Creates a promotion
         * @for mParticle.eCommerce
         * @method createPromotion
@@ -6829,23 +1500,13 @@ var mParticle$1 = {
         * @param {String} [creative] promotion creative
         * @param {String} [name] promotion name
         * @param {Number} [position] promotion position
-        */
-        createPromotion: function(id, creative, name, position) {
-            SessionManager.resetSessionTimer();
-            return Ecommerce.createPromotion(id, creative, name, position);
-        },
-        /**
+        */createPromotion:function createPromotion(a,b,c,d){return SessionManager.resetSessionTimer(),Ecommerce.createPromotion(a,b,c,d)},/**
         * Creates a product impression
         * @for mParticle.eCommerce
         * @method createImpression
         * @param {String} name impression name
         * @param {Object} product the product for which an impression is being created
-        */
-        createImpression: function(name, product) {
-            SessionManager.resetSessionTimer();
-            return Ecommerce.createImpression(name, product);
-        },
-        /**
+        */createImpression:function createImpression(a,b){return SessionManager.resetSessionTimer(),Ecommerce.createImpression(a,b)},/**
         * Creates a transaction attributes object to be used with a checkout
         * @for mParticle.eCommerce
         * @method createTransactionAttributes
@@ -6855,12 +1516,7 @@ var mParticle$1 = {
         * @param {Number} [revenue] total revenue for the product being purchased
         * @param {String} [shipping] the shipping method
         * @param {Number} [tax] the tax amount
-        */
-        createTransactionAttributes: function(id, affiliation, couponCode, revenue, shipping, tax) {
-            SessionManager.resetSessionTimer();
-            return Ecommerce.createTransactionAttributes(id, affiliation, couponCode, revenue, shipping, tax);
-        },
-        /**
+        */createTransactionAttributes:function createTransactionAttributes(a,b,c,d,e,f){return SessionManager.resetSessionTimer(),Ecommerce.createTransactionAttributes(a,b,c,d,e,f)},/**
         * Logs a checkout action
         * @for mParticle.eCommerce
         * @method logCheckout
@@ -6868,12 +1524,7 @@ var mParticle$1 = {
         * @param {Object} options
         * @param {Object} attrs
         * @param {Object} [customFlags] Custom flags for the event
-        */
-        logCheckout: function(step, options, attrs, customFlags) {
-            SessionManager.resetSessionTimer();
-            Events.logCheckoutEvent(step, options, attrs, customFlags);
-        },
-        /**
+        */logCheckout:function logCheckout(a,b,c,d){SessionManager.resetSessionTimer(),Events.logCheckoutEvent(a,b,c,d);},/**
         * Logs a product action
         * @for mParticle.eCommerce
         * @method logProductAction
@@ -6881,12 +1532,7 @@ var mParticle$1 = {
         * @param {Object} product the product for which you are creating the product action
         * @param {Object} [attrs] attributes related to the product action
         * @param {Object} [customFlags] Custom flags for the event
-        */
-        logProductAction: function(productActionType, product, attrs, customFlags) {
-            SessionManager.resetSessionTimer();
-            Events.logProductActionEvent(productActionType, product, attrs, customFlags);
-        },
-        /**
+        */logProductAction:function logProductAction(a,b,c,d){SessionManager.resetSessionTimer(),Events.logProductActionEvent(a,b,c,d);},/**
         * Logs a product purchase
         * @for mParticle.eCommerce
         * @method logPurchase
@@ -6895,20 +1541,7 @@ var mParticle$1 = {
         * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
         * @param {Object} [attrs] other attributes related to the product purchase
         * @param {Object} [customFlags] Custom flags for the event
-        */
-        logPurchase: function(transactionAttributes, product, clearCart, attrs, customFlags) {
-            if (!transactionAttributes || !product) {
-                mParticle$1.Logger.error(Messages$8.ErrorMessages.BadLogPurchase);
-                return;
-            }
-            SessionManager.resetSessionTimer();
-            Events.logPurchaseEvent(transactionAttributes, product, attrs, customFlags);
-
-            if (clearCart === true) {
-                mParticle$1.eCommerce.Cart.clear();
-            }
-        },
-        /**
+        */logPurchase:function logPurchase(a,b,c,d,e){return a&&b?void(SessionManager.resetSessionTimer(),Events.logPurchaseEvent(a,b,d,e),!0===c&&mParticle$1.eCommerce.Cart.clear()):void mParticle$1.Logger.error(Messages$8.ErrorMessages.BadLogPurchase)},/**
         * Logs a product promotion
         * @for mParticle.eCommerce
         * @method logPromotion
@@ -6916,24 +1549,14 @@ var mParticle$1 = {
         * @param {Object} promotion promotion object
         * @param {Object} [attrs] boolean to clear the cart after logging or not
         * @param {Object} [customFlags] Custom flags for the event
-        */
-        logPromotion: function(type, promotion, attrs, customFlags) {
-            SessionManager.resetSessionTimer();
-            Events.logPromotionEvent(type, promotion, attrs, customFlags);
-        },
-        /**
+        */logPromotion:function logPromotion(a,b,c,d){SessionManager.resetSessionTimer(),Events.logPromotionEvent(a,b,c,d);},/**
         * Logs a product impression
         * @for mParticle.eCommerce
         * @method logImpression
         * @param {Object} impression product impression object
         * @param {Object} attrs attributes related to the impression log
         * @param {Object} [customFlags] Custom flags for the event
-        */
-        logImpression: function(impression, attrs, customFlags) {
-            SessionManager.resetSessionTimer();
-            Events.logImpressionEvent(impression, attrs, customFlags);
-        },
-        /**
+        */logImpression:function logImpression(a,b,c){SessionManager.resetSessionTimer(),Events.logImpressionEvent(a,b,c);},/**
         * Logs a refund
         * @for mParticle.eCommerce
         * @method logRefund
@@ -6942,85 +1565,21 @@ var mParticle$1 = {
         * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
         * @param {Object} [attrs] attributes related to the refund
         * @param {Object} [customFlags] Custom flags for the event
-        */
-        logRefund: function(transactionAttributes, product, clearCart, attrs, customFlags) {
-            SessionManager.resetSessionTimer();
-            Events.logRefundEvent(transactionAttributes, product, attrs, customFlags);
-
-            if (clearCart === true) {
-                mParticle$1.eCommerce.Cart.clear();
-            }
-        },
-        expandCommerceEvent: function(event) {
-            SessionManager.resetSessionTimer();
-            return Ecommerce.expandCommerceEvent(event);
-        }
-    },
-    /**
+        */logRefund:function logRefund(a,b,c,d,e){SessionManager.resetSessionTimer(),Events.logRefundEvent(a,b,d,e),!0===c&&mParticle$1.eCommerce.Cart.clear();},expandCommerceEvent:function expandCommerceEvent(a){return SessionManager.resetSessionTimer(),Ecommerce.expandCommerceEvent(a)}},/**
     * Sets a session attribute
     * @for mParticle
     * @method setSessionAttribute
     * @param {String} key key for session attribute
     * @param {String or Number} value value for session attribute
-    */
-    setSessionAttribute: function(key, value) {
-        SessionManager.resetSessionTimer();
-        // Logs to cookie
-        // And logs to in-memory object
-        // Example: mParticle.setSessionAttribute('location', '33431');
-        if (Helpers.canLog()) {
-            if (!Validators$4.isValidAttributeValue(value)) {
-                mParticle$1.Logger.error(Messages$8.ErrorMessages.BadAttribute);
-                return;
-            }
-
-            if (!Validators$4.isValidKeyValue(key)) {
-                mParticle$1.Logger.error(Messages$8.ErrorMessages.BadKey);
-                return;
-            }
-
-            if (mParticle$1.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: key, value: value }));
-            } else {
-                var existingProp = Helpers.findKeyInObject(mParticle$1.Store.sessionAttributes, key);
-
-                if (existingProp) {
-                    key = existingProp;
-                }
-
-                mParticle$1.Store.sessionAttributes[key] = value;
-                Persistence.update();
-
-                Forwarders.applyToForwarders('setSessionAttribute', [key, value]);
-            }
-        }
-    },
-    /**
+    */setSessionAttribute:function setSessionAttribute(a,b){// Logs to cookie
+// And logs to in-memory object
+// Example: mParticle.setSessionAttribute('location', '33431');
+if(SessionManager.resetSessionTimer(),Helpers.canLog()){if(!Validators$4.isValidAttributeValue(b))return void mParticle$1.Logger.error(Messages$8.ErrorMessages.BadAttribute);if(!Validators$4.isValidKeyValue(a))return void mParticle$1.Logger.error(Messages$8.ErrorMessages.BadKey);if(mParticle$1.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:a,value:b}));else{var c=Helpers.findKeyInObject(mParticle$1.Store.sessionAttributes,a);c&&(a=c),mParticle$1.Store.sessionAttributes[a]=b,Persistence.update(),Forwarders.applyToForwarders("setSessionAttribute",[a,b]);}}},/**
     * Set opt out of logging
     * @for mParticle
     * @method setOptOut
     * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
-    */
-    setOptOut: function(isOptingOut) {
-        SessionManager.resetSessionTimer();
-        mParticle$1.Store.isEnabled = !isOptingOut;
-
-        Events.logOptOut();
-        Persistence.update();
-
-        if (mParticle$1.Store.activeForwarders.length) {
-            mParticle$1.Store.activeForwarders.forEach(function(forwarder) {
-                if (forwarder.setOptOut) {
-                    var result = forwarder.setOptOut(isOptingOut);
-
-                    if (result) {
-                        mParticle$1.Logger.verbose(result);
-                    }
-                }
-            });
-        }
-    },
-    /**
+    */setOptOut:function setOptOut(a){SessionManager.resetSessionTimer(),mParticle$1.Store.isEnabled=!a,Events.logOptOut(),Persistence.update(),mParticle$1.Store.activeForwarders.length&&mParticle$1.Store.activeForwarders.forEach(function(b){if(b.setOptOut){var c=b.setOptOut(a);c&&mParticle$1.Logger.verbose(c);}});},/**
     * Set or remove the integration attributes for a given integration ID.
     * Integration attributes are keys and values specific to a given integration. For example,
     * many integrations have their own internal user/device ID. mParticle will store integration attributes
@@ -7033,225 +1592,15 @@ var mParticle$1 = {
     * @param {Object} attrs a map of attributes that will replace any current attributes. The keys are predefined by mParticle.
     * Please consult with the mParticle docs or your solutions consultant for the correct value. You may
     * also pass a null or empty map here to remove all of the attributes.
-    */
-    setIntegrationAttribute: function(integrationId, attrs) {
-        if (typeof integrationId !== 'number') {
-            mParticle$1.Logger.error('integrationId must be a number');
-            return;
-        }
-        if (attrs === null) {
-            mParticle$1.Store.integrationAttributes[integrationId] = {};
-        } else if (Helpers.isObject(attrs)) {
-            if (Object.keys(attrs).length === 0) {
-                mParticle$1.Store.integrationAttributes[integrationId] = {};
-            } else {
-                for (var key in attrs) {
-                    if (typeof key === 'string') {
-                        if (typeof attrs[key] === 'string') {
-                            if (Helpers.isObject(mParticle$1.Store.integrationAttributes[integrationId])) {
-                                mParticle$1.Store.integrationAttributes[integrationId][key] = attrs[key];
-                            } else {
-                                mParticle$1.Store.integrationAttributes[integrationId] = {};
-                                mParticle$1.Store.integrationAttributes[integrationId][key] = attrs[key];
-                            }
-                        } else {
-                            mParticle$1.Logger.error('Values for integration attributes must be strings. You entered a ' + typeof attrs[key]);
-                            continue;
-                        }
-                    } else {
-                        mParticle$1.Logger.error('Keys must be strings, you entered a ' + typeof key);
-                        continue;
-                    }
-                }
-            }
-        } else {
-            mParticle$1.Logger.error('Attrs must be an object with keys and values. You entered a ' + typeof attrs);
-            return;
-        }
-        Persistence.update();
-    },
-    /**
+    */setIntegrationAttribute:function setIntegrationAttribute(a,b){if("number"!=typeof a)return void mParticle$1.Logger.error("integrationId must be a number");if(null===b)mParticle$1.Store.integrationAttributes[a]={};else{if(!Helpers.isObject(b))return void mParticle$1.Logger.error("Attrs must be an object with keys and values. You entered a "+_typeof_1(b));if(0===Object.keys(b).length)mParticle$1.Store.integrationAttributes[a]={};else for(var c in b)if("string"!=typeof c){mParticle$1.Logger.error("Keys must be strings, you entered a "+_typeof_1(c));continue}else if("string"==typeof b[c])Helpers.isObject(mParticle$1.Store.integrationAttributes[a])?mParticle$1.Store.integrationAttributes[a][c]=b[c]:(mParticle$1.Store.integrationAttributes[a]={},mParticle$1.Store.integrationAttributes[a][c]=b[c]);else{mParticle$1.Logger.error("Values for integration attributes must be strings. You entered a "+_typeof_1(b[c]));continue}}Persistence.update();},/**
     * Get integration attributes for a given integration ID.
     * @method getIntegrationAttributes
     * @param {Number} integrationId mParticle integration ID
     * @return {Object} an object map of the integrationId's attributes
-    */
-    getIntegrationAttributes: function(integrationId) {
-        if (mParticle$1.Store.integrationAttributes[integrationId]) {
-            return mParticle$1.Store.integrationAttributes[integrationId];
-        } else {
-            return {};
-        }
-    },
-    addForwarder: function(forwarder) {
-        mParticle$1.preInit.forwarderConstructors.push(forwarder);
-    },
-    configurePixel: function(settings) {
-        Forwarders.configurePixel(settings);
-    },
-    _getActiveForwarders: function() {
-        return mParticle$1.Store.activeForwarders;
-    },
-    _getIntegrationDelays: function() {
-        return mParticle$1.preInit.integrationDelays;
-    },
-    _configureFeatures: function(featureFlags) {
-        for (var key in featureFlags) {
-            if (mParticle$1.Store && mParticle$1.preInit.featureFlags) {
-                mParticle$1.preInit.featureFlags[key] = featureFlags[key];
-            }
-        }
-    },
-    _setIntegrationDelay: function(module, boolean) {
-        mParticle$1.preInit.integrationDelays[module] = boolean;
-    }
-};
-
-function completeSDKInitialization(apiKey, config) {
-    mParticle$1.Store.configurationLoaded = true;
-    if (mParticle$1.Store.webviewBridgeEnabled) {
-        NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_env', value: 'webview' }));
-        if (apiKey) {
-            NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({ key: '$src_key', value: apiKey }));
-        }
-    } else {
-        var currentUser;
-
-        // If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
-        if ((Helpers.isObject(mParticle$1.Store.SDKConfig.identifyRequest) && Helpers.isObject(mParticle$1.Store.SDKConfig.identifyRequest.userIdentities) &&
-            Object.keys(mParticle$1.Store.SDKConfig.identifyRequest.userIdentities).length === 0) || !mParticle$1.Store.SDKConfig.identifyRequest) {
-            var modifiedUIforIdentityRequest = {};
-
-            currentUser = mParticle$1.Identity.getCurrentUser();
-            if (currentUser) {
-                var identities = currentUser.getUserIdentities().userIdentities || {};
-                for (var identityKey in identities) {
-                    if (identities.hasOwnProperty(identityKey)) {
-                        modifiedUIforIdentityRequest[identityKey] = identities[identityKey];
-                    }
-                }
-            }
-
-            mParticle$1.Store.SDKConfig.identifyRequest = {
-                userIdentities: modifiedUIforIdentityRequest
-            };
-        }
-
-        // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
-        if (mParticle$1.Store.migratingToIDSyncCookies) {
-            IdentityAPI$2.identify(mParticle$1.Store.SDKConfig.identifyRequest, mParticle$1.Store.SDKConfig.identityCallback);
-            mParticle$1.Store.migratingToIDSyncCookies = false;
-        }
-
-        currentUser = IdentityAPI$2.getCurrentUser();
-
-        if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
-            startForwardingStatsTimer();
-        }
-
-        Forwarders.processForwarders(config);
-
-        // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
-        if (!mParticle$1.Store.identifyCalled && mParticle$1.Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
-            mParticle$1.Store.SDKConfig.identityCallback({
-                httpCode: HTTPCodes$2.activeSession,
-                getUser: function () {
-                    return mParticleUser$1(currentUser.getMPID());
-                },
-                getPreviousUser: function () {
-                    var users = mParticle$1.Identity.getUsers();
-                    var mostRecentUser = users.shift();
-                    if (mostRecentUser && currentUser && mostRecentUser.getMPID() === currentUser.getMPID()) {
-                        mostRecentUser = users.shift();
-                    }
-                    return mostRecentUser || null;
-                },
-                body: {
-                    mpid: currentUser.getMPID(),
-                    is_logged_in: mParticle$1.Store.isLoggedIn,
-                    matched_identities: currentUser.getUserIdentities().userIdentities,
-                    context: null,
-                    is_ephemeral: false
-                }
-            });
-        }
-
-        mParticle$1.sessionManager.initialize();
-        Events.logAST();
-    }
-    // Call any functions that are waiting for the library to be initialized
-    if (mParticle$1.preInit.readyQueue && mParticle$1.preInit.readyQueue.length) {
-        mParticle$1.preInit.readyQueue.forEach(function (readyQueueItem) {
-            if (Validators$4.isFunction(readyQueueItem)) {
-                readyQueueItem();
-            } else if (Array.isArray(readyQueueItem)) {
-                processPreloadedItem(readyQueueItem);
-            }
-        });
-        
-        mParticle$1.preInit.readyQueue = [];
-    }
-    mParticle$1.Store.isInitialized = true;
-
-    if (mParticle$1.Store.isFirstRun) {
-        mParticle$1.Store.isFirstRun = false;
-    }
-}
-
-function runPreConfigFetchInitialization(apiKey, config) {
-    mParticle$1.Logger = new Logger(config);
-    mParticle$1.Store = new Store(config, mParticle$1.Logger);
-    mParticle$1.Store.devToken = apiKey || null;
-    mParticle$1.Logger.verbose(Messages$8.InformationMessages.StartingInitialization);
-
-    //check to see if localStorage is available for migrating purposes
-    mParticle$1.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
-    
-    mParticle$1.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle$1.Store.SDKConfig.requiredWebviewBridgeName, mParticle$1.Store.SDKConfig.minWebviewBridgeVersion);
-    
-    if (!mParticle$1.Store.webviewBridgeEnabled) {
-        // Migrate any cookies from previous versions to current cookie version
-        Migrations.migrate();
-    
-        // Load any settings/identities/attributes from cookie or localStorage
-        Persistence.initializeStorage();
-    }
-}
-
-function processPreloadedItem(readyQueueItem) {
-    var currentUser,
-        args = readyQueueItem,
-        method = args.splice(0, 1)[0];
-    if (mParticle$1[args[0]]) {
-        mParticle$1[method].apply(this, args);
-    } else {
-        var methodArray = method.split('.');
-        try {
-            var computedMPFunction = mParticle$1;
-            for (var i = 0; i < methodArray.length; i++) {
-                var currentMethod = methodArray[i];
-                computedMPFunction = computedMPFunction[currentMethod];
-            }
-            computedMPFunction.apply(currentUser, args);
-        } catch(e) {
-            mParticle$1.Logger.verbose('Unable to compute proper mParticle function ' + e);
-        }
-    }
-}
-
-mParticle$1.preInit = {
-    readyQueue: [],
-    featureFlags: {},
-    integrationDelays: {},
-    forwarderConstructors: []
-};
-
-if (window.mParticle && window.mParticle.config) {
-    if (window.mParticle.config.hasOwnProperty('rq')) {
-        mParticle$1.preInit.readyQueue = window.mParticle.config.rq;
-    }
-}
-
-window.mParticle = mParticle$1;
+    */getIntegrationAttributes:function getIntegrationAttributes(a){return mParticle$1.Store.integrationAttributes[a]?mParticle$1.Store.integrationAttributes[a]:{}},addForwarder:function addForwarder(a){mParticle$1.preInit.forwarderConstructors.push(a);},configurePixel:function configurePixel(a){Forwarders.configurePixel(a);},_getActiveForwarders:function _getActiveForwarders(){return mParticle$1.Store.activeForwarders},_getIntegrationDelays:function _getIntegrationDelays(){return mParticle$1.preInit.integrationDelays},_setIntegrationDelay:function _setIntegrationDelay(a,b){mParticle$1.preInit.integrationDelays[a]=b;}};function completeSDKInitialization(a,b){if(mParticle$1.Store.configurationLoaded=!0,mParticle$1.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:"$src_env",value:"webview"})),a&&NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:"$src_key",value:a}));else{var c;// If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
+if(Helpers.isObject(mParticle$1.Store.SDKConfig.identifyRequest)&&Helpers.isObject(mParticle$1.Store.SDKConfig.identifyRequest.userIdentities)&&0===Object.keys(mParticle$1.Store.SDKConfig.identifyRequest.userIdentities).length||!mParticle$1.Store.SDKConfig.identifyRequest){var d={};if(c=mParticle$1.Identity.getCurrentUser(),c){var e=c.getUserIdentities().userIdentities||{};for(var f in e)e.hasOwnProperty(f)&&(d[f]=e[f]);}mParticle$1.Store.SDKConfig.identifyRequest={userIdentities:d};}// If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
+mParticle$1.Store.migratingToIDSyncCookies&&(IdentityAPI$2.identify(mParticle$1.Store.SDKConfig.identifyRequest,mParticle$1.Store.SDKConfig.identityCallback),mParticle$1.Store.migratingToIDSyncCookies=!1),c=IdentityAPI$2.getCurrentUser(),Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)&&startForwardingStatsTimer(),Forwarders.processForwarders(b),!mParticle$1.Store.identifyCalled&&mParticle$1.Store.SDKConfig.identityCallback&&c&&c.getMPID()&&mParticle$1.Store.SDKConfig.identityCallback({httpCode:HTTPCodes$2.activeSession,getUser:function getUser(){return mParticleUser$1(c.getMPID())},getPreviousUser:function getPreviousUser(){var a=mParticle$1.Identity.getUsers(),b=a.shift();return b&&c&&b.getMPID()===c.getMPID()&&(b=a.shift()),b||null},body:{mpid:c.getMPID(),is_logged_in:mParticle$1.Store.isLoggedIn,matched_identities:c.getUserIdentities().userIdentities,context:null,is_ephemeral:!1}}),mParticle$1.sessionManager.initialize(),Events.logAST();}// Call any functions that are waiting for the library to be initialized
+mParticle$1.preInit.readyQueue&&mParticle$1.preInit.readyQueue.length&&(mParticle$1.preInit.readyQueue.forEach(function(a){Validators$4.isFunction(a)?a():Array.isArray(a)&&processPreloadedItem(a);}),mParticle$1.preInit.readyQueue=[]),mParticle$1.Store.isInitialized=!0,mParticle$1.Store.isFirstRun&&(mParticle$1.Store.isFirstRun=!1);}function runPreConfigFetchInitialization(a,b){//check to see if localStorage is available for migrating purposes
+mParticle$1.Logger=new Logger(b),mParticle$1.Store=new Store(b,mParticle$1.Logger),mParticle$1.Store.devToken=a||null,mParticle$1.Logger.verbose(Messages$8.InformationMessages.StartingInitialization),mParticle$1.Store.isLocalStorageAvailable=Persistence.determineLocalStorageAvailability(window.localStorage),mParticle$1.Store.webviewBridgeEnabled=NativeSdkHelpers.isWebviewEnabled(mParticle$1.Store.SDKConfig.requiredWebviewBridgeName,mParticle$1.Store.SDKConfig.minWebviewBridgeVersion),mParticle$1.Store.webviewBridgeEnabled||(Migrations.migrate(),Persistence.initializeStorage());}function processPreloadedItem(a){var b,c=a,d=c.splice(0,1)[0];if(mParticle$1[c[0]])mParticle$1[d].apply(this,c);else{var e=d.split(".");try{for(var f,g=mParticle$1,h=0;h<e.length;h++)f=e[h],g=g[f];g.apply(b,c);}catch(a){mParticle$1.Logger.verbose("Unable to compute proper mParticle function "+a);}}}mParticle$1.preInit={readyQueue:[],integrationDelays:{},forwarderConstructors:[]},window.mParticle&&window.mParticle.config&&window.mParticle.config.hasOwnProperty("rq")&&(mParticle$1.preInit.readyQueue=window.mParticle.config.rq),window.mParticle=mParticle$1;
 
 module.exports = mParticle$1;

@@ -1,1 +1,1 @@
-import mParticle from '../../../../src/main.js';
+import mParticle from '../../../../dist/mparticle.esm.js';

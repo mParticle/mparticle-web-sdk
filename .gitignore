@@ -1,8 +1,8 @@
+.DS_Store
 node_modules/
 .vscode/
 test-bundle.js
 out/
-dist/mparticle.js
 test/reports
 test/integrations/cjs/dist
 test/integrations/module/dist
@@ -13,3 +13,4 @@ dist/mparticle.js.map
 dist/mparticle.common.js
 dist/mparticle.common.js.map
 dist/mparticle.stub.js
+dist/mparticle.esm.js

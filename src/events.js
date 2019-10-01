@@ -5,11 +5,9 @@ import Ecommerce from './ecommerce';
 import ServerModel from './serverModel';
 import Persistence from './persistence';
 import ApiClient from './apiClient';
-import Forwarders from './forwarders';
 
 var Messages = Constants.Messages,
-    sendEventToServer = ApiClient.sendEventToServer,
-    sendEventToForwarders = Forwarders.sendEventToForwarders;
+    sendEventToServer = ApiClient.sendEventToServer;
 
 
 function logEvent(event) {
@@ -19,66 +17,11 @@ function logEvent(event) {
             event.data = Helpers.sanitizeAttributes(event.data);
         }
         var uploadObject = ServerModel.createEventObject(event);
-
-        // TODO: Disabled for the time being until we can define an HTTP Request for BaseEvents
-        if (event.messageType === Types.MessageType.Media) {
-            sendEventToForwarders(uploadObject);
-        } else {
-            sendEventToServer(uploadObject, sendEventToForwarders, parseEventResponse);
-        }
+        sendEventToServer(uploadObject);
         Persistence.update();
     }
     else {
         mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
-    }
-}
-
-function parseEventResponse(responseText) {
-    var now = new Date(),
-        settings,
-        prop,
-        fullProp;
-
-    if (!responseText) {
-        return;
-    }
-
-    try {
-        mParticle.Logger.verbose('Parsing response from server');
-        settings = JSON.parse(responseText);
-
-        if (settings && settings.Store) {
-            mParticle.Logger.verbose('Parsed store from response, updating local settings');
-
-            if (!mParticle.Store.serverSettings) {
-                mParticle.Store.serverSettings = {};
-            }
-
-            for (prop in settings.Store) {
-                if (!settings.Store.hasOwnProperty(prop)) {
-                    continue;
-                }
-
-                fullProp = settings.Store[prop];
-
-                if (!fullProp.Value || new Date(fullProp.Expires) < now) {
-                    // This setting should be deleted from the local store if it exists
-
-                    if (mParticle.Store.serverSettings.hasOwnProperty(prop)) {
-                        delete mParticle.Store.serverSettings[prop];
-                    }
-                }
-                else {
-                    // This is a valid setting
-                    mParticle.Store.serverSettings[prop] = fullProp;
-                }
-            }
-
-            Persistence.update();
-        }
-    }
-    catch (e) {
-        mParticle.Logger.error('Error parsing JSON response from server: ' + e.name);
     }
 }
 
@@ -148,7 +91,7 @@ function logOptOut() {
         messageType: Types.MessageType.OptOut,
         eventType: Types.EventType.Other
     });
-    sendEventToServer(event, sendEventToForwarders, parseEventResponse);
+    sendEventToServer(event);
 }
 
 function logAST() {
@@ -280,7 +223,7 @@ function logCommerceEvent(commerceEvent, attrs) {
             commerceEvent.EventAttributes = attrs;
         }
 
-        sendEventToServer(commerceEvent, sendEventToForwarders, parseEventResponse);
+        sendEventToServer(commerceEvent);
         Persistence.update();
     }
     else {
@@ -377,6 +320,5 @@ export default {
     logImpressionEvent: logImpressionEvent,
     logOptOut: logOptOut,
     logAST: logAST,
-    parseEventResponse: parseEventResponse,
     addEventHandler: addEventHandler
 };

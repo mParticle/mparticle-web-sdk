@@ -1,4 +1,6 @@
 var mParticle = (function () {
+    'use strict';
+
     let mParticle = {
         endSession: voidFunction,
         getAppName: returnString,

@@ -563,7 +563,7 @@ describe('eCommerce', function() {
         var product = mParticle.eCommerce.createProduct('Foo name',
             'Foo sku',
             100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
 
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
         mParticle.eCommerce.logPurchase(transactionAttributes, product, false, eventAttributes);
@@ -601,7 +601,7 @@ describe('eCommerce', function() {
         attributes.should.have.property('Id', 'Foo sku');
         attributes.should.have.property('Item Price', 100.00);
         attributes.should.have.property('Quantity', 4);
-        attributes.should.have.property('Position', 'foo-position');
+        attributes.should.have.property('Position', 5);
         attributes.should.have.property('foo-attribute-key', 'foo-product-attribute-value');
 
         done();
@@ -625,7 +625,7 @@ describe('eCommerce', function() {
         var product = mParticle.eCommerce.createProduct('Foo name',
             'Foo sku',
             100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
 
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
         mParticle.eCommerce.logRefund(transactionAttributes, product, false, eventAttributes);
@@ -661,7 +661,7 @@ describe('eCommerce', function() {
         var product = mParticle.eCommerce.createProduct('Foo name',
             'Foo sku',
             100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
 
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.RemoveFromWishlist, product, eventAttributes);
         window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
@@ -680,7 +680,7 @@ describe('eCommerce', function() {
         attributes.should.have.property('Id', 'Foo sku');
         attributes.should.have.property('Item Price', 100.00);
         attributes.should.have.property('Quantity', 4);
-        attributes.should.have.property('Position', 'foo-position');
+        attributes.should.have.property('Position', 5);
         attributes.should.have.property('foo-attribute-key', 'foo-product-attribute-value');
 
         done();
@@ -704,7 +704,7 @@ describe('eCommerce', function() {
         var product = mParticle.eCommerce.createProduct('Foo name',
             'Foo sku',
             100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
 
         mParticle.eCommerce.Cart.add(product, true);
         mParticle.eCommerce.logCheckout('foo-step', 'foo-options', eventAttributes);
@@ -726,7 +726,7 @@ describe('eCommerce', function() {
         attributes.should.have.property('Id', 'Foo sku');
         attributes.should.have.property('Item Price', 100.00);
         attributes.should.have.property('Quantity', 4);
-        attributes.should.have.property('Position', 'foo-position');
+        attributes.should.have.property('Position', 5);
         attributes.should.have.property('foo-attribute-key', 'foo-product-attribute-value');
 
         done();
@@ -744,7 +744,7 @@ describe('eCommerce', function() {
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
 
-        var promotion = mParticle.eCommerce.createPromotion('foo-id', 'foo-creative', 'foo-name', 'foo-position');
+        var promotion = mParticle.eCommerce.createPromotion('foo-id', 'foo-creative', 'foo-name', 5);
         mParticle.eCommerce.logPromotion(mParticle.PromotionType.PromotionClick, promotion, eventAttributes);
         window.MockForwarder1.instance.receivedEvent.should.have.property('PromotionAction');
         var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
@@ -758,7 +758,7 @@ describe('eCommerce', function() {
         attributes.should.have.property('Id', 'foo-id');
         attributes.should.have.property('Creative', 'foo-creative');
         attributes.should.have.property('Name', 'foo-name');
-        attributes.should.have.property('Position', 'foo-position');
+        attributes.should.have.property('Position', 5);
         attributes.should.have.property('foo-event-attribute-key', 'foo-event-attribute-value');
 
         done();
@@ -790,7 +790,7 @@ describe('eCommerce', function() {
         var product = mParticle.eCommerce.createProduct('Foo name',
             'Foo sku',
             100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 'foo-position', 'foo-productcouponcode', productAttributes);
+            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
 
         var impression = mParticle.eCommerce.createImpression('suggested products list', product);
 
@@ -813,7 +813,7 @@ describe('eCommerce', function() {
         attributes.should.have.property('Id', 'Foo sku');
         attributes.should.have.property('Item Price', 100.00);
         attributes.should.have.property('Quantity', 4);
-        attributes.should.have.property('Position', 'foo-position');
+        attributes.should.have.property('Position', 5);
         attributes.should.have.property('foo-attribute-key', 'foo-product-attribute-value');
         attributes.should.have.property('foo-event-attribute-key', 'foo-event-attribute-value');
 

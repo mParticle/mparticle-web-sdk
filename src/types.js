@@ -158,8 +158,6 @@ IdentityType.getIdentityType = function(identityName) {
             return IdentityType.Email;
         case 'facebookcustomaudienceid':
             return IdentityType.FacebookCustomAudienceId;
-        case 'other1':
-            return IdentityType.Other1;
         case 'other2':
             return IdentityType.Other2;
         case 'other3':
@@ -191,8 +189,6 @@ IdentityType.getIdentityName = function(identityType) {
             return 'email';
         case IdentityType.FacebookCustomAudienceId:
             return 'facebookcustomaudienceid';
-        case IdentityType.Other1:
-            return 'other1';
         case IdentityType.Other2:
             return 'other2';
         case IdentityType.Other3:

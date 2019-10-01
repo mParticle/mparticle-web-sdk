@@ -1,0 +1,13 @@
+{
+  "extends": "gts/tslint.json",
+  "rules": {
+    "indent": {
+      "options": ["spaces", 4]
+    }
+  },
+  "linterOptions": {
+    "exclude": [
+      "**/*.json"
+    ]
+  }
+}

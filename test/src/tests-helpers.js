@@ -23,6 +23,26 @@ describe('helpers', function() {
         done();
     });
 
+    it('should generate ramp number correctly', function(done) {
+        var result = Helpers.getRampNumber();
+        result.should.equal(100);
+
+        result = Helpers.getRampNumber(null);
+        result.should.equal(100);
+
+        var uniqueId = Helpers.generateUniqueId();
+        var result1 = Helpers.getRampNumber(uniqueId);
+        result1.should.be.below(101);
+        result1.should.be.above(0);
+
+        var result2 = Helpers.getRampNumber(uniqueId);
+        result2.should.equal(result1);
+
+        result = Helpers.getRampNumber('2b907d8b-cefe-4530-a6fe-60a381f2e066');
+        result.should.equal(60);
+        done();
+    });
+
     it('should correctly validate a key value', function(done) {
         var validatedString = Validators.isValidKeyValue('testValue1');
         var validatedNumber = Validators.isValidKeyValue(1);

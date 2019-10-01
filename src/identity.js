@@ -12,7 +12,6 @@ import Events from './events';
 var Messages = Constants.Messages,
     Validators = Helpers.Validators,
     HTTPCodes = Constants.HTTPCodes,
-    sendEventToForwarders = Forwarders.sendEventToForwarders,
     sendIdentityRequest = ApiClient.sendIdentityRequest;
 
 function checkIdentitySwap(previousMPID, currentMPID, currentSessionMPIDs) {
@@ -579,7 +578,7 @@ function mParticleUser(mpid, isLoggedIn) {
                         Persistence.saveCookies(cookies, mpid);
                     }
 
-                    Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
+                    Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(), ApiClient.prepareForwardingStats);
                     Forwarders.callSetUserAttributeOnForwarders(key, value);
                 }
             }
@@ -637,7 +636,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     Persistence.saveCookies(cookies, mpid);
                 }
 
-                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
+                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(), ApiClient.prepareForwardingStats);
                 Forwarders.applyToForwarders('removeUserAttribute', key);
             }
         },
@@ -683,7 +682,7 @@ function mParticleUser(mpid, isLoggedIn) {
                     Persistence.saveCookies(cookies, mpid);
                 }
 
-                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
+                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(), ApiClient.prepareForwardingStats);
                 Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
             }
         },
@@ -703,7 +702,7 @@ function mParticleUser(mpid, isLoggedIn) {
 
                 userAttributes = this.getAllUserAttributes();
 
-                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
+                Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities()), ApiClient.prepareForwardingStats;
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
@@ -784,7 +783,7 @@ function mParticleUser(mpid, isLoggedIn) {
         */
         setConsentState: function(state) {
             Persistence.saveUserConsentStateToCookies(mpid, state);
-            Forwarders.initForwarders(this.getUserIdentities().userIdentities);
+            Forwarders.initForwarders(this.getUserIdentities().userIdentities), ApiClient.prepareForwardingStats;
         },
         isLoggedIn: function() {
             return isLoggedIn;
@@ -1026,14 +1025,14 @@ function parseIdentityResponse(xhr, previousMPID, callback, identityApiData, met
             if (newUser) {
                 Persistence.storeDataInMemory(cookies, newUser.getMPID());
                 if (!prevUser || newUser.getMPID() !== prevUser.getMPID() || prevUser.isLoggedIn() !== newUser.isLoggedIn()) {
-                    Forwarders.initForwarders(newUser.getUserIdentities().userIdentities);
+                    Forwarders.initForwarders(newUser.getUserIdentities().userIdentities, ApiClient.prepareForwardingStats);
                 }
                 Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);
                 Forwarders.setForwarderOnIdentityComplete(newUser, method);
                 Forwarders.setForwarderOnUserIdentified(newUser, method);
             }
 
-            Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, ApiClient.sendEventToServer, sendEventToForwarders, Events.parseEventResponse);
+            ApiClient.processQueuedEvents();
         }
 
         if (callback) {

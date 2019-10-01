@@ -342,7 +342,9 @@ describe('forwarders', function() {
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
 
-        mParticle._configureFeatures({batching: true});
+        window.mParticle.config.flags = {
+            reportBatching:true
+        };
         mParticle.init(apiKey, window.mParticle.config);
         server.requests = [];
 
@@ -365,8 +367,6 @@ describe('forwarders', function() {
         event.should.have.property('ct');
         event.should.have.property('eec', 0);
         clock.restore();
-
-        Should(Object.keys(mParticle.preInit.featureFlags).length).equal(1);
 
         done();
     });
@@ -1122,7 +1122,9 @@ describe('forwarders', function() {
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
 
-        mParticle._configureFeatures({ batching: true });
+        window.mParticle.config.flags = {
+            reportBatching:true
+        };
 
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.logEvent('not in forwarder');

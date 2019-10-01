@@ -215,5 +215,18 @@ export default function Store(config, logger) {
         } else {
             this.SDKConfig.aliasMaxWindow = Constants.DefaultConfig.aliasMaxWindow;
         }
+ 
+        if (!config.hasOwnProperty('flags')) {
+            this.SDKConfig.flags = {};
+        }
+        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventsV3)) {
+            this.SDKConfig.flags[Constants.FeatureFlags.EventsV3] = 0;
+        }
+        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventBatchingIntervalMillis)) {
+            this.SDKConfig.flags[Constants.FeatureFlags.EventBatchingIntervalMillis] = Constants.DefaultConfig.uploadInterval;
+        }
+        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.ReportBatching)) {
+            this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching] = false;
+        }
     }
 }

@@ -137,7 +137,6 @@ var mParticle = {
             readyQueue: [],
             pixelConfigurations: [],
             integrationDelays: {},
-            featureFlags: {},
             forwarderConstructors: [],
             isDevelopmentMode: false
         };
@@ -770,13 +769,6 @@ var mParticle = {
     _getIntegrationDelays: function() {
         return mParticle.preInit.integrationDelays;
     },
-    _configureFeatures: function(featureFlags) {
-        for (var key in featureFlags) {
-            if (mParticle.Store && mParticle.preInit.featureFlags) {
-                mParticle.preInit.featureFlags[key] = featureFlags[key];
-            }
-        }
-    },
     _setIntegrationDelay: function(module, boolean) {
         mParticle.preInit.integrationDelays[module] = boolean;
     }
@@ -820,11 +812,11 @@ function completeSDKInitialization(apiKey, config) {
 
         currentUser = IdentityAPI.getCurrentUser();
 
-        if (Helpers.hasFeatureFlag(Constants.Features.Batching)) {
+        if (Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)) {
             startForwardingStatsTimer();
         }
 
-        Forwarders.processForwarders(config);
+        Forwarders.processForwarders(config, ApiClient.prepareForwardingStats);
 
         // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
         if (!mParticle.Store.identifyCalled && mParticle.Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
@@ -916,7 +908,6 @@ function processPreloadedItem(readyQueueItem) {
 
 mParticle.preInit = {
     readyQueue: [],
-    featureFlags: {},
     integrationDelays: {},
     forwarderConstructors: []
 };

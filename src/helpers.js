@@ -19,10 +19,22 @@ function returnConvertedBoolean(data) {
     }
 }
 
-function hasFeatureFlag(feature) {
-    if (mParticle.preInit.featureFlags) {
-        return mParticle.preInit.featureFlags[feature];
+function getFeatureFlag(feature) {
+    if (mParticle.Store.SDKConfig.flags.hasOwnProperty(feature)) {
+        return mParticle.Store.SDKConfig.flags[feature];
     }
+    return null;
+}
+
+/**
+ * Returns a value between 1-100 inclusive.
+ */
+function getRampNumber(deviceId) {
+    if (!deviceId) {
+        return 100;
+    }
+    var hash = generateHash(deviceId);
+    return Math.abs(hash % 100) + 1;
 }
 
 function invokeCallback(callback, code, body, mParticleUser, previousMpid) {
@@ -449,6 +461,10 @@ var Validators = {
         return (typeof value === 'string' || typeof value === 'number');
     },
 
+    isNumber: function(value) {
+        return (typeof value === 'number');
+    },
+
     isFunction: function(fn) {
         return typeof fn === 'function';
     },
@@ -542,19 +558,6 @@ function isDelayedByIntegration(delayedIntegrations, timeoutStart, now) {
     return false;
 }
 
-// events exist in the eventQueue because they were triggered when the identityAPI request was in flight
-// once API request returns and there is an MPID, eventQueue items are reassigned with the returned MPID and flushed
-function processQueuedEvents(eventQueue, mpid, requireDelay, sendEventToServer, sendEventToForwarders, parseEventResponse) {
-    if (eventQueue.length && mpid && requireDelay) {
-        var localQueueCopy = eventQueue;
-        mParticle.Store.eventQueue = [];
-        localQueueCopy.forEach(function(event) {
-            event.MPID = mpid;
-            sendEventToServer(event, sendEventToForwarders, parseEventResponse);
-        });
-    }
-}
-
 function createMainStorageName(workspaceToken) {
     if (workspaceToken) {
         return StorageNames.currentStorageName + '_' + workspaceToken;
@@ -593,10 +596,10 @@ export default {
     returnConvertedBoolean: returnConvertedBoolean,
     invokeCallback: invokeCallback,
     invokeAliasCallback: invokeAliasCallback,
-    hasFeatureFlag: hasFeatureFlag,
+    getFeatureFlag: getFeatureFlag,
     isDelayedByIntegration: isDelayedByIntegration,
-    processQueuedEvents: processQueuedEvents,
     createMainStorageName: createMainStorageName,
     createProductStorageName: createProductStorageName,
-    Validators: Validators
+    Validators: Validators,
+    getRampNumber: getRampNumber
 };
