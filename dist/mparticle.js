@@ -154,6 +154,115 @@ var mParticle = (function () {
 	  }
 	};
 	var Polyfill = {
+	  // forEach polyfill
+	  // Production steps of ECMA-262, Edition 5, 15.4.4.18
+	  // Reference: http://es5.github.io/#x15.4.4.18
+	  forEach: function forEach(callback, thisArg) {
+	    var T, k;
+
+	    if (this == null) {
+	      throw new TypeError(' this is null or not defined');
+	    }
+
+	    var O = Object(this);
+	    var len = O.length >>> 0;
+
+	    if (typeof callback !== 'function') {
+	      throw new TypeError(callback + ' is not a function');
+	    }
+
+	    if (arguments.length > 1) {
+	      T = thisArg;
+	    }
+
+	    k = 0;
+
+	    while (k < len) {
+	      var kValue;
+
+	      if (k in O) {
+	        kValue = O[k];
+	        callback.call(T, kValue, k, O);
+	      }
+
+	      k++;
+	    }
+	  },
+	  // map polyfill
+	  // Production steps of ECMA-262, Edition 5, 15.4.4.19
+	  // Reference: http://es5.github.io/#x15.4.4.19
+	  map: function map(callback, thisArg) {
+	    var T, A, k;
+
+	    if (this === null) {
+	      throw new TypeError(' this is null or not defined');
+	    }
+
+	    var O = Object(this);
+	    var len = O.length >>> 0;
+
+	    if (typeof callback !== 'function') {
+	      throw new TypeError(callback + ' is not a function');
+	    }
+
+	    if (arguments.length > 1) {
+	      T = thisArg;
+	    }
+
+	    A = new Array(len);
+	    k = 0;
+
+	    while (k < len) {
+	      var kValue, mappedValue;
+
+	      if (k in O) {
+	        kValue = O[k];
+	        mappedValue = callback.call(T, kValue, k, O);
+	        A[k] = mappedValue;
+	      }
+
+	      k++;
+	    }
+
+	    return A;
+	  },
+	  // filter polyfill
+	  // Prodcution steps of ECMA-262, Edition 5
+	  // Reference: http://es5.github.io/#x15.4.4.20
+	  filter: function filter(fun
+	  /*, thisArg*/
+	  ) {
+
+	    if (this === void 0 || this === null) {
+	      throw new TypeError();
+	    }
+
+	    var t = Object(this);
+	    var len = t.length >>> 0;
+
+	    if (typeof fun !== 'function') {
+	      throw new TypeError();
+	    }
+
+	    var res = [];
+	    var thisArg = arguments.length >= 2 ? arguments[1] : void 0;
+
+	    for (var i = 0; i < len; i++) {
+	      if (i in t) {
+	        var val = t[i];
+
+	        if (fun.call(thisArg, val, i, t)) {
+	          res.push(val);
+	        }
+	      }
+	    }
+
+	    return res;
+	  },
+	  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
+	  isArray: function isArray(arg) {
+	    return Object.prototype.toString.call(arg) === '[object Array]';
+	  },
 	  Base64: Base64
 	};
 
@@ -351,9 +460,6 @@ var mParticle = (function () {
 	    case 'facebookcustomaudienceid':
 	      return IdentityType.FacebookCustomAudienceId;
 
-	    case 'other1':
-	      return IdentityType.Other1;
-
 	    case 'other2':
 	      return IdentityType.Other2;
 
@@ -396,9 +502,6 @@ var mParticle = (function () {
 
 	    case IdentityType.FacebookCustomAudienceId:
 	      return 'facebookcustomaudienceid';
-
-	    case IdentityType.Other1:
-	      return 'other1';
 
 	    case IdentityType.Other2:
 	      return 'other2';
@@ -551,7 +654,7 @@ var mParticle = (function () {
 	};
 
 	var Constants = {
-	  sdkVersion: '2.9.11',
+	  sdkVersion: '2.9.12',
 	  sdkVendor: 'mparticle',
 	  platform: 'web',
 	  Messages: {
@@ -674,7 +777,7 @@ var mParticle = (function () {
 	    // Number of bytes for cookie size to not exceed
 	    aliasMaxWindow: 90,
 	    // Max age of Alias request startTime, in days
-	    uploadInterval: 2000 // Maximum milliseconds in between batch uploads
+	    uploadInterval: 0 // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload
 
 	  },
 	  DefaultUrls: {
@@ -712,9 +815,9 @@ var mParticle = (function () {
 	    tooManyRequests: 429
 	  },
 	  FeatureFlags: {
-	    ReportBatching: 'FeatureFlags.ReportBatching',
-	    EventBatching: 'FeatureFlags.EventBatching',
-	    EventBatchingIntervalMillis: 'FeatureFlags.EventBatchingIntervalMillis'
+	    ReportBatching: 'reportBatching',
+	    EventsV3: 'eventsV3',
+	    EventBatchingIntervalMillis: 'eventBatchingIntervalMillis'
 	  }
 	};
 
@@ -743,6 +846,19 @@ var mParticle = (function () {
 	  }
 
 	  return null;
+	}
+	/**
+	 * Returns a value between 1-100 inclusive.
+	 */
+
+
+	function getRampNumber(deviceId) {
+	  if (!deviceId) {
+	    return 100;
+	  }
+
+	  var hash = generateHash(deviceId);
+	  return Math.abs(hash % 100) + 1;
 	}
 
 	function invokeCallback(callback, code, body, mParticleUser, previousMpid) {
@@ -1178,6 +1294,9 @@ var mParticle = (function () {
 	  isStringOrNumber: function isStringOrNumber(value) {
 	    return typeof value === 'string' || typeof value === 'number';
 	  },
+	  isNumber: function isNumber(value) {
+	    return typeof value === 'number';
+	  },
 	  isFunction: function isFunction(fn) {
 	    return typeof fn === 'function';
 	  },
@@ -1276,19 +1395,6 @@ var mParticle = (function () {
 	  }
 
 	  return false;
-	} // events exist in the eventQueue because they were triggered when the identityAPI request was in flight
-	// once API request returns and there is an MPID, eventQueue items are reassigned with the returned MPID and flushed
-
-
-	function processQueuedEvents(eventQueue, mpid, requireDelay, sendEventToServer, sendEventToForwarders, parseEventResponse) {
-	  if (eventQueue.length && mpid && requireDelay) {
-	    var localQueueCopy = eventQueue;
-	    mParticle.Store.eventQueue = [];
-	    localQueueCopy.forEach(function (event) {
-	      event.MPID = mpid;
-	      sendEventToServer(event, sendEventToForwarders, parseEventResponse);
-	    });
-	  }
 	}
 
 	function createMainStorageName(workspaceToken) {
@@ -1331,10 +1437,10 @@ var mParticle = (function () {
 	  invokeAliasCallback: invokeAliasCallback,
 	  getFeatureFlag: getFeatureFlag,
 	  isDelayedByIntegration: isDelayedByIntegration,
-	  processQueuedEvents: processQueuedEvents,
 	  createMainStorageName: createMainStorageName,
 	  createProductStorageName: createProductStorageName,
-	  Validators: Validators
+	  Validators: Validators,
+	  getRampNumber: getRampNumber
 	};
 
 	var Messages = Constants.Messages;
@@ -2811,6 +2917,53 @@ var mParticle = (function () {
 	  }
 	}
 
+	function appendUserInfo(user, event) {
+	  if (!event) {
+	    return;
+	  }
+
+	  if (!user) {
+	    event.MPID = null;
+	    event.ConsentState = null;
+	    event.UserAttributes = null;
+	    event.UserIdentities = null;
+	    return;
+	  }
+
+	  if (event.MPID && event.MPID === user.getMPID()) {
+	    return;
+	  }
+
+	  event.MPID = user.getMPID();
+	  event.ConsentState = user.getConsentState();
+	  event.UserAttributes = user.getAllUserAttributes();
+	  var userIdentities = user.getUserIdentities().userIdentities;
+	  var dtoUserIdentities = {};
+
+	  for (var identityKey in userIdentities) {
+	    var identityType = Types.IdentityType.getIdentityType(identityKey);
+
+	    if (identityType !== false) {
+	      dtoUserIdentities[identityType] = userIdentities[identityKey];
+	    }
+	  }
+
+	  var validUserIdentities = [];
+
+	  if (Helpers.isObject(dtoUserIdentities)) {
+	    if (Object.keys(dtoUserIdentities).length) {
+	      for (var key in dtoUserIdentities) {
+	        var userIdentity = {};
+	        userIdentity.Identity = dtoUserIdentities[key];
+	        userIdentity.Type = Helpers.parseNumber(key);
+	        validUserIdentities.push(userIdentity);
+	      }
+	    }
+	  }
+
+	  event.UserIdentities = validUserIdentities;
+	}
+
 	function convertProductListToDTO(productList) {
 	  if (!productList) {
 	    return [];
@@ -2883,20 +3036,9 @@ var mParticle = (function () {
 	function createEventObject(event) {
 	  var uploadObject = {};
 	  var eventObject = {};
-	  var dtoUserIdentities = {};
-	  var currentUser = mParticle.Identity.getCurrentUser();
-	  var userIdentities = currentUser ? currentUser.getUserIdentities().userIdentities : {};
 	  var optOut = event.messageType === Types.MessageType.OptOut ? !mParticle.Store.isEnabled : null;
 
 	  if (mParticle.Store.sessionId || event.messageType == Types.MessageType.OptOut || mParticle.Store.webviewBridgeEnabled) {
-	    for (var identityKey in userIdentities) {
-	      dtoUserIdentities[Types.IdentityType.getIdentityType(identityKey)] = userIdentities[identityKey];
-	    }
-
-	    if (event.messageType !== Types.MessageType.SessionEnd) {
-	      mParticle.Store.dateLastEventSent = new Date();
-	    }
-
 	    if (event.hasOwnProperty('toEventAPIObject')) {
 	      eventObject = event.toEventAPIObject();
 	    } else {
@@ -2909,9 +3051,11 @@ var mParticle = (function () {
 	      };
 	    }
 
+	    if (event.messageType !== Types.MessageType.SessionEnd) {
+	      mParticle.Store.dateLastEventSent = new Date();
+	    }
+
 	    uploadObject = {
-	      UserAttributes: currentUser ? currentUser.getAllUserAttributes() : {},
-	      UserIdentities: dtoUserIdentities,
 	      Store: mParticle.Store.serverSettings,
 	      SDKVersion: Constants.sdkVersion,
 	      SessionId: mParticle.Store.sessionId,
@@ -2923,10 +3067,12 @@ var mParticle = (function () {
 	      AppVersion: mParticle.Store.SDKConfig.appVersion,
 	      ClientGeneratedId: mParticle.Store.clientId,
 	      DeviceId: mParticle.Store.deviceId,
-	      MPID: currentUser ? currentUser.getMPID() : null,
-	      ConsentState: currentUser ? currentUser.getConsentState() : null,
-	      IntegrationAttributes: mParticle.Store.integrationAttributes
+	      IntegrationAttributes: mParticle.Store.integrationAttributes,
+	      CurrencyCode: mParticle.Store.currencyCode
 	    };
+	    eventObject.CurrencyCode = mParticle.Store.currencyCode;
+	    var currentUser = mParticle.Identity.getCurrentUser();
+	    appendUserInfo(currentUser, eventObject);
 
 	    if (event.messageType === Types.MessageType.SessionEnd) {
 	      eventObject.SessionLength = mParticle.Store.dateLastEventSent.getTime() - mParticle.Store.sessionStartDate.getTime();
@@ -2943,7 +3089,7 @@ var mParticle = (function () {
 	  return null;
 	}
 
-	function convertEventToDTO(event, isFirstRun, currencyCode) {
+	function convertEventToDTO(event, isFirstRun) {
 	  var dto = {
 	    n: event.EventName,
 	    et: event.EventCategory,
@@ -2987,7 +3133,7 @@ var mParticle = (function () {
 	  }
 
 	  if (event.EventDataType === MessageType$1.Commerce) {
-	    dto.cu = currencyCode;
+	    dto.cu = event.CurrencyCode;
 
 	    if (event.ShoppingCart) {
 	      dto.sc = {
@@ -3038,7 +3184,8 @@ var mParticle = (function () {
 	var ServerModel = {
 	  createEventObject: createEventObject,
 	  convertEventToDTO: convertEventToDTO,
-	  convertToConsentStateDTO: convertToConsentStateDTO
+	  convertToConsentStateDTO: convertToConsentStateDTO,
+	  appendUserInfo: appendUserInfo
 	};
 
 	function getFilteredMparticleUser(mpid, forwarder) {
@@ -3096,6 +3243,460 @@ var mParticle = (function () {
 	    }
 	  };
 	}
+
+	function initForwarders(userIdentities, forwardingStatsCallback) {
+	  var user = mParticle.Identity.getCurrentUser();
+
+	  if (!mParticle.Store.webviewBridgeEnabled && mParticle.Store.configuredForwarders) {
+	    // Some js libraries require that they be loaded first, or last, etc
+	    mParticle.Store.configuredForwarders.sort(function (x, y) {
+	      x.settings.PriorityValue = x.settings.PriorityValue || 0;
+	      y.settings.PriorityValue = y.settings.PriorityValue || 0;
+	      return -1 * (x.settings.PriorityValue - y.settings.PriorityValue);
+	    });
+	    mParticle.Store.activeForwarders = mParticle.Store.configuredForwarders.filter(function (forwarder) {
+	      if (!isEnabledForUserConsent(forwarder.filteringConsentRuleValues, user)) {
+	        return false;
+	      }
+
+	      if (!isEnabledForUserAttributes(forwarder.filteringUserAttributeValue, user)) {
+	        return false;
+	      }
+
+	      if (!isEnabledForUnknownUser(forwarder.excludeAnonymousUser, user)) {
+	        return false;
+	      }
+
+	      var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
+	      var filteredUserAttributes = Helpers.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
+
+	      if (!forwarder.initialized) {
+	        forwarder.init(forwarder.settings, forwardingStatsCallback, false, null, filteredUserAttributes, filteredUserIdentities, mParticle.Store.SDKConfig.appVersion, mParticle.Store.SDKConfig.appName, mParticle.Store.SDKConfig.customFlags, mParticle.Store.clientId);
+	        forwarder.initialized = true;
+	      }
+
+	      return true;
+	    });
+	  }
+	}
+
+	function isEnabledForUserConsent(consentRules, user) {
+	  if (!consentRules || !consentRules.values || !consentRules.values.length) {
+	    return true;
+	  }
+
+	  if (!user) {
+	    return false;
+	  }
+
+	  var purposeHashes = {};
+	  var GDPRConsentHashPrefix = '1';
+	  var consentState = user.getConsentState();
+
+	  if (consentState) {
+	    var gdprConsentState = consentState.getGDPRConsentState();
+
+	    if (gdprConsentState) {
+	      for (var purpose in gdprConsentState) {
+	        if (gdprConsentState.hasOwnProperty(purpose)) {
+	          var purposeHash = Helpers.generateHash(GDPRConsentHashPrefix + purpose).toString();
+	          purposeHashes[purposeHash] = gdprConsentState[purpose].Consented;
+	        }
+	      }
+	    }
+	  }
+
+	  var isMatch = false;
+	  consentRules.values.forEach(function (consentRule) {
+	    if (!isMatch) {
+	      var purposeHash = consentRule.consentPurpose;
+	      var hasConsented = consentRule.hasConsented;
+
+	      if (purposeHashes.hasOwnProperty(purposeHash) && purposeHashes[purposeHash] === hasConsented) {
+	        isMatch = true;
+	      }
+	    }
+	  });
+	  return consentRules.includeOnMatch === isMatch;
+	}
+
+	function isEnabledForUserAttributes(filterObject, user) {
+	  if (!filterObject || !Helpers.isObject(filterObject) || !Object.keys(filterObject).length) {
+	    return true;
+	  }
+
+	  var attrHash, valueHash, userAttributes;
+
+	  if (!user) {
+	    return false;
+	  } else {
+	    userAttributes = user.getAllUserAttributes();
+	  }
+
+	  var isMatch = false;
+
+	  try {
+	    if (userAttributes && Helpers.isObject(userAttributes) && Object.keys(userAttributes).length) {
+	      for (var attrName in userAttributes) {
+	        if (userAttributes.hasOwnProperty(attrName)) {
+	          attrHash = Helpers.generateHash(attrName).toString();
+	          valueHash = Helpers.generateHash(userAttributes[attrName]).toString();
+
+	          if (attrHash === filterObject.userAttributeName && valueHash === filterObject.userAttributeValue) {
+	            isMatch = true;
+	            break;
+	          }
+	        }
+	      }
+	    }
+
+	    if (filterObject) {
+	      return filterObject.includeOnMatch === isMatch;
+	    } else {
+	      return true;
+	    }
+	  } catch (e) {
+	    // in any error scenario, err on side of returning true and forwarding event
+	    return true;
+	  }
+	}
+
+	function isEnabledForUnknownUser(excludeAnonymousUserBoolean, user) {
+	  if (!user || !user.isLoggedIn()) {
+	    if (excludeAnonymousUserBoolean) {
+	      return false;
+	    }
+	  }
+
+	  return true;
+	}
+
+	function applyToForwarders(functionName, functionArgs) {
+	  if (mParticle.Store.activeForwarders.length) {
+	    mParticle.Store.activeForwarders.forEach(function (forwarder) {
+	      var forwarderFunction = forwarder[functionName];
+
+	      if (forwarderFunction) {
+	        try {
+	          var result = forwarder[functionName](functionArgs);
+
+	          if (result) {
+	            mParticle.Logger.verbose(result);
+	          }
+	        } catch (e) {
+	          mParticle.Logger.verbose(e);
+	        }
+	      }
+	    });
+	  }
+	}
+
+	function sendEventToForwarders(event) {
+	  var clonedEvent,
+	      hashedEventName,
+	      hashedEventType,
+	      filterUserIdentities = function filterUserIdentities(event, filterList) {
+	    if (event.UserIdentities && event.UserIdentities.length) {
+	      event.UserIdentities.forEach(function (userIdentity, i) {
+	        if (Helpers.inArray(filterList, userIdentity.Type)) {
+	          event.UserIdentities.splice(i, 1);
+
+	          if (i > 0) {
+	            i--;
+	          }
+	        }
+	      });
+	    }
+	  },
+	      filterAttributes = function filterAttributes(event, filterList) {
+	    var hash;
+
+	    if (!filterList) {
+	      return;
+	    }
+
+	    for (var attrName in event.EventAttributes) {
+	      if (event.EventAttributes.hasOwnProperty(attrName)) {
+	        hash = Helpers.generateHash(event.EventCategory + event.EventName + attrName);
+
+	        if (Helpers.inArray(filterList, hash)) {
+	          delete event.EventAttributes[attrName];
+	        }
+	      }
+	    }
+	  },
+	      inFilteredList = function inFilteredList(filterList, hash) {
+	    if (filterList && filterList.length) {
+	      if (Helpers.inArray(filterList, hash)) {
+	        return true;
+	      }
+	    }
+
+	    return false;
+	  },
+	      forwardingRuleMessageTypes = [Types.MessageType.PageEvent, Types.MessageType.PageView, Types.MessageType.Commerce];
+
+	  if (!mParticle.Store.webviewBridgeEnabled && mParticle.Store.activeForwarders) {
+	    hashedEventName = Helpers.generateHash(event.EventCategory + event.EventName);
+	    hashedEventType = Helpers.generateHash(event.EventCategory);
+
+	    for (var i = 0; i < mParticle.Store.activeForwarders.length; i++) {
+	      // Check attribute forwarding rule. This rule allows users to only forward an event if a
+	      // specific attribute exists and has a specific value. Alternatively, they can specify
+	      // that an event not be forwarded if the specified attribute name and value exists.
+	      // The two cases are controlled by the "includeOnMatch" boolean value.
+	      // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
+	      if (forwardingRuleMessageTypes.indexOf(event.EventDataType) > -1 && mParticle.Store.activeForwarders[i].filteringEventAttributeValue && mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName && mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue) {
+	        var foundProp = null; // Attempt to find the attribute in the collection of event attributes
+
+	        if (event.EventAttributes) {
+	          for (var prop in event.EventAttributes) {
+	            var hashedEventAttributeName;
+	            hashedEventAttributeName = Helpers.generateHash(prop).toString();
+
+	            if (hashedEventAttributeName === mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName) {
+	              foundProp = {
+	                name: hashedEventAttributeName,
+	                value: Helpers.generateHash(event.EventAttributes[prop]).toString()
+	              };
+	            }
+
+	            if (foundProp) {
+	              break;
+	            }
+	          }
+	        }
+
+	        var isMatch = foundProp !== null && foundProp.value === mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue;
+	        var shouldInclude = mParticle.Store.activeForwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
+
+	        if (!shouldInclude) {
+	          continue;
+	        }
+	      } // Clone the event object, as we could be sending different attributes to each forwarder
+
+
+	      clonedEvent = {};
+	      clonedEvent = Helpers.extend(true, clonedEvent, event); // Check event filtering rules
+
+	      if (event.EventDataType === Types.MessageType.PageEvent && (inFilteredList(mParticle.Store.activeForwarders[i].eventNameFilters, hashedEventName) || inFilteredList(mParticle.Store.activeForwarders[i].eventTypeFilters, hashedEventType))) {
+	        continue;
+	      } else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(mParticle.Store.activeForwarders[i].eventTypeFilters, hashedEventType)) {
+	        continue;
+	      } else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(mParticle.Store.activeForwarders[i].screenNameFilters, hashedEventName)) {
+	        continue;
+	      } // Check attribute filtering rules
+
+
+	      if (clonedEvent.EventAttributes) {
+	        if (event.EventDataType === Types.MessageType.PageEvent) {
+	          filterAttributes(clonedEvent, mParticle.Store.activeForwarders[i].attributeFilters);
+	        } else if (event.EventDataType === Types.MessageType.PageView) {
+	          filterAttributes(clonedEvent, mParticle.Store.activeForwarders[i].pageViewAttributeFilters);
+	        }
+	      } // Check user identity filtering rules
+
+
+	      filterUserIdentities(clonedEvent, mParticle.Store.activeForwarders[i].userIdentityFilters); // Check user attribute filtering rules
+
+	      clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, mParticle.Store.activeForwarders[i].userAttributeFilters);
+	      mParticle.Logger.verbose('Sending message to forwarder: ' + mParticle.Store.activeForwarders[i].name);
+
+	      if (mParticle.Store.activeForwarders[i].process) {
+	        var result = mParticle.Store.activeForwarders[i].process(clonedEvent);
+
+	        if (result) {
+	          mParticle.Logger.verbose(result);
+	        }
+	      }
+	    }
+	  }
+	}
+
+	function callSetUserAttributeOnForwarders(key, value) {
+	  if (mParticle.Store.activeForwarders.length) {
+	    mParticle.Store.activeForwarders.forEach(function (forwarder) {
+	      if (forwarder.setUserAttribute && forwarder.userAttributeFilters && !Helpers.inArray(forwarder.userAttributeFilters, Helpers.generateHash(key))) {
+	        try {
+	          var result = forwarder.setUserAttribute(key, value);
+
+	          if (result) {
+	            mParticle.Logger.verbose(result);
+	          }
+	        } catch (e) {
+	          mParticle.Logger.error(e);
+	        }
+	      }
+	    });
+	  }
+	}
+
+	function setForwarderUserIdentities(userIdentities) {
+	  mParticle.Store.activeForwarders.forEach(function (forwarder) {
+	    var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
+
+	    if (forwarder.setUserIdentity) {
+	      filteredUserIdentities.forEach(function (identity) {
+	        var result = forwarder.setUserIdentity(identity.Identity, identity.Type);
+
+	        if (result) {
+	          mParticle.Logger.verbose(result);
+	        }
+	      });
+	    }
+	  });
+	}
+
+	function setForwarderOnUserIdentified(user) {
+	  mParticle.Store.activeForwarders.forEach(function (forwarder) {
+	    var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
+
+	    if (forwarder.onUserIdentified) {
+	      var result = forwarder.onUserIdentified(filteredUser);
+
+	      if (result) {
+	        mParticle.Logger.verbose(result);
+	      }
+	    }
+	  });
+	}
+
+	function setForwarderOnIdentityComplete(user, identityMethod) {
+	  var result;
+	  mParticle.Store.activeForwarders.forEach(function (forwarder) {
+	    var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
+
+	    if (identityMethod === 'identify') {
+	      if (forwarder.onIdentifyComplete) {
+	        result = forwarder.onIdentifyComplete(filteredUser);
+
+	        if (result) {
+	          mParticle.Logger.verbose(result);
+	        }
+	      }
+	    } else if (identityMethod === 'login') {
+	      if (forwarder.onLoginComplete) {
+	        result = forwarder.onLoginComplete(filteredUser);
+
+	        if (result) {
+	          mParticle.Logger.verbose(result);
+	        }
+	      }
+	    } else if (identityMethod === 'logout') {
+	      if (forwarder.onLogoutComplete) {
+	        result = forwarder.onLogoutComplete(filteredUser);
+
+	        if (result) {
+	          mParticle.Logger.verbose(result);
+	        }
+	      }
+	    } else if (identityMethod === 'modify') {
+	      if (forwarder.onModifyComplete) {
+	        result = forwarder.onModifyComplete(filteredUser);
+
+	        if (result) {
+	          mParticle.Logger.verbose(result);
+	        }
+	      }
+	    }
+	  });
+	}
+
+	function getForwarderStatsQueue() {
+	  return Persistence.forwardingStatsBatches.forwardingStatsEventQueue;
+	}
+
+	function setForwarderStatsQueue(queue) {
+	  Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
+	}
+
+	function configureForwarder(configuration) {
+	  var newForwarder = null,
+	      config = configuration,
+	      forwarders = {}; // if there are kits inside of mParticle.Store.SDKConfig.kits, then mParticle is self hosted
+
+	  if (Helpers.isObject(mParticle.Store.SDKConfig.kits) && Object.keys(mParticle.Store.SDKConfig.kits).length > 0) {
+	    forwarders = mParticle.Store.SDKConfig.kits; // otherwise mParticle is loaded via script tag
+	  } else if (mParticle.preInit.forwarderConstructors.length > 0) {
+	    mParticle.preInit.forwarderConstructors.forEach(function (forwarder) {
+	      forwarders[forwarder.name] = forwarder;
+	    });
+	  }
+
+	  for (var name in forwarders) {
+	    if (name === config.name) {
+	      if (config.isDebug === mParticle.Store.SDKConfig.isDevelopmentMode || config.isSandbox === mParticle.Store.SDKConfig.isDevelopmentMode) {
+	        newForwarder = new forwarders[name].constructor();
+	        newForwarder.id = config.moduleId;
+	        newForwarder.isSandbox = config.isDebug || config.isSandbox;
+	        newForwarder.hasSandbox = config.hasDebugString === 'true';
+	        newForwarder.isVisible = config.isVisible;
+	        newForwarder.settings = config.settings;
+	        newForwarder.eventNameFilters = config.eventNameFilters;
+	        newForwarder.eventTypeFilters = config.eventTypeFilters;
+	        newForwarder.attributeFilters = config.attributeFilters;
+	        newForwarder.screenNameFilters = config.screenNameFilters;
+	        newForwarder.screenNameFilters = config.screenNameFilters;
+	        newForwarder.pageViewAttributeFilters = config.pageViewAttributeFilters;
+	        newForwarder.userIdentityFilters = config.userIdentityFilters;
+	        newForwarder.userAttributeFilters = config.userAttributeFilters;
+	        newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
+	        newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
+	        newForwarder.eventSubscriptionId = config.eventSubscriptionId;
+	        newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
+	        newForwarder.excludeAnonymousUser = config.excludeAnonymousUser;
+	        mParticle.Store.configuredForwarders.push(newForwarder);
+	        break;
+	      }
+	    }
+	  }
+	}
+
+	function configurePixel(settings) {
+	  if (settings.isDebug === mParticle.Store.SDKConfig.isDevelopmentMode || settings.isProduction !== mParticle.Store.SDKConfig.isDevelopmentMode) {
+	    mParticle.Store.pixelConfigurations.push(settings);
+	  }
+	}
+
+	function processForwarders(config, forwardingStatsCallback) {
+	  if (!config) {
+	    mParticle.Logger.warning('No config was passed. Cannot process forwarders');
+	  } else {
+	    try {
+	      if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
+	        config.kitConfigs.forEach(function (kitConfig) {
+	          configureForwarder(kitConfig);
+	        });
+	      }
+
+	      if (Array.isArray(config.pixelConfigs) && config.pixelConfigs.length) {
+	        config.pixelConfigs.forEach(function (pixelConfig) {
+	          configurePixel(pixelConfig);
+	        });
+	      }
+
+	      initForwarders(mParticle.Store.SDKConfig.identifyRequest.userIdentities, forwardingStatsCallback);
+	    } catch (e) {
+	      mParticle.Logger.error('Config was not parsed propertly. Forwarders may not be initialized.');
+	    }
+	  }
+	}
+
+	var Forwarders = {
+	  initForwarders: initForwarders,
+	  applyToForwarders: applyToForwarders,
+	  sendEventToForwarders: sendEventToForwarders,
+	  callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
+	  setForwarderUserIdentities: setForwarderUserIdentities,
+	  setForwarderOnUserIdentified: setForwarderOnUserIdentified,
+	  setForwarderOnIdentityComplete: setForwarderOnIdentityComplete,
+	  getForwarderStatsQueue: getForwarderStatsQueue,
+	  setForwarderStatsQueue: setForwarderStatsQueue,
+	  isEnabledForUserConsent: isEnabledForUserConsent,
+	  isEnabledForUserAttributes: isEnabledForUserAttributes,
+	  configurePixel: configurePixel,
+	  processForwarders: processForwarders
+	};
 
 	var runtime_1 = createCommonjsModule(function (module) {
 	/**
@@ -3938,23 +4539,42 @@ var mParticle = (function () {
 
 	var defineProperty = _defineProperty;
 
+	var SDKProductActionType;
+	(function (SDKProductActionType) {
+	    SDKProductActionType[SDKProductActionType["Unknown"] = 0] = "Unknown";
+	    SDKProductActionType[SDKProductActionType["AddToCart"] = 1] = "AddToCart";
+	    SDKProductActionType[SDKProductActionType["RemoveFromCart"] = 2] = "RemoveFromCart";
+	    SDKProductActionType[SDKProductActionType["Checkout"] = 3] = "Checkout";
+	    SDKProductActionType[SDKProductActionType["CheckoutOption"] = 4] = "CheckoutOption";
+	    SDKProductActionType[SDKProductActionType["Click"] = 5] = "Click";
+	    SDKProductActionType[SDKProductActionType["ViewDetail"] = 6] = "ViewDetail";
+	    SDKProductActionType[SDKProductActionType["Purchase"] = 7] = "Purchase";
+	    SDKProductActionType[SDKProductActionType["Refund"] = 8] = "Refund";
+	    SDKProductActionType[SDKProductActionType["AddToWishlist"] = 9] = "AddToWishlist";
+	    SDKProductActionType[SDKProductActionType["RemoveFromWishlist"] = 10] = "RemoveFromWishlist";
+	})(SDKProductActionType || (SDKProductActionType = {}));
+
 	function convertEvents(mpid, sdkEvents) {
-	    if (mpid === undefined || mpid === null) {
+	    if (!mpid) {
 	        return null;
 	    }
-	    if (sdkEvents === undefined || sdkEvents === null || sdkEvents.length < 1) {
+	    if (!sdkEvents || sdkEvents.length < 1) {
 	        return null;
 	    }
 	    var uploadEvents = [];
+	    var lastEvent = null;
 	    var _iteratorNormalCompletion = true;
 	    var _didIteratorError = false;
 	    var _iteratorError = undefined;
 	    try {
 	        for (var _iterator = sdkEvents[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
 	            var sdkEvent = _step.value;
-	            var baseEvent = convertEvent(sdkEvent);
-	            if (baseEvent) {
-	                uploadEvents.push(baseEvent);
+	            if (sdkEvent) {
+	                lastEvent = sdkEvent;
+	                var baseEvent = convertEvent(sdkEvent);
+	                if (baseEvent) {
+	                    uploadEvents.push(baseEvent);
+	                }
 	            }
 	        }
 	    }
@@ -3974,14 +4594,20 @@ var mParticle = (function () {
 	            }
 	        }
 	    }
-	    var lastEvent = sdkEvents[sdkEvents.length - 1];
+	    if (!lastEvent) {
+	        return null;
+	    }
 	    var upload = {
 	        source_request_id: Helpers.generateUniqueId(),
 	        mpid: mpid,
+	        timestamp_unixtime_ms: new Date().getTime(),
 	        environment: lastEvent.Debug ? 'development' : 'production',
 	        events: uploadEvents,
 	        mp_deviceid: lastEvent.DeviceId,
 	        sdk_version: lastEvent.SDKVersion,
+	        application_info: {
+	            application_version: lastEvent.AppVersion
+	        },
 	        device_info: {
 	            platform: 'web',
 	            screen_width: window.screen.width,
@@ -3989,7 +4615,8 @@ var mParticle = (function () {
 	        },
 	        user_attributes: lastEvent.UserAttributes,
 	        user_identities: convertUserIdentities(lastEvent.UserIdentities),
-	        consent_state: convertConsentState(lastEvent.ConsentState)
+	        consent_state: convertConsentState(lastEvent.ConsentState),
+	        integration_attributes: lastEvent.IntegrationAttributes
 	    };
 	    return upload;
 	}
@@ -4021,72 +4648,310 @@ var mParticle = (function () {
 	    return state;
 	}
 	function convertUserIdentities(sdkUserIdentities) {
+	    if (!sdkUserIdentities || !sdkUserIdentities.length) {
+	        return null;
+	    }
 	    var batchIdentities = {};
-	    for (var identity in sdkUserIdentities) {
-	        if (sdkUserIdentities.hasOwnProperty(identity)) {
-	            var identityInt = window.parseInt(identity, 10);
-	            switch (identityInt) {
+	    var _iteratorNormalCompletion2 = true;
+	    var _didIteratorError2 = false;
+	    var _iteratorError2 = undefined;
+	    try {
+	        for (var _iterator2 = sdkUserIdentities[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+	            var identity = _step2.value;
+	            switch (identity.Type) {
 	                case Types.IdentityType.CustomerId:
-	                    batchIdentities.customer_id = sdkUserIdentities[identity];
+	                    batchIdentities.customer_id = identity.Identity;
 	                    break;
 	                case Types.IdentityType.Email:
-	                    batchIdentities.email = sdkUserIdentities[identity];
+	                    batchIdentities.email = identity.Identity;
 	                    break;
 	                case Types.IdentityType.Facebook:
-	                    batchIdentities.facebook = sdkUserIdentities[identity];
+	                    batchIdentities.facebook = identity.Identity;
 	                    break;
 	                case Types.IdentityType.FacebookCustomAudienceId:
-	                    batchIdentities.facebook_custom_audience_id = sdkUserIdentities[identity];
+	                    batchIdentities.facebook_custom_audience_id = identity.Identity;
 	                    break;
 	                case Types.IdentityType.Google:
-	                    batchIdentities.google = sdkUserIdentities[identity];
+	                    batchIdentities.google = identity.Identity;
 	                    break;
 	                case Types.IdentityType.Microsoft:
-	                    batchIdentities.microsoft = sdkUserIdentities[identity];
+	                    batchIdentities.microsoft = identity.Identity;
 	                    break;
 	                case Types.IdentityType.Other:
-	                    batchIdentities.other = sdkUserIdentities[identity];
+	                    batchIdentities.other = identity.Identity;
 	                    break;
 	                case Types.IdentityType.Other2:
-	                    batchIdentities.other_id_2 = sdkUserIdentities[identity];
+	                    batchIdentities.other_id_2 = identity.Identity;
 	                    break;
 	                case Types.IdentityType.Other3:
-	                    batchIdentities.other_id_3 = sdkUserIdentities[identity];
+	                    batchIdentities.other_id_3 = identity.Identity;
 	                    break;
 	                case Types.IdentityType.Other4:
-	                    batchIdentities.other_id_4 = sdkUserIdentities[identity];
+	                    batchIdentities.other_id_4 = identity.Identity;
 	                    break;
 	                default:
 	                    break;
 	            }
 	        }
 	    }
+	    catch (err) {
+	        _didIteratorError2 = true;
+	        _iteratorError2 = err;
+	    }
+	    finally {
+	        try {
+	            if (!_iteratorNormalCompletion2 && _iterator2["return"] != null) {
+	                _iterator2["return"]();
+	            }
+	        }
+	        finally {
+	            if (_didIteratorError2) {
+	                throw _iteratorError2;
+	            }
+	        }
+	    }
 	    return batchIdentities;
 	}
 	function convertEvent(sdkEvent) {
+	    if (!sdkEvent) {
+	        return null;
+	    }
 	    switch (sdkEvent.EventDataType) {
 	        case Types.MessageType.AppStateTransition:
 	            return convertAST(sdkEvent);
 	        case Types.MessageType.Commerce:
-	            break;
+	            return convertCommerceEvent(sdkEvent);
 	        case Types.MessageType.CrashReport:
-	            break;
+	            return convertCrashReportEvent(sdkEvent);
 	        case Types.MessageType.OptOut:
-	            break;
+	            return convertOptOutEvent(sdkEvent);
 	        case Types.MessageType.PageEvent:
 	            return convertCustomEvent(sdkEvent);
 	        case Types.MessageType.PageView:
-	            break;
+	            return convertPageViewEvent(sdkEvent);
 	        case Types.MessageType.Profile:
-	            break;
+	            //deprecated and not supported by the web SDK
+	            return null;
 	        case Types.MessageType.SessionEnd:
-	            break;
+	            return convertSessionEndEvent(sdkEvent);
 	        case Types.MessageType.SessionStart:
-	            break;
+	            return convertSessionStartEvent(sdkEvent);
 	        default:
 	            break;
 	    }
 	    return null;
+	}
+	function convertProductActionType(actionType) {
+	    if (!actionType) {
+	        return 'unknown';
+	    }
+	    switch (actionType) {
+	        case SDKProductActionType.AddToCart:
+	            return 'add_to_cart';
+	        case SDKProductActionType.AddToWishlist:
+	            return 'add_to_wishlist';
+	        case SDKProductActionType.Checkout:
+	            return 'checkout';
+	        case SDKProductActionType.CheckoutOption:
+	            return 'checkout_option';
+	        case SDKProductActionType.Click:
+	            return 'click';
+	        case SDKProductActionType.Purchase:
+	            return 'purchase';
+	        case SDKProductActionType.Refund:
+	            return 'refund';
+	        case SDKProductActionType.RemoveFromCart:
+	            return 'remove_from_cart';
+	        case SDKProductActionType.RemoveFromWishlist:
+	            return 'remove_from_wish_list';
+	        case SDKProductActionType.ViewDetail:
+	            return 'view_detail';
+	        default:
+	            return 'unknown';
+	    }
+	}
+	function convertProductAction(sdkEvent) {
+	    if (!sdkEvent.ProductAction) {
+	        return null;
+	    }
+	    var productAction = {
+	        action: convertProductActionType(sdkEvent.ProductAction.ProductActionType),
+	        checkout_step: sdkEvent.ProductAction.CheckoutStep,
+	        checkout_options: sdkEvent.ProductAction.CheckoutOptions,
+	        transaction_id: sdkEvent.ProductAction.TransactionId,
+	        affiliation: sdkEvent.ProductAction.Affiliation,
+	        total_amount: sdkEvent.ProductAction.TotalAmount,
+	        tax_amount: sdkEvent.ProductAction.TaxAmount,
+	        shipping_amount: sdkEvent.ProductAction.ShippingAmount,
+	        coupon_code: sdkEvent.ProductAction.CouponCode,
+	        products: convertProducts(sdkEvent.ProductAction.ProductList)
+	    };
+	    return productAction;
+	}
+	function convertProducts(sdkProducts) {
+	    if (!sdkProducts || !sdkProducts.length) {
+	        return null;
+	    }
+	    var products = [];
+	    var _iteratorNormalCompletion3 = true;
+	    var _didIteratorError3 = false;
+	    var _iteratorError3 = undefined;
+	    try {
+	        for (var _iterator3 = sdkProducts[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+	            var sdkProduct = _step3.value;
+	            var product = {
+	                id: sdkProduct.Sku,
+	                name: sdkProduct.Name,
+	                brand: sdkProduct.Brand,
+	                category: sdkProduct.Category,
+	                variant: sdkProduct.Variant,
+	                total_product_amount: sdkProduct.TotalAmount,
+	                position: sdkProduct.Position,
+	                price: sdkProduct.Price,
+	                quantity: sdkProduct.Quantity,
+	                coupon_code: sdkProduct.CouponCode,
+	                custom_attributes: sdkProduct.Attributes
+	            };
+	            products.push(product);
+	        }
+	    }
+	    catch (err) {
+	        _didIteratorError3 = true;
+	        _iteratorError3 = err;
+	    }
+	    finally {
+	        try {
+	            if (!_iteratorNormalCompletion3 && _iterator3["return"] != null) {
+	                _iterator3["return"]();
+	            }
+	        }
+	        finally {
+	            if (_didIteratorError3) {
+	                throw _iteratorError3;
+	            }
+	        }
+	    }
+	    return products;
+	}
+	function convertPromotionAction(sdkEvent) {
+	    if (!sdkEvent.PromotionAction) {
+	        return null;
+	    }
+	    var promotionAction = {
+	        action: sdkEvent.PromotionAction.PromotionActionType,
+	        promotions: convertPromotions(sdkEvent.PromotionAction.PromotionList)
+	    };
+	    return promotionAction;
+	}
+	function convertPromotions(sdkPromotions) {
+	    if (!sdkPromotions || !sdkPromotions.length) {
+	        return null;
+	    }
+	    var promotions = [];
+	    var _iteratorNormalCompletion4 = true;
+	    var _didIteratorError4 = false;
+	    var _iteratorError4 = undefined;
+	    try {
+	        for (var _iterator4 = sdkPromotions[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+	            var sdkPromotion = _step4.value;
+	            var promotion = {
+	                id: sdkPromotion.Id,
+	                name: sdkPromotion.Name,
+	                creative: sdkPromotion.Creative,
+	                position: sdkPromotion.Position
+	            };
+	            promotions.push(promotion);
+	        }
+	    }
+	    catch (err) {
+	        _didIteratorError4 = true;
+	        _iteratorError4 = err;
+	    }
+	    finally {
+	        try {
+	            if (!_iteratorNormalCompletion4 && _iterator4["return"] != null) {
+	                _iterator4["return"]();
+	            }
+	        }
+	        finally {
+	            if (_didIteratorError4) {
+	                throw _iteratorError4;
+	            }
+	        }
+	    }
+	    return promotions;
+	}
+	function convertImpressions(sdkEvent) {
+	    if (!sdkEvent.ProductImpressions) {
+	        return null;
+	    }
+	    var impressions = [];
+	    var _iteratorNormalCompletion5 = true;
+	    var _didIteratorError5 = false;
+	    var _iteratorError5 = undefined;
+	    try {
+	        for (var _iterator5 = sdkEvent.ProductImpressions[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+	            var sdkImpression = _step5.value;
+	            var impression = {
+	                product_impression_list: sdkImpression.ProductImpressionList,
+	                products: convertProducts(sdkImpression.ProductList)
+	            };
+	            impressions.push(impression);
+	        }
+	    }
+	    catch (err) {
+	        _didIteratorError5 = true;
+	        _iteratorError5 = err;
+	    }
+	    finally {
+	        try {
+	            if (!_iteratorNormalCompletion5 && _iterator5["return"] != null) {
+	                _iterator5["return"]();
+	            }
+	        }
+	        finally {
+	            if (_didIteratorError5) {
+	                throw _iteratorError5;
+	            }
+	        }
+	    }
+	    return impressions;
+	}
+	function convertShoppingCart(sdkEvent) {
+	    if (!sdkEvent.ShoppingCart || !sdkEvent.ShoppingCart.ProductList || !sdkEvent.ShoppingCart.ProductList.length) {
+	        return null;
+	    }
+	    var shoppingCart = {
+	        products: convertProducts(sdkEvent.ShoppingCart.ProductList)
+	    };
+	    return shoppingCart;
+	}
+	function convertCommerceEvent(sdkEvent) {
+	    var commonEventData = convertBaseEventData(sdkEvent);
+	    var commerceEventData = {
+	        custom_flags: sdkEvent.CustomFlags,
+	        product_action: convertProductAction(sdkEvent),
+	        promotion_action: convertPromotionAction(sdkEvent),
+	        product_impressions: convertImpressions(sdkEvent),
+	        shopping_cart: convertShoppingCart(sdkEvent),
+	        currency_code: sdkEvent.CurrencyCode
+	    };
+	    commerceEventData = Object.assign(commerceEventData, commonEventData);
+	    return {
+	        event_type: 'commerce_event',
+	        data: commerceEventData
+	    };
+	}
+	function convertCrashReportEvent(sdkEvent) {
+	    var commonEventData = convertBaseEventData(sdkEvent);
+	    var crashReportEventData = {
+	        message: sdkEvent.EventName
+	    };
+	    crashReportEventData = Object.assign(crashReportEventData, commonEventData);
+	    return {
+	        event_type: 'crash_report',
+	        data: crashReportEventData
+	    };
 	}
 	function convertAST(sdkEvent) {
 	    var commonEventData = convertBaseEventData(sdkEvent);
@@ -4099,6 +4964,50 @@ var mParticle = (function () {
 	    return {
 	        event_type: 'application_state_transition',
 	        data: astEventData
+	    };
+	}
+	function convertSessionEndEvent(sdkEvent) {
+	    var commonEventData = convertBaseEventData(sdkEvent);
+	    var sessionEndEventData = {
+	        session_duration_ms: sdkEvent.SessionLength //note: External Events DTO does not support the session mpids array as of this time.
+	        //spanning_mpids: sdkEvent.SessionMpids
+	    };
+	    sessionEndEventData = Object.assign(sessionEndEventData, commonEventData);
+	    return {
+	        event_type: 'session_end',
+	        data: sessionEndEventData
+	    };
+	}
+	function convertSessionStartEvent(sdkEvent) {
+	    var commonEventData = convertBaseEventData(sdkEvent);
+	    var sessionStartEventData = {};
+	    sessionStartEventData = Object.assign(sessionStartEventData, commonEventData);
+	    return {
+	        event_type: 'session_start',
+	        data: sessionStartEventData
+	    };
+	}
+	function convertPageViewEvent(sdkEvent) {
+	    var commonEventData = convertBaseEventData(sdkEvent);
+	    var screenViewEventData = {
+	        custom_flags: sdkEvent.CustomFlags,
+	        screen_name: sdkEvent.EventName
+	    };
+	    screenViewEventData = Object.assign(screenViewEventData, commonEventData);
+	    return {
+	        event_type: 'screen_view',
+	        data: screenViewEventData
+	    };
+	}
+	function convertOptOutEvent(sdkEvent) {
+	    var commonEventData = convertBaseEventData(sdkEvent);
+	    var optOutEventData = {
+	        is_opted_out: sdkEvent.OptOut
+	    };
+	    optOutEventData = Object.assign(optOutEventData, commonEventData);
+	    return {
+	        event_type: 'opt_out',
+	        data: optOutEventData
 	    };
 	}
 	function convertCustomEvent(sdkEvent) {
@@ -4176,27 +5085,44 @@ var mParticle = (function () {
 	var BatchUploader = 
 	/*#__PURE__*/
 	function () {
-	    function BatchUploader(mparticle, uploadInterval) {
+	    //we upload JSON, but this content type is required to avoid a CORS preflight request
+	    function BatchUploader(webSdk, uploadInterval) {
 	        var _this2 = this;
 	        classCallCheck(this, BatchUploader);
 	        defineProperty(this, "uploadIntervalMillis", void 0);
 	        defineProperty(this, "pendingEvents", void 0);
 	        defineProperty(this, "pendingUploads", void 0);
-	        defineProperty(this, "mp", void 0);
-	        defineProperty(this, "initialDelayMilliseconds", 500);
-	        this.mp = mparticle;
+	        defineProperty(this, "webSdk", void 0);
+	        defineProperty(this, "uploadUrl", void 0);
+	        defineProperty(this, "batchingEnabled", void 0);
+	        this.webSdk = webSdk;
 	        this.uploadIntervalMillis = uploadInterval;
+	        this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
+	        if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
+	            this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
+	        }
 	        this.pendingEvents = [];
 	        this.pendingUploads = [];
+	        var _this$webSdk$Store = this.webSdk.Store, SDKConfig = _this$webSdk$Store.SDKConfig, devToken = _this$webSdk$Store.devToken;
+	        var baseUrl = Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
+	        this.uploadUrl = "".concat(baseUrl, "/events");
 	        setTimeout(function () {
 	            _this2.prepareAndUpload(true, false);
-	        }, this.uploadIntervalMillis + this.initialDelayMilliseconds);
-	        var _this = this;
-	        window.addEventListener('beforeunload', function (e) {
-	            _this.prepareAndUpload(false, _this.isBeaconAvailable());
-	        });
+	        }, this.uploadIntervalMillis);
+	        this.addEventListeners();
 	    }
 	    createClass(BatchUploader, [{
+	            key: "addEventListeners",
+	            value: function addEventListeners() {
+	                var _this = this;
+	                window.addEventListener('beforeunload', function () {
+	                    _this.prepareAndUpload(false, _this.isBeaconAvailable());
+	                });
+	                window.addEventListener('pagehide', function () {
+	                    _this.prepareAndUpload(false, _this.isBeaconAvailable());
+	                });
+	            }
+	        }, {
 	            key: "isBeaconAvailable",
 	            value: function isBeaconAvailable() {
 	                if (navigator.sendBeacon) {
@@ -4209,10 +5135,13 @@ var mParticle = (function () {
 	            value: function queueEvent(event) {
 	                if (event) {
 	                    //add this for cleaner processing later
-	                    event.IsFirstRun = this.mp.Store.isFirstRun;
+	                    event.IsFirstRun = this.webSdk.Store.isFirstRun;
 	                    this.pendingEvents.push(event);
-	                    this.mp.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
-	                    this.mp.Logger.verbose("Queued event count: ".concat(this.pendingEvents.length));
+	                    this.webSdk.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
+	                    this.webSdk.Logger.verbose("Queued event count: ".concat(this.pendingEvents.length));
+	                    if (!this.batchingEnabled) {
+	                        this.prepareAndUpload(false, false);
+	                    }
 	                }
 	            }
 	            /**
@@ -4244,7 +5173,7 @@ var mParticle = (function () {
 	                        while (1) {
 	                            switch (_context.prev = _context.next) {
 	                                case 0:
-	                                    currentUser = this.mp.Identity.getCurrentUser();
+	                                    currentUser = this.webSdk.Identity.getCurrentUser();
 	                                    currentEvents = this.pendingEvents;
 	                                    this.pendingEvents = [];
 	                                    newUploads = BatchUploader.createNewUploads(currentEvents, currentUser);
@@ -4254,7 +5183,7 @@ var mParticle = (function () {
 	                                    currentUploads = this.pendingUploads;
 	                                    this.pendingUploads = [];
 	                                    _context.next = 9;
-	                                    return BatchUploader.upload(this.mp, currentUploads, useBeacon);
+	                                    return this.upload(this.webSdk.Logger, currentUploads, useBeacon);
 	                                case 9:
 	                                    remainingUploads = _context.sent;
 	                                    if (remainingUploads && remainingUploads.length) {
@@ -4277,6 +5206,102 @@ var mParticle = (function () {
 	                }
 	                return prepareAndUpload;
 	            }()
+	        }, {
+	            key: "upload",
+	            value: function () {
+	                var _upload = asyncToGenerator(
+	                /*#__PURE__*/
+	                regenerator.mark(function _callee2(logger, uploads, useBeacon) {
+	                    var i, settings, blob, response;
+	                    return regenerator.wrap(function _callee2$(_context2) {
+	                        while (1) {
+	                            switch (_context2.prev = _context2.next) {
+	                                case 0:
+	                                    if (!(!uploads || uploads.length < 1)) {
+	                                        _context2.next = 2;
+	                                        break;
+	                                    }
+	                                    return _context2.abrupt("return", null);
+	                                case 2:
+	                                    logger.verbose("Uploading batches: ".concat(JSON.stringify(uploads)));
+	                                    logger.verbose("Batch count: ".concat(uploads.length));
+	                                    i = 0;
+	                                case 5:
+	                                    if (!(i < uploads.length)) {
+	                                        _context2.next = 37;
+	                                        break;
+	                                    }
+	                                    settings = {
+	                                        method: 'POST',
+	                                        headers: {
+	                                            Accept: BatchUploader.CONTENT_TYPE,
+	                                            'Content-Type': 'text/plain;charset=UTF-8'
+	                                        },
+	                                        body: JSON.stringify(uploads[i])
+	                                    };
+	                                    _context2.prev = 7;
+	                                    if (!useBeacon) {
+	                                        _context2.next = 13;
+	                                        break;
+	                                    }
+	                                    blob = new Blob([settings.body], {
+	                                        type: 'text/plain;charset=UTF-8'
+	                                    });
+	                                    navigator.sendBeacon(this.uploadUrl, blob);
+	                                    _context2.next = 28;
+	                                    break;
+	                                case 13:
+	                                    logger.verbose("Uploading request ID: ".concat(uploads[i].source_request_id));
+	                                    _context2.next = 16;
+	                                    return fetch(this.uploadUrl, settings);
+	                                case 16:
+	                                    response = _context2.sent;
+	                                    if (!response.ok) {
+	                                        _context2.next = 21;
+	                                        break;
+	                                    }
+	                                    logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
+	                                    _context2.next = 28;
+	                                    break;
+	                                case 21:
+	                                    if (!(response.status >= 500 || response.status === 429)) {
+	                                        _context2.next = 25;
+	                                        break;
+	                                    }
+	                                    return _context2.abrupt("return", uploads.slice(i, uploads.length));
+	                                case 25:
+	                                    if (!(response.status >= 401)) {
+	                                        _context2.next = 28;
+	                                        break;
+	                                    }
+	                                    logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key.")); //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
+	                                    return _context2.abrupt("return", null);
+	                                case 28:
+	                                    _context2.next = 34;
+	                                    break;
+	                                case 30:
+	                                    _context2.prev = 30;
+	                                    _context2.t0 = _context2["catch"](7);
+	                                    logger.error("Exception while uploading: ".concat(_context2.t0));
+	                                    return _context2.abrupt("return", uploads.slice(i, uploads.length));
+	                                case 34:
+	                                    i++;
+	                                    _context2.next = 5;
+	                                    break;
+	                                case 37:
+	                                    return _context2.abrupt("return", null);
+	                                case 38:
+	                                case "end":
+	                                    return _context2.stop();
+	                            }
+	                        }
+	                    }, _callee2, this, [[7, 30]]);
+	                }));
+	                function upload(_x3, _x4, _x5) {
+	                    return _upload.apply(this, arguments);
+	                }
+	                return upload;
+	            }()
 	        }], [{
 	            key: "createNewUploads",
 	            value: function createNewUploads(sdkEvents, defaultUser) {
@@ -4293,7 +5318,8 @@ var mParticle = (function () {
 	                        var sdkEvent = _step.value;
 	                        //on initial startup, there may be events logged without an mpid.
 	                        if (!sdkEvent.MPID) {
-	                            sdkEvent.MPID = defaultUser.getMPID(), sdkEvent.UserIdentities = Persistence.getUserIdentities(sdkEvent.MPID), sdkEvent.UserAttributes = Persistence.getAllUserAttributes(sdkEvent.MPID), sdkEvent.ConsentState = Persistence.getConsentState(sdkEvent.MPID);
+	                            var mpid = defaultUser.getMPID();
+	                            sdkEvent.MPID = mpid;
 	                        }
 	                        var events = eventsByUser.get(sdkEvent.MPID);
 	                        if (!events) {
@@ -4321,7 +5347,7 @@ var mParticle = (function () {
 	                }
 	                for (var _i = 0, _Array$from = Array.from(eventsByUser.entries()); _i < _Array$from.length; _i++) {
 	                    var entry = _Array$from[_i];
-	                    var mpid = entry[0];
+	                    var _mpid = entry[0];
 	                    var userEvents = entry[1];
 	                    var eventsBySession = new Map();
 	                    var _iteratorNormalCompletion2 = true;
@@ -4356,7 +5382,7 @@ var mParticle = (function () {
 	                    }
 	                    for (var _i2 = 0, _Array$from2 = Array.from(eventsBySession.entries()); _i2 < _Array$from2.length; _i2++) {
 	                        var _entry = _Array$from2[_i2];
-	                        var upload = convertEvents(mpid, _entry[1]);
+	                        var upload = convertEvents(_mpid, _entry[1]);
 	                        if (upload) {
 	                            newUploads.push(upload);
 	                        }
@@ -4364,112 +5390,17 @@ var mParticle = (function () {
 	                }
 	                return newUploads;
 	            }
-	        }, {
-	            key: "upload",
-	            value: function () {
-	                var _upload = asyncToGenerator(
-	                /*#__PURE__*/
-	                regenerator.mark(function _callee2(mp, uploads, useBeacon) {
-	                    var url, i, settings, blob, response;
-	                    return regenerator.wrap(function _callee2$(_context2) {
-	                        while (1) {
-	                            switch (_context2.prev = _context2.next) {
-	                                case 0:
-	                                    if (!(!uploads || uploads.length < 1)) {
-	                                        _context2.next = 2;
-	                                        break;
-	                                    }
-	                                    return _context2.abrupt("return", null);
-	                                case 2:
-	                                    mp.Logger.verbose("Uploading batches: ".concat(JSON.stringify(uploads)));
-	                                    mp.Logger.verbose("Batch count: ".concat(uploads.length));
-	                                    url = Helpers.createServiceUrl(mp.Store.SDKConfig.v3SecureServiceUrl, mp.Store.devToken) + '/events';
-	                                    i = 0;
-	                                case 6:
-	                                    if (!(i < uploads.length)) {
-	                                        _context2.next = 38;
-	                                        break;
-	                                    }
-	                                    settings = {
-	                                        method: 'POST',
-	                                        headers: {
-	                                            Accept: 'application/json',
-	                                            'Content-Type': 'text/plain;charset=UTF-8'
-	                                        },
-	                                        body: JSON.stringify(uploads[i])
-	                                    };
-	                                    _context2.prev = 8;
-	                                    if (!useBeacon) {
-	                                        _context2.next = 14;
-	                                        break;
-	                                    }
-	                                    blob = new Blob([settings.body], {
-	                                        type: 'text/plain;charset=UTF-8'
-	                                    });
-	                                    navigator.sendBeacon(url, blob);
-	                                    _context2.next = 29;
-	                                    break;
-	                                case 14:
-	                                    mp.Logger.verbose("Uploading request ID: ".concat(uploads[i].source_request_id));
-	                                    _context2.next = 17;
-	                                    return fetch(url, settings);
-	                                case 17:
-	                                    response = _context2.sent;
-	                                    if (!response.ok) {
-	                                        _context2.next = 22;
-	                                        break;
-	                                    }
-	                                    mp.Logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
-	                                    _context2.next = 29;
-	                                    break;
-	                                case 22:
-	                                    if (!(response.status >= 500 || response.status === 429)) {
-	                                        _context2.next = 26;
-	                                        break;
-	                                    }
-	                                    return _context2.abrupt("return", uploads.slice(i, uploads.length));
-	                                case 26:
-	                                    if (!(response.status >= 401)) {
-	                                        _context2.next = 29;
-	                                        break;
-	                                    }
-	                                    mp.Logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key.")); //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
-	                                    return _context2.abrupt("return", null);
-	                                case 29:
-	                                    _context2.next = 35;
-	                                    break;
-	                                case 31:
-	                                    _context2.prev = 31;
-	                                    _context2.t0 = _context2["catch"](8);
-	                                    mp.Logger.error("Exception while uploading: ".concat(_context2.t0));
-	                                    return _context2.abrupt("return", uploads.slice(i, uploads.length));
-	                                case 35:
-	                                    i++;
-	                                    _context2.next = 6;
-	                                    break;
-	                                case 38:
-	                                    return _context2.abrupt("return", null);
-	                                case 39:
-	                                case "end":
-	                                    return _context2.stop();
-	                            }
-	                        }
-	                    }, _callee2, null, [[8, 31]]);
-	                }));
-	                function upload(_x3, _x4, _x5) {
-	                    return _upload.apply(this, arguments);
-	                }
-	                return upload;
-	            }()
 	        }]);
 	    return BatchUploader;
 	}();
+	defineProperty(BatchUploader, "CONTENT_TYPE", 'text/plain;charset=UTF-8');
+	defineProperty(BatchUploader, "MINIMUM_INTERVAL_MILLIS", 500);
 
 	var HTTPCodes = Constants.HTTPCodes,
 	    Messages$3 = Constants.Messages,
 	    uploader = null;
 
-	function queueEventForServer(event) {
+	function queueEventForBatchUpload(event) {
 	  if (!uploader) {
 	    var millis = Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatchingIntervalMillis);
 	    uploader = new BatchUploader(mParticle, millis);
@@ -4483,18 +5414,17 @@ var mParticle = (function () {
 	    return false;
 	  }
 
-	  return Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatching) === true;
-	}
+	  var eventsV3Percentage = Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3);
 
-	function sendEventToServer(event, sendEventToForwarders, parseEventResponse) {
-	  if (shouldEnableBatching()) {
-	    queueEventForServer(event);
-	  } else {
-	    sendSingleEventToServer(event, sendEventToForwarders, parseEventResponse);
+	  if (!eventsV3Percentage || !Helpers.Validators.isNumber(eventsV3Percentage)) {
+	    return false;
 	  }
+
+	  var rampNumber = Helpers.getRampNumber(mParticle.Store.deviceId);
+	  return eventsV3Percentage >= rampNumber;
 	}
 
-	function sendSingleEventToServer(event, sendEventToForwarders, parseEventResponse) {
+	function processQueuedEvents() {
 	  var mpid,
 	      currentUser = mParticle.Identity.getCurrentUser();
 
@@ -4502,63 +5432,133 @@ var mParticle = (function () {
 	    mpid = currentUser.getMPID();
 	  }
 
+	  if (mParticle.Store.eventQueue.length && mpid) {
+	    var localQueueCopy = mParticle.Store.eventQueue;
+	    mParticle.Store.eventQueue = [];
+	    appendUserInfoToEvents(currentUser, localQueueCopy);
+	    localQueueCopy.forEach(function (event) {
+	      sendEventToServer(event);
+	    });
+	  }
+	}
+
+	function appendUserInfoToEvents(user, events) {
+	  events.forEach(function (event) {
+	    if (!event.MPID) {
+	      ServerModel.appendUserInfo(user, event);
+	    }
+	  });
+	}
+
+	function sendEventToServer(event) {
 	  if (mParticle.Store.webviewBridgeEnabled) {
 	    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
+	    return;
+	  }
+
+	  var mpid,
+	      currentUser = mParticle.Identity.getCurrentUser();
+
+	  if (currentUser) {
+	    mpid = currentUser.getMPID();
+	  }
+
+	  mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays, mParticle.Store.integrationDelayTimeoutStart, Date.now()); // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
+	  // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
+
+	  if (!mpid || mParticle.Store.requireDelay || !mParticle.Store.configurationLoaded) {
+	    mParticle.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
+	    mParticle.Store.eventQueue.push(event);
+	    return;
+	  }
+
+	  processQueuedEvents();
+
+	  if (shouldEnableBatching()) {
+	    queueEventForBatchUpload(event);
 	  } else {
-	    var xhr,
-	        xhrCallback = function xhrCallback() {
-	      if (xhr.readyState === 4) {
-	        mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
-	        parseEventResponse(xhr.responseText);
-	      }
-	    };
+	    sendSingleEventToServer(event);
+	  }
 
-	    mParticle.Logger.verbose(Messages$3.InformationMessages.SendBegin);
-	    var validUserIdentities = []; // convert userIdentities which are objects with key of IdentityType (number) and value ID to an array of Identity objects for DTO and event forwarding
+	  if (event && event.EventName !== Types.MessageType.AppStateTransition) {
+	    Forwarders.sendEventToForwarders(event);
+	  }
+	}
 
-	    if (Helpers.isObject(event.UserIdentities) && Object.keys(event.UserIdentities).length) {
-	      for (var key in event.UserIdentities) {
-	        var userIdentity = {};
-	        userIdentity.Identity = event.UserIdentities[key];
-	        userIdentity.Type = Helpers.parseNumber(key);
-	        validUserIdentities.push(userIdentity);
-	      }
+	function sendSingleEventToServer(event) {
+	  if (event.EventDataType === Types.MessageType.Media) {
+	    return;
+	  }
 
-	      event.UserIdentities = validUserIdentities;
-	    } else {
-	      event.UserIdentities = [];
+	  var xhr,
+	      xhrCallback = function xhrCallback() {
+	    if (xhr.readyState === 4) {
+	      mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
+	      parseEventResponse(xhr.responseText);
 	    }
+	  };
 
-	    mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays, mParticle.Store.integrationDelayTimeoutStart, Date.now()); // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
-	    // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
+	  if (!event) {
+	    mParticle.Logger.error(Messages$3.ErrorMessages.EventEmpty);
+	    return;
+	  }
 
-	    if (!mpid || mParticle.Store.requireDelay || !mParticle.Store.configurationLoaded) {
-	      mParticle.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
-	      mParticle.Store.eventQueue.push(event);
-	    } else {
-	      Helpers.processQueuedEvents(mParticle.Store.eventQueue, mpid, !mParticle.Store.requiredDelay, sendEventToServer, sendEventToForwarders, parseEventResponse);
+	  mParticle.Logger.verbose(Messages$3.InformationMessages.SendHttp);
+	  xhr = Helpers.createXHR(xhrCallback);
 
-	      if (!event) {
-	        mParticle.Logger.error(Messages$3.ErrorMessages.EventEmpty);
-	        return;
+	  if (xhr) {
+	    try {
+	      xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken) + '/Events');
+	      xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun)));
+	    } catch (e) {
+	      mParticle.Logger.error('Error sending event to mParticle servers. ' + e);
+	    }
+	  }
+	}
+
+	function parseEventResponse(responseText) {
+	  var now = new Date(),
+	      settings,
+	      prop,
+	      fullProp;
+
+	  if (!responseText) {
+	    return;
+	  }
+
+	  try {
+	    mParticle.Logger.verbose('Parsing response from server');
+	    settings = JSON.parse(responseText);
+
+	    if (settings && settings.Store) {
+	      mParticle.Logger.verbose('Parsed store from response, updating local settings');
+
+	      if (!mParticle.Store.serverSettings) {
+	        mParticle.Store.serverSettings = {};
 	      }
 
-	      mParticle.Logger.verbose(Messages$3.InformationMessages.SendHttp);
-	      xhr = Helpers.createXHR(xhrCallback);
+	      for (prop in settings.Store) {
+	        if (!settings.Store.hasOwnProperty(prop)) {
+	          continue;
+	        }
 
-	      if (xhr) {
-	        try {
-	          xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken) + '/Events');
-	          xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun, mParticle.Store.currencyCode, mParticle.Store.integrationAttributes)));
+	        fullProp = settings.Store[prop];
 
-	          if (event.EventName !== Types.MessageType.AppStateTransition) {
-	            sendEventToForwarders(event);
+	        if (!fullProp.Value || new Date(fullProp.Expires) < now) {
+	          // This setting should be deleted from the local store if it exists
+	          if (mParticle.Store.serverSettings.hasOwnProperty(prop)) {
+	            delete mParticle.Store.serverSettings[prop];
 	          }
-	        } catch (e) {
-	          mParticle.Logger.error('Error sending event to mParticle servers. ' + e);
+	        } else {
+	          // This is a valid setting
+	          mParticle.Store.serverSettings[prop] = fullProp;
 	        }
 	      }
+
+	      Persistence.update();
 	    }
+	  } catch (e) {
+	    mParticle.Logger.error('Error parsing JSON response from server: ' + e.name);
 	  }
 	}
 
@@ -4726,376 +5726,9 @@ var mParticle = (function () {
 	  }
 	}
 
-	var ApiClient = {
-	  sendEventToServer: sendEventToServer,
-	  sendIdentityRequest: sendIdentityRequest,
-	  sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,
-	  sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer,
-	  sendAliasRequest: sendAliasRequest,
-	  getSDKConfiguration: getSDKConfiguration
-	};
-
-	function initForwarders(userIdentities) {
-	  var user = mParticle.Identity.getCurrentUser();
-
-	  if (!mParticle.Store.webviewBridgeEnabled && mParticle.Store.configuredForwarders) {
-	    // Some js libraries require that they be loaded first, or last, etc
-	    mParticle.Store.configuredForwarders.sort(function (x, y) {
-	      x.settings.PriorityValue = x.settings.PriorityValue || 0;
-	      y.settings.PriorityValue = y.settings.PriorityValue || 0;
-	      return -1 * (x.settings.PriorityValue - y.settings.PriorityValue);
-	    });
-	    mParticle.Store.activeForwarders = mParticle.Store.configuredForwarders.filter(function (forwarder) {
-	      if (!isEnabledForUserConsent(forwarder.filteringConsentRuleValues, user)) {
-	        return false;
-	      }
-
-	      if (!isEnabledForUserAttributes(forwarder.filteringUserAttributeValue, user)) {
-	        return false;
-	      }
-
-	      if (!isEnabledForUnknownUser(forwarder.excludeAnonymousUser, user)) {
-	        return false;
-	      }
-
-	      var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
-	      var filteredUserAttributes = Helpers.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
-
-	      if (!forwarder.initialized) {
-	        forwarder.init(forwarder.settings, prepareForwardingStats, false, null, filteredUserAttributes, filteredUserIdentities, mParticle.Store.SDKConfig.appVersion, mParticle.Store.SDKConfig.appName, mParticle.Store.SDKConfig.customFlags, mParticle.Store.clientId);
-	        forwarder.initialized = true;
-	      }
-
-	      return true;
-	    });
-	  }
-	}
-
-	function isEnabledForUserConsent(consentRules, user) {
-	  if (!consentRules || !consentRules.values || !consentRules.values.length) {
-	    return true;
-	  }
-
-	  if (!user) {
-	    return false;
-	  }
-
-	  var purposeHashes = {};
-	  var GDPRConsentHashPrefix = '1';
-	  var consentState = user.getConsentState();
-
-	  if (consentState) {
-	    var gdprConsentState = consentState.getGDPRConsentState();
-
-	    if (gdprConsentState) {
-	      for (var purpose in gdprConsentState) {
-	        if (gdprConsentState.hasOwnProperty(purpose)) {
-	          var purposeHash = Helpers.generateHash(GDPRConsentHashPrefix + purpose).toString();
-	          purposeHashes[purposeHash] = gdprConsentState[purpose].Consented;
-	        }
-	      }
-	    }
-	  }
-
-	  var isMatch = false;
-	  consentRules.values.forEach(function (consentRule) {
-	    if (!isMatch) {
-	      var purposeHash = consentRule.consentPurpose;
-	      var hasConsented = consentRule.hasConsented;
-
-	      if (purposeHashes.hasOwnProperty(purposeHash) && purposeHashes[purposeHash] === hasConsented) {
-	        isMatch = true;
-	      }
-	    }
-	  });
-	  return consentRules.includeOnMatch === isMatch;
-	}
-
-	function isEnabledForUserAttributes(filterObject, user) {
-	  if (!filterObject || !Helpers.isObject(filterObject) || !Object.keys(filterObject).length) {
-	    return true;
-	  }
-
-	  var attrHash, valueHash, userAttributes;
-
-	  if (!user) {
-	    return false;
-	  } else {
-	    userAttributes = user.getAllUserAttributes();
-	  }
-
-	  var isMatch = false;
-
-	  try {
-	    if (userAttributes && Helpers.isObject(userAttributes) && Object.keys(userAttributes).length) {
-	      for (var attrName in userAttributes) {
-	        if (userAttributes.hasOwnProperty(attrName)) {
-	          attrHash = Helpers.generateHash(attrName).toString();
-	          valueHash = Helpers.generateHash(userAttributes[attrName]).toString();
-
-	          if (attrHash === filterObject.userAttributeName && valueHash === filterObject.userAttributeValue) {
-	            isMatch = true;
-	            break;
-	          }
-	        }
-	      }
-	    }
-
-	    if (filterObject) {
-	      return filterObject.includeOnMatch === isMatch;
-	    } else {
-	      return true;
-	    }
-	  } catch (e) {
-	    // in any error scenario, err on side of returning true and forwarding event
-	    return true;
-	  }
-	}
-
-	function isEnabledForUnknownUser(excludeAnonymousUserBoolean, user) {
-	  if (!user || !user.isLoggedIn()) {
-	    if (excludeAnonymousUserBoolean) {
-	      return false;
-	    }
-	  }
-
-	  return true;
-	}
-
-	function applyToForwarders(functionName, functionArgs) {
-	  if (mParticle.Store.activeForwarders.length) {
-	    mParticle.Store.activeForwarders.forEach(function (forwarder) {
-	      var forwarderFunction = forwarder[functionName];
-
-	      if (forwarderFunction) {
-	        try {
-	          var result = forwarder[functionName](functionArgs);
-
-	          if (result) {
-	            mParticle.Logger.verbose(result);
-	          }
-	        } catch (e) {
-	          mParticle.Logger.verbose(e);
-	        }
-	      }
-	    });
-	  }
-	}
-
-	function sendEventToForwarders(event) {
-	  var clonedEvent,
-	      hashedEventName,
-	      hashedEventType,
-	      filterUserIdentities = function filterUserIdentities(event, filterList) {
-	    if (event.UserIdentities && event.UserIdentities.length) {
-	      event.UserIdentities.forEach(function (userIdentity, i) {
-	        if (Helpers.inArray(filterList, userIdentity.Type)) {
-	          event.UserIdentities.splice(i, 1);
-
-	          if (i > 0) {
-	            i--;
-	          }
-	        }
-	      });
-	    }
-	  },
-	      filterAttributes = function filterAttributes(event, filterList) {
-	    var hash;
-
-	    if (!filterList) {
-	      return;
-	    }
-
-	    for (var attrName in event.EventAttributes) {
-	      if (event.EventAttributes.hasOwnProperty(attrName)) {
-	        hash = Helpers.generateHash(event.EventCategory + event.EventName + attrName);
-
-	        if (Helpers.inArray(filterList, hash)) {
-	          delete event.EventAttributes[attrName];
-	        }
-	      }
-	    }
-	  },
-	      inFilteredList = function inFilteredList(filterList, hash) {
-	    if (filterList && filterList.length) {
-	      if (Helpers.inArray(filterList, hash)) {
-	        return true;
-	      }
-	    }
-
-	    return false;
-	  },
-	      forwardingRuleMessageTypes = [Types.MessageType.PageEvent, Types.MessageType.PageView, Types.MessageType.Commerce];
-
-	  if (!mParticle.Store.webviewBridgeEnabled && mParticle.Store.activeForwarders) {
-	    hashedEventName = Helpers.generateHash(event.EventCategory + event.EventName);
-	    hashedEventType = Helpers.generateHash(event.EventCategory);
-
-	    for (var i = 0; i < mParticle.Store.activeForwarders.length; i++) {
-	      // Check attribute forwarding rule. This rule allows users to only forward an event if a
-	      // specific attribute exists and has a specific value. Alternatively, they can specify
-	      // that an event not be forwarded if the specified attribute name and value exists.
-	      // The two cases are controlled by the "includeOnMatch" boolean value.
-	      // Supported message types for attribute forwarding rules are defined in the forwardingRuleMessageTypes array
-	      if (forwardingRuleMessageTypes.indexOf(event.EventDataType) > -1 && mParticle.Store.activeForwarders[i].filteringEventAttributeValue && mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName && mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue) {
-	        var foundProp = null; // Attempt to find the attribute in the collection of event attributes
-
-	        if (event.EventAttributes) {
-	          for (var prop in event.EventAttributes) {
-	            var hashedEventAttributeName;
-	            hashedEventAttributeName = Helpers.generateHash(prop).toString();
-
-	            if (hashedEventAttributeName === mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName) {
-	              foundProp = {
-	                name: hashedEventAttributeName,
-	                value: Helpers.generateHash(event.EventAttributes[prop]).toString()
-	              };
-	            }
-
-	            if (foundProp) {
-	              break;
-	            }
-	          }
-	        }
-
-	        var isMatch = foundProp !== null && foundProp.value === mParticle.Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeValue;
-	        var shouldInclude = mParticle.Store.activeForwarders[i].filteringEventAttributeValue.includeOnMatch === true ? isMatch : !isMatch;
-
-	        if (!shouldInclude) {
-	          continue;
-	        }
-	      } // Clone the event object, as we could be sending different attributes to each forwarder
-
-
-	      clonedEvent = {};
-	      clonedEvent = Helpers.extend(true, clonedEvent, event); // Check event filtering rules
-
-	      if (event.EventDataType === Types.MessageType.PageEvent && (inFilteredList(mParticle.Store.activeForwarders[i].eventNameFilters, hashedEventName) || inFilteredList(mParticle.Store.activeForwarders[i].eventTypeFilters, hashedEventType))) {
-	        continue;
-	      } else if (event.EventDataType === Types.MessageType.Commerce && inFilteredList(mParticle.Store.activeForwarders[i].eventTypeFilters, hashedEventType)) {
-	        continue;
-	      } else if (event.EventDataType === Types.MessageType.PageView && inFilteredList(mParticle.Store.activeForwarders[i].screenNameFilters, hashedEventName)) {
-	        continue;
-	      } // Check attribute filtering rules
-
-
-	      if (clonedEvent.EventAttributes) {
-	        if (event.EventDataType === Types.MessageType.PageEvent) {
-	          filterAttributes(clonedEvent, mParticle.Store.activeForwarders[i].attributeFilters);
-	        } else if (event.EventDataType === Types.MessageType.PageView) {
-	          filterAttributes(clonedEvent, mParticle.Store.activeForwarders[i].pageViewAttributeFilters);
-	        }
-	      } // Check user identity filtering rules
-
-
-	      filterUserIdentities(clonedEvent, mParticle.Store.activeForwarders[i].userIdentityFilters); // Check user attribute filtering rules
-
-	      clonedEvent.UserAttributes = Helpers.filterUserAttributes(clonedEvent.UserAttributes, mParticle.Store.activeForwarders[i].userAttributeFilters);
-	      mParticle.Logger.verbose('Sending message to forwarder: ' + mParticle.Store.activeForwarders[i].name);
-
-	      if (mParticle.Store.activeForwarders[i].process) {
-	        var result = mParticle.Store.activeForwarders[i].process(clonedEvent);
-
-	        if (result) {
-	          mParticle.Logger.verbose(result);
-	        }
-	      }
-	    }
-	  }
-	}
-
-	function callSetUserAttributeOnForwarders(key, value) {
-	  if (mParticle.Store.activeForwarders.length) {
-	    mParticle.Store.activeForwarders.forEach(function (forwarder) {
-	      if (forwarder.setUserAttribute && forwarder.userAttributeFilters && !Helpers.inArray(forwarder.userAttributeFilters, Helpers.generateHash(key))) {
-	        try {
-	          var result = forwarder.setUserAttribute(key, value);
-
-	          if (result) {
-	            mParticle.Logger.verbose(result);
-	          }
-	        } catch (e) {
-	          mParticle.Logger.error(e);
-	        }
-	      }
-	    });
-	  }
-	}
-
-	function setForwarderUserIdentities(userIdentities) {
-	  mParticle.Store.activeForwarders.forEach(function (forwarder) {
-	    var filteredUserIdentities = Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
-
-	    if (forwarder.setUserIdentity) {
-	      filteredUserIdentities.forEach(function (identity) {
-	        var result = forwarder.setUserIdentity(identity.Identity, identity.Type);
-
-	        if (result) {
-	          mParticle.Logger.verbose(result);
-	        }
-	      });
-	    }
-	  });
-	}
-
-	function setForwarderOnUserIdentified(user) {
-	  mParticle.Store.activeForwarders.forEach(function (forwarder) {
-	    var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
-
-	    if (forwarder.onUserIdentified) {
-	      var result = forwarder.onUserIdentified(filteredUser);
-
-	      if (result) {
-	        mParticle.Logger.verbose(result);
-	      }
-	    }
-	  });
-	}
-
-	function setForwarderOnIdentityComplete(user, identityMethod) {
-	  var result;
-	  mParticle.Store.activeForwarders.forEach(function (forwarder) {
-	    var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
-
-	    if (identityMethod === 'identify') {
-	      if (forwarder.onIdentifyComplete) {
-	        result = forwarder.onIdentifyComplete(filteredUser);
-
-	        if (result) {
-	          mParticle.Logger.verbose(result);
-	        }
-	      }
-	    } else if (identityMethod === 'login') {
-	      if (forwarder.onLoginComplete) {
-	        result = forwarder.onLoginComplete(filteredUser);
-
-	        if (result) {
-	          mParticle.Logger.verbose(result);
-	        }
-	      }
-	    } else if (identityMethod === 'logout') {
-	      if (forwarder.onLogoutComplete) {
-	        result = forwarder.onLogoutComplete(filteredUser);
-
-	        if (result) {
-	          mParticle.Logger.verbose(result);
-	        }
-	      }
-	    } else if (identityMethod === 'modify') {
-	      if (forwarder.onModifyComplete) {
-	        result = forwarder.onModifyComplete(filteredUser);
-
-	        if (result) {
-	          mParticle.Logger.verbose(result);
-	        }
-	      }
-	    }
-	  });
-	}
-
 	function prepareForwardingStats(forwarder, event) {
 	  var forwardingStatsData,
-	      queue = getForwarderStatsQueue();
+	      queue = Forwarders.getForwarderStatsQueue();
 
 	  if (forwarder && forwarder.isVisible) {
 	    forwardingStatsData = {
@@ -5113,107 +5746,24 @@ var mParticle = (function () {
 
 	    if (Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)) {
 	      queue.push(forwardingStatsData);
-	      setForwarderStatsQueue(queue);
+	      Forwarders.setForwarderStatsQueue(queue);
 	    } else {
-	      ApiClient.sendSingleForwardingStatsToServer(forwardingStatsData);
+	      sendSingleForwardingStatsToServer(forwardingStatsData);
 	    }
 	  }
 	}
 
-	function getForwarderStatsQueue() {
-	  return Persistence.forwardingStatsBatches.forwardingStatsEventQueue;
-	}
-
-	function setForwarderStatsQueue(queue) {
-	  Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
-	}
-
-	function configureForwarder(configuration) {
-	  var newForwarder = null,
-	      config = configuration,
-	      forwarders = {}; // if there are kits inside of mParticle.Store.SDKConfig.kits, then mParticle is self hosted
-
-	  if (Helpers.isObject(mParticle.Store.SDKConfig.kits) && Object.keys(mParticle.Store.SDKConfig.kits).length > 0) {
-	    forwarders = mParticle.Store.SDKConfig.kits; // otherwise mParticle is loaded via script tag
-	  } else if (mParticle.preInit.forwarderConstructors.length > 0) {
-	    mParticle.preInit.forwarderConstructors.forEach(function (forwarder) {
-	      forwarders[forwarder.name] = forwarder;
-	    });
-	  }
-
-	  for (var name in forwarders) {
-	    if (name === config.name) {
-	      if (config.isDebug === mParticle.Store.SDKConfig.isDevelopmentMode || config.isSandbox === mParticle.Store.SDKConfig.isDevelopmentMode) {
-	        newForwarder = new forwarders[name].constructor();
-	        newForwarder.id = config.moduleId;
-	        newForwarder.isSandbox = config.isDebug || config.isSandbox;
-	        newForwarder.hasSandbox = config.hasDebugString === 'true';
-	        newForwarder.isVisible = config.isVisible;
-	        newForwarder.settings = config.settings;
-	        newForwarder.eventNameFilters = config.eventNameFilters;
-	        newForwarder.eventTypeFilters = config.eventTypeFilters;
-	        newForwarder.attributeFilters = config.attributeFilters;
-	        newForwarder.screenNameFilters = config.screenNameFilters;
-	        newForwarder.screenNameFilters = config.screenNameFilters;
-	        newForwarder.pageViewAttributeFilters = config.pageViewAttributeFilters;
-	        newForwarder.userIdentityFilters = config.userIdentityFilters;
-	        newForwarder.userAttributeFilters = config.userAttributeFilters;
-	        newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
-	        newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
-	        newForwarder.eventSubscriptionId = config.eventSubscriptionId;
-	        newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
-	        newForwarder.excludeAnonymousUser = config.excludeAnonymousUser;
-	        mParticle.Store.configuredForwarders.push(newForwarder);
-	        break;
-	      }
-	    }
-	  }
-	}
-
-	function configurePixel(settings) {
-	  if (settings.isDebug === mParticle.Store.SDKConfig.isDevelopmentMode || settings.isProduction !== mParticle.Store.SDKConfig.isDevelopmentMode) {
-	    mParticle.Store.pixelConfigurations.push(settings);
-	  }
-	}
-
-	function processForwarders(config) {
-	  if (!config) {
-	    mParticle.Logger.warning('No config was passed. Cannot process forwarders');
-	  } else {
-	    try {
-	      if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
-	        config.kitConfigs.forEach(function (kitConfig) {
-	          configureForwarder(kitConfig);
-	        });
-	      }
-
-	      if (Array.isArray(config.pixelConfigs) && config.pixelConfigs.length) {
-	        config.pixelConfigs.forEach(function (pixelConfig) {
-	          configurePixel(pixelConfig);
-	        });
-	      }
-
-	      initForwarders(mParticle.Store.SDKConfig.identifyRequest.userIdentities);
-	    } catch (e) {
-	      mParticle.Logger.error('Config was not parsed propertly. Forwarders may not be initialized.');
-	    }
-	  }
-	}
-
-	var Forwarders = {
-	  initForwarders: initForwarders,
-	  applyToForwarders: applyToForwarders,
-	  sendEventToForwarders: sendEventToForwarders,
-	  callSetUserAttributeOnForwarders: callSetUserAttributeOnForwarders,
-	  setForwarderUserIdentities: setForwarderUserIdentities,
-	  setForwarderOnUserIdentified: setForwarderOnUserIdentified,
-	  setForwarderOnIdentityComplete: setForwarderOnIdentityComplete,
-	  getForwarderStatsQueue: getForwarderStatsQueue,
-	  setForwarderStatsQueue: setForwarderStatsQueue,
-	  isEnabledForUserConsent: isEnabledForUserConsent,
-	  isEnabledForUserAttributes: isEnabledForUserAttributes,
-	  configurePixel: configurePixel,
-	  processForwarders: processForwarders
+	var ApiClient = {
+	  sendEventToServer: sendEventToServer,
+	  sendIdentityRequest: sendIdentityRequest,
+	  sendBatchForwardingStatsToServer: sendBatchForwardingStatsToServer,
+	  sendSingleForwardingStatsToServer: sendSingleForwardingStatsToServer,
+	  sendAliasRequest: sendAliasRequest,
+	  getSDKConfiguration: getSDKConfiguration,
+	  prepareForwardingStats: prepareForwardingStats,
+	  processQueuedEvents: processQueuedEvents,
+	  appendUserInfoToEvents: appendUserInfoToEvents,
+	  shouldEnableBatching: shouldEnableBatching
 	};
 
 	var Validators$1 = Helpers.Validators,
@@ -5464,6 +6014,11 @@ var mParticle = (function () {
 	    return null;
 	  }
 
+	  if (position && !Validators$1.isNumber(position)) {
+	    mParticle.Logger.error('Position must be a number, it will be set to null.');
+	    position = null;
+	  }
+
 	  if (!quantity) {
 	    quantity = 1;
 	  }
@@ -5692,8 +6247,7 @@ var mParticle = (function () {
 	};
 
 	var Messages$5 = Constants.Messages,
-	    sendEventToServer$1 = ApiClient.sendEventToServer,
-	    sendEventToForwarders$1 = Forwarders.sendEventToForwarders;
+	    sendEventToServer$1 = ApiClient.sendEventToServer;
 
 	function logEvent(event) {
 	  mParticle.Logger.verbose(Messages$5.InformationMessages.StartingLogEvent + ': ' + event.name);
@@ -5703,63 +6257,11 @@ var mParticle = (function () {
 	      event.data = Helpers.sanitizeAttributes(event.data);
 	    }
 
-	    var uploadObject = ServerModel.createEventObject(event); // TODO: Disabled for the time being until we can define an HTTP Request for BaseEvents
-
-	    if (event.messageType === Types.MessageType.Media) {
-	      sendEventToForwarders$1(uploadObject);
-	    } else {
-	      sendEventToServer$1(uploadObject, sendEventToForwarders$1, parseEventResponse);
-	    }
-
+	    var uploadObject = ServerModel.createEventObject(event);
+	    sendEventToServer$1(uploadObject);
 	    Persistence.update();
 	  } else {
 	    mParticle.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent);
-	  }
-	}
-
-	function parseEventResponse(responseText) {
-	  var now = new Date(),
-	      settings,
-	      prop,
-	      fullProp;
-
-	  if (!responseText) {
-	    return;
-	  }
-
-	  try {
-	    mParticle.Logger.verbose('Parsing response from server');
-	    settings = JSON.parse(responseText);
-
-	    if (settings && settings.Store) {
-	      mParticle.Logger.verbose('Parsed store from response, updating local settings');
-
-	      if (!mParticle.Store.serverSettings) {
-	        mParticle.Store.serverSettings = {};
-	      }
-
-	      for (prop in settings.Store) {
-	        if (!settings.Store.hasOwnProperty(prop)) {
-	          continue;
-	        }
-
-	        fullProp = settings.Store[prop];
-
-	        if (!fullProp.Value || new Date(fullProp.Expires) < now) {
-	          // This setting should be deleted from the local store if it exists
-	          if (mParticle.Store.serverSettings.hasOwnProperty(prop)) {
-	            delete mParticle.Store.serverSettings[prop];
-	          }
-	        } else {
-	          // This is a valid setting
-	          mParticle.Store.serverSettings[prop] = fullProp;
-	        }
-	      }
-
-	      Persistence.update();
-	    }
-	  } catch (e) {
-	    mParticle.Logger.error('Error parsing JSON response from server: ' + e.name);
 	  }
 	}
 
@@ -5826,7 +6328,7 @@ var mParticle = (function () {
 	    messageType: Types.MessageType.OptOut,
 	    eventType: Types.EventType.Other
 	  });
-	  sendEventToServer$1(event, sendEventToForwarders$1, parseEventResponse);
+	  sendEventToServer$1(event);
 	}
 
 	function logAST() {
@@ -5950,7 +6452,7 @@ var mParticle = (function () {
 	      commerceEvent.EventAttributes = attrs;
 	    }
 
-	    sendEventToServer$1(commerceEvent, sendEventToForwarders$1, parseEventResponse);
+	    sendEventToServer$1(commerceEvent);
 	    Persistence.update();
 	  } else {
 	    mParticle.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent);
@@ -6033,14 +6535,12 @@ var mParticle = (function () {
 	  logImpressionEvent: logImpressionEvent,
 	  logOptOut: logOptOut,
 	  logAST: logAST,
-	  parseEventResponse: parseEventResponse,
 	  addEventHandler: addEventHandler
 	};
 
 	var Messages$6 = Constants.Messages,
 	    Validators$2 = Helpers.Validators,
 	    HTTPCodes$1 = Constants.HTTPCodes,
-	    sendEventToForwarders$2 = Forwarders.sendEventToForwarders,
 	    sendIdentityRequest$1 = ApiClient.sendIdentityRequest;
 
 	function checkIdentitySwap(previousMPID, currentMPID, currentSessionMPIDs) {
@@ -6635,7 +7135,7 @@ var mParticle = (function () {
 	            Persistence.saveCookies(cookies, mpid);
 	          }
 
-	          Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
+	          Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(), ApiClient.prepareForwardingStats);
 	          Forwarders.callSetUserAttributeOnForwarders(key, value);
 	        }
 	      }
@@ -6697,7 +7197,7 @@ var mParticle = (function () {
 	          Persistence.saveCookies(cookies, mpid);
 	        }
 
-	        Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
+	        Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(), ApiClient.prepareForwardingStats);
 	        Forwarders.applyToForwarders('removeUserAttribute', key);
 	      }
 	    },
@@ -6745,7 +7245,7 @@ var mParticle = (function () {
 	          Persistence.saveCookies(cookies, mpid);
 	        }
 
-	        Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
+	        Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(), ApiClient.prepareForwardingStats);
 	        Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
 	      }
 	    },
@@ -6763,7 +7263,7 @@ var mParticle = (function () {
 	      } else {
 	        cookies = Persistence.getPersistence();
 	        userAttributes = this.getAllUserAttributes();
-	        Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities());
+	        Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities()), ApiClient.prepareForwardingStats;
 
 	        if (userAttributes) {
 	          for (var prop in userAttributes) {
@@ -6848,7 +7348,7 @@ var mParticle = (function () {
 	    */
 	    setConsentState: function setConsentState(state) {
 	      Persistence.saveUserConsentStateToCookies(mpid, state);
-	      Forwarders.initForwarders(this.getUserIdentities().userIdentities);
+	      Forwarders.initForwarders(this.getUserIdentities().userIdentities), ApiClient.prepareForwardingStats;
 	    },
 	    isLoggedIn: function isLoggedIn() {
 	      return _isLoggedIn;
@@ -7086,7 +7586,7 @@ var mParticle = (function () {
 	        Persistence.storeDataInMemory(cookies, newUser.getMPID());
 
 	        if (!prevUser || newUser.getMPID() !== prevUser.getMPID() || prevUser.isLoggedIn() !== newUser.isLoggedIn()) {
-	          Forwarders.initForwarders(newUser.getUserIdentities().userIdentities);
+	          Forwarders.initForwarders(newUser.getUserIdentities().userIdentities, ApiClient.prepareForwardingStats);
 	        }
 
 	        Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);
@@ -7094,7 +7594,7 @@ var mParticle = (function () {
 	        Forwarders.setForwarderOnUserIdentified(newUser, method);
 	      }
 
-	      Helpers.processQueuedEvents(mParticle.Store.eventQueue, identityApiResult.mpid, !mParticle.Store.requireDelay, ApiClient.sendEventToServer, sendEventToForwarders$2, Events.parseEventResponse);
+	      ApiClient.processQueuedEvents();
 	    }
 
 	    if (callback) {
@@ -7509,8 +8009,8 @@ var mParticle = (function () {
 	      this.SDKConfig.flags = {};
 	    }
 
-	    if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventBatching)) {
-	      this.SDKConfig.flags[Constants.FeatureFlags.EventBatching] = false;
+	    if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventsV3)) {
+	      this.SDKConfig.flags[Constants.FeatureFlags.EventsV3] = 0;
 	    }
 
 	    if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventBatchingIntervalMillis)) {
@@ -8697,7 +9197,7 @@ var mParticle = (function () {
 	      startForwardingStatsTimer();
 	    }
 
-	    Forwarders.processForwarders(config); // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
+	    Forwarders.processForwarders(config, ApiClient.prepareForwardingStats); // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
 
 	    if (!mParticle$1.Store.identifyCalled && mParticle$1.Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
 	      mParticle$1.Store.SDKConfig.identityCallback({
