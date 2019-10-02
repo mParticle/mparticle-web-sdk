@@ -1,6 +1,6 @@
 {
   "name": "@mparticle/web-sdk",
-  "version": "2.9.12-rc.1",
+  "version": "2.9.12-rc.2",
   "description": "mParticle core SDK for web applications",
   "license": "Apache-2.0",
   "keywords": [
@@ -10,10 +10,11 @@
   ],
   "files": [
     "dist/mparticle.common.js",
+    "dist/mparticle.esm.js",
     "src/"
   ],
   "main": "dist/mparticle.common.js",
-  "module": "src/dist/mparticle.esm.js",
+  "module": "dist/mparticle.esm.js",
   "repository": "https://github.com/mParticle/mparticle-web-sdk",
   "scripts": {
     "build": "ENVIRONMENT=prod rollup --config rollup.config.js",
