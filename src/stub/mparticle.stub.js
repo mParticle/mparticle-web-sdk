@@ -38,11 +38,11 @@ let mParticle = {
         logPurchase: voidFunction,
         logRefund: voidFunction,
         setCurrencyCode: voidFunction,
-        Cart: new Cart()
+        Cart: new Cart(),
     },
     Consent: {
         createConsentState: createConsentState,
-        createGDPRConsent: returnGDPRConsent
+        createGDPRConsent: returnGDPRConsent,
     },
     Identity: {
         aliasUsers: voidFunction,
@@ -53,19 +53,25 @@ let mParticle = {
         identify: voidFunction,
         login: voidFunction,
         logout: voidFunction,
-        modify: voidFunction
-    }
+        modify: voidFunction,
+    },
 };
 
 function voidFunction() {}
-function returnString() { return ''; }
-function returnObject() { return {}; }
-function returnThis() { return this; }
+function returnString() {
+    return '';
+}
+function returnObject() {
+    return {};
+}
+function returnThis() {
+    return this;
+}
 function returnUser() {
     return {
-        getUserIdentities: function () {
+        getUserIdentities: function() {
             return {
-                userIdentities: {}
+                userIdentities: {},
             };
         },
         getMPID: returnString,
@@ -80,7 +86,7 @@ function returnUser() {
         getAllUserAttributes: returnObject,
         getCart: Cart,
         getConsentState: createConsentState,
-        setConsentState: voidFunction
+        setConsentState: voidFunction,
     };
 }
 
@@ -95,14 +101,14 @@ function Cart() {
         remove: voidFunction,
         getCartProducts: function() {
             return [returnProduct()];
-        }
+        },
     };
 }
 
 function returnImpression() {
     return {
         Name: 'name',
-        Product: returnProduct()
+        Product: returnProduct(),
     };
 }
 
@@ -118,7 +124,7 @@ function returnProduct() {
         Position: 'position',
         CouponCode: 'couponCode',
         TotalAmount: 0,
-        Attributes: {}
+        Attributes: {},
     };
 }
 
@@ -127,7 +133,7 @@ function returnPromotion() {
         Id: 'id',
         Creative: 'creative',
         Name: 'name',
-        Position: 0
+        Position: 0,
     };
 }
 
@@ -138,7 +144,7 @@ function returnTransactionAttributes() {
         CouponCode: 'couponCode',
         Revenue: 0,
         Shipping: 'shipping',
-        Tax: 0
+        Tax: 0,
     };
 }
 
@@ -148,7 +154,7 @@ function returnGDPRConsent() {
         Consented: false,
         HardwareId: 'id',
         Location: 'location',
-        Timestamp: 1568648478988
+        Timestamp: 1568648478988,
     };
 }
 
@@ -156,8 +162,8 @@ function createAliasRequest() {
     return {
         sourceMpid: 'a',
         destinationMpid: 'b',
-        startTime: (new Date()).getTime(),
-        endTime: (new Date()).getTime()
+        startTime: new Date().getTime(),
+        endTime: new Date().getTime(),
     };
 }
 
@@ -166,7 +172,7 @@ function createConsentState() {
         addGDPRConsentState: returnThis,
         setGDPRConsentState: returnThis,
         getGDPRConsentState: returnGDPRConsent,
-        removeGDPRConsentState: returnThis
+        removeGDPRConsentState: returnThis,
     };
 }
 

@@ -1,24 +1,26 @@
 <html>
-<head>
-    <meta charset="utf-8">
-    <title>Mocha Tests</title>
-    <link rel="stylesheet" href="../node_modules/mocha/mocha.css" />
-</head>
-<body>
-    <div id="mocha"></div>
+    <head>
+        <meta charset="utf-8" />
+        <title>Mocha Tests</title>
+        <link rel="stylesheet" href="../node_modules/mocha/mocha.css" />
+    </head>
+    <body>
+        <div id="mocha"></div>
 
-    <script src="../node_modules/mocha/mocha.js"></script>
-    <script src="../node_modules/should/should.js"></script>
-    <script src="../node_modules/sinon-browser-only/sinon.js"></script>
-    <script src="mockhttprequest.js"></script>
-    <script src="geomock.js"></script>
+        <script src="../node_modules/mocha/mocha.js"></script>
+        <script src="../node_modules/should/should.js"></script>
+        <script src="../node_modules/sinon-browser-only/sinon.js"></script>
+        <script src="mockhttprequest.js"></script>
+        <script src="geomock.js"></script>
 
-    <script>mocha.setup('bdd')</script>
+        <script>
+            mocha.setup('bdd');
+        </script>
 
-    <script src="./../dist/mparticle.js"></script>
-    <script src="./test-bundle.js"></script>
-    <script>
-        mocha.run();
-    </script>
-</body>
+        <script src="./../dist/mparticle.js"></script>
+        <script src="./test-bundle.js"></script>
+        <script>
+            mocha.run();
+        </script>
+    </body>
 </html>

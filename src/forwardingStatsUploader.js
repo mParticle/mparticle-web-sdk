@@ -15,7 +15,7 @@ function prepareAndSendForwardingStatsBatch() {
         now = Date.now();
 
     if (forwarderQueue.length) {
-        uploadsTable[now] = {uploading: false, data: forwarderQueue};
+        uploadsTable[now] = { uploading: false, data: forwarderQueue };
         Forwarders.setForwarderStatsQueue([]);
     }
 
@@ -26,14 +26,17 @@ function prepareAndSendForwardingStatsBatch() {
                     var xhrCallback = function() {
                         if (xhr.readyState === 4) {
                             if (xhr.status === 200 || xhr.status === 202) {
-                                mParticle.Logger.verbose('Successfully sent  ' + xhr.statusText + ' from server');
+                                mParticle.Logger.verbose(
+                                    'Successfully sent  ' +
+                                        xhr.statusText +
+                                        ' from server'
+                                );
                                 delete uploadsTable[date];
                             } else if (xhr.status.toString()[0] === '4') {
                                 if (xhr.status !== 429) {
                                     delete uploadsTable[date];
                                 }
-                            }
-                            else {
+                            } else {
                                 uploadsTable[date].uploading = false;
                             }
                         }
@@ -42,7 +45,10 @@ function prepareAndSendForwardingStatsBatch() {
                     var xhr = Helpers.createXHR(xhrCallback);
                     var forwardingStatsData = uploadsTable[date].data;
                     uploadsTable[date].uploading = true;
-                    ApiClient.sendBatchForwardingStatsToServer(forwardingStatsData, xhr);
+                    ApiClient.sendBatchForwardingStatsToServer(
+                        forwardingStatsData,
+                        xhr
+                    );
                 }
             }
         })(date);

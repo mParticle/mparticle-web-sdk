@@ -1,6 +1,11 @@
 import { Batch } from './eventsApiModels';
 import Helpers from './helpers';
-import { SDKEvent, MParticleUser, MParticleWebSDK, SDKLoggerApi } from './sdkRuntimeModels';
+import {
+    SDKEvent,
+    MParticleUser,
+    MParticleWebSDK,
+    SDKLoggerApi,
+} from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 
 export class BatchUploader {
@@ -17,10 +22,11 @@ export class BatchUploader {
     constructor(webSdk: MParticleWebSDK, uploadInterval: number) {
         this.webSdk = webSdk;
         this.uploadIntervalMillis = uploadInterval;
-        this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
+        this.batchingEnabled =
+            uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
         if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
             this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
-        } 
+        }
         this.pendingEvents = [];
         this.pendingUploads = [];
 
@@ -61,7 +67,9 @@ export class BatchUploader {
             event.IsFirstRun = this.webSdk.Store.isFirstRun;
 
             this.pendingEvents.push(event);
-            this.webSdk.Logger.verbose(`Queuing event: ${JSON.stringify(event)}`);
+            this.webSdk.Logger.verbose(
+                `Queuing event: ${JSON.stringify(event)}`
+            );
             this.webSdk.Logger.verbose(
                 `Queued event count: ${this.pendingEvents.length}`
             );
@@ -96,7 +104,7 @@ export class BatchUploader {
             //on initial startup, there may be events logged without an mpid.
             if (!sdkEvent.MPID) {
                 const mpid = defaultUser.getMPID();
-                sdkEvent.MPID = mpid
+                sdkEvent.MPID = mpid;
             }
             let events = eventsByUser.get(sdkEvent.MPID);
             if (!events) {

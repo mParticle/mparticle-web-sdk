@@ -10,21 +10,32 @@ var server = new MockHttpServer(),
     v4LSKey = 'mprtcl-v4',
     workspaceToken = 'abcdef',
     workspaceCookieName = Helpers.createMainStorageName(workspaceToken),
-    LocalStorageProductsV4WithWorkSpaceName = Helpers.createProductStorageName(workspaceToken),
+    LocalStorageProductsV4WithWorkSpaceName = Helpers.createProductStorageName(
+        workspaceToken
+    ),
     pluses = /\+/g,
     MPConfig = {
-        workspaceToken: workspaceToken
+        workspaceToken: workspaceToken,
     },
     das = 'das-test',
     getLocalStorageProducts = function getLocalStorageProducts() {
-        return JSON.parse(atob(localStorage.getItem(Helpers.createProductStorageName(workspaceToken))));
+        return JSON.parse(
+            atob(
+                localStorage.getItem(
+                    Helpers.createProductStorageName(workspaceToken)
+                )
+            )
+        );
     },
     decoded = function decoded(s) {
         return decodeURIComponent(s.replace(pluses, ' '));
     },
-    converted = function (s) {
+    converted = function(s) {
         if (s.indexOf('"') === 0) {
-            s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+            s = s
+                .slice(1, -1)
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\');
         }
 
         return s;
@@ -45,8 +56,12 @@ var server = new MockHttpServer(),
         for (i = hostname.length - 1; i >= 0; i--) {
             testParts = hostname.slice(i).join('.');
             doc.cookie = mpTest + ';domain=.' + testParts + ';';
-            if (doc.cookie.indexOf(mpTest) > -1){
-                doc.cookie = mpTest.split('=')[0] + '=;domain=.' + testParts + ';expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+            if (doc.cookie.indexOf(mpTest) > -1) {
+                doc.cookie =
+                    mpTest.split('=')[0] +
+                    '=;domain=.' +
+                    testParts +
+                    ';expires=Thu, 01 Jan 1970 00:00:01 GMT;';
                 return testParts;
             }
         }
@@ -57,7 +72,11 @@ var server = new MockHttpServer(),
         if (cookieName === v4CookieKey || !cookieName) {
             cookie = mParticle.persistence.getCookie();
         } else if (cookieName === v3CookieKey) {
-            cookie = JSON.parse(mParticle.persistence.replacePipesWithCommas(findEncodedCookie(cookieName)));
+            cookie = JSON.parse(
+                mParticle.persistence.replacePipesWithCommas(
+                    findEncodedCookie(cookieName)
+                )
+            );
         } else {
             cookie = JSON.parse(findEncodedCookie(cookieName));
         }
@@ -74,15 +93,19 @@ var server = new MockHttpServer(),
             var name = decoded(parts.shift());
             var cookie = decoded(parts.join('='));
             if (cookieName === name) {
-                return mParticle.persistence.replacePipesWithCommas(converted(cookie));
+                return mParticle.persistence.replacePipesWithCommas(
+                    converted(cookie)
+                );
             }
         }
     },
     setCookie = function(cname, data, raw) {
         var date = new Date(),
-            expires = new Date(date.getTime() +
-            (365 * 24 * 60 * 60 * 1000)).toGMTString(),
-            domain, cookieDomain,
+            expires = new Date(
+                date.getTime() + 365 * 24 * 60 * 60 * 1000
+            ).toGMTString(),
+            domain,
+            cookieDomain,
             value;
         if (cname === v4CookieKey || cname === workspaceCookieName) {
             value = mParticle.persistence.replaceCommasWithPipes(data);
@@ -105,9 +128,13 @@ var server = new MockHttpServer(),
         }
 
         window.document.cookie =
-            encodeURIComponent(cname) + '=' + value +
-            ';expires=' + expires +
-            ';path=/' + domain;
+            encodeURIComponent(cname) +
+            '=' +
+            value +
+            ';expires=' +
+            expires +
+            ';path=/' +
+            domain;
     },
     setLocalStorage = function(name, data, raw) {
         var value;
@@ -123,20 +150,24 @@ var server = new MockHttpServer(),
                     ie: 1,
                     les: new Date().getTime(),
                     sid: '826ECC8F-9FCC-49C2-A3D3-4FC4F21D052C',
-                    ssd: new Date().getTime()
+                    ssd: new Date().getTime(),
                 },
                 l: false,
                 testMPID: {
-                    ua: btoa(JSON.stringify({color: 'blue'})),
-                    ui: btoa(JSON.stringify({1: 'testuser@mparticle.com'})),
-                    csd: btoa(JSON.stringify({5: 500}))
-                }
+                    ua: btoa(JSON.stringify({ color: 'blue' })),
+                    ui: btoa(JSON.stringify({ 1: 'testuser@mparticle.com' })),
+                    csd: btoa(JSON.stringify({ 5: 500 })),
+                },
             };
-            value = mParticle.persistence.createCookieString(JSON.stringify(data));
+            value = mParticle.persistence.createCookieString(
+                JSON.stringify(data)
+            );
             name = workspaceCookieName;
         } else {
             if (name === v4LSKey) {
-                value = mParticle.persistence.createCookieString(JSON.stringify(data));
+                value = mParticle.persistence.createCookieString(
+                    JSON.stringify(data)
+                );
             }
 
             if (raw) {
@@ -152,7 +183,10 @@ var server = new MockHttpServer(),
         }
     },
     getEvent = function(eventName, isForwarding, server) {
-        var requests = getRequests(isForwarding ? 'Forwarding' : 'Events', server),
+        var requests = getRequests(
+                isForwarding ? 'Forwarding' : 'Events',
+                server
+            ),
             matchedEvent = null,
             data;
         requests.forEach(function(item) {
@@ -171,8 +205,10 @@ var server = new MockHttpServer(),
     getForwarderEvent = function(eventName) {
         var requests = [];
         if (getForwarderRequests().length) {
-            getForwarderRequests().forEach(function(request){
-                JSON.parse(request.requestText).data.forEach(function(internalRequest){
+            getForwarderRequests().forEach(function(request) {
+                JSON.parse(request.requestText).data.forEach(function(
+                    internalRequest
+                ) {
                     if (internalRequest.n === eventName) {
                         requests.push(internalRequest);
                     }
@@ -186,10 +222,10 @@ var server = new MockHttpServer(),
             return null;
         }
     },
-    getRequests = function (path, mockServer) {
+    getRequests = function(path, mockServer) {
         var requests = [];
         var version = path === 'Forwarding' ? 'v1' : 'v2',
-            fullPath = '/' + version+ '/JS/' + apiKey + '/' + path;
+            fullPath = '/' + version + '/JS/' + apiKey + '/' + path;
         mockServer = mockServer || server;
         mockServer.requests.forEach(function(item) {
             if (item.urlParts) {
@@ -208,7 +244,7 @@ var server = new MockHttpServer(),
     getForwarderRequests = function() {
         var requests = [];
         var version = 'v2',
-            fullPath = '/' + version+ '/JS/' + apiKey + '/' + 'Forwarding';
+            fullPath = '/' + version + '/JS/' + apiKey + '/' + 'Forwarding';
 
         server.requests.forEach(function(item) {
             if (item.urlParts.path == fullPath) {
@@ -253,7 +289,7 @@ var server = new MockHttpServer(),
         OptOut: 6,
         AppStateTransition: 10,
         Profile: 14,
-        Commerce: 16
+        Commerce: 16,
     },
     ProductActionType = {
         Unknown: 0,
@@ -266,12 +302,12 @@ var server = new MockHttpServer(),
         Purchase: 7,
         Refund: 8,
         AddToWishlist: 9,
-        RemoveFromWishlist: 10
+        RemoveFromWishlist: 10,
     },
     PromotionActionType = {
         Unknown: 0,
         PromotionView: 1,
-        PromotionClick: 2
+        PromotionClick: 2,
     },
     CommerceEventType = {
         ProductAddToCart: 10,
@@ -286,9 +322,13 @@ var server = new MockHttpServer(),
         PromotionClick: 19,
         ProductAddToWishlist: 20,
         ProductRemoveFromWishlist: 21,
-        ProductImpression: 22
+        ProductImpression: 22,
     },
-    forwarderDefaultConfiguration = function (forwarderName, forwarderId, filteringEventAttributeRule) {
+    forwarderDefaultConfiguration = function(
+        forwarderName,
+        forwarderId,
+        filteringEventAttributeRule
+    ) {
         var config = {
             name: forwarderName || 'MockForwarder',
             settings: {},
@@ -306,13 +346,13 @@ var server = new MockHttpServer(),
             isDebug: false,
             HasDebugString: 'false',
             isVisible: true,
-            filteringEventAttributeRule: filteringEventAttributeRule
+            filteringEventAttributeRule: filteringEventAttributeRule,
         };
 
         return config;
     },
-    MockForwarder = function (forwarderName, forwarderId) {
-        var constructor = function () {
+    MockForwarder = function(forwarderName, forwarderId) {
+        var constructor = function() {
             var self = this;
 
             this.id = forwarderId || 1;
@@ -338,11 +378,20 @@ var server = new MockHttpServer(),
             this.appVersion = null;
             this.appName = null;
 
-            this.logOut = function () {
+            this.logOut = function() {
                 this.logOutCalled = true;
             };
 
-            this.init = function (settings, reportingService, testMode, id, userAttributes, userIdentities, appVersion, appName) {
+            this.init = function(
+                settings,
+                reportingService,
+                testMode,
+                id,
+                userAttributes,
+                userIdentities,
+                appVersion,
+                appName
+            ) {
                 self.reportingService = reportingService;
                 self.initCalled = true;
 
@@ -355,78 +404,78 @@ var server = new MockHttpServer(),
                 self.appName = appName;
             };
 
-            this.process = function (event) {
+            this.process = function(event) {
                 self.processCalled = true;
                 this.receivedEvent = event;
                 self.reportingService(self, event);
             };
 
-            this.setUserIdentity = function (a, b) {
+            this.setUserIdentity = function(a, b) {
                 this.userIdentities = {};
                 this.userIdentities[b] = a;
                 self.setUserIdentityCalled = true;
             };
 
             this.settings = {
-                PriorityValue: 1
+                PriorityValue: 1,
             };
 
-            this.setOptOut = function () {
+            this.setOptOut = function() {
                 this.setOptOutCalled = true;
             };
 
-            this.onUserIdentified = function (user) {
+            this.onUserIdentified = function(user) {
                 this.onUserIdentifiedCalled = true;
                 this.onUserIdentifiedUser = user;
             };
 
-            this.onIdentifyComplete = function (user) {
+            this.onIdentifyComplete = function(user) {
                 this.onIdentifyCompleteCalled = true;
                 this.onIdentifyCompleteUser = user;
             };
 
-            this.onLoginComplete = function (user) {
+            this.onLoginComplete = function(user) {
                 this.onLoginCompleteCalled = true;
                 this.onLoginCompleteUser = user;
             };
 
-            this.onLogoutComplete = function (user) {
+            this.onLogoutComplete = function(user) {
                 this.onLogoutCompleteCalled = true;
                 this.onLogoutCompleteUser = user;
             };
 
-            this.onModifyComplete = function (user) {
+            this.onModifyComplete = function(user) {
                 this.onModifyCompleteCalled = true;
                 this.onModifyCompleteUser = user;
             };
 
-            this.setUserAttribute = function (key, value) {
+            this.setUserAttribute = function(key, value) {
                 this.setUserAttributeCalled = true;
                 this.userAttributes[key] = value;
             };
 
-            this.removeUserAttribute = function () {
+            this.removeUserAttribute = function() {
                 this.removeUserAttributeCalled = true;
             };
 
             window[this.name + this.id] = {
-                instance: this
+                instance: this,
             };
         };
 
         this.name = forwarderName || 'MockForwarder';
         this.moduleId = forwarderId || 1;
         this.constructor = constructor;
-        
+
         function register(config) {
             if (!config.kits) {
                 config.kits = {};
             }
             config.kits[this.name] = {
-                constructor: constructor
+                constructor: constructor,
             };
         }
-        function getId () {
+        function getId() {
             return forwarderId || 1;
         }
 
@@ -434,7 +483,7 @@ var server = new MockHttpServer(),
             register: register,
             getId: getId,
             constructor: constructor,
-            name: this.name
+            name: this.name,
         };
     },
     mParticleAndroid = function() {
@@ -521,7 +570,6 @@ var server = new MockHttpServer(),
             self.aliasUsers = item;
         };
     },
-
     mParticleIOS = function() {
         var self = this;
         this.data = [];
@@ -562,7 +610,7 @@ var TestsCore = {
     workspaceCookieName: workspaceCookieName,
     forwarderDefaultConfiguration: forwarderDefaultConfiguration,
     MPConfig: MPConfig,
-    server: server
+    server: server,
 };
 
 export default TestsCore;

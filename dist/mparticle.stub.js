@@ -41,11 +41,11 @@ var mParticle = (function () {
             logPurchase: voidFunction,
             logRefund: voidFunction,
             setCurrencyCode: voidFunction,
-            Cart: new Cart()
+            Cart: new Cart(),
         },
         Consent: {
             createConsentState: createConsentState,
-            createGDPRConsent: returnGDPRConsent
+            createGDPRConsent: returnGDPRConsent,
         },
         Identity: {
             aliasUsers: voidFunction,
@@ -56,19 +56,25 @@ var mParticle = (function () {
             identify: voidFunction,
             login: voidFunction,
             logout: voidFunction,
-            modify: voidFunction
-        }
+            modify: voidFunction,
+        },
     };
 
     function voidFunction() {}
-    function returnString() { return ''; }
-    function returnObject() { return {}; }
-    function returnThis() { return this; }
+    function returnString() {
+        return '';
+    }
+    function returnObject() {
+        return {};
+    }
+    function returnThis() {
+        return this;
+    }
     function returnUser() {
         return {
-            getUserIdentities: function () {
+            getUserIdentities: function() {
                 return {
-                    userIdentities: {}
+                    userIdentities: {},
                 };
             },
             getMPID: returnString,
@@ -83,7 +89,7 @@ var mParticle = (function () {
             getAllUserAttributes: returnObject,
             getCart: Cart,
             getConsentState: createConsentState,
-            setConsentState: voidFunction
+            setConsentState: voidFunction,
         };
     }
 
@@ -98,14 +104,14 @@ var mParticle = (function () {
             remove: voidFunction,
             getCartProducts: function() {
                 return [returnProduct()];
-            }
+            },
         };
     }
 
     function returnImpression() {
         return {
             Name: 'name',
-            Product: returnProduct()
+            Product: returnProduct(),
         };
     }
 
@@ -121,7 +127,7 @@ var mParticle = (function () {
             Position: 'position',
             CouponCode: 'couponCode',
             TotalAmount: 0,
-            Attributes: {}
+            Attributes: {},
         };
     }
 
@@ -130,7 +136,7 @@ var mParticle = (function () {
             Id: 'id',
             Creative: 'creative',
             Name: 'name',
-            Position: 0
+            Position: 0,
         };
     }
 
@@ -141,7 +147,7 @@ var mParticle = (function () {
             CouponCode: 'couponCode',
             Revenue: 0,
             Shipping: 'shipping',
-            Tax: 0
+            Tax: 0,
         };
     }
 
@@ -151,7 +157,7 @@ var mParticle = (function () {
             Consented: false,
             HardwareId: 'id',
             Location: 'location',
-            Timestamp: 1568648478988
+            Timestamp: 1568648478988,
         };
     }
 
@@ -159,8 +165,8 @@ var mParticle = (function () {
         return {
             sourceMpid: 'a',
             destinationMpid: 'b',
-            startTime: (new Date()).getTime(),
-            endTime: (new Date()).getTime()
+            startTime: new Date().getTime(),
+            endTime: new Date().getTime(),
         };
     }
 
@@ -169,7 +175,7 @@ var mParticle = (function () {
             addGDPRConsentState: returnThis,
             setGDPRConsentState: returnThis,
             getGDPRConsentState: returnGDPRConsent,
-            removeGDPRConsentState: returnThis
+            removeGDPRConsentState: returnThis,
         };
     }
 

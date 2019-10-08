@@ -7,16 +7,29 @@ var cookieSyncManager = {
     attemptCookieSync: function(previousMPID, mpid) {
         var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
         if (mpid && !mParticle.Store.webviewBridgeEnabled) {
-            mParticle.Store.pixelConfigurations.forEach(function(pixelSettings) {
+            mParticle.Store.pixelConfigurations.forEach(function(
+                pixelSettings
+            ) {
                 pixelConfig = {
                     moduleId: pixelSettings.moduleId,
                     frequencyCap: pixelSettings.frequencyCap,
-                    pixelUrl: cookieSyncManager.replaceAmp(pixelSettings.pixelUrl),
-                    redirectUrl: pixelSettings.redirectUrl ? cookieSyncManager.replaceAmp(pixelSettings.redirectUrl) : null
+                    pixelUrl: cookieSyncManager.replaceAmp(
+                        pixelSettings.pixelUrl
+                    ),
+                    redirectUrl: pixelSettings.redirectUrl
+                        ? cookieSyncManager.replaceAmp(
+                              pixelSettings.redirectUrl
+                          )
+                        : null,
                 };
 
                 url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
-                redirect = pixelConfig.redirectUrl ? cookieSyncManager.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
+                redirect = pixelConfig.redirectUrl
+                    ? cookieSyncManager.replaceMPID(
+                          pixelConfig.redirectUrl,
+                          mpid
+                      )
+                    : '';
                 urlWithRedirect = url + encodeURIComponent(redirect);
                 var cookies = Persistence.getPersistence();
 
@@ -25,7 +38,12 @@ var cookieSyncManager = {
                         if (!cookies[mpid].csd) {
                             cookies[mpid].csd = {};
                         }
-                        performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
+                        performCookieSync(
+                            urlWithRedirect,
+                            pixelConfig.moduleId,
+                            mpid,
+                            cookies[mpid].csd
+                        );
                     }
                     return;
                 } else {
@@ -33,15 +51,37 @@ var cookieSyncManager = {
                         if (!cookies[mpid].csd) {
                             cookies[mpid].csd = {};
                         }
-                        lastSyncDateForModule = cookies[mpid].csd[(pixelConfig.moduleId).toString()] ? cookies[mpid].csd[(pixelConfig.moduleId).toString()] : null;
+                        lastSyncDateForModule = cookies[mpid].csd[
+                            pixelConfig.moduleId.toString()
+                        ]
+                            ? cookies[mpid].csd[pixelConfig.moduleId.toString()]
+                            : null;
 
                         if (lastSyncDateForModule) {
                             // Check to see if we need to refresh cookieSync
-                            if ((new Date()).getTime() > (new Date(lastSyncDateForModule).getTime() + (pixelConfig.frequencyCap * 60 * 1000 * 60 * 24))) {
-                                performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
+                            if (
+                                new Date().getTime() >
+                                new Date(lastSyncDateForModule).getTime() +
+                                    pixelConfig.frequencyCap *
+                                        60 *
+                                        1000 *
+                                        60 *
+                                        24
+                            ) {
+                                performCookieSync(
+                                    urlWithRedirect,
+                                    pixelConfig.moduleId,
+                                    mpid,
+                                    cookies[mpid].csd
+                                );
                             }
                         } else {
-                            performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, cookies[mpid].csd);
+                            performCookieSync(
+                                urlWithRedirect,
+                                pixelConfig.moduleId,
+                                mpid,
+                                cookies[mpid].csd
+                            );
                         }
                     }
                 }
@@ -55,7 +95,7 @@ var cookieSyncManager = {
 
     replaceAmp: function(string) {
         return string.replace(/&amp;/g, '&');
-    }
+    },
 };
 
 function performCookieSync(url, moduleId, mpid, cookieSyncDates) {
@@ -64,7 +104,7 @@ function performCookieSync(url, moduleId, mpid, cookieSyncDates) {
     mParticle.Logger.verbose(Messages.InformationMessages.CookieSync);
 
     img.src = url;
-    cookieSyncDates[moduleId.toString()] = (new Date()).getTime();
+    cookieSyncDates[moduleId.toString()] = new Date().getTime();
     Persistence.saveUserCookieSyncDatesToCookies(mpid, cookieSyncDates);
 }
 

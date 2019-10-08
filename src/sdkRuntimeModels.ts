@@ -3,8 +3,8 @@ export interface SDKEvent {
     IsFirstRun: boolean;
     EventName: string;
     EventCategory: number;
-    UserAttributes?: { [key: string]: string | string[] | null};
-    UserIdentities?: SDKUserIdentity [];
+    UserAttributes?: { [key: string]: string | string[] | null };
+    UserIdentities?: SDKUserIdentity[];
     MPID: string;
     EventAttributes?: { [key: string]: string };
     SDKVersion: string;
@@ -29,11 +29,11 @@ export interface SDKEvent {
 }
 
 export interface SDKUserIdentity {
-    Identity?: string,
-    Type: number
+    Identity?: string;
+    Type: number;
 }
 export interface SDKShoppingCart {
-    ProductList?: SDKProduct[]
+    ProductList?: SDKProduct[];
 }
 export interface SDKPromotionAction {
     PromotionActionType: string;
@@ -41,15 +41,15 @@ export interface SDKPromotionAction {
 }
 
 export interface SDKPromotion {
-    Id?: string,
-    Name?: string,
-    Creative?: string,
-    Position?: string
+    Id?: string;
+    Name?: string;
+    Creative?: string;
+    Position?: string;
 }
 
 export interface SDKProductImpression {
-    ProductImpressionList?: string,
-    ProductList?: SDKProduct[]
+    ProductImpressionList?: string;
+    ProductList?: SDKProduct[];
 }
 
 export enum SDKProductActionType {
@@ -63,33 +63,33 @@ export enum SDKProductActionType {
     Purchase = 7,
     Refund = 8,
     AddToWishlist = 9,
-    RemoveFromWishlist = 10
+    RemoveFromWishlist = 10,
 }
 
 export interface SDKProductAction {
-    ProductActionType: SDKProductActionType,
-    CheckoutStep?: number,
-    CheckoutOptions?: string,
-    ProductList?: SDKProduct[],
-    TransactionId?: string,
-    Affiliation?: string,
-    CouponCode?: string,
-    TotalAmount?: number,
-    ShippingAmount?: number,
-    TaxAmount?: number
+    ProductActionType: SDKProductActionType;
+    CheckoutStep?: number;
+    CheckoutOptions?: string;
+    ProductList?: SDKProduct[];
+    TransactionId?: string;
+    Affiliation?: string;
+    CouponCode?: string;
+    TotalAmount?: number;
+    ShippingAmount?: number;
+    TaxAmount?: number;
 }
 
 export interface SDKProduct {
-    Sku?: string,
-    Name?: string,
-    Price?: number,
-    Quantity?: number,
-    Brand?: string,
-    Variant?: string,
-    Category?: string,
-    Position?: number,
-    CouponCode?: string,
-    TotalAmount?: number,
+    Sku?: string;
+    Name?: string;
+    Price?: number;
+    Quantity?: number;
+    Brand?: string;
+    Variant?: string;
+    Category?: string;
+    Position?: number;
+    CouponCode?: string;
+    TotalAmount?: number;
     Attributes?: { [key: string]: string };
 }
 

@@ -5,7 +5,7 @@ let files = [
     'lib/geomock.js',
     '../node_modules/sinon-browser-only/sinon.js',
     '../dist/mparticle.js',
-    'test-bundle.js'
+    'test-bundle.js',
 ];
 
 let browsers = ['ChromeHeadless', 'FirefoxHeadless'];
@@ -16,9 +16,9 @@ if (DEBUG === 'true') {
     singleRun = false;
 }
 
-module.exports = function (config) {
+module.exports = function(config) {
     config.set({
-        frameworks: ['mocha', 'should' ],
+        frameworks: ['mocha', 'should'],
         files,
         reporters: ['progress', 'junit'],
         colors: true,
@@ -28,20 +28,20 @@ module.exports = function (config) {
         debug: true,
         logLevel: config.LOG_INFO,
         browserConsoleLogOptions: {
-            terminal: false
+            terminal: false,
         },
         client: {
-            captureConsole: false
+            captureConsole: false,
         },
         customLaunchers: {
             FirefoxHeadless: {
                 base: 'Firefox',
-                flags: ['-headless']
-            }
+                flags: ['-headless'],
+            },
         },
         junitReporter: {
             outputDir: 'reports/',
-            outputFile: 'test-karma.xml'
-        }
+            outputFile: 'test-karma.xml',
+        },
     });
 };

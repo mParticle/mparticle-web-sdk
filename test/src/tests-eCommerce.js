@@ -15,7 +15,12 @@ var apiKey = TestsCore.apiKey,
 
 describe('eCommerce', function() {
     it('should create ecommerce product', function(done) {
-        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2);
+        var product = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            400,
+            2
+        );
 
         product.should.have.property('Name', 'iPhone');
         product.should.have.property('Sku', '12345');
@@ -26,15 +31,20 @@ describe('eCommerce', function() {
     });
 
     it('should create transaction attributes', function(done) {
-        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
+        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            '12345',
             'test-affiliation',
             'coupon-code',
             44334,
             600,
-            200);
+            200
+        );
 
         transactionAttributes.should.have.property('Id', '12345');
-        transactionAttributes.should.have.property('Affiliation', 'test-affiliation');
+        transactionAttributes.should.have.property(
+            'Affiliation',
+            'test-affiliation'
+        );
         transactionAttributes.should.have.property('CouponCode', 'coupon-code');
         transactionAttributes.should.have.property('Revenue', 44334);
         transactionAttributes.should.have.property('Shipping', 600);
@@ -44,7 +54,8 @@ describe('eCommerce', function() {
     });
 
     it('should log ecommerce event', function(done) {
-        var product = mParticle.eCommerce.createProduct('iPhone',
+        var product = mParticle.eCommerce.createProduct(
+                'iPhone',
                 '12345',
                 '400',
                 2,
@@ -55,12 +66,14 @@ describe('eCommerce', function() {
                 'my-coupon-code',
                 { customkey: 'customvalue' }
             ),
-            transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                '12345',
                 'test-affiliation',
                 'coupon-code',
                 44334,
                 600,
-                200);
+                200
+            );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
         var data = getEvent('eCommerce - Purchase');
@@ -93,7 +106,8 @@ describe('eCommerce', function() {
     });
 
     it('should log badly formed ecommerce event', function(done) {
-        var product = mParticle.eCommerce.createProduct('iPhone',
+        var product = mParticle.eCommerce.createProduct(
+                'iPhone',
                 '12345',
                 Infinity,
                 '2-foo',
@@ -104,12 +118,14 @@ describe('eCommerce', function() {
                 'my-coupon-code',
                 { customkey: 'customvalue' }
             ),
-            transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                '12345',
                 'test-affiliation',
                 'coupon-code',
                 '44334-foo',
                 '600-foo',
-                '200-foo');
+                '200-foo'
+            );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
         var data = getEvent('eCommerce - Purchase');
@@ -144,9 +160,14 @@ describe('eCommerce', function() {
     it('logPurchase should support array of products', function(done) {
         var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1),
-            transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345');
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                '12345'
+            );
 
-        mParticle.eCommerce.logPurchase(transactionAttributes, [product1, product2]);
+        mParticle.eCommerce.logPurchase(transactionAttributes, [
+            product1,
+            product2,
+        ]);
         var data = getEvent('eCommerce - Purchase');
 
         data.should.have.property('pd');
@@ -160,9 +181,14 @@ describe('eCommerce', function() {
     it('logRefund should support array of products', function(done) {
         var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1),
-            transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345');
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                '12345'
+            );
 
-        mParticle.eCommerce.logRefund(transactionAttributes, [product1, product2]);
+        mParticle.eCommerce.logRefund(transactionAttributes, [
+            product1,
+            product2,
+        ]);
         var data = getEvent('eCommerce - Refund');
 
         data.should.have.property('pd');
@@ -175,7 +201,12 @@ describe('eCommerce', function() {
     });
 
     it('should create promotion', function(done) {
-        var promotion = mParticle.eCommerce.createPromotion('12345', 'my-creative', 'creative-name', 1);
+        var promotion = mParticle.eCommerce.createPromotion(
+            '12345',
+            'my-creative',
+            'creative-name',
+            1
+        );
 
         Should(promotion).be.ok();
 
@@ -188,9 +219,17 @@ describe('eCommerce', function() {
     });
 
     it('should log promotion click', function(done) {
-        var promotion = mParticle.eCommerce.createPromotion('12345', 'my-creative', 'creative-name', 1);
+        var promotion = mParticle.eCommerce.createPromotion(
+            '12345',
+            'my-creative',
+            'creative-name',
+            1
+        );
 
-        mParticle.eCommerce.logPromotion(mParticle.PromotionType.PromotionClick, promotion);
+        mParticle.eCommerce.logPromotion(
+            mParticle.PromotionType.PromotionClick,
+            promotion
+        );
 
         var event = getEvent('eCommerce - PromotionClick');
 
@@ -210,7 +249,10 @@ describe('eCommerce', function() {
 
     it('should create impression', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
-            impression = mParticle.eCommerce.createImpression('impression-name', product);
+            impression = mParticle.eCommerce.createImpression(
+                'impression-name',
+                product
+            );
 
         impression.should.have.property('Name', 'impression-name');
         impression.should.have.property('Product');
@@ -221,7 +263,10 @@ describe('eCommerce', function() {
 
     it('should log impression event', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
-            impression = mParticle.eCommerce.createImpression('impression-name', product);
+            impression = mParticle.eCommerce.createImpression(
+                'impression-name',
+                product
+            );
 
         mParticle.eCommerce.logImpression(impression);
 
@@ -239,9 +284,19 @@ describe('eCommerce', function() {
 
     it('should log multiple impression when an array of impressions is passed', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
-            impression = mParticle.eCommerce.createImpression('impression-name1', product),
-            product2 = mParticle.eCommerce.createProduct('Android', '23456', 200),
-            impression2 = mParticle.eCommerce.createImpression('impression-name2', product2);
+            impression = mParticle.eCommerce.createImpression(
+                'impression-name1',
+                product
+            ),
+            product2 = mParticle.eCommerce.createProduct(
+                'Android',
+                '23456',
+                200
+            ),
+            impression2 = mParticle.eCommerce.createImpression(
+                'impression-name2',
+                product2
+            );
 
         mParticle.eCommerce.logImpression([impression, impression2]);
 
@@ -260,7 +315,9 @@ describe('eCommerce', function() {
     });
 
     it('should log ecommerce refund', function(done) {
-        var transaction = mParticle.eCommerce.createTransactionAttributes('12345');
+        var transaction = mParticle.eCommerce.createTransactionAttributes(
+            '12345'
+        );
 
         mParticle.eCommerce.logRefund(transaction);
 
@@ -312,7 +369,11 @@ describe('eCommerce', function() {
         mParticle.eCommerce.Cart.add(product);
         var products1 = getLocalStorageProducts();
 
-        products1[testMPID].cp[0].should.have.properties(['Name', 'Sku', 'Price']);
+        products1[testMPID].cp[0].should.have.properties([
+            'Name',
+            'Sku',
+            'Price',
+        ]);
 
         mParticle.eCommerce.Cart.remove(product);
         var products2 = getLocalStorageProducts();
@@ -320,7 +381,11 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add(product);
         var products3 = getLocalStorageProducts();
-        products3[testMPID].cp[0].should.have.properties(['Name', 'Sku', 'Price']);
+        products3[testMPID].cp[0].should.have.properties([
+            'Name',
+            'Sku',
+            'Price',
+        ]);
 
         mParticle.eCommerce.Cart.clear();
         var products4 = getLocalStorageProducts();
@@ -334,15 +399,23 @@ describe('eCommerce', function() {
         mParticle.config.workspaceToken = workspaceToken;
         mParticle.init(apiKey, window.mParticle.config);
 
-        var product = mParticle.eCommerce.createProduct('Product', '12345', 400);
+        var product = mParticle.eCommerce.createProduct(
+            'Product',
+            '12345',
+            400
+        );
         for (var i = 0; i < mParticle.config.maxProducts; i++) {
             mParticle.eCommerce.Cart.add(product);
         }
 
-        mParticle.eCommerce.Cart.add(mParticle.eCommerce.createProduct('Product11', '12345', 400));
+        mParticle.eCommerce.Cart.add(
+            mParticle.eCommerce.createProduct('Product11', '12345', 400)
+        );
         var products1 = getLocalStorageProducts();
 
-        var foundProductInCookies = products1[testMPID].cp.filter(function(product) {
+        var foundProductInCookies = products1[testMPID].cp.filter(function(
+            product
+        ) {
             return product.Name === 'Product11';
         })[0];
 
@@ -382,13 +455,20 @@ describe('eCommerce', function() {
     it('should log checkout option', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
         server.requests = [];
-        mParticle.eCommerce.logProductAction(ProductActionType.CheckoutOption, product, {color: 'blue'});
+        mParticle.eCommerce.logProductAction(
+            ProductActionType.CheckoutOption,
+            product,
+            { color: 'blue' }
+        );
 
         var event = getEvent('eCommerce - CheckoutOption');
 
         Should(event).be.ok();
 
-        event.should.have.property('et', CommerceEventType.ProductCheckoutOption);
+        event.should.have.property(
+            'et',
+            CommerceEventType.ProductCheckoutOption
+        );
         event.should.have.property('pd');
 
         event.pd.should.have.property('an', ProductActionType.CheckoutOption);
@@ -399,7 +479,10 @@ describe('eCommerce', function() {
     it('should log product action', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
 
-        mParticle.eCommerce.logProductAction(ProductActionType.ViewDetail, product);
+        mParticle.eCommerce.logProductAction(
+            ProductActionType.ViewDetail,
+            product
+        );
 
         var event = getEvent('eCommerce - ViewDetail');
 
@@ -419,7 +502,7 @@ describe('eCommerce', function() {
         var product2 = mParticle.eCommerce.createProduct(undefined);
         var product3 = mParticle.eCommerce.createProduct(['product']);
         var product4 = mParticle.eCommerce.createProduct(123);
-        var product5 = mParticle.eCommerce.createProduct({key: 'value'});
+        var product5 = mParticle.eCommerce.createProduct({ key: 'value' });
 
         Should(product).not.be.ok();
         Should(product2).not.be.ok();
@@ -432,7 +515,9 @@ describe('eCommerce', function() {
 
     it('should fail to create product if sku not a string or a number', function(done) {
         var product = mParticle.eCommerce.createProduct('test', null);
-        var product2 = mParticle.eCommerce.createProduct('test', {key: 'value'});
+        var product2 = mParticle.eCommerce.createProduct('test', {
+            key: 'value',
+        });
         var product3 = mParticle.eCommerce.createProduct('test', []);
         var product4 = mParticle.eCommerce.createProduct('test', undefined);
 
@@ -475,19 +560,23 @@ describe('eCommerce', function() {
     });
 
     it('should set product position to 0 if null', function(done) {
-        var product = mParticle.eCommerce.createProduct('iPhone',
+        var product = mParticle.eCommerce.createProduct(
+                'iPhone',
                 '12345',
                 400,
                 2,
                 'Apple',
                 'Plus',
-                'Phones'),
-            transactionAttributes = mParticle.eCommerce.createTransactionAttributes('12345',
+                'Phones'
+            ),
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                '12345',
                 'test-affiliation',
                 'coupon-code',
                 44334,
                 600,
-                200);
+                200
+            );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
         var data = getEvent('eCommerce - Purchase');
@@ -501,8 +590,18 @@ describe('eCommerce', function() {
         mParticle.reset(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
-        var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2),
-            product2 = mParticle.eCommerce.createProduct('Nexus', '67890', 300, 1);
+        var product1 = mParticle.eCommerce.createProduct(
+                'iPhone',
+                '12345',
+                400,
+                2
+            ),
+            product2 = mParticle.eCommerce.createProduct(
+                'Nexus',
+                '67890',
+                300,
+                1
+            );
 
         mParticle.eCommerce.Cart.add([product1, product2], true);
 
@@ -527,7 +626,12 @@ describe('eCommerce', function() {
         mParticle.reset(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
-        var product1 = mParticle.eCommerce.createProduct('iPhone', '12345', 400, 2);
+        var product1 = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            400,
+            2
+        );
 
         mParticle.eCommerce.Cart.add(product1, true);
 
@@ -551,29 +655,60 @@ describe('eCommerce', function() {
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
-        
+
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.eCommerce.setCurrencyCode('foo-currency');
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
         var eventAttributes = {};
-        eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
+        eventAttributes['foo-event-attribute-key'] =
+            'foo-event-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name',
+        var product = mParticle.eCommerce.createProduct(
+            'Foo name',
             'Foo sku',
-            100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
+            100.0,
+            4,
+            'foo-variant',
+            'foo-category',
+            'foo-brand',
+            5,
+            'foo-productcouponcode',
+            productAttributes
+        );
 
-        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
-        mParticle.eCommerce.logPurchase(transactionAttributes, product, false, eventAttributes);
-        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
+        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            'foo-transaction-id',
+            'foo-affiliation',
+            'foo-couponcode',
+            400,
+            10,
+            8
+        );
+        mParticle.eCommerce.logPurchase(
+            transactionAttributes,
+            product,
+            false,
+            eventAttributes
+        );
+        window.MockForwarder1.instance.receivedEvent.should.have.property(
+            'ProductAction'
+        );
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(
+            window.MockForwarder1.instance.receivedEvent
+        );
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(2);
 
         var plusOneEvent = expandedEvents[0];
-        plusOneEvent.should.have.property('EventName', 'eCommerce - purchase - Total');
-        plusOneEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
+        plusOneEvent.should.have.property(
+            'EventName',
+            'eCommerce - purchase - Total'
+        );
+        plusOneEvent.should.have.property(
+            'EventCategory',
+            mParticle.EventType.Transaction
+        );
         var attributes = plusOneEvent.EventAttributes;
         attributes.should.have.property('Transaction Id', 'foo-transaction-id');
         attributes.should.have.property('Affiliation', 'foo-affiliation');
@@ -583,11 +718,20 @@ describe('eCommerce', function() {
         attributes.should.have.property('Product Count', 1);
         attributes.should.have.property('Tax Amount', 8);
         attributes.should.have.property('Currency Code', 'foo-currency');
-        attributes.should.have.property('foo-event-attribute-key', 'foo-event-attribute-value');
+        attributes.should.have.property(
+            'foo-event-attribute-key',
+            'foo-event-attribute-value'
+        );
 
         var productEvent = expandedEvents[1];
-        productEvent.should.have.property('EventName', 'eCommerce - purchase - Item');
-        productEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
+        productEvent.should.have.property(
+            'EventName',
+            'eCommerce - purchase - Item'
+        );
+        productEvent.should.have.property(
+            'EventCategory',
+            mParticle.EventType.Transaction
+        );
         attributes = productEvent.EventAttributes;
         attributes.should.not.have.property('Affiliation');
         attributes.should.not.have.property('Total Amount');
@@ -599,10 +743,13 @@ describe('eCommerce', function() {
         attributes.should.have.property('Category', 'foo-category');
         attributes.should.have.property('Name', 'Foo name');
         attributes.should.have.property('Id', 'Foo sku');
-        attributes.should.have.property('Item Price', 100.00);
+        attributes.should.have.property('Item Price', 100.0);
         attributes.should.have.property('Quantity', 4);
         attributes.should.have.property('Position', 5);
-        attributes.should.have.property('foo-attribute-key', 'foo-product-attribute-value');
+        attributes.should.have.property(
+            'foo-attribute-key',
+            'foo-product-attribute-value'
+        );
 
         done();
     });
@@ -620,26 +767,57 @@ describe('eCommerce', function() {
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
         var eventAttributes = {};
-        eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
+        eventAttributes['foo-event-attribute-key'] =
+            'foo-event-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name',
+        var product = mParticle.eCommerce.createProduct(
+            'Foo name',
             'Foo sku',
-            100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
+            100.0,
+            4,
+            'foo-variant',
+            'foo-category',
+            'foo-brand',
+            5,
+            'foo-productcouponcode',
+            productAttributes
+        );
 
-        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('foo-transaction-id', 'foo-affiliation', 'foo-couponcode', 400, 10, 8);
-        mParticle.eCommerce.logRefund(transactionAttributes, product, false, eventAttributes);
-        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
+        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            'foo-transaction-id',
+            'foo-affiliation',
+            'foo-couponcode',
+            400,
+            10,
+            8
+        );
+        mParticle.eCommerce.logRefund(
+            transactionAttributes,
+            product,
+            false,
+            eventAttributes
+        );
+        window.MockForwarder1.instance.receivedEvent.should.have.property(
+            'ProductAction'
+        );
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(
+            window.MockForwarder1.instance.receivedEvent
+        );
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(2);
 
         var plusOneEvent = expandedEvents[0];
-        plusOneEvent.should.have.property('EventName', 'eCommerce - refund - Total');
+        plusOneEvent.should.have.property(
+            'EventName',
+            'eCommerce - refund - Total'
+        );
         var attributes = plusOneEvent.EventAttributes;
         attributes.should.have.property('Product Count', 1);
 
         var productEvent = expandedEvents[1];
-        productEvent.should.have.property('EventName', 'eCommerce - refund - Item');
+        productEvent.should.have.property(
+            'EventName',
+            'eCommerce - refund - Item'
+        );
 
         done();
     });
@@ -656,21 +834,44 @@ describe('eCommerce', function() {
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
         var eventAttributes = {};
-        eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
+        eventAttributes['foo-event-attribute-key'] =
+            'foo-event-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name',
+        var product = mParticle.eCommerce.createProduct(
+            'Foo name',
             'Foo sku',
-            100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
+            100.0,
+            4,
+            'foo-variant',
+            'foo-category',
+            'foo-brand',
+            5,
+            'foo-productcouponcode',
+            productAttributes
+        );
 
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.RemoveFromWishlist, product, eventAttributes);
-        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.RemoveFromWishlist,
+            product,
+            eventAttributes
+        );
+        window.MockForwarder1.instance.receivedEvent.should.have.property(
+            'ProductAction'
+        );
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(
+            window.MockForwarder1.instance.receivedEvent
+        );
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var productEvent = expandedEvents[0];
-        productEvent.should.have.property('EventName', 'eCommerce - remove_from_wishlist - Item');
-        productEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
+        productEvent.should.have.property(
+            'EventName',
+            'eCommerce - remove_from_wishlist - Item'
+        );
+        productEvent.should.have.property(
+            'EventCategory',
+            mParticle.EventType.Transaction
+        );
         var attributes = productEvent.EventAttributes;
 
         attributes.should.have.property('Coupon Code', 'foo-productcouponcode');
@@ -678,10 +879,13 @@ describe('eCommerce', function() {
         attributes.should.have.property('Category', 'foo-category');
         attributes.should.have.property('Name', 'Foo name');
         attributes.should.have.property('Id', 'Foo sku');
-        attributes.should.have.property('Item Price', 100.00);
+        attributes.should.have.property('Item Price', 100.0);
         attributes.should.have.property('Quantity', 4);
         attributes.should.have.property('Position', 5);
-        attributes.should.have.property('foo-attribute-key', 'foo-product-attribute-value');
+        attributes.should.have.property(
+            'foo-attribute-key',
+            'foo-product-attribute-value'
+        );
 
         done();
     });
@@ -696,25 +900,48 @@ describe('eCommerce', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         var eventAttributes = {};
-        eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
+        eventAttributes['foo-event-attribute-key'] =
+            'foo-event-attribute-value';
 
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name',
+        var product = mParticle.eCommerce.createProduct(
+            'Foo name',
             'Foo sku',
-            100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
+            100.0,
+            4,
+            'foo-variant',
+            'foo-category',
+            'foo-brand',
+            5,
+            'foo-productcouponcode',
+            productAttributes
+        );
 
         mParticle.eCommerce.Cart.add(product, true);
-        mParticle.eCommerce.logCheckout('foo-step', 'foo-options', eventAttributes);
-        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
+        mParticle.eCommerce.logCheckout(
+            'foo-step',
+            'foo-options',
+            eventAttributes
+        );
+        window.MockForwarder1.instance.receivedEvent.should.have.property(
+            'ProductAction'
+        );
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(
+            window.MockForwarder1.instance.receivedEvent
+        );
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var productEvent = expandedEvents[0];
-        productEvent.should.have.property('EventName', 'eCommerce - checkout - Item');
-        productEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
+        productEvent.should.have.property(
+            'EventName',
+            'eCommerce - checkout - Item'
+        );
+        productEvent.should.have.property(
+            'EventCategory',
+            mParticle.EventType.Transaction
+        );
         var attributes = productEvent.EventAttributes;
 
         attributes.should.have.property('Checkout Step', 'foo-step');
@@ -724,10 +951,13 @@ describe('eCommerce', function() {
         attributes.should.have.property('Category', 'foo-category');
         attributes.should.have.property('Name', 'Foo name');
         attributes.should.have.property('Id', 'Foo sku');
-        attributes.should.have.property('Item Price', 100.00);
+        attributes.should.have.property('Item Price', 100.0);
         attributes.should.have.property('Quantity', 4);
         attributes.should.have.property('Position', 5);
-        attributes.should.have.property('foo-attribute-key', 'foo-product-attribute-value');
+        attributes.should.have.property(
+            'foo-attribute-key',
+            'foo-product-attribute-value'
+        );
 
         done();
     });
@@ -738,32 +968,54 @@ describe('eCommerce', function() {
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
-        
+
         mParticle.init(apiKey, window.mParticle.config);
 
         var eventAttributes = {};
-        eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
+        eventAttributes['foo-event-attribute-key'] =
+            'foo-event-attribute-value';
 
-        var promotion = mParticle.eCommerce.createPromotion('foo-id', 'foo-creative', 'foo-name', 5);
-        mParticle.eCommerce.logPromotion(mParticle.PromotionType.PromotionClick, promotion, eventAttributes);
-        window.MockForwarder1.instance.receivedEvent.should.have.property('PromotionAction');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
+        var promotion = mParticle.eCommerce.createPromotion(
+            'foo-id',
+            'foo-creative',
+            'foo-name',
+            5
+        );
+        mParticle.eCommerce.logPromotion(
+            mParticle.PromotionType.PromotionClick,
+            promotion,
+            eventAttributes
+        );
+        window.MockForwarder1.instance.receivedEvent.should.have.property(
+            'PromotionAction'
+        );
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(
+            window.MockForwarder1.instance.receivedEvent
+        );
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var promotionEvent = expandedEvents[0];
-        promotionEvent.should.have.property('EventName', 'eCommerce - click - Item');
-        promotionEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
+        promotionEvent.should.have.property(
+            'EventName',
+            'eCommerce - click - Item'
+        );
+        promotionEvent.should.have.property(
+            'EventCategory',
+            mParticle.EventType.Transaction
+        );
         var attributes = promotionEvent.EventAttributes;
 
         attributes.should.have.property('Id', 'foo-id');
         attributes.should.have.property('Creative', 'foo-creative');
         attributes.should.have.property('Name', 'foo-name');
         attributes.should.have.property('Position', 5);
-        attributes.should.have.property('foo-event-attribute-key', 'foo-event-attribute-value');
+        attributes.should.have.property(
+            'foo-event-attribute-key',
+            'foo-event-attribute-value'
+        );
 
         done();
     });
-
 
     it('expand null commerce event', function(done) {
         var expandedEvents = mParticle.eCommerce.expandCommerceEvent(null);
@@ -778,50 +1030,81 @@ describe('eCommerce', function() {
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
-        
+
         mParticle.init(apiKey, window.mParticle.config);
 
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
 
         var eventAttributes = {};
-        eventAttributes['foo-event-attribute-key'] = 'foo-event-attribute-value';
+        eventAttributes['foo-event-attribute-key'] =
+            'foo-event-attribute-value';
 
-        var product = mParticle.eCommerce.createProduct('Foo name',
+        var product = mParticle.eCommerce.createProduct(
+            'Foo name',
             'Foo sku',
-            100.00,
-            4, 'foo-variant', 'foo-category', 'foo-brand', 5, 'foo-productcouponcode', productAttributes);
+            100.0,
+            4,
+            'foo-variant',
+            'foo-category',
+            'foo-brand',
+            5,
+            'foo-productcouponcode',
+            productAttributes
+        );
 
-        var impression = mParticle.eCommerce.createImpression('suggested products list', product);
+        var impression = mParticle.eCommerce.createImpression(
+            'suggested products list',
+            product
+        );
 
         mParticle.eCommerce.logImpression(impression, eventAttributes);
-        window.MockForwarder1.instance.receivedEvent.should.have.property('ProductImpressions');
-        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(window.MockForwarder1.instance.receivedEvent);
+        window.MockForwarder1.instance.receivedEvent.should.have.property(
+            'ProductImpressions'
+        );
+        var expandedEvents = mParticle.eCommerce.expandCommerceEvent(
+            window.MockForwarder1.instance.receivedEvent
+        );
 
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var impressionEvent = expandedEvents[0];
-        impressionEvent.should.have.property('EventName', 'eCommerce - Impression - Item');
-        impressionEvent.should.have.property('EventCategory', mParticle.EventType.Transaction);
+        impressionEvent.should.have.property(
+            'EventName',
+            'eCommerce - Impression - Item'
+        );
+        impressionEvent.should.have.property(
+            'EventCategory',
+            mParticle.EventType.Transaction
+        );
         var attributes = impressionEvent.EventAttributes;
 
-        attributes.should.have.property('Product Impression List', 'suggested products list');
+        attributes.should.have.property(
+            'Product Impression List',
+            'suggested products list'
+        );
         attributes.should.have.property('Coupon Code', 'foo-productcouponcode');
         attributes.should.have.property('Brand', 'foo-brand');
         attributes.should.have.property('Category', 'foo-category');
         attributes.should.have.property('Name', 'Foo name');
         attributes.should.have.property('Id', 'Foo sku');
-        attributes.should.have.property('Item Price', 100.00);
+        attributes.should.have.property('Item Price', 100.0);
         attributes.should.have.property('Quantity', 4);
         attributes.should.have.property('Position', 5);
-        attributes.should.have.property('foo-attribute-key', 'foo-product-attribute-value');
-        attributes.should.have.property('foo-event-attribute-key', 'foo-event-attribute-value');
+        attributes.should.have.property(
+            'foo-attribute-key',
+            'foo-product-attribute-value'
+        );
+        attributes.should.have.property(
+            'foo-event-attribute-key',
+            'foo-event-attribute-value'
+        );
 
         done();
     });
 
     it('should add customFlags to logCheckout events', function(done) {
-        mParticle.eCommerce.logCheckout(1, {}, {}, {interactionEvent: true});
+        mParticle.eCommerce.logCheckout(1, {}, {}, { interactionEvent: true });
         var event = getEvent('eCommerce - Checkout');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
@@ -831,7 +1114,12 @@ describe('eCommerce', function() {
 
     it('should add customFlags to logProductAction events', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
-        mParticle.eCommerce.logProductAction(0, product, {price: 5}, {interactionEvent: true});
+        mParticle.eCommerce.logProductAction(
+            0,
+            product,
+            { price: 5 },
+            { interactionEvent: true }
+        );
 
         var event = getEvent('eCommerce - Unknown');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
@@ -842,8 +1130,18 @@ describe('eCommerce', function() {
 
     it('should add customFlags to logPurchase events', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
-        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('id1', 'affil1', 'couponCode1');
-        mParticle.eCommerce.logPurchase(transactionAttributes, product, true, {shipping: 5}, {interactionEvent: true});
+        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            'id1',
+            'affil1',
+            'couponCode1'
+        );
+        mParticle.eCommerce.logPurchase(
+            transactionAttributes,
+            product,
+            true,
+            { shipping: 5 },
+            { interactionEvent: true }
+        );
         var event = getEvent('eCommerce - Purchase');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
@@ -852,8 +1150,17 @@ describe('eCommerce', function() {
     });
 
     it('should add customFlags to logPromotion events', function(done) {
-        var promotion = mParticle.eCommerce.createPromotion('id', 'creative', 'name');
-        mParticle.eCommerce.logPromotion(0, promotion, {shipping: 5}, {interactionEvent: true});
+        var promotion = mParticle.eCommerce.createPromotion(
+            'id',
+            'creative',
+            'name'
+        );
+        mParticle.eCommerce.logPromotion(
+            0,
+            promotion,
+            { shipping: 5 },
+            { interactionEvent: true }
+        );
         var event = getEvent('eCommerce - Unknown');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
@@ -863,8 +1170,15 @@ describe('eCommerce', function() {
 
     it('should add customFlags to logImpression events', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
-        var impression = mParticle.eCommerce.createImpression('iphoneImpressionName', product);
-        mParticle.eCommerce.logImpression(impression, {shipping: 5}, {interactionEvent: true});
+        var impression = mParticle.eCommerce.createImpression(
+            'iphoneImpressionName',
+            product
+        );
+        mParticle.eCommerce.logImpression(
+            impression,
+            { shipping: 5 },
+            { interactionEvent: true }
+        );
         var event = getEvent('eCommerce - Impression');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
@@ -874,8 +1188,18 @@ describe('eCommerce', function() {
 
     it('should add customFlags to logRefund events', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
-        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes('id1', 'affil1', 'couponCode1');
-        mParticle.eCommerce.logRefund(transactionAttributes, product, true, {shipping: 5}, {interactionEvent: true});
+        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            'id1',
+            'affil1',
+            'couponCode1'
+        );
+        mParticle.eCommerce.logRefund(
+            transactionAttributes,
+            product,
+            true,
+            { shipping: 5 },
+            { interactionEvent: true }
+        );
         var event = getEvent('eCommerce - Refund');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');

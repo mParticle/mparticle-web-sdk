@@ -6,10 +6,10 @@ import Polyfill from './polyfill';
 var StorageNames = Constants.StorageNames,
     Base64 = Polyfill.Base64,
     CookiesGlobalSettingsKeys = {
-        das: 1
+        das: 1,
     },
     MPIDKeys = {
-        ui: 1
+        ui: 1,
     };
 
 //  if there is a cookie or localStorage:
@@ -45,13 +45,14 @@ function migrateCookies() {
         name,
         cookie;
 
-    mParticle.Logger.verbose(Constants.Messages.InformationMessages.CookieSearch);
+    mParticle.Logger.verbose(
+        Constants.Messages.InformationMessages.CookieSearch
+    );
 
     for (i = 0, l = cookies.length; i < l; i++) {
         parts = cookies[i].split('=');
         name = Helpers.decoded(parts.shift());
-        cookie = Helpers.decoded(parts.join('=')),
-        foundCookie;
+        (cookie = Helpers.decoded(parts.join('='))), foundCookie;
 
         //most recent version needs no migration
         if (name === mParticle.Store.storageName) {
@@ -64,7 +65,7 @@ function migrateCookies() {
                 migrateProductsToNameSpace();
             }
             return;
-        // migration path for SDKv1CookiesV3, doesn't need to be encoded
+            // migration path for SDKv1CookiesV3, doesn't need to be encoded
         }
         if (name === StorageNames.cookieNameV3) {
             foundCookie = convertSDKv1CookiesV3ToSDKv2CookiesV4(cookie);
@@ -80,8 +81,9 @@ function finishCookieMigration(cookie, cookieName) {
         expires,
         domain;
 
-    expires = new Date(date.getTime() +
-    (StorageNames.CookieExpiration * 24 * 60 * 60 * 1000)).toGMTString();
+    expires = new Date(
+        date.getTime() + StorageNames.CookieExpiration * 24 * 60 * 60 * 1000
+    ).toGMTString();
 
     if (cookieDomain === '') {
         domain = '';
@@ -92,24 +94,35 @@ function finishCookieMigration(cookie, cookieName) {
     mParticle.Logger.verbose(Constants.Messages.InformationMessages.CookieSet);
 
     window.document.cookie =
-    encodeURIComponent(mParticle.Store.storageName) + '=' + cookie +
-    ';expires=' + expires +
-    ';path=/' + domain;
+        encodeURIComponent(mParticle.Store.storageName) +
+        '=' +
+        cookie +
+        ';expires=' +
+        expires +
+        ';path=/' +
+        domain;
 
     Persistence.expireCookies(cookieName);
     mParticle.Store.migratingToIDSyncCookies = true;
 }
 
 function convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookiesV3) {
-    SDKv1CookiesV3 = Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(SDKv1CookiesV3));
+    SDKv1CookiesV3 = Persistence.replacePipesWithCommas(
+        Persistence.replaceApostrophesWithQuotes(SDKv1CookiesV3)
+    );
     var parsedSDKv1CookiesV3 = JSON.parse(SDKv1CookiesV3);
     var parsedCookiesV4 = JSON.parse(restructureToV4Cookie(SDKv1CookiesV3));
 
     if (parsedSDKv1CookiesV3.mpid) {
         parsedCookiesV4.gs.csm.push(parsedSDKv1CookiesV3.mpid);
         // all other values are already encoded, so we have to encode any new values
-        parsedCookiesV4.gs.csm = Base64.encode(JSON.stringify(parsedCookiesV4.gs.csm));
-        migrateProductsFromSDKv1ToSDKv2CookiesV4(parsedSDKv1CookiesV3, parsedSDKv1CookiesV3.mpid);
+        parsedCookiesV4.gs.csm = Base64.encode(
+            JSON.stringify(parsedCookiesV4.gs.csm)
+        );
+        migrateProductsFromSDKv1ToSDKv2CookiesV4(
+            parsedSDKv1CookiesV3,
+            parsedSDKv1CookiesV3.mpid
+        );
     }
 
     return JSON.stringify(parsedCookiesV4);
@@ -117,7 +130,7 @@ function convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookiesV3) {
 
 function restructureToV4Cookie(cookies) {
     try {
-        var cookiesV4Schema = { gs: {csm: []} };
+        var cookiesV4Schema = { gs: { csm: [] } };
         cookies = JSON.parse(cookies);
 
         for (var key in cookies) {
@@ -127,7 +140,8 @@ function restructureToV4Cookie(cookies) {
                 } else if (key === 'mpid') {
                     cookiesV4Schema.cu = cookies[key];
                 } else if (cookies.mpid) {
-                    cookiesV4Schema[cookies.mpid] = cookiesV4Schema[cookies.mpid] || {};
+                    cookiesV4Schema[cookies.mpid] =
+                        cookiesV4Schema[cookies.mpid] || {};
                     if (MPIDKeys[key]) {
                         cookiesV4Schema[cookies.mpid][key] = cookies[key];
                     }
@@ -135,9 +149,10 @@ function restructureToV4Cookie(cookies) {
             }
         }
         return JSON.stringify(cookiesV4Schema);
-    }
-    catch (e) {
-        mParticle.Logger.error('Failed to restructure previous cookie into most current cookie schema');
+    } catch (e) {
+        mParticle.Logger.error(
+            'Failed to restructure previous cookie into most current cookie schema'
+        );
     }
 }
 
@@ -157,9 +172,10 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
     localStorageProducts[mpid] = {};
     if (cookies.cp) {
         try {
-            localStorageProducts[mpid].cp = JSON.parse(Base64.decode(cookies.cp));
-        }
-        catch (e) {
+            localStorageProducts[mpid].cp = JSON.parse(
+                Base64.decode(cookies.cp)
+            );
+        } catch (e) {
             localStorageProducts[mpid].cp = cookies.cp;
         }
 
@@ -168,14 +184,19 @@ function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
         }
     }
 
-    localStorage.setItem(mParticle.Store.prodStorageName, Base64.encode(JSON.stringify(localStorageProducts)));
+    localStorage.setItem(
+        mParticle.Store.prodStorageName,
+        Base64.encode(JSON.stringify(localStorageProducts))
+    );
 }
 
 function migrateLocalStorage() {
     var cookies,
         v3LSName = StorageNames.localStorageNameV3,
         v4LSName = StorageNames.localStorageNameV4,
-        currentVersionLSData = window.localStorage.getItem(mParticle.Store.storageName),
+        currentVersionLSData = window.localStorage.getItem(
+            mParticle.Store.storageName
+        ),
         v4LSData,
         v3LSData,
         v3LSDataStringCopy;
@@ -195,14 +216,20 @@ function migrateLocalStorage() {
     if (v3LSData) {
         mParticle.Store.migratingToIDSyncCookies = true;
         v3LSDataStringCopy = v3LSData.slice();
-        v3LSData = JSON.parse(Persistence.replacePipesWithCommas(Persistence.replaceApostrophesWithQuotes(v3LSData)));
+        v3LSData = JSON.parse(
+            Persistence.replacePipesWithCommas(
+                Persistence.replaceApostrophesWithQuotes(v3LSData)
+            )
+        );
         // localStorage may contain only products, or the full persistence
         // when there is an MPID on the cookie, it is the full persistence
         if (v3LSData.mpid) {
-            v3LSData = JSON.parse(convertSDKv1CookiesV3ToSDKv2CookiesV4(v3LSDataStringCopy));
+            v3LSData = JSON.parse(
+                convertSDKv1CookiesV3ToSDKv2CookiesV4(v3LSDataStringCopy)
+            );
             finishLSMigration(JSON.stringify(v3LSData), v3LSName);
             return;
-        // if no MPID, it is only the products
+            // if no MPID, it is only the products
         } else if ((v3LSData.cp || v3LSData.pb) && !v3LSData.mpid) {
             cookies = Persistence.getCookie();
             if (cookies) {
@@ -218,9 +245,11 @@ function migrateLocalStorage() {
 
     function finishLSMigration(data, lsName) {
         try {
-            window.localStorage.setItem(encodeURIComponent(mParticle.Store.storageName), data);
-        }
-        catch (e) {
+            window.localStorage.setItem(
+                encodeURIComponent(mParticle.Store.storageName),
+                data
+            );
+        } catch (e) {
             mParticle.Logger.error('Error with setting localStorage item.');
         }
         window.localStorage.removeItem(encodeURIComponent(lsName));
@@ -229,5 +258,5 @@ function migrateLocalStorage() {
 
 export default {
     migrate: migrate,
-    convertSDKv1CookiesV3ToSDKv2CookiesV4: convertSDKv1CookiesV3ToSDKv2CookiesV4
+    convertSDKv1CookiesV3ToSDKv2CookiesV4: convertSDKv1CookiesV3ToSDKv2CookiesV4,
 };

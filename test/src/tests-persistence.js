@@ -8,7 +8,8 @@ var apiKey = TestsCore.apiKey,
     findCookie = TestsCore.findCookie,
     MPConfig = TestsCore.MPConfig,
     localStorageProductsV4 = TestsCore.localStorageProductsV4,
-    LocalStorageProductsV4WithWorkSpaceName = TestsCore.LocalStorageProductsV4WithWorkSpaceName,
+    LocalStorageProductsV4WithWorkSpaceName =
+        TestsCore.LocalStorageProductsV4WithWorkSpaceName,
     workspaceCookieName = TestsCore.workspaceCookieName,
     getLocalStorage = TestsCore.getLocalStorage,
     getLocalStorageProducts = TestsCore.getLocalStorageProducts,
@@ -29,12 +30,12 @@ describe('migrations and persistence-related', function() {
         var cookies = JSON.stringify({
             gs: {
                 sid: 'sid',
-                les: new Date().getTime()
+                les: new Date().getTime(),
             },
             testMPID: {
-                ui: {1: '123'}
+                ui: { 1: '123' },
             },
-            cu: testMPID
+            cu: testMPID,
         });
 
         setCookie(workspaceCookieName, cookies);
@@ -67,7 +68,10 @@ describe('migrations and persistence-related', function() {
 
         Should(localStorageData).not.be.ok();
         cookieData[testMPID].ua.should.have.property('gender', 'male');
-        cookieData[testMPID].ui.should.have.property('1', 'testuser@mparticle.com');
+        cookieData[testMPID].ui.should.have.property(
+            '1',
+            'testuser@mparticle.com'
+        );
 
         done();
     });
@@ -77,20 +81,52 @@ describe('migrations and persistence-related', function() {
         mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, window.mParticle.config);
         var cookies1 = mParticle.persistence.getLocalStorage();
-        var props1 = ['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'sid', 'c'];
+        var props1 = [
+            'ie',
+            'sa',
+            'ua',
+            'ui',
+            'ss',
+            'dt',
+            'les',
+            'av',
+            'cgid',
+            'das',
+            'csd',
+            'mpid',
+            'cp',
+            'sid',
+            'c',
+        ];
         props1.forEach(function(prop) {
             cookies1.should.not.have.property(prop);
         });
         cookies1.should.have.property('cu', testMPID, 'gs');
         cookies1.should.have.property(testMPID);
 
-        var props2 = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
+        var props2 = [
+            'ie',
+            'sa',
+            'ss',
+            'dt',
+            'les',
+            'av',
+            'cgid',
+            'das',
+            'sid',
+            'c',
+            'mpid',
+            'cp',
+        ];
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'otherMPID'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'otherMPID',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -113,19 +149,51 @@ describe('migrations and persistence-related', function() {
 
         var cookies1 = findCookie();
 
-        var props1 = ['ie', 'sa', 'ua', 'ui', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'csd', 'mpid', 'cp', 'sid', 'c'];
+        var props1 = [
+            'ie',
+            'sa',
+            'ua',
+            'ui',
+            'ss',
+            'dt',
+            'les',
+            'av',
+            'cgid',
+            'das',
+            'csd',
+            'mpid',
+            'cp',
+            'sid',
+            'c',
+        ];
         cookies1.should.have.property('cu', testMPID, 'gs');
         props1.forEach(function(prop) {
             cookies1.should.not.have.property(prop);
         });
 
-        var props2 = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
+        var props2 = [
+            'ie',
+            'sa',
+            'ss',
+            'dt',
+            'les',
+            'av',
+            'cgid',
+            'das',
+            'sid',
+            'c',
+            'mpid',
+            'cp',
+        ];
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'otherMPID'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'otherMPID',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -152,14 +220,26 @@ describe('migrations and persistence-related', function() {
 
         cookieData.should.have.properties(['gs', 'cu', testMPID]);
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
+        var props = [
+            'ie',
+            'sa',
+            'ss',
+            'dt',
+            'les',
+            'av',
+            'cgid',
+            'das',
+            'sid',
+            'c',
+            'mpid',
+            'cp',
+        ];
 
         props.forEach(function(prop) {
             cookieData[testMPID].should.not.have.property(prop);
         });
 
         Should(localStorageData).not.be.ok();
-
 
         done();
     });
@@ -175,7 +255,20 @@ describe('migrations and persistence-related', function() {
 
         localStorageData.should.have.properties(['gs', 'cu', testMPID]);
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
+        var props = [
+            'ie',
+            'sa',
+            'ss',
+            'dt',
+            'les',
+            'av',
+            'cgid',
+            'das',
+            'sid',
+            'c',
+            'mpid',
+            'cp',
+        ];
 
         props.forEach(function(prop) {
             localStorageData[testMPID].should.not.have.property(prop);
@@ -196,7 +289,20 @@ describe('migrations and persistence-related', function() {
         cookieData.should.have.properties(['gs', 'cu', testMPID]);
         localStorageData = mParticle.persistence.getLocalStorage();
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
+        var props = [
+            'ie',
+            'sa',
+            'ss',
+            'dt',
+            'les',
+            'av',
+            'cgid',
+            'das',
+            'sid',
+            'c',
+            'mpid',
+            'cp',
+        ];
         props.forEach(function(prop) {
             cookieData[testMPID].should.not.have.property(prop);
         });
@@ -217,7 +323,20 @@ describe('migrations and persistence-related', function() {
 
         localStorageData.should.have.properties(['gs', 'cu', testMPID]);
 
-        var props = ['ie', 'sa', 'ss', 'dt', 'les', 'av', 'cgid', 'das', 'sid', 'c', 'mpid', 'cp'];
+        var props = [
+            'ie',
+            'sa',
+            'ss',
+            'dt',
+            'les',
+            'av',
+            'cgid',
+            'das',
+            'sid',
+            'c',
+            'mpid',
+            'cp',
+        ];
         props.forEach(function(prop) {
             localStorageData[testMPID].should.not.have.property(prop);
         });
@@ -240,7 +359,9 @@ describe('migrations and persistence-related', function() {
         var cookieData = findCookie();
         cookieData[testMPID].ua.should.have.property('gender', 'male');
 
-        mParticle.persistence.determineLocalStorageAvailability = function() { return true; };
+        mParticle.persistence.determineLocalStorageAvailability = function() {
+            return true;
+        };
 
         done();
     });
@@ -250,18 +371,26 @@ describe('migrations and persistence-related', function() {
         mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-        mParticle.setIntegrationAttribute(128, {MCID: 'abcedfg'});
+        mParticle.setIntegrationAttribute(128, { MCID: 'abcedfg' });
         var data = getLocalStorage();
 
         data.cu.should.equal(testMPID);
-        data.gs.should.have.properties(['sid', 'ie', 'dt', 'cgid', 'das', 'les', 'ia']);
+        data.gs.should.have.properties([
+            'sid',
+            'ie',
+            'dt',
+            'cgid',
+            'das',
+            'les',
+            'ia',
+        ]);
         data.testMPID.ua.should.have.property('gender', 'male');
 
         done();
     });
 
     it('should save integration attributes properly on a page refresh', function(done) {
-        mParticle.setIntegrationAttribute(128, {MCID: 'abcedfg'});
+        mParticle.setIntegrationAttribute(128, { MCID: 'abcedfg' });
 
         mParticle.logEvent('Test Event');
         var data = getEvent('Test Event');
@@ -280,7 +409,14 @@ describe('migrations and persistence-related', function() {
         var data = findCookie();
         data.cu.should.equal(testMPID);
 
-        data.gs.should.have.properties(['sid', 'ie', 'dt', 'cgid', 'das', 'les']);
+        data.gs.should.have.properties([
+            'sid',
+            'ie',
+            'dt',
+            'cgid',
+            'das',
+            'les',
+        ]);
         data.testMPID.ua.should.have.property('gender', 'male');
 
         done();
@@ -294,10 +430,13 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'mpid1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid1',
+                })
+            );
         };
 
         mParticle.Identity.login(user1);
@@ -306,16 +445,21 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'mpid2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid2',
+                })
+            );
         };
 
         mParticle.Identity.logout();
 
         var user2Result = mParticle.Identity.getCurrentUser();
-        Object.keys(user2Result.getUserIdentities().userIdentities).length.should.equal(0);
+        Object.keys(
+            user2Result.getUserIdentities().userIdentities
+        ).length.should.equal(0);
 
         var localStorageData = mParticle.persistence.getLocalStorage();
 
@@ -331,20 +475,20 @@ describe('migrations and persistence-related', function() {
         mParticle.reset(MPConfig);
         var user1 = {
             userIdentities: {
-                customerid: '1'
-            }
+                customerid: '1',
+            },
         };
 
         var user2 = {
             userIdentities: {
-                customerid: '2'
-            }
+                customerid: '2',
+            },
         };
 
         var user3 = {
             userIdentities: {
-                customerid: '3'
-            }
+                customerid: '3',
+            },
         };
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -354,10 +498,13 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'mpid1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid1',
+                })
+            );
         };
 
         mParticle.Identity.login(user1);
@@ -367,10 +514,13 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'mpid2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid2',
+                })
+            );
         };
 
         mParticle.Identity.login(user2);
@@ -380,16 +530,18 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'mpid3'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid3',
+                })
+            );
         };
 
         mParticle.Identity.login(user3);
         var user3data = mParticle.persistence.getLocalStorage();
         user3data.cu.should.equal('mpid3');
-
 
         mParticle.init(apiKey, window.mParticle.config);
         var data3 = mParticle.persistence.getLocalStorage();
@@ -400,9 +552,9 @@ describe('migrations and persistence-related', function() {
 
     it('should transfer user attributes and revert to user identities properly', function(done) {
         mParticle.reset(MPConfig);
-        var user1 = { userIdentities: { customerid: 'customerid1'}};
+        var user1 = { userIdentities: { customerid: 'customerid1' } };
 
-        var user2 = { userIdentities: { customerid: 'customerid2'}};
+        var user2 = { userIdentities: { customerid: 'customerid2' } };
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -415,15 +567,20 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'mpid1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid1',
+                })
+            );
         };
 
         mParticle.Identity.login(user1);
 
-        mParticle.Identity.modify({userIdentities: {email: 'email@test.com'}});
+        mParticle.Identity.modify({
+            userIdentities: { email: 'email@test.com' },
+        });
 
         mParticle.Identity.getCurrentUser().setUserAttribute('test2', 'test2');
         var user1Data = mParticle.persistence.getLocalStorage();
@@ -434,10 +591,13 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'mpid2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid2',
+                })
+            );
         };
 
         mParticle.Identity.login(user2);
@@ -450,10 +610,13 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'mpid1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid1',
+                })
+            );
         };
 
         mParticle.Identity.login(user1);
@@ -470,28 +633,42 @@ describe('migrations and persistence-related', function() {
     });
 
     it('should replace commas with pipes, and pipes with commas', function(done) {
-        var pipes = '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
-        var commas = '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+        var pipes =
+            '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+        var commas =
+            '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
 
-        mParticle.persistence.replaceCommasWithPipes(commas).should.equal(pipes);
-        mParticle.persistence.replacePipesWithCommas(pipes).should.equal(commas);
+        mParticle.persistence
+            .replaceCommasWithPipes(commas)
+            .should.equal(pipes);
+        mParticle.persistence
+            .replacePipesWithCommas(pipes)
+            .should.equal(commas);
 
         done();
     });
 
     it('should replace apostrophes with quotes and quotes with apostrophes', function(done) {
-        var quotes = '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
-        var apostrophes = "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+        var quotes =
+            '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+        var apostrophes =
+            "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
 
-        mParticle.persistence.replaceQuotesWithApostrophes(quotes).should.equal(apostrophes);
-        mParticle.persistence.replaceApostrophesWithQuotes(apostrophes).should.equal(quotes);
+        mParticle.persistence
+            .replaceQuotesWithApostrophes(quotes)
+            .should.equal(apostrophes);
+        mParticle.persistence
+            .replaceApostrophesWithQuotes(apostrophes)
+            .should.equal(quotes);
 
         done();
     });
 
     it('should create valid cookie string and revert cookie string', function(done) {
-        var before = '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
-        var after = "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+        var before =
+            '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+        var after =
+            "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
 
         mParticle.persistence.createCookieString(before).should.equal(after);
         mParticle.persistence.revertCookieString(after).should.equal(before);
@@ -510,26 +687,52 @@ describe('migrations and persistence-related', function() {
                 ie: true,
                 dt: apiKey,
                 cgid: 'cgid1',
-                das: 'das1'
+                das: 'das1',
             },
             cu: 'mpid3',
             mpid1: {
-                ua: {gender: 'female', age: 29, height: '65', color: 'blue', id: 'abcdefghijklmnopqrstuvwxyz'},
-                ui: {1: 'customerid123', 2: 'facebookid123'}
+                ua: {
+                    gender: 'female',
+                    age: 29,
+                    height: '65',
+                    color: 'blue',
+                    id: 'abcdefghijklmnopqrstuvwxyz',
+                },
+                ui: { 1: 'customerid123', 2: 'facebookid123' },
             },
             mpid2: {
-                ua: {gender: 'male', age: 20, height: '68', color: 'red'},
-                ui: {1: 'customerid234', 2: 'facebookid234', id: 'abcdefghijklmnopqrstuvwxyz'}
+                ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                ui: {
+                    1: 'customerid234',
+                    2: 'facebookid234',
+                    id: 'abcdefghijklmnopqrstuvwxyz',
+                },
             },
             mpid3: {
-                ua: {gender: 'male', age: 20, height: '68', color: 'red'},
-                ui: {1: 'customerid234', 2: 'facebookid234', id: 'abcdefghijklmnopqrstuvwxyz'}
-            }
+                ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                ui: {
+                    1: 'customerid234',
+                    2: 'facebookid234',
+                    id: 'abcdefghijklmnopqrstuvwxyz',
+                },
+            },
         };
-        var expires = new Date((new Date).getTime() + (365 * 24 * 60 * 60 * 1000)).toGMTString();
-        var cookiesWithExpiration = Persistence.reduceAndEncodeCookies(cookies, expires, 'testDomain', mParticle.config.maxCookieSize);
-        var cookiesWithoutExpiration = cookiesWithExpiration.slice(0, cookiesWithExpiration.indexOf(';expires'));
-        var cookiesResult = JSON.parse(Persistence.decodeCookies(cookiesWithoutExpiration));
+        var expires = new Date(
+            new Date().getTime() + 365 * 24 * 60 * 60 * 1000
+        ).toGMTString();
+        var cookiesWithExpiration = Persistence.reduceAndEncodeCookies(
+            cookies,
+            expires,
+            'testDomain',
+            mParticle.config.maxCookieSize
+        );
+        var cookiesWithoutExpiration = cookiesWithExpiration.slice(
+            0,
+            cookiesWithExpiration.indexOf(';expires')
+        );
+        var cookiesResult = JSON.parse(
+            Persistence.decodeCookies(cookiesWithoutExpiration)
+        );
         Should(cookiesResult['mpid1']).not.be.ok();
         Should(cookiesResult['mpid2']).be.ok();
         Should(cookiesResult['mpid3']).be.ok();
@@ -549,9 +752,12 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID1',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -562,9 +768,12 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID2',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -576,9 +785,12 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'testMPID'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'testMPID',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -598,7 +810,10 @@ describe('migrations and persistence-related', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
@@ -606,9 +821,12 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID1',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -625,13 +843,19 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID2',
+                })
+            );
         };
         mParticle.Identity.login();
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
@@ -667,28 +891,54 @@ describe('migrations and persistence-related', function() {
                 ie: true,
                 dt: apiKey,
                 cgid: 'cgid1',
-                das: 'das1'
+                das: 'das1',
             },
             cu: 'mpid3',
             mpid1: {
-                ua: {gender: 'female', age: 29, height: '65', color: 'blue', id: 'abcdefghijklmnopqrstuvwxyz'},
-                ui: {1: 'customerid123', 2: 'facebookid123'}
+                ua: {
+                    gender: 'female',
+                    age: 29,
+                    height: '65',
+                    color: 'blue',
+                    id: 'abcdefghijklmnopqrstuvwxyz',
+                },
+                ui: { 1: 'customerid123', 2: 'facebookid123' },
             },
             mpid2: {
-                ua: {gender: 'male', age: 20, height: '68', color: 'red'},
-                ui: {1: 'customerid234', 2: 'facebookid234', id: 'abcdefghijklmnopqrstuvwxyz'}
+                ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                ui: {
+                    1: 'customerid234',
+                    2: 'facebookid234',
+                    id: 'abcdefghijklmnopqrstuvwxyz',
+                },
             },
             mpid3: {
-                ua: {gender: 'male', age: 20, height: '68', color: 'red'},
-                ui: {1: 'customerid234', 2: 'facebookid234', id: 'abcdefghijklmnopqrstuvwxyz'}
-            }
+                ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                ui: {
+                    1: 'customerid234',
+                    2: 'facebookid234',
+                    id: 'abcdefghijklmnopqrstuvwxyz',
+                },
+            },
         };
 
-        var expires = new Date((new Date).getTime() + (365 * 24 * 60 * 60 * 1000)).toGMTString();
+        var expires = new Date(
+            new Date().getTime() + 365 * 24 * 60 * 60 * 1000
+        ).toGMTString();
 
-        var cookiesWithExpiration = Persistence.reduceAndEncodeCookies(cookies, expires, 'testDomain', mParticle.config.maxCookieSize);
-        var cookiesWithoutExpiration = cookiesWithExpiration.slice(0, cookiesWithExpiration.indexOf(';expires'));
-        var cookiesResult = JSON.parse(Persistence.decodeCookies(cookiesWithoutExpiration));
+        var cookiesWithExpiration = Persistence.reduceAndEncodeCookies(
+            cookies,
+            expires,
+            'testDomain',
+            mParticle.config.maxCookieSize
+        );
+        var cookiesWithoutExpiration = cookiesWithExpiration.slice(
+            0,
+            cookiesWithExpiration.indexOf(';expires')
+        );
+        var cookiesResult = JSON.parse(
+            Persistence.decodeCookies(cookiesWithoutExpiration)
+        );
 
         Should(cookiesResult['mpid1']).not.be.ok();
         Should(cookiesResult['mpid2']).not.be.ok();
@@ -707,7 +957,10 @@ describe('migrations and persistence-related', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
@@ -715,9 +968,12 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID1',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -735,15 +991,21 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID2',
+                })
+            );
         };
 
         mParticle.endSession();
         mParticle.Identity.login();
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
@@ -772,7 +1034,10 @@ describe('migrations and persistence-related', function() {
         mParticle.config.maxCookieSize = 700;
 
         mParticle.init(apiKey, window.mParticle.config);
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
@@ -780,9 +1045,12 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID1',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -795,14 +1063,20 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID2',
+                })
+            );
         };
 
         mParticle.Identity.login();
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
@@ -825,7 +1099,10 @@ describe('migrations and persistence-related', function() {
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, window.mParticle.config);
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
@@ -833,9 +1110,12 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID1',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -848,14 +1128,20 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID2',
+                })
+            );
         };
 
         mParticle.Identity.login();
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
@@ -866,10 +1152,34 @@ describe('migrations and persistence-related', function() {
         mParticle.init(apiKey, window.mParticle.config);
         var lsData = getLocalStorage(v4LSKey);
 
-        lsData.should.have.properties(['gs', 'cu', 'testMPID', 'MPID1', 'MPID2']);
-        lsData['testMPID'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
-        lsData['MPID1'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
-        lsData['MPID2'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
+        lsData.should.have.properties([
+            'gs',
+            'cu',
+            'testMPID',
+            'MPID1',
+            'MPID2',
+        ]);
+        lsData['testMPID'].ua.should.have.properties([
+            'gender',
+            'age',
+            'height',
+            'color',
+            'id',
+        ]);
+        lsData['MPID1'].ua.should.have.properties([
+            'gender',
+            'age',
+            'height',
+            'color',
+            'id',
+        ]);
+        lsData['MPID2'].ua.should.have.properties([
+            'gender',
+            'age',
+            'height',
+            'color',
+            'id',
+        ]);
 
         done();
     });
@@ -879,7 +1189,10 @@ describe('migrations and persistence-related', function() {
         mParticle.config.useCookieStorage = false;
 
         mParticle.init(apiKey, window.mParticle.config);
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 30);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '68');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
@@ -887,9 +1200,12 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID1',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -902,14 +1218,20 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID2',
+                })
+            );
         };
 
         mParticle.Identity.login();
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
         mParticle.Identity.getCurrentUser().setUserAttribute('age', 45);
         mParticle.Identity.getCurrentUser().setUserAttribute('height', '80');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'green');
@@ -920,10 +1242,34 @@ describe('migrations and persistence-related', function() {
         mParticle.init(apiKey, window.mParticle.config);
         var cookieData = findCookie();
 
-        cookieData.should.have.properties(['gs', 'cu', 'testMPID', 'MPID1', 'MPID2']);
-        cookieData['testMPID'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
-        cookieData['MPID1'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
-        cookieData['MPID2'].ua.should.have.properties(['gender', 'age', 'height', 'color', 'id']);
+        cookieData.should.have.properties([
+            'gs',
+            'cu',
+            'testMPID',
+            'MPID1',
+            'MPID2',
+        ]);
+        cookieData['testMPID'].ua.should.have.properties([
+            'gender',
+            'age',
+            'height',
+            'color',
+            'id',
+        ]);
+        cookieData['MPID1'].ua.should.have.properties([
+            'gender',
+            'age',
+            'height',
+            'color',
+            'id',
+        ]);
+        cookieData['MPID2'].ua.should.have.properties([
+            'gender',
+            'age',
+            'height',
+            'color',
+            'id',
+        ]);
 
         done();
     });
@@ -935,15 +1281,24 @@ describe('migrations and persistence-related', function() {
         var consentState = mParticle.Identity.getCurrentUser().getConsentState();
         (consentState === null).should.be.ok();
         consentState = mParticle.Consent.createConsentState();
-        consentState.addGDPRConsentState('foo purpose', mParticle.Consent.createGDPRConsent(true, 10));
+        consentState.addGDPRConsentState(
+            'foo purpose',
+            mParticle.Consent.createGDPRConsent(true, 10)
+        );
 
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
         var storedConsentState = mParticle.Identity.getCurrentUser().getConsentState();
         storedConsentState.should.be.ok();
-        storedConsentState.getGDPRConsentState().should.have.property('foo purpose');
-        storedConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Consented', true);
-        storedConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Timestamp', 10);
+        storedConsentState
+            .getGDPRConsentState()
+            .should.have.property('foo purpose');
+        storedConsentState
+            .getGDPRConsentState()
+            ['foo purpose'].should.have.property('Consented', true);
+        storedConsentState
+            .getGDPRConsentState()
+            ['foo purpose'].should.have.property('Timestamp', 10);
         done();
     });
 
@@ -954,16 +1309,22 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID1',
+                })
+            );
         };
 
         mParticle.Identity.login();
         var user1StoredConsentState = mParticle.Identity.getCurrentUser().getConsentState();
         (user1StoredConsentState === null).should.be.ok();
         var consentState = mParticle.Consent.createConsentState();
-        consentState.addGDPRConsentState('foo purpose', mParticle.Consent.createGDPRConsent(true, 10));
+        consentState.addGDPRConsentState(
+            'foo purpose',
+            mParticle.Consent.createGDPRConsent(true, 10)
+        );
 
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
@@ -972,9 +1333,12 @@ describe('migrations and persistence-related', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'MPID2'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'MPID2',
+                })
+            );
         };
         mParticle.Identity.login();
 
@@ -982,22 +1346,45 @@ describe('migrations and persistence-related', function() {
         (user2StoredConsentState === null).should.be.ok();
 
         consentState.removeGDPRConsentState('foo purpose');
-        consentState.addGDPRConsentState('foo purpose 2', mParticle.Consent.createGDPRConsent(false, 11));
+        consentState.addGDPRConsentState(
+            'foo purpose 2',
+            mParticle.Consent.createGDPRConsent(false, 11)
+        );
 
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
-        user1StoredConsentState = mParticle.persistence.getConsentState('MPID1');
-        user2StoredConsentState = mParticle.persistence.getConsentState('MPID2');
+        user1StoredConsentState = mParticle.persistence.getConsentState(
+            'MPID1'
+        );
+        user2StoredConsentState = mParticle.persistence.getConsentState(
+            'MPID2'
+        );
 
-        user1StoredConsentState.getGDPRConsentState().should.have.property('foo purpose');
-        user1StoredConsentState.getGDPRConsentState().should.not.have.property('foo purpose 2');
-        user1StoredConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Consented', true);
-        user1StoredConsentState.getGDPRConsentState()['foo purpose'].should.have.property('Timestamp', 10);
+        user1StoredConsentState
+            .getGDPRConsentState()
+            .should.have.property('foo purpose');
+        user1StoredConsentState
+            .getGDPRConsentState()
+            .should.not.have.property('foo purpose 2');
+        user1StoredConsentState
+            .getGDPRConsentState()
+            ['foo purpose'].should.have.property('Consented', true);
+        user1StoredConsentState
+            .getGDPRConsentState()
+            ['foo purpose'].should.have.property('Timestamp', 10);
 
-        user2StoredConsentState.getGDPRConsentState().should.have.property('foo purpose 2');
-        user1StoredConsentState.getGDPRConsentState().should.not.have.property('foo purpose 1');
-        user2StoredConsentState.getGDPRConsentState()['foo purpose 2'].should.have.property('Consented', false);
-        user2StoredConsentState.getGDPRConsentState()['foo purpose 2'].should.have.property('Timestamp', 11);
+        user2StoredConsentState
+            .getGDPRConsentState()
+            .should.have.property('foo purpose 2');
+        user1StoredConsentState
+            .getGDPRConsentState()
+            .should.not.have.property('foo purpose 1');
+        user2StoredConsentState
+            .getGDPRConsentState()
+            ['foo purpose 2'].should.have.property('Consented', false);
+        user2StoredConsentState
+            .getGDPRConsentState()
+            ['foo purpose 2'].should.have.property('Timestamp', 11);
 
         done();
     });
@@ -1008,7 +1395,10 @@ describe('migrations and persistence-related', function() {
         mParticle.reset(MPConfig);
 
         //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
-        var LS = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        var LS =
+            "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" +
+            les +
+            "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
         setLocalStorage(v4LSKey, LS, true);
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -1029,7 +1419,10 @@ describe('migrations and persistence-related', function() {
         mParticle.reset(MPConfig);
 
         //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
-        var cookies = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" + les + "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
+        var cookies =
+            "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='|'ui':'eyIzIjoiwq7igJkifQ=='|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjI6MjI6MTAuMjU0MDcyOVoiLCJWYWx1ZSI6Imc9NjhjMmJhMzktYzg2OS00MTZhLWE4MmMtODc4OWNhZjVmMWU3JnU9NDE3NjQyNTYyMTQ0MTEwODk2OCZjcj00NTgxOTgyIn19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" +
+            les +
+            "|'ssd':1537222930186|'cgid':'4ebad5b4-8ed1-4275-8455-838a2e3aa5c0'|'das':'68c2ba39-c869-416a-a82c-8789caf5f1e7'|'mpid':'4176425621441108968'}";
         setCookie(workspaceCookieName, cookies, true);
 
         mParticle.config.useCookieStorage = true;
@@ -1049,7 +1442,8 @@ describe('migrations and persistence-related', function() {
         mParticle.reset(MPConfig);
 
         // randomly added gibberish to a Base64 encoded cart product array to force a corrupt product array
-        var products = 'eyItOTE4MjY2NTAzNTA1ODg1NjAwMyI6eyasdjfiojasdifojfsdfJjcCI6W3siTmFtZSI6ImFuZHJvaWQiLCJTa3UiOiI1MTg3MDkiLCJQcmljZSI6MjM0LCJRdWFudGl0eSI6MSwiQnJhbmQiOm51bGwsIlZhcmlhbnQiOm51bGwsIkNhdGVnb3J5IjpudWxsLCJQb3NpdGlvbiI6bnVsbCwiQ291cG9uQ29kZSI6bnVsbCwiVG90YWxBbW91bnQiOjIzNCwiQXR0cmlidXRlcyI6eyJwcm9kYXR0cjEiOiJoaSJ9fSx7Ik5hbWUiOiJ3aW5kb3dzIiwiU2t1IjoiODMzODYwIiwiUHJpY2UiOjM0NSwiUXVhbnRpdHkiOjEsIlRvdGFsQW1vdW50IjozNDUsIkF0dHJpYnV0ZXMiOm51bGx9XX19';
+        var products =
+            'eyItOTE4MjY2NTAzNTA1ODg1NjAwMyI6eyasdjfiojasdifojfsdfJjcCI6W3siTmFtZSI6ImFuZHJvaWQiLCJTa3UiOiI1MTg3MDkiLCJQcmljZSI6MjM0LCJRdWFudGl0eSI6MSwiQnJhbmQiOm51bGwsIlZhcmlhbnQiOm51bGwsIkNhdGVnb3J5IjpudWxsLCJQb3NpdGlvbiI6bnVsbCwiQ291cG9uQ29kZSI6bnVsbCwiVG90YWxBbW91bnQiOjIzNCwiQXR0cmlidXRlcyI6eyJwcm9kYXR0cjEiOiJoaSJ9fSx7Ik5hbWUiOiJ3aW5kb3dzIiwiU2t1IjoiODMzODYwIiwiUHJpY2UiOjM0NSwiUXVhbnRpdHkiOjEsIlRvdGFsQW1vdW50IjozNDUsIkF0dHJpYnV0ZXMiOm51bGx9XX19';
 
         localStorage.setItem(localStorageProductsV4, products);
         mParticle.init(apiKey, window.mParticle.config);
@@ -1064,10 +1458,23 @@ describe('migrations and persistence-related', function() {
         mParticle.reset(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
-        var iphone = mParticle.eCommerce.createProduct('iphone', 'iphonesku', 599, 1, 'iphone variant', 'iphonecategory', 'iphonebrand', null, 'iphonecoupon', {iphoneattr1: 'value1', iphoneattr2: 'value2'});
+        var iphone = mParticle.eCommerce.createProduct(
+            'iphone',
+            'iphonesku',
+            599,
+            1,
+            'iphone variant',
+            'iphonecategory',
+            'iphonebrand',
+            null,
+            'iphonecoupon',
+            { iphoneattr1: 'value1', iphoneattr2: 'value2' }
+        );
         mParticle.eCommerce.Cart.add(iphone, true);
 
-        var ls = window.localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
+        var ls = window.localStorage.getItem(
+            LocalStorageProductsV4WithWorkSpaceName
+        );
         var parsedProducts = JSON.parse(atob(ls));
         // parsedProducts should just have key of testMPID with value of cp with a single product
         Object.keys(parsedProducts).length.should.equal(1);
@@ -1075,7 +1482,9 @@ describe('migrations and persistence-related', function() {
         parsedProducts['testMPID'].cp.length.should.equal(1);
 
         mParticle.eCommerce.Cart.remove(iphone, true);
-        ls = window.localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
+        ls = window.localStorage.getItem(
+            LocalStorageProductsV4WithWorkSpaceName
+        );
         var parsedProductsAfter = JSON.parse(atob(ls));
         // parsedProducts should just have key of testMPID with value of cp with no products
 
@@ -1091,13 +1500,13 @@ describe('migrations and persistence-related', function() {
         var cookies = JSON.stringify({
             gs: {
                 sid: 'fst Test',
-                les: new Date().getTime()
+                les: new Date().getTime(),
             },
             previous: {},
             previous_set: {
-                fst: 100
+                fst: 100,
             },
-            cu: 'current'
+            cu: 'current',
         });
 
         setCookie(workspaceCookieName, cookies);
@@ -1106,18 +1515,26 @@ describe('migrations and persistence-related', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.persistence.setFirstSeenTime('current', 10000);
-        var currentFirstSeenTime = mParticle.persistence.getFirstSeenTime('current');
+        var currentFirstSeenTime = mParticle.persistence.getFirstSeenTime(
+            'current'
+        );
         mParticle.persistence.setFirstSeenTime('current', 2);
-        mParticle.persistence.getFirstSeenTime('current').should.equal(currentFirstSeenTime);
+        mParticle.persistence
+            .getFirstSeenTime('current')
+            .should.equal(currentFirstSeenTime);
 
         mParticle.persistence.setFirstSeenTime('previous', 10);
         mParticle.persistence.getFirstSeenTime('previous').should.equal(10);
         mParticle.persistence.setFirstSeenTime('previous', 20);
         mParticle.persistence.getFirstSeenTime('previous').should.equal(10);
 
-        mParticle.persistence.getFirstSeenTime('previous_set').should.equal(100);
+        mParticle.persistence
+            .getFirstSeenTime('previous_set')
+            .should.equal(100);
         mParticle.persistence.setFirstSeenTime('previous_set', 200);
-        mParticle.persistence.getFirstSeenTime('previous_set').should.equal(100);
+        mParticle.persistence
+            .getFirstSeenTime('previous_set')
+            .should.equal(100);
         done();
     });
 
@@ -1127,13 +1544,13 @@ describe('migrations and persistence-related', function() {
         var cookies = JSON.stringify({
             gs: {
                 sid: 'lst Test',
-                les: new Date().getTime()
+                les: new Date().getTime(),
             },
             previous: {},
             previous_set: {
-                lst: 10
+                lst: 10,
             },
-            cu: 'current'
+            cu: 'current',
         });
 
         setCookie(workspaceCookieName, cookies, true);
@@ -1143,7 +1560,7 @@ describe('migrations and persistence-related', function() {
 
         var clock = sinon.useFakeTimers();
         clock.tick(100);
-        
+
         Persistence.setLastSeenTime('previous', 1);
         Persistence.getLastSeenTime('previous').should.equal(1);
 
@@ -1166,15 +1583,15 @@ describe('migrations and persistence-related', function() {
         done();
     });
 
-    it('should set firstSeenTime() for a user that doesn\'t have storage yet', function(done) {
+    it("should set firstSeenTime() for a user that doesn't have storage yet", function(done) {
         mParticle.reset(MPConfig);
 
         var cookies = JSON.stringify({
             gs: {
                 sid: 'lst Test',
-                les: new Date().getTime()
+                les: new Date().getTime(),
             },
-            cu: 'test'
+            cu: 'test',
         });
 
         setCookie(workspaceCookieName, cookies, true);
@@ -1197,17 +1614,20 @@ describe('migrations and persistence-related', function() {
         var cookies = JSON.stringify({
             gs: {
                 sid: 'lst Test',
-                les: new Date().getTime()
+                les: new Date().getTime(),
             },
             current: {},
-            cu: 'current'
+            cu: 'current',
         });
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                mpid: 'current'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    mpid: 'current',
+                })
+            );
         };
 
         setCookie(workspaceCookieName, cookies, true);
@@ -1228,10 +1648,10 @@ describe('migrations and persistence-related', function() {
         var cookies = JSON.stringify({
             gs: {
                 sid: 'lst Test',
-                les: new Date().getTime()
+                les: new Date().getTime(),
             },
             previous: {},
-            cu: 'current'
+            cu: 'current',
         });
         setCookie(workspaceCookieName, cookies, true);
         mParticle.useCookieStorage = true;

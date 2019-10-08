@@ -4,7 +4,7 @@ import Types from '../../src/types';
 import Consent from '../../src/consent';
 import Constants from '../../src/constants';
 
-describe('Api Client', function () {
+describe('Api Client', function() {
     it('Should enable batching for ramp percentages', function(done) {
         mParticle.Store.SDKConfig.flags[Constants.FeatureFlags.EventsV3] = 0;
         let result1 = ApiClient.shouldEnableBatching();
@@ -30,17 +30,17 @@ describe('Api Client', function () {
 
         done();
     });
-    
+
     it('Should update queued events with latest user info', function(done) {
-        
         mParticle.Store.should.be.ok();
 
         let sdkEvent1 = ServerModel.createEventObject(
-            Types.MessageType.PageEvent, 
-            'foo page', 
-            {'foo-attr':'foo-val'}, 
-            Types.EventType.Navigation, 
-            {'foo-flag': 'foo-flag-val'});
+            Types.MessageType.PageEvent,
+            'foo page',
+            { 'foo-attr': 'foo-val' },
+            Types.EventType.Navigation,
+            { 'foo-flag': 'foo-flag-val' }
+        );
 
         sdkEvent1.should.be.ok();
         Should(sdkEvent1.MPID).equal(null);
@@ -49,44 +49,49 @@ describe('Api Client', function () {
         Should(sdkEvent1.ConsentState).equal(null);
 
         let sdkEvent2 = ServerModel.createEventObject(
-            Types.MessageType.PageEvent, 
-            'foo page', 
-            {'foo-attr':'foo-val'}, 
-            Types.EventType.Navigation, 
-            {'foo-flag': 'foo-flag-val'});
+            Types.MessageType.PageEvent,
+            'foo page',
+            { 'foo-attr': 'foo-val' },
+            Types.EventType.Navigation,
+            { 'foo-flag': 'foo-flag-val' }
+        );
 
         sdkEvent2.should.be.ok();
         Should(sdkEvent2.MPID).equal(null);
         Should(sdkEvent2.UserAttributes).equal(null);
         Should(sdkEvent2.UserIdentities).equal(null);
         Should(sdkEvent2.ConsentState).equal(null);
-        
+
         var consentState = Consent.createConsentState();
-        consentState.addGDPRConsentState('foo', Consent.createGDPRConsent(
-            true,
-            10,
-            'foo document',
-            'foo location',
-            'foo hardware id'));
+        consentState.addGDPRConsentState(
+            'foo',
+            Consent.createGDPRConsent(
+                true,
+                10,
+                'foo document',
+                'foo location',
+                'foo hardware id'
+            )
+        );
 
         window.mParticle.Identity.getCurrentUser = () => {
             return {
                 getUserIdentities: () => {
-                    return {    
-                        userIdentities: { 
-                            customerid:'1234567',
+                    return {
+                        userIdentities: {
+                            customerid: '1234567',
                             email: 'foo-email',
                             other: 'foo-other',
                             other2: 'foo-other2',
                             other3: 'foo-other3',
-                            other4: 'foo-other4'
-                        }
+                            other4: 'foo-other4',
+                        },
                     };
                 },
                 getAllUserAttributes: () => {
-                    return {    
-                        'foo-user-attr':'foo-attr-value',
-                        'foo-user-attr-list':['item1', 'item2']
+                    return {
+                        'foo-user-attr': 'foo-attr-value',
+                        'foo-user-attr-list': ['item1', 'item2'],
                     };
                 },
                 getMPID: () => {
@@ -94,11 +99,14 @@ describe('Api Client', function () {
                 },
                 getConsentState: () => {
                     return consentState;
-                }
+                },
             };
         };
 
-        ApiClient.appendUserInfoToEvents(window.mParticle.Identity.getCurrentUser(), [sdkEvent1, sdkEvent2]);
+        ApiClient.appendUserInfoToEvents(
+            window.mParticle.Identity.getCurrentUser(),
+            [sdkEvent1, sdkEvent2]
+        );
 
         sdkEvent1.UserIdentities.length.should.equal(6);
         Object.keys(sdkEvent2.UserAttributes).length.should.equal(2);
@@ -112,5 +120,4 @@ describe('Api Client', function () {
 
         done();
     });
-
 });

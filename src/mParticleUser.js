@@ -10,14 +10,21 @@ export default function getFilteredMparticleUser(mpid, forwarder) {
 
             for (var identityType in identities) {
                 if (identities.hasOwnProperty(identityType)) {
-                    currentUserIdentities[Types.IdentityType.getIdentityName(Helpers.parseNumber(identityType))] = identities[identityType];
+                    currentUserIdentities[
+                        Types.IdentityType.getIdentityName(
+                            Helpers.parseNumber(identityType)
+                        )
+                    ] = identities[identityType];
                 }
             }
 
-            currentUserIdentities = Helpers.filterUserIdentitiesForForwarders(currentUserIdentities, forwarder.userIdentityFilters);
+            currentUserIdentities = Helpers.filterUserIdentitiesForForwarders(
+                currentUserIdentities,
+                forwarder.userIdentityFilters
+            );
 
             return {
-                userIdentities: currentUserIdentities
+                userIdentities: currentUserIdentities,
             };
         },
         getMPID: function() {
@@ -29,12 +36,18 @@ export default function getFilteredMparticleUser(mpid, forwarder) {
 
             userAttributes = this.getAllUserAttributes();
             for (var key in userAttributes) {
-                if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
+                if (
+                    userAttributes.hasOwnProperty(key) &&
+                    Array.isArray(userAttributes[key])
+                ) {
                     userAttributesLists[key] = userAttributes[key].slice();
                 }
             }
 
-            userAttributesLists = Helpers.filterUserAttributes(userAttributesLists, forwarder.userAttributeFilters);
+            userAttributesLists = Helpers.filterUserAttributes(
+                userAttributesLists,
+                forwarder.userAttributeFilters
+            );
 
             return userAttributesLists;
         },
@@ -46,18 +59,22 @@ export default function getFilteredMparticleUser(mpid, forwarder) {
                 for (var prop in userAttributes) {
                     if (userAttributes.hasOwnProperty(prop)) {
                         if (Array.isArray(userAttributes[prop])) {
-                            userAttributesCopy[prop] = userAttributes[prop].slice();
-                        }
-                        else {
+                            userAttributesCopy[prop] = userAttributes[
+                                prop
+                            ].slice();
+                        } else {
                             userAttributesCopy[prop] = userAttributes[prop];
                         }
                     }
                 }
             }
 
-            userAttributesCopy = Helpers.filterUserAttributes(userAttributesCopy, forwarder.userAttributeFilters);
+            userAttributesCopy = Helpers.filterUserAttributes(
+                userAttributesCopy,
+                forwarder.userAttributeFilters
+            );
 
             return userAttributesCopy;
-        }
+        },
     };
 }

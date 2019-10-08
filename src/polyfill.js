@@ -1,6 +1,7 @@
 // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
 var Base64 = {
-    _keyStr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
+    _keyStr:
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
 
     // Input must be a string
     encode: function encode(input) {
@@ -27,8 +28,8 @@ var Base64 = {
             chr3 = input.charCodeAt(i++);
 
             enc1 = chr1 >> 2;
-            enc2 = (chr1 & 3) << 4 | chr2 >> 4;
-            enc3 = (chr2 & 15) << 2 | chr3 >> 6;
+            enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+            enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
             enc4 = chr3 & 63;
 
             if (isNaN(chr2)) {
@@ -37,7 +38,12 @@ var Base64 = {
                 enc4 = 64;
             }
 
-            output = output + Base64._keyStr.charAt(enc1) + Base64._keyStr.charAt(enc2) + Base64._keyStr.charAt(enc3) + Base64._keyStr.charAt(enc4);
+            output =
+                output +
+                Base64._keyStr.charAt(enc1) +
+                Base64._keyStr.charAt(enc2) +
+                Base64._keyStr.charAt(enc3) +
+                Base64._keyStr.charAt(enc4);
         }
         return output;
     },
@@ -67,9 +73,9 @@ var Base64 = {
             enc3 = Base64._keyStr.indexOf(input.charAt(i++));
             enc4 = Base64._keyStr.indexOf(input.charAt(i++));
 
-            chr1 = enc1 << 2 | enc2 >> 4;
-            chr2 = (enc2 & 15) << 4 | enc3 >> 2;
-            chr3 = (enc3 & 3) << 6 | enc4;
+            chr1 = (enc1 << 2) | (enc2 >> 4);
+            chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+            chr3 = ((enc3 & 3) << 6) | enc4;
 
             output = output + String.fromCharCode(chr1);
 
@@ -82,7 +88,7 @@ var Base64 = {
         }
         output = UTF8.decode(output);
         return output;
-    }
+    },
 };
 
 var UTF8 = {
@@ -95,12 +101,12 @@ var UTF8 = {
             if (c < 128) {
                 utftext += String.fromCharCode(c);
             } else if (c > 127 && c < 2048) {
-                utftext += String.fromCharCode(c >> 6 | 192);
-                utftext += String.fromCharCode(c & 63 | 128);
+                utftext += String.fromCharCode((c >> 6) | 192);
+                utftext += String.fromCharCode((c & 63) | 128);
             } else {
-                utftext += String.fromCharCode(c >> 12 | 224);
-                utftext += String.fromCharCode(c >> 6 & 63 | 128);
-                utftext += String.fromCharCode(c & 63 | 128);
+                utftext += String.fromCharCode((c >> 12) | 224);
+                utftext += String.fromCharCode(((c >> 6) & 63) | 128);
+                utftext += String.fromCharCode((c & 63) | 128);
             }
         }
         return utftext;
@@ -120,17 +126,19 @@ var UTF8 = {
                 i++;
             } else if (c > 191 && c < 224) {
                 c1 = utftext.charCodeAt(i + 1);
-                s += String.fromCharCode((c & 31) << 6 | c1 & 63);
+                s += String.fromCharCode(((c & 31) << 6) | (c1 & 63));
                 i += 2;
             } else {
                 c1 = utftext.charCodeAt(i + 1);
                 c2 = utftext.charCodeAt(i + 2);
-                s += String.fromCharCode((c & 15) << 12 | (c1 & 63) << 6 | c2 & 63);
+                s += String.fromCharCode(
+                    ((c & 15) << 12) | ((c1 & 63) << 6) | (c2 & 63)
+                );
                 i += 3;
             }
         }
         return s;
-    }
+    },
 };
 
 export default {
@@ -208,7 +216,7 @@ export default {
     // filter polyfill
     // Prodcution steps of ECMA-262, Edition 5
     // Reference: http://es5.github.io/#x15.4.4.20
-    filter: function(fun/*, thisArg*/) {
+    filter: function(fun /*, thisArg*/) {
         'use strict';
 
         if (this === void 0 || this === null) {
@@ -240,5 +248,5 @@ export default {
         return Object.prototype.toString.call(arg) === '[object Array]';
     },
 
-    Base64: Base64
+    Base64: Base64,
 };

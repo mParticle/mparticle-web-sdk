@@ -16,16 +16,19 @@ function convertCustomFlags(event, dto) {
         if (event.CustomFlags.hasOwnProperty(prop)) {
             if (Array.isArray(event.CustomFlags[prop])) {
                 event.CustomFlags[prop].forEach(function(customFlagProperty) {
-                    if (typeof customFlagProperty === 'number'
-                        || typeof customFlagProperty === 'string'
-                        || typeof customFlagProperty === 'boolean') {
+                    if (
+                        typeof customFlagProperty === 'number' ||
+                        typeof customFlagProperty === 'string' ||
+                        typeof customFlagProperty === 'boolean'
+                    ) {
                         valueArray.push(customFlagProperty.toString());
                     }
                 });
-            }
-            else if (typeof event.CustomFlags[prop] === 'number'
-            || typeof event.CustomFlags[prop] === 'string'
-            || typeof event.CustomFlags[prop] === 'boolean') {
+            } else if (
+                typeof event.CustomFlags[prop] === 'number' ||
+                typeof event.CustomFlags[prop] === 'string' ||
+                typeof event.CustomFlags[prop] === 'boolean'
+            ) {
                 valueArray.push(event.CustomFlags[prop].toString());
             }
 
@@ -99,7 +102,7 @@ function convertProductToDTO(product) {
         ps: parseNumber(product.Position),
         cc: Helpers.parseStringOrNumber(product.CouponCode),
         tpa: parseNumber(product.TotalAmount),
-        attrs: product.Attributes
+        attrs: product.Attributes,
     };
 }
 
@@ -112,23 +115,23 @@ function convertToConsentStateDTO(state) {
     if (gdprConsentState) {
         var gdpr = {};
         jsonObject.gdpr = gdpr;
-        for (var purpose in gdprConsentState){
+        for (var purpose in gdprConsentState) {
             if (gdprConsentState.hasOwnProperty(purpose)) {
                 var gdprConsent = gdprConsentState[purpose];
                 jsonObject.gdpr[purpose] = {};
-                if (typeof(gdprConsent.Consented) === 'boolean') {
+                if (typeof gdprConsent.Consented === 'boolean') {
                     gdpr[purpose].c = gdprConsent.Consented;
                 }
-                if (typeof(gdprConsent.Timestamp) === 'number') {
+                if (typeof gdprConsent.Timestamp === 'number') {
                     gdpr[purpose].ts = gdprConsent.Timestamp;
                 }
-                if (typeof(gdprConsent.ConsentDocument) === 'string') {
+                if (typeof gdprConsent.ConsentDocument === 'string') {
                     gdpr[purpose].d = gdprConsent.ConsentDocument;
                 }
-                if (typeof(gdprConsent.Location) === 'string') {
+                if (typeof gdprConsent.Location === 'string') {
                     gdpr[purpose].l = gdprConsent.Location;
                 }
-                if (typeof(gdprConsent.HardwareId) === 'string') {
+                if (typeof gdprConsent.HardwareId === 'string') {
                     gdpr[purpose].h = gdprConsent.HardwareId;
                 }
             }
@@ -141,9 +144,16 @@ function convertToConsentStateDTO(state) {
 function createEventObject(event) {
     var uploadObject = {};
     var eventObject = {};
-    var optOut = (event.messageType === Types.MessageType.OptOut ? !mParticle.Store.isEnabled : null);
+    var optOut =
+        event.messageType === Types.MessageType.OptOut
+            ? !mParticle.Store.isEnabled
+            : null;
 
-    if (mParticle.Store.sessionId || event.messageType == Types.MessageType.OptOut || mParticle.Store.webviewBridgeEnabled) {
+    if (
+        mParticle.Store.sessionId ||
+        event.messageType == Types.MessageType.OptOut ||
+        mParticle.Store.webviewBridgeEnabled
+    ) {
         if (event.hasOwnProperty('toEventAPIObject')) {
             eventObject = event.toEventAPIObject();
         } else {
@@ -152,7 +162,7 @@ function createEventObject(event) {
                 EventCategory: event.eventType,
                 EventAttributes: Helpers.sanitizeAttributes(event.data),
                 EventDataType: event.messageType,
-                CustomFlags: event.customFlags || {}
+                CustomFlags: event.customFlags || {},
             };
         }
 
@@ -164,7 +174,9 @@ function createEventObject(event) {
             Store: mParticle.Store.serverSettings,
             SDKVersion: Constants.sdkVersion,
             SessionId: mParticle.Store.sessionId,
-            SessionStartDate: mParticle.Store.sessionStartDate ? mParticle.Store.sessionStartDate.getTime() : null,
+            SessionStartDate: mParticle.Store.sessionStartDate
+                ? mParticle.Store.sessionStartDate.getTime()
+                : null,
             Debug: mParticle.Store.SDKConfig.isDevelopmentMode,
             Location: mParticle.Store.currentPosition,
             OptOut: optOut,
@@ -173,16 +185,19 @@ function createEventObject(event) {
             ClientGeneratedId: mParticle.Store.clientId,
             DeviceId: mParticle.Store.deviceId,
             IntegrationAttributes: mParticle.Store.integrationAttributes,
-            CurrencyCode: mParticle.Store.currencyCode
+            CurrencyCode: mParticle.Store.currencyCode,
         };
 
         eventObject.CurrencyCode = mParticle.Store.currencyCode;
         var currentUser = mParticle.Identity.getCurrentUser();
         appendUserInfo(currentUser, eventObject);
-        
+
         if (event.messageType === Types.MessageType.SessionEnd) {
-            eventObject.SessionLength = mParticle.Store.dateLastEventSent.getTime() - mParticle.Store.sessionStartDate.getTime();
-            eventObject.currentSessionMPIDs = mParticle.Store.currentSessionMPIDs;
+            eventObject.SessionLength =
+                mParticle.Store.dateLastEventSent.getTime() -
+                mParticle.Store.sessionStartDate.getTime();
+            eventObject.currentSessionMPIDs =
+                mParticle.Store.currentSessionMPIDs;
             eventObject.EventAttributes = mParticle.Store.sessionAttributes;
 
             mParticle.Store.currentSessionMPIDs = [];
@@ -220,7 +235,7 @@ function convertEventToDTO(event, isFirstRun) {
         cgid: event.ClientGeneratedId,
         das: event.DeviceId,
         mpid: event.MPID,
-        smpids: event.currentSessionMPIDs
+        smpids: event.currentSessionMPIDs,
     };
 
     var consent = convertToConsentStateDTO(event.ConsentState);
@@ -245,7 +260,7 @@ function convertEventToDTO(event, isFirstRun) {
 
         if (event.ShoppingCart) {
             dto.sc = {
-                pl: convertProductListToDTO(event.ShoppingCart.ProductList)
+                pl: convertProductListToDTO(event.ShoppingCart.ProductList),
             };
         }
 
@@ -260,32 +275,31 @@ function convertEventToDTO(event, isFirstRun) {
                 tcc: event.ProductAction.CouponCode,
                 tr: parseNumber(event.ProductAction.TotalAmount),
                 ts: parseNumber(event.ProductAction.ShippingAmount),
-                tt: parseNumber(event.ProductAction.TaxAmount)
+                tt: parseNumber(event.ProductAction.TaxAmount),
             };
-        }
-        else if (event.PromotionAction) {
+        } else if (event.PromotionAction) {
             dto.pm = {
                 an: event.PromotionAction.PromotionActionType,
-                pl: event.PromotionAction.PromotionList.map(function(promotion) {
+                pl: event.PromotionAction.PromotionList.map(function(
+                    promotion
+                ) {
                     return {
                         id: promotion.Id,
                         nm: promotion.Name,
                         cr: promotion.Creative,
-                        ps: promotion.Position ? promotion.Position : 0
+                        ps: promotion.Position ? promotion.Position : 0,
                     };
-                })
+                }),
             };
-        }
-        else if (event.ProductImpressions) {
+        } else if (event.ProductImpressions) {
             dto.pi = event.ProductImpressions.map(function(impression) {
                 return {
                     pil: impression.ProductImpressionList,
-                    pl: convertProductListToDTO(impression.ProductList)
+                    pl: convertProductListToDTO(impression.ProductList),
                 };
             });
         }
-    }
-    else if (event.EventDataType === MessageType.Profile) {
+    } else if (event.EventDataType === MessageType.Profile) {
         dto.pet = event.ProfileMessageType;
     }
 
@@ -296,5 +310,5 @@ export default {
     createEventObject: createEventObject,
     convertEventToDTO: convertEventToDTO,
     convertToConsentStateDTO: convertToConsentStateDTO,
-    appendUserInfo: appendUserInfo
+    appendUserInfo: appendUserInfo,
 };

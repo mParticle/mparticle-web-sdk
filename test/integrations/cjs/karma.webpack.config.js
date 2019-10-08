@@ -4,12 +4,13 @@ let file = './dist/' + BUNDLER + '-output.js';
 
 template.files.push(file);
 template.settings.outputFile = 'test-karma-' + BUNDLER + '.xml';
-template.settings.junitReporter.outputFile = 'test-karma-' + BUNDLER + '-cjs.xml'
+template.settings.junitReporter.outputFile =
+    'test-karma-' + BUNDLER + '-cjs.xml';
 
-module.exports = function (config) {
+module.exports = function(config) {
     config.set({
         ...template.settings,
         browsers: template.settings.browsers,
-        files: template.files
+        files: template.files,
     });
 };

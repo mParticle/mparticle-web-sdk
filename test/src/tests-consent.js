@@ -1,6 +1,6 @@
 import Consent from '../../src/consent';
 
-describe('Consent', function () {
+describe('Consent', function() {
     it('Should not create consent object without consented boolean', function(done) {
         var consent = Consent.createGDPRConsent();
         (consent === null).should.be.ok();
@@ -35,7 +35,12 @@ describe('Consent', function () {
 
     it('Should not create consent object with invalid location', function(done) {
         var badLocation = 123;
-        var consent = Consent.createGDPRConsent(true, 123, 'foo document', badLocation);
+        var consent = Consent.createGDPRConsent(
+            true,
+            123,
+            'foo document',
+            badLocation
+        );
         (consent === null).should.be.ok();
 
         done();
@@ -43,7 +48,13 @@ describe('Consent', function () {
 
     it('Should not create consent object with invalid hardware id', function(done) {
         var badHardwareId = 123;
-        var consent = Consent.createGDPRConsent(true, 123, 'foo document', 'foo location', badHardwareId);
+        var consent = Consent.createGDPRConsent(
+            true,
+            123,
+            'foo document',
+            'foo location',
+            badHardwareId
+        );
         (consent === null).should.be.ok();
 
         done();
@@ -62,7 +73,8 @@ describe('Consent', function () {
             10,
             'foo document',
             'foo location',
-            'foo hardware id');
+            'foo hardware id'
+        );
         consent.should.be.ok();
         consent.should.have.property('Consented', true);
         consent.should.have.property('Timestamp', 10);
@@ -87,11 +99,15 @@ describe('Consent', function () {
             .addGDPRConsentState('bar', Consent.createGDPRConsent(false));
 
         consentState.getGDPRConsentState().should.have.property('foo');
-        consentState.getGDPRConsentState().foo.should.have.property('Consented', true);
+        consentState
+            .getGDPRConsentState()
+            .foo.should.have.property('Consented', true);
         (consentState.GDPR === undefined).should.be.ok();
 
         consentState.getGDPRConsentState().should.have.property('bar');
-        consentState.getGDPRConsentState().bar.should.have.property('Consented', false);
+        consentState
+            .getGDPRConsentState()
+            .bar.should.have.property('Consented', false);
 
         done();
     });
@@ -100,13 +116,19 @@ describe('Consent', function () {
         var consentState = Consent.createConsentState();
         var consentState2 = Consent.createConsentState();
 
-        consentState
-            .addGDPRConsentState('foo', Consent.createGDPRConsent(true));
+        consentState.addGDPRConsentState(
+            'foo',
+            Consent.createGDPRConsent(true)
+        );
 
-        consentState2
-            .addGDPRConsentState('bar', Consent.createGDPRConsent(false));
-        consentState2
-            .addGDPRConsentState('baz', Consent.createGDPRConsent(false));
+        consentState2.addGDPRConsentState(
+            'bar',
+            Consent.createGDPRConsent(false)
+        );
+        consentState2.addGDPRConsentState(
+            'baz',
+            Consent.createGDPRConsent(false)
+        );
 
         consentState.getGDPRConsentState().should.have.property('foo');
         consentState2.getGDPRConsentState().should.have.property('bar');
@@ -121,7 +143,7 @@ describe('Consent', function () {
         done();
     });
 
-    it('Can\'t modify GDPR ConsentState object', function(done) {
+    it("Can't modify GDPR ConsentState object", function(done) {
         var consentState = Consent.createConsentState();
         consentState.should.be.ok();
 
@@ -148,20 +170,33 @@ describe('Consent', function () {
 
         var consentState2 = Consent.createConsentState(consentState);
 
-        consentState2.addGDPRConsentState('baz', Consent.createGDPRConsent(false));
+        consentState2.addGDPRConsentState(
+            'baz',
+            Consent.createGDPRConsent(false)
+        );
 
         consentState.getGDPRConsentState().should.have.property('foo');
-        consentState.getGDPRConsentState().foo.should.have.property('Consented', true);
+        consentState
+            .getGDPRConsentState()
+            .foo.should.have.property('Consented', true);
         consentState.getGDPRConsentState().should.have.property('bar');
-        consentState.getGDPRConsentState().bar.should.have.property('Consented', false);
+        consentState
+            .getGDPRConsentState()
+            .bar.should.have.property('Consented', false);
         consentState.getGDPRConsentState().should.not.have.property('baz');
 
         consentState2.getGDPRConsentState().should.have.property('foo');
-        consentState2.getGDPRConsentState().foo.should.have.property('Consented', true);
+        consentState2
+            .getGDPRConsentState()
+            .foo.should.have.property('Consented', true);
         consentState2.getGDPRConsentState().should.have.property('bar');
-        consentState2.getGDPRConsentState().bar.should.have.property('Consented', false);
+        consentState2
+            .getGDPRConsentState()
+            .bar.should.have.property('Consented', false);
         consentState2.getGDPRConsentState().should.have.property('baz');
-        consentState2.getGDPRConsentState().baz.should.have.property('Consented', false);
+        consentState2
+            .getGDPRConsentState()
+            .baz.should.have.property('Consented', false);
 
         done();
     });
@@ -198,11 +233,17 @@ describe('Consent', function () {
         consentState.getGDPRConsentState().should.have.property('bar');
         consentState.getGDPRConsentState().should.have.property('baz');
         consentState.getGDPRConsentState().should.not.have.property('  ');
-        consentState.getGDPRConsentState().foo.should.have.property('Timestamp', 1);
+        consentState
+            .getGDPRConsentState()
+            .foo.should.have.property('Timestamp', 1);
         consentState.getGDPRConsentState().should.not.have.property('bar ');
-        consentState.getGDPRConsentState().bar.should.have.property('Timestamp', 2);
+        consentState
+            .getGDPRConsentState()
+            .bar.should.have.property('Timestamp', 2);
         consentState.getGDPRConsentState().should.not.have.property('BAZ ');
-        consentState.getGDPRConsentState().baz.should.have.property('Timestamp', 3);
+        consentState
+            .getGDPRConsentState()
+            .baz.should.have.property('Timestamp', 3);
 
         done();
     });
@@ -255,15 +296,16 @@ describe('Consent', function () {
             10,
             'foo document',
             'foo location',
-            'foo hardware id');
-
+            'foo hardware id'
+        );
 
         var consent2 = Consent.createGDPRConsent(
             false,
             5,
             'foo document 2',
             'foo location 2',
-            'foo hardware id 2');
+            'foo hardware id 2'
+        );
 
         var consentState = Consent.createConsentState();
         consentState.addGDPRConsentState('foo', consent1);
@@ -293,5 +335,4 @@ describe('Consent', function () {
 
         done();
     });
-
 });

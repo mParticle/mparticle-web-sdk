@@ -16,7 +16,10 @@ function Logger(config) {
 
     this.warning = function(msg) {
         if (logLevel !== 'none') {
-            if ((this.logger.warning && (logLevel === 'verbose' || logLevel === 'warning'))) {
+            if (
+                this.logger.warning &&
+                (logLevel === 'verbose' || logLevel === 'warning')
+            ) {
                 this.logger.warning(msg);
             }
         }
@@ -30,24 +33,24 @@ function Logger(config) {
         }
     };
 
-    this.setLogLevel = function (newLogLevel) {
+    this.setLogLevel = function(newLogLevel) {
         logLevel = newLogLevel;
     };
 }
 
 function ConsoleLogger() {
-    this.verbose = function (msg) {
+    this.verbose = function(msg) {
         if (window.console && window.console.info) {
             window.console.info(msg);
         }
     };
 
-    this.error = function (msg) {
+    this.error = function(msg) {
         if (window.console && window.console.error) {
             window.console.error(msg);
         }
     };
-    this.warning = function (msg) {
+    this.warning = function(msg) {
         if (window.console && window.console.warn) {
             window.console.warn(msg);
         }

@@ -12,7 +12,11 @@ var getEvent = TestsCore.getEvent,
 
 describe('event logging', function() {
     it('should log an event', function(done) {
-        window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation, { mykey: 'myvalue' });
+        window.mParticle.logEvent(
+            'Test Event',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' }
+        );
         var data = getEvent('Test Event');
 
         data.should.have.property('n', 'Test Event');
@@ -75,7 +79,10 @@ describe('event logging', function() {
     });
 
     it('should sanitize error custom attrs', function(done) {
-        mParticle.logError('my error', { invalid: ['my invalid attr'], valid: 10 });
+        mParticle.logError('my error', {
+            invalid: ['my invalid attr'],
+            valid: 10,
+        });
 
         var data = getEvent('Error');
 
@@ -129,9 +136,13 @@ describe('event logging', function() {
     });
 
     it('should log custom page view', function(done) {
-        mParticle.logPageView('My Page View', { testattr: 1 }, {
-            'MyCustom.Flag': 'Test'
-        });
+        mParticle.logPageView(
+            'My Page View',
+            { testattr: 1 },
+            {
+                'MyCustom.Flag': 'Test',
+            }
+        );
 
         var event = getEvent('My Page View');
 
@@ -146,7 +157,7 @@ describe('event logging', function() {
 
     it('should pass custom flags in page views', function(done) {
         mParticle.logPageView('test', null, {
-            'MyCustom.Flag': 'Test'
+            'MyCustom.Flag': 'Test',
         });
 
         var event = getEvent('test');
@@ -165,7 +176,7 @@ describe('event logging', function() {
             'MyCustom.Number': 1,
             'MyCustom.Boolean': true,
             'MyCustom.Object': {},
-            'MyCustom.Array': ['Blah', 'Hello', {}]
+            'MyCustom.Array': ['Blah', 'Hello', {}],
         });
 
         var event = getEvent('test');
@@ -207,7 +218,7 @@ describe('event logging', function() {
         event1.n.should.equal('PageView');
 
         server.requests = [];
-        mParticle.logPageView({test: 'test'});
+        mParticle.logPageView({ test: 'test' });
         server.requests.length.should.equal(1);
         var event2 = getEvent('PageView');
         event2.n.should.equal('PageView');
@@ -235,14 +246,17 @@ describe('event logging', function() {
     it('should parse response after logging event', function(done) {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {
-                    testprop: {
-                        Expires: new Date(2040, 1, 1),
-                        Value: 'blah'
-                    }
-                }
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {
+                        testprop: {
+                            Expires: new Date(2040, 1, 1),
+                            Value: 'blah',
+                        },
+                    },
+                })
+            );
         };
 
         mParticle.logEvent('test event2');
@@ -343,7 +357,14 @@ describe('event logging', function() {
     it('should log logout event', function(done) {
         mParticle.Identity.logout();
         var data = getIdentityEvent('logout');
-        data.should.have.properties('client_sdk', 'environment', 'previous_mpid', 'request_id', 'request_timestamp_ms', 'context');
+        data.should.have.properties(
+            'client_sdk',
+            'environment',
+            'previous_mpid',
+            'request_id',
+            'request_timestamp_ms',
+            'context'
+        );
 
         done();
     });
@@ -351,7 +372,14 @@ describe('event logging', function() {
     it('should log login event', function(done) {
         mParticle.Identity.login();
         var data = getIdentityEvent('login');
-        data.should.have.properties('client_sdk', 'environment', 'previous_mpid', 'request_id', 'request_timestamp_ms', 'context');
+        data.should.have.properties(
+            'client_sdk',
+            'environment',
+            'previous_mpid',
+            'request_id',
+            'request_timestamp_ms',
+            'context'
+        );
 
         done();
     });
@@ -359,7 +387,14 @@ describe('event logging', function() {
     it('should log modify event', function(done) {
         mParticle.Identity.modify();
         var data = getIdentityEvent('modify');
-        data.should.have.properties('client_sdk', 'environment', 'identity_changes', 'request_id', 'request_timestamp_ms', 'context');
+        data.should.have.properties(
+            'client_sdk',
+            'environment',
+            'identity_changes',
+            'request_id',
+            'request_timestamp_ms',
+            'context'
+        );
 
         done();
     });
@@ -369,14 +404,22 @@ describe('event logging', function() {
         var data = getEvent('Test Event');
 
         data.should.have.property('das');
-        (data.das.length).should.equal(36);
+        data.das.length.should.equal(36);
         done();
     });
 
     it('should send consent state with each event logged', function(done) {
         var consentState = mParticle.Consent.createConsentState();
-        consentState.addGDPRConsentState('foo purpose',
-            mParticle.Consent.createGDPRConsent(true, 10, 'foo document', 'foo location', 'foo hardwareId'));
+        consentState.addGDPRConsentState(
+            'foo purpose',
+            mParticle.Consent.createGDPRConsent(
+                true,
+                10,
+                'foo document',
+                'foo location',
+                'foo hardwareId'
+            )
+        );
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
         window.mParticle.logEvent('Test Event');
@@ -401,7 +444,7 @@ describe('event logging', function() {
     });
 
     it('should log integration attributes with each event', function(done) {
-        mParticle.setIntegrationAttribute(128, {MCID: 'abcdefg'});
+        mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
         mParticle.logEvent('Test Event');
         var data = getEvent('Test Event');
 

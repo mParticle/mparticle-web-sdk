@@ -6,12 +6,9 @@ const iifeBuild = {
     output: {
         file: './test/integrations/module/dist/rollup-output.js',
         format: 'iife',
-        name: 'mParticle'
+        name: 'mParticle',
     },
-    plugins: [
-        resolve(),
-        commonjs()
-    ]
+    plugins: [resolve(), commonjs()],
 };
 
 export default [iifeBuild];

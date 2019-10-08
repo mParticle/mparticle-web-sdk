@@ -8,7 +8,7 @@ var MessageType = {
     AppStateTransition: 10,
     Profile: 14,
     Commerce: 16,
-    Media: 20
+    Media: 20,
 };
 
 var EventType = {
@@ -66,7 +66,7 @@ var EventType = {
             default:
                 return 'Other';
         }
-    }
+    },
 };
 
 // Continuation of enum above, but in seperate object since we don't expose these to end user
@@ -83,7 +83,7 @@ var CommerceEventType = {
     PromotionClick: 19,
     ProductAddToWishlist: 20,
     ProductRemoveFromWishlist: 21,
-    ProductImpression: 22
+    ProductImpression: 22,
 };
 
 var IdentityType = {
@@ -98,7 +98,7 @@ var IdentityType = {
     FacebookCustomAudienceId: 9,
     Other2: 10,
     Other3: 11,
-    Other4: 12
+    Other4: 12,
 };
 
 IdentityType.isValid = function(identityType) {
@@ -209,7 +209,7 @@ var ProductActionType = {
     Purchase: 7,
     Refund: 8,
     AddToWishlist: 9,
-    RemoveFromWishlist: 10
+    RemoveFromWishlist: 10,
 };
 
 ProductActionType.getName = function(id) {
@@ -270,7 +270,7 @@ ProductActionType.getExpansionName = function(id) {
 var PromotionActionType = {
     Unknown: 0,
     PromotionView: 1,
-    PromotionClick: 2
+    PromotionClick: 2,
 };
 
 PromotionActionType.getName = function(id) {
@@ -297,10 +297,10 @@ PromotionActionType.getExpansionName = function(id) {
 };
 
 var ProfileMessageType = {
-    Logout: 3
+    Logout: 3,
 };
 var ApplicationTransitionType = {
-    AppInit: 1
+    AppInit: 1,
 };
 
 export default {
@@ -311,5 +311,5 @@ export default {
     ProfileMessageType: ProfileMessageType,
     ApplicationTransitionType: ApplicationTransitionType,
     ProductActionType: ProductActionType,
-    PromotionActionType: PromotionActionType
+    PromotionActionType: PromotionActionType,
 };

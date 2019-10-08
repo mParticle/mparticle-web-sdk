@@ -82,14 +82,26 @@ describe('helpers', function() {
     it('should correctly validate an identity request with copyUserAttribute as a key using any identify method', function(done) {
         var identityApiData = {
             userIdentities: {
-                customerid: '123'
+                customerid: '123',
             },
-            copyUserAttributes: true
+            copyUserAttributes: true,
         };
-        var identifyResult = Validators.validateIdentities(identityApiData, 'identify');
-        var logoutResult = Validators.validateIdentities(identityApiData, 'logout');
-        var loginResult = Validators.validateIdentities(identityApiData, 'login');
-        var modifyResult = Validators.validateIdentities(identityApiData, 'modify');
+        var identifyResult = Validators.validateIdentities(
+            identityApiData,
+            'identify'
+        );
+        var logoutResult = Validators.validateIdentities(
+            identityApiData,
+            'logout'
+        );
+        var loginResult = Validators.validateIdentities(
+            identityApiData,
+            'login'
+        );
+        var modifyResult = Validators.validateIdentities(
+            identityApiData,
+            'modify'
+        );
 
         identifyResult.valid.should.equal(true);
         logoutResult.valid.should.equal(true);
@@ -128,14 +140,20 @@ describe('helpers', function() {
             customerid: '123',
             facebook: 'facebook123',
             google: 'google123',
-            yahoo: 'yahoo123'
+            yahoo: 'yahoo123',
         };
 
-        var filteredIdentities = Helpers.filterUserIdentities(userIdentitiesObject, filterList);
+        var filteredIdentities = Helpers.filterUserIdentities(
+            userIdentitiesObject,
+            filterList
+        );
         filteredIdentities.length.should.equal(3);
         filteredIdentities[0].should.have.property('Identity', '123');
         filteredIdentities[0].should.have.property('Type', 1);
-        filteredIdentities[1].should.have.property('Identity', 'test@gmail.com');
+        filteredIdentities[1].should.have.property(
+            'Identity',
+            'test@gmail.com'
+        );
         filteredIdentities[1].should.have.property('Type', 7);
         filteredIdentities[2].should.have.property('Identity', 'abc');
         filteredIdentities[2].should.have.property('Type', 0);
@@ -147,19 +165,19 @@ describe('helpers', function() {
         var integrationDelays1 = {
             128: false,
             20: false,
-            10: true
+            10: true,
         };
         var integrationDelays2 = {
-            128: true
+            128: true,
         };
         var integrationDelays3 = {
-            128: false
+            128: false,
         };
 
         var integrationDelays4 = {
             128: false,
             20: false,
-            10: false
+            10: false,
         };
 
         var result1 = Helpers.isDelayedByIntegration(integrationDelays1);

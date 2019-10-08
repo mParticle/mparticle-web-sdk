@@ -647,7 +647,7 @@ export interface SessionStartEvent {
  */
 export type SessionStartEventEventTypeEnum = 'session_start';
 
-export interface SessionStartEventData extends CommonEventData { }
+export interface SessionStartEventData extends CommonEventData {}
 
 export interface ShoppingCart {
     products: Product[];

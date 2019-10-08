@@ -7,7 +7,7 @@ switch (FILE_ORDER) {
             '../../lib/mockhttprequest.js',
             '../../lib/require.2.3.6.min.js',
             '../../../dist/mparticle.js',
-            'test-requirejs.js'
+            'test-requirejs.js',
         ];
         break;
     case 'after_mp':
@@ -15,7 +15,7 @@ switch (FILE_ORDER) {
             '../../lib/mockhttprequest.js',
             '../../../dist/mparticle.js',
             '../../lib/require.2.3.6.min.js',
-            'test-requirejs.js'
+            'test-requirejs.js',
         ];
         break;
     default:
@@ -35,20 +35,20 @@ module.exports = function(config) {
         singleRun: true,
         logLevel: config.LOG_INFO,
         browserConsoleLogOptions: {
-            terminal: false
+            terminal: false,
         },
         client: {
-            captureConsole: false
+            captureConsole: false,
         },
         customLaunchers: {
             FirefoxHeadless: {
                 base: 'Firefox',
-                flags: ['-headless']
-            }
+                flags: ['-headless'],
+            },
         },
         junitReporter: {
             outputDir: '../../reports/',
-            outputFile: 'test-requirejs.xml'
-        }
+            outputFile: 'test-requirejs.xml',
+        },
     });
 };

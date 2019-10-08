@@ -710,9 +710,9 @@ var mParticle = (function () {
 	      UserIdentitiesInvalidKey: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
 	      UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.',
 	      AliasMissingMpid: 'Alias Request must contain both a destinationMpid and a sourceMpid',
-	      AliasNonUniqueMpid: 'Alias Request\'s destinationMpid and sourceMpid must be unique',
+	      AliasNonUniqueMpid: "Alias Request's destinationMpid and sourceMpid must be unique",
 	      AliasMissingTime: 'Alias Request must have both a startTime and an endTime',
-	      AliasStartBeforeEndTime: 'Alias Request\'s endTime must be later than its startTime'
+	      AliasStartBeforeEndTime: "Alias Request's endTime must be later than its startTime"
 	    }
 	  },
 	  NativeSdkPaths: {
@@ -1105,13 +1105,13 @@ var mParticle = (function () {
 	  // Added support for crypto for better random
 	  return a // if the placeholder was passed, return
 	  ? generateRandomValue(a) // a random number
-	  : ( // or otherwise a concatenated string:
-	  [1e7] + // 10000000 +
+	  : // or otherwise a concatenated string:
+	  ([1e7] + // 10000000 +
 	  -1e3 + // -1000 +
 	  -4e3 + // -4000 +
 	  -8e3 + // -80000000 +
-	  -1e11 // -100000000000,
-	  ).replace( // replacing
+	  -1e11). // -100000000000,
+	  replace( // replacing
 	  /[018]/g, // zeroes, ones, and eights with
 	  generateUniqueId // random hex digits
 	  );
@@ -2450,7 +2450,7 @@ var mParticle = (function () {
 	}
 
 	function replaceQuotesWithApostrophes(string) {
-	  return string.replace(/\"/g, '\'');
+	  return string.replace(/\"/g, "'");
 	}
 
 	function createCookieString(string) {
@@ -2601,8 +2601,8 @@ var mParticle = (function () {
 	}
 
 	function saveUserConsentStateToCookies(mpid, consentState) {
-	  //it's currently not supported to set persistence	
-	  //for any MPID that's not the current one.	
+	  //it's currently not supported to set persistence
+	  //for any MPID that's not the current one.
 	  if (consentState || consentState === null) {
 	    var cookies = getPersistence();
 
@@ -2680,9 +2680,9 @@ var mParticle = (function () {
 	  }
 	}
 	/**
-	* set the "first seen" time for a user. the time will only be set once for a given
-	* mpid after which subsequent calls will be ignored
-	*/
+	 * set the "first seen" time for a user. the time will only be set once for a given
+	 * mpid after which subsequent calls will be ignored
+	 */
 
 
 	function setFirstSeenTime(mpid, time) {
@@ -2708,10 +2708,10 @@ var mParticle = (function () {
 	  }
 	}
 	/**
-	* returns the "last seen" time for a user. If the mpid represents the current user, the 
-	* return value will always be the current time, otherwise it will be to stored "last seen" 
-	* time
-	*/
+	 * returns the "last seen" time for a user. If the mpid represents the current user, the
+	 * return value will always be the current time, otherwise it will be to stored "last seen"
+	 * time
+	 */
 
 
 	function getLastSeenTime(mpid) {
@@ -6493,7 +6493,7 @@ var mParticle = (function () {
 	      i;
 
 	  if (!selector) {
-	    mParticle.Logger.error('Can\'t bind event, selector is required');
+	    mParticle.Logger.error("Can't bind event, selector is required");
 	    return;
 	  } // Handle a css selector string or a dom element
 
@@ -6695,20 +6695,20 @@ var mParticle = (function () {
 	  }
 	};
 	/**
-	* Invoke these methods on the mParticle.Identity object.
-	* Example: mParticle.Identity.getCurrentUser().
-	* @class mParticle.Identity
-	*/
+	 * Invoke these methods on the mParticle.Identity object.
+	 * Example: mParticle.Identity.getCurrentUser().
+	 * @class mParticle.Identity
+	 */
 
 	var IdentityAPI = {
 	  HTTPCodes: HTTPCodes$1,
 
 	  /**
-	  * Initiate a logout request to the mParticle server
-	  * @method identify
-	  * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
-	  * @param {Function} [callback] A callback function that is called when the identify request completes
-	  */
+	   * Initiate a logout request to the mParticle server
+	   * @method identify
+	   * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+	   * @param {Function} [callback] A callback function that is called when the identify request completes
+	   */
 	  identify: function identify(identityApiData, callback) {
 	    var mpid,
 	        currentUser = mParticle.Identity.getCurrentUser(),
@@ -6739,11 +6739,11 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Initiate a logout request to the mParticle server
-	  * @method logout
-	  * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
-	  * @param {Function} [callback] A callback function that is called when the logout request completes
-	  */
+	   * Initiate a logout request to the mParticle server
+	   * @method logout
+	   * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+	   * @param {Function} [callback] A callback function that is called when the logout request completes
+	   */
 	  logout: function logout(identityApiData, callback) {
 	    var mpid,
 	        currentUser = mParticle.Identity.getCurrentUser(),
@@ -6787,11 +6787,11 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Initiate a login request to the mParticle server
-	  * @method login
-	  * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
-	  * @param {Function} [callback] A callback function that is called when the login request completes
-	  */
+	   * Initiate a login request to the mParticle server
+	   * @method login
+	   * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+	   * @param {Function} [callback] A callback function that is called when the login request completes
+	   */
 	  login: function login(identityApiData, callback) {
 	    var mpid,
 	        currentUser = mParticle.Identity.getCurrentUser(),
@@ -6822,11 +6822,11 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Initiate a modify request to the mParticle server
-	  * @method modify
-	  * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
-	  * @param {Function} [callback] A callback function that is called when the modify request completes
-	  */
+	   * Initiate a modify request to the mParticle server
+	   * @method modify
+	   * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+	   * @param {Function} [callback] A callback function that is called when the modify request completes
+	   */
 	  modify: function modify(identityApiData, callback) {
 	    var mpid,
 	        currentUser = mParticle.Identity.getCurrentUser(),
@@ -6859,10 +6859,10 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Returns a user object with methods to interact with the current user
-	  * @method getCurrentUser
-	  * @return {Object} the current user object
-	  */
+	   * Returns a user object with methods to interact with the current user
+	   * @method getCurrentUser
+	   * @return {Object} the current user object
+	   */
 	  getCurrentUser: function getCurrentUser() {
 	    var mpid = mParticle.Store.mpid;
 
@@ -6877,12 +6877,12 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Returns a the user object associated with the mpid parameter or 'null' if no such
-	  * user exists
-	  * @method getUser
-	  * @param {String} mpid of the desired user
-	  * @return {Object} the user for  mpid
-	  */
+	   * Returns a the user object associated with the mpid parameter or 'null' if no such
+	   * user exists
+	   * @method getUser
+	   * @param {String} mpid of the desired user
+	   * @return {Object} the user for  mpid
+	   */
 	  getUser: function getUser(mpid) {
 	    var cookies = Persistence.getPersistence();
 
@@ -6898,10 +6898,10 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Returns all users, including the current user and all previous users that are stored on the device.
-	  * @method getUsers
-	  * @return {Array} array of users
-	  */
+	   * Returns all users, including the current user and all previous users that are stored on the device.
+	   * @method getUsers
+	   * @return {Array} array of users
+	   */
 	  getUsers: function getUsers() {
 	    var cookies = Persistence.getPersistence();
 	    var users = [];
@@ -6928,11 +6928,11 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Initiate an alias request to the mParticle server
-	  * @method aliasUsers 
-	  * @param {Object} aliasRequest  object representing an AliasRequest
-	  * @param {Function} [callback] A callback function that is called when the aliasUsers request completes
-	  */
+	   * Initiate an alias request to the mParticle server
+	   * @method aliasUsers
+	   * @param {Object} aliasRequest  object representing an AliasRequest
+	   * @param {Function} [callback] A callback function that is called when the aliasUsers request completes
+	   */
 	  aliasUsers: function aliasUsers(aliasRequest, callback) {
 	    var message;
 
@@ -6991,7 +6991,7 @@ var mParticle = (function () {
 	  createAliasRequest: function createAliasRequest(sourceUser, destinationUser) {
 	    try {
 	      if (!destinationUser || !sourceUser) {
-	        mParticle.Logger.error('\'destinationUser\' and \'sourceUser\' must both be present');
+	        mParticle.Logger.error("'destinationUser' and 'sourceUser' must both be present");
 	        return null;
 	      }
 
@@ -7029,18 +7029,18 @@ var mParticle = (function () {
 	  }
 	};
 	/**
-	* Invoke these methods on the mParticle.Identity.getCurrentUser() object.
-	* Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
-	* @class mParticle.Identity.getCurrentUser()
-	*/
+	 * Invoke these methods on the mParticle.Identity.getCurrentUser() object.
+	 * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
+	 * @class mParticle.Identity.getCurrentUser()
+	 */
 
 	function mParticleUser(mpid, _isLoggedIn) {
 	  return {
 	    /**
-	    * Get user identities for current user
-	    * @method getUserIdentities
-	    * @return {Object} an object with userIdentities as its key
-	    */
+	     * Get user identities for current user
+	     * @method getUserIdentities
+	     * @return {Object} an object with userIdentities as its key
+	     */
 	    getUserIdentities: function getUserIdentities() {
 	      var currentUserIdentities = {};
 	      var identities = Persistence.getUserIdentities(mpid);
@@ -7057,19 +7057,19 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Get the MPID of the current user
-	    * @method getMPID
-	    * @return {String} the current user MPID as a string
-	    */
+	     * Get the MPID of the current user
+	     * @method getMPID
+	     * @return {String} the current user MPID as a string
+	     */
 	    getMPID: function getMPID() {
 	      return mpid;
 	    },
 
 	    /**
-	    * Sets a user tag
-	    * @method setUserTag
-	    * @param {String} tagName
-	    */
+	     * Sets a user tag
+	     * @method setUserTag
+	     * @param {String} tagName
+	     */
 	    setUserTag: function setUserTag(tagName) {
 	      if (!Validators$2.isValidKeyValue(tagName)) {
 	        mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);
@@ -7080,10 +7080,10 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Removes a user tag
-	    * @method removeUserTag
-	    * @param {String} tagName
-	    */
+	     * Removes a user tag
+	     * @method removeUserTag
+	     * @param {String} tagName
+	     */
 	    removeUserTag: function removeUserTag(tagName) {
 	      if (!Validators$2.isValidKeyValue(tagName)) {
 	        mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);
@@ -7094,11 +7094,11 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Sets a user attribute
-	    * @method setUserAttribute
-	    * @param {String} key
-	    * @param {String} value
-	    */
+	     * Sets a user attribute
+	     * @method setUserAttribute
+	     * @param {String} key
+	     * @param {String} value
+	     */
 	    setUserAttribute: function setUserAttribute(key, value) {
 	      var cookies, userAttributes;
 	      mParticle.sessionManager.resetSessionTimer();
@@ -7142,10 +7142,10 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Set multiple user attributes
-	    * @method setUserAttributes
-	    * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
-	    */
+	     * Set multiple user attributes
+	     * @method setUserAttributes
+	     * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
+	     */
 	    setUserAttributes: function setUserAttributes(userAttributes) {
 	      mParticle.sessionManager.resetSessionTimer();
 
@@ -7163,10 +7163,10 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Removes a specific user attribute
-	    * @method removeUserAttribute
-	    * @param {String} key
-	    */
+	     * Removes a specific user attribute
+	     * @method removeUserAttribute
+	     * @param {String} key
+	     */
 	    removeUserAttribute: function removeUserAttribute(key) {
 	      var cookies, userAttributes;
 	      mParticle.sessionManager.resetSessionTimer();
@@ -7203,11 +7203,11 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Sets a list of user attributes
-	    * @method setUserAttributeList
-	    * @param {String} key
-	    * @param {Array} value an array of values
-	    */
+	     * Sets a list of user attributes
+	     * @method setUserAttributeList
+	     * @param {String} key
+	     * @param {Array} value an array of values
+	     */
 	    setUserAttributeList: function setUserAttributeList(key, value) {
 	      var cookies, userAttributes;
 	      mParticle.sessionManager.resetSessionTimer();
@@ -7251,9 +7251,9 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Removes all user attributes
-	    * @method removeAllUserAttributes
-	    */
+	     * Removes all user attributes
+	     * @method removeAllUserAttributes
+	     */
 	    removeAllUserAttributes: function removeAllUserAttributes() {
 	      var cookies, userAttributes;
 	      mParticle.sessionManager.resetSessionTimer();
@@ -7281,10 +7281,10 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Returns all user attribute keys that have values that are arrays
-	    * @method getUserAttributesLists
-	    * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
-	    */
+	     * Returns all user attribute keys that have values that are arrays
+	     * @method getUserAttributesLists
+	     * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
+	     */
 	    getUserAttributesLists: function getUserAttributesLists() {
 	      var userAttributes,
 	          userAttributesLists = {};
@@ -7300,10 +7300,10 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Returns all user attributes
-	    * @method getAllUserAttributes
-	    * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
-	    */
+	     * Returns all user attributes
+	     * @method getAllUserAttributes
+	     * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
+	     */
 	    getAllUserAttributes: function getAllUserAttributes() {
 	      var userAttributesCopy = {};
 	      var userAttributes = Persistence.getAllUserAttributes(mpid);
@@ -7324,28 +7324,28 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Returns the cart object for the current user
-	    * @method getCart
-	    * @return a cart object
-	    */
+	     * Returns the cart object for the current user
+	     * @method getCart
+	     * @return a cart object
+	     */
 	    getCart: function getCart() {
 	      return mParticleUserCart(mpid);
 	    },
 
 	    /**
-	    * Returns the Consent State stored locally for this user.
-	    * @method getConsentState
-	    * @return a ConsentState object
-	    */
+	     * Returns the Consent State stored locally for this user.
+	     * @method getConsentState
+	     * @return a ConsentState object
+	     */
 	    getConsentState: function getConsentState() {
 	      return Persistence.getConsentState(mpid);
 	    },
 
 	    /**
-	    * Sets the Consent State stored locally for this user.
-	    * @method setConsentState
-	    * @param {Object} consent state
-	    */
+	     * Sets the Consent State stored locally for this user.
+	     * @method setConsentState
+	     * @param {Object} consent state
+	     */
 	    setConsentState: function setConsentState(state) {
 	      Persistence.saveUserConsentStateToCookies(mpid, state);
 	      Forwarders.initForwarders(this.getUserIdentities().userIdentities), ApiClient.prepareForwardingStats;
@@ -7362,20 +7362,20 @@ var mParticle = (function () {
 	  };
 	}
 	/**
-	* Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
-	* Example: mParticle.Identity.getCurrentUser().getCart().add(...);
-	* @class mParticle.Identity.getCurrentUser().getCart()
-	*/
+	 * Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
+	 * Example: mParticle.Identity.getCurrentUser().getCart().add(...);
+	 * @class mParticle.Identity.getCurrentUser().getCart()
+	 */
 
 
 	function mParticleUserCart(mpid) {
 	  return {
 	    /**
-	    * Adds a cart product to the user cart
-	    * @method add
-	    * @param {Object} product the product
-	    * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
-	    */
+	     * Adds a cart product to the user cart
+	     * @method add
+	     * @param {Object} product the product
+	     * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+	     */
 	    add: function add(product, logEvent) {
 	      var allProducts, userProducts, arrayCopy;
 	      arrayCopy = Array.isArray(product) ? product.slice() : [product];
@@ -7411,11 +7411,11 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Removes a cart product from the current user cart
-	    * @method remove
-	    * @param {Object} product the product
-	    * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
-	    */
+	     * Removes a cart product from the current user cart
+	     * @method remove
+	     * @param {Object} product the product
+	     * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+	     */
 	    remove: function remove(product, logEvent) {
 	      var allProducts,
 	          userProducts,
@@ -7456,9 +7456,9 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Clears the user's cart
-	    * @method clear
-	    */
+	     * Clears the user's cart
+	     * @method clear
+	     */
 	    clear: function clear() {
 	      var allProducts;
 
@@ -7477,10 +7477,10 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Returns all cart products
-	    * @method getCartProducts
-	    * @return {Array} array of cart products
-	    */
+	     * Returns all cart products
+	     * @method getCartProducts
+	     * @return {Array} array of cart products
+	     */
 	    getCartProducts: function getCartProducts() {
 	      return Persistence.getCartProducts(mpid);
 	    }
@@ -8381,11 +8381,11 @@ var mParticle = (function () {
 	  Array.prototype.isArray = Polyfill.isArray;
 	}
 	/**
-	* Invoke these methods on the mParticle object.
-	* Example: mParticle.endSession()
-	*
-	* @class mParticle
-	*/
+	 * Invoke these methods on the mParticle object.
+	 * Example: mParticle.endSession()
+	 *
+	 * @class mParticle
+	 */
 
 
 	var mParticle$1 = {
@@ -8408,12 +8408,12 @@ var mParticle = (function () {
 	  ProductActionType: Types.ProductActionType,
 
 	  /**
-	  * Initializes the mParticle SDK
-	  *
-	  * @method init
-	  * @param {String} apiKey your mParticle assigned API key
-	  * @param {Object} [options] an options object for additional configuration
-	  */
+	   * Initializes the mParticle SDK
+	   *
+	   * @method init
+	   * @param {String} apiKey your mParticle assigned API key
+	   * @param {Object} [options] an options object for additional configuration
+	   */
 	  init: function init(apiKey, config) {
 	    if (!config && window.mParticle.config) {
 	      window.console.warn('You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly');
@@ -8440,10 +8440,10 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Completely resets the state of the SDK. mParticle.init(apiKey, window.mParticle.config) will need to be called again.
-	  * @method reset
-	  * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
-	  */
+	   * Completely resets the state of the SDK. mParticle.init(apiKey, window.mParticle.config) will need to be called again.
+	   * @method reset
+	   * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
+	   */
 	  reset: function reset(config, keepPersistence) {
 	    if (mParticle$1.Store) {
 	      delete mParticle$1.Store;
@@ -8476,65 +8476,65 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Returns the mParticle SDK version number
-	  * @method getVersion
-	  * @return {String} mParticle SDK version number
-	  */
+	   * Returns the mParticle SDK version number
+	   * @method getVersion
+	   * @return {String} mParticle SDK version number
+	   */
 	  getVersion: function getVersion() {
 	    return Constants.sdkVersion;
 	  },
 
 	  /**
-	  * Sets the app version
-	  * @method setAppVersion
-	  * @param {String} version version number
-	  */
+	   * Sets the app version
+	   * @method setAppVersion
+	   * @param {String} version version number
+	   */
 	  setAppVersion: function setAppVersion(version) {
 	    mParticle$1.Store.SDKConfig.appVersion = version;
 	    Persistence.update();
 	  },
 
 	  /**
-	  * Gets the app name
-	  * @method getAppName
-	  * @return {String} App name
-	  */
+	   * Gets the app name
+	   * @method getAppName
+	   * @return {String} App name
+	   */
 	  getAppName: function getAppName() {
 	    return mParticle$1.Store.SDKConfig.appName;
 	  },
 
 	  /**
-	  * Sets the app name
-	  * @method setAppName
-	  * @param {String} name App Name
-	  */
+	   * Sets the app name
+	   * @method setAppName
+	   * @param {String} name App Name
+	   */
 	  setAppName: function setAppName(name) {
 	    mParticle$1.Store.SDKConfig.appName = name;
 	  },
 
 	  /**
-	  * Gets the app version
-	  * @method getAppVersion
-	  * @return {String} App version
-	  */
+	   * Gets the app version
+	   * @method getAppVersion
+	   * @return {String} App version
+	   */
 	  getAppVersion: function getAppVersion() {
 	    return mParticle$1.Store.SDKConfig.appVersion;
 	  },
 
 	  /**
-	  * Stops tracking the location of the user
-	  * @method stopTrackingLocation
-	  */
+	   * Stops tracking the location of the user
+	   * @method stopTrackingLocation
+	   */
 	  stopTrackingLocation: function stopTrackingLocation() {
 	    SessionManager.resetSessionTimer();
 	    Events.stopTracking();
 	  },
 
 	  /**
-	  * Starts tracking the location of the user
-	  * @method startTrackingLocation
-	  * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
-	  */
+	   * Starts tracking the location of the user
+	   * @method startTrackingLocation
+	   * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
+	   */
 	  startTrackingLocation: function startTrackingLocation(callback) {
 	    if (!Validators$4.isFunction(callback)) {
 	      mParticle$1.Logger.warning('Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.');
@@ -8545,11 +8545,11 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Sets the position of the user
-	  * @method setPosition
-	  * @param {Number} lattitude lattitude digit
-	  * @param {Number} longitude longitude digit
-	  */
+	   * Sets the position of the user
+	   * @method setPosition
+	   * @param {Number} lattitude lattitude digit
+	   * @param {Number} longitude longitude digit
+	   */
 	  setPosition: function setPosition(lat, lng) {
 	    SessionManager.resetSessionTimer();
 
@@ -8564,17 +8564,17 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Starts a new session
-	  * @method startNewSession
-	  */
+	   * Starts a new session
+	   * @method startNewSession
+	   */
 	  startNewSession: function startNewSession() {
 	    SessionManager.startNewSession();
 	  },
 
 	  /**
-	  * Ends the current session
-	  * @method endSession
-	  */
+	   * Ends the current session
+	   * @method endSession
+	   */
 	  endSession: function endSession() {
 	    // Sends true as an over ride vs when endSession is called from the setInterval
 	    SessionManager.endSession(true);
@@ -8605,13 +8605,13 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Logs an event to mParticle's servers
-	  * @method logEvent
-	  * @param {String} eventName The name of the event
-	  * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
-	  * @param {Object} [eventInfo] Attributes for the event
-	  * @param {Object} [customFlags] Additional customFlags
-	  */
+	   * Logs an event to mParticle's servers
+	   * @method logEvent
+	   * @param {String} eventName The name of the event
+	   * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
+	   * @param {Object} [eventInfo] Attributes for the event
+	   * @param {Object} [customFlags] Additional customFlags
+	   */
 	  logEvent: function logEvent(eventName, eventType, eventInfo, customFlags) {
 	    SessionManager.resetSessionTimer();
 
@@ -8644,12 +8644,12 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Used to log custom errors
-	  *
-	  * @method logError
-	  * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
-	  * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
-	  */
+	   * Used to log custom errors
+	   *
+	   * @method logError
+	   * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
+	   * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
+	   */
 	  logError: function logError(error, attrs) {
 	    SessionManager.resetSessionTimer();
 
@@ -8686,38 +8686,38 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Logs `click` events
-	  * @method logLink
-	  * @param {String} selector The selector to add a 'click' event to (ex. #purchase-event)
-	  * @param {String} [eventName] The name of the event
-	  * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
-	  * @param {Object} [eventInfo] Attributes for the event
-	  */
+	   * Logs `click` events
+	   * @method logLink
+	   * @param {String} selector The selector to add a 'click' event to (ex. #purchase-event)
+	   * @param {String} [eventName] The name of the event
+	   * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+	   * @param {Object} [eventInfo] Attributes for the event
+	   */
 	  logLink: function logLink(selector, eventName, eventType, eventInfo) {
 	    SessionManager.resetSessionTimer();
 	    Events.addEventHandler('click', selector, eventName, eventInfo, eventType);
 	  },
 
 	  /**
-	  * Logs `submit` events
-	  * @method logForm
-	  * @param {String} selector The selector to add the event handler to (ex. #search-event)
-	  * @param {String} [eventName] The name of the event
-	  * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
-	  * @param {Object} [eventInfo] Attributes for the event
-	  */
+	   * Logs `submit` events
+	   * @method logForm
+	   * @param {String} selector The selector to add the event handler to (ex. #search-event)
+	   * @param {String} [eventName] The name of the event
+	   * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+	   * @param {Object} [eventInfo] Attributes for the event
+	   */
 	  logForm: function logForm(selector, eventName, eventType, eventInfo) {
 	    SessionManager.resetSessionTimer();
 	    Events.addEventHandler('submit', selector, eventName, eventInfo, eventType);
 	  },
 
 	  /**
-	  * Logs a page view
-	  * @method logPageView
-	  * @param {String} eventName The name of the event. Defaults to 'PageView'.
-	  * @param {Object} [attrs] Attributes for the event
-	  * @param {Object} [customFlags] Custom flags for the event
-	  */
+	   * Logs a page view
+	   * @method logPageView
+	   * @param {String} eventName The name of the event. Defaults to 'PageView'.
+	   * @param {Object} [attrs] Attributes for the event
+	   * @param {Object} [customFlags] Custom flags for the event
+	   */
 	  logPageView: function logPageView(eventName, attrs, customFlags) {
 	    SessionManager.resetSessionTimer();
 
@@ -8756,23 +8756,23 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Invoke these methods on the mParticle.eCommerce object.
-	  * Example: mParticle.eCommerce.createImpresion(...)
-	  * @class mParticle.eCommerce
-	  */
+	   * Invoke these methods on the mParticle.eCommerce object.
+	   * Example: mParticle.eCommerce.createImpresion(...)
+	   * @class mParticle.eCommerce
+	   */
 	  eCommerce: {
 	    /**
-	    * Invoke these methods on the mParticle.eCommerce.Cart object.
-	    * Example: mParticle.eCommerce.Cart.add(...)
-	    * @class mParticle.eCommerce.Cart
-	    */
+	     * Invoke these methods on the mParticle.eCommerce.Cart object.
+	     * Example: mParticle.eCommerce.Cart.add(...)
+	     * @class mParticle.eCommerce.Cart
+	     */
 	    Cart: {
 	      /**
-	      * Adds a product to the cart
-	      * @method add
-	      * @param {Object} product The product you want to add to the cart
-	      * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-	      */
+	       * Adds a product to the cart
+	       * @method add
+	       * @param {Object} product The product you want to add to the cart
+	       * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
+	       */
 	      add: function add(product, logEventBoolean) {
 	        var mpid,
 	            currentUser = mParticle$1.Identity.getCurrentUser();
@@ -8785,11 +8785,11 @@ var mParticle = (function () {
 	      },
 
 	      /**
-	      * Removes a product from the cart
-	      * @method remove
-	      * @param {Object} product The product you want to add to the cart
-	      * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-	      */
+	       * Removes a product from the cart
+	       * @method remove
+	       * @param {Object} product The product you want to add to the cart
+	       * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
+	       */
 	      remove: function remove(product, logEventBoolean) {
 	        var mpid,
 	            currentUser = mParticle$1.Identity.getCurrentUser();
@@ -8802,9 +8802,9 @@ var mParticle = (function () {
 	      },
 
 	      /**
-	      * Clears the cart
-	      * @method clear
-	      */
+	       * Clears the cart
+	       * @method clear
+	       */
 	      clear: function clear() {
 	        var mpid,
 	            currentUser = mParticle$1.Identity.getCurrentUser();
@@ -8818,11 +8818,11 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Sets the currency code
-	    * @for mParticle.eCommerce
-	    * @method setCurrencyCode
-	    * @param {String} code The currency code
-	    */
+	     * Sets the currency code
+	     * @for mParticle.eCommerce
+	     * @method setCurrencyCode
+	     * @param {String} code The currency code
+	     */
 	    setCurrencyCode: function setCurrencyCode(code) {
 	      if (typeof code !== 'string') {
 	        mParticle$1.Logger.error('Code must be a string');
@@ -8834,105 +8834,105 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Creates a product
-	    * @for mParticle.eCommerce
-	    * @method createProduct
-	    * @param {String} name product name
-	    * @param {String} sku product sku
-	    * @param {Number} price product price
-	    * @param {Number} [quantity] product quantity. If blank, defaults to 1.
-	    * @param {String} [variant] product variant
-	    * @param {String} [category] product category
-	    * @param {String} [brand] product brand
-	    * @param {Number} [position] product position
-	    * @param {String} [coupon] product coupon
-	    * @param {Object} [attributes] product attributes
-	    */
+	     * Creates a product
+	     * @for mParticle.eCommerce
+	     * @method createProduct
+	     * @param {String} name product name
+	     * @param {String} sku product sku
+	     * @param {Number} price product price
+	     * @param {Number} [quantity] product quantity. If blank, defaults to 1.
+	     * @param {String} [variant] product variant
+	     * @param {String} [category] product category
+	     * @param {String} [brand] product brand
+	     * @param {Number} [position] product position
+	     * @param {String} [coupon] product coupon
+	     * @param {Object} [attributes] product attributes
+	     */
 	    createProduct: function createProduct(name, sku, price, quantity, variant, category, brand, position, coupon, attributes) {
 	      SessionManager.resetSessionTimer();
 	      return Ecommerce.createProduct(name, sku, price, quantity, variant, category, brand, position, coupon, attributes);
 	    },
 
 	    /**
-	    * Creates a promotion
-	    * @for mParticle.eCommerce
-	    * @method createPromotion
-	    * @param {String} id a unique promotion id
-	    * @param {String} [creative] promotion creative
-	    * @param {String} [name] promotion name
-	    * @param {Number} [position] promotion position
-	    */
+	     * Creates a promotion
+	     * @for mParticle.eCommerce
+	     * @method createPromotion
+	     * @param {String} id a unique promotion id
+	     * @param {String} [creative] promotion creative
+	     * @param {String} [name] promotion name
+	     * @param {Number} [position] promotion position
+	     */
 	    createPromotion: function createPromotion(id, creative, name, position) {
 	      SessionManager.resetSessionTimer();
 	      return Ecommerce.createPromotion(id, creative, name, position);
 	    },
 
 	    /**
-	    * Creates a product impression
-	    * @for mParticle.eCommerce
-	    * @method createImpression
-	    * @param {String} name impression name
-	    * @param {Object} product the product for which an impression is being created
-	    */
+	     * Creates a product impression
+	     * @for mParticle.eCommerce
+	     * @method createImpression
+	     * @param {String} name impression name
+	     * @param {Object} product the product for which an impression is being created
+	     */
 	    createImpression: function createImpression(name, product) {
 	      SessionManager.resetSessionTimer();
 	      return Ecommerce.createImpression(name, product);
 	    },
 
 	    /**
-	    * Creates a transaction attributes object to be used with a checkout
-	    * @for mParticle.eCommerce
-	    * @method createTransactionAttributes
-	    * @param {String or Number} id a unique transaction id
-	    * @param {String} [affiliation] affilliation
-	    * @param {String} [couponCode] the coupon code for which you are creating transaction attributes
-	    * @param {Number} [revenue] total revenue for the product being purchased
-	    * @param {String} [shipping] the shipping method
-	    * @param {Number} [tax] the tax amount
-	    */
+	     * Creates a transaction attributes object to be used with a checkout
+	     * @for mParticle.eCommerce
+	     * @method createTransactionAttributes
+	     * @param {String or Number} id a unique transaction id
+	     * @param {String} [affiliation] affilliation
+	     * @param {String} [couponCode] the coupon code for which you are creating transaction attributes
+	     * @param {Number} [revenue] total revenue for the product being purchased
+	     * @param {String} [shipping] the shipping method
+	     * @param {Number} [tax] the tax amount
+	     */
 	    createTransactionAttributes: function createTransactionAttributes(id, affiliation, couponCode, revenue, shipping, tax) {
 	      SessionManager.resetSessionTimer();
 	      return Ecommerce.createTransactionAttributes(id, affiliation, couponCode, revenue, shipping, tax);
 	    },
 
 	    /**
-	    * Logs a checkout action
-	    * @for mParticle.eCommerce
-	    * @method logCheckout
-	    * @param {Number} step checkout step number
-	    * @param {Object} options
-	    * @param {Object} attrs
-	    * @param {Object} [customFlags] Custom flags for the event
-	    */
+	     * Logs a checkout action
+	     * @for mParticle.eCommerce
+	     * @method logCheckout
+	     * @param {Number} step checkout step number
+	     * @param {Object} options
+	     * @param {Object} attrs
+	     * @param {Object} [customFlags] Custom flags for the event
+	     */
 	    logCheckout: function logCheckout(step, options, attrs, customFlags) {
 	      SessionManager.resetSessionTimer();
 	      Events.logCheckoutEvent(step, options, attrs, customFlags);
 	    },
 
 	    /**
-	    * Logs a product action
-	    * @for mParticle.eCommerce
-	    * @method logProductAction
-	    * @param {Number} productActionType product action type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L206-L218)
-	    * @param {Object} product the product for which you are creating the product action
-	    * @param {Object} [attrs] attributes related to the product action
-	    * @param {Object} [customFlags] Custom flags for the event
-	    */
+	     * Logs a product action
+	     * @for mParticle.eCommerce
+	     * @method logProductAction
+	     * @param {Number} productActionType product action type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L206-L218)
+	     * @param {Object} product the product for which you are creating the product action
+	     * @param {Object} [attrs] attributes related to the product action
+	     * @param {Object} [customFlags] Custom flags for the event
+	     */
 	    logProductAction: function logProductAction(productActionType, product, attrs, customFlags) {
 	      SessionManager.resetSessionTimer();
 	      Events.logProductActionEvent(productActionType, product, attrs, customFlags);
 	    },
 
 	    /**
-	    * Logs a product purchase
-	    * @for mParticle.eCommerce
-	    * @method logPurchase
-	    * @param {Object} transactionAttributes transactionAttributes object
-	    * @param {Object} product the product being purchased
-	    * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
-	    * @param {Object} [attrs] other attributes related to the product purchase
-	    * @param {Object} [customFlags] Custom flags for the event
-	    */
+	     * Logs a product purchase
+	     * @for mParticle.eCommerce
+	     * @method logPurchase
+	     * @param {Object} transactionAttributes transactionAttributes object
+	     * @param {Object} product the product being purchased
+	     * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
+	     * @param {Object} [attrs] other attributes related to the product purchase
+	     * @param {Object} [customFlags] Custom flags for the event
+	     */
 	    logPurchase: function logPurchase(transactionAttributes, product, clearCart, attrs, customFlags) {
 	      if (!transactionAttributes || !product) {
 	        mParticle$1.Logger.error(Messages$8.ErrorMessages.BadLogPurchase);
@@ -8948,42 +8948,42 @@ var mParticle = (function () {
 	    },
 
 	    /**
-	    * Logs a product promotion
-	    * @for mParticle.eCommerce
-	    * @method logPromotion
-	    * @param {Number} type the promotion type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L275-L279)
-	    * @param {Object} promotion promotion object
-	    * @param {Object} [attrs] boolean to clear the cart after logging or not
-	    * @param {Object} [customFlags] Custom flags for the event
-	    */
+	     * Logs a product promotion
+	     * @for mParticle.eCommerce
+	     * @method logPromotion
+	     * @param {Number} type the promotion type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L275-L279)
+	     * @param {Object} promotion promotion object
+	     * @param {Object} [attrs] boolean to clear the cart after logging or not
+	     * @param {Object} [customFlags] Custom flags for the event
+	     */
 	    logPromotion: function logPromotion(type, promotion, attrs, customFlags) {
 	      SessionManager.resetSessionTimer();
 	      Events.logPromotionEvent(type, promotion, attrs, customFlags);
 	    },
 
 	    /**
-	    * Logs a product impression
-	    * @for mParticle.eCommerce
-	    * @method logImpression
-	    * @param {Object} impression product impression object
-	    * @param {Object} attrs attributes related to the impression log
-	    * @param {Object} [customFlags] Custom flags for the event
-	    */
+	     * Logs a product impression
+	     * @for mParticle.eCommerce
+	     * @method logImpression
+	     * @param {Object} impression product impression object
+	     * @param {Object} attrs attributes related to the impression log
+	     * @param {Object} [customFlags] Custom flags for the event
+	     */
 	    logImpression: function logImpression(impression, attrs, customFlags) {
 	      SessionManager.resetSessionTimer();
 	      Events.logImpressionEvent(impression, attrs, customFlags);
 	    },
 
 	    /**
-	    * Logs a refund
-	    * @for mParticle.eCommerce
-	    * @method logRefund
-	    * @param {Object} transactionAttributes transaction attributes related to the refund
-	    * @param {Object} product product being refunded
-	    * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
-	    * @param {Object} [attrs] attributes related to the refund
-	    * @param {Object} [customFlags] Custom flags for the event
-	    */
+	     * Logs a refund
+	     * @for mParticle.eCommerce
+	     * @method logRefund
+	     * @param {Object} transactionAttributes transaction attributes related to the refund
+	     * @param {Object} product product being refunded
+	     * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
+	     * @param {Object} [attrs] attributes related to the refund
+	     * @param {Object} [customFlags] Custom flags for the event
+	     */
 	    logRefund: function logRefund(transactionAttributes, product, clearCart, attrs, customFlags) {
 	      SessionManager.resetSessionTimer();
 	      Events.logRefundEvent(transactionAttributes, product, attrs, customFlags);
@@ -8999,12 +8999,12 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Sets a session attribute
-	  * @for mParticle
-	  * @method setSessionAttribute
-	  * @param {String} key key for session attribute
-	  * @param {String or Number} value value for session attribute
-	  */
+	   * Sets a session attribute
+	   * @for mParticle
+	   * @method setSessionAttribute
+	   * @param {String} key key for session attribute
+	   * @param {String or Number} value value for session attribute
+	   */
 	  setSessionAttribute: function setSessionAttribute(key, value) {
 	    SessionManager.resetSessionTimer(); // Logs to cookie
 	    // And logs to in-memory object
@@ -9041,11 +9041,11 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Set opt out of logging
-	  * @for mParticle
-	  * @method setOptOut
-	  * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
-	  */
+	   * Set opt out of logging
+	   * @for mParticle
+	   * @method setOptOut
+	   * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
+	   */
 	  setOptOut: function setOptOut(isOptingOut) {
 	    SessionManager.resetSessionTimer();
 	    mParticle$1.Store.isEnabled = !isOptingOut;
@@ -9066,19 +9066,19 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Set or remove the integration attributes for a given integration ID.
-	  * Integration attributes are keys and values specific to a given integration. For example,
-	  * many integrations have their own internal user/device ID. mParticle will store integration attributes
-	  * for a given device, and will be able to use these values for server-to-server communication to services.
-	  * This is often useful when used in combination with a server-to-server feed, allowing the feed to be enriched
-	  * with the necessary integration attributes to be properly forwarded to the given integration.
-	  * @for mParticle
-	  * @method setIntegrationAttribute
-	  * @param {Number} integrationId mParticle integration ID
-	  * @param {Object} attrs a map of attributes that will replace any current attributes. The keys are predefined by mParticle.
-	  * Please consult with the mParticle docs or your solutions consultant for the correct value. You may
-	  * also pass a null or empty map here to remove all of the attributes.
-	  */
+	   * Set or remove the integration attributes for a given integration ID.
+	   * Integration attributes are keys and values specific to a given integration. For example,
+	   * many integrations have their own internal user/device ID. mParticle will store integration attributes
+	   * for a given device, and will be able to use these values for server-to-server communication to services.
+	   * This is often useful when used in combination with a server-to-server feed, allowing the feed to be enriched
+	   * with the necessary integration attributes to be properly forwarded to the given integration.
+	   * @for mParticle
+	   * @method setIntegrationAttribute
+	   * @param {Number} integrationId mParticle integration ID
+	   * @param {Object} attrs a map of attributes that will replace any current attributes. The keys are predefined by mParticle.
+	   * Please consult with the mParticle docs or your solutions consultant for the correct value. You may
+	   * also pass a null or empty map here to remove all of the attributes.
+	   */
 	  setIntegrationAttribute: function setIntegrationAttribute(integrationId, attrs) {
 	    if (typeof integrationId !== 'number') {
 	      mParticle$1.Logger.error('integrationId must be a number');
@@ -9119,11 +9119,11 @@ var mParticle = (function () {
 	  },
 
 	  /**
-	  * Get integration attributes for a given integration ID.
-	  * @method getIntegrationAttributes
-	  * @param {Number} integrationId mParticle integration ID
-	  * @return {Object} an object map of the integrationId's attributes
-	  */
+	   * Get integration attributes for a given integration ID.
+	   * @method getIntegrationAttributes
+	   * @param {Number} integrationId mParticle integration ID
+	   * @return {Object} an object map of the integrationId's attributes
+	   */
 	  getIntegrationAttributes: function getIntegrationAttributes(integrationId) {
 	    if (mParticle$1.Store.integrationAttributes[integrationId]) {
 	      return mParticle$1.Store.integrationAttributes[integrationId];

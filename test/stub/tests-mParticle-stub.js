@@ -1,7 +1,7 @@
 import mParticle from '../../src/stub/mparticle.stub.js';
 
-describe('mParticle stubs', function () {
-    it('should invoke all mParticle root methods without errors', function (done) {
+describe('mParticle stubs', function() {
+    it('should invoke all mParticle root methods without errors', function(done) {
         mParticle.endSession();
         mParticle.getAppName();
         mParticle.getAppVersion();
@@ -28,7 +28,7 @@ describe('mParticle stubs', function () {
         done();
     });
 
-    it('should invoke all eCommerce stubbed methods without errors', function (done) {
+    it('should invoke all eCommerce stubbed methods without errors', function(done) {
         var impression = mParticle.eCommerce.createImpression();
         (typeof impression.Name).should.equal('string');
         (typeof impression.Product).should.equal('object');
@@ -59,7 +59,11 @@ describe('mParticle stubs', function () {
         mParticle.eCommerce.logRefund();
         mParticle.eCommerce.setCurrencyCode();
 
-        var product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
+        var product1 = mParticle.eCommerce.createProduct(
+            'iphone',
+            'iphoneSKU',
+            999
+        );
 
         mParticle.eCommerce.Cart.add(product1);
         mParticle.eCommerce.Cart.remove(product1);
@@ -70,16 +74,37 @@ describe('mParticle stubs', function () {
         done();
     });
 
-    it('should invoke all Consent stubbed methods without errors', function (done) {
+    it('should invoke all Consent stubbed methods without errors', function(done) {
         var consent = mParticle.Consent.createConsentState();
         consent.addGDPRConsentState();
         consent.setGDPRConsentState();
         consent.removeGDPRConsentState();
         var GDPRConsentState = consent.getGDPRConsentState();
 
-        consent.addGDPRConsentState().should.have.properties('addGDPRConsentState', 'setGDPRConsentState', 'removeGDPRConsentState', 'getGDPRConsentState')
-        consent.setGDPRConsentState().should.have.properties('addGDPRConsentState', 'setGDPRConsentState', 'removeGDPRConsentState', 'getGDPRConsentState')
-        consent.removeGDPRConsentState().should.have.properties('addGDPRConsentState', 'setGDPRConsentState', 'removeGDPRConsentState', 'getGDPRConsentState')
+        consent
+            .addGDPRConsentState()
+            .should.have.properties(
+                'addGDPRConsentState',
+                'setGDPRConsentState',
+                'removeGDPRConsentState',
+                'getGDPRConsentState'
+            );
+        consent
+            .setGDPRConsentState()
+            .should.have.properties(
+                'addGDPRConsentState',
+                'setGDPRConsentState',
+                'removeGDPRConsentState',
+                'getGDPRConsentState'
+            );
+        consent
+            .removeGDPRConsentState()
+            .should.have.properties(
+                'addGDPRConsentState',
+                'setGDPRConsentState',
+                'removeGDPRConsentState',
+                'getGDPRConsentState'
+            );
 
         GDPRConsentState.ConsentDocument.should.equal('doc');
         GDPRConsentState.Consented.should.equal(false);
@@ -90,8 +115,7 @@ describe('mParticle stubs', function () {
         done();
     });
 
-    it('should invoke all Identity stubbed methods without errors', function (done) {
-
+    it('should invoke all Identity stubbed methods without errors', function(done) {
         mParticle.Identity.aliasUsers();
         var aliasRequest = mParticle.Identity.createAliasRequest();
         aliasRequest.sourceMpid.should.equal('a');
@@ -102,7 +126,7 @@ describe('mParticle stubs', function () {
         done();
     });
 
-    it('should invoke all Identity stubbed methods without errors', function (done) {
+    it('should invoke all Identity stubbed methods without errors', function(done) {
         mParticle.Identity.aliasUsers();
         var aliasRequest = mParticle.Identity.createAliasRequest();
 
@@ -133,7 +157,12 @@ describe('mParticle stubs', function () {
 
         user.setConsentState();
 
-        user.getConsentState().should.have.properties('addGDPRConsentState', 'setGDPRConsentState', 'removeGDPRConsentState', 'getGDPRConsentState');
+        user.getConsentState().should.have.properties(
+            'addGDPRConsentState',
+            'setGDPRConsentState',
+            'removeGDPRConsentState',
+            'getGDPRConsentState'
+        );
 
         done();
     });

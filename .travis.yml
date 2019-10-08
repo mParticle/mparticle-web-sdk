@@ -1,14 +1,14 @@
 language: node_js
 node_js:
-  - "7"
+    - '7'
 dist: trusty
 sudo: false
 addons:
-  chrome: stable
-  firefox: latest
+    chrome: stable
+    firefox: latest
 cache:
-  directories:
-    - node_modules
+    directories:
+        - node_modules
 script:
-  - npm install
-  - npm run testKarma -- --single-run=true --browsers=ChromeHeadless,FirefoxHeadless
+    - npm install
+    - npm run testKarma -- --single-run=true --browsers=ChromeHeadless,FirefoxHeadless

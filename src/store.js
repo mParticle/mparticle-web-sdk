@@ -65,7 +65,7 @@ export default function Store(config, logger) {
         activeForwarders: [],
         kits: {},
         configuredForwarders: [],
-        pixelConfigurations: []
+        pixelConfigurations: [],
     };
 
     for (var key in defaultStore) {
@@ -73,18 +73,22 @@ export default function Store(config, logger) {
     }
 
     this.storageName = Helpers.createMainStorageName(config.workspaceToken);
-    this.prodStorageName = Helpers.createProductStorageName(config.workspaceToken);
+    this.prodStorageName = Helpers.createProductStorageName(
+        config.workspaceToken
+    );
     this.integrationDelayTimeoutStart = Date.now();
 
     this.SDKConfig = createSDKConfig(config);
     // Set configuration to default settings
     if (config) {
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = Helpers.returnConvertedBoolean(config.isDevelopmentMode);
+            this.SDKConfig.isDevelopmentMode = Helpers.returnConvertedBoolean(
+                config.isDevelopmentMode
+            );
         } else {
             this.SDKConfig.isDevelopmentMode = false;
         }
-        
+
         if (config.hasOwnProperty('serviceUrl')) {
             this.SDKConfig.serviceUrl = config.serviceUrl;
         }
@@ -147,7 +151,8 @@ export default function Store(config, logger) {
         if (config.hasOwnProperty('maxCookieSize')) {
             this.SDKConfig.maxCookieSize = config.maxCookieSize;
         } else {
-            this.SDKConfig.maxCookieSize = Constants.DefaultConfig.maxCookieSize;
+            this.SDKConfig.maxCookieSize =
+                Constants.DefaultConfig.maxCookieSize;
         }
 
         if (config.hasOwnProperty('appName')) {
@@ -155,9 +160,11 @@ export default function Store(config, logger) {
         }
 
         if (config.hasOwnProperty('integrationDelayTimeout')) {
-            this.SDKConfig.integrationDelayTimeout = config.integrationDelayTimeout;
+            this.SDKConfig.integrationDelayTimeout =
+                config.integrationDelayTimeout;
         } else {
-            this.SDKConfig.integrationDelayTimeout = Constants.DefaultConfig.integrationDelayTimeout;
+            this.SDKConfig.integrationDelayTimeout =
+                Constants.DefaultConfig.integrationDelayTimeout;
         }
 
         if (config.hasOwnProperty('identifyRequest')) {
@@ -169,7 +176,11 @@ export default function Store(config, logger) {
             if (Validators.isFunction(callback)) {
                 this.SDKConfig.identityCallback = config.identityCallback;
             } else {
-                logger.warning('The optional callback must be a function. You tried entering a(n) ' + typeof callback, ' . Callback not set. Please set your callback again.');
+                logger.warning(
+                    'The optional callback must be a function. You tried entering a(n) ' +
+                        typeof callback,
+                    ' . Callback not set. Please set your callback again.'
+                );
             }
         }
 
@@ -195,17 +206,21 @@ export default function Store(config, logger) {
         if (config.hasOwnProperty('workspaceToken')) {
             this.SDKConfig.workspaceToken = config.workspaceToken;
         } else {
-            logger.warning('You should have a workspaceToken on your mParticle.config object for security purposes.');
+            logger.warning(
+                'You should have a workspaceToken on your mParticle.config object for security purposes.'
+            );
         }
 
         if (config.hasOwnProperty('requiredWebviewBridgeName')) {
-            this.SDKConfig.requiredWebviewBridgeName = config.requiredWebviewBridgeName;
+            this.SDKConfig.requiredWebviewBridgeName =
+                config.requiredWebviewBridgeName;
         } else if (config.hasOwnProperty('workspaceToken')) {
             this.SDKConfig.requiredWebviewBridgeName = config.workspaceToken;
         }
 
         if (config.hasOwnProperty('minWebviewBridgeVersion')) {
-            this.SDKConfig.minWebviewBridgeVersion = config.minWebviewBridgeVersion;
+            this.SDKConfig.minWebviewBridgeVersion =
+                config.minWebviewBridgeVersion;
         } else {
             this.SDKConfig.minWebviewBridgeVersion = 1;
         }
@@ -213,19 +228,34 @@ export default function Store(config, logger) {
         if (config.hasOwnProperty('aliasMaxWindow')) {
             this.SDKConfig.aliasMaxWindow = config.aliasMaxWindow;
         } else {
-            this.SDKConfig.aliasMaxWindow = Constants.DefaultConfig.aliasMaxWindow;
+            this.SDKConfig.aliasMaxWindow =
+                Constants.DefaultConfig.aliasMaxWindow;
         }
- 
+
         if (!config.hasOwnProperty('flags')) {
             this.SDKConfig.flags = {};
         }
-        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventsV3)) {
+        if (
+            !this.SDKConfig.flags.hasOwnProperty(
+                Constants.FeatureFlags.EventsV3
+            )
+        ) {
             this.SDKConfig.flags[Constants.FeatureFlags.EventsV3] = 0;
         }
-        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventBatchingIntervalMillis)) {
-            this.SDKConfig.flags[Constants.FeatureFlags.EventBatchingIntervalMillis] = Constants.DefaultConfig.uploadInterval;
+        if (
+            !this.SDKConfig.flags.hasOwnProperty(
+                Constants.FeatureFlags.EventBatchingIntervalMillis
+            )
+        ) {
+            this.SDKConfig.flags[
+                Constants.FeatureFlags.EventBatchingIntervalMillis
+            ] = Constants.DefaultConfig.uploadInterval;
         }
-        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.ReportBatching)) {
+        if (
+            !this.SDKConfig.flags.hasOwnProperty(
+                Constants.FeatureFlags.ReportBatching
+            )
+        ) {
             this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching] = false;
         }
     }

@@ -1,8 +1,6 @@
 const { DEBUG } = process.env;
 
-let files = [
-    'test-stub-bundle.js'
-];
+let files = ['test-stub-bundle.js'];
 
 let browsers = ['ChromeHeadless'];
 let singleRun = true;
@@ -12,7 +10,7 @@ if (DEBUG === 'true') {
     singleRun = false;
 }
 
-module.exports = function (config) {
+module.exports = function(config) {
     config.set({
         frameworks: ['mocha', 'should'],
         files,
@@ -24,20 +22,20 @@ module.exports = function (config) {
         debug: true,
         logLevel: config.LOG_INFO,
         browserConsoleLogOptions: {
-            terminal: false
+            terminal: false,
         },
         client: {
-            captureConsole: false
+            captureConsole: false,
         },
         customLaunchers: {
             FirefoxHeadless: {
                 base: 'Firefox',
-                flags: ['-headless']
-            }
+                flags: ['-headless'],
+            },
         },
         junitReporter: {
             outputDir: '../reports/',
-            outputFile: 'test-karma.xml'
-        }
+            outputFile: 'test-karma.xml',
+        },
     });
 };

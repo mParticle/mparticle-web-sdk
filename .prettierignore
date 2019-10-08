@@ -7,3 +7,6 @@ test/reports
 test/test-bundle.js.map
 test/stub/test-stub-bundle.js
 **/dist
+snippet.min.js
+test/lib
+mparticle.js

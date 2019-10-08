@@ -37,7 +37,10 @@ describe('identities and attributes', function() {
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'gender',
+            'female'
+        );
 
         mParticle.logEvent('test user attributes');
 
@@ -69,7 +72,10 @@ describe('identities and attributes', function() {
 
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
-        mParticle.Identity.getCurrentUser().setUserAttributes({gender: 'male', age: 21});
+        mParticle.Identity.getCurrentUser().setUserAttributes({
+            gender: 'male',
+            age: 21,
+        });
 
         mParticle.logEvent('test user attributes');
 
@@ -157,8 +163,8 @@ describe('identities and attributes', function() {
         done();
     });
 
-    it('should not set a session attribute\'s key as an object or array)', function(done) {
-        mParticle.setSessionAttribute({key: 'value'}, 'test');
+    it("should not set a session attribute's key as an object or array)", function(done) {
+        mParticle.setSessionAttribute({ key: 'value' }, 'test');
         mParticle.endSession();
         var sessionEndEvent1 = getEvent(2);
 
@@ -275,7 +281,13 @@ describe('identities and attributes', function() {
         mParticle.reset(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
-        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ]);
 
         mParticle.logEvent('test user attributes');
 
@@ -294,8 +306,21 @@ describe('identities and attributes', function() {
         mParticle.reset(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
-        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
-        mParticle.Identity.getCurrentUser().setUserAttributeList('Numbers', [1, 2, 3, 4, 5, 6]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('Numbers', [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+        ]);
 
         mParticle.logEvent('test user attributes');
 
@@ -307,7 +332,13 @@ describe('identities and attributes', function() {
         event.ua.should.not.have.property('numbers');
         cookies[testMPID].ua.Numbers.length.should.equal(6);
 
-        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ]);
 
         mParticle.logEvent('test user attributes2');
         var event2 = getEvent('test user attributes2');
@@ -327,7 +358,10 @@ describe('identities and attributes', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', list);
+        mParticle.Identity.getCurrentUser().setUserAttributeList(
+            'numbers',
+            list
+        );
 
         list.push(6);
 
@@ -349,7 +383,13 @@ describe('identities and attributes', function() {
         mParticle.reset(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
-        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ]);
         mParticle.Identity.getCurrentUser().removeAllUserAttributes();
 
         mParticle.logEvent('test user attributes');
@@ -369,7 +409,13 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ]);
 
         var userAttributes = mParticle.Identity.getCurrentUser().getUserAttributesLists();
 
@@ -384,7 +430,13 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ]);
 
         var userAttributes = mParticle.Identity.getCurrentUser().getUserAttributesLists();
 
@@ -401,7 +453,13 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
-        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [1, 2, 3, 4, 5]);
+        mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ]);
 
         var userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
@@ -422,7 +480,10 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('test', '123');
-        mParticle.Identity.getCurrentUser().setUserAttribute('another test', 'blah');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            'another test',
+            'blah'
+        );
 
         var attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
@@ -458,19 +519,31 @@ describe('identities and attributes', function() {
     });
 
     it('should not set a bad user attribute key or value', function(done) {
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', { bad: 'bad' });
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', {
+            bad: 'bad',
+        });
         mParticle.logEvent('test bad user attributes1');
         var event1 = getEvent('test bad user attributes1');
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', ['bad', 'bad', 'bad']);
+        mParticle.Identity.getCurrentUser().setUserAttribute('gender', [
+            'bad',
+            'bad',
+            'bad',
+        ]);
         mParticle.logEvent('test bad user attributes2');
         var event2 = getEvent('test bad user attributes2');
 
-        mParticle.Identity.getCurrentUser().setUserAttribute({ bad: 'bad' }, 'male');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            { bad: 'bad' },
+            'male'
+        );
         mParticle.logEvent('test bad user attributes3');
         var event3 = getEvent('test bad user attributes3');
 
-        mParticle.Identity.getCurrentUser().setUserAttribute(['bad', 'bad', 'bad'], 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            ['bad', 'bad', 'bad'],
+            'female'
+        );
         mParticle.logEvent('test bad user attributes4');
         var event4 = getEvent('test bad user attributes4');
 
@@ -478,7 +551,10 @@ describe('identities and attributes', function() {
         mParticle.logEvent('test bad user attributes5');
         var event5 = getEvent('test bad user attributes5');
 
-        mParticle.Identity.getCurrentUser().setUserAttribute(undefined, 'female');
+        mParticle.Identity.getCurrentUser().setUserAttribute(
+            undefined,
+            'female'
+        );
         mParticle.logEvent('test bad user attributes6');
         var event6 = getEvent('test bad user attributes6');
 
@@ -509,7 +585,9 @@ describe('identities and attributes', function() {
 
         mParticle.eCommerce.Cart.add([product1, product2]);
 
-        var cartProducts = mParticle.Identity.getCurrentUser().getCart().getCartProducts();
+        var cartProducts = mParticle.Identity.getCurrentUser()
+            .getCart()
+            .getCartProducts();
 
         cartProducts.length.should.equal(2);
         JSON.stringify(cartProducts[0]).should.equal(JSON.stringify(product1));

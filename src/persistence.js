@@ -9,9 +9,11 @@ var Base64 = Polyfill.Base64,
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
     StorageNames = Constants.StorageNames;
 
-
 function useLocalStorage() {
-    return (!mParticle.Store.SDKConfig.useCookieStorage && mParticle.Store.isLocalStorageAvailable);
+    return (
+        !mParticle.Store.SDKConfig.useCookieStorage &&
+        mParticle.Store.isLocalStorageAvailable
+    );
 }
 
 function initializeStorage() {
@@ -40,7 +42,11 @@ function initializeStorage() {
                 // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
                 if (localStorageData) {
                     if (cookies) {
-                        allData = Helpers.extend(false, localStorageData, cookies);
+                        allData = Helpers.extend(
+                            false,
+                            localStorageData,
+                            cookies
+                        );
                     } else {
                         allData = localStorageData;
                     }
@@ -49,13 +55,16 @@ function initializeStorage() {
                     allData = cookies;
                 }
                 storeDataInMemory(allData);
-            }
-            else {
+            } else {
                 // For migrating from cookie to localStorage -- If an instance is newly switching from cookies to localStorage, then
                 // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
                 if (cookies) {
                     if (localStorageData) {
-                        allData = Helpers.extend(false, localStorageData, cookies);
+                        allData = Helpers.extend(
+                            false,
+                            localStorageData,
+                            cookies
+                        );
                     } else {
                         allData = cookies;
                     }
@@ -71,13 +80,20 @@ function initializeStorage() {
 
         try {
             if (mParticle.Store.isLocalStorageAvailable) {
-                var encodedProducts = localStorage.getItem(mParticle.Store.prodStorageName);
+                var encodedProducts = localStorage.getItem(
+                    mParticle.Store.prodStorageName
+                );
 
                 if (encodedProducts) {
-                    var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
+                    var decodedProducts = JSON.parse(
+                        Base64.decode(encodedProducts)
+                    );
                 }
                 if (mParticle.Store.mpid) {
-                    storeProductsInMemory(decodedProducts, mParticle.Store.mpid);
+                    storeProductsInMemory(
+                        decodedProducts,
+                        mParticle.Store.mpid
+                    );
                 }
             }
         } catch (e) {
@@ -85,9 +101,10 @@ function initializeStorage() {
                 localStorage.removeItem(mParticle.Store.prodStorageName);
             }
             mParticle.Store.cartProducts = [];
-            mParticle.Logger.error('Error loading products in initialization: ' + e);
+            mParticle.Logger.error(
+                'Error loading products in initialization: ' + e
+            );
         }
-
 
         for (var key in allData) {
             if (allData.hasOwnProperty(key)) {
@@ -120,9 +137,9 @@ function update() {
 function storeProductsInMemory(products, mpid) {
     if (products) {
         try {
-            mParticle.Store.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
-        }
-        catch(e) {
+            mParticle.Store.cartProducts =
+                products[mpid] && products[mpid].cp ? products[mpid].cp : [];
+        } catch (e) {
             mParticle.Logger.error(Messages.ErrorMessages.CookieParseError);
         }
     }
@@ -131,9 +148,13 @@ function storeProductsInMemory(products, mpid) {
 function storeDataInMemory(obj, currentMPID) {
     try {
         if (!obj) {
-            mParticle.Logger.verbose(Messages.InformationMessages.CookieNotFound);
-            mParticle.Store.clientId = mParticle.Store.clientId || Helpers.generateUniqueId();
-            mParticle.Store.deviceId = mParticle.Store.deviceId || Helpers.generateUniqueId();
+            mParticle.Logger.verbose(
+                Messages.InformationMessages.CookieNotFound
+            );
+            mParticle.Store.clientId =
+                mParticle.Store.clientId || Helpers.generateUniqueId();
+            mParticle.Store.deviceId =
+                mParticle.Store.deviceId || Helpers.generateUniqueId();
         } else {
             // Set MPID first, then change object to match MPID data
             if (currentMPID) {
@@ -145,16 +166,29 @@ function storeDataInMemory(obj, currentMPID) {
             obj.gs = obj.gs || {};
 
             mParticle.Store.sessionId = obj.gs.sid || mParticle.Store.sessionId;
-            mParticle.Store.isEnabled = (typeof obj.gs.ie !== 'undefined') ? obj.gs.ie : mParticle.Store.isEnabled;
-            mParticle.Store.sessionAttributes = obj.gs.sa || mParticle.Store.sessionAttributes;
-            mParticle.Store.serverSettings = obj.gs.ss || mParticle.Store.serverSettings;
+            mParticle.Store.isEnabled =
+                typeof obj.gs.ie !== 'undefined'
+                    ? obj.gs.ie
+                    : mParticle.Store.isEnabled;
+            mParticle.Store.sessionAttributes =
+                obj.gs.sa || mParticle.Store.sessionAttributes;
+            mParticle.Store.serverSettings =
+                obj.gs.ss || mParticle.Store.serverSettings;
             mParticle.Store.devToken = mParticle.Store.devToken || obj.gs.dt;
-            mParticle.Store.SDKConfig.appVersion = mParticle.Store.SDKConfig.appVersion || obj.gs.av;
-            mParticle.Store.clientId = obj.gs.cgid || mParticle.Store.clientId || Helpers.generateUniqueId();
-            mParticle.Store.deviceId = obj.gs.das || mParticle.Store.deviceId || Helpers.generateUniqueId();
+            mParticle.Store.SDKConfig.appVersion =
+                mParticle.Store.SDKConfig.appVersion || obj.gs.av;
+            mParticle.Store.clientId =
+                obj.gs.cgid ||
+                mParticle.Store.clientId ||
+                Helpers.generateUniqueId();
+            mParticle.Store.deviceId =
+                obj.gs.das ||
+                mParticle.Store.deviceId ||
+                Helpers.generateUniqueId();
             mParticle.Store.integrationAttributes = obj.gs.ia || {};
             mParticle.Store.context = obj.gs.c || mParticle.Store.context;
-            mParticle.Store.currentSessionMPIDs = obj.gs.csm || mParticle.Store.currentSessionMPIDs;
+            mParticle.Store.currentSessionMPIDs =
+                obj.gs.csm || mParticle.Store.currentSessionMPIDs;
 
             mParticle.Store.isLoggedIn = obj.l === true;
 
@@ -174,8 +208,7 @@ function storeDataInMemory(obj, currentMPID) {
                 obj = obj[obj.cu];
             }
         }
-    }
-    catch (e) {
+    } catch (e) {
         mParticle.Logger.error(Messages.ErrorMessages.CookieParseError);
     }
 }
@@ -192,8 +225,7 @@ function determineLocalStorageAvailability(storage) {
         result = storage.getItem('mparticle') === 'test';
         storage.removeItem('mparticle');
         return result && storage;
-    }
-    catch (e) {
+    } catch (e) {
         return false;
     }
 }
@@ -216,7 +248,12 @@ function getUserProductsFromLS(mpid) {
             if (decodedProducts) {
                 parsedProducts = JSON.parse(decodedProducts);
             }
-            if (decodedProducts && parsedProducts[mpid] && parsedProducts[mpid].cp && Array.isArray(parsedProducts[mpid].cp)) {
+            if (
+                decodedProducts &&
+                parsedProducts[mpid] &&
+                parsedProducts[mpid].cp &&
+                Array.isArray(parsedProducts[mpid].cp)
+            ) {
                 userProducts = parsedProducts[mpid].cp;
             } else {
                 userProducts = [];
@@ -258,16 +295,22 @@ function setLocalStorage() {
         currentUser = mParticle.Identity.getCurrentUser(),
         mpid = currentUser ? currentUser.getMPID() : null,
         currentUserProducts = {
-            cp: allLocalStorageProducts[mpid] ? allLocalStorageProducts[mpid].cp : []
+            cp: allLocalStorageProducts[mpid]
+                ? allLocalStorageProducts[mpid].cp
+                : [],
         };
     if (mpid) {
         allLocalStorageProducts = allLocalStorageProducts || {};
         allLocalStorageProducts[mpid] = currentUserProducts;
         try {
-            window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName), Base64.encode(JSON.stringify(allLocalStorageProducts)));
-        }
-        catch (e) {
-            mParticle.Logger.error('Error with setting products on localStorage.');
+            window.localStorage.setItem(
+                encodeURIComponent(mParticle.Store.prodStorageName),
+                Base64.encode(JSON.stringify(allLocalStorageProducts))
+            );
+        } catch (e) {
+            mParticle.Logger.error(
+                'Error with setting products on localStorage.'
+            );
         }
     }
 
@@ -287,16 +330,22 @@ function setLocalStorage() {
         }
 
         if (Object.keys(mParticle.Store.nonCurrentUserMPIDs).length) {
-            localStorageData = Helpers.extend({}, localStorageData, mParticle.Store.nonCurrentUserMPIDs);
+            localStorageData = Helpers.extend(
+                {},
+                localStorageData,
+                mParticle.Store.nonCurrentUserMPIDs
+            );
             mParticle.Store.nonCurrentUserMPIDs = {};
         }
 
         localStorageData = setGlobalStorageAttributes(localStorageData);
 
         try {
-            window.localStorage.setItem(encodeURIComponent(key), encodeCookies(JSON.stringify(localStorageData)));
-        }
-        catch (e) {
+            window.localStorage.setItem(
+                encodeURIComponent(key),
+                encodeCookies(JSON.stringify(localStorageData))
+            );
+        } catch (e) {
             mParticle.Logger.error('Error with setting localStorage item.');
         }
     }
@@ -309,12 +358,16 @@ function setGlobalStorageAttributes(data) {
     data.gs.sa = store.sessionAttributes;
     data.gs.ss = store.serverSettings;
     data.gs.dt = store.devToken;
-    data.gs.les = store.dateLastEventSent ? store.dateLastEventSent.getTime() : null;
+    data.gs.les = store.dateLastEventSent
+        ? store.dateLastEventSent.getTime()
+        : null;
     data.gs.av = store.SDKConfig.appVersion;
     data.gs.cgid = store.clientId;
     data.gs.das = store.deviceId;
     data.gs.c = store.context;
-    data.gs.ssd = store.sessionStartDate ? store.sessionStartDate.getTime() : null;
+    data.gs.ssd = store.sessionStartDate
+        ? store.sessionStartDate.getTime()
+        : null;
     data.gs.ia = store.integrationAttributes;
 
     return data;
@@ -374,8 +427,7 @@ function parseDeviceId(serverSettings) {
         }
 
         return Helpers.generateUniqueId();
-    }
-    catch (e) {
+    } catch (e) {
         return Helpers.generateUniqueId();
     }
 }
@@ -394,7 +446,7 @@ function expireCookies(cookieName) {
         domain = ';domain=' + cookieDomain;
     }
 
-    date.setTime(date.getTime() - (24 * 60 * 60 * 1000));
+    date.setTime(date.getTime() - 24 * 60 * 60 * 1000);
     expires = '; expires=' + date.toUTCString();
     document.cookie = cookieName + '=' + '' + expires + '; path=/' + domain;
 }
@@ -443,8 +495,10 @@ function setCookie() {
     var date = new Date(),
         key = mParticle.Store.storageName,
         cookies = getCookie() || {},
-        expires = new Date(date.getTime() +
-            (mParticle.Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
+        expires = new Date(
+            date.getTime() +
+                mParticle.Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000
+        ).toGMTString(),
         cookieDomain,
         domain,
         encodedCookiesWithExpirationAndPath;
@@ -472,11 +526,20 @@ function setCookie() {
     cookies = setGlobalStorageAttributes(cookies);
 
     if (Object.keys(mParticle.Store.nonCurrentUserMPIDs).length) {
-        cookies = Helpers.extend({}, cookies, mParticle.Store.nonCurrentUserMPIDs);
+        cookies = Helpers.extend(
+            {},
+            cookies,
+            mParticle.Store.nonCurrentUserMPIDs
+        );
         mParticle.Store.nonCurrentUserMPIDs = {};
     }
 
-    encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain, mParticle.Store.SDKConfig.maxCookieSize);
+    encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(
+        cookies,
+        expires,
+        domain,
+        mParticle.Store.SDKConfig.maxCookieSize
+    );
 
     mParticle.Logger.verbose(Messages.InformationMessages.CookieSet);
 
@@ -503,8 +566,14 @@ function reduceAndEncodeCookies(cookies, expires, domain, maxCookieSize) {
     if (!currentSessionMPIDs.length) {
         for (var key in cookies) {
             if (cookies.hasOwnProperty(key)) {
-                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
-                if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
+                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(
+                    cookies,
+                    expires,
+                    domain
+                );
+                if (
+                    encodedCookiesWithExpirationAndPath.length > maxCookieSize
+                ) {
                     if (!SDKv2NonMPIDCookieKeys[key] && key !== cookies.cu) {
                         delete cookies[key];
                     }
@@ -516,7 +585,10 @@ function reduceAndEncodeCookies(cookies, expires, domain, maxCookieSize) {
         var MPIDsOnCookie = {};
         for (var potentialMPID in cookies) {
             if (cookies.hasOwnProperty(potentialMPID)) {
-                if (!SDKv2NonMPIDCookieKeys[potentialMPID] && potentialMPID !==cookies.cu) {
+                if (
+                    !SDKv2NonMPIDCookieKeys[potentialMPID] &&
+                    potentialMPID !== cookies.cu
+                ) {
                     MPIDsOnCookie[potentialMPID] = 1;
                 }
             }
@@ -524,8 +596,14 @@ function reduceAndEncodeCookies(cookies, expires, domain, maxCookieSize) {
         // Comment 2a above
         if (Object.keys(MPIDsOnCookie).length) {
             for (var mpid in MPIDsOnCookie) {
-                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
-                if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
+                encodedCookiesWithExpirationAndPath = createFullEncodedCookie(
+                    cookies,
+                    expires,
+                    domain
+                );
+                if (
+                    encodedCookiesWithExpirationAndPath.length > maxCookieSize
+                ) {
                     if (MPIDsOnCookie.hasOwnProperty(mpid)) {
                         if (currentSessionMPIDs.indexOf(mpid) === -1) {
                             delete cookies[mpid];
@@ -536,14 +614,27 @@ function reduceAndEncodeCookies(cookies, expires, domain, maxCookieSize) {
         }
         // Comment 2b above
         for (var i = 0; i < currentSessionMPIDs.length; i++) {
-            encodedCookiesWithExpirationAndPath = createFullEncodedCookie(cookies, expires, domain);
+            encodedCookiesWithExpirationAndPath = createFullEncodedCookie(
+                cookies,
+                expires,
+                domain
+            );
             if (encodedCookiesWithExpirationAndPath.length > maxCookieSize) {
                 var MPIDtoRemove = currentSessionMPIDs[i];
                 if (cookies[MPIDtoRemove]) {
-                    mParticle.Logger.verbose('Size of new encoded cookie is larger than maxCookieSize setting of ' + maxCookieSize + '. Removing from cookie the earliest logged in MPID containing: ' + JSON.stringify(cookies[MPIDtoRemove], 0, 2));
+                    mParticle.Logger.verbose(
+                        'Size of new encoded cookie is larger than maxCookieSize setting of ' +
+                            maxCookieSize +
+                            '. Removing from cookie the earliest logged in MPID containing: ' +
+                            JSON.stringify(cookies[MPIDtoRemove], 0, 2)
+                    );
                     delete cookies[MPIDtoRemove];
                 } else {
-                    mParticle.Logger.error('Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' + maxCookieSize + '. We recommend using a maxCookieSize of 1500.');
+                    mParticle.Logger.error(
+                        'Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' +
+                            maxCookieSize +
+                            '. We recommend using a maxCookieSize of 1500.'
+                    );
                 }
             } else {
                 break;
@@ -555,7 +646,13 @@ function reduceAndEncodeCookies(cookies, expires, domain, maxCookieSize) {
 }
 
 function createFullEncodedCookie(cookies, expires, domain) {
-    return encodeCookies(JSON.stringify(cookies)) + ';expires=' + expires +';path=/' + domain;
+    return (
+        encodeCookies(JSON.stringify(cookies)) +
+        ';expires=' +
+        expires +
+        ';path=/' +
+        domain
+    );
 }
 
 function findPrevCookiesBasedOnUI(identityApiData) {
@@ -571,8 +668,12 @@ function findPrevCookiesBasedOnUI(identityApiData) {
                     if (cookies[key].mpid) {
                         var cookieUIs = cookies[key].ui;
                         for (var cookieUIType in cookieUIs) {
-                            if (requestedIdentityType === cookieUIType
-                                && identityApiData.userIdentities[requestedIdentityType] === cookieUIs[cookieUIType]) {
+                            if (
+                                requestedIdentityType === cookieUIType &&
+                                identityApiData.userIdentities[
+                                    requestedIdentityType
+                                ] === cookieUIs[cookieUIType]
+                            ) {
                                 matchedUser = key;
                                 break;
                             }
@@ -595,10 +696,20 @@ function encodeCookies(cookie) {
             // base64 encode any value that is an object or Array in globalSettings first
             if (Base64CookieKeys[key]) {
                 if (cookie.gs[key]) {
-                    if (Array.isArray(cookie.gs[key]) && cookie.gs[key].length) {
-                        cookie.gs[key] = Base64.encode(JSON.stringify(cookie.gs[key]));
-                    } else if (Helpers.isObject(cookie.gs[key]) && Object.keys(cookie.gs[key]).length) {
-                        cookie.gs[key] = Base64.encode(JSON.stringify(cookie.gs[key]));
+                    if (
+                        Array.isArray(cookie.gs[key]) &&
+                        cookie.gs[key].length
+                    ) {
+                        cookie.gs[key] = Base64.encode(
+                            JSON.stringify(cookie.gs[key])
+                        );
+                    } else if (
+                        Helpers.isObject(cookie.gs[key]) &&
+                        Object.keys(cookie.gs[key]).length
+                    ) {
+                        cookie.gs[key] = Base64.encode(
+                            JSON.stringify(cookie.gs[key])
+                        );
                     } else {
                         delete cookie.gs[key];
                     }
@@ -619,8 +730,13 @@ function encodeCookies(cookie) {
                 for (key in cookie[mpid]) {
                     if (cookie[mpid].hasOwnProperty(key)) {
                         if (Base64CookieKeys[key]) {
-                            if (Helpers.isObject(cookie[mpid][key]) && Object.keys(cookie[mpid][key]).length) {
-                                cookie[mpid][key] = Base64.encode(JSON.stringify(cookie[mpid][key]));
+                            if (
+                                Helpers.isObject(cookie[mpid][key]) &&
+                                Object.keys(cookie[mpid][key]).length
+                            ) {
+                                cookie[mpid][key] = Base64.encode(
+                                    JSON.stringify(cookie[mpid][key])
+                                );
                             } else {
                                 delete cookie[mpid][key];
                             }
@@ -642,7 +758,9 @@ function decodeCookies(cookie) {
                 for (var key in cookie.gs) {
                     if (cookie.gs.hasOwnProperty(key)) {
                         if (Base64CookieKeys[key]) {
-                            cookie.gs[key] = JSON.parse(Base64.decode(cookie.gs[key]));
+                            cookie.gs[key] = JSON.parse(
+                                Base64.decode(cookie.gs[key])
+                            );
                         } else if (key === 'ie') {
                             cookie.gs[key] = Boolean(cookie.gs[key]);
                         }
@@ -656,7 +774,9 @@ function decodeCookies(cookie) {
                                 if (cookie[mpid].hasOwnProperty(key)) {
                                     if (Base64CookieKeys[key]) {
                                         if (cookie[mpid][key].length) {
-                                            cookie[mpid][key] = JSON.parse(Base64.decode(cookie[mpid][key]));
+                                            cookie[mpid][key] = JSON.parse(
+                                                Base64.decode(cookie[mpid][key])
+                                            );
                                         }
                                     }
                                 }
@@ -688,7 +808,7 @@ function replaceApostrophesWithQuotes(string) {
 }
 
 function replaceQuotesWithApostrophes(string) {
-    return string.replace(/\"/g, '\'');
+    return string.replace(/\"/g, "'");
 }
 
 function createCookieString(string) {
@@ -725,8 +845,12 @@ function getDomain(doc, locationHostname) {
     for (i = hostname.length - 1; i >= 0; i--) {
         testParts = hostname.slice(i).join('.');
         doc.cookie = mpTest + ';domain=.' + testParts + ';';
-        if (doc.cookie.indexOf(mpTest) > -1){
-            doc.cookie = mpTest.split('=')[0] + '=;domain=.' + testParts + ';expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+        if (doc.cookie.indexOf(mpTest) > -1) {
+            doc.cookie =
+                mpTest.split('=')[0] +
+                '=;domain=.' +
+                testParts +
+                ';expires=Thu, 01 Jan 1970 00:00:01 GMT;';
             return testParts;
         }
     }
@@ -755,10 +879,16 @@ function getAllUserAttributes(mpid) {
 
 function getCartProducts(mpid) {
     var allCartProducts,
-        cartProductsString = localStorage.getItem(mParticle.Store.prodStorageName);
+        cartProductsString = localStorage.getItem(
+            mParticle.Store.prodStorageName
+        );
     if (cartProductsString) {
         allCartProducts = JSON.parse(Base64.decode(cartProductsString));
-        if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
+        if (
+            allCartProducts &&
+            allCartProducts[mpid] &&
+            allCartProducts[mpid].cp
+        ) {
             return allCartProducts[mpid].cp;
         }
     }
@@ -772,9 +902,11 @@ function setCartProducts(allProducts) {
     }
 
     try {
-        window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName), Base64.encode(JSON.stringify(allProducts)));
-    }
-    catch (e) {
+        window.localStorage.setItem(
+            encodeURIComponent(mParticle.Store.prodStorageName),
+            Base64.encode(JSON.stringify(allProducts))
+        );
+    } catch (e) {
         mParticle.Logger.error('Error with setting products on localStorage.');
     }
 }
@@ -786,7 +918,7 @@ function saveUserIdentitiesToCookies(mpid, userIdentities) {
                 cookies[mpid].ui = userIdentities;
             } else {
                 cookies[mpid] = {
-                    ui: userIdentities
+                    ui: userIdentities,
                 };
             }
             saveCookies(cookies);
@@ -802,7 +934,7 @@ function saveUserAttributesToCookies(mpid, userAttributes) {
                 cookies[mpid].ui = userAttributes;
             } else {
                 cookies[mpid] = {
-                    ui: userAttributes
+                    ui: userAttributes,
                 };
             }
         }
@@ -818,7 +950,7 @@ function saveUserCookieSyncDatesToCookies(mpid, csd) {
                 cookies[mpid].csd = csd;
             } else {
                 cookies[mpid] = {
-                    csd: csd
+                    csd: csd,
                 };
             }
         }
@@ -827,16 +959,20 @@ function saveUserCookieSyncDatesToCookies(mpid, csd) {
 }
 
 function saveUserConsentStateToCookies(mpid, consentState) {
-    //it's currently not supported to set persistence	
-    //for any MPID that's not the current one.	
+    //it's currently not supported to set persistence
+    //for any MPID that's not the current one.
     if (consentState || consentState === null) {
         var cookies = getPersistence();
         if (cookies) {
             if (cookies[mpid]) {
-                cookies[mpid].con = Consent.Serialization.toMinifiedJsonObject(consentState);
+                cookies[mpid].con = Consent.Serialization.toMinifiedJsonObject(
+                    consentState
+                );
             } else {
                 cookies[mpid] = {
-                    con: Consent.Serialization.toMinifiedJsonObject(consentState)
+                    con: Consent.Serialization.toMinifiedJsonObject(
+                        consentState
+                    ),
                 };
             }
             saveCookies(cookies);
@@ -848,8 +984,10 @@ function saveCookies(cookies) {
     var encodedCookies = encodeCookies(JSON.stringify(cookies)),
         date = new Date(),
         key = mParticle.Store.storageName,
-        expires = new Date(date.getTime() +
-        (mParticle.Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000)).toGMTString(),
+        expires = new Date(
+            date.getTime() +
+                mParticle.Store.SDKConfig.cookieExpiration * 24 * 60 * 60 * 1000
+        ).toGMTString(),
         cookieDomain = getCookieDomain(),
         domain;
 
@@ -860,7 +998,12 @@ function saveCookies(cookies) {
     }
 
     if (mParticle.Store.SDKConfig.useCookieStorage) {
-        var encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(cookies, expires, domain, mParticle.Store.SDKConfig.maxCookieSize);
+        var encodedCookiesWithExpirationAndPath = reduceAndEncodeCookies(
+            cookies,
+            expires,
+            domain,
+            mParticle.Store.SDKConfig.maxCookieSize
+        );
         window.document.cookie =
             encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
     } else {
@@ -904,9 +1047,9 @@ function getFirstSeenTime(mpid) {
 }
 
 /**
-* set the "first seen" time for a user. the time will only be set once for a given
-* mpid after which subsequent calls will be ignored
-*/
+ * set the "first seen" time for a user. the time will only be set once for a given
+ * mpid after which subsequent calls will be ignored
+ */
 function setFirstSeenTime(mpid, time) {
     if (!mpid) {
         return;
@@ -927,10 +1070,10 @@ function setFirstSeenTime(mpid, time) {
 }
 
 /**
-* returns the "last seen" time for a user. If the mpid represents the current user, the 
-* return value will always be the current time, otherwise it will be to stored "last seen" 
-* time
-*/
+ * returns the "last seen" time for a user. If the mpid represents the current user, the
+ * return value will always be the current time, otherwise it will be to stored "last seen"
+ * time
+ */
 function getLastSeenTime(mpid) {
     if (!mpid) {
         return null;
@@ -980,14 +1123,16 @@ function resetPersistence() {
         var testWorkspaceToken = 'abcdef';
         removeLocalStorage(Helpers.createMainStorageName(testWorkspaceToken));
         expireCookies(Helpers.createMainStorageName(testWorkspaceToken));
-        removeLocalStorage(Helpers.createProductStorageName(testWorkspaceToken));
+        removeLocalStorage(
+            Helpers.createProductStorageName(testWorkspaceToken)
+        );
     }
 }
 
 // Forwarder Batching Code
 var forwardingStatsBatches = {
     uploadsTable: {},
-    forwardingStatsEventQueue: []
+    forwardingStatsEventQueue: [],
 };
 
 export default {
@@ -1032,5 +1177,5 @@ export default {
     getFirstSeenTime: getFirstSeenTime,
     getLastSeenTime: getLastSeenTime,
     setFirstSeenTime: setFirstSeenTime,
-    setLastSeenTime: setLastSeenTime
+    setLastSeenTime: setLastSeenTime,
 };

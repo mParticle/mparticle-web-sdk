@@ -21,8 +21,8 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl:'http://www.yahoo.com',
-            redirectUrl:''
+            pixelUrl: 'http://www.yahoo.com',
+            redirectUrl: '',
         };
 
         window.mParticle.config.pixelConfigs = [pixelSettings];
@@ -49,23 +49,23 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl:'http://www.yahoo.com',
-            redirectUrl:''
+            pixelUrl: 'http://www.yahoo.com',
+            redirectUrl: '',
         };
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         setLocalStorage(v4LSKey, {
             cu: testMPID,
             testMPID: {
-                csd: { 5: (new Date(500)).getTime() }
+                csd: { 5: new Date(500).getTime() },
             },
-            ie: true
+            ie: true,
         });
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
             var data = mParticle.persistence.getLocalStorage();
-            var updated = data[testMPID].csd['5']>500;
+            var updated = data[testMPID].csd['5'] > 500;
 
             Should(updated).be.ok();
 
@@ -85,8 +85,8 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl:'http://www.yahoo.com',
-            redirectUrl:''
+            pixelUrl: 'http://www.yahoo.com',
+            redirectUrl: '',
         };
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
@@ -96,7 +96,10 @@ describe('cookie syncing', function() {
 
         var data = mParticle.persistence.getLocalStorage();
 
-        data[testMPID].csd.should.have.property(5, mParticle.persistence.getLocalStorage().testMPID.csd['5']);
+        data[testMPID].csd.should.have.property(
+            5,
+            mParticle.persistence.getLocalStorage().testMPID.csd['5']
+        );
         Should(mParticle.Store.pixelConfigurations.length).equal(1);
 
         done();
@@ -111,8 +114,8 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl:'http://www.yahoo.com',
-            redirectUrl:''
+            pixelUrl: 'http://www.yahoo.com',
+            redirectUrl: '',
         };
         mParticle.reset(MPConfig);
         window.mParticle.config.pixelConfigs = [pixelSettings];
@@ -122,10 +125,13 @@ describe('cookie syncing', function() {
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                Store: {},
-                mpid: 'otherMPID'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'otherMPID',
+                })
+            );
         };
 
         mParticle.Identity.login();
@@ -146,8 +152,8 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl:'http://www.yahoo.com',
-            redirectUrl:''
+            pixelUrl: 'http://www.yahoo.com',
+            redirectUrl: '',
         };
         mParticle.reset(MPConfig);
         mParticle.config.isDevelopmentMode = true;
@@ -172,8 +178,8 @@ describe('cookie syncing', function() {
             isProduction: false,
             settings: {},
             frequencyCap: 14,
-            pixelUrl:'http://www.yahoo.com',
-            redirectUrl:''
+            pixelUrl: 'http://www.yahoo.com',
+            redirectUrl: '',
         };
         mParticle.reset(MPConfig);
         mParticle.config.isDevelopmentMode = false;
@@ -189,22 +195,27 @@ describe('cookie syncing', function() {
     });
 
     it('should replace mpID properly', function(done) {
-        var result = CookieSyncManager.replaceMPID('www.google.com?mpid=%%mpid%%?foo=bar', 123);
+        var result = CookieSyncManager.replaceMPID(
+            'www.google.com?mpid=%%mpid%%?foo=bar',
+            123
+        );
 
         result.should.equal('www.google.com?mpid=123?foo=bar');
 
         done();
     });
 
-    it('should remove \'amp;\' from the URLs', function(done) {
-        var result = CookieSyncManager.replaceAmp('www.google.com?mpid=%%mpid%%&amp;foo=bar');
+    it("should remove 'amp;' from the URLs", function(done) {
+        var result = CookieSyncManager.replaceAmp(
+            'www.google.com?mpid=%%mpid%%&amp;foo=bar'
+        );
 
         result.should.equal('www.google.com?mpid=%%mpid%%&foo=bar');
 
         done();
     });
 
-    it('parse and capture pixel settings properly from backend', function (done) {
+    it('parse and capture pixel settings properly from backend', function(done) {
         mParticle.reset(MPConfig);
         window.mParticle.config.requestConfig = true;
         // create some cookies
@@ -227,30 +238,34 @@ describe('cookie syncing', function() {
                     settings: {},
                     frequencyCap: 14,
                     pixelUrl: 'http://www.yahoo.com',
-                    redirectUrl: ''
-                }
-            ]
+                    redirectUrl: '',
+                },
+            ],
         };
-        server.handle = function (request) {
+        server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(200, JSON.stringify(forwarderConfigurationResult));
         };
         server.requests = [];
         // add pixels to preInitConfig
         mParticle.init(apiKey, window.mParticle.config);
-        
+
         mParticle.Store.pixelConfigurations.length.should.equal(1);
 
-        server.handle = function (request) {
+        server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify({
-                status: 200, mpid: 'MPID1'
-            }));
+            request.receive(
+                200,
+                JSON.stringify({
+                    status: 200,
+                    mpid: 'MPID1',
+                })
+            );
         };
-    
+
         // force the preInit cookie configurations to fire
-        mParticle.Identity.login({userIdentities: {customerid: 'abc'}});
-        
+        mParticle.Identity.login({ userIdentities: { customerid: 'abc' } });
+
         var cookies = getLocalStorage();
         Object.keys(cookies['MPID1'].csd).length.should.equal(1);
 

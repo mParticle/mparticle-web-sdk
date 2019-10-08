@@ -4,12 +4,16 @@ import Types from '../../src/types';
 describe('Server Model', function() {
     it('Should convert complete consent object', function(done) {
         var consentState = Consent.createConsentState();
-        consentState.addGDPRConsentState('foo', Consent.createGDPRConsent(
-            true,
-            10,
-            'foo document',
-            'foo location',
-            'foo hardware id'));
+        consentState.addGDPRConsentState(
+            'foo',
+            Consent.createGDPRConsent(
+                true,
+                10,
+                'foo document',
+                'foo location',
+                'foo hardware id'
+            )
+        );
         var consent = ServerModel.convertToConsentStateDTO(consentState);
         consent.should.be.ok();
 
@@ -27,11 +31,12 @@ describe('Server Model', function() {
         mParticle.Store.should.be.ok;
 
         let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent, 
-            'foo page', 
-            {'foo-attr':'foo-val'}, 
-            Types.EventType.Navigation, 
-            {'foo-flag': 'foo-flag-val'});
+            Types.MessageType.PageEvent,
+            'foo page',
+            { 'foo-attr': 'foo-val' },
+            Types.EventType.Navigation,
+            { 'foo-flag': 'foo-flag-val' }
+        );
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.UserIdentities).not.be.ok;
@@ -43,31 +48,35 @@ describe('Server Model', function() {
     it('Should append all user info when user is present', function(done) {
         mParticle.Store.should.be.ok;
         var consentState = Consent.createConsentState();
-        consentState.addGDPRConsentState('foo', Consent.createGDPRConsent(
-            true,
-            10,
-            'foo document',
-            'foo location',
-            'foo hardware id'));
+        consentState.addGDPRConsentState(
+            'foo',
+            Consent.createGDPRConsent(
+                true,
+                10,
+                'foo document',
+                'foo location',
+                'foo hardware id'
+            )
+        );
 
         window.mParticle.Identity.getCurrentUser = () => {
             return {
                 getUserIdentities: () => {
-                    return {    
-                        userIdentities: { 
-                            customerid:'1234567',
+                    return {
+                        userIdentities: {
+                            customerid: '1234567',
                             email: 'foo-email',
                             other: 'foo-other',
                             other2: 'foo-other2',
                             other3: 'foo-other3',
-                            other4: 'foo-other4'
-                        }
+                            other4: 'foo-other4',
+                        },
                     };
                 },
                 getAllUserAttributes: () => {
-                    return {    
-                        'foo-user-attr':'foo-attr-value',
-                        'foo-user-attr-list':['item1', 'item2']
+                    return {
+                        'foo-user-attr': 'foo-attr-value',
+                        'foo-user-attr-list': ['item1', 'item2'],
                     };
                 },
                 getMPID: () => {
@@ -75,16 +84,17 @@ describe('Server Model', function() {
                 },
                 getConsentState: () => {
                     return consentState;
-                }
+                },
             };
         };
 
         let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent, 
-            'foo page', 
-            {'foo-attr':'foo-val'}, 
-            Types.EventType.Navigation, 
-            {'foo-flag': 'foo-flag-val'});
+            Types.MessageType.PageEvent,
+            'foo page',
+            { 'foo-attr': 'foo-val' },
+            Types.EventType.Navigation,
+            { 'foo-flag': 'foo-flag-val' }
+        );
 
         sdkEvent.should.be.ok;
         sdkEvent.UserIdentities.should.be.ok;
@@ -97,27 +107,28 @@ describe('Server Model', function() {
 
     it('Should append identities when user present', function(done) {
         let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent, 
-            'foo page', 
-            {'foo-attr':'foo-val'}, 
-            Types.EventType.Navigation, 
-            {'foo-flag': 'foo-flag-val'});
+            Types.MessageType.PageEvent,
+            'foo page',
+            { 'foo-attr': 'foo-val' },
+            Types.EventType.Navigation,
+            { 'foo-flag': 'foo-flag-val' }
+        );
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.UserIdentities).not.be.ok;
 
         var user = {
             getUserIdentities: () => {
-                return {    
-                    userIdentities: { 
-                        customerid:'1234567',
+                return {
+                    userIdentities: {
+                        customerid: '1234567',
                         email: 'foo-email',
                         other: 'foo-other',
                         other2: 'foo-other2',
                         other3: 'foo-other3',
                         other4: 'foo-other4',
-                        not_a_valid_id: 'foo'
-                    }
+                        not_a_valid_id: 'foo',
+                    },
                 };
             },
             getAllUserAttributes: () => {
@@ -128,7 +139,7 @@ describe('Server Model', function() {
             },
             getConsentState: () => {
                 return null;
-            }
+            },
         };
 
         var identityMapping = {};
@@ -154,18 +165,19 @@ describe('Server Model', function() {
 
     it('Should append user attributes when user present', function(done) {
         let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent, 
-            'foo page', 
-            {'foo-attr':'foo-val'}, 
-            Types.EventType.Navigation, 
-            {'foo-flag': 'foo-flag-val'});
+            Types.MessageType.PageEvent,
+            'foo page',
+            { 'foo-attr': 'foo-val' },
+            Types.EventType.Navigation,
+            { 'foo-flag': 'foo-flag-val' }
+        );
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.UserAttributes).not.be.ok;
-        var attributes = {foo:'bar', 'foo-arr':['bar1', 'bar2']};
+        var attributes = { foo: 'bar', 'foo-arr': ['bar1', 'bar2'] };
         var user = {
             getUserIdentities: () => {
-                return {userIdentites:{}};
+                return { userIdentites: {} };
             },
             getAllUserAttributes: () => {
                 return attributes;
@@ -175,7 +187,7 @@ describe('Server Model', function() {
             },
             getConsentState: () => {
                 return null;
-            }
+            },
         };
 
         ServerModel.appendUserInfo(user, sdkEvent);
@@ -187,18 +199,19 @@ describe('Server Model', function() {
 
     it('Should append mpid when user present', function(done) {
         let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent, 
-            'foo page', 
-            {'foo-attr':'foo-val'}, 
-            Types.EventType.Navigation, 
-            {'foo-flag': 'foo-flag-val'});
+            Types.MessageType.PageEvent,
+            'foo page',
+            { 'foo-attr': 'foo-val' },
+            Types.EventType.Navigation,
+            { 'foo-flag': 'foo-flag-val' }
+        );
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.MPID).not.be.ok;
 
         var user = {
             getUserIdentities: () => {
-                return {userIdentites:{}};
+                return { userIdentites: {} };
             },
             getAllUserAttributes: () => {
                 return null;
@@ -208,7 +221,7 @@ describe('Server Model', function() {
             },
             getConsentState: () => {
                 return null;
-            }
+            },
         };
         ServerModel.appendUserInfo(user, sdkEvent);
         sdkEvent.MPID.should.be.ok;

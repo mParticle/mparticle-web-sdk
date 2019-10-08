@@ -12,8 +12,10 @@ var HTTPCodes = Constants.HTTPCodes,
     uploader = null;
 
 function queueEventForBatchUpload(event) {
-    if (!uploader){
-        var millis = Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatchingIntervalMillis);
+    if (!uploader) {
+        var millis = Helpers.getFeatureFlag(
+            Constants.FeatureFlags.EventBatchingIntervalMillis
+        );
         uploader = new BatchUploader(mParticle, millis);
     }
     uploader.queueEvent(event);
@@ -23,8 +25,13 @@ function shouldEnableBatching() {
     if (!window.fetch) {
         return false;
     }
-    var eventsV3Percentage = Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3);
-    if (!eventsV3Percentage || !Helpers.Validators.isNumber(eventsV3Percentage)) {
+    var eventsV3Percentage = Helpers.getFeatureFlag(
+        Constants.FeatureFlags.EventsV3
+    );
+    if (
+        !eventsV3Percentage ||
+        !Helpers.Validators.isNumber(eventsV3Percentage)
+    ) {
         return false;
     }
     var rampNumber = Helpers.getRampNumber(mParticle.Store.deviceId);
@@ -57,20 +64,33 @@ function appendUserInfoToEvents(user, events) {
 
 function sendEventToServer(event) {
     if (mParticle.Store.webviewBridgeEnabled) {
-        NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
+        NativeSdkHelpers.sendToNative(
+            Constants.NativeSdkPaths.LogEvent,
+            JSON.stringify(event)
+        );
         return;
     }
-    
+
     var mpid,
         currentUser = mParticle.Identity.getCurrentUser();
     if (currentUser) {
         mpid = currentUser.getMPID();
     }
-    mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(mParticle.preInit.integrationDelays, mParticle.Store.integrationDelayTimeoutStart, Date.now());
+    mParticle.Store.requireDelay = Helpers.isDelayedByIntegration(
+        mParticle.preInit.integrationDelays,
+        mParticle.Store.integrationDelayTimeoutStart,
+        Date.now()
+    );
     // We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
     // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
-    if (!mpid || mParticle.Store.requireDelay || !mParticle.Store.configurationLoaded) {
-        mParticle.Logger.verbose('Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.');
+    if (
+        !mpid ||
+        mParticle.Store.requireDelay ||
+        !mParticle.Store.configurationLoaded
+    ) {
+        mParticle.Logger.verbose(
+            'Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay.'
+        );
         mParticle.Store.eventQueue.push(event);
         return;
     }
@@ -95,11 +115,13 @@ function sendSingleEventToServer(event) {
     var xhr,
         xhrCallback = function() {
             if (xhr.readyState === 4) {
-                mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
+                mParticle.Logger.verbose(
+                    'Received ' + xhr.statusText + ' from server'
+                );
                 parseEventResponse(xhr.responseText);
             }
         };
-    
+
     if (!event) {
         mParticle.Logger.error(Messages.ErrorMessages.EventEmpty);
         return;
@@ -108,14 +130,27 @@ function sendSingleEventToServer(event) {
     xhr = Helpers.createXHR(xhrCallback);
     if (xhr) {
         try {
-            xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken) + '/Events');
-            xhr.send(JSON.stringify(ServerModel.convertEventToDTO(event, mParticle.Store.isFirstRun)));
-        }
-        catch (e) {
-            mParticle.Logger.error('Error sending event to mParticle servers. ' + e);
+            xhr.open(
+                'post',
+                Helpers.createServiceUrl(
+                    mParticle.Store.SDKConfig.v2SecureServiceUrl,
+                    mParticle.Store.devToken
+                ) + '/Events'
+            );
+            xhr.send(
+                JSON.stringify(
+                    ServerModel.convertEventToDTO(
+                        event,
+                        mParticle.Store.isFirstRun
+                    )
+                )
+            );
+        } catch (e) {
+            mParticle.Logger.error(
+                'Error sending event to mParticle servers. ' + e
+            );
         }
     }
-    
 }
 
 function parseEventResponse(responseText) {
@@ -133,7 +168,9 @@ function parseEventResponse(responseText) {
         settings = JSON.parse(responseText);
 
         if (settings && settings.Store) {
-            mParticle.Logger.verbose('Parsed store from response, updating local settings');
+            mParticle.Logger.verbose(
+                'Parsed store from response, updating local settings'
+            );
 
             if (!mParticle.Store.serverSettings) {
                 mParticle.Store.serverSettings = {};
@@ -152,8 +189,7 @@ function parseEventResponse(responseText) {
                     if (mParticle.Store.serverSettings.hasOwnProperty(prop)) {
                         delete mParticle.Store.serverSettings[prop];
                     }
-                }
-                else {
+                } else {
                     // This is a valid setting
                     mParticle.Store.serverSettings[prop] = fullProp;
                 }
@@ -161,9 +197,10 @@ function parseEventResponse(responseText) {
 
             Persistence.update();
         }
-    }
-    catch (e) {
-        mParticle.Logger.error('Error parsing JSON response from server: ' + e.name);
+    } catch (e) {
+        mParticle.Logger.error(
+            'Error parsing JSON response from server: ' + e.name
+        );
     }
 }
 
@@ -171,14 +208,20 @@ function sendAliasRequest(aliasRequest, callback) {
     var xhr,
         xhrCallback = function() {
             if (xhr.readyState === 4) {
-                mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
+                mParticle.Logger.verbose(
+                    'Received ' + xhr.statusText + ' from server'
+                );
                 //only parse error messages from failing requests
                 if (xhr.status !== 200 && xhr.status !== 202) {
                     if (xhr.responseText) {
                         var response = JSON.parse(xhr.responseText);
                         if (response.hasOwnProperty('message')) {
                             var errorMessage = response.message;
-                            Helpers.invokeAliasCallback(callback, xhr.status, errorMessage);
+                            Helpers.invokeAliasCallback(
+                                callback,
+                                xhr.status,
+                                errorMessage
+                            );
                             return;
                         }
                     }
@@ -191,22 +234,45 @@ function sendAliasRequest(aliasRequest, callback) {
     xhr = Helpers.createXHR(xhrCallback);
     if (xhr) {
         try {
-            xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.aliasUrl, mParticle.Store.devToken) + '/Alias');
+            xhr.open(
+                'post',
+                Helpers.createServiceUrl(
+                    mParticle.Store.SDKConfig.aliasUrl,
+                    mParticle.Store.devToken
+                ) + '/Alias'
+            );
             xhr.send(JSON.stringify(aliasRequest));
-        }
-        catch (e) {
+        } catch (e) {
             Helpers.invokeAliasCallback(callback, HTTPCodes.noHttpCoverage, e);
-            mParticle.Logger.error('Error sending alias request to mParticle servers. ' + e);
+            mParticle.Logger.error(
+                'Error sending alias request to mParticle servers. ' + e
+            );
         }
     }
 }
 
-function sendIdentityRequest(identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid) {
-    var xhr, previousMPID,
+function sendIdentityRequest(
+    identityApiRequest,
+    method,
+    callback,
+    originalIdentityApiData,
+    parseIdentityResponse,
+    mpid
+) {
+    var xhr,
+        previousMPID,
         xhrCallback = function() {
             if (xhr.readyState === 4) {
-                mParticle.Logger.verbose('Received ' + xhr.statusText + ' from server');
-                parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method);
+                mParticle.Logger.verbose(
+                    'Received ' + xhr.statusText + ' from server'
+                );
+                parseIdentityResponse(
+                    xhr,
+                    previousMPID,
+                    callback,
+                    originalIdentityApiData,
+                    method
+                );
             }
         };
 
@@ -223,24 +289,45 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
     if (xhr) {
         try {
             if (mParticle.Store.identityCallInFlight) {
-                Helpers.invokeCallback(callback, HTTPCodes.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
+                Helpers.invokeCallback(
+                    callback,
+                    HTTPCodes.activeIdentityRequest,
+                    'There is currently an Identity request processing. Please wait for this to return before requesting again'
+                );
             } else {
                 previousMPID = mpid || null;
                 if (method === 'modify') {
-                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl) + mpid + '/' + method);
+                    xhr.open(
+                        'post',
+                        Helpers.createServiceUrl(
+                            mParticle.Store.SDKConfig.identityUrl
+                        ) +
+                            mpid +
+                            '/' +
+                            method
+                    );
                 } else {
-                    xhr.open('post', Helpers.createServiceUrl(mParticle.Store.SDKConfig.identityUrl) + method);
+                    xhr.open(
+                        'post',
+                        Helpers.createServiceUrl(
+                            mParticle.Store.SDKConfig.identityUrl
+                        ) + method
+                    );
                 }
                 xhr.setRequestHeader('Content-Type', 'application/json');
                 xhr.setRequestHeader('x-mp-key', mParticle.Store.devToken);
                 mParticle.Store.identityCallInFlight = true;
                 xhr.send(JSON.stringify(identityApiRequest));
             }
-        }
-        catch (e) {
+        } catch (e) {
             mParticle.Store.identityCallInFlight = false;
             Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, e);
-            mParticle.Logger.error('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
+            mParticle.Logger.error(
+                'Error sending identity request to servers with status code ' +
+                    xhr.status +
+                    ' - ' +
+                    e
+            );
         }
     }
 }
@@ -248,19 +335,23 @@ function sendIdentityRequest(identityApiRequest, method, callback, originalIdent
 function sendBatchForwardingStatsToServer(forwardingStatsData, xhr) {
     var url, data;
     try {
-        url = Helpers.createServiceUrl(mParticle.Store.SDKConfig.v2SecureServiceUrl, mParticle.Store.devToken);
+        url = Helpers.createServiceUrl(
+            mParticle.Store.SDKConfig.v2SecureServiceUrl,
+            mParticle.Store.devToken
+        );
         data = {
             uuid: Helpers.generateUniqueId(),
-            data: forwardingStatsData
+            data: forwardingStatsData,
         };
 
         if (xhr) {
             xhr.open('post', url + '/Forwarding');
             xhr.send(JSON.stringify(data));
         }
-    }
-    catch (e) {
-        mParticle.Logger.error('Error sending forwarding stats to mParticle servers.');
+    } catch (e) {
+        mParticle.Logger.error(
+            'Error sending forwarding stats to mParticle servers.'
+        );
     }
 }
 
@@ -270,21 +361,27 @@ function sendSingleForwardingStatsToServer(forwardingStatsData) {
         var xhrCallback = function() {
             if (xhr.readyState === 4) {
                 if (xhr.status === 202) {
-                    mParticle.Logger.verbose('Successfully sent  ' + xhr.statusText + ' from server');
+                    mParticle.Logger.verbose(
+                        'Successfully sent  ' + xhr.statusText + ' from server'
+                    );
                 }
             }
         };
         var xhr = Helpers.createXHR(xhrCallback);
-        url = Helpers.createServiceUrl(mParticle.Store.SDKConfig.v1SecureServiceUrl, mParticle.Store.devToken);
+        url = Helpers.createServiceUrl(
+            mParticle.Store.SDKConfig.v1SecureServiceUrl,
+            mParticle.Store.devToken
+        );
         data = forwardingStatsData;
 
         if (xhr) {
             xhr.open('post', url + '/Forwarding');
             xhr.send(JSON.stringify(data));
         }
-    }
-    catch (e) {
-        mParticle.Logger.error('Error sending forwarding stats to mParticle servers.');
+    } catch (e) {
+        mParticle.Logger.error(
+            'Error sending forwarding stats to mParticle servers.'
+        );
     }
 }
 
@@ -292,22 +389,35 @@ function getSDKConfiguration(apiKey, config, completeSDKInitialization) {
     var url;
     try {
         var xhrCallback = function() {
-            if (xhr.readyState === 4) { 
+            if (xhr.readyState === 4) {
                 // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
                 if (xhr.status === 200) {
-                    config = Helpers.extend({}, config, JSON.parse(xhr.responseText));
+                    config = Helpers.extend(
+                        {},
+                        config,
+                        JSON.parse(xhr.responseText)
+                    );
                     completeSDKInitialization(apiKey, config);
-                    mParticle.Logger.verbose('Successfully received configuration from server');
+                    mParticle.Logger.verbose(
+                        'Successfully received configuration from server'
+                    );
                 } else {
                     // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
                     completeSDKInitialization(apiKey, config);
-                    mParticle.Logger.verbose('Issue with receiving configuration from server, received HTTP Code of ' + xhr.status);
+                    mParticle.Logger.verbose(
+                        'Issue with receiving configuration from server, received HTTP Code of ' +
+                            xhr.status
+                    );
                 }
             }
         };
 
         var xhr = Helpers.createXHR(xhrCallback);
-        url = 'https://' + mParticle.Store.SDKConfig.configUrl + apiKey + '/config?env=';
+        url =
+            'https://' +
+            mParticle.Store.SDKConfig.configUrl +
+            apiKey +
+            '/config?env=';
         if (config.isDevelopmentMode) {
             url = url + '1';
         } else {
@@ -318,10 +428,11 @@ function getSDKConfiguration(apiKey, config, completeSDKInitialization) {
             xhr.open('get', url);
             xhr.send(null);
         }
-    }
-    catch (e) {
+    } catch (e) {
         completeSDKInitialization(apiKey, config);
-        mParticle.Logger.error('Error getting forwarder configuration from mParticle servers.');
+        mParticle.Logger.error(
+            'Error getting forwarder configuration from mParticle servers.'
+        );
     }
 }
 
@@ -340,7 +451,7 @@ function prepareForwardingStats(forwarder, event) {
             et: event.EventCategory,
             dbg: event.Debug,
             ct: event.Timestamp,
-            eec: event.ExpandedEventCount
+            eec: event.ExpandedEventCount,
         };
 
         if (Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)) {
@@ -362,5 +473,5 @@ export default {
     prepareForwardingStats: prepareForwardingStats,
     processQueuedEvents: processQueuedEvents,
     appendUserInfoToEvents: appendUserInfoToEvents,
-    shouldEnableBatching: shouldEnableBatching
+    shouldEnableBatching: shouldEnableBatching,
 };

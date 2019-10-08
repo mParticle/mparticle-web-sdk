@@ -1,14 +1,17 @@
 {
-  "presets": [
-    ["@babel/env",{
-      "modules":false
-    }],
-    "@babel/typescript"
-  ],
-  "plugins": [
-    "@babel/proposal-class-properties",
-    "@babel/proposal-object-rest-spread",
-    "@babel/plugin-transform-runtime"
-  ],
-  "sourceMaps":true
+    "presets": [
+        [
+            "@babel/env",
+            {
+                "modules": false
+            }
+        ],
+        "@babel/typescript"
+    ],
+    "plugins": [
+        "@babel/proposal-class-properties",
+        "@babel/proposal-object-rest-spread",
+        "@babel/plugin-transform-runtime"
+    ],
+    "sourceMaps": true
 }

@@ -11,15 +11,25 @@ var IdentityAPI = Identity.IdentityAPI,
 
 function initialize() {
     if (mParticle.Store.sessionId) {
-        var sessionTimeoutInMilliseconds = mParticle.Store.SDKConfig.sessionTimeout * 60000;
+        var sessionTimeoutInMilliseconds =
+            mParticle.Store.SDKConfig.sessionTimeout * 60000;
 
-        if (new Date() > new Date(mParticle.Store.dateLastEventSent.getTime() + sessionTimeoutInMilliseconds)) {
+        if (
+            new Date() >
+            new Date(
+                mParticle.Store.dateLastEventSent.getTime() +
+                    sessionTimeoutInMilliseconds
+            )
+        ) {
             endSession();
             startNewSession();
         } else {
             var cookies = Persistence.getPersistence();
             if (cookies && !cookies.cu) {
-                IdentityAPI.identify(mParticle.Store.SDKConfig.identifyRequest, mParticle.Store.SDKConfig.identityCallback);
+                IdentityAPI.identify(
+                    mParticle.Store.SDKConfig.identifyRequest,
+                    mParticle.Store.SDKConfig.identityCallback
+                );
                 mParticle.Store.identifyCalled = true;
                 mParticle.Store.SDKConfig.identityCallback = null;
             }
@@ -53,15 +63,19 @@ function startNewSession() {
         setSessionTimer();
 
         if (!mParticle.Store.identifyCalled) {
-            IdentityAPI.identify(mParticle.Store.SDKConfig.identifyRequest, mParticle.Store.SDKConfig.identityCallback);
+            IdentityAPI.identify(
+                mParticle.Store.SDKConfig.identifyRequest,
+                mParticle.Store.SDKConfig.identityCallback
+            );
             mParticle.Store.identifyCalled = true;
             mParticle.Store.SDKConfig.identityCallback = null;
         }
 
         logEvent({ messageType: Types.MessageType.SessionStart });
-    }
-    else {
-        mParticle.Logger.verbose(Messages.InformationMessages.AbandonStartSession);
+    } else {
+        mParticle.Logger.verbose(
+            Messages.InformationMessages.AbandonStartSession
+        );
     }
 }
 
@@ -76,9 +90,7 @@ function endSession(override) {
         mParticle.Store.sessionAttributes = {};
         Persistence.update();
     } else if (Helpers.canLog()) {
-        var sessionTimeoutInMilliseconds,
-            cookies,
-            timeSinceLastEventSent;
+        var sessionTimeoutInMilliseconds, cookies, timeSinceLastEventSent;
 
         cookies = Persistence.getCookie() || Persistence.getLocalStorage();
 
@@ -87,7 +99,9 @@ function endSession(override) {
         }
 
         if (cookies.gs && !cookies.gs.sid) {
-            mParticle.Logger.verbose(Messages.InformationMessages.NoSessionToEnd);
+            mParticle.Logger.verbose(
+                Messages.InformationMessages.NoSessionToEnd
+            );
             return;
         }
 
@@ -97,7 +111,8 @@ function endSession(override) {
         }
 
         if (cookies.gs && cookies.gs.les) {
-            sessionTimeoutInMilliseconds = mParticle.Store.SDKConfig.sessionTimeout * 60000;
+            sessionTimeoutInMilliseconds =
+                mParticle.Store.SDKConfig.sessionTimeout * 60000;
             var newDate = new Date().getTime();
             timeSinceLastEventSent = newDate - cookies.gs.les;
 
@@ -114,12 +129,15 @@ function endSession(override) {
             }
         }
     } else {
-        mParticle.Logger.verbose(Messages.InformationMessages.AbandonEndSession);
+        mParticle.Logger.verbose(
+            Messages.InformationMessages.AbandonEndSession
+        );
     }
 }
 
 function setSessionTimer() {
-    var sessionTimeoutInMilliseconds = mParticle.Store.SDKConfig.sessionTimeout * 60000;
+    var sessionTimeoutInMilliseconds =
+        mParticle.Store.SDKConfig.sessionTimeout * 60000;
 
     mParticle.Store.globalTimer = window.setTimeout(function() {
         endSession();
@@ -162,5 +180,5 @@ export default {
     endSession: endSession,
     setSessionTimer: setSessionTimer,
     resetSessionTimer: resetSessionTimer,
-    clearSessionTimeout: clearSessionTimeout
+    clearSessionTimeout: clearSessionTimeout,
 };

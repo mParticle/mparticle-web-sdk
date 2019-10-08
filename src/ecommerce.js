@@ -5,8 +5,11 @@ import ServerModel from './serverModel';
 
 var Validators = Helpers.Validators,
     Messages = Constants.Messages;
-    
-function convertTransactionAttributesToProductAction(transactionAttributes, productAction) {
+
+function convertTransactionAttributesToProductAction(
+    transactionAttributes,
+    productAction
+) {
     productAction.TransactionId = transactionAttributes.Id;
     productAction.Affiliation = transactionAttributes.Affiliation;
     productAction.CouponCode = transactionAttributes.CouponCode;
@@ -79,7 +82,11 @@ function convertProductActionToEventType(productActionType) {
         case Types.ProductActionType.ViewDetail:
             return Types.CommerceEventType.ProductViewDetail;
         default:
-            mParticle.Logger.error('Could not convert product action type ' + productActionType + ' to event type');
+            mParticle.Logger.error(
+                'Could not convert product action type ' +
+                    productActionType +
+                    ' to event type'
+            );
             return null;
     }
 }
@@ -91,7 +98,11 @@ function convertPromotionActionToEventType(promotionActionType) {
         case Types.PromotionActionType.PromotionView:
             return Types.CommerceEventType.PromotionView;
         default:
-            mParticle.Logger.error('Could not convert promotion action type ' + promotionActionType + ' to event type');
+            mParticle.Logger.error(
+                'Could not convert promotion action type ' +
+                    promotionActionType +
+                    ' to event type'
+            );
             return null;
     }
 }
@@ -129,7 +140,6 @@ function extractProductAttributes(attributes, product) {
         attributes['Variant'] = product.Variant;
     }
     attributes['Total Product Amount'] = product.TotalAmount || 0;
-
 }
 
 function extractTransactionId(attributes, productAction) {
@@ -200,7 +210,8 @@ function buildProductList(event, product) {
     return event.ShoppingCart.ProductList;
 }
 
-function createProduct(name,
+function createProduct(
+    name,
     sku,
     price,
     quantity,
@@ -209,8 +220,8 @@ function createProduct(name,
     brand,
     position,
     couponCode,
-    attributes) {
-
+    attributes
+) {
     attributes = Helpers.sanitizeAttributes(attributes);
 
     if (typeof name !== 'string') {
@@ -219,17 +230,23 @@ function createProduct(name,
     }
 
     if (!Validators.isStringOrNumber(sku)) {
-        mParticle.Logger.error('SKU is required when creating a product, and must be a string or a number');
+        mParticle.Logger.error(
+            'SKU is required when creating a product, and must be a string or a number'
+        );
         return null;
     }
 
     if (!Validators.isStringOrNumber(price)) {
-        mParticle.Logger.error('Price is required when creating a product, and must be a string or a number');
+        mParticle.Logger.error(
+            'Price is required when creating a product, and must be a string or a number'
+        );
         return null;
     }
 
     if (position && !Validators.isNumber(position)) {
-        mParticle.Logger.error('Position must be a number, it will be set to null.');
+        mParticle.Logger.error(
+            'Position must be a number, it will be set to null.'
+        );
         position = null;
     }
 
@@ -248,7 +265,7 @@ function createProduct(name,
         Position: position,
         CouponCode: couponCode,
         TotalAmount: quantity * price,
-        Attributes: attributes
+        Attributes: attributes,
     };
 }
 
@@ -262,7 +279,7 @@ function createPromotion(id, creative, name, position) {
         Id: id,
         Creative: creative,
         Name: name,
-        Position: position
+        Position: position,
     };
 }
 
@@ -273,23 +290,26 @@ function createImpression(name, product) {
     }
 
     if (!product) {
-        mParticle.Logger.error('Product is required when creating an impression.');
+        mParticle.Logger.error(
+            'Product is required when creating an impression.'
+        );
         return null;
     }
 
     return {
         Name: name,
-        Product: product
+        Product: product,
     };
 }
 
-function createTransactionAttributes(id,
+function createTransactionAttributes(
+    id,
     affiliation,
     couponCode,
     revenue,
     shipping,
-    tax) {
-
+    tax
+) {
     if (!Validators.isStringOrNumber(id)) {
         mParticle.Logger.error(Messages.ErrorMessages.TransactionIdRequired);
         return null;
@@ -301,7 +321,7 @@ function createTransactionAttributes(id,
         CouponCode: couponCode,
         Revenue: revenue,
         Shipping: shipping,
-        Tax: tax
+        Tax: tax,
     };
 }
 
@@ -313,7 +333,11 @@ function expandProductImpression(commerceEvent) {
     commerceEvent.ProductImpressions.forEach(function(productImpression) {
         if (productImpression.ProductList) {
             productImpression.ProductList.forEach(function(product) {
-                var attributes = Helpers.extend(false, {}, commerceEvent.EventAttributes);
+                var attributes = Helpers.extend(
+                    false,
+                    {},
+                    commerceEvent.EventAttributes
+                );
                 if (product.Attributes) {
                     for (var attribute in product.Attributes) {
                         attributes[attribute] = product.Attributes[attribute];
@@ -321,13 +345,14 @@ function expandProductImpression(commerceEvent) {
                 }
                 extractProductAttributes(attributes, product);
                 if (productImpression.ProductImpressionList) {
-                    attributes['Product Impression List'] = productImpression.ProductImpressionList;
+                    attributes['Product Impression List'] =
+                        productImpression.ProductImpressionList;
                 }
                 var appEvent = ServerModel.createEventObject({
                     messageType: Types.MessageType.PageEvent,
                     name: generateExpandedEcommerceName('Impression'),
                     data: attributes,
-                    eventType: Types.EventType.Transaction
+                    eventType: Types.EventType.Transaction,
                 });
                 appEvents.push(appEvent);
             });
@@ -353,14 +378,22 @@ function expandPromotionAction(commerceEvent) {
     }
     var promotions = commerceEvent.PromotionAction.PromotionList;
     promotions.forEach(function(promotion) {
-        var attributes = Helpers.extend(false, {}, commerceEvent.EventAttributes);
+        var attributes = Helpers.extend(
+            false,
+            {},
+            commerceEvent.EventAttributes
+        );
         extractPromotionAttributes(attributes, promotion);
 
         var appEvent = ServerModel.createEventObject({
             messageType: Types.MessageType.PageEvent,
-            name: generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(commerceEvent.PromotionAction.PromotionActionType)),
+            name: generateExpandedEcommerceName(
+                Types.PromotionActionType.getExpansionName(
+                    commerceEvent.PromotionAction.PromotionActionType
+                )
+            ),
             data: attributes,
-            eventType: Types.EventType.Transaction
+            eventType: Types.EventType.Transaction,
         });
         appEvents.push(appEvent);
     });
@@ -373,23 +406,37 @@ function expandProductAction(commerceEvent) {
         return appEvents;
     }
     var shouldExtractActionAttributes = false;
-    if (commerceEvent.ProductAction.ProductActionType === Types.ProductActionType.Purchase ||
-        commerceEvent.ProductAction.ProductActionType === Types.ProductActionType.Refund) {
-        var attributes = Helpers.extend(false, {}, commerceEvent.EventAttributes);
-        attributes['Product Count'] = commerceEvent.ProductAction.ProductList ? commerceEvent.ProductAction.ProductList.length : 0;
+    if (
+        commerceEvent.ProductAction.ProductActionType ===
+            Types.ProductActionType.Purchase ||
+        commerceEvent.ProductAction.ProductActionType ===
+            Types.ProductActionType.Refund
+    ) {
+        var attributes = Helpers.extend(
+            false,
+            {},
+            commerceEvent.EventAttributes
+        );
+        attributes['Product Count'] = commerceEvent.ProductAction.ProductList
+            ? commerceEvent.ProductAction.ProductList.length
+            : 0;
         extractActionAttributes(attributes, commerceEvent.ProductAction);
         if (commerceEvent.CurrencyCode) {
             attributes['Currency Code'] = commerceEvent.CurrencyCode;
         }
         var plusOneEvent = ServerModel.createEventObject({
             messageType: Types.MessageType.PageEvent,
-            name: generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType), true),
+            name: generateExpandedEcommerceName(
+                Types.ProductActionType.getExpansionName(
+                    commerceEvent.ProductAction.ProductActionType
+                ),
+                true
+            ),
             data: attributes,
-            eventType: Types.EventType.Transaction
+            eventType: Types.EventType.Transaction,
         });
         appEvents.push(plusOneEvent);
-    }
-    else {
+    } else {
         shouldExtractActionAttributes = true;
     }
 
@@ -400,20 +447,27 @@ function expandProductAction(commerceEvent) {
     }
 
     products.forEach(function(product) {
-        var attributes = Helpers.extend(false, commerceEvent.EventAttributes, product.Attributes);
+        var attributes = Helpers.extend(
+            false,
+            commerceEvent.EventAttributes,
+            product.Attributes
+        );
         if (shouldExtractActionAttributes) {
             extractActionAttributes(attributes, commerceEvent.ProductAction);
-        }
-        else {
+        } else {
             extractTransactionId(attributes, commerceEvent.ProductAction);
         }
         extractProductAttributes(attributes, product);
 
         var productEvent = ServerModel.createEventObject({
             messageType: Types.MessageType.PageEvent,
-            name: generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(commerceEvent.ProductAction.ProductActionType)),
+            name: generateExpandedEcommerceName(
+                Types.ProductActionType.getExpansionName(
+                    commerceEvent.ProductAction.ProductActionType
+                )
+            ),
             data: attributes,
-            eventType: Types.EventType.Transaction
+            eventType: Types.EventType.Transaction,
         });
         appEvents.push(productEvent);
     });
@@ -425,20 +479,25 @@ function createCommerceEventObject(customFlags) {
     var baseEvent,
         currentUser = mParticle.Identity.getCurrentUser();
 
-    mParticle.Logger.verbose(Messages.InformationMessages.StartingLogCommerceEvent);
+    mParticle.Logger.verbose(
+        Messages.InformationMessages.StartingLogCommerceEvent
+    );
 
     if (Helpers.canLog()) {
-        baseEvent = ServerModel.createEventObject({ messageType: Types.MessageType.Commerce });
+        baseEvent = ServerModel.createEventObject({
+            messageType: Types.MessageType.Commerce,
+        });
         baseEvent.EventName = 'eCommerce - ';
         baseEvent.CurrencyCode = mParticle.Store.currencyCode;
         baseEvent.ShoppingCart = {
-            ProductList: currentUser ? currentUser.getCart().getCartProducts() : []
+            ProductList: currentUser
+                ? currentUser.getCart().getCartProducts()
+                : [],
         };
         baseEvent.CustomFlags = customFlags;
 
         return baseEvent;
-    }
-    else {
+    } else {
         mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
     }
 
@@ -457,5 +516,5 @@ export default {
     createImpression: createImpression,
     createTransactionAttributes: createTransactionAttributes,
     expandCommerceEvent: expandCommerceEvent,
-    createCommerceEventObject: createCommerceEventObject
+    createCommerceEventObject: createCommerceEventObject,
 };

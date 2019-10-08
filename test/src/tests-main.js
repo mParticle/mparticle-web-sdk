@@ -19,24 +19,27 @@ beforeEach(function() {
     } else {
         window.mParticle.Identity.getCurrentUser = userApi;
     }
-    
+
     window.mParticle = window.mParticle || {};
     window.mParticle.config = {
         workspaceToken: workspaceToken,
         logLevel: 'none',
         kitConfigs: [],
         requestConfig: false,
-        isDevelopmentMode: false
+        isDevelopmentMode: false,
     };
 
     mParticle._isTestEnv = true;
     server.requests = [];
     server.handle = function(request) {
         request.setResponseHeader('Content-Type', 'application/json');
-        request.receive(200, JSON.stringify({
-            Store: {},
-            mpid: testMPID
-        }));
+        request.receive(
+            200,
+            JSON.stringify({
+                Store: {},
+                mpid: testMPID,
+            })
+        );
     };
     window.mParticleAndroid = null;
     window.mParticle.isIOS = null;
@@ -48,7 +51,7 @@ beforeEach(function() {
         logLevel: 'none',
         kitConfigs: [],
         requestConfig: false,
-        isDevelopmentMode: false
+        isDevelopmentMode: false,
     };
     delete window.MockForwarder1;
 });

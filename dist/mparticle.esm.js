@@ -77,8 +77,8 @@ return g}function isObject(a){var b=Object.prototype.toString.call(a);return "[o
 return b// if the placeholder was passed, return
 ?generateRandomValue(b)// a random number
 :// or otherwise a concatenated string:
-"10000000-1000-4000-8000-100000000000"// -100000000000,
-.replace(// replacing
+"10000000-1000-4000-8000-100000000000".// -100000000000,
+replace(// replacing
 /[018]/g,// zeroes, ones, and eights with
 generateUniqueId// random hex digits
 )}function filterUserIdentities(a,b){var c=[];if(a&&Object.keys(a).length)for(var d in a)if(a.hasOwnProperty(d)){var e=Types.IdentityType.getIdentityType(d);if(!inArray(b,e)){var f={Type:e,Identity:a[d]};e===mParticle.IdentityType.CustomerId?c.unshift(f):c.push(f);}}return c}function filterUserIdentitiesForForwarders(a,b){var c={};if(a&&Object.keys(a).length)for(var d in a)if(a.hasOwnProperty(d)){var e=Types.IdentityType.getIdentityType(d);inArray(b,e)||(c[d]=a[d]);}return c}function filterUserAttributes(a,b){var c={};if(a&&Object.keys(a).length)for(var d in a)if(a.hasOwnProperty(d)){var e=generateHash(d);inArray(b,e)||(c[d]=a[d]);}return c}function findKeyInObject(a,b){if(b&&a)for(var c in a)if(a.hasOwnProperty(c)&&c.toLowerCase()===b.toLowerCase())return c;return null}function decoded(a){return decodeURIComponent(a.replace(pluses," "))}function converted(a){return 0===a.indexOf("\"")&&(a=a.slice(1,-1).replace(/\\"/g,"\"").replace(/\\\\/g,"\\")),a}function isEventType(a){for(var b in Types.EventType)if(Types.EventType.hasOwnProperty(b)&&Types.EventType[b]===a)return !0;return !1}function parseNumber(a){if(isNaN(a)||!isFinite(a))return 0;var b=parseFloat(a);return isNaN(b)?0:b}function parseStringOrNumber(a){return Validators.isStringOrNumber(a)?a:null}function generateHash(a){var b,c=0,d=0;if(void 0===a||null===a)return 0;if(a=a.toString().toLowerCase(),Array.prototype.reduce)return a.split("").reduce(function(c,d){return c=(c<<5)-c+d.charCodeAt(0),c&c},0);if(0===a.length)return c;for(d=0;d<a.length;d++)b=a.charCodeAt(d),c=(c<<5)-c+b,c&=c;return c}function sanitizeAttributes(a){if(!a||!isObject(a))return null;var b={};for(var c in a)// Make sure that attribute values are not objects or arrays, which are not valid
@@ -120,16 +120,16 @@ if(c[e].mpid){var f=c[e].ui;for(var g in f)if(d===g&&a.userIdentities[d]===f[g])
 // "co.uk" -> fail
 // "domain.co.uk" -> success, return
 // "subdomain.domain.co.uk" -> skipped, because already found
-function getDomain(a,b){var c,d,e=b.split(".");for(c=e.length-1;0<=c;c--)if(d=e.slice(c).join("."),a.cookie="mptest=cookie;domain=."+d+";",-1<a.cookie.indexOf("mptest=cookie"))return a.cookie="mptest=;domain=."+d+";expires=Thu, 01 Jan 1970 00:00:01 GMT;",d;return ""}function getUserIdentities(a){var b=getPersistence();return b&&b[a]&&b[a].ui?b[a].ui:{}}function getAllUserAttributes(a){var b=getPersistence();return b&&b[a]&&b[a].ua?b[a].ua:{}}function getCartProducts(a){var b,c=localStorage.getItem(mParticle.Store.prodStorageName);return c&&(b=JSON.parse(Base64$1.decode(c)),b&&b[a]&&b[a].cp)?b[a].cp:[]}function setCartProducts(a){if(mParticle.Store.isLocalStorageAvailable)try{window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName),Base64$1.encode(JSON.stringify(a)));}catch(a){mParticle.Logger.error("Error with setting products on localStorage.");}}function saveUserIdentitiesToCookies(a,b){if(b){var c=getPersistence();c&&(c[a]?c[a].ui=b:c[a]={ui:b},saveCookies(c));}}function saveUserAttributesToCookies(a,b){var c=getPersistence();b&&(c&&(c[a]?c[a].ui=b:c[a]={ui:b}),saveCookies(c));}function saveUserCookieSyncDatesToCookies(a,b){if(b){var c=getPersistence();c&&(c[a]?c[a].csd=b:c[a]={csd:b}),saveCookies(c);}}function saveUserConsentStateToCookies(a,b){//it's currently not supported to set persistence	
-//for any MPID that's not the current one.	
+function getDomain(a,b){var c,d,e=b.split(".");for(c=e.length-1;0<=c;c--)if(d=e.slice(c).join("."),a.cookie="mptest=cookie;domain=."+d+";",-1<a.cookie.indexOf("mptest=cookie"))return a.cookie="mptest=;domain=."+d+";expires=Thu, 01 Jan 1970 00:00:01 GMT;",d;return ""}function getUserIdentities(a){var b=getPersistence();return b&&b[a]&&b[a].ui?b[a].ui:{}}function getAllUserAttributes(a){var b=getPersistence();return b&&b[a]&&b[a].ua?b[a].ua:{}}function getCartProducts(a){var b,c=localStorage.getItem(mParticle.Store.prodStorageName);return c&&(b=JSON.parse(Base64$1.decode(c)),b&&b[a]&&b[a].cp)?b[a].cp:[]}function setCartProducts(a){if(mParticle.Store.isLocalStorageAvailable)try{window.localStorage.setItem(encodeURIComponent(mParticle.Store.prodStorageName),Base64$1.encode(JSON.stringify(a)));}catch(a){mParticle.Logger.error("Error with setting products on localStorage.");}}function saveUserIdentitiesToCookies(a,b){if(b){var c=getPersistence();c&&(c[a]?c[a].ui=b:c[a]={ui:b},saveCookies(c));}}function saveUserAttributesToCookies(a,b){var c=getPersistence();b&&(c&&(c[a]?c[a].ui=b:c[a]={ui:b}),saveCookies(c));}function saveUserCookieSyncDatesToCookies(a,b){if(b){var c=getPersistence();c&&(c[a]?c[a].csd=b:c[a]={csd:b}),saveCookies(c);}}function saveUserConsentStateToCookies(a,b){//it's currently not supported to set persistence
+//for any MPID that's not the current one.
 if(b||null===b){var c=getPersistence();c&&(c[a]?c[a].con=Consent.Serialization.toMinifiedJsonObject(b):c[a]={con:Consent.Serialization.toMinifiedJsonObject(b)},saveCookies(c));}}function saveCookies(a){var b,c=encodeCookies(JSON.stringify(a)),d=new Date,e=mParticle.Store.storageName,f=new Date(d.getTime()+1e3*(60*(60*(24*mParticle.Store.SDKConfig.cookieExpiration)))).toGMTString(),g=getCookieDomain();if(b=""===g?"":";domain="+g,mParticle.Store.SDKConfig.useCookieStorage){var h=reduceAndEncodeCookies(a,f,b,mParticle.Store.SDKConfig.maxCookieSize);window.document.cookie=encodeURIComponent(e)+"="+h;}else mParticle.Store.isLocalStorageAvailable&&localStorage.setItem(mParticle.Store.storageName,c);}function getPersistence(){var a;return a=mParticle.Store.SDKConfig.useCookieStorage?getCookie():getLocalStorage(),a}function getConsentState(a){var b=getPersistence();return b&&b[a]&&b[a].con?Consent.Serialization.fromMinifiedJsonObject(b[a].con):null}function getFirstSeenTime(a){if(!a)return null;var b=getPersistence();return b&&b[a]&&b[a].fst?b[a].fst:null}/**
-* set the "first seen" time for a user. the time will only be set once for a given
-* mpid after which subsequent calls will be ignored
-*/function setFirstSeenTime(a,b){if(a){b||(b=new Date().getTime());var c=getPersistence();c&&(!c[a]&&(c[a]={}),!c[a].fst&&(c[a].fst=b,saveCookies(c)));}}/**
-* returns the "last seen" time for a user. If the mpid represents the current user, the 
-* return value will always be the current time, otherwise it will be to stored "last seen" 
-* time
-*/function getLastSeenTime(a){if(!a)return null;if(a===mParticle.Identity.getCurrentUser().getMPID())//if the mpid is the current user, its last seen time is the current time
+ * set the "first seen" time for a user. the time will only be set once for a given
+ * mpid after which subsequent calls will be ignored
+ */function setFirstSeenTime(a,b){if(a){b||(b=new Date().getTime());var c=getPersistence();c&&(!c[a]&&(c[a]={}),!c[a].fst&&(c[a].fst=b,saveCookies(c)));}}/**
+ * returns the "last seen" time for a user. If the mpid represents the current user, the
+ * return value will always be the current time, otherwise it will be to stored "last seen"
+ * time
+ */function getLastSeenTime(a){if(!a)return null;if(a===mParticle.Identity.getCurrentUser().getMPID())//if the mpid is the current user, its last seen time is the current time
 return new Date().getTime();var b=getPersistence();return b&&b[a]&&b[a].lst?b[a].lst:null}function setLastSeenTime(a,b){if(a){b||(b=new Date().getTime());var c=getPersistence();c&&c[a]&&(c[a].lst=b,saveCookies(c));}}function getDeviceId(){return mParticle.Store.deviceId}function resetPersistence(){if(removeLocalStorage(StorageNames$1.localStorageName),removeLocalStorage(StorageNames$1.localStorageNameV3),removeLocalStorage(StorageNames$1.localStorageNameV4),removeLocalStorage(mParticle.Store.prodStorageName),removeLocalStorage(StorageNames$1.localStorageProductsV4),expireCookies(StorageNames$1.cookieName),expireCookies(StorageNames$1.cookieNameV2),expireCookies(StorageNames$1.cookieNameV3),expireCookies(StorageNames$1.cookieNameV4),mParticle._isTestEnv){removeLocalStorage(Helpers.createMainStorageName("abcdef")),expireCookies(Helpers.createMainStorageName("abcdef")),removeLocalStorage(Helpers.createProductStorageName("abcdef"));}}// Forwarder Batching Code
 var forwardingStatsBatches={uploadsTable:{},forwardingStatsEventQueue:[]};var Persistence = {useLocalStorage:useLocalStorage,initializeStorage:initializeStorage,update:update,determineLocalStorageAvailability:determineLocalStorageAvailability,getUserProductsFromLS:getUserProductsFromLS,getAllUserProductsFromLS:getAllUserProductsFromLS,setLocalStorage:setLocalStorage,getLocalStorage:getLocalStorage,storeDataInMemory:storeDataInMemory,retrieveDeviceId:retrieveDeviceId,parseDeviceId:parseDeviceId,expireCookies:expireCookies,getCookie:getCookie,setCookie:setCookie,reduceAndEncodeCookies:reduceAndEncodeCookies,findPrevCookiesBasedOnUI:findPrevCookiesBasedOnUI,replaceCommasWithPipes:replaceCommasWithPipes,replacePipesWithCommas:replacePipesWithCommas,replaceApostrophesWithQuotes:replaceApostrophesWithQuotes,replaceQuotesWithApostrophes:replaceQuotesWithApostrophes,createCookieString:createCookieString,revertCookieString:revertCookieString,decodeCookies:decodeCookies,getCookieDomain:getCookieDomain,getUserIdentities:getUserIdentities,getAllUserAttributes:getAllUserAttributes,getCartProducts:getCartProducts,setCartProducts:setCartProducts,saveCookies:saveCookies,saveUserIdentitiesToCookies:saveUserIdentitiesToCookies,saveUserAttributesToCookies:saveUserAttributesToCookies,saveUserCookieSyncDatesToCookies:saveUserCookieSyncDatesToCookies,saveUserConsentStateToCookies:saveUserConsentStateToCookies,getPersistence:getPersistence,getDeviceId:getDeviceId,resetPersistence:resetPersistence,getConsentState:getConsentState,forwardingStatsBatches:forwardingStatsBatches,getFirstSeenTime:getFirstSeenTime,getLastSeenTime:getLastSeenTime,setFirstSeenTime:setFirstSeenTime,setLastSeenTime:setLastSeenTime};
 
@@ -1309,45 +1309,45 @@ d(a),a=null,mParticle.Store.isTracking=!1;}function d(a,b){if(a)try{b?a(b):a();}
 if("string"==typeof b?e=document.querySelectorAll(b):b.nodeType&&(e=[b]),e.length)for(mParticle.Logger.verbose("Found "+e.length+" element"+(1<e.length?"s":"")+", attaching event handlers"),h=0;h<e.length;h++)g=e[h],g.addEventListener?g.addEventListener(a,j,!1):g.attachEvent?g.attachEvent("on"+a,j):g["on"+a]=j;else mParticle.Logger.verbose("No elements found");}var Events = {logEvent:logEvent,startTracking:startTracking,stopTracking:stopTracking,logCheckoutEvent:logCheckoutEvent,logProductActionEvent:logProductActionEvent,logPurchaseEvent:logPurchaseEvent,logRefundEvent:logRefundEvent,logPromotionEvent:logPromotionEvent,logImpressionEvent:logImpressionEvent,logOptOut:logOptOut,logAST:logAST,addEventHandler:addEventHandler};
 
 var Messages$6=Constants.Messages,Validators$2=Helpers.Validators,HTTPCodes$1=Constants.HTTPCodes,sendIdentityRequest$1=ApiClient.sendIdentityRequest;function checkIdentitySwap(a,b,c){if(a&&b&&a!==b){var d=Persistence.useLocalStorage()?Persistence.getLocalStorage():Persistence.getCookie();d.cu=b,d.gs.csm=c,Persistence.saveCookies(d);}}var IdentityRequest={createKnownIdentities:function createKnownIdentities(a,b){var c={};if(a&&a.userIdentities&&Helpers.isObject(a.userIdentities))for(var d in a.userIdentities)c[d]=a.userIdentities[d];return c.device_application_stamp=b,c},preProcessIdentityRequest:function preProcessIdentityRequest(a,b,c){mParticle.Logger.verbose(Messages$6.InformationMessages.StartingLogEvent+": "+c);var d=Validators$2.validateIdentities(a,c);if(!d.valid)return mParticle.Logger.error("ERROR: "+d.error),{valid:!1,error:d.error};if(b&&!Validators$2.isFunction(b)){var e="The optional callback must be a function. You tried entering a(n) "+_typeof_1(b);return mParticle.Logger.error(e),{valid:!1,error:e}}return {valid:!0}},createIdentityRequest:function createIdentityRequest(a,b,c,d,e,f,g){var h={client_sdk:{platform:b,sdk_vendor:c,sdk_version:d},context:f,environment:mParticle.Store.SDKConfig.isDevelopmentMode?"development":"production",request_id:Helpers.generateUniqueId(),request_timestamp_ms:new Date().getTime(),previous_mpid:g||null,known_identities:this.createKnownIdentities(a,e)};return h},createModifyIdentityRequest:function createModifyIdentityRequest(a,b,c,d,e,f){return {client_sdk:{platform:c,sdk_vendor:d,sdk_version:e},context:f,environment:mParticle.Store.SDKConfig.isDevelopmentMode?"development":"production",request_id:Helpers.generateUniqueId(),request_timestamp_ms:new Date().getTime(),identity_changes:this.createIdentityChanges(a,b)}},createIdentityChanges:function createIdentityChanges(a,b){var c,d=[];if(b&&Helpers.isObject(b)&&a&&Helpers.isObject(a))for(c in b)d.push({old_value:a[c]||null,new_value:b[c],identity_type:c});return d},modifyUserIdentities:function modifyUserIdentities(a,b){var c={};for(var d in b)c[Types.IdentityType.getIdentityType(d)]=b[d];for(d in a)c[d]||(c[d]=a[d]);return c},createAliasNetworkRequest:function createAliasNetworkRequest(a){return {request_id:Helpers.generateUniqueId(),request_type:"alias",environment:mParticle.Store.SDKConfig.isDevelopmentMode?"development":"production",api_key:mParticle.Store.devToken,data:{destination_mpid:a.destinationMpid,source_mpid:a.sourceMpid,start_unixtime_ms:a.startTime,end_unixtime_ms:a.endTime,device_application_stamp:mParticle.Store.deviceId}}},convertAliasToNative:function convertAliasToNative(a){return {DestinationMpid:a.destinationMpid,SourceMpid:a.sourceMpid,StartUnixtimeMs:a.startTime,EndUnixtimeMs:a.endTime}},convertToNative:function convertToNative(a){var b=[];if(a&&a.userIdentities){for(var c in a.userIdentities)a.userIdentities.hasOwnProperty(c)&&b.push({Type:Types.IdentityType.getIdentityType(c),Identity:a.userIdentities[c]});return {UserIdentities:b}}}},IdentityAPI={HTTPCodes:HTTPCodes$1,/**
-    * Initiate a logout request to the mParticle server
-    * @method identify
-    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
-    * @param {Function} [callback] A callback function that is called when the identify request completes
-    */identify:function identify(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"identify");if(d&&(c=d.getMPID()),e.valid){var f=IdentityRequest.createIdentityRequest(a,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.deviceId,mParticle.Store.context,c);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Identify request sent to native sdk")):sendIdentityRequest$1(f,"identify",b,a,parseIdentityResponse,c):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
-    * Initiate a logout request to the mParticle server
-    * @method logout
-    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
-    * @param {Function} [callback] A callback function that is called when the logout request completes
-    */logout:function logout(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"logout");if(d&&(c=d.getMPID()),e.valid){var f,g=IdentityRequest.createIdentityRequest(a,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.deviceId,mParticle.Store.context,c);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Logout request sent to native sdk")):(sendIdentityRequest$1(g,"logout",b,a,parseIdentityResponse,c),f=ServerModel.createEventObject({messageType:Types.MessageType.Profile}),f.ProfileMessageType=Types.ProfileMessageType.Logout,mParticle.Store.activeForwarders.length&&mParticle.Store.activeForwarders.forEach(function(a){a.logOut&&a.logOut(f);})):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
-    * Initiate a login request to the mParticle server
-    * @method login
-    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
-    * @param {Function} [callback] A callback function that is called when the login request completes
-    */login:function login(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"login");if(d&&(c=d.getMPID()),e.valid){var f=IdentityRequest.createIdentityRequest(a,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.deviceId,mParticle.Store.context,c);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Login request sent to native sdk")):sendIdentityRequest$1(f,"login",b,a,parseIdentityResponse,c):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
-    * Initiate a modify request to the mParticle server
-    * @method modify
-    * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
-    * @param {Function} [callback] A callback function that is called when the modify request completes
-    */modify:function modify(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"modify");d&&(c=d.getMPID());var f=a&&a.userIdentities?a.userIdentities:{};if(e.valid){var g=IdentityRequest.createModifyIdentityRequest(d?d.getUserIdentities().userIdentities:{},f,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.context);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Modify request sent to native sdk")):sendIdentityRequest$1(g,"modify",b,a,parseIdentityResponse,c):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
-    * Returns a user object with methods to interact with the current user
-    * @method getCurrentUser
-    * @return {Object} the current user object
-    */getCurrentUser:function getCurrentUser(){var a=mParticle.Store.mpid;return a?(a=mParticle.Store.mpid.slice(),mParticleUser(a,mParticle.Store.isLoggedIn)):mParticle.Store.webviewBridgeEnabled?mParticleUser():null},/**
-    * Returns a the user object associated with the mpid parameter or 'null' if no such
-    * user exists
-    * @method getUser
-    * @param {String} mpid of the desired user
-    * @return {Object} the user for  mpid
-    */getUser:function getUser(a){var b=Persistence.getPersistence();return b?b[a]&&!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(a)?mParticleUser(a):null:null},/**
-    * Returns all users, including the current user and all previous users that are stored on the device.
-    * @method getUsers
-    * @return {Array} array of users
-    */getUsers:function getUsers(){var a=Persistence.getPersistence(),b=[];if(a)for(var c in a)Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(c)||b.push(mParticleUser(c));return b.sort(function(c,a){var b=c.getLastSeenTime()||0,d=a.getLastSeenTime()||0;return b>d?-1:1}),b},/**
-    * Initiate an alias request to the mParticle server
-    * @method aliasUsers 
-    * @param {Object} aliasRequest  object representing an AliasRequest
-    * @param {Function} [callback] A callback function that is called when the aliasUsers request completes
-    */aliasUsers:function aliasUsers(a,b){var c;if(a.destinationMpid&&a.sourceMpid||(c=Messages$6.ValidationMessages.AliasMissingMpid),a.destinationMpid===a.sourceMpid&&(c=Messages$6.ValidationMessages.AliasNonUniqueMpid),a.startTime&&a.endTime||(c=Messages$6.ValidationMessages.AliasMissingTime),a.startTime>a.endTime&&(c=Messages$6.ValidationMessages.AliasStartBeforeEndTime),c)return mParticle.Logger.warning(c),void Helpers.invokeAliasCallback(b,HTTPCodes$1.validationIssue,c);if(!Helpers.canLog())Helpers.invokeAliasCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonAliasUsers),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonAliasUsers);else if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Alias,JSON.stringify(IdentityRequest.convertAliasToNative(a))),Helpers.invokeAliasCallback(b,HTTPCodes$1.nativeIdentityRequest,"Alias request sent to native sdk");else{mParticle.Logger.verbose(Messages$6.InformationMessages.StartingAliasRequest+": "+a.sourceMpid+" -> "+a.destinationMpid);var d=IdentityRequest.createAliasNetworkRequest(a);ApiClient.sendAliasRequest(d,b);}},/**
+     * Initiate a logout request to the mParticle server
+     * @method identify
+     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+     * @param {Function} [callback] A callback function that is called when the identify request completes
+     */identify:function identify(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"identify");if(d&&(c=d.getMPID()),e.valid){var f=IdentityRequest.createIdentityRequest(a,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.deviceId,mParticle.Store.context,c);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Identify request sent to native sdk")):sendIdentityRequest$1(f,"identify",b,a,parseIdentityResponse,c):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
+     * Initiate a logout request to the mParticle server
+     * @method logout
+     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+     * @param {Function} [callback] A callback function that is called when the logout request completes
+     */logout:function logout(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"logout");if(d&&(c=d.getMPID()),e.valid){var f,g=IdentityRequest.createIdentityRequest(a,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.deviceId,mParticle.Store.context,c);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Logout request sent to native sdk")):(sendIdentityRequest$1(g,"logout",b,a,parseIdentityResponse,c),f=ServerModel.createEventObject({messageType:Types.MessageType.Profile}),f.ProfileMessageType=Types.ProfileMessageType.Logout,mParticle.Store.activeForwarders.length&&mParticle.Store.activeForwarders.forEach(function(a){a.logOut&&a.logOut(f);})):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
+     * Initiate a login request to the mParticle server
+     * @method login
+     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+     * @param {Function} [callback] A callback function that is called when the login request completes
+     */login:function login(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"login");if(d&&(c=d.getMPID()),e.valid){var f=IdentityRequest.createIdentityRequest(a,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.deviceId,mParticle.Store.context,c);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Login request sent to native sdk")):sendIdentityRequest$1(f,"login",b,a,parseIdentityResponse,c):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
+     * Initiate a modify request to the mParticle server
+     * @method modify
+     * @param {Object} identityApiData The identityApiData object as indicated [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/README.md#1-customize-the-sdk)
+     * @param {Function} [callback] A callback function that is called when the modify request completes
+     */modify:function modify(a,b){var c,d=mParticle.Identity.getCurrentUser(),e=IdentityRequest.preProcessIdentityRequest(a,b,"modify");d&&(c=d.getMPID());var f=a&&a.userIdentities?a.userIdentities:{};if(e.valid){var g=IdentityRequest.createModifyIdentityRequest(d?d.getUserIdentities().userIdentities:{},f,Constants.platform,Constants.sdkVendor,Constants.sdkVersion,mParticle.Store.context);Helpers.canLog()?mParticle.Store.webviewBridgeEnabled?(NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify,JSON.stringify(IdentityRequest.convertToNative(a))),Helpers.invokeCallback(b,HTTPCodes$1.nativeIdentityRequest,"Modify request sent to native sdk")):sendIdentityRequest$1(g,"modify",b,a,parseIdentityResponse,c):(Helpers.invokeCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonLogEvent),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent));}else Helpers.invokeCallback(b,HTTPCodes$1.validationIssue,e.error),mParticle.Logger.verbose(e);},/**
+     * Returns a user object with methods to interact with the current user
+     * @method getCurrentUser
+     * @return {Object} the current user object
+     */getCurrentUser:function getCurrentUser(){var a=mParticle.Store.mpid;return a?(a=mParticle.Store.mpid.slice(),mParticleUser(a,mParticle.Store.isLoggedIn)):mParticle.Store.webviewBridgeEnabled?mParticleUser():null},/**
+     * Returns a the user object associated with the mpid parameter or 'null' if no such
+     * user exists
+     * @method getUser
+     * @param {String} mpid of the desired user
+     * @return {Object} the user for  mpid
+     */getUser:function getUser(a){var b=Persistence.getPersistence();return b?b[a]&&!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(a)?mParticleUser(a):null:null},/**
+     * Returns all users, including the current user and all previous users that are stored on the device.
+     * @method getUsers
+     * @return {Array} array of users
+     */getUsers:function getUsers(){var a=Persistence.getPersistence(),b=[];if(a)for(var c in a)Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(c)||b.push(mParticleUser(c));return b.sort(function(c,a){var b=c.getLastSeenTime()||0,d=a.getLastSeenTime()||0;return b>d?-1:1}),b},/**
+     * Initiate an alias request to the mParticle server
+     * @method aliasUsers
+     * @param {Object} aliasRequest  object representing an AliasRequest
+     * @param {Function} [callback] A callback function that is called when the aliasUsers request completes
+     */aliasUsers:function aliasUsers(a,b){var c;if(a.destinationMpid&&a.sourceMpid||(c=Messages$6.ValidationMessages.AliasMissingMpid),a.destinationMpid===a.sourceMpid&&(c=Messages$6.ValidationMessages.AliasNonUniqueMpid),a.startTime&&a.endTime||(c=Messages$6.ValidationMessages.AliasMissingTime),a.startTime>a.endTime&&(c=Messages$6.ValidationMessages.AliasStartBeforeEndTime),c)return mParticle.Logger.warning(c),void Helpers.invokeAliasCallback(b,HTTPCodes$1.validationIssue,c);if(!Helpers.canLog())Helpers.invokeAliasCallback(b,HTTPCodes$1.loggingDisabledOrMissingAPIKey,Messages$6.InformationMessages.AbandonAliasUsers),mParticle.Logger.verbose(Messages$6.InformationMessages.AbandonAliasUsers);else if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Alias,JSON.stringify(IdentityRequest.convertAliasToNative(a))),Helpers.invokeAliasCallback(b,HTTPCodes$1.nativeIdentityRequest,"Alias request sent to native sdk");else{mParticle.Logger.verbose(Messages$6.InformationMessages.StartingAliasRequest+": "+a.sourceMpid+" -> "+a.destinationMpid);var d=IdentityRequest.createAliasNetworkRequest(a);ApiClient.sendAliasRequest(d,b);}},/**
       Create a default AliasRequest for 2 MParticleUsers. This will construct the request
       using the sourceUser's firstSeenTime as the startTime, and its lastSeenTime as the endTime.
      
@@ -1362,92 +1362,92 @@ var Messages$6=Constants.Messages,Validators$2=Helpers.Validators,HTTPCodes$1=Co
       after applying this adjustment it will be impossible to create an aliasRequest passes the aliasUsers() 
       validation that the startTime must be less than the endTime 
      */createAliasRequest:function createAliasRequest(a,b){try{if(!b||!a)return mParticle.Logger.error("'destinationUser' and 'sourceUser' must both be present"),null;var c=a.getFirstSeenTime();c||mParticle.Identity.getUsers().forEach(function(a){a.getFirstSeenTime()&&(!c||a.getFirstSeenTime()<c)&&(c=a.getFirstSeenTime());});var d=new Date().getTime()-1e3*(60*(60*(24*mParticle.Store.SDKConfig.aliasMaxWindow))),e=a.getLastSeenTime()||new Date().getTime();return c<d&&(c=d,e<c&&mParticle.Logger.warning("Source User has not been seen in the last "+mParticle.Store.SDKConfig.maxAliasWindow+" days, Alias Request will likely fail")),{destinationMpid:b.getMPID(),sourceMpid:a.getMPID(),startTime:c,endTime:e}}catch(a){return mParticle.Logger.error("There was a problem with creating an alias request: "+a),null}}};/**
-* Invoke these methods on the mParticle.Identity object.
-* Example: mParticle.Identity.getCurrentUser().
-* @class mParticle.Identity
-*/ /**
-* Invoke these methods on the mParticle.Identity.getCurrentUser() object.
-* Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
-* @class mParticle.Identity.getCurrentUser()
-*/function mParticleUser(a,b){return {/**
-        * Get user identities for current user
-        * @method getUserIdentities
-        * @return {Object} an object with userIdentities as its key
-        */getUserIdentities:function getUserIdentities(){var b={},c=Persistence.getUserIdentities(a);for(var d in c)c.hasOwnProperty(d)&&(b[Types.IdentityType.getIdentityName(Helpers.parseNumber(d))]=c[d]);return {userIdentities:b}},/**
-        * Get the MPID of the current user
-        * @method getMPID
-        * @return {String} the current user MPID as a string
-        */getMPID:function getMPID(){return a},/**
-        * Sets a user tag
-        * @method setUserTag
-        * @param {String} tagName
-        */setUserTag:function setUserTag(a){return Validators$2.isValidKeyValue(a)?void this.setUserAttribute(a,null):void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey)},/**
-        * Removes a user tag
-        * @method removeUserTag
-        * @param {String} tagName
-        */removeUserTag:function removeUserTag(a){return Validators$2.isValidKeyValue(a)?void this.removeUserAttribute(a):void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey)},/**
-        * Sets a user attribute
-        * @method setUserAttribute
-        * @param {String} key
-        * @param {String} value
-        */setUserAttribute:function setUserAttribute(b,c){var d,e;if(mParticle.sessionManager.resetSessionTimer(),Helpers.canLog()){if(!Validators$2.isValidAttributeValue(c))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadAttribute);if(!Validators$2.isValidKeyValue(b))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute,JSON.stringify({key:b,value:c}));else{d=Persistence.getPersistence(),e=this.getAllUserAttributes();var f=Helpers.findKeyInObject(e,b);f&&delete e[f],e[b]=c,d&&d[a]&&(d[a].ua=e,Persistence.saveCookies(d,a)),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(),ApiClient.prepareForwardingStats),Forwarders.callSetUserAttributeOnForwarders(b,c);}}},/**
-        * Set multiple user attributes
-        * @method setUserAttributes
-        * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
-        */setUserAttributes:function setUserAttributes(a){if(mParticle.sessionManager.resetSessionTimer(),!Helpers.isObject(a))mParticle.Logger.error("Must pass an object into setUserAttributes. You passed a "+_typeof_1(a));else if(Helpers.canLog())for(var b in a)a.hasOwnProperty(b)&&this.setUserAttribute(b,a[b]);},/**
-        * Removes a specific user attribute
-        * @method removeUserAttribute
-        * @param {String} key
-        */removeUserAttribute:function removeUserAttribute(b){var c,d;if(mParticle.sessionManager.resetSessionTimer(),!Validators$2.isValidKeyValue(b))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute,JSON.stringify({key:b,value:null}));else{c=Persistence.getPersistence(),d=this.getAllUserAttributes();var e=Helpers.findKeyInObject(d,b);e&&(b=e),delete d[b],c&&c[a]&&(c[a].ua=d,Persistence.saveCookies(c,a)),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(),ApiClient.prepareForwardingStats),Forwarders.applyToForwarders("removeUserAttribute",b);}},/**
-        * Sets a list of user attributes
-        * @method setUserAttributeList
-        * @param {String} key
-        * @param {Array} value an array of values
-        */setUserAttributeList:function setUserAttributeList(b,c){var d,e;if(mParticle.sessionManager.resetSessionTimer(),!Validators$2.isValidKeyValue(b))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);if(!Array.isArray(c))return void mParticle.Logger.error("The value you passed in to setUserAttributeList must be an array. You passed in a "+_typeof_1(c));var f=c.slice();if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList,JSON.stringify({key:b,value:f}));else{d=Persistence.getPersistence(),e=this.getAllUserAttributes();var g=Helpers.findKeyInObject(e,b);g&&delete e[g],e[b]=f,d&&d[a]&&(d[a].ua=e,Persistence.saveCookies(d,a)),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(),ApiClient.prepareForwardingStats),Forwarders.callSetUserAttributeOnForwarders(b,f);}},/**
-        * Removes all user attributes
-        * @method removeAllUserAttributes
-        */removeAllUserAttributes:function removeAllUserAttributes(){var b,c;if(mParticle.sessionManager.resetSessionTimer(),mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);else{if(b=Persistence.getPersistence(),c=this.getAllUserAttributes(),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities()),c)for(var d in c)c.hasOwnProperty(d)&&Forwarders.applyToForwarders("removeUserAttribute",d);b&&b[a]&&(b[a].ua={},Persistence.saveCookies(b,a));}},/**
-        * Returns all user attribute keys that have values that are arrays
-        * @method getUserAttributesLists
-        * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
-        */getUserAttributesLists:function getUserAttributesLists(){var a,b={};for(var c in a=this.getAllUserAttributes(),a)a.hasOwnProperty(c)&&Array.isArray(a[c])&&(b[c]=a[c].slice());return b},/**
-        * Returns all user attributes
-        * @method getAllUserAttributes
-        * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
-        */getAllUserAttributes:function getAllUserAttributes(){var b={},c=Persistence.getAllUserAttributes(a);if(c)for(var d in c)c.hasOwnProperty(d)&&(b[d]=Array.isArray(c[d])?c[d].slice():c[d]);return b},/**
-        * Returns the cart object for the current user
-        * @method getCart
-        * @return a cart object
-        */getCart:function getCart(){return mParticleUserCart(a)},/**
-        * Returns the Consent State stored locally for this user.
-        * @method getConsentState
-        * @return a ConsentState object
-        */getConsentState:function getConsentState(){return Persistence.getConsentState(a)},/**
-        * Sets the Consent State stored locally for this user.
-        * @method setConsentState
-        * @param {Object} consent state
-        */setConsentState:function setConsentState(b){Persistence.saveUserConsentStateToCookies(a,b),Forwarders.initForwarders(this.getUserIdentities().userIdentities),ApiClient.prepareForwardingStats;},isLoggedIn:function isLoggedIn(){return b},getLastSeenTime:function getLastSeenTime(){return Persistence.getLastSeenTime(a)},getFirstSeenTime:function getFirstSeenTime(){return Persistence.getFirstSeenTime(a)}}}/**
-* Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
-* Example: mParticle.Identity.getCurrentUser().getCart().add(...);
-* @class mParticle.Identity.getCurrentUser().getCart()
-*/function mParticleUserCart(a){return {/**
-        * Adds a cart product to the user cart
-        * @method add
-        * @param {Object} product the product
-        * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
-        */add:function add(b,c){var d,e,f;if(f=Array.isArray(b)?b.slice():[b],f.forEach(function(a){a.Attributes=Helpers.sanitizeAttributes(a.Attributes);}),mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.AddToCart,JSON.stringify(f));else{mParticle.sessionManager.resetSessionTimer(),e=Persistence.getUserProductsFromLS(a),e=e.concat(f),!0===c&&Events.logProductActionEvent(Types.ProductActionType.AddToCart,f);e.length>mParticle.Store.SDKConfig.maxProducts&&(mParticle.Logger.verbose("The cart contains "+e.length+" items. Only "+mParticle.Store.SDKConfig.maxProducts+" can currently be saved in cookies."),e=e.slice(-mParticle.Store.SDKConfig.maxProducts)),d=Persistence.getAllUserProductsFromLS(),d[a].cp=e,Persistence.setCartProducts(d);}},/**
-        * Removes a cart product from the current user cart
-        * @method remove
-        * @param {Object} product the product
-        * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
-        */remove:function remove(b,c){var d,e,f=-1,g=null;if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart,JSON.stringify(b));else{mParticle.sessionManager.resetSessionTimer(),e=Persistence.getUserProductsFromLS(a),e&&(e.forEach(function(a,c){a.Sku===b.Sku&&(f=c,g=a);}),-1<f&&(e.splice(f,1),!0===c&&Events.logProductActionEvent(Types.ProductActionType.RemoveFromCart,g)));d=Persistence.getAllUserProductsFromLS(),d[a].cp=e,Persistence.setCartProducts(d);}},/**
-        * Clears the user's cart
-        * @method clear
-        */clear:function clear(){var b;mParticle.Store.webviewBridgeEnabled?NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.ClearCart):(mParticle.sessionManager.resetSessionTimer(),b=Persistence.getAllUserProductsFromLS(),b&&b[a]&&b[a].cp&&(b[a].cp=[],b[a].cp=[],Persistence.setCartProducts(b)));},/**
-        * Returns all cart products
-        * @method getCartProducts
-        * @return {Array} array of cart products
-        */getCartProducts:function getCartProducts(){return Persistence.getCartProducts(a)}}}function parseIdentityResponse(a,b,c,d,e){var f,g,h,i=mParticle.Identity.getCurrentUser(),j={},k=i?i.getUserIdentities().userIdentities:{};for(var l in k)j[Types.IdentityType.getIdentityType(l)]=k[l];var m={};mParticle.Store.identityCallInFlight=!1;try{if(mParticle.Logger.verbose("Parsing \""+e+"\" identity response from server"),a.responseText&&(g=JSON.parse(a.responseText),g.hasOwnProperty("is_logged_in")&&(mParticle.Store.isLoggedIn=g.is_logged_in)),200===a.status){if("modify"===e)m=IdentityRequest.modifyUserIdentities(j,d.userIdentities),Persistence.saveUserIdentitiesToCookies(i.getMPID(),m);else{//if there is any previous migration data
+ * Invoke these methods on the mParticle.Identity object.
+ * Example: mParticle.Identity.getCurrentUser().
+ * @class mParticle.Identity
+ */ /**
+ * Invoke these methods on the mParticle.Identity.getCurrentUser() object.
+ * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
+ * @class mParticle.Identity.getCurrentUser()
+ */function mParticleUser(a,b){return {/**
+         * Get user identities for current user
+         * @method getUserIdentities
+         * @return {Object} an object with userIdentities as its key
+         */getUserIdentities:function getUserIdentities(){var b={},c=Persistence.getUserIdentities(a);for(var d in c)c.hasOwnProperty(d)&&(b[Types.IdentityType.getIdentityName(Helpers.parseNumber(d))]=c[d]);return {userIdentities:b}},/**
+         * Get the MPID of the current user
+         * @method getMPID
+         * @return {String} the current user MPID as a string
+         */getMPID:function getMPID(){return a},/**
+         * Sets a user tag
+         * @method setUserTag
+         * @param {String} tagName
+         */setUserTag:function setUserTag(a){return Validators$2.isValidKeyValue(a)?void this.setUserAttribute(a,null):void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey)},/**
+         * Removes a user tag
+         * @method removeUserTag
+         * @param {String} tagName
+         */removeUserTag:function removeUserTag(a){return Validators$2.isValidKeyValue(a)?void this.removeUserAttribute(a):void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey)},/**
+         * Sets a user attribute
+         * @method setUserAttribute
+         * @param {String} key
+         * @param {String} value
+         */setUserAttribute:function setUserAttribute(b,c){var d,e;if(mParticle.sessionManager.resetSessionTimer(),Helpers.canLog()){if(!Validators$2.isValidAttributeValue(c))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadAttribute);if(!Validators$2.isValidKeyValue(b))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute,JSON.stringify({key:b,value:c}));else{d=Persistence.getPersistence(),e=this.getAllUserAttributes();var f=Helpers.findKeyInObject(e,b);f&&delete e[f],e[b]=c,d&&d[a]&&(d[a].ua=e,Persistence.saveCookies(d,a)),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(),ApiClient.prepareForwardingStats),Forwarders.callSetUserAttributeOnForwarders(b,c);}}},/**
+         * Set multiple user attributes
+         * @method setUserAttributes
+         * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
+         */setUserAttributes:function setUserAttributes(a){if(mParticle.sessionManager.resetSessionTimer(),!Helpers.isObject(a))mParticle.Logger.error("Must pass an object into setUserAttributes. You passed a "+_typeof_1(a));else if(Helpers.canLog())for(var b in a)a.hasOwnProperty(b)&&this.setUserAttribute(b,a[b]);},/**
+         * Removes a specific user attribute
+         * @method removeUserAttribute
+         * @param {String} key
+         */removeUserAttribute:function removeUserAttribute(b){var c,d;if(mParticle.sessionManager.resetSessionTimer(),!Validators$2.isValidKeyValue(b))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveUserAttribute,JSON.stringify({key:b,value:null}));else{c=Persistence.getPersistence(),d=this.getAllUserAttributes();var e=Helpers.findKeyInObject(d,b);e&&(b=e),delete d[b],c&&c[a]&&(c[a].ua=d,Persistence.saveCookies(c,a)),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(),ApiClient.prepareForwardingStats),Forwarders.applyToForwarders("removeUserAttribute",b);}},/**
+         * Sets a list of user attributes
+         * @method setUserAttributeList
+         * @param {String} key
+         * @param {Array} value an array of values
+         */setUserAttributeList:function setUserAttributeList(b,c){var d,e;if(mParticle.sessionManager.resetSessionTimer(),!Validators$2.isValidKeyValue(b))return void mParticle.Logger.error(Messages$6.ErrorMessages.BadKey);if(!Array.isArray(c))return void mParticle.Logger.error("The value you passed in to setUserAttributeList must be an array. You passed in a "+_typeof_1(c));var f=c.slice();if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList,JSON.stringify({key:b,value:f}));else{d=Persistence.getPersistence(),e=this.getAllUserAttributes();var g=Helpers.findKeyInObject(e,b);g&&delete e[g],e[b]=f,d&&d[a]&&(d[a].ua=e,Persistence.saveCookies(d,a)),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(),ApiClient.prepareForwardingStats),Forwarders.callSetUserAttributeOnForwarders(b,f);}},/**
+         * Removes all user attributes
+         * @method removeAllUserAttributes
+         */removeAllUserAttributes:function removeAllUserAttributes(){var b,c;if(mParticle.sessionManager.resetSessionTimer(),mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);else{if(b=Persistence.getPersistence(),c=this.getAllUserAttributes(),Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities()),c)for(var d in c)c.hasOwnProperty(d)&&Forwarders.applyToForwarders("removeUserAttribute",d);b&&b[a]&&(b[a].ua={},Persistence.saveCookies(b,a));}},/**
+         * Returns all user attribute keys that have values that are arrays
+         * @method getUserAttributesLists
+         * @return {Object} an object of only keys with array values. Example: { attr1: [1, 2, 3], attr2: ['a', 'b', 'c'] }
+         */getUserAttributesLists:function getUserAttributesLists(){var a,b={};for(var c in a=this.getAllUserAttributes(),a)a.hasOwnProperty(c)&&Array.isArray(a[c])&&(b[c]=a[c].slice());return b},/**
+         * Returns all user attributes
+         * @method getAllUserAttributes
+         * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
+         */getAllUserAttributes:function getAllUserAttributes(){var b={},c=Persistence.getAllUserAttributes(a);if(c)for(var d in c)c.hasOwnProperty(d)&&(b[d]=Array.isArray(c[d])?c[d].slice():c[d]);return b},/**
+         * Returns the cart object for the current user
+         * @method getCart
+         * @return a cart object
+         */getCart:function getCart(){return mParticleUserCart(a)},/**
+         * Returns the Consent State stored locally for this user.
+         * @method getConsentState
+         * @return a ConsentState object
+         */getConsentState:function getConsentState(){return Persistence.getConsentState(a)},/**
+         * Sets the Consent State stored locally for this user.
+         * @method setConsentState
+         * @param {Object} consent state
+         */setConsentState:function setConsentState(b){Persistence.saveUserConsentStateToCookies(a,b),Forwarders.initForwarders(this.getUserIdentities().userIdentities),ApiClient.prepareForwardingStats;},isLoggedIn:function isLoggedIn(){return b},getLastSeenTime:function getLastSeenTime(){return Persistence.getLastSeenTime(a)},getFirstSeenTime:function getFirstSeenTime(){return Persistence.getFirstSeenTime(a)}}}/**
+ * Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
+ * Example: mParticle.Identity.getCurrentUser().getCart().add(...);
+ * @class mParticle.Identity.getCurrentUser().getCart()
+ */function mParticleUserCart(a){return {/**
+         * Adds a cart product to the user cart
+         * @method add
+         * @param {Object} product the product
+         * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+         */add:function add(b,c){var d,e,f;if(f=Array.isArray(b)?b.slice():[b],f.forEach(function(a){a.Attributes=Helpers.sanitizeAttributes(a.Attributes);}),mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.AddToCart,JSON.stringify(f));else{mParticle.sessionManager.resetSessionTimer(),e=Persistence.getUserProductsFromLS(a),e=e.concat(f),!0===c&&Events.logProductActionEvent(Types.ProductActionType.AddToCart,f);e.length>mParticle.Store.SDKConfig.maxProducts&&(mParticle.Logger.verbose("The cart contains "+e.length+" items. Only "+mParticle.Store.SDKConfig.maxProducts+" can currently be saved in cookies."),e=e.slice(-mParticle.Store.SDKConfig.maxProducts)),d=Persistence.getAllUserProductsFromLS(),d[a].cp=e,Persistence.setCartProducts(d);}},/**
+         * Removes a cart product from the current user cart
+         * @method remove
+         * @param {Object} product the product
+         * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+         */remove:function remove(b,c){var d,e,f=-1,g=null;if(mParticle.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveFromCart,JSON.stringify(b));else{mParticle.sessionManager.resetSessionTimer(),e=Persistence.getUserProductsFromLS(a),e&&(e.forEach(function(a,c){a.Sku===b.Sku&&(f=c,g=a);}),-1<f&&(e.splice(f,1),!0===c&&Events.logProductActionEvent(Types.ProductActionType.RemoveFromCart,g)));d=Persistence.getAllUserProductsFromLS(),d[a].cp=e,Persistence.setCartProducts(d);}},/**
+         * Clears the user's cart
+         * @method clear
+         */clear:function clear(){var b;mParticle.Store.webviewBridgeEnabled?NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.ClearCart):(mParticle.sessionManager.resetSessionTimer(),b=Persistence.getAllUserProductsFromLS(),b&&b[a]&&b[a].cp&&(b[a].cp=[],b[a].cp=[],Persistence.setCartProducts(b)));},/**
+         * Returns all cart products
+         * @method getCartProducts
+         * @return {Array} array of cart products
+         */getCartProducts:function getCartProducts(){return Persistence.getCartProducts(a)}}}function parseIdentityResponse(a,b,c,d,e){var f,g,h,i=mParticle.Identity.getCurrentUser(),j={},k=i?i.getUserIdentities().userIdentities:{};for(var l in k)j[Types.IdentityType.getIdentityType(l)]=k[l];var m={};mParticle.Store.identityCallInFlight=!1;try{if(mParticle.Logger.verbose("Parsing \""+e+"\" identity response from server"),a.responseText&&(g=JSON.parse(a.responseText),g.hasOwnProperty("is_logged_in")&&(mParticle.Store.isLoggedIn=g.is_logged_in)),200===a.status){if("modify"===e)m=IdentityRequest.modifyUserIdentities(j,d.userIdentities),Persistence.saveUserIdentitiesToCookies(i.getMPID(),m);else{//if there is any previous migration data
 if(g=JSON.parse(a.responseText),mParticle.Logger.verbose("Successfully parsed Identity Response"),(!i||i.getMPID()&&g.mpid&&g.mpid!==i.getMPID())&&(mParticle.Store.mpid=g.mpid,i&&Persistence.setLastSeenTime(b),Persistence.setFirstSeenTime(g.mpid)),"identify"==e&&i&&g.mpid===i.getMPID()&&Persistence.setFirstSeenTime(g.mpid),h=mParticle.Store.currentSessionMPIDs.indexOf(g.mpid),mParticle.Store.sessionId&&g.mpid&&b!==g.mpid&&0>h&&mParticle.Store.currentSessionMPIDs.push(g.mpid),-1<h&&(mParticle.Store.currentSessionMPIDs=mParticle.Store.currentSessionMPIDs.slice(0,h).concat(mParticle.Store.currentSessionMPIDs.slice(h+1,mParticle.Store.currentSessionMPIDs.length)),mParticle.Store.currentSessionMPIDs.push(g.mpid)),Persistence.saveUserIdentitiesToCookies(g.mpid,m),cookieSyncManager.attemptCookieSync(b,g.mpid),checkIdentitySwap(b,g.mpid,mParticle.Store.currentSessionMPIDs),Object.keys(mParticle.Store.migrationData).length){m=mParticle.Store.migrationData.userIdentities||{};var n=mParticle.Store.migrationData.userAttributes||{};Persistence.saveUserAttributesToCookies(g.mpid,n);}else d&&d.userIdentities&&Object.keys(d.userIdentities).length&&(m=IdentityRequest.modifyUserIdentities(j,d.userIdentities));Persistence.saveUserIdentitiesToCookies(g.mpid,m),Persistence.update(),Persistence.findPrevCookiesBasedOnUI(d),mParticle.Store.context=g.context||mParticle.Store.context;}if(f=IdentityAPI.getCurrentUser(),d&&d.onUserAlias&&Helpers.Validators.isFunction(d.onUserAlias))try{mParticle.Logger.warning("Deprecated function onUserAlias will be removed in future releases"),d.onUserAlias(i,f);}catch(a){mParticle.Logger.error("There was an error with your onUserAlias function - "+a);}var o=Persistence.getCookie()||Persistence.getLocalStorage();f&&(Persistence.storeDataInMemory(o,f.getMPID()),(!i||f.getMPID()!==i.getMPID()||i.isLoggedIn()!==f.isLoggedIn())&&Forwarders.initForwarders(f.getUserIdentities().userIdentities,ApiClient.prepareForwardingStats),Forwarders.setForwarderUserIdentities(f.getUserIdentities().userIdentities),Forwarders.setForwarderOnIdentityComplete(f,e),Forwarders.setForwarderOnUserIdentified(f,e)),ApiClient.processQueuedEvents();}c?0===a.status?Helpers.invokeCallback(c,HTTPCodes$1.noHttpCoverage,g||null,f):Helpers.invokeCallback(c,a.status,g||null,f):g&&g.errors&&g.errors.length&&mParticle.Logger.error("Received HTTP response code of "+a.status+" - "+g.errors[0].message);}catch(b){c&&Helpers.invokeCallback(c,a.status,g||null),mParticle.Logger.error("Error parsing JSON response from Identity server: "+b);}}var Identity = {checkIdentitySwap:checkIdentitySwap,IdentityRequest:IdentityRequest,IdentityAPI:IdentityAPI,mParticleUser:mParticleUser,mParticleUserCart:mParticleUserCart};
 
 var IdentityAPI$1=Identity.IdentityAPI,Messages$7=Constants.Messages,logEvent$1=Events.logEvent;function initialize(){if(mParticle.Store.sessionId){var a=6e4*mParticle.Store.SDKConfig.sessionTimeout;if(new Date>new Date(mParticle.Store.dateLastEventSent.getTime()+a))endSession(),startNewSession();else{var b=Persistence.getPersistence();b&&!b.cu&&(IdentityAPI$1.identify(mParticle.Store.SDKConfig.identifyRequest,mParticle.Store.SDKConfig.identityCallback),mParticle.Store.identifyCalled=!0,mParticle.Store.SDKConfig.identityCallback=null);}}else startNewSession();}function getSession(){return mParticle.Store.sessionId}function startNewSession(){if(mParticle.Logger.verbose(Messages$7.InformationMessages.StartingNewSession),Helpers.canLog()){mParticle.Store.sessionId=Helpers.generateUniqueId().toUpperCase();var a=mParticle.Identity.getCurrentUser(),b=a?a.getMPID():null;if(b&&(mParticle.Store.currentSessionMPIDs=[b]),!mParticle.Store.sessionStartDate){var c=new Date;mParticle.Store.sessionStartDate=c,mParticle.Store.dateLastEventSent=c;}setSessionTimer(),mParticle.Store.identifyCalled||(IdentityAPI$1.identify(mParticle.Store.SDKConfig.identifyRequest,mParticle.Store.SDKConfig.identityCallback),mParticle.Store.identifyCalled=!0,mParticle.Store.SDKConfig.identityCallback=null),logEvent$1({messageType:Types.MessageType.SessionStart});}else mParticle.Logger.verbose(Messages$7.InformationMessages.AbandonStartSession);}function endSession(a){if(mParticle.Logger.verbose(Messages$7.InformationMessages.StartingEndSession),a)logEvent$1({messageType:Types.MessageType.SessionEnd}),mParticle.Store.sessionId=null,mParticle.Store.dateLastEventSent=null,mParticle.Store.sessionAttributes={},Persistence.update();else if(Helpers.canLog()){var b,c,d;if(c=Persistence.getCookie()||Persistence.getLocalStorage(),!c)return;if(c.gs&&!c.gs.sid)return void mParticle.Logger.verbose(Messages$7.InformationMessages.NoSessionToEnd);// sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
@@ -1472,244 +1472,244 @@ if((d.cp||d.pb)&&!d.mpid)return b=Persistence.getCookie(),b?(migrateProductsFrom
 function startForwardingStatsTimer(){mParticle._forwardingStatsTimer=setInterval(function(){prepareAndSendForwardingStatsBatch();},mParticle.Store.SDKConfig.forwarderStatsTimeout);}function prepareAndSendForwardingStatsBatch(){var a=Forwarders.getForwarderStatsQueue(),b=Persistence.forwardingStatsBatches.uploadsTable,c=Date.now();for(var d in a.length&&(b[c]={uploading:!1,data:a},Forwarders.setForwarderStatsQueue([])),b)(function(a){if(b.hasOwnProperty(a)&&!1===b[a].uploading){var c=function(){4===d.readyState&&(200===d.status||202===d.status?(mParticle.Logger.verbose("Successfully sent  "+d.statusText+" from server"),delete b[a]):"4"===d.status.toString()[0]?429!==d.status&&delete b[a]:b[a].uploading=!1);},d=Helpers.createXHR(c),e=b[a].data;b[a].uploading=!0,ApiClient.sendBatchForwardingStatsToServer(e,d);}})(d);}
 
 var getDeviceId$1=Persistence.getDeviceId,Messages$8=Constants.Messages,Validators$4=Helpers.Validators,mParticleUser$1=Identity.mParticleUser,IdentityAPI$2=Identity.IdentityAPI,mParticleUserCart$1=Identity.mParticleUserCart,HTTPCodes$2=Constants.HTTPCodes;Array.prototype.forEach||(Array.prototype.forEach=Polyfill.forEach),Array.prototype.map||(Array.prototype.map=Polyfill.map),Array.prototype.filter||(Array.prototype.filter=Polyfill.filter),Array.isArray||(Array.prototype.isArray=Polyfill.isArray);/**
-* Invoke these methods on the mParticle object.
-* Example: mParticle.endSession()
-*
-* @class mParticle
-*/var mParticle$1={config:window.mParticle?window.mParticle.config:{},Store:{},getDeviceId:getDeviceId$1,generateHash:Helpers.generateHash,sessionManager:SessionManager,cookieSyncManager:cookieSyncManager,persistence:Persistence,isIOS:!!(window.mParticle&&window.mParticle.isIOS)&&window.mParticle.isIOS,Identity:IdentityAPI$2,Validators:Validators$4,_Identity:Identity,_IdentityRequest:Identity.IdentityRequest,IdentityType:Types.IdentityType,EventType:Types.EventType,CommerceEventType:Types.CommerceEventType,PromotionType:Types.PromotionActionType,ProductActionType:Types.ProductActionType,/**
-    * Initializes the mParticle SDK
-    *
-    * @method init
-    * @param {String} apiKey your mParticle assigned API key
-    * @param {Object} [options] an options object for additional configuration
-    */init:function init(a,b){// /config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
+ * Invoke these methods on the mParticle object.
+ * Example: mParticle.endSession()
+ *
+ * @class mParticle
+ */var mParticle$1={config:window.mParticle?window.mParticle.config:{},Store:{},getDeviceId:getDeviceId$1,generateHash:Helpers.generateHash,sessionManager:SessionManager,cookieSyncManager:cookieSyncManager,persistence:Persistence,isIOS:!!(window.mParticle&&window.mParticle.isIOS)&&window.mParticle.isIOS,Identity:IdentityAPI$2,Validators:Validators$4,_Identity:Identity,_IdentityRequest:Identity.IdentityRequest,IdentityType:Types.IdentityType,EventType:Types.EventType,CommerceEventType:Types.CommerceEventType,PromotionType:Types.PromotionActionType,ProductActionType:Types.ProductActionType,/**
+     * Initializes the mParticle SDK
+     *
+     * @method init
+     * @param {String} apiKey your mParticle assigned API key
+     * @param {Object} [options] an options object for additional configuration
+     */init:function init(a,b){// /config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
 // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
 // to it for it to be run after fetched
 return !b&&window.mParticle.config&&(window.console.warn("You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly"),b=window.mParticle.config),runPreConfigFetchInitialization(a,b),b?void(!b.hasOwnProperty("requestConfig")||b.requestConfig?ApiClient.getSDKConfiguration(a,b,completeSDKInitialization):completeSDKInitialization(a,b)):void window.console.error("No config available on the window, please pass a config object to mParticle.init()")},setLogLevel:function setLogLevel(a){mParticle$1.Logger.setLogLevel(a);},/**
-    * Completely resets the state of the SDK. mParticle.init(apiKey, window.mParticle.config) will need to be called again.
-    * @method reset
-    * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
-    */reset:function reset(a,b){mParticle$1.Store&&delete mParticle$1.Store,mParticle$1.Store=new Store(a),mParticle$1.Store.isLocalStorageAvailable=Persistence.determineLocalStorageAvailability(window.localStorage),Events.stopTracking(),b||Persistence.resetPersistence(),Persistence.forwardingStatsBatches.uploadsTable={},Persistence.forwardingStatsBatches.forwardingStatsEventQueue=[],mParticle$1.preInit={readyQueue:[],pixelConfigurations:[],integrationDelays:{},forwarderConstructors:[],isDevelopmentMode:!1};},ready:function ready(a){mParticle$1.Store.isInitialized&&"function"==typeof a?a():mParticle$1.preInit.readyQueue.push(a);},/**
-    * Returns the mParticle SDK version number
-    * @method getVersion
-    * @return {String} mParticle SDK version number
-    */getVersion:function getVersion(){return Constants.sdkVersion},/**
-    * Sets the app version
-    * @method setAppVersion
-    * @param {String} version version number
-    */setAppVersion:function setAppVersion(a){mParticle$1.Store.SDKConfig.appVersion=a,Persistence.update();},/**
-    * Gets the app name
-    * @method getAppName
-    * @return {String} App name
-    */getAppName:function getAppName(){return mParticle$1.Store.SDKConfig.appName},/**
-    * Sets the app name
-    * @method setAppName
-    * @param {String} name App Name
-    */setAppName:function setAppName(a){mParticle$1.Store.SDKConfig.appName=a;},/**
-    * Gets the app version
-    * @method getAppVersion
-    * @return {String} App version
-    */getAppVersion:function getAppVersion(){return mParticle$1.Store.SDKConfig.appVersion},/**
-    * Stops tracking the location of the user
-    * @method stopTrackingLocation
-    */stopTrackingLocation:function stopTrackingLocation(){SessionManager.resetSessionTimer(),Events.stopTracking();},/**
-    * Starts tracking the location of the user
-    * @method startTrackingLocation
-    * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
-    */startTrackingLocation:function startTrackingLocation(a){Validators$4.isFunction(a)||mParticle$1.Logger.warning("Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location."),SessionManager.resetSessionTimer(),Events.startTracking(a);},/**
-    * Sets the position of the user
-    * @method setPosition
-    * @param {Number} lattitude lattitude digit
-    * @param {Number} longitude longitude digit
-    */setPosition:function setPosition(a,b){SessionManager.resetSessionTimer(),"number"==typeof a&&"number"==typeof b?mParticle$1.Store.currentPosition={lat:a,lng:b}:mParticle$1.Logger.error("Position latitude and/or longitude must both be of type number");},/**
-    * Starts a new session
-    * @method startNewSession
-    */startNewSession:function startNewSession(){SessionManager.startNewSession();},/**
-    * Ends the current session
-    * @method endSession
-    */endSession:function endSession(){// Sends true as an over ride vs when endSession is called from the setInterval
+     * Completely resets the state of the SDK. mParticle.init(apiKey, window.mParticle.config) will need to be called again.
+     * @method reset
+     * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
+     */reset:function reset(a,b){mParticle$1.Store&&delete mParticle$1.Store,mParticle$1.Store=new Store(a),mParticle$1.Store.isLocalStorageAvailable=Persistence.determineLocalStorageAvailability(window.localStorage),Events.stopTracking(),b||Persistence.resetPersistence(),Persistence.forwardingStatsBatches.uploadsTable={},Persistence.forwardingStatsBatches.forwardingStatsEventQueue=[],mParticle$1.preInit={readyQueue:[],pixelConfigurations:[],integrationDelays:{},forwarderConstructors:[],isDevelopmentMode:!1};},ready:function ready(a){mParticle$1.Store.isInitialized&&"function"==typeof a?a():mParticle$1.preInit.readyQueue.push(a);},/**
+     * Returns the mParticle SDK version number
+     * @method getVersion
+     * @return {String} mParticle SDK version number
+     */getVersion:function getVersion(){return Constants.sdkVersion},/**
+     * Sets the app version
+     * @method setAppVersion
+     * @param {String} version version number
+     */setAppVersion:function setAppVersion(a){mParticle$1.Store.SDKConfig.appVersion=a,Persistence.update();},/**
+     * Gets the app name
+     * @method getAppName
+     * @return {String} App name
+     */getAppName:function getAppName(){return mParticle$1.Store.SDKConfig.appName},/**
+     * Sets the app name
+     * @method setAppName
+     * @param {String} name App Name
+     */setAppName:function setAppName(a){mParticle$1.Store.SDKConfig.appName=a;},/**
+     * Gets the app version
+     * @method getAppVersion
+     * @return {String} App version
+     */getAppVersion:function getAppVersion(){return mParticle$1.Store.SDKConfig.appVersion},/**
+     * Stops tracking the location of the user
+     * @method stopTrackingLocation
+     */stopTrackingLocation:function stopTrackingLocation(){SessionManager.resetSessionTimer(),Events.stopTracking();},/**
+     * Starts tracking the location of the user
+     * @method startTrackingLocation
+     * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
+     */startTrackingLocation:function startTrackingLocation(a){Validators$4.isFunction(a)||mParticle$1.Logger.warning("Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location."),SessionManager.resetSessionTimer(),Events.startTracking(a);},/**
+     * Sets the position of the user
+     * @method setPosition
+     * @param {Number} lattitude lattitude digit
+     * @param {Number} longitude longitude digit
+     */setPosition:function setPosition(a,b){SessionManager.resetSessionTimer(),"number"==typeof a&&"number"==typeof b?mParticle$1.Store.currentPosition={lat:a,lng:b}:mParticle$1.Logger.error("Position latitude and/or longitude must both be of type number");},/**
+     * Starts a new session
+     * @method startNewSession
+     */startNewSession:function startNewSession(){SessionManager.startNewSession();},/**
+     * Ends the current session
+     * @method endSession
+     */endSession:function endSession(){// Sends true as an over ride vs when endSession is called from the setInterval
 SessionManager.endSession(!0);},/**
      * Logs a Base Event to mParticle's servers
      * @param {Object} event Base Event Object
      */logBaseEvent:function logBaseEvent(a){return (SessionManager.resetSessionTimer(),"string"!=typeof a.name)?void mParticle$1.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType):(a.type||(a.type=Types.EventType.Unknown),Helpers.canLog()?void Events.logEvent(a):void mParticle$1.Logger.error(Messages$8.ErrorMessages.LoggingDisabled))},/**
-    * Logs an event to mParticle's servers
-    * @method logEvent
-    * @param {String} eventName The name of the event
-    * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
-    * @param {Object} [eventInfo] Attributes for the event
-    * @param {Object} [customFlags] Additional customFlags
-    */logEvent:function logEvent(a,b,c,d){return (SessionManager.resetSessionTimer(),"string"!=typeof a)?void mParticle$1.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType):(b||(b=Types.EventType.Unknown),Helpers.isEventType(b)?Helpers.canLog()?void Events.logEvent({messageType:Types.MessageType.PageEvent,name:a,data:c,eventType:b,customFlags:d}):void mParticle$1.Logger.error(Messages$8.ErrorMessages.LoggingDisabled):void mParticle$1.Logger.error("Invalid event type: "+b+", must be one of: \n"+JSON.stringify(Types.EventType)))},/**
-    * Used to log custom errors
-    *
-    * @method logError
-    * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
-    * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
-    */logError:function logError(a,b){if(SessionManager.resetSessionTimer(),!!a){"string"==typeof a&&(a={message:a});var c={m:a.message?a.message:a,s:"Error",t:a.stack};if(b){var d=Helpers.sanitizeAttributes(b);for(var e in d)c[e]=d[e];}Events.logEvent({messageType:Types.MessageType.CrashReport,name:a.name?a.name:"Error",data:c,eventType:Types.EventType.Other});}},/**
-    * Logs `click` events
-    * @method logLink
-    * @param {String} selector The selector to add a 'click' event to (ex. #purchase-event)
-    * @param {String} [eventName] The name of the event
-    * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
-    * @param {Object} [eventInfo] Attributes for the event
-    */logLink:function logLink(a,b,c,d){SessionManager.resetSessionTimer(),Events.addEventHandler("click",a,b,d,c);},/**
-    * Logs `submit` events
-    * @method logForm
-    * @param {String} selector The selector to add the event handler to (ex. #search-event)
-    * @param {String} [eventName] The name of the event
-    * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
-    * @param {Object} [eventInfo] Attributes for the event
-    */logForm:function logForm(a,b,c,d){SessionManager.resetSessionTimer(),Events.addEventHandler("submit",a,b,d,c);},/**
-    * Logs a page view
-    * @method logPageView
-    * @param {String} eventName The name of the event. Defaults to 'PageView'.
-    * @param {Object} [attrs] Attributes for the event
-    * @param {Object} [customFlags] Custom flags for the event
-    */logPageView:function logPageView(a,b,c){if(SessionManager.resetSessionTimer(),Helpers.canLog()){if(Validators$4.isStringOrNumber(a)||(a="PageView"),!b)b={hostname:window.location.hostname,title:window.document.title};else if(!Helpers.isObject(b))return void mParticle$1.Logger.error("The attributes argument must be an object. A "+_typeof_1(b)+" was entered. Please correct and retry.");if(c&&!Helpers.isObject(c))return void mParticle$1.Logger.error("The customFlags argument must be an object. A "+_typeof_1(c)+" was entered. Please correct and retry.")}Events.logEvent({messageType:Types.MessageType.PageView,name:a,data:b,eventType:Types.EventType.Unknown,customFlags:c});},Consent:{createGDPRConsent:Consent.createGDPRConsent,createConsentState:Consent.createConsentState},/**
-    * Invoke these methods on the mParticle.eCommerce object.
-    * Example: mParticle.eCommerce.createImpresion(...)
-    * @class mParticle.eCommerce
-    */eCommerce:{/**
-        * Invoke these methods on the mParticle.eCommerce.Cart object.
-        * Example: mParticle.eCommerce.Cart.add(...)
-        * @class mParticle.eCommerce.Cart
-        */Cart:{/**
-            * Adds a product to the cart
-            * @method add
-            * @param {Object} product The product you want to add to the cart
-            * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-            */add:function add(a,b){var c,d=mParticle$1.Identity.getCurrentUser();d&&(c=d.getMPID()),mParticleUserCart$1(c).add(a,b);},/**
-            * Removes a product from the cart
-            * @method remove
-            * @param {Object} product The product you want to add to the cart
-            * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
-            */remove:function remove(a,b){var c,d=mParticle$1.Identity.getCurrentUser();d&&(c=d.getMPID()),mParticleUserCart$1(c).remove(a,b);},/**
-            * Clears the cart
-            * @method clear
-            */clear:function clear(){var a,b=mParticle$1.Identity.getCurrentUser();b&&(a=b.getMPID()),mParticleUserCart$1(a).clear();}},/**
-        * Sets the currency code
-        * @for mParticle.eCommerce
-        * @method setCurrencyCode
-        * @param {String} code The currency code
-        */setCurrencyCode:function setCurrencyCode(a){return "string"==typeof a?void(SessionManager.resetSessionTimer(),mParticle$1.Store.currencyCode=a):void mParticle$1.Logger.error("Code must be a string")},/**
-        * Creates a product
-        * @for mParticle.eCommerce
-        * @method createProduct
-        * @param {String} name product name
-        * @param {String} sku product sku
-        * @param {Number} price product price
-        * @param {Number} [quantity] product quantity. If blank, defaults to 1.
-        * @param {String} [variant] product variant
-        * @param {String} [category] product category
-        * @param {String} [brand] product brand
-        * @param {Number} [position] product position
-        * @param {String} [coupon] product coupon
-        * @param {Object} [attributes] product attributes
-        */createProduct:function createProduct(a,b,c,d,e,f,g,h,i,j){return SessionManager.resetSessionTimer(),Ecommerce.createProduct(a,b,c,d,e,f,g,h,i,j)},/**
-        * Creates a promotion
-        * @for mParticle.eCommerce
-        * @method createPromotion
-        * @param {String} id a unique promotion id
-        * @param {String} [creative] promotion creative
-        * @param {String} [name] promotion name
-        * @param {Number} [position] promotion position
-        */createPromotion:function createPromotion(a,b,c,d){return SessionManager.resetSessionTimer(),Ecommerce.createPromotion(a,b,c,d)},/**
-        * Creates a product impression
-        * @for mParticle.eCommerce
-        * @method createImpression
-        * @param {String} name impression name
-        * @param {Object} product the product for which an impression is being created
-        */createImpression:function createImpression(a,b){return SessionManager.resetSessionTimer(),Ecommerce.createImpression(a,b)},/**
-        * Creates a transaction attributes object to be used with a checkout
-        * @for mParticle.eCommerce
-        * @method createTransactionAttributes
-        * @param {String or Number} id a unique transaction id
-        * @param {String} [affiliation] affilliation
-        * @param {String} [couponCode] the coupon code for which you are creating transaction attributes
-        * @param {Number} [revenue] total revenue for the product being purchased
-        * @param {String} [shipping] the shipping method
-        * @param {Number} [tax] the tax amount
-        */createTransactionAttributes:function createTransactionAttributes(a,b,c,d,e,f){return SessionManager.resetSessionTimer(),Ecommerce.createTransactionAttributes(a,b,c,d,e,f)},/**
-        * Logs a checkout action
-        * @for mParticle.eCommerce
-        * @method logCheckout
-        * @param {Number} step checkout step number
-        * @param {Object} options
-        * @param {Object} attrs
-        * @param {Object} [customFlags] Custom flags for the event
-        */logCheckout:function logCheckout(a,b,c,d){SessionManager.resetSessionTimer(),Events.logCheckoutEvent(a,b,c,d);},/**
-        * Logs a product action
-        * @for mParticle.eCommerce
-        * @method logProductAction
-        * @param {Number} productActionType product action type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L206-L218)
-        * @param {Object} product the product for which you are creating the product action
-        * @param {Object} [attrs] attributes related to the product action
-        * @param {Object} [customFlags] Custom flags for the event
-        */logProductAction:function logProductAction(a,b,c,d){SessionManager.resetSessionTimer(),Events.logProductActionEvent(a,b,c,d);},/**
-        * Logs a product purchase
-        * @for mParticle.eCommerce
-        * @method logPurchase
-        * @param {Object} transactionAttributes transactionAttributes object
-        * @param {Object} product the product being purchased
-        * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
-        * @param {Object} [attrs] other attributes related to the product purchase
-        * @param {Object} [customFlags] Custom flags for the event
-        */logPurchase:function logPurchase(a,b,c,d,e){return a&&b?void(SessionManager.resetSessionTimer(),Events.logPurchaseEvent(a,b,d,e),!0===c&&mParticle$1.eCommerce.Cart.clear()):void mParticle$1.Logger.error(Messages$8.ErrorMessages.BadLogPurchase)},/**
-        * Logs a product promotion
-        * @for mParticle.eCommerce
-        * @method logPromotion
-        * @param {Number} type the promotion type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L275-L279)
-        * @param {Object} promotion promotion object
-        * @param {Object} [attrs] boolean to clear the cart after logging or not
-        * @param {Object} [customFlags] Custom flags for the event
-        */logPromotion:function logPromotion(a,b,c,d){SessionManager.resetSessionTimer(),Events.logPromotionEvent(a,b,c,d);},/**
-        * Logs a product impression
-        * @for mParticle.eCommerce
-        * @method logImpression
-        * @param {Object} impression product impression object
-        * @param {Object} attrs attributes related to the impression log
-        * @param {Object} [customFlags] Custom flags for the event
-        */logImpression:function logImpression(a,b,c){SessionManager.resetSessionTimer(),Events.logImpressionEvent(a,b,c);},/**
-        * Logs a refund
-        * @for mParticle.eCommerce
-        * @method logRefund
-        * @param {Object} transactionAttributes transaction attributes related to the refund
-        * @param {Object} product product being refunded
-        * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
-        * @param {Object} [attrs] attributes related to the refund
-        * @param {Object} [customFlags] Custom flags for the event
-        */logRefund:function logRefund(a,b,c,d,e){SessionManager.resetSessionTimer(),Events.logRefundEvent(a,b,d,e),!0===c&&mParticle$1.eCommerce.Cart.clear();},expandCommerceEvent:function expandCommerceEvent(a){return SessionManager.resetSessionTimer(),Ecommerce.expandCommerceEvent(a)}},/**
-    * Sets a session attribute
-    * @for mParticle
-    * @method setSessionAttribute
-    * @param {String} key key for session attribute
-    * @param {String or Number} value value for session attribute
-    */setSessionAttribute:function setSessionAttribute(a,b){// Logs to cookie
+     * Logs an event to mParticle's servers
+     * @method logEvent
+     * @param {String} eventName The name of the event
+     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
+     * @param {Object} [eventInfo] Attributes for the event
+     * @param {Object} [customFlags] Additional customFlags
+     */logEvent:function logEvent(a,b,c,d){return (SessionManager.resetSessionTimer(),"string"!=typeof a)?void mParticle$1.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType):(b||(b=Types.EventType.Unknown),Helpers.isEventType(b)?Helpers.canLog()?void Events.logEvent({messageType:Types.MessageType.PageEvent,name:a,data:c,eventType:b,customFlags:d}):void mParticle$1.Logger.error(Messages$8.ErrorMessages.LoggingDisabled):void mParticle$1.Logger.error("Invalid event type: "+b+", must be one of: \n"+JSON.stringify(Types.EventType)))},/**
+     * Used to log custom errors
+     *
+     * @method logError
+     * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
+     * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
+     */logError:function logError(a,b){if(SessionManager.resetSessionTimer(),!!a){"string"==typeof a&&(a={message:a});var c={m:a.message?a.message:a,s:"Error",t:a.stack};if(b){var d=Helpers.sanitizeAttributes(b);for(var e in d)c[e]=d[e];}Events.logEvent({messageType:Types.MessageType.CrashReport,name:a.name?a.name:"Error",data:c,eventType:Types.EventType.Other});}},/**
+     * Logs `click` events
+     * @method logLink
+     * @param {String} selector The selector to add a 'click' event to (ex. #purchase-event)
+     * @param {String} [eventName] The name of the event
+     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+     * @param {Object} [eventInfo] Attributes for the event
+     */logLink:function logLink(a,b,c,d){SessionManager.resetSessionTimer(),Events.addEventHandler("click",a,b,d,c);},/**
+     * Logs `submit` events
+     * @method logForm
+     * @param {String} selector The selector to add the event handler to (ex. #search-event)
+     * @param {String} [eventName] The name of the event
+     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+     * @param {Object} [eventInfo] Attributes for the event
+     */logForm:function logForm(a,b,c,d){SessionManager.resetSessionTimer(),Events.addEventHandler("submit",a,b,d,c);},/**
+     * Logs a page view
+     * @method logPageView
+     * @param {String} eventName The name of the event. Defaults to 'PageView'.
+     * @param {Object} [attrs] Attributes for the event
+     * @param {Object} [customFlags] Custom flags for the event
+     */logPageView:function logPageView(a,b,c){if(SessionManager.resetSessionTimer(),Helpers.canLog()){if(Validators$4.isStringOrNumber(a)||(a="PageView"),!b)b={hostname:window.location.hostname,title:window.document.title};else if(!Helpers.isObject(b))return void mParticle$1.Logger.error("The attributes argument must be an object. A "+_typeof_1(b)+" was entered. Please correct and retry.");if(c&&!Helpers.isObject(c))return void mParticle$1.Logger.error("The customFlags argument must be an object. A "+_typeof_1(c)+" was entered. Please correct and retry.")}Events.logEvent({messageType:Types.MessageType.PageView,name:a,data:b,eventType:Types.EventType.Unknown,customFlags:c});},Consent:{createGDPRConsent:Consent.createGDPRConsent,createConsentState:Consent.createConsentState},/**
+     * Invoke these methods on the mParticle.eCommerce object.
+     * Example: mParticle.eCommerce.createImpresion(...)
+     * @class mParticle.eCommerce
+     */eCommerce:{/**
+         * Invoke these methods on the mParticle.eCommerce.Cart object.
+         * Example: mParticle.eCommerce.Cart.add(...)
+         * @class mParticle.eCommerce.Cart
+         */Cart:{/**
+             * Adds a product to the cart
+             * @method add
+             * @param {Object} product The product you want to add to the cart
+             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
+             */add:function add(a,b){var c,d=mParticle$1.Identity.getCurrentUser();d&&(c=d.getMPID()),mParticleUserCart$1(c).add(a,b);},/**
+             * Removes a product from the cart
+             * @method remove
+             * @param {Object} product The product you want to add to the cart
+             * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
+             */remove:function remove(a,b){var c,d=mParticle$1.Identity.getCurrentUser();d&&(c=d.getMPID()),mParticleUserCart$1(c).remove(a,b);},/**
+             * Clears the cart
+             * @method clear
+             */clear:function clear(){var a,b=mParticle$1.Identity.getCurrentUser();b&&(a=b.getMPID()),mParticleUserCart$1(a).clear();}},/**
+         * Sets the currency code
+         * @for mParticle.eCommerce
+         * @method setCurrencyCode
+         * @param {String} code The currency code
+         */setCurrencyCode:function setCurrencyCode(a){return "string"==typeof a?void(SessionManager.resetSessionTimer(),mParticle$1.Store.currencyCode=a):void mParticle$1.Logger.error("Code must be a string")},/**
+         * Creates a product
+         * @for mParticle.eCommerce
+         * @method createProduct
+         * @param {String} name product name
+         * @param {String} sku product sku
+         * @param {Number} price product price
+         * @param {Number} [quantity] product quantity. If blank, defaults to 1.
+         * @param {String} [variant] product variant
+         * @param {String} [category] product category
+         * @param {String} [brand] product brand
+         * @param {Number} [position] product position
+         * @param {String} [coupon] product coupon
+         * @param {Object} [attributes] product attributes
+         */createProduct:function createProduct(a,b,c,d,e,f,g,h,i,j){return SessionManager.resetSessionTimer(),Ecommerce.createProduct(a,b,c,d,e,f,g,h,i,j)},/**
+         * Creates a promotion
+         * @for mParticle.eCommerce
+         * @method createPromotion
+         * @param {String} id a unique promotion id
+         * @param {String} [creative] promotion creative
+         * @param {String} [name] promotion name
+         * @param {Number} [position] promotion position
+         */createPromotion:function createPromotion(a,b,c,d){return SessionManager.resetSessionTimer(),Ecommerce.createPromotion(a,b,c,d)},/**
+         * Creates a product impression
+         * @for mParticle.eCommerce
+         * @method createImpression
+         * @param {String} name impression name
+         * @param {Object} product the product for which an impression is being created
+         */createImpression:function createImpression(a,b){return SessionManager.resetSessionTimer(),Ecommerce.createImpression(a,b)},/**
+         * Creates a transaction attributes object to be used with a checkout
+         * @for mParticle.eCommerce
+         * @method createTransactionAttributes
+         * @param {String or Number} id a unique transaction id
+         * @param {String} [affiliation] affilliation
+         * @param {String} [couponCode] the coupon code for which you are creating transaction attributes
+         * @param {Number} [revenue] total revenue for the product being purchased
+         * @param {String} [shipping] the shipping method
+         * @param {Number} [tax] the tax amount
+         */createTransactionAttributes:function createTransactionAttributes(a,b,c,d,e,f){return SessionManager.resetSessionTimer(),Ecommerce.createTransactionAttributes(a,b,c,d,e,f)},/**
+         * Logs a checkout action
+         * @for mParticle.eCommerce
+         * @method logCheckout
+         * @param {Number} step checkout step number
+         * @param {Object} options
+         * @param {Object} attrs
+         * @param {Object} [customFlags] Custom flags for the event
+         */logCheckout:function logCheckout(a,b,c,d){SessionManager.resetSessionTimer(),Events.logCheckoutEvent(a,b,c,d);},/**
+         * Logs a product action
+         * @for mParticle.eCommerce
+         * @method logProductAction
+         * @param {Number} productActionType product action type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L206-L218)
+         * @param {Object} product the product for which you are creating the product action
+         * @param {Object} [attrs] attributes related to the product action
+         * @param {Object} [customFlags] Custom flags for the event
+         */logProductAction:function logProductAction(a,b,c,d){SessionManager.resetSessionTimer(),Events.logProductActionEvent(a,b,c,d);},/**
+         * Logs a product purchase
+         * @for mParticle.eCommerce
+         * @method logPurchase
+         * @param {Object} transactionAttributes transactionAttributes object
+         * @param {Object} product the product being purchased
+         * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
+         * @param {Object} [attrs] other attributes related to the product purchase
+         * @param {Object} [customFlags] Custom flags for the event
+         */logPurchase:function logPurchase(a,b,c,d,e){return a&&b?void(SessionManager.resetSessionTimer(),Events.logPurchaseEvent(a,b,d,e),!0===c&&mParticle$1.eCommerce.Cart.clear()):void mParticle$1.Logger.error(Messages$8.ErrorMessages.BadLogPurchase)},/**
+         * Logs a product promotion
+         * @for mParticle.eCommerce
+         * @method logPromotion
+         * @param {Number} type the promotion type as found [here](https://github.com/mParticle/mparticle-sdk-javascript/blob/master-v2/src/types.js#L275-L279)
+         * @param {Object} promotion promotion object
+         * @param {Object} [attrs] boolean to clear the cart after logging or not
+         * @param {Object} [customFlags] Custom flags for the event
+         */logPromotion:function logPromotion(a,b,c,d){SessionManager.resetSessionTimer(),Events.logPromotionEvent(a,b,c,d);},/**
+         * Logs a product impression
+         * @for mParticle.eCommerce
+         * @method logImpression
+         * @param {Object} impression product impression object
+         * @param {Object} attrs attributes related to the impression log
+         * @param {Object} [customFlags] Custom flags for the event
+         */logImpression:function logImpression(a,b,c){SessionManager.resetSessionTimer(),Events.logImpressionEvent(a,b,c);},/**
+         * Logs a refund
+         * @for mParticle.eCommerce
+         * @method logRefund
+         * @param {Object} transactionAttributes transaction attributes related to the refund
+         * @param {Object} product product being refunded
+         * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
+         * @param {Object} [attrs] attributes related to the refund
+         * @param {Object} [customFlags] Custom flags for the event
+         */logRefund:function logRefund(a,b,c,d,e){SessionManager.resetSessionTimer(),Events.logRefundEvent(a,b,d,e),!0===c&&mParticle$1.eCommerce.Cart.clear();},expandCommerceEvent:function expandCommerceEvent(a){return SessionManager.resetSessionTimer(),Ecommerce.expandCommerceEvent(a)}},/**
+     * Sets a session attribute
+     * @for mParticle
+     * @method setSessionAttribute
+     * @param {String} key key for session attribute
+     * @param {String or Number} value value for session attribute
+     */setSessionAttribute:function setSessionAttribute(a,b){// Logs to cookie
 // And logs to in-memory object
 // Example: mParticle.setSessionAttribute('location', '33431');
 if(SessionManager.resetSessionTimer(),Helpers.canLog()){if(!Validators$4.isValidAttributeValue(b))return void mParticle$1.Logger.error(Messages$8.ErrorMessages.BadAttribute);if(!Validators$4.isValidKeyValue(a))return void mParticle$1.Logger.error(Messages$8.ErrorMessages.BadKey);if(mParticle$1.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:a,value:b}));else{var c=Helpers.findKeyInObject(mParticle$1.Store.sessionAttributes,a);c&&(a=c),mParticle$1.Store.sessionAttributes[a]=b,Persistence.update(),Forwarders.applyToForwarders("setSessionAttribute",[a,b]);}}},/**
-    * Set opt out of logging
-    * @for mParticle
-    * @method setOptOut
-    * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
-    */setOptOut:function setOptOut(a){SessionManager.resetSessionTimer(),mParticle$1.Store.isEnabled=!a,Events.logOptOut(),Persistence.update(),mParticle$1.Store.activeForwarders.length&&mParticle$1.Store.activeForwarders.forEach(function(b){if(b.setOptOut){var c=b.setOptOut(a);c&&mParticle$1.Logger.verbose(c);}});},/**
-    * Set or remove the integration attributes for a given integration ID.
-    * Integration attributes are keys and values specific to a given integration. For example,
-    * many integrations have their own internal user/device ID. mParticle will store integration attributes
-    * for a given device, and will be able to use these values for server-to-server communication to services.
-    * This is often useful when used in combination with a server-to-server feed, allowing the feed to be enriched
-    * with the necessary integration attributes to be properly forwarded to the given integration.
-    * @for mParticle
-    * @method setIntegrationAttribute
-    * @param {Number} integrationId mParticle integration ID
-    * @param {Object} attrs a map of attributes that will replace any current attributes. The keys are predefined by mParticle.
-    * Please consult with the mParticle docs or your solutions consultant for the correct value. You may
-    * also pass a null or empty map here to remove all of the attributes.
-    */setIntegrationAttribute:function setIntegrationAttribute(a,b){if("number"!=typeof a)return void mParticle$1.Logger.error("integrationId must be a number");if(null===b)mParticle$1.Store.integrationAttributes[a]={};else{if(!Helpers.isObject(b))return void mParticle$1.Logger.error("Attrs must be an object with keys and values. You entered a "+_typeof_1(b));if(0===Object.keys(b).length)mParticle$1.Store.integrationAttributes[a]={};else for(var c in b)if("string"!=typeof c){mParticle$1.Logger.error("Keys must be strings, you entered a "+_typeof_1(c));continue}else if("string"==typeof b[c])Helpers.isObject(mParticle$1.Store.integrationAttributes[a])?mParticle$1.Store.integrationAttributes[a][c]=b[c]:(mParticle$1.Store.integrationAttributes[a]={},mParticle$1.Store.integrationAttributes[a][c]=b[c]);else{mParticle$1.Logger.error("Values for integration attributes must be strings. You entered a "+_typeof_1(b[c]));continue}}Persistence.update();},/**
-    * Get integration attributes for a given integration ID.
-    * @method getIntegrationAttributes
-    * @param {Number} integrationId mParticle integration ID
-    * @return {Object} an object map of the integrationId's attributes
-    */getIntegrationAttributes:function getIntegrationAttributes(a){return mParticle$1.Store.integrationAttributes[a]?mParticle$1.Store.integrationAttributes[a]:{}},addForwarder:function addForwarder(a){mParticle$1.preInit.forwarderConstructors.push(a);},configurePixel:function configurePixel(a){Forwarders.configurePixel(a);},_getActiveForwarders:function _getActiveForwarders(){return mParticle$1.Store.activeForwarders},_getIntegrationDelays:function _getIntegrationDelays(){return mParticle$1.preInit.integrationDelays},_setIntegrationDelay:function _setIntegrationDelay(a,b){mParticle$1.preInit.integrationDelays[a]=b;}};function completeSDKInitialization(a,b){if(mParticle$1.Store.configurationLoaded=!0,mParticle$1.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:"$src_env",value:"webview"})),a&&NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:"$src_key",value:a}));else{var c;// If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
+     * Set opt out of logging
+     * @for mParticle
+     * @method setOptOut
+     * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
+     */setOptOut:function setOptOut(a){SessionManager.resetSessionTimer(),mParticle$1.Store.isEnabled=!a,Events.logOptOut(),Persistence.update(),mParticle$1.Store.activeForwarders.length&&mParticle$1.Store.activeForwarders.forEach(function(b){if(b.setOptOut){var c=b.setOptOut(a);c&&mParticle$1.Logger.verbose(c);}});},/**
+     * Set or remove the integration attributes for a given integration ID.
+     * Integration attributes are keys and values specific to a given integration. For example,
+     * many integrations have their own internal user/device ID. mParticle will store integration attributes
+     * for a given device, and will be able to use these values for server-to-server communication to services.
+     * This is often useful when used in combination with a server-to-server feed, allowing the feed to be enriched
+     * with the necessary integration attributes to be properly forwarded to the given integration.
+     * @for mParticle
+     * @method setIntegrationAttribute
+     * @param {Number} integrationId mParticle integration ID
+     * @param {Object} attrs a map of attributes that will replace any current attributes. The keys are predefined by mParticle.
+     * Please consult with the mParticle docs or your solutions consultant for the correct value. You may
+     * also pass a null or empty map here to remove all of the attributes.
+     */setIntegrationAttribute:function setIntegrationAttribute(a,b){if("number"!=typeof a)return void mParticle$1.Logger.error("integrationId must be a number");if(null===b)mParticle$1.Store.integrationAttributes[a]={};else{if(!Helpers.isObject(b))return void mParticle$1.Logger.error("Attrs must be an object with keys and values. You entered a "+_typeof_1(b));if(0===Object.keys(b).length)mParticle$1.Store.integrationAttributes[a]={};else for(var c in b)if("string"!=typeof c){mParticle$1.Logger.error("Keys must be strings, you entered a "+_typeof_1(c));continue}else if("string"==typeof b[c])Helpers.isObject(mParticle$1.Store.integrationAttributes[a])?mParticle$1.Store.integrationAttributes[a][c]=b[c]:(mParticle$1.Store.integrationAttributes[a]={},mParticle$1.Store.integrationAttributes[a][c]=b[c]);else{mParticle$1.Logger.error("Values for integration attributes must be strings. You entered a "+_typeof_1(b[c]));continue}}Persistence.update();},/**
+     * Get integration attributes for a given integration ID.
+     * @method getIntegrationAttributes
+     * @param {Number} integrationId mParticle integration ID
+     * @return {Object} an object map of the integrationId's attributes
+     */getIntegrationAttributes:function getIntegrationAttributes(a){return mParticle$1.Store.integrationAttributes[a]?mParticle$1.Store.integrationAttributes[a]:{}},addForwarder:function addForwarder(a){mParticle$1.preInit.forwarderConstructors.push(a);},configurePixel:function configurePixel(a){Forwarders.configurePixel(a);},_getActiveForwarders:function _getActiveForwarders(){return mParticle$1.Store.activeForwarders},_getIntegrationDelays:function _getIntegrationDelays(){return mParticle$1.preInit.integrationDelays},_setIntegrationDelay:function _setIntegrationDelay(a,b){mParticle$1.preInit.integrationDelays[a]=b;}};function completeSDKInitialization(a,b){if(mParticle$1.Store.configurationLoaded=!0,mParticle$1.Store.webviewBridgeEnabled)NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:"$src_env",value:"webview"})),a&&NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:"$src_key",value:a}));else{var c;// If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
 if(Helpers.isObject(mParticle$1.Store.SDKConfig.identifyRequest)&&Helpers.isObject(mParticle$1.Store.SDKConfig.identifyRequest.userIdentities)&&0===Object.keys(mParticle$1.Store.SDKConfig.identifyRequest.userIdentities).length||!mParticle$1.Store.SDKConfig.identifyRequest){var d={};if(c=mParticle$1.Identity.getCurrentUser(),c){var e=c.getUserIdentities().userIdentities||{};for(var f in e)e.hasOwnProperty(f)&&(d[f]=e[f]);}mParticle$1.Store.SDKConfig.identifyRequest={userIdentities:d};}// If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
 mParticle$1.Store.migratingToIDSyncCookies&&(IdentityAPI$2.identify(mParticle$1.Store.SDKConfig.identifyRequest,mParticle$1.Store.SDKConfig.identityCallback),mParticle$1.Store.migratingToIDSyncCookies=!1),c=IdentityAPI$2.getCurrentUser(),Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)&&startForwardingStatsTimer(),Forwarders.processForwarders(b,ApiClient.prepareForwardingStats),!mParticle$1.Store.identifyCalled&&mParticle$1.Store.SDKConfig.identityCallback&&c&&c.getMPID()&&mParticle$1.Store.SDKConfig.identityCallback({httpCode:HTTPCodes$2.activeSession,getUser:function getUser(){return mParticleUser$1(c.getMPID())},getPreviousUser:function getPreviousUser(){var a=mParticle$1.Identity.getUsers(),b=a.shift();return b&&c&&b.getMPID()===c.getMPID()&&(b=a.shift()),b||null},body:{mpid:c.getMPID(),is_logged_in:mParticle$1.Store.isLoggedIn,matched_identities:c.getUserIdentities().userIdentities,context:null,is_ephemeral:!1}}),mParticle$1.sessionManager.initialize(),Events.logAST();}// Call any functions that are waiting for the library to be initialized
 mParticle$1.preInit.readyQueue&&mParticle$1.preInit.readyQueue.length&&(mParticle$1.preInit.readyQueue.forEach(function(a){Validators$4.isFunction(a)?a():Array.isArray(a)&&processPreloadedItem(a);}),mParticle$1.preInit.readyQueue=[]),mParticle$1.Store.isInitialized=!0,mParticle$1.Store.isFirstRun&&(mParticle$1.Store.isFirstRun=!1);}function runPreConfigFetchInitialization(a,b){//check to see if localStorage is available for migrating purposes

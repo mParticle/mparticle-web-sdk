@@ -5,7 +5,7 @@ import {
     SDKProduct,
     SDKPromotion,
     SDKUserIdentity,
-    SDKProductActionType
+    SDKProductActionType,
 } from './sdkRuntimeModels';
 import * as EventsApi from './eventsApiModels';
 import Types from './types';
@@ -13,7 +13,8 @@ import Helpers from './helpers';
 
 export function convertEvents(
     mpid: string,
-    sdkEvents: SDKEvent[]): EventsApi.Batch | null {
+    sdkEvents: SDKEvent[]
+): EventsApi.Batch | null {
     if (!mpid) {
         return null;
     }
@@ -46,7 +47,7 @@ export function convertEvents(
         mp_deviceid: lastEvent.DeviceId,
         sdk_version: lastEvent.SDKVersion,
         application_info: {
-            application_version: lastEvent.AppVersion
+            application_version: lastEvent.AppVersion,
         },
         device_info: {
             platform: 'web',
@@ -56,7 +57,7 @@ export function convertEvents(
         user_attributes: lastEvent.UserAttributes,
         user_identities: convertUserIdentities(lastEvent.UserIdentities),
         consent_state: convertConsentState(lastEvent.ConsentState),
-        integration_attributes: lastEvent.IntegrationAttributes
+        integration_attributes: lastEvent.IntegrationAttributes,
     };
     return upload;
 }
@@ -75,7 +76,7 @@ export function convertConsentState(
 
 export function convertGdprConsentState(sdkGdprConsentState: {
     [key: string]: SDKGDPRConsentState;
-}): { [key: string]: EventsApi.GDPRConsentState  | null} {
+}): { [key: string]: EventsApi.GDPRConsentState | null } {
     if (!sdkGdprConsentState) {
         return null;
     }
@@ -94,7 +95,9 @@ export function convertGdprConsentState(sdkGdprConsentState: {
     return state;
 }
 
-export function convertUserIdentities(sdkUserIdentities?: SDKUserIdentity[]): EventsApi.BatchUserIdentities | null {
+export function convertUserIdentities(
+    sdkUserIdentities?: SDKUserIdentity[]
+): EventsApi.BatchUserIdentities | null {
     if (!sdkUserIdentities || !sdkUserIdentities.length) {
         return null;
     }
@@ -111,8 +114,7 @@ export function convertUserIdentities(sdkUserIdentities?: SDKUserIdentity[]): Ev
                 batchIdentities.facebook = identity.Identity;
                 break;
             case Types.IdentityType.FacebookCustomAudienceId:
-                batchIdentities.facebook_custom_audience_id =
-                    identity.Identity;
+                batchIdentities.facebook_custom_audience_id = identity.Identity;
                 break;
             case Types.IdentityType.Google:
                 batchIdentities.google = identity.Identity;
@@ -159,16 +161,18 @@ export function convertEvent(sdkEvent: SDKEvent): EventsApi.BaseEvent | null {
             //deprecated and not supported by the web SDK
             return null;
         case Types.MessageType.SessionEnd:
-            return convertSessionEndEvent(sdkEvent); 
+            return convertSessionEndEvent(sdkEvent);
         case Types.MessageType.SessionStart:
-            return convertSessionStartEvent(sdkEvent); 
+            return convertSessionStartEvent(sdkEvent);
         default:
             break;
     }
     return null;
 }
 
-export function convertProductActionType(actionType: SDKProductActionType) : EventsApi.ProductActionActionEnum {
+export function convertProductActionType(
+    actionType: SDKProductActionType
+): EventsApi.ProductActionActionEnum {
     if (!actionType) {
         return 'unknown';
     }
@@ -192,18 +196,22 @@ export function convertProductActionType(actionType: SDKProductActionType) : Eve
         case SDKProductActionType.RemoveFromWishlist:
             return 'remove_from_wish_list';
         case SDKProductActionType.ViewDetail:
-            return 'view_detail';  
+            return 'view_detail';
         default:
             return 'unknown';
     }
 }
 
-export function convertProductAction(sdkEvent: SDKEvent): EventsApi.ProductAction | null {
+export function convertProductAction(
+    sdkEvent: SDKEvent
+): EventsApi.ProductAction | null {
     if (!sdkEvent.ProductAction) {
         return null;
     }
-    const productAction : EventsApi.ProductAction = {
-        action: convertProductActionType(sdkEvent.ProductAction.ProductActionType),
+    const productAction: EventsApi.ProductAction = {
+        action: convertProductActionType(
+            sdkEvent.ProductAction.ProductActionType
+        ),
         checkout_step: sdkEvent.ProductAction.CheckoutStep,
         checkout_options: sdkEvent.ProductAction.CheckoutOptions,
         transaction_id: sdkEvent.ProductAction.TransactionId,
@@ -212,12 +220,14 @@ export function convertProductAction(sdkEvent: SDKEvent): EventsApi.ProductActio
         tax_amount: sdkEvent.ProductAction.TaxAmount,
         shipping_amount: sdkEvent.ProductAction.ShippingAmount,
         coupon_code: sdkEvent.ProductAction.CouponCode,
-        products: convertProducts(sdkEvent.ProductAction.ProductList)
+        products: convertProducts(sdkEvent.ProductAction.ProductList),
     };
     return productAction;
 }
 
-export function convertProducts(sdkProducts: SDKProduct[]): EventsApi.Product[] | null {
+export function convertProducts(
+    sdkProducts: SDKProduct[]
+): EventsApi.Product[] | null {
     if (!sdkProducts || !sdkProducts.length) {
         return null;
     }
@@ -234,25 +244,30 @@ export function convertProducts(sdkProducts: SDKProduct[]): EventsApi.Product[] 
             price: sdkProduct.Price,
             quantity: sdkProduct.Quantity,
             coupon_code: sdkProduct.CouponCode,
-            custom_attributes: sdkProduct.Attributes
+            custom_attributes: sdkProduct.Attributes,
         };
         products.push(product);
     }
     return products;
 }
 
-export function convertPromotionAction(sdkEvent: SDKEvent): EventsApi.PromotionAction | null {
+export function convertPromotionAction(
+    sdkEvent: SDKEvent
+): EventsApi.PromotionAction | null {
     if (!sdkEvent.PromotionAction) {
         return null;
     }
     const promotionAction: EventsApi.PromotionAction = {
-        action: sdkEvent.PromotionAction.PromotionActionType as EventsApi.PromotionActionActionEnum,
-        promotions: convertPromotions(sdkEvent.PromotionAction.PromotionList)
+        action: sdkEvent.PromotionAction
+            .PromotionActionType as EventsApi.PromotionActionActionEnum,
+        promotions: convertPromotions(sdkEvent.PromotionAction.PromotionList),
     };
     return promotionAction;
 }
 
-export function convertPromotions(sdkPromotions: SDKPromotion[]): EventsApi.Promotion[] | null {
+export function convertPromotions(
+    sdkPromotions: SDKPromotion[]
+): EventsApi.Promotion[] | null {
     if (!sdkPromotions || !sdkPromotions.length) {
         return null;
     }
@@ -262,15 +277,16 @@ export function convertPromotions(sdkPromotions: SDKPromotion[]): EventsApi.Prom
             id: sdkPromotion.Id,
             name: sdkPromotion.Name,
             creative: sdkPromotion.Creative,
-            position: sdkPromotion.Position
-
+            position: sdkPromotion.Position,
         };
         promotions.push(promotion);
     }
     return promotions;
 }
 
-export function convertImpressions(sdkEvent: SDKEvent): EventsApi.ProductImpression[] | null {
+export function convertImpressions(
+    sdkEvent: SDKEvent
+): EventsApi.ProductImpression[] | null {
     if (!sdkEvent.ProductImpressions) {
         return null;
     }
@@ -278,26 +294,32 @@ export function convertImpressions(sdkEvent: SDKEvent): EventsApi.ProductImpress
     for (const sdkImpression of sdkEvent.ProductImpressions) {
         const impression: EventsApi.ProductImpression = {
             product_impression_list: sdkImpression.ProductImpressionList,
-            products: convertProducts(sdkImpression.ProductList)
+            products: convertProducts(sdkImpression.ProductList),
         };
         impressions.push(impression);
     }
     return impressions;
 }
 
-export function convertShoppingCart(sdkEvent: SDKEvent): EventsApi.ShoppingCart | null {
-    if (!sdkEvent.ShoppingCart || 
-        !sdkEvent.ShoppingCart.ProductList || 
-        !sdkEvent.ShoppingCart.ProductList.length) {
+export function convertShoppingCart(
+    sdkEvent: SDKEvent
+): EventsApi.ShoppingCart | null {
+    if (
+        !sdkEvent.ShoppingCart ||
+        !sdkEvent.ShoppingCart.ProductList ||
+        !sdkEvent.ShoppingCart.ProductList.length
+    ) {
         return null;
     }
     const shoppingCart: EventsApi.ShoppingCart = {
-        products: convertProducts(sdkEvent.ShoppingCart.ProductList)
+        products: convertProducts(sdkEvent.ShoppingCart.ProductList),
     };
     return shoppingCart;
 }
 
-export function convertCommerceEvent(sdkEvent: SDKEvent): EventsApi.CommerceEvent {
+export function convertCommerceEvent(
+    sdkEvent: SDKEvent
+): EventsApi.CommerceEvent {
     const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
         sdkEvent
     );
@@ -307,7 +329,7 @@ export function convertCommerceEvent(sdkEvent: SDKEvent): EventsApi.CommerceEven
         promotion_action: convertPromotionAction(sdkEvent),
         product_impressions: convertImpressions(sdkEvent),
         shopping_cart: convertShoppingCart(sdkEvent),
-        currency_code: sdkEvent.CurrencyCode
+        currency_code: sdkEvent.CurrencyCode,
     };
 
     commerceEventData = Object.assign(commerceEventData, commonEventData);
@@ -316,13 +338,15 @@ export function convertCommerceEvent(sdkEvent: SDKEvent): EventsApi.CommerceEven
         data: commerceEventData,
     };
 }
-export function convertCrashReportEvent(sdkEvent: SDKEvent): EventsApi.CrashReportEvent {
+export function convertCrashReportEvent(
+    sdkEvent: SDKEvent
+): EventsApi.CrashReportEvent {
     const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
         sdkEvent
     );
     let crashReportEventData: EventsApi.CrashReportEventData = {
-        message: sdkEvent.EventName
-    }
+        message: sdkEvent.EventName,
+    };
     crashReportEventData = Object.assign(crashReportEventData, commonEventData);
     return {
         event_type: 'crash_report',
@@ -348,7 +372,9 @@ export function convertAST(
     };
 }
 
-export function convertSessionEndEvent(sdkEvent: SDKEvent): EventsApi.SessionEndEvent {
+export function convertSessionEndEvent(
+    sdkEvent: SDKEvent
+): EventsApi.SessionEndEvent {
     const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
         sdkEvent
     );
@@ -356,7 +382,7 @@ export function convertSessionEndEvent(sdkEvent: SDKEvent): EventsApi.SessionEnd
         session_duration_ms: sdkEvent.SessionLength,
         //note: External Events DTO does not support the session mpids array as of this time.
         //spanning_mpids: sdkEvent.SessionMpids
-    }
+    };
     sessionEndEventData = Object.assign(sessionEndEventData, commonEventData);
     return {
         event_type: 'session_end',
@@ -364,25 +390,32 @@ export function convertSessionEndEvent(sdkEvent: SDKEvent): EventsApi.SessionEnd
     };
 }
 
-export function convertSessionStartEvent(sdkEvent: SDKEvent): EventsApi.SessionStartEvent {
+export function convertSessionStartEvent(
+    sdkEvent: SDKEvent
+): EventsApi.SessionStartEvent {
     const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
         sdkEvent
     );
-    let sessionStartEventData: EventsApi.SessionStartEventData = {}
-    sessionStartEventData = Object.assign(sessionStartEventData, commonEventData);
+    let sessionStartEventData: EventsApi.SessionStartEventData = {};
+    sessionStartEventData = Object.assign(
+        sessionStartEventData,
+        commonEventData
+    );
     return {
         event_type: 'session_start',
         data: sessionStartEventData,
     };
 }
 
-export function convertPageViewEvent(sdkEvent: SDKEvent): EventsApi.ScreenViewEvent {
+export function convertPageViewEvent(
+    sdkEvent: SDKEvent
+): EventsApi.ScreenViewEvent {
     const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
         sdkEvent
     );
     let screenViewEventData: EventsApi.ScreenViewEventData = {
         custom_flags: sdkEvent.CustomFlags,
-        screen_name: sdkEvent.EventName
+        screen_name: sdkEvent.EventName,
     };
     screenViewEventData = Object.assign(screenViewEventData, commonEventData);
     return {
@@ -396,7 +429,7 @@ export function convertOptOutEvent(sdkEvent: SDKEvent): EventsApi.OptOutEvent {
         sdkEvent
     );
     let optOutEventData: EventsApi.OptOutEventData = {
-        is_opted_out: sdkEvent.OptOut
+        is_opted_out: sdkEvent.OptOut,
     };
     optOutEventData = Object.assign(optOutEventData, commonEventData);
     return {

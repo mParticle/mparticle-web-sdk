@@ -2,7 +2,7 @@ var files = [
     '../../lib/mockhttprequest.js',
     '../../lib/geomock.js',
     '../../../node_modules/sinon-browser-only/sinon.js',
-    '../../test-bundle.js'
+    '../../test-bundle.js',
 ];
 
 var settings = {
@@ -13,24 +13,24 @@ var settings = {
     concurrency: Infinity,
     debug: true,
     browserConsoleLogOptions: {
-        terminal: false
+        terminal: false,
     },
     client: {
-        captureConsole: false
+        captureConsole: false,
     },
     customLaunchers: {
         FirefoxHeadless: {
             base: 'Firefox',
-            flags: ['-headless']
-        }
+            flags: ['-headless'],
+        },
     },
     junitReporter: {
-        outputDir: '../../reports/'
+        outputDir: '../../reports/',
     },
-    singleRun: true
+    singleRun: true,
 };
 
 module.exports = {
     files,
-    settings
+    settings,
 };
