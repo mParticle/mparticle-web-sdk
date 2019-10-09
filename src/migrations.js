@@ -52,7 +52,7 @@ function migrateCookies() {
     for (i = 0, l = cookies.length; i < l; i++) {
         parts = cookies[i].split('=');
         name = Helpers.decoded(parts.shift());
-        (cookie = Helpers.decoded(parts.join('='))), foundCookie;
+        cookie = Helpers.decoded(parts.join('='));
 
         //most recent version needs no migration
         if (name === mParticle.Store.storageName) {

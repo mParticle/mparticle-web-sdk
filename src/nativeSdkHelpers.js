@@ -128,7 +128,6 @@ function sendViaIframeToIOS(path, value) {
     );
     document.documentElement.appendChild(iframe);
     iframe.parentNode.removeChild(iframe);
-    iframe = null;
 }
 
 function sendViaBridgeV2(path, value, requiredWebviewBridgeName) {

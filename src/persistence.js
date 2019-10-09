@@ -693,19 +693,14 @@ function encodeCookies(cookie) {
     cookie = JSON.parse(cookie);
     for (var key in cookie.gs) {
         if (cookie.gs.hasOwnProperty(key)) {
-            // base64 encode any value that is an object or Array in globalSettings first
             if (Base64CookieKeys[key]) {
                 if (cookie.gs[key]) {
+                    // base64 encode any value that is an object or Array in globalSettings
                     if (
-                        Array.isArray(cookie.gs[key]) &&
-                        cookie.gs[key].length
-                    ) {
-                        cookie.gs[key] = Base64.encode(
-                            JSON.stringify(cookie.gs[key])
-                        );
-                    } else if (
-                        Helpers.isObject(cookie.gs[key]) &&
-                        Object.keys(cookie.gs[key]).length
+                        (Array.isArray(cookie.gs[key]) &&
+                            cookie.gs[key].length) ||
+                        (Helpers.isObject(cookie.gs[key]) &&
+                            Object.keys(cookie.gs[key]).length)
                     ) {
                         cookie.gs[key] = Base64.encode(
                             JSON.stringify(cookie.gs[key])

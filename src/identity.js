@@ -985,9 +985,9 @@ function mParticleUser(mpid, isLoggedIn) {
                 userAttributes = this.getAllUserAttributes();
 
                 Forwarders.initForwarders(
-                    IdentityAPI.getCurrentUser().getUserIdentities()
-                ),
-                    ApiClient.prepareForwardingStats;
+                    IdentityAPI.getCurrentUser().getUserIdentities(),
+                    ApiClient.prepareForwardingStats
+                );
                 if (userAttributes) {
                     for (var prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
@@ -1075,8 +1075,10 @@ function mParticleUser(mpid, isLoggedIn) {
          */
         setConsentState: function(state) {
             Persistence.saveUserConsentStateToCookies(mpid, state);
-            Forwarders.initForwarders(this.getUserIdentities().userIdentities),
-                ApiClient.prepareForwardingStats;
+            Forwarders.initForwarders(
+                this.getUserIdentities().userIdentities,
+                ApiClient.prepareForwardingStats
+            );
         },
         isLoggedIn: function() {
             return isLoggedIn;

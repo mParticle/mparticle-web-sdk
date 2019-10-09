@@ -1,6 +1,6 @@
 import Helpers from './helpers';
 import Types from './types';
-import getFilteredMparticleUser from './mParticleUser';
+import filteredMparticleUser from './filteredMparticleUser';
 import Persistence from './persistence';
 
 function initForwarders(userIdentities, forwardingStatsCallback) {
@@ -446,7 +446,7 @@ function setForwarderUserIdentities(userIdentities) {
 
 function setForwarderOnUserIdentified(user) {
     mParticle.Store.activeForwarders.forEach(function(forwarder) {
-        var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
+        var filteredUser = filteredMparticleUser(user.getMPID(), forwarder);
         if (forwarder.onUserIdentified) {
             var result = forwarder.onUserIdentified(filteredUser);
             if (result) {
@@ -460,7 +460,7 @@ function setForwarderOnIdentityComplete(user, identityMethod) {
     var result;
 
     mParticle.Store.activeForwarders.forEach(function(forwarder) {
-        var filteredUser = getFilteredMparticleUser(user.getMPID(), forwarder);
+        var filteredUser = filteredMparticleUser(user.getMPID(), forwarder);
         if (identityMethod === 'identify') {
             if (forwarder.onIdentifyComplete) {
                 result = forwarder.onIdentifyComplete(filteredUser);
