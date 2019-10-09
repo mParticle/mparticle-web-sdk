@@ -1,10 +1,16 @@
-const { ENVIRONMENT } = process.env;
+const { BUILD, ENVIRONMENT, BUILDALL } = process.env;
 
 import resolve from 'rollup-plugin-node-resolve';
 import babel from 'rollup-plugin-babel';
 import typescript from 'rollup-plugin-typescript';
 import commonjs from 'rollup-plugin-commonjs';
 const extensions = ['.js', '.ts'];
+
+const defaultOutputOptions = {
+    name: 'mParticle',
+    strict: false,
+    sourceMap: ENVIRONMENT !== 'prod' ? 'inline' : false,
+};
 
 const defaultBabel = babel({
     extensions,
@@ -29,70 +35,76 @@ const babelMinify = babel({
     ],
 });
 
-const iifeBuild = {
-    input: 'src/main.js',
-    plugins: [
-        defaultBabel,
-        resolve(),
-        commonjs({
-            include: 'node_modules/**',
-        }),
-        typescript(),
-    ],
-    output: {
-        file: 'dist/mparticle.js',
-        format: 'iife',
-        name: 'mParticle',
-        sourceMap: ENVIRONMENT !== 'prod',
-        strict: false,
+const builds = {
+    iife: {
+        input: 'src/main.js',
+        output: {
+            ...defaultOutputOptions,
+            file: 'dist/mparticle.js',
+            format: 'iife',
+            name: 'mParticle',
+        },
+        plugins: [
+            defaultBabel,
+            resolve(),
+            commonjs({
+                include: 'node_modules/**',
+            }),
+            typescript(),
+        ],
+    },
+    cjs: {
+        input: 'src/main.js',
+        output: {
+            ...defaultOutputOptions,
+            file: 'dist/mparticle.common.js',
+            format: 'cjs',
+            name: 'mParticle',
+        },
+        plugins: [
+            babelMinify,
+            resolve(),
+            commonjs({
+                include: 'node_modules/**',
+            }),
+            typescript(),
+        ],
+    },
+    esm: {
+        input: 'src/main.js',
+        output: {
+            ...defaultOutputOptions,
+            file: 'dist/mparticle.esm.js',
+            format: 'esm',
+            name: 'mParticle',
+        },
+        plugins: [
+            babelMinify,
+            resolve(),
+            commonjs({
+                include: 'node_modules/**',
+            }),
+            typescript(),
+        ],
+    },
+    stub: {
+        input: 'src/stub/mparticle.stub.js',
+        output: {
+            file: 'dist/mparticle.stub.js',
+            ...defaultOutputOptions,
+            format: 'iife',
+            name: 'mParticle',
+        },
     },
 };
 
-const cjsBuild = {
-    input: 'src/main.js',
-    plugins: [
-        babelMinify,
-        resolve(),
-        commonjs({
-            include: 'node_modules/**',
-        }),
-        typescript(),
-    ],
-    output: {
-        file: 'dist/mparticle.common.js',
-        format: 'cjs',
-        name: 'mParticle',
-        sourceMap: 'inline',
-        strict: false,
-    },
-};
+let selectedBuilds = [];
+if (BUILDALL) {
+    for (let build of Object.keys(builds)) {
+        selectedBuilds.push(builds[build]);
+    }
+} else {
+    selectedBuilds.push(builds[BUILD]);
+}
 
-const stubBuild = {
-    input: 'src/stub/mparticle.stub.js',
-    output: {
-        file: 'dist/mparticle.stub.js',
-        format: 'iife',
-        name: 'mParticle',
-    },
-};
-
-const esmBuild = {
-    input: 'src/main.js',
-    plugins: [
-        babelMinify,
-        resolve(),
-        commonjs({
-            include: 'node_modules/**',
-        }),
-        typescript(),
-    ],
-    output: {
-        file: 'dist/mparticle.esm.js',
-        format: 'esm',
-        name: 'mParticle',
-        sourceMap: 'inline',
-        strict: false,
-    },
-};
-
-export default [iifeBuild, cjsBuild, stubBuild, esmBuild];
+export default selectedBuilds;
