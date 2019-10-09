@@ -654,7 +654,7 @@ var mParticle = (function () {
 	};
 
 	var Constants = {
-	  sdkVersion: '2.9.12',
+	  sdkVersion: '2.9.13',
 	  sdkVendor: 'mparticle',
 	  platform: 'web',
 	  Messages: {
@@ -1533,7 +1533,6 @@ var mParticle = (function () {
 	  iframe.setAttribute('src', 'mp-sdk://' + path + '/' + encodeURIComponent(value));
 	  document.documentElement.appendChild(iframe);
 	  iframe.parentNode.removeChild(iframe);
-	  iframe = null;
 	}
 
 	function sendViaBridgeV2(path, value, requiredWebviewBridgeName) {
@@ -2353,12 +2352,10 @@ var mParticle = (function () {
 
 	  for (var key in cookie.gs) {
 	    if (cookie.gs.hasOwnProperty(key)) {
-	      // base64 encode any value that is an object or Array in globalSettings first
 	      if (Base64CookieKeys[key]) {
 	        if (cookie.gs[key]) {
-	          if (Array.isArray(cookie.gs[key]) && cookie.gs[key].length) {
-	            cookie.gs[key] = Base64$1.encode(JSON.stringify(cookie.gs[key]));
-	          } else if (Helpers.isObject(cookie.gs[key]) && Object.keys(cookie.gs[key]).length) {
+	          // base64 encode any value that is an object or Array in globalSettings
+	          if (Array.isArray(cookie.gs[key]) && cookie.gs[key].length || Helpers.isObject(cookie.gs[key]) && Object.keys(cookie.gs[key]).length) {
 	            cookie.gs[key] = Base64$1.encode(JSON.stringify(cookie.gs[key]));
 	          } else {
 	            delete cookie.gs[key];
@@ -7263,7 +7260,7 @@ var mParticle = (function () {
 	      } else {
 	        cookies = Persistence.getPersistence();
 	        userAttributes = this.getAllUserAttributes();
-	        Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities()), ApiClient.prepareForwardingStats;
+	        Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(), ApiClient.prepareForwardingStats);
 
 	        if (userAttributes) {
 	          for (var prop in userAttributes) {
@@ -7348,7 +7345,7 @@ var mParticle = (function () {
 	     */
 	    setConsentState: function setConsentState(state) {
 	      Persistence.saveUserConsentStateToCookies(mpid, state);
-	      Forwarders.initForwarders(this.getUserIdentities().userIdentities), ApiClient.prepareForwardingStats;
+	      Forwarders.initForwarders(this.getUserIdentities().userIdentities, ApiClient.prepareForwardingStats);
 	    },
 	    isLoggedIn: function isLoggedIn() {
 	      return _isLoggedIn;
@@ -8126,7 +8123,7 @@ var mParticle = (function () {
 	  for (i = 0, l = cookies.length; i < l; i++) {
 	    parts = cookies[i].split('=');
 	    name = Helpers.decoded(parts.shift());
-	    cookie = Helpers.decoded(parts.join('=')), foundCookie; //most recent version needs no migration
+	    cookie = Helpers.decoded(parts.join('=')); //most recent version needs no migration
 
 	    if (name === mParticle.Store.storageName) {
 	      return;
