@@ -2,6 +2,12 @@
 
 --
 
+#### 2.9.13 - 2019-10-09
+
+-   Refactor codebase with Prettier
+-   Bugfix - Resolve Sonarqube code smells
+-   Modify Rollup builds
+
 #### 2.9.12 - 2019-10-02
 
 -   Support event batching and beacon API; provide new Events API v3 endpoint which supports batching
