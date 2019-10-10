@@ -1,4 +1,6 @@
 (function(apiKey) {
+    // stub mParticle and major mParticle classes EventType, eCommerce, and Identity to exist before full
+    // mParticle object is initialized
     window.mParticle = window.mParticle || {};
     window.mParticle.EventType = {
         Unknown: 0,
@@ -15,25 +17,17 @@
     window.mParticle.Identity = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.1;
+    window.mParticle.config.snippetVersion = 2.2;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
 
-    function preloadMethod(method, base) {
-        return function() {
-            if (base) {
-                method = base + '.' + method;
-            }
-            var args = Array.prototype.slice.call(arguments);
-            args.unshift(method);
-            window.mParticle.config.rq.push(args);
-        };
-    }
-
+    // methods to be stubbed from the main mParticle object, mParticle.eCommerce, and mParticle.Identity
+    // methods that return objects are not stubbed
     var mainMethods = [
         'endSession',
         'logError',
+        'logBaseEvent',
         'logEvent',
         'logForm',
         'logLink',
@@ -48,18 +42,36 @@
         'stopTrackingLocation',
     ];
     var ecommerceMethods = ['setCurrencyCode', 'logCheckout'];
-    var IdentityMethods = ['identify', 'login', 'logout', 'modify'];
+    var identityMethods = ['identify', 'login', 'logout', 'modify'];
 
+    // iterates through methods above to create stubs
     mainMethods.forEach(function(method) {
         window.mParticle[method] = preloadMethod(method);
     });
     ecommerceMethods.forEach(function(method) {
         window.mParticle.eCommerce[method] = preloadMethod(method, 'eCommerce');
     });
-    IdentityMethods.forEach(function(method) {
+    identityMethods.forEach(function(method) {
         window.mParticle.Identity[method] = preloadMethod(method, 'Identity');
     });
 
+    // stubbing function
+    // pushes an array of 2 arguments into readyQueue: 1. the method, and 2. the arguments passed to the method
+    // if the method is on the eCommerce or identity object, then the 1st argument is base conatenated with "." and the method name
+    // ie: Identity.login, eCommerce.setCurrencyCode
+    // in main.js, the function "processPreloadedItem" will parse and run stubbed methods stored in the readyQueue (config.rq)
+    function preloadMethod(method, base) {
+        return function() {
+            if (base) {
+                method = base + '.' + method;
+            }
+            var args = Array.prototype.slice.call(arguments);
+            args.unshift(method);
+            window.mParticle.config.rq.push(args);
+        };
+    }
+
+    // add mParticle script dynamically to the page, insert before the first script tag
     var mp = document.createElement('script');
     mp.type = 'text/javascript';
     mp.async = true;

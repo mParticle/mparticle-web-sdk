@@ -1061,11 +1061,12 @@ function runPreConfigFetchInitialization(apiKey, config) {
 }
 
 function processPreloadedItem(readyQueueItem) {
-    var currentUser,
-        args = readyQueueItem,
+    var args = readyQueueItem,
         method = args.splice(0, 1)[0];
+    // if the first argument is a method on the base mParticle object, run it
     if (mParticle[args[0]]) {
         mParticle[method].apply(this, args);
+        // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
     } else {
         var methodArray = method.split('.');
         try {
@@ -1074,7 +1075,7 @@ function processPreloadedItem(readyQueueItem) {
                 var currentMethod = methodArray[i];
                 computedMPFunction = computedMPFunction[currentMethod];
             }
-            computedMPFunction.apply(currentUser, args);
+            computedMPFunction.apply(this, args);
         } catch (e) {
             mParticle.Logger.verbose(
                 'Unable to compute proper mParticle function ' + e
