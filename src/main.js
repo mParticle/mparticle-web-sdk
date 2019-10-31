@@ -274,8 +274,8 @@ var mParticle = {
             return;
         }
 
-        if (!event.type) {
-            event.type = Types.EventType.Unknown;
+        if (!event.eventType) {
+            event.eventType = Types.EventType.Unknown;
         }
 
         if (!Helpers.canLog()) {

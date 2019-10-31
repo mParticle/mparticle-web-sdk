@@ -46,7 +46,7 @@
         "test:karma:webpack:module": "BUNDLER=webpack karma start test/integrations/module/karma.webpack.config.js",
         "test:karma:rollup:module": "BUNDLER=rollup karma start test/integrations/module/karma.rollup.config.js",
         "watch": "ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js -w",
-        "watch:all": "ENVIRONMENT=dev WATCHALL=true rollup --config rollup.config.js -w",
+        "watch:all": "ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js -w",
         "watch:tests": "ENVIRONMENT=dev TESTTYPE=main rollup --config rollup.test.config.js -w",
         "lint": "eslint src/ test/src/",
         "gts:check": "gts check",
