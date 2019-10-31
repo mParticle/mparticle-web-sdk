@@ -1,3 +1,5 @@
+import * as EventsApi from './eventsApiModels';
+
 export interface SDKEvent {
     DeviceId: string;
     IsFirstRun: boolean;
@@ -25,6 +27,8 @@ export interface SDKEvent {
     PromotionAction?: SDKPromotionAction;
     ProductImpressions?: SDKProductImpression[];
     ShoppingCart?: SDKShoppingCart;
+    UserIdentityChanges?: SDKUserIdentityChangeData;
+    UserAttributeChanges?: SDKUserAttributeChangeData;
     CurrencyCode: string;
 }
 
@@ -32,9 +36,11 @@ export interface SDKUserIdentity {
     Identity?: string;
     Type: number;
 }
+
 export interface SDKShoppingCart {
     ProductList?: SDKProduct[];
 }
+
 export interface SDKPromotionAction {
     PromotionActionType: string;
     PromotionList?: SDKPromotion[];
@@ -135,4 +141,24 @@ export interface SDKGDPRConsentState {
     ConsentDocument?: string;
     Location?: string;
     HardwareId?: string;
+}
+
+export interface SDKUserIdentityChangeData {
+    New: Identity;
+    Old: Identity;
+}
+
+export interface Identity {
+    IdentityType: EventsApi.identityType;
+    Identity: string;
+    Timestamp: number;
+    CreatedThisBatch: boolean;
+}
+
+export interface SDKUserAttributeChangeData {
+    UserAttributeName: string;
+    New: string;
+    Old: string;
+    Deleted: boolean;
+    IsNewAttribute: boolean;
 }

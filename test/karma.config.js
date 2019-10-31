@@ -3,6 +3,7 @@ const { DEBUG } = process.env;
 let files = [
     'lib/mockhttprequest.js',
     'lib/geomock.js',
+    '../node_modules/fetch-mock/dist/es5/client-bundle.js',
     '../node_modules/sinon-browser-only/sinon.js',
     '../dist/mparticle.js',
     'test-bundle.js',
@@ -12,7 +13,7 @@ let browsers = ['ChromeHeadless', 'FirefoxHeadless'];
 let singleRun = true;
 
 if (DEBUG === 'true') {
-    browsers = ['Chrome', 'Firefox'];
+    browsers = ['Chrome'];
     singleRun = false;
 }
 

@@ -2,6 +2,8 @@ var files = [
     '../../lib/mockhttprequest.js',
     '../../lib/geomock.js',
     '../../../node_modules/sinon-browser-only/sinon.js',
+    '../../../node_modules/fetch-mock/dist/es5/client-bundle.js',
+    '../../../node_modules/sinon-browser-only/sinon.js',
     '../../test-bundle.js',
 ];
 

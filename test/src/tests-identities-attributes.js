@@ -595,4 +595,323 @@ describe('identities and attributes', function() {
 
         done();
     });
+
+    it('should send user attribute change requests when setting new attributes', function(done) {
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.config.flags = {
+            eventsV3: 100,
+            EventBatchingIntervalMillis: 0,
+        };
+        mParticle.init(apiKey, window.mParticle.config);
+        server.requests = [];
+
+        // set a new attribute, age
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
+
+        var event = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        event.should.be.ok();
+        event.event_type.should.equal('user_attribute_change');
+        event.data.new.should.equal('25');
+        (event.data.old === null).should.equal(true);
+        event.data.user_attribute_name.should.equal('age');
+        event.data.deleted.should.equal(false);
+        event.data.is_new_attribute.should.equal(true);
+
+        // change age attribute
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', '30');
+        event = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        event.event_type.should.equal('user_attribute_change');
+        event.data.new.should.equal('30');
+        event.data.old.should.equal('25');
+        event.data.user_attribute_name.should.equal('age');
+        event.data.deleted.should.equal(false);
+        event.data.is_new_attribute.should.equal(false);
+
+        // removes age attribute
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().removeUserAttribute('age');
+        event = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        event.event_type.should.equal('user_attribute_change');
+        (event.data.new === null).should.equal(true);
+        event.data.old.should.equal('30');
+        event.data.user_attribute_name.should.equal('age');
+        event.data.deleted.should.equal(true);
+        event.data.is_new_attribute.should.equal(false);
+
+        // set a user attribute list
+        window.fetchMock._calls = [];
+
+        mParticle.Identity.getCurrentUser().setUserAttributeList('age', [
+            'test1',
+            'test2',
+        ]);
+        event = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        event.event_type.should.equal('user_attribute_change');
+        var obj = {
+            test1: true,
+            test2: true,
+        };
+        event.data.new.forEach(function(userAttr) {
+            obj[userAttr].should.equal(true);
+        });
+        (event.data.old === null).should.equal(true);
+        event.data.user_attribute_name.should.equal('age');
+        event.data.deleted.should.equal(false);
+        event.data.is_new_attribute.should.equal(true);
+
+        // changes ordering of above attribute list
+        window.fetchMock._calls = [];
+
+        mParticle.Identity.getCurrentUser().setUserAttributeList('age', [
+            'test2',
+            'test1',
+        ]);
+        event = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        event.event_type.should.equal('user_attribute_change');
+        obj = {
+            test1: true,
+            test2: true,
+        };
+        event.data.new.forEach(function(userAttr) {
+            obj[userAttr].should.equal(true);
+        });
+
+        (event.data.old[0] === 'test1').should.equal(true);
+        (event.data.old[1] === 'test2').should.equal(true);
+        event.data.user_attribute_name.should.equal('age');
+        event.data.deleted.should.equal(false);
+        event.data.is_new_attribute.should.equal(false);
+
+        done();
+    });
+
+    it('should send user identity change requests when setting new identities on new users', function(done) {
+        window.fetchMock._calls = [];
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.config.flags = {
+            eventsV3: 100,
+            EventBatchingIntervalMillis: 0,
+        };
+        mParticle.init(apiKey, window.mParticle.config);
+
+        // anonymous user is in storage, new user logs in
+        var loginUser = {
+            userIdentities: {
+                customerid: 'customerid1',
+            },
+        };
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid1',
+                })
+            );
+        };
+
+        mParticle.Identity.login(loginUser);
+        var event = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        event.should.be.ok();
+        event.event_type.should.equal('user_identity_change');
+        event.data.new.identity_type.should.equal('customerid');
+        event.data.new.identity.should.equal('customerid1');
+        (typeof event.data.new.timestamp_unixtime_ms).should.equal('number');
+        event.data.new.created_this_batch.should.equal(true);
+        event.data.old.identity_type.should.equal('customerid');
+        (event.data.old.identity === null).should.equal(true);
+        (typeof event.data.old.timestamp_unixtime_ms).should.equal('number');
+        event.data.old.created_this_batch.should.equal(false);
+
+        // change customerid creates an identity change event
+        var modifyUser = {
+            userIdentities: {
+                customerid: 'customerid2',
+            },
+        };
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                })
+            );
+        };
+
+        mParticle.Identity.modify(modifyUser);
+
+        var event2 = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        event2.should.be.ok();
+        event2.event_type.should.equal('user_identity_change');
+        event2.data.new.identity_type.should.equal('customerid');
+        event2.data.new.identity.should.equal('customerid2');
+        (typeof event2.data.new.timestamp_unixtime_ms).should.equal('number');
+        event2.data.new.created_this_batch.should.equal(false);
+        event2.data.old.identity_type.should.equal('customerid');
+        event2.data.old.identity.should.equal('customerid1');
+        (typeof event2.data.old.timestamp_unixtime_ms).should.equal('number');
+        event2.data.old.created_this_batch.should.equal(false);
+
+        // Adding a new identity to the current user will create an identity change event
+        var modifyUser2 = {
+            userIdentities: {
+                customerid: 'customerid2',
+                email: 'test@test.com',
+            },
+        };
+
+        window.fetchMock._calls = [];
+
+        mParticle.Identity.modify(modifyUser2);
+
+        var event3 = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        event3.should.be.ok();
+        event3.event_type.should.equal('user_identity_change');
+        event3.data.new.identity_type.should.equal('email');
+        event3.data.new.identity.should.equal('test@test.com');
+        (typeof event3.data.new.timestamp_unixtime_ms).should.equal('number');
+        event3.data.new.created_this_batch.should.equal(true);
+
+        event3.data.old.identity_type.should.equal('email');
+        (event3.data.old.identity === null).should.equal(true);
+        (typeof event3.data.old.timestamp_unixtime_ms).should.equal('number');
+        event3.data.old.created_this_batch.should.equal(false);
+
+        // logout with an other will create only a change event for the other
+        var logoutUser = {
+            userIdentities: {
+                other: 'other1',
+            },
+        };
+        window.fetchMock._calls = [];
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid2',
+                })
+            );
+        };
+
+        mParticle.Identity.logout(logoutUser);
+        var event4 = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        event4.should.be.ok();
+        event4.event_type.should.equal('user_identity_change');
+        event4.data.new.identity_type.should.equal('other');
+        event4.data.new.identity.should.equal('other1');
+        (typeof event4.data.new.timestamp_unixtime_ms).should.equal('number');
+        event4.data.new.created_this_batch.should.equal(true);
+
+        event4.data.old.identity_type.should.equal('other');
+        (event4.data.old.identity === null).should.equal(true);
+        (typeof event4.data.old.timestamp_unixtime_ms).should.equal('number');
+        event4.data.old.created_this_batch.should.equal(false);
+
+        done();
+    });
+
+    it('should not send user identity change requests when not batching', function(done) {
+        // mock v2 and v3 events endpoints
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v2/JS/test_key/Events',
+            200
+        );
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        // set eventsv3 endpoint to 0 to disable batching and send all events to v2 endpoint
+        window.mParticle.config.flags = {
+            eventsV3: 0,
+        };
+        mParticle.init(apiKey, window.mParticle.config);
+
+        // anonymous user is in storage, new user logs in
+        var loginUser = {
+            userIdentities: {
+                customerid: 'customerid1',
+            },
+        };
+
+        server.handle = function(request) {
+            request.setResponseHeader('Content-Type', 'application/json');
+            request.receive(
+                200,
+                JSON.stringify({
+                    Store: {},
+                    mpid: 'mpid1',
+                })
+            );
+        };
+
+        window.fetchMock._calls = [];
+        server.requests = [];
+        mParticle.Identity.login(loginUser);
+        // when a login request is performed and batching is enabled, it sends 2 requests, 1 to /login and 1 to /events
+        // when batching is not enabled, it only sends 1 request (to /login)
+        (server.requests.length === 1).should.equal(true);
+        (window.fetchMock.lastOptions() === undefined).should.equal(true);
+        done();
+    });
+
+    it('should not send user attribute change requests when not batching', function(done) {
+        // mock v2 and v3 events endpoints
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v2/JS/test_key/Events',
+            200
+        );
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        // set eventsv3 endpoint to 0 to disable batching and send all events to v2 endpoint
+        window.mParticle.config.flags = {
+            eventsV3: 0,
+        };
+        mParticle.init(apiKey, window.mParticle.config);
+
+        // clear out fetchMock for v3 endpoint calls
+        window.fetchMock._calls = [];
+        // clear out server.requests for v2 endpoint calls (xhr requests)
+        server.requests = [];
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
+        (window.fetchMock.lastOptions() === undefined).should.equal(true);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', '30');
+        (window.fetchMock.lastOptions() === undefined).should.equal(true);
+
+        mParticle.Identity.getCurrentUser().removeUserAttribute('age');
+        (window.fetchMock.lastOptions() === undefined).should.equal(true);
+
+        mParticle.Identity.getCurrentUser().setUserAttributeList('age', [
+            'test1',
+            'test2',
+        ]);
+
+        (window.fetchMock.lastOptions() === undefined).should.equal(true);
+        (server.requests.length === 0).should.equal(true);
+
+        done();
+    });
 });

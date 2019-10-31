@@ -12,7 +12,8 @@ import Events from './events';
 var Messages = Constants.Messages,
     Validators = Helpers.Validators,
     HTTPCodes = Constants.HTTPCodes,
-    sendIdentityRequest = ApiClient.sendIdentityRequest;
+    sendIdentityRequest = ApiClient.sendIdentityRequest,
+    sendEventToServer = ApiClient.sendEventToServer;
 
 function checkIdentitySwap(previousMPID, currentMPID, currentSessionMPIDs) {
     if (previousMPID && currentMPID && previousMPID !== currentMPID) {
@@ -797,13 +798,16 @@ function mParticleUser(mpid, isLoggedIn) {
          * @param {String} key
          * @param {String} value
          */
-        setUserAttribute: function(key, value) {
-            var cookies, userAttributes;
+        setUserAttribute: function(key, newValue) {
+            var cookies,
+                userAttributes,
+                previousUserAttributeValue,
+                isNewAttribute;
 
             mParticle.sessionManager.resetSessionTimer();
 
             if (Helpers.canLog()) {
-                if (!Validators.isValidAttributeValue(value)) {
+                if (!Validators.isValidAttributeValue(newValue)) {
                     mParticle.Logger.error(Messages.ErrorMessages.BadAttribute);
                     return;
                 }
@@ -815,7 +819,7 @@ function mParticleUser(mpid, isLoggedIn) {
                 if (mParticle.Store.webviewBridgeEnabled) {
                     NativeSdkHelpers.sendToNative(
                         Constants.NativeSdkPaths.SetUserAttribute,
-                        JSON.stringify({ key: key, value: value })
+                        JSON.stringify({ key: key, value: newValue })
                     );
                 } else {
                     cookies = Persistence.getPersistence();
@@ -828,10 +832,23 @@ function mParticleUser(mpid, isLoggedIn) {
                     );
 
                     if (existingProp) {
+                        isNewAttribute = false;
+                        previousUserAttributeValue =
+                            userAttributes[existingProp];
                         delete userAttributes[existingProp];
+                    } else {
+                        isNewAttribute = true;
                     }
 
-                    userAttributes[key] = value;
+                    sendUserAttributeChangeEvent(
+                        key,
+                        newValue,
+                        previousUserAttributeValue,
+                        isNewAttribute,
+                        false
+                    );
+
+                    userAttributes[key] = newValue;
                     if (cookies && cookies[mpid]) {
                         cookies[mpid].ua = userAttributes;
                         Persistence.saveCookies(cookies, mpid);
@@ -841,7 +858,7 @@ function mParticleUser(mpid, isLoggedIn) {
                         IdentityAPI.getCurrentUser().getUserIdentities(),
                         ApiClient.prepareForwardingStats
                     );
-                    Forwarders.callSetUserAttributeOnForwarders(key, value);
+                    Forwarders.callSetUserAttributeOnForwarders(key, newValue);
                 }
             }
         },
@@ -891,6 +908,14 @@ function mParticleUser(mpid, isLoggedIn) {
 
                 userAttributes = this.getAllUserAttributes();
 
+                sendUserAttributeChangeEvent(
+                    key,
+                    null,
+                    userAttributes[key],
+                    false,
+                    true
+                );
+
                 var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
                 if (existingProp) {
@@ -917,8 +942,12 @@ function mParticleUser(mpid, isLoggedIn) {
          * @param {String} key
          * @param {Array} value an array of values
          */
-        setUserAttributeList: function(key, value) {
-            var cookies, userAttributes;
+        setUserAttributeList: function(key, newValue) {
+            var cookies,
+                userAttributes,
+                previousUserAttributeValue,
+                isNewAttribute,
+                userAttributeChange;
 
             mParticle.sessionManager.resetSessionTimer();
 
@@ -927,7 +956,7 @@ function mParticleUser(mpid, isLoggedIn) {
                 return;
             }
 
-            if (!Array.isArray(value)) {
+            if (!Array.isArray(newValue)) {
                 mParticle.Logger.error(
                     'The value you passed in to setUserAttributeList must be an array. You passed in a ' +
                         typeof value
@@ -935,7 +964,7 @@ function mParticleUser(mpid, isLoggedIn) {
                 return;
             }
 
-            var arrayCopy = value.slice();
+            var arrayCopy = newValue.slice();
 
             if (mParticle.Store.webviewBridgeEnabled) {
                 NativeSdkHelpers.sendToNative(
@@ -950,7 +979,44 @@ function mParticleUser(mpid, isLoggedIn) {
                 var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
                 if (existingProp) {
+                    isNewAttribute = false;
+                    previousUserAttributeValue = userAttributes[existingProp];
                     delete userAttributes[existingProp];
+                } else {
+                    isNewAttribute = true;
+                }
+
+                if (ApiClient.shouldEnableBatching()) {
+                    // If the new attributeList length is different previous, then there is a change event.
+                    // Loop through new attributes list, see if they are all in the same index as previous user attributes list
+                    // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
+                    if (
+                        !previousUserAttributeValue ||
+                        !Array.isArray(previousUserAttributeValue)
+                    ) {
+                        userAttributeChange = true;
+                    } else if (
+                        newValue.length !== previousUserAttributeValue.length
+                    ) {
+                        userAttributeChange = true;
+                    } else {
+                        for (var i = 0; i < newValue.length; i++) {
+                            if (previousUserAttributeValue[i] !== newValue[i]) {
+                                userAttributeChange = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (userAttributeChange) {
+                        sendUserAttributeChangeEvent(
+                            key,
+                            newValue,
+                            previousUserAttributeValue,
+                            isNewAttribute,
+                            false
+                        );
+                    }
                 }
 
                 userAttributes[key] = arrayCopy;
@@ -971,7 +1037,7 @@ function mParticleUser(mpid, isLoggedIn) {
          * @method removeAllUserAttributes
          */
         removeAllUserAttributes: function() {
-            var cookies, userAttributes;
+            var userAttributes;
 
             mParticle.sessionManager.resetSessionTimer();
 
@@ -980,8 +1046,6 @@ function mParticleUser(mpid, isLoggedIn) {
                     Constants.NativeSdkPaths.RemoveAllUserAttributes
                 );
             } else {
-                cookies = Persistence.getPersistence();
-
                 userAttributes = this.getAllUserAttributes();
 
                 Forwarders.initForwarders(
@@ -996,12 +1060,8 @@ function mParticleUser(mpid, isLoggedIn) {
                                 prop
                             );
                         }
+                        this.removeUserAttribute(prop);
                     }
-                }
-
-                if (cookies && cookies[mpid]) {
-                    cookies[mpid].ua = {};
-                    Persistence.saveCookies(cookies, mpid);
                 }
             }
         },
@@ -1256,7 +1316,6 @@ function parseIdentityResponse(
         newUser,
         identityApiResult,
         indexOfMPID;
-
     var userIdentitiesForModify = {},
         userIdentities = prevUser
             ? prevUser.getUserIdentities().userIdentities
@@ -1277,6 +1336,12 @@ function parseIdentityResponse(
         );
         if (xhr.responseText) {
             identityApiResult = JSON.parse(xhr.responseText);
+            sendUserIdentityChange(
+                identityApiData,
+                method,
+                identityApiResult.mpid
+            );
+
             if (identityApiResult.hasOwnProperty('is_logged_in')) {
                 mParticle.Store.isLoggedIn = identityApiResult.is_logged_in;
             }
@@ -1487,6 +1552,140 @@ function parseIdentityResponse(
             'Error parsing JSON response from Identity server: ' + e
         );
     }
+}
+
+// send a user identity change request on identify, login, logout, modify when any values change.
+// compare what identities exist vs what it previously was for the specific user if they were in memory before.
+// if it's the first time the user is logging in, send a user identity change request with created_this_batch = true
+// created_this_batch is always false for old user
+
+function sendUserIdentityChange(newIdentityApiData, method, mpid) {
+    var userInMemory, userIdentitiesInMemory, userIdentityChangeEvent;
+
+    if (!ApiClient.shouldEnableBatching()) {
+        return;
+    }
+
+    if (!mpid) {
+        if (method !== 'modify') {
+            return;
+        }
+    }
+
+    userInMemory =
+        method === 'modify'
+            ? IdentityAPI.getCurrentUser()
+            : IdentityAPI.getUser(mpid);
+    var newUserIdentities = newIdentityApiData.userIdentities;
+    // if there is not a user in memory with this mpid, then it is a new user, and we send a user identity
+    // change for each identity on the identity api request
+    if (userInMemory) {
+        userIdentitiesInMemory = userInMemory.getUserIdentities()
+            ? userInMemory.getUserIdentities().userIdentities
+            : {};
+    } else {
+        for (var identityType in newUserIdentities) {
+            userIdentityChangeEvent = createUserIdentityChange(
+                identityType,
+                newUserIdentities[identityType],
+                null,
+                true
+            );
+            sendEventToServer(userIdentityChangeEvent);
+        }
+        return;
+    }
+
+    for (identityType in newUserIdentities) {
+        if (
+            userIdentitiesInMemory[identityType] !==
+            newUserIdentities[identityType]
+        ) {
+            var isNewUserIdentityType = !userIdentitiesInMemory[identityType];
+            userIdentityChangeEvent = createUserIdentityChange(
+                identityType,
+                newUserIdentities[identityType],
+                userIdentitiesInMemory[identityType],
+                isNewUserIdentityType
+            );
+            sendEventToServer(userIdentityChangeEvent);
+        }
+    }
+}
+
+function createUserIdentityChange(
+    identityType,
+    newIdentity,
+    oldIdentity,
+    newCreatedThisBatch
+) {
+    var userIdentityChangeEvent;
+
+    userIdentityChangeEvent = ServerModel.createEventObject({
+        messageType: Types.MessageType.UserIdentityChange,
+        userIdentityChanges: {
+            New: {
+                IdentityType: identityType,
+                Identity: newIdentity,
+                CreatedThisBatch: newCreatedThisBatch,
+            },
+            Old: {
+                IdentityType: identityType,
+                Identity: oldIdentity,
+                CreatedThisBatch: false,
+            },
+        },
+    });
+
+    return userIdentityChangeEvent;
+}
+
+function sendUserAttributeChangeEvent(
+    attributeKey,
+    newUserAttributeValue,
+    previousUserAttributeValue,
+    isNewAttribute,
+    deleted
+) {
+    if (!ApiClient.shouldEnableBatching()) {
+        return;
+    }
+    var userAttributeChangeEvent = createUserAttributeChange(
+        attributeKey,
+        newUserAttributeValue,
+        previousUserAttributeValue,
+        isNewAttribute,
+        deleted
+    );
+    if (userAttributeChangeEvent) {
+        sendEventToServer(userAttributeChangeEvent);
+    }
+}
+
+function createUserAttributeChange(
+    key,
+    newValue,
+    previousUserAttributeValue,
+    isNewAttribute,
+    deleted
+) {
+    if (!previousUserAttributeValue) {
+        previousUserAttributeValue = null;
+    }
+    var userAttributeChangeEvent;
+    if (newValue !== previousUserAttributeValue) {
+        userAttributeChangeEvent = ServerModel.createEventObject({
+            messageType: Types.MessageType.UserAttributeChange,
+            userAttributeChanges: {
+                UserAttributeName: key,
+                New: newValue,
+                Old: previousUserAttributeValue || null,
+                Deleted: deleted,
+                IsNewAttribute: isNewAttribute,
+            },
+        });
+    }
+    return userAttributeChangeEvent;
 }
 
 export default {

@@ -56,6 +56,10 @@ beforeEach(function() {
     delete window.MockForwarder1;
 });
 
+afterEach(function() {
+    window.fetchMock.restore();
+});
+
 import './tests-core-sdk';
 import './tests-migrations';
 import './tests-persistence';

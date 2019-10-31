@@ -9,6 +9,8 @@ var MessageType = {
     Profile: 14,
     Commerce: 16,
     Media: 20,
+    UserAttributeChange: 17,
+    UserIdentityChange: 18,
 };
 
 var EventType = {

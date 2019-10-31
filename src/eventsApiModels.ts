@@ -403,7 +403,7 @@ export interface GeoLocation {
     accuracy?: number | string;
 }
 
-export type dentityType =
+export type identityType =
     | 'other'
     | 'customer_id'
     | 'facebook'
@@ -691,7 +691,7 @@ export interface UserAttributeChangeEventData extends CommonEventData {
 }
 
 export interface UserIdentity {
-    identity_type: dentityType;
+    identity_type: identityType;
     identity: string;
     timestamp_unixtime_ms: number;
     created_this_batch: boolean;

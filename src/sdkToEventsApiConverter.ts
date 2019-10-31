@@ -164,6 +164,10 @@ export function convertEvent(sdkEvent: SDKEvent): EventsApi.BaseEvent | null {
             return convertSessionEndEvent(sdkEvent);
         case Types.MessageType.SessionStart:
             return convertSessionStartEvent(sdkEvent);
+        case Types.MessageType.UserAttributeChange:
+            return convertUserAttributeChangeEvent(sdkEvent);
+        case Types.MessageType.UserIdentityChange:
+            return convertUserIdentityChangeEvent(sdkEvent);
         default:
             break;
     }
@@ -521,4 +525,64 @@ export function convertBaseEventData(
     };
 
     return commonEventData;
+}
+
+export function convertUserAttributeChangeEvent(
+    sdkEvent: SDKEvent
+): EventsApi.UserAttributeChangeEvent | null {
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
+    let userAttributeChangeEvent: EventsApi.UserAttributeChangeEventData = {
+        user_attribute_name: sdkEvent.UserAttributeChanges.UserAttributeName,
+        new: sdkEvent.UserAttributeChanges.New,
+        old: sdkEvent.UserAttributeChanges.Old,
+        deleted: sdkEvent.UserAttributeChanges.Deleted,
+        is_new_attribute: sdkEvent.UserAttributeChanges.IsNewAttribute,
+    };
+
+    userAttributeChangeEvent = {
+        ...userAttributeChangeEvent,
+        ...commonEventData,
+    };
+
+    return {
+        event_type: 'user_attribute_change',
+        data: userAttributeChangeEvent,
+    };
+}
+
+export function convertUserIdentityChangeEvent(
+    sdkEvent: SDKEvent
+): EventsApi.UserIdentityChangeEvent | null {
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
+
+    let userIdentityChangeEvent: EventsApi.UserIdentityChangeEventData = {
+        new: {
+            identity_type: sdkEvent.UserIdentityChanges.New.IdentityType,
+            identity: sdkEvent.UserIdentityChanges.New.Identity || null,
+            timestamp_unixtime_ms: sdkEvent.Timestamp,
+            created_this_batch:
+                sdkEvent.UserIdentityChanges.New.CreatedThisBatch,
+        },
+        old: {
+            identity_type: sdkEvent.UserIdentityChanges.Old.IdentityType,
+            identity: sdkEvent.UserIdentityChanges.Old.Identity || null,
+            timestamp_unixtime_ms: sdkEvent.Timestamp,
+            created_this_batch:
+                sdkEvent.UserIdentityChanges.Old.CreatedThisBatch,
+        },
+    };
+
+    userIdentityChangeEvent = Object.assign(
+        userIdentityChangeEvent,
+        commonEventData
+    );
+
+    return {
+        event_type: 'user_identity_change',
+        data: userIdentityChangeEvent,
+    };
 }

@@ -163,6 +163,8 @@ function createEventObject(event) {
                 EventAttributes: Helpers.sanitizeAttributes(event.data),
                 EventDataType: event.messageType,
                 CustomFlags: event.customFlags || {},
+                UserAttributeChanges: event.userAttributeChanges,
+                UserIdentityChanges: event.userIdentityChanges,
             };
         }
 
