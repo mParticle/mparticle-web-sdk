@@ -2,6 +2,14 @@
 
 --
 
+#### 2.9.14 - 2019-10-31
+
+-   Remove mparticle.js from root
+-   Feat - Stub logBaseEvent in snippet, add snippet comments
+-   Feat - Implement User Identity Change & User Attribute Change Events
+-   Allow MediaEvents and Media PageEvents to be supported
+-   Happy Halloween! :jack_o_lantern:
+
 #### 2.9.13 - 2019-10-09
 
 -   Refactor codebase with Prettier
