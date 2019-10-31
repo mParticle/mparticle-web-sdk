@@ -276,7 +276,9 @@ var mParticle = (function () {
 	  AppStateTransition: 10,
 	  Profile: 14,
 	  Commerce: 16,
-	  Media: 20
+	  Media: 20,
+	  UserAttributeChange: 17,
+	  UserIdentityChange: 18
 	};
 	var EventType = {
 	  Unknown: 0,
@@ -288,6 +290,7 @@ var mParticle = (function () {
 	  UserPreference: 6,
 	  Social: 7,
 	  Other: 8,
+	  Media: 9,
 	  getName: function getName(id) {
 	    switch (id) {
 	      case EventType.Navigation:
@@ -654,7 +657,7 @@ var mParticle = (function () {
 	};
 
 	var Constants = {
-	  sdkVersion: '2.9.13',
+	  sdkVersion: '2.9.14',
 	  sdkVendor: 'mparticle',
 	  platform: 'web',
 	  Messages: {
@@ -3044,7 +3047,9 @@ var mParticle = (function () {
 	        EventCategory: event.eventType,
 	        EventAttributes: Helpers.sanitizeAttributes(event.data),
 	        EventDataType: event.messageType,
-	        CustomFlags: event.customFlags || {}
+	        CustomFlags: event.customFlags || {},
+	        UserAttributeChanges: event.userAttributeChanges,
+	        UserIdentityChanges: event.userIdentityChanges
 	      };
 	    }
 
@@ -4551,6 +4556,24 @@ var mParticle = (function () {
 	    SDKProductActionType[SDKProductActionType["RemoveFromWishlist"] = 10] = "RemoveFromWishlist";
 	})(SDKProductActionType || (SDKProductActionType = {}));
 
+	function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) {
+	    var symbols = Object.getOwnPropertySymbols(object);
+	    if (enumerableOnly)
+	        symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; });
+	    keys.push.apply(keys, symbols);
+	} return keys; }
+	function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) {
+	    var source = arguments[i] != null ? arguments[i] : {};
+	    if (i % 2) {
+	        ownKeys(source, true).forEach(function (key) { defineProperty(target, key, source[key]); });
+	    }
+	    else if (Object.getOwnPropertyDescriptors) {
+	        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+	    }
+	    else {
+	        ownKeys(source).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); });
+	    }
+	} return target; }
 	function convertEvents(mpid, sdkEvents) {
 	    if (!mpid) {
 	        return null;
@@ -4733,6 +4756,10 @@ var mParticle = (function () {
 	            return convertSessionEndEvent(sdkEvent);
 	        case Types.MessageType.SessionStart:
 	            return convertSessionStartEvent(sdkEvent);
+	        case Types.MessageType.UserAttributeChange:
+	            return convertUserAttributeChangeEvent(sdkEvent);
+	        case Types.MessageType.UserIdentityChange:
+	            return convertUserIdentityChangeEvent(sdkEvent);
 	        default:
 	            break;
 	    }
@@ -5077,6 +5104,43 @@ var mParticle = (function () {
 	        location: sdkEvent.Location
 	    };
 	    return commonEventData;
+	}
+	function convertUserAttributeChangeEvent(sdkEvent) {
+	    var commonEventData = convertBaseEventData(sdkEvent);
+	    var userAttributeChangeEvent = {
+	        user_attribute_name: sdkEvent.UserAttributeChanges.UserAttributeName,
+	        "new": sdkEvent.UserAttributeChanges.New,
+	        old: sdkEvent.UserAttributeChanges.Old,
+	        deleted: sdkEvent.UserAttributeChanges.Deleted,
+	        is_new_attribute: sdkEvent.UserAttributeChanges.IsNewAttribute
+	    };
+	    userAttributeChangeEvent = _objectSpread({}, userAttributeChangeEvent, {}, commonEventData);
+	    return {
+	        event_type: 'user_attribute_change',
+	        data: userAttributeChangeEvent
+	    };
+	}
+	function convertUserIdentityChangeEvent(sdkEvent) {
+	    var commonEventData = convertBaseEventData(sdkEvent);
+	    var userIdentityChangeEvent = {
+	        "new": {
+	            identity_type: sdkEvent.UserIdentityChanges.New.IdentityType,
+	            identity: sdkEvent.UserIdentityChanges.New.Identity || null,
+	            timestamp_unixtime_ms: sdkEvent.Timestamp,
+	            created_this_batch: sdkEvent.UserIdentityChanges.New.CreatedThisBatch
+	        },
+	        old: {
+	            identity_type: sdkEvent.UserIdentityChanges.Old.IdentityType,
+	            identity: sdkEvent.UserIdentityChanges.Old.Identity || null,
+	            timestamp_unixtime_ms: sdkEvent.Timestamp,
+	            created_this_batch: sdkEvent.UserIdentityChanges.Old.CreatedThisBatch
+	        }
+	    };
+	    userIdentityChangeEvent = Object.assign(userIdentityChangeEvent, commonEventData);
+	    return {
+	        event_type: 'user_identity_change',
+	        data: userIdentityChangeEvent
+	    };
 	}
 
 	var BatchUploader = 
@@ -6538,7 +6602,8 @@ var mParticle = (function () {
 	var Messages$6 = Constants.Messages,
 	    Validators$2 = Helpers.Validators,
 	    HTTPCodes$1 = Constants.HTTPCodes,
-	    sendIdentityRequest$1 = ApiClient.sendIdentityRequest;
+	    sendIdentityRequest$1 = ApiClient.sendIdentityRequest,
+	    sendEventToServer$2 = ApiClient.sendEventToServer;
 
 	function checkIdentitySwap(previousMPID, currentMPID, currentSessionMPIDs) {
 	  if (previousMPID && currentMPID && previousMPID !== currentMPID) {
@@ -7096,12 +7161,12 @@ var mParticle = (function () {
 	     * @param {String} key
 	     * @param {String} value
 	     */
-	    setUserAttribute: function setUserAttribute(key, value) {
-	      var cookies, userAttributes;
+	    setUserAttribute: function setUserAttribute(key, newValue) {
+	      var cookies, userAttributes, previousUserAttributeValue, isNewAttribute;
 	      mParticle.sessionManager.resetSessionTimer();
 
 	      if (Helpers.canLog()) {
-	        if (!Validators$2.isValidAttributeValue(value)) {
+	        if (!Validators$2.isValidAttributeValue(newValue)) {
 	          mParticle.Logger.error(Messages$6.ErrorMessages.BadAttribute);
 	          return;
 	        }
@@ -7114,7 +7179,7 @@ var mParticle = (function () {
 	        if (mParticle.Store.webviewBridgeEnabled) {
 	          NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttribute, JSON.stringify({
 	            key: key,
-	            value: value
+	            value: newValue
 	          }));
 	        } else {
 	          cookies = Persistence.getPersistence();
@@ -7122,10 +7187,15 @@ var mParticle = (function () {
 	          var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
 	          if (existingProp) {
+	            isNewAttribute = false;
+	            previousUserAttributeValue = userAttributes[existingProp];
 	            delete userAttributes[existingProp];
+	          } else {
+	            isNewAttribute = true;
 	          }
 
-	          userAttributes[key] = value;
+	          sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false);
+	          userAttributes[key] = newValue;
 
 	          if (cookies && cookies[mpid]) {
 	            cookies[mpid].ua = userAttributes;
@@ -7133,7 +7203,7 @@ var mParticle = (function () {
 	          }
 
 	          Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(), ApiClient.prepareForwardingStats);
-	          Forwarders.callSetUserAttributeOnForwarders(key, value);
+	          Forwarders.callSetUserAttributeOnForwarders(key, newValue);
 	        }
 	      }
 	    },
@@ -7181,6 +7251,7 @@ var mParticle = (function () {
 	      } else {
 	        cookies = Persistence.getPersistence();
 	        userAttributes = this.getAllUserAttributes();
+	        sendUserAttributeChangeEvent(key, null, userAttributes[key], false, true);
 	        var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
 	        if (existingProp) {
@@ -7205,8 +7276,8 @@ var mParticle = (function () {
 	     * @param {String} key
 	     * @param {Array} value an array of values
 	     */
-	    setUserAttributeList: function setUserAttributeList(key, value) {
-	      var cookies, userAttributes;
+	    setUserAttributeList: function setUserAttributeList(key, newValue) {
+	      var cookies, userAttributes, previousUserAttributeValue, isNewAttribute, userAttributeChange;
 	      mParticle.sessionManager.resetSessionTimer();
 
 	      if (!Validators$2.isValidKeyValue(key)) {
@@ -7214,12 +7285,12 @@ var mParticle = (function () {
 	        return;
 	      }
 
-	      if (!Array.isArray(value)) {
-	        mParticle.Logger.error('The value you passed in to setUserAttributeList must be an array. You passed in a ' + _typeof_1(value));
+	      if (!Array.isArray(newValue)) {
+	        mParticle.Logger.error('The value you passed in to setUserAttributeList must be an array. You passed in a ' + (typeof value === "undefined" ? "undefined" : _typeof_1(value)));
 	        return;
 	      }
 
-	      var arrayCopy = value.slice();
+	      var arrayCopy = newValue.slice();
 
 	      if (mParticle.Store.webviewBridgeEnabled) {
 	        NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList, JSON.stringify({
@@ -7232,7 +7303,33 @@ var mParticle = (function () {
 	        var existingProp = Helpers.findKeyInObject(userAttributes, key);
 
 	        if (existingProp) {
+	          isNewAttribute = false;
+	          previousUserAttributeValue = userAttributes[existingProp];
 	          delete userAttributes[existingProp];
+	        } else {
+	          isNewAttribute = true;
+	        }
+
+	        if (ApiClient.shouldEnableBatching()) {
+	          // If the new attributeList length is different previous, then there is a change event.
+	          // Loop through new attributes list, see if they are all in the same index as previous user attributes list
+	          // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
+	          if (!previousUserAttributeValue || !Array.isArray(previousUserAttributeValue)) {
+	            userAttributeChange = true;
+	          } else if (newValue.length !== previousUserAttributeValue.length) {
+	            userAttributeChange = true;
+	          } else {
+	            for (var i = 0; i < newValue.length; i++) {
+	              if (previousUserAttributeValue[i] !== newValue[i]) {
+	                userAttributeChange = true;
+	                break;
+	              }
+	            }
+	          }
+
+	          if (userAttributeChange) {
+	            sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false);
+	          }
 	        }
 
 	        userAttributes[key] = arrayCopy;
@@ -7252,13 +7349,12 @@ var mParticle = (function () {
 	     * @method removeAllUserAttributes
 	     */
 	    removeAllUserAttributes: function removeAllUserAttributes() {
-	      var cookies, userAttributes;
+	      var userAttributes;
 	      mParticle.sessionManager.resetSessionTimer();
 
 	      if (mParticle.Store.webviewBridgeEnabled) {
 	        NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.RemoveAllUserAttributes);
 	      } else {
-	        cookies = Persistence.getPersistence();
 	        userAttributes = this.getAllUserAttributes();
 	        Forwarders.initForwarders(IdentityAPI.getCurrentUser().getUserIdentities(), ApiClient.prepareForwardingStats);
 
@@ -7267,12 +7363,9 @@ var mParticle = (function () {
 	            if (userAttributes.hasOwnProperty(prop)) {
 	              Forwarders.applyToForwarders('removeUserAttribute', prop);
 	            }
-	          }
-	        }
 
-	        if (cookies && cookies[mpid]) {
-	          cookies[mpid].ua = {};
-	          Persistence.saveCookies(cookies, mpid);
+	            this.removeUserAttribute(prop);
+	          }
 	        }
 	      }
 	    },
@@ -7504,6 +7597,7 @@ var mParticle = (function () {
 
 	    if (xhr.responseText) {
 	      identityApiResult = JSON.parse(xhr.responseText);
+	      sendUserIdentityChange(identityApiData, method, identityApiResult.mpid);
 
 	      if (identityApiResult.hasOwnProperty('is_logged_in')) {
 	        mParticle.Store.isLoggedIn = identityApiResult.is_logged_in;
@@ -7612,6 +7706,102 @@ var mParticle = (function () {
 
 	    mParticle.Logger.error('Error parsing JSON response from Identity server: ' + e);
 	  }
+	} // send a user identity change request on identify, login, logout, modify when any values change.
+	// compare what identities exist vs what it previously was for the specific user if they were in memory before.
+	// if it's the first time the user is logging in, send a user identity change request with created_this_batch = true
+	// created_this_batch is always false for old user
+
+
+	function sendUserIdentityChange(newIdentityApiData, method, mpid) {
+	  var userInMemory, userIdentitiesInMemory, userIdentityChangeEvent;
+
+	  if (!ApiClient.shouldEnableBatching()) {
+	    return;
+	  }
+
+	  if (!mpid) {
+	    if (method !== 'modify') {
+	      return;
+	    }
+	  }
+
+	  userInMemory = method === 'modify' ? IdentityAPI.getCurrentUser() : IdentityAPI.getUser(mpid);
+	  var newUserIdentities = newIdentityApiData.userIdentities; // if there is not a user in memory with this mpid, then it is a new user, and we send a user identity
+	  // change for each identity on the identity api request
+
+	  if (userInMemory) {
+	    userIdentitiesInMemory = userInMemory.getUserIdentities() ? userInMemory.getUserIdentities().userIdentities : {};
+	  } else {
+	    for (var identityType in newUserIdentities) {
+	      userIdentityChangeEvent = createUserIdentityChange(identityType, newUserIdentities[identityType], null, true);
+	      sendEventToServer$2(userIdentityChangeEvent);
+	    }
+
+	    return;
+	  }
+
+	  for (identityType in newUserIdentities) {
+	    if (userIdentitiesInMemory[identityType] !== newUserIdentities[identityType]) {
+	      var isNewUserIdentityType = !userIdentitiesInMemory[identityType];
+	      userIdentityChangeEvent = createUserIdentityChange(identityType, newUserIdentities[identityType], userIdentitiesInMemory[identityType], isNewUserIdentityType);
+	      sendEventToServer$2(userIdentityChangeEvent);
+	    }
+	  }
+	}
+
+	function createUserIdentityChange(identityType, newIdentity, oldIdentity, newCreatedThisBatch) {
+	  var userIdentityChangeEvent;
+	  userIdentityChangeEvent = ServerModel.createEventObject({
+	    messageType: Types.MessageType.UserIdentityChange,
+	    userIdentityChanges: {
+	      New: {
+	        IdentityType: identityType,
+	        Identity: newIdentity,
+	        CreatedThisBatch: newCreatedThisBatch
+	      },
+	      Old: {
+	        IdentityType: identityType,
+	        Identity: oldIdentity,
+	        CreatedThisBatch: false
+	      }
+	    }
+	  });
+	  return userIdentityChangeEvent;
+	}
+
+	function sendUserAttributeChangeEvent(attributeKey, newUserAttributeValue, previousUserAttributeValue, isNewAttribute, deleted) {
+	  if (!ApiClient.shouldEnableBatching()) {
+	    return;
+	  }
+
+	  var userAttributeChangeEvent = createUserAttributeChange(attributeKey, newUserAttributeValue, previousUserAttributeValue, isNewAttribute, deleted);
+
+	  if (userAttributeChangeEvent) {
+	    sendEventToServer$2(userAttributeChangeEvent);
+	  }
+	}
+
+	function createUserAttributeChange(key, newValue, previousUserAttributeValue, isNewAttribute, deleted) {
+	  if (!previousUserAttributeValue) {
+	    previousUserAttributeValue = null;
+	  }
+
+	  var userAttributeChangeEvent;
+
+	  if (newValue !== previousUserAttributeValue) {
+	    userAttributeChangeEvent = ServerModel.createEventObject({
+	      messageType: Types.MessageType.UserAttributeChange,
+	      userAttributeChanges: {
+	        UserAttributeName: key,
+	        New: newValue,
+	        Old: previousUserAttributeValue || null,
+	        Deleted: deleted,
+	        IsNewAttribute: isNewAttribute
+	      }
+	    });
+	  }
+
+	  return userAttributeChangeEvent;
 	}
 
 	var Identity = {
@@ -8589,8 +8779,8 @@ var mParticle = (function () {
 	      return;
 	    }
 
-	    if (!event.type) {
-	      event.type = Types.EventType.Unknown;
+	    if (!event.eventType) {
+	      event.eventType = Types.EventType.Unknown;
 	    }
 
 	    if (!Helpers.canLog()) {
@@ -9263,12 +9453,11 @@ var mParticle = (function () {
 	}
 
 	function processPreloadedItem(readyQueueItem) {
-	  var currentUser,
-	      args = readyQueueItem,
-	      method = args.splice(0, 1)[0];
+	  var args = readyQueueItem,
+	      method = args.splice(0, 1)[0]; // if the first argument is a method on the base mParticle object, run it
 
 	  if (mParticle$1[args[0]]) {
-	    mParticle$1[method].apply(this, args);
+	    mParticle$1[method].apply(this, args); // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
 	  } else {
 	    var methodArray = method.split('.');
 
@@ -9280,7 +9469,7 @@ var mParticle = (function () {
 	        computedMPFunction = computedMPFunction[currentMethod];
 	      }
 
-	      computedMPFunction.apply(currentUser, args);
+	      computedMPFunction.apply(this, args);
 	    } catch (e) {
 	      mParticle$1.Logger.verbose('Unable to compute proper mParticle function ' + e);
 	    }
