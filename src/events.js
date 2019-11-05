@@ -19,7 +19,6 @@ function logEvent(event) {
         }
         var uploadObject = ServerModel.createEventObject(event);
         sendEventToServer(uploadObject);
-        Persistence.update();
     } else {
         mParticle.Logger.verbose(Messages.InformationMessages.AbandonLogEvent);
     }

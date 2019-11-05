@@ -275,6 +275,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
             pb: { productBag1: [product1, product2] },
         };
 
+        mParticle.Store.prodStorageName =
+            TestsCore.LocalStorageProductsV4WithWorkSpaceName;
         Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(
             JSON.stringify(SDKv1CookieV3)
         );
@@ -291,6 +293,8 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('unit test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 decoded', function(done) {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = true;
+        mParticle.Store.prodStorageName =
+            TestsCore.LocalStorageProductsV4WithWorkSpaceName;
 
         var v4Cookies = JSON.parse(
             Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(

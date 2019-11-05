@@ -72,10 +72,6 @@ export default function Store(config, logger) {
         this[key] = defaultStore[key];
     }
 
-    this.storageName = Helpers.createMainStorageName(config.workspaceToken);
-    this.prodStorageName = Helpers.createProductStorageName(
-        config.workspaceToken
-    );
     this.integrationDelayTimeoutStart = Date.now();
 
     this.SDKConfig = createSDKConfig(config);
@@ -201,21 +197,6 @@ export default function Store(config, logger) {
         // Some forwarders require custom flags on initialization, so allow them to be set using config object
         if (config.hasOwnProperty('customFlags')) {
             this.SDKConfig.customFlags = config.customFlags;
-        }
-
-        if (config.hasOwnProperty('workspaceToken')) {
-            this.SDKConfig.workspaceToken = config.workspaceToken;
-        } else {
-            logger.warning(
-                'You should have a workspaceToken on your mParticle.config object for security purposes.'
-            );
-        }
-
-        if (config.hasOwnProperty('requiredWebviewBridgeName')) {
-            this.SDKConfig.requiredWebviewBridgeName =
-                config.requiredWebviewBridgeName;
-        } else if (config.hasOwnProperty('workspaceToken')) {
-            this.SDKConfig.requiredWebviewBridgeName = config.workspaceToken;
         }
 
         if (config.hasOwnProperty('minWebviewBridgeVersion')) {

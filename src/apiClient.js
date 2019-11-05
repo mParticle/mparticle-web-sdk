@@ -194,9 +194,8 @@ function parseEventResponse(responseText) {
                     mParticle.Store.serverSettings[prop] = fullProp;
                 }
             }
-
-            Persistence.update();
         }
+        Persistence.update();
     } catch (e) {
         mParticle.Logger.error(
             'Error parsing JSON response from server: ' + e.name

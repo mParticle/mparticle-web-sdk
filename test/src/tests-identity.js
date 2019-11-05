@@ -136,7 +136,7 @@ describe('identity', function() {
         done();
     });
 
-    it('should store all MPIDs associated with a sessionId, then clear sessionIds when a new session starts', function(done) {
+    it('should store all MPIDs associated with a sessionId, then clear MPIDs from currentSessionMPIDs when a new session starts', function(done) {
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
             request.receive(

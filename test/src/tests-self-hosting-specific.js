@@ -58,7 +58,7 @@ describe('/config self-hosting integration tests', function() {
         mParticle.reset(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.logLevel = 'verbose';
-
+        delete window.mParticle.config.workspaceToken;
         mParticle.config.logger = {
             verbose: function(msg) {
                 messages.push(msg);
@@ -82,7 +82,7 @@ describe('/config self-hosting integration tests', function() {
 
         mockServer.respondWith(
             'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0',
-            [200, {}, JSON.stringify({})]
+            [200, {}, JSON.stringify({ workspaceToken: 'workspaceTokenTest' })]
         );
         mockServer.respondWith('https://identity.mparticle.com/v1/identify', [
             200,
@@ -115,6 +115,36 @@ describe('/config self-hosting integration tests', function() {
             .should.equal(-1);
         var event2 = getEvent('identify callback event', false, mockServer);
         event2.mpid.should.equal('loginMPID');
+
+        mockServer.restore();
+        clock.restore();
+
+        localStorage.removeItem('mprtcl-v4_workspaceTokenTest');
+        done();
+    });
+
+    it('cookie name has workspace token in it in self hosting mode after config fetch', function(done) {
+        mParticle.reset(MPConfig);
+        window.mParticle.config.requestConfig = true;
+        window.mParticle.config.logLevel = 'verbose';
+        delete window.mParticle.config.workspaceToken;
+
+        // start fake timer and mock server
+        var clock = sinon.useFakeTimers();
+        var mockServer = sinon.createFakeServer();
+        mockServer.autoRespond = true;
+        mockServer.autoRespondAfter = 100;
+
+        mockServer.respondWith(
+            'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0',
+            [200, {}, JSON.stringify({ workspaceToken: 'wtTest' })]
+        );
+
+        mParticle.init(apiKey, window.mParticle.config);
+        clock.tick(300);
+
+        var data = window.localStorage.getItem('mprtcl-v4_wtTest');
+        (typeof data === 'string').should.equal(true);
 
         mockServer.restore();
         clock.restore();

@@ -299,7 +299,7 @@ describe('core SDK', function() {
 
     it('will create a cgid when no previous cgid exists after initializing storage, and no sid', function(done) {
         mParticle.reset(MPConfig);
-
+        mParticle.Store.storageName = TestsCore.workspaceCookieName;
         mParticle.persistence.initializeStorage();
         mParticle.persistence.update();
 
@@ -555,8 +555,6 @@ describe('core SDK', function() {
         (mp.currencyCode === null).should.equal(true);
         (mp.globalTimer === null).should.equal(true);
         (mp.isLocalStorageAvailable === null).should.equal(true);
-        mp.storageName.should.equal('mprtcl-v4_abcdef');
-        mp.prodStorageName.should.equal('mprtcl-prodv4_abcdef');
 
         // all items here should be the overwritten values
         mp.SDKConfig.useCookieStorage.should.equal(config.useCookieStorage);
@@ -820,6 +818,7 @@ describe('core SDK', function() {
         mParticle.Store.SDKConfig.minWebviewBridgeVersion =
             config.minWebviewBridgeVersion;
         mParticle.Store.SDKConfig.workspaceToken = config.workspaceToken;
+        localStorage.removeItem(config.workspaceToken);
 
         done();
     });
