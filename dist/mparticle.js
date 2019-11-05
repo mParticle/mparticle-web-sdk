@@ -657,7 +657,7 @@ var mParticle = (function () {
 	};
 
 	var Constants = {
-	  sdkVersion: '2.9.14',
+	  sdkVersion: '2.9.15',
 	  sdkVendor: 'mparticle',
 	  platform: 'web',
 	  Messages: {
@@ -5615,9 +5615,9 @@ var mParticle = (function () {
 	          mParticle.Store.serverSettings[prop] = fullProp;
 	        }
 	      }
-
-	      Persistence.update();
 	    }
+
+	    Persistence.update();
 	  } catch (e) {
 	    mParticle.Logger.error('Error parsing JSON response from server: ' + e.name);
 	  }
@@ -6320,7 +6320,6 @@ var mParticle = (function () {
 
 	    var uploadObject = ServerModel.createEventObject(event);
 	    sendEventToServer$1(uploadObject);
-	    Persistence.update();
 	  } else {
 	    mParticle.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent);
 	  }
@@ -7455,18 +7454,22 @@ var mParticle = (function () {
 	 * Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
 	 * Example: mParticle.Identity.getCurrentUser().getCart().add(...);
 	 * @class mParticle.Identity.getCurrentUser().getCart()
+	 * @deprecated
 	 */
 
 
 	function mParticleUserCart(mpid) {
+	  mParticle.Logger.warning('Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases');
 	  return {
 	    /**
 	     * Adds a cart product to the user cart
 	     * @method add
 	     * @param {Object} product the product
 	     * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+	     * @deprecated
 	     */
 	    add: function add(product, logEvent) {
+	      mParticle.Logger.warning('Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases');
 	      var allProducts, userProducts, arrayCopy;
 	      arrayCopy = Array.isArray(product) ? product.slice() : [product];
 	      arrayCopy.forEach(function (product) {
@@ -7505,8 +7508,10 @@ var mParticle = (function () {
 	     * @method remove
 	     * @param {Object} product the product
 	     * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+	     * @deprecated
 	     */
 	    remove: function remove(product, logEvent) {
+	      mParticle.Logger.warning('Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases');
 	      var allProducts,
 	          userProducts,
 	          cartIndex = -1,
@@ -7548,8 +7553,10 @@ var mParticle = (function () {
 	    /**
 	     * Clears the user's cart
 	     * @method clear
+	     * @deprecated
 	     */
 	    clear: function clear() {
+	      mParticle.Logger.warning('Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases');
 	      var allProducts;
 
 	      if (mParticle.Store.webviewBridgeEnabled) {
@@ -7570,8 +7577,10 @@ var mParticle = (function () {
 	     * Returns all cart products
 	     * @method getCartProducts
 	     * @return {Array} array of cart products
+	     * @deprecated
 	     */
 	    getCartProducts: function getCartProducts() {
+	      mParticle.Logger.warning('Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases');
 	      return Persistence.getCartProducts(mpid);
 	    }
 	  };
@@ -8047,8 +8056,6 @@ var mParticle = (function () {
 	    this[key] = defaultStore[key];
 	  }
 
-	  this.storageName = Helpers.createMainStorageName(config.workspaceToken);
-	  this.prodStorageName = Helpers.createProductStorageName(config.workspaceToken);
 	  this.integrationDelayTimeoutStart = Date.now();
 	  this.SDKConfig = createSDKConfig(config); // Set configuration to default settings
 
@@ -8166,18 +8173,6 @@ var mParticle = (function () {
 
 	    if (config.hasOwnProperty('customFlags')) {
 	      this.SDKConfig.customFlags = config.customFlags;
-	    }
-
-	    if (config.hasOwnProperty('workspaceToken')) {
-	      this.SDKConfig.workspaceToken = config.workspaceToken;
-	    } else {
-	      logger.warning('You should have a workspaceToken on your mParticle.config object for security purposes.');
-	    }
-
-	    if (config.hasOwnProperty('requiredWebviewBridgeName')) {
-	      this.SDKConfig.requiredWebviewBridgeName = config.requiredWebviewBridgeName;
-	    } else if (config.hasOwnProperty('workspaceToken')) {
-	      this.SDKConfig.requiredWebviewBridgeName = config.workspaceToken;
 	    }
 
 	    if (config.hasOwnProperty('minWebviewBridgeVersion')) {
@@ -8713,7 +8708,6 @@ var mParticle = (function () {
 	   * @method stopTrackingLocation
 	   */
 	  stopTrackingLocation: function stopTrackingLocation() {
-	    SessionManager.resetSessionTimer();
 	    Events.stopTracking();
 	  },
 
@@ -8727,7 +8721,6 @@ var mParticle = (function () {
 	      mParticle$1.Logger.warning('Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.');
 	    }
 
-	    SessionManager.resetSessionTimer();
 	    Events.startTracking(callback);
 	  },
 
@@ -8738,8 +8731,6 @@ var mParticle = (function () {
 	   * @param {Number} longitude longitude digit
 	   */
 	  setPosition: function setPosition(lat, lng) {
-	    SessionManager.resetSessionTimer();
-
 	    if (typeof lat === 'number' && typeof lng === 'number') {
 	      mParticle$1.Store.currentPosition = {
 	        lat: lat,
@@ -8772,6 +8763,13 @@ var mParticle = (function () {
 	   * @param {Object} event Base Event Object
 	   */
 	  logBaseEvent: function logBaseEvent(event) {
+	    if (!mParticle$1.Store.isInitialized) {
+	      mParticle$1.ready(function () {
+	        mParticle$1.logBaseEvent(event);
+	      });
+	      return;
+	    }
+
 	    SessionManager.resetSessionTimer();
 
 	    if (typeof event.name !== 'string') {
@@ -8800,6 +8798,13 @@ var mParticle = (function () {
 	   * @param {Object} [customFlags] Additional customFlags
 	   */
 	  logEvent: function logEvent(eventName, eventType, eventInfo, customFlags) {
+	    if (!mParticle$1.Store.isInitialized) {
+	      mParticle$1.ready(function () {
+	        mParticle$1.logEvent(eventName, eventType, eventInfo, customFlags);
+	      });
+	      return;
+	    }
+
 	    SessionManager.resetSessionTimer();
 
 	    if (typeof eventName !== 'string') {
@@ -8838,6 +8843,13 @@ var mParticle = (function () {
 	   * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
 	   */
 	  logError: function logError(error, attrs) {
+	    if (!mParticle$1.Store.isInitialized) {
+	      mParticle$1.ready(function () {
+	        mParticle$1.logError(error, attrs);
+	      });
+	      return;
+	    }
+
 	    SessionManager.resetSessionTimer();
 
 	    if (!error) {
@@ -8881,7 +8893,6 @@ var mParticle = (function () {
 	   * @param {Object} [eventInfo] Attributes for the event
 	   */
 	  logLink: function logLink(selector, eventName, eventType, eventInfo) {
-	    SessionManager.resetSessionTimer();
 	    Events.addEventHandler('click', selector, eventName, eventInfo, eventType);
 	  },
 
@@ -8894,7 +8905,6 @@ var mParticle = (function () {
 	   * @param {Object} [eventInfo] Attributes for the event
 	   */
 	  logForm: function logForm(selector, eventName, eventType, eventInfo) {
-	    SessionManager.resetSessionTimer();
 	    Events.addEventHandler('submit', selector, eventName, eventInfo, eventType);
 	  },
 
@@ -8906,6 +8916,13 @@ var mParticle = (function () {
 	   * @param {Object} [customFlags] Custom flags for the event
 	   */
 	  logPageView: function logPageView(eventName, attrs, customFlags) {
+	    if (!mParticle$1.Store.isInitialized) {
+	      mParticle$1.ready(function () {
+	        mParticle$1.logPageView(eventName, attrs, customFlags);
+	      });
+	      return;
+	    }
+
 	    SessionManager.resetSessionTimer();
 
 	    if (Helpers.canLog()) {
@@ -8959,8 +8976,10 @@ var mParticle = (function () {
 	       * @method add
 	       * @param {Object} product The product you want to add to the cart
 	       * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
+	       * @deprecated
 	       */
 	      add: function add(product, logEventBoolean) {
+	        mParticle$1.Logger.warning('Deprecated function eCommerce.Cart.add() will be removed in future releases');
 	        var mpid,
 	            currentUser = mParticle$1.Identity.getCurrentUser();
 
@@ -8976,8 +8995,10 @@ var mParticle = (function () {
 	       * @method remove
 	       * @param {Object} product The product you want to add to the cart
 	       * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
+	       * @deprecated
 	       */
 	      remove: function remove(product, logEventBoolean) {
+	        mParticle$1.Logger.warning('Deprecated function eCommerce.Cart.remove() will be removed in future releases');
 	        var mpid,
 	            currentUser = mParticle$1.Identity.getCurrentUser();
 
@@ -8991,8 +9012,10 @@ var mParticle = (function () {
 	      /**
 	       * Clears the cart
 	       * @method clear
+	       * @deprecated
 	       */
 	      clear: function clear() {
+	        mParticle$1.Logger.warning('Deprecated function eCommerce.Cart.clear() will be removed in future releases');
 	        var mpid,
 	            currentUser = mParticle$1.Identity.getCurrentUser();
 
@@ -9011,6 +9034,13 @@ var mParticle = (function () {
 	     * @param {String} code The currency code
 	     */
 	    setCurrencyCode: function setCurrencyCode(code) {
+	      if (!mParticle$1.Store.isInitialized) {
+	        mParticle$1.ready(function () {
+	          mParticle$1.eCommerce.setCurrencyCode(code);
+	        });
+	        return;
+	      }
+
 	      if (typeof code !== 'string') {
 	        mParticle$1.Logger.error('Code must be a string');
 	        return;
@@ -9036,7 +9066,6 @@ var mParticle = (function () {
 	     * @param {Object} [attributes] product attributes
 	     */
 	    createProduct: function createProduct(name, sku, price, quantity, variant, category, brand, position, coupon, attributes) {
-	      SessionManager.resetSessionTimer();
 	      return Ecommerce.createProduct(name, sku, price, quantity, variant, category, brand, position, coupon, attributes);
 	    },
 
@@ -9050,7 +9079,6 @@ var mParticle = (function () {
 	     * @param {Number} [position] promotion position
 	     */
 	    createPromotion: function createPromotion(id, creative, name, position) {
-	      SessionManager.resetSessionTimer();
 	      return Ecommerce.createPromotion(id, creative, name, position);
 	    },
 
@@ -9062,7 +9090,6 @@ var mParticle = (function () {
 	     * @param {Object} product the product for which an impression is being created
 	     */
 	    createImpression: function createImpression(name, product) {
-	      SessionManager.resetSessionTimer();
 	      return Ecommerce.createImpression(name, product);
 	    },
 
@@ -9078,7 +9105,6 @@ var mParticle = (function () {
 	     * @param {Number} [tax] the tax amount
 	     */
 	    createTransactionAttributes: function createTransactionAttributes(id, affiliation, couponCode, revenue, shipping, tax) {
-	      SessionManager.resetSessionTimer();
 	      return Ecommerce.createTransactionAttributes(id, affiliation, couponCode, revenue, shipping, tax);
 	    },
 
@@ -9092,6 +9118,13 @@ var mParticle = (function () {
 	     * @param {Object} [customFlags] Custom flags for the event
 	     */
 	    logCheckout: function logCheckout(step, options, attrs, customFlags) {
+	      if (!mParticle$1.Store.isInitialized) {
+	        mParticle$1.ready(function () {
+	          mParticle$1.eCommerce.logCheckout(step, options, attrs, customFlags);
+	        });
+	        return;
+	      }
+
 	      SessionManager.resetSessionTimer();
 	      Events.logCheckoutEvent(step, options, attrs, customFlags);
 	    },
@@ -9106,6 +9139,13 @@ var mParticle = (function () {
 	     * @param {Object} [customFlags] Custom flags for the event
 	     */
 	    logProductAction: function logProductAction(productActionType, product, attrs, customFlags) {
+	      if (!mParticle$1.Store.isInitialized) {
+	        mParticle$1.ready(function () {
+	          mParticle$1.eCommerce.logProductAction(productActionType, product, attrs, customFlags);
+	        });
+	        return;
+	      }
+
 	      SessionManager.resetSessionTimer();
 	      Events.logProductActionEvent(productActionType, product, attrs, customFlags);
 	    },
@@ -9121,6 +9161,13 @@ var mParticle = (function () {
 	     * @param {Object} [customFlags] Custom flags for the event
 	     */
 	    logPurchase: function logPurchase(transactionAttributes, product, clearCart, attrs, customFlags) {
+	      if (!mParticle$1.Store.isInitialized) {
+	        mParticle$1.ready(function () {
+	          mParticle$1.eCommerce.logPurchase(transactionAttributes, product, clearCart, attrs, customFlags);
+	        });
+	        return;
+	      }
+
 	      if (!transactionAttributes || !product) {
 	        mParticle$1.Logger.error(Messages$8.ErrorMessages.BadLogPurchase);
 	        return;
@@ -9144,6 +9191,13 @@ var mParticle = (function () {
 	     * @param {Object} [customFlags] Custom flags for the event
 	     */
 	    logPromotion: function logPromotion(type, promotion, attrs, customFlags) {
+	      if (!mParticle$1.Store.isInitialized) {
+	        mParticle$1.ready(function () {
+	          mParticle$1.eCommerce.logPromotion(type, promotion, attrs, customFlags);
+	        });
+	        return;
+	      }
+
 	      SessionManager.resetSessionTimer();
 	      Events.logPromotionEvent(type, promotion, attrs, customFlags);
 	    },
@@ -9157,6 +9211,13 @@ var mParticle = (function () {
 	     * @param {Object} [customFlags] Custom flags for the event
 	     */
 	    logImpression: function logImpression(impression, attrs, customFlags) {
+	      if (!mParticle$1.Store.isInitialized) {
+	        mParticle$1.ready(function () {
+	          mParticle$1.eCommerce.logImpression(impression, attrs, customFlags);
+	        });
+	        return;
+	      }
+
 	      SessionManager.resetSessionTimer();
 	      Events.logImpressionEvent(impression, attrs, customFlags);
 	    },
@@ -9172,6 +9233,13 @@ var mParticle = (function () {
 	     * @param {Object} [customFlags] Custom flags for the event
 	     */
 	    logRefund: function logRefund(transactionAttributes, product, clearCart, attrs, customFlags) {
+	      if (!mParticle$1.Store.isInitialized) {
+	        mParticle$1.ready(function () {
+	          mParticle$1.eCommerce.logRefund(transactionAttributes, product, clearCart, attrs, customFlags);
+	        });
+	        return;
+	      }
+
 	      SessionManager.resetSessionTimer();
 	      Events.logRefundEvent(transactionAttributes, product, attrs, customFlags);
 
@@ -9180,7 +9248,6 @@ var mParticle = (function () {
 	      }
 	    },
 	    expandCommerceEvent: function expandCommerceEvent(event) {
-	      SessionManager.resetSessionTimer();
 	      return Ecommerce.expandCommerceEvent(event);
 	    }
 	  },
@@ -9193,9 +9260,15 @@ var mParticle = (function () {
 	   * @param {String or Number} value value for session attribute
 	   */
 	  setSessionAttribute: function setSessionAttribute(key, value) {
-	    SessionManager.resetSessionTimer(); // Logs to cookie
+	    // Logs to cookie
 	    // And logs to in-memory object
 	    // Example: mParticle.setSessionAttribute('location', '33431');
+	    if (!mParticle$1.Store.isInitialized) {
+	      mParticle$1.ready(function () {
+	        mParticle$1.setSessionAttribute(key, value);
+	      });
+	      return;
+	    }
 
 	    if (Helpers.canLog()) {
 	      if (!Validators$4.isValidAttributeValue(value)) {
@@ -9234,6 +9307,13 @@ var mParticle = (function () {
 	   * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
 	   */
 	  setOptOut: function setOptOut(isOptingOut) {
+	    if (!mParticle$1.Store.isInitialized) {
+	      mParticle$1.ready(function () {
+	        mParticle$1.setOptOut(isOptingOut);
+	      });
+	      return;
+	    }
+
 	    SessionManager.resetSessionTimer();
 	    mParticle$1.Store.isEnabled = !isOptingOut;
 	    Events.logOptOut();
@@ -9267,6 +9347,13 @@ var mParticle = (function () {
 	   * also pass a null or empty map here to remove all of the attributes.
 	   */
 	  setIntegrationAttribute: function setIntegrationAttribute(integrationId, attrs) {
+	    if (!mParticle$1.Store.isInitialized) {
+	      mParticle$1.ready(function () {
+	        mParticle$1.setIntegrationAttribute(integrationId, attrs);
+	      });
+	      return;
+	    }
+
 	    if (typeof integrationId !== 'number') {
 	      mParticle$1.Logger.error('integrationId must be a number');
 	      return;
@@ -9336,7 +9423,30 @@ var mParticle = (function () {
 	};
 
 	function completeSDKInitialization(apiKey, config) {
+	  mParticle$1.Store.storageName = Helpers.createMainStorageName(config.workspaceToken);
+	  mParticle$1.Store.prodStorageName = Helpers.createProductStorageName(config.workspaceToken);
+
+	  if (config.hasOwnProperty('workspaceToken')) {
+	    mParticle$1.Store.SDKConfig.workspaceToken = config.workspaceToken;
+	  } else {
+	    mParticle$1.Logger.warning('You should have a workspaceToken on your mParticle.config object for security purposes.');
+	  }
+
+	  if (config.hasOwnProperty('requiredWebviewBridgeName')) {
+	    mParticle$1.Store.SDKConfig.requiredWebviewBridgeName = config.requiredWebviewBridgeName;
+	  } else if (config.hasOwnProperty('workspaceToken')) {
+	    mParticle$1.Store.SDKConfig.requiredWebviewBridgeName = config.workspaceToken;
+	  }
+
+	  mParticle$1.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle$1.Store.SDKConfig.requiredWebviewBridgeName, mParticle$1.Store.SDKConfig.minWebviewBridgeVersion);
 	  mParticle$1.Store.configurationLoaded = true;
+
+	  if (!mParticle$1.Store.webviewBridgeEnabled) {
+	    // Migrate any cookies from previous versions to current cookie version
+	    Migrations.migrate(); // Load any settings/identities/attributes from cookie or localStorage
+
+	    Persistence.initializeStorage();
+	  }
 
 	  if (mParticle$1.Store.webviewBridgeEnabled) {
 	    NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute, JSON.stringify({
@@ -9414,8 +9524,9 @@ var mParticle = (function () {
 
 	    mParticle$1.sessionManager.initialize();
 	    Events.logAST();
-	  } // Call any functions that are waiting for the library to be initialized
+	  }
 
+	  mParticle$1.Store.isInitialized = true; // Call any functions that are waiting for the library to be initialized
 
 	  if (mParticle$1.preInit.readyQueue && mParticle$1.preInit.readyQueue.length) {
 	    mParticle$1.preInit.readyQueue.forEach(function (readyQueueItem) {
@@ -9427,8 +9538,6 @@ var mParticle = (function () {
 	    });
 	    mParticle$1.preInit.readyQueue = [];
 	  }
-
-	  mParticle$1.Store.isInitialized = true;
 
 	  if (mParticle$1.Store.isFirstRun) {
 	    mParticle$1.Store.isFirstRun = false;
@@ -9442,14 +9551,6 @@ var mParticle = (function () {
 	  mParticle$1.Logger.verbose(Messages$8.InformationMessages.StartingInitialization); //check to see if localStorage is available for migrating purposes
 
 	  mParticle$1.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(window.localStorage);
-	  mParticle$1.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(mParticle$1.Store.SDKConfig.requiredWebviewBridgeName, mParticle$1.Store.SDKConfig.minWebviewBridgeVersion);
-
-	  if (!mParticle$1.Store.webviewBridgeEnabled) {
-	    // Migrate any cookies from previous versions to current cookie version
-	    Migrations.migrate(); // Load any settings/identities/attributes from cookie or localStorage
-
-	    Persistence.initializeStorage();
-	  }
 	}
 
 	function processPreloadedItem(readyQueueItem) {
