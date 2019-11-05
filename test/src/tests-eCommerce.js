@@ -1,4 +1,5 @@
 import TestsCore from './tests-core';
+import sinon from 'sinon';
 
 var apiKey = TestsCore.apiKey,
     testMPID = TestsCore.testMPID,
@@ -1205,5 +1206,52 @@ describe('eCommerce', function() {
         event.flags.interactionEvent[0].should.equal('true');
 
         done();
+    });
+    describe('Cart', function() {
+        afterEach(function() {
+            sinon.restore();
+        });
+        it('should deprecate add', function() {
+            var bond = sinon.spy(mParticle.Logger, 'warning');
+
+            var product = mParticle.eCommerce.createProduct(
+                'iPhone',
+                '12345',
+                400
+            );
+
+            mParticle.eCommerce.Cart.add(product, true);
+
+            bond.called.should.eql(true);
+            bond.getCalls()[0].args[0].should.eql(
+                'Deprecated function eCommerce.Cart.add() will be removed in future releases'
+            );
+        });
+        it('should deprecate remove', function() {
+            var bond = sinon.spy(mParticle.Logger, 'warning');
+
+            var product = mParticle.eCommerce.createProduct(
+                'iPhone',
+                '12345',
+                400
+            );
+
+            mParticle.eCommerce.Cart.remove(product, true);
+
+            bond.called.should.eql(true);
+            bond.getCalls()[0].args[0].should.eql(
+                'Deprecated function eCommerce.Cart.remove() will be removed in future releases'
+            );
+        });
+        it('should deprecate clear', function() {
+            var bond = sinon.spy(mParticle.Logger, 'warning');
+
+            mParticle.eCommerce.Cart.clear();
+
+            bond.called.should.eql(true);
+            bond.getCalls()[0].args[0].should.eql(
+                'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
+            );
+        });
     });
 });

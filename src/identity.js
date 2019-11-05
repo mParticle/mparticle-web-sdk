@@ -1156,16 +1156,24 @@ function mParticleUser(mpid, isLoggedIn) {
  * Invoke these methods on the mParticle.Identity.getCurrentUser().getCart() object.
  * Example: mParticle.Identity.getCurrentUser().getCart().add(...);
  * @class mParticle.Identity.getCurrentUser().getCart()
+ * @deprecated
  */
 function mParticleUserCart(mpid) {
+    mParticle.Logger.warning(
+        'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
+    );
     return {
         /**
          * Adds a cart product to the user cart
          * @method add
          * @param {Object} product the product
          * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+         * @deprecated
          */
         add: function(product, logEvent) {
+            mParticle.Logger.warning(
+                'Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases'
+            );
             var allProducts, userProducts, arrayCopy;
 
             arrayCopy = Array.isArray(product) ? product.slice() : [product];
@@ -1223,8 +1231,12 @@ function mParticleUserCart(mpid) {
          * @method remove
          * @param {Object} product the product
          * @param {Boolean} [logEvent] a boolean to log adding of the cart object. If blank, no logging occurs.
+         * @deprecated
          */
         remove: function(product, logEvent) {
+            mParticle.Logger.warning(
+                'Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases'
+            );
             var allProducts,
                 userProducts,
                 cartIndex = -1,
@@ -1273,8 +1285,13 @@ function mParticleUserCart(mpid) {
         /**
          * Clears the user's cart
          * @method clear
+         * @deprecated
          */
         clear: function() {
+            mParticle.Logger.warning(
+                'Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases'
+            );
+
             var allProducts;
 
             if (mParticle.Store.webviewBridgeEnabled) {
@@ -1298,8 +1315,12 @@ function mParticleUserCart(mpid) {
          * Returns all cart products
          * @method getCartProducts
          * @return {Array} array of cart products
+         * @deprecated
          */
         getCartProducts: function() {
+            mParticle.Logger.warning(
+                'Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases'
+            );
             return Persistence.getCartProducts(mpid);
         },
     };

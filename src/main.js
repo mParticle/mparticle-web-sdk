@@ -468,8 +468,12 @@ var mParticle = {
              * @method add
              * @param {Object} product The product you want to add to the cart
              * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
+             * @deprecated
              */
             add: function(product, logEventBoolean) {
+                mParticle.Logger.warning(
+                    'Deprecated function eCommerce.Cart.add() will be removed in future releases'
+                );
                 var mpid,
                     currentUser = mParticle.Identity.getCurrentUser();
                 if (currentUser) {
@@ -482,8 +486,12 @@ var mParticle = {
              * @method remove
              * @param {Object} product The product you want to add to the cart
              * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
+             * @deprecated
              */
             remove: function(product, logEventBoolean) {
+                mParticle.Logger.warning(
+                    'Deprecated function eCommerce.Cart.remove() will be removed in future releases'
+                );
                 var mpid,
                     currentUser = mParticle.Identity.getCurrentUser();
                 if (currentUser) {
@@ -494,8 +502,12 @@ var mParticle = {
             /**
              * Clears the cart
              * @method clear
+             * @deprecated
              */
             clear: function() {
+                mParticle.Logger.warning(
+                    'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
+                );
                 var mpid,
                     currentUser = mParticle.Identity.getCurrentUser();
                 if (currentUser) {

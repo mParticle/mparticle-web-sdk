@@ -3022,4 +3022,81 @@ describe('identity', function() {
 
         done();
     });
+
+    describe('Deprecate Cart', function() {
+        afterEach(function() {
+            sinon.restore();
+        });
+        it("should deprecate the user's cart", function() {
+            var bond = sinon.spy(mParticle.Logger, 'warning');
+
+            mParticle.Identity.getCurrentUser().getCart();
+
+            bond.called.should.eql(true);
+            bond.getCalls()[0].args[0].should.eql(
+                'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
+            );
+        });
+        it('should deprecate add', function() {
+            var bond = sinon.spy(mParticle.Logger, 'warning');
+
+            var product = mParticle.eCommerce.createProduct(
+                'iPhone',
+                '12345',
+                400
+            );
+
+            mParticle.Identity.getCurrentUser()
+                .getCart()
+                .add(product, true);
+
+            bond.called.should.eql(true);
+            bond.getCalls()[1].args[0].should.eql(
+                'Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases'
+            );
+        });
+        it('should deprecate remove', function() {
+            var bond = sinon.spy(mParticle.Logger, 'warning');
+
+            var product = mParticle.eCommerce.createProduct(
+                'iPhone',
+                '12345',
+                400
+            );
+
+            mParticle.Identity.getCurrentUser()
+                .getCart()
+                .remove(product, true);
+
+            bond.called.should.eql(true);
+            bond.getCalls()[1].args[0].should.eql(
+                'Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases'
+            );
+        });
+        it('should deprecate clear', function() {
+            var bond = sinon.spy(mParticle.Logger, 'warning');
+
+            mParticle.Identity.getCurrentUser()
+                .getCart()
+                .clear();
+
+            bond.called.should.eql(true);
+            bond.getCalls()[1].args[0].should.eql(
+                'Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases'
+            );
+        });
+
+        it('should deprecate getCartProducts', function() {
+            var bond = sinon.spy(mParticle.Logger, 'warning');
+
+            mParticle.Identity.getCurrentUser()
+                .getCart()
+                .getCartProducts();
+
+            bond.called.should.eql(true);
+            bond.getCalls()[1].args[0].should.eql(
+                'Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases'
+            );
+        });
+    });
 });
