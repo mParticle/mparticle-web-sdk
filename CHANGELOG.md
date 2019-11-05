@@ -2,6 +2,11 @@
 
 --
 
+#### 2.9.15 - 2019-11-06
+
+-   Deprecate Cart - The mParticle functionality will be removed in a future release, please 
+-   Bugfix - Self hosting namespaces storage with workspaceToken again
+
 #### 2.9.14 - 2019-10-31
 
 -   Remove mparticle.js from root
