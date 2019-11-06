@@ -657,7 +657,7 @@ var mParticle = (function () {
 	};
 
 	var Constants = {
-	  sdkVersion: '2.9.15',
+	  sdkVersion: '2.9.16',
 	  sdkVendor: 'mparticle',
 	  platform: 'web',
 	  Messages: {
@@ -5473,11 +5473,13 @@ var mParticle = (function () {
 	function shouldEnableBatching() {
 	  if (!window.fetch) {
 	    return false;
-	  }
+	  } // Returns a string of a number that must be parsed
+	  // Invalid strings will be parsed to NaN which is falsey
 
-	  var eventsV3Percentage = Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3);
 
-	  if (!eventsV3Percentage || !Helpers.Validators.isNumber(eventsV3Percentage)) {
+	  var eventsV3Percentage = parseInt(Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3), 10);
+
+	  if (!eventsV3Percentage) {
 	    return false;
 	  }
 
