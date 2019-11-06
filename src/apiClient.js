@@ -25,15 +25,18 @@ function shouldEnableBatching() {
     if (!window.fetch) {
         return false;
     }
-    var eventsV3Percentage = Helpers.getFeatureFlag(
-        Constants.FeatureFlags.EventsV3
+
+    // Returns a string of a number that must be parsed
+    // Invalid strings will be parsed to NaN which is falsey
+    var eventsV3Percentage = parseInt(
+        Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3),
+        10
     );
-    if (
-        !eventsV3Percentage ||
-        !Helpers.Validators.isNumber(eventsV3Percentage)
-    ) {
+
+    if (!eventsV3Percentage) {
         return false;
     }
+
     var rampNumber = Helpers.getRampNumber(mParticle.Store.deviceId);
     return eventsV3Percentage >= rampNumber;
 }

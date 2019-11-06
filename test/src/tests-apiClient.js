@@ -120,4 +120,16 @@ describe('Api Client', function() {
 
         done();
     });
+
+    it('should return true when events v3 endpoing is "100"', function(done) {
+        mParticle.Store.SDKConfig.flags = {
+            eventBatchingIntervalMillis: '0',
+            eventsV3: '100',
+        };
+        var batchingEnabled = ApiClient.shouldEnableBatching();
+
+        batchingEnabled.should.equal(true);
+
+        done();
+    });
 });
