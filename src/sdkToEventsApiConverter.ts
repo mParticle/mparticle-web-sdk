@@ -6,14 +6,15 @@ import {
     SDKPromotion,
     SDKUserIdentity,
     SDKProductActionType,
+    MParticleWebSDK,
 } from './sdkRuntimeModels';
 import * as EventsApi from './eventsApiModels';
 import Types from './types';
-import Helpers from './helpers';
 
 export function convertEvents(
     mpid: string,
-    sdkEvents: SDKEvent[]
+    sdkEvents: SDKEvent[],
+    mpInstance: MParticleWebSDK
 ): EventsApi.Batch | null {
     if (!mpid) {
         return null;
@@ -39,7 +40,7 @@ export function convertEvents(
     }
 
     const upload: EventsApi.Batch = {
-        source_request_id: Helpers.generateUniqueId(),
+        source_request_id: mpInstance._Helpers.generateUniqueId(),
         mpid,
         timestamp_unixtime_ms: new Date().getTime(),
         environment: lastEvent.Debug ? 'development' : 'production',

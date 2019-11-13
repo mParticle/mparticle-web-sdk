@@ -1,7 +1,4 @@
 import Constants from './constants';
-import Helpers from './helpers';
-
-var Validators = Helpers.Validators;
 
 function createSDKConfig(config) {
     var sdkConfig = {};
@@ -26,7 +23,7 @@ function createSDKConfig(config) {
     return sdkConfig;
 }
 
-export default function Store(config, logger) {
+export default function Store(config, mpInstance) {
     var defaultStore = {
         isEnabled: true,
         sessionAttributes: {},
@@ -78,7 +75,7 @@ export default function Store(config, logger) {
     // Set configuration to default settings
     if (config) {
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = Helpers.returnConvertedBoolean(
+            this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
                 config.isDevelopmentMode
             );
         } else {
@@ -129,7 +126,10 @@ export default function Store(config, logger) {
         if (config.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = config.isIOS;
         } else {
-            this.SDKConfig.isIOS = mParticle.isIOS || false;
+            this.SDKConfig.isIOS =
+                window.mParticle && window.mParticle.isIOS
+                    ? window.mParticle.isIOS
+                    : false;
         }
 
         if (config.hasOwnProperty('useCookieStorage')) {
@@ -169,10 +169,10 @@ export default function Store(config, logger) {
 
         if (config.hasOwnProperty('identityCallback')) {
             var callback = config.identityCallback;
-            if (Validators.isFunction(callback)) {
+            if (mpInstance._Helpers.Validators.isFunction(callback)) {
                 this.SDKConfig.identityCallback = config.identityCallback;
             } else {
-                logger.warning(
+                mpInstance.Logger.warning(
                     'The optional callback must be a function. You tried entering a(n) ' +
                         typeof callback,
                     ' . Callback not set. Please set your callback again.'

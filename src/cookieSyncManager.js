@@ -1,44 +1,37 @@
 import Constants from './constants';
-import Persistence from './persistence';
 
 var Messages = Constants.Messages;
 
-var cookieSyncManager = {
-    attemptCookieSync: function(previousMPID, mpid) {
+export default function cookieSyncManager(mpInstance) {
+    var self = this;
+    this.attemptCookieSync = function(previousMPID, mpid) {
         var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
-        if (mpid && !mParticle.Store.webviewBridgeEnabled) {
-            mParticle.Store.pixelConfigurations.forEach(function(
+        if (mpid && !mpInstance._Store.webviewBridgeEnabled) {
+            mpInstance._Store.pixelConfigurations.forEach(function(
                 pixelSettings
             ) {
                 pixelConfig = {
                     moduleId: pixelSettings.moduleId,
                     frequencyCap: pixelSettings.frequencyCap,
-                    pixelUrl: cookieSyncManager.replaceAmp(
-                        pixelSettings.pixelUrl
-                    ),
+                    pixelUrl: self.replaceAmp(pixelSettings.pixelUrl),
                     redirectUrl: pixelSettings.redirectUrl
-                        ? cookieSyncManager.replaceAmp(
-                              pixelSettings.redirectUrl
-                          )
+                        ? self.replaceAmp(pixelSettings.redirectUrl)
                         : null,
                 };
 
-                url = cookieSyncManager.replaceMPID(pixelConfig.pixelUrl, mpid);
+                url = self.replaceMPID(pixelConfig.pixelUrl, mpid);
                 redirect = pixelConfig.redirectUrl
-                    ? cookieSyncManager.replaceMPID(
-                          pixelConfig.redirectUrl,
-                          mpid
-                      )
+                    ? self.replaceMPID(pixelConfig.redirectUrl, mpid)
                     : '';
                 urlWithRedirect = url + encodeURIComponent(redirect);
-                var cookies = Persistence.getPersistence();
+                var cookies = mpInstance._Persistence.getPersistence();
 
                 if (previousMPID && previousMPID !== mpid) {
                     if (cookies && cookies[mpid]) {
                         if (!cookies[mpid].csd) {
                             cookies[mpid].csd = {};
                         }
-                        performCookieSync(
+                        self.performCookieSync(
                             urlWithRedirect,
                             pixelConfig.moduleId,
                             mpid,
@@ -68,7 +61,7 @@ var cookieSyncManager = {
                                         60 *
                                         24
                             ) {
-                                performCookieSync(
+                                self.performCookieSync(
                                     urlWithRedirect,
                                     pixelConfig.moduleId,
                                     mpid,
@@ -76,7 +69,7 @@ var cookieSyncManager = {
                                 );
                             }
                         } else {
-                            performCookieSync(
+                            self.performCookieSync(
                                 urlWithRedirect,
                                 pixelConfig.moduleId,
                                 mpid,
@@ -87,25 +80,26 @@ var cookieSyncManager = {
                 }
             });
         }
-    },
+    };
 
-    replaceMPID: function(string, mpid) {
+    this.replaceMPID = function(string, mpid) {
         return string.replace('%%mpid%%', mpid);
-    },
+    };
 
-    replaceAmp: function(string) {
+    this.replaceAmp = function(string) {
         return string.replace(/&amp;/g, '&');
-    },
-};
+    };
 
-function performCookieSync(url, moduleId, mpid, cookieSyncDates) {
-    var img = document.createElement('img');
+    this.performCookieSync = function(url, moduleId, mpid, cookieSyncDates) {
+        var img = document.createElement('img');
 
-    mParticle.Logger.verbose(Messages.InformationMessages.CookieSync);
+        mpInstance.Logger.verbose(Messages.InformationMessages.CookieSync);
 
-    img.src = url;
-    cookieSyncDates[moduleId.toString()] = new Date().getTime();
-    Persistence.saveUserCookieSyncDatesToCookies(mpid, cookieSyncDates);
+        img.src = url;
+        cookieSyncDates[moduleId.toString()] = new Date().getTime();
+        mpInstance._Persistence.saveUserCookieSyncDatesToCookies(
+            mpid,
+            cookieSyncDates
+        );
+    };
 }
-
-export default cookieSyncManager;

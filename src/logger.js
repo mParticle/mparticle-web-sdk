@@ -1,4 +1,5 @@
 function Logger(config) {
+    var self = this;
     var logLevel = config.logLevel || 'warning';
     if (config.hasOwnProperty('logger')) {
         this.logger = config.logger;
@@ -8,8 +9,8 @@ function Logger(config) {
 
     this.verbose = function(msg) {
         if (logLevel !== 'none') {
-            if (this.logger.verbose && logLevel === 'verbose') {
-                this.logger.verbose(msg);
+            if (self.logger.verbose && logLevel === 'verbose') {
+                self.logger.verbose(msg);
             }
         }
     };
@@ -17,18 +18,18 @@ function Logger(config) {
     this.warning = function(msg) {
         if (logLevel !== 'none') {
             if (
-                this.logger.warning &&
+                self.logger.warning &&
                 (logLevel === 'verbose' || logLevel === 'warning')
             ) {
-                this.logger.warning(msg);
+                self.logger.warning(msg);
             }
         }
     };
 
     this.error = function(msg) {
         if (logLevel !== 'none') {
-            if (this.logger.error) {
-                this.logger.error(msg);
+            if (self.logger.error) {
+                self.logger.error(msg);
             }
         }
     };

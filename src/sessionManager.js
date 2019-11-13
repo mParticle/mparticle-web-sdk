@@ -1,184 +1,192 @@
-import Helpers from './helpers';
 import Constants from './constants';
 import Types from './types';
-import Identity from './identity';
-import Persistence from './persistence';
-import Events from './events';
 
-var IdentityAPI = Identity.IdentityAPI,
-    Messages = Constants.Messages,
-    logEvent = Events.logEvent;
+var Messages = Constants.Messages;
 
-function initialize() {
-    if (mParticle.Store.sessionId) {
-        var sessionTimeoutInMilliseconds =
-            mParticle.Store.SDKConfig.sessionTimeout * 60000;
+function SessionManager(mpInstance) {
+    var self = this;
+    this.initialize = function() {
+        if (mpInstance._Store.sessionId) {
+            var sessionTimeoutInMilliseconds =
+                mpInstance._Store.SDKConfig.sessionTimeout * 60000;
 
-        if (
-            new Date() >
-            new Date(
-                mParticle.Store.dateLastEventSent.getTime() +
-                    sessionTimeoutInMilliseconds
-            )
-        ) {
-            endSession();
-            startNewSession();
+            if (
+                new Date() >
+                new Date(
+                    mpInstance._Store.dateLastEventSent.getTime() +
+                        sessionTimeoutInMilliseconds
+                )
+            ) {
+                self.endSession();
+                self.startNewSession();
+            } else {
+                var cookies = mpInstance._Persistence.getPersistence();
+                if (cookies && !cookies.cu) {
+                    mpInstance.Identity.identify(
+                        mpInstance._Store.SDKConfig.identifyRequest,
+                        mpInstance._Store.SDKConfig.identityCallback
+                    );
+                    mpInstance._Store.identifyCalled = true;
+                    mpInstance._Store.SDKConfig.identityCallback = null;
+                }
+            }
         } else {
-            var cookies = Persistence.getPersistence();
-            if (cookies && !cookies.cu) {
-                IdentityAPI.identify(
-                    mParticle.Store.SDKConfig.identifyRequest,
-                    mParticle.Store.SDKConfig.identityCallback
+            self.startNewSession();
+        }
+    };
+
+    this.getSession = function() {
+        return mpInstance._Store.sessionId;
+    };
+
+    this.startNewSession = function() {
+        mpInstance.Logger.verbose(
+            Messages.InformationMessages.StartingNewSession
+        );
+
+        if (mpInstance._Helpers.canLog()) {
+            mpInstance._Store.sessionId = mpInstance._Helpers
+                .generateUniqueId()
+                .toUpperCase();
+            var currentUser = mpInstance.Identity.getCurrentUser(),
+                mpid = currentUser ? currentUser.getMPID() : null;
+            if (mpid) {
+                mpInstance._Store.currentSessionMPIDs = [mpid];
+            }
+
+            if (!mpInstance._Store.sessionStartDate) {
+                var date = new Date();
+                mpInstance._Store.sessionStartDate = date;
+                mpInstance._Store.dateLastEventSent = date;
+            }
+
+            self.setSessionTimer();
+
+            if (!mpInstance._Store.identifyCalled) {
+                mpInstance.Identity.identify(
+                    mpInstance._Store.SDKConfig.identifyRequest,
+                    mpInstance._Store.SDKConfig.identityCallback
                 );
-                mParticle.Store.identifyCalled = true;
-                mParticle.Store.SDKConfig.identityCallback = null;
+                mpInstance._Store.identifyCalled = true;
+                mpInstance._Store.SDKConfig.identityCallback = null;
             }
-        }
-    } else {
-        startNewSession();
-    }
-}
 
-function getSession() {
-    return mParticle.Store.sessionId;
-}
-
-function startNewSession() {
-    mParticle.Logger.verbose(Messages.InformationMessages.StartingNewSession);
-
-    if (Helpers.canLog()) {
-        mParticle.Store.sessionId = Helpers.generateUniqueId().toUpperCase();
-        var currentUser = mParticle.Identity.getCurrentUser(),
-            mpid = currentUser ? currentUser.getMPID() : null;
-        if (mpid) {
-            mParticle.Store.currentSessionMPIDs = [mpid];
-        }
-
-        if (!mParticle.Store.sessionStartDate) {
-            var date = new Date();
-            mParticle.Store.sessionStartDate = date;
-            mParticle.Store.dateLastEventSent = date;
-        }
-
-        setSessionTimer();
-
-        if (!mParticle.Store.identifyCalled) {
-            IdentityAPI.identify(
-                mParticle.Store.SDKConfig.identifyRequest,
-                mParticle.Store.SDKConfig.identityCallback
+            mpInstance._Events.logEvent({
+                messageType: Types.MessageType.SessionStart,
+            });
+        } else {
+            mpInstance.Logger.verbose(
+                Messages.InformationMessages.AbandonStartSession
             );
-            mParticle.Store.identifyCalled = true;
-            mParticle.Store.SDKConfig.identityCallback = null;
         }
+    };
 
-        logEvent({ messageType: Types.MessageType.SessionStart });
-    } else {
-        mParticle.Logger.verbose(
-            Messages.InformationMessages.AbandonStartSession
+    this.endSession = function(override) {
+        mpInstance.Logger.verbose(
+            Messages.InformationMessages.StartingEndSession
         );
-    }
-}
 
-function endSession(override) {
-    mParticle.Logger.verbose(Messages.InformationMessages.StartingEndSession);
+        if (override) {
+            mpInstance._Events.logEvent({
+                messageType: Types.MessageType.SessionEnd,
+            });
 
-    if (override) {
-        logEvent({ messageType: Types.MessageType.SessionEnd });
+            mpInstance._Store.sessionId = null;
+            mpInstance._Store.dateLastEventSent = null;
+            mpInstance._Store.sessionAttributes = {};
+            mpInstance._Persistence.update();
+        } else if (mpInstance._Helpers.canLog()) {
+            var sessionTimeoutInMilliseconds, cookies, timeSinceLastEventSent;
 
-        mParticle.Store.sessionId = null;
-        mParticle.Store.dateLastEventSent = null;
-        mParticle.Store.sessionAttributes = {};
-        Persistence.update();
-    } else if (Helpers.canLog()) {
-        var sessionTimeoutInMilliseconds, cookies, timeSinceLastEventSent;
+            cookies =
+                mpInstance._Persistence.getCookie() ||
+                mpInstance._Persistence.getLocalStorage();
 
-        cookies = Persistence.getCookie() || Persistence.getLocalStorage();
+            if (!cookies) {
+                return;
+            }
 
-        if (!cookies) {
-            return;
-        }
+            if (cookies.gs && !cookies.gs.sid) {
+                mpInstance.Logger.verbose(
+                    Messages.InformationMessages.NoSessionToEnd
+                );
+                return;
+            }
 
-        if (cookies.gs && !cookies.gs.sid) {
-            mParticle.Logger.verbose(
-                Messages.InformationMessages.NoSessionToEnd
+            // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
+            if (
+                cookies.gs.sid &&
+                mpInstance._Store.sessionId !== cookies.gs.sid
+            ) {
+                mpInstance._Store.sessionId = cookies.gs.sid;
+            }
+
+            if (cookies.gs && cookies.gs.les) {
+                sessionTimeoutInMilliseconds =
+                    mpInstance._Store.SDKConfig.sessionTimeout * 60000;
+                var newDate = new Date().getTime();
+                timeSinceLastEventSent = newDate - cookies.gs.les;
+
+                if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
+                    self.setSessionTimer();
+                } else {
+                    mpInstance._Events.logEvent({
+                        messageType: Types.MessageType.SessionEnd,
+                    });
+
+                    mpInstance._Store.sessionId = null;
+                    mpInstance._Store.dateLastEventSent = null;
+                    mpInstance._Store.sessionStartDate = null;
+                    mpInstance._Store.sessionAttributes = {};
+                    mpInstance._Persistence.update();
+                }
+            }
+        } else {
+            mpInstance.Logger.verbose(
+                Messages.InformationMessages.AbandonEndSession
             );
-            return;
         }
+    };
 
-        // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
-        if (cookies.gs.sid && mParticle.Store.sessionId !== cookies.gs.sid) {
-            mParticle.Store.sessionId = cookies.gs.sid;
+    this.setSessionTimer = function() {
+        var sessionTimeoutInMilliseconds =
+            mpInstance._Store.SDKConfig.sessionTimeout * 60000;
+
+        mpInstance._Store.globalTimer = window.setTimeout(function() {
+            self.endSession();
+        }, sessionTimeoutInMilliseconds);
+    };
+
+    this.resetSessionTimer = function() {
+        if (!mpInstance._Store.webviewBridgeEnabled) {
+            if (!mpInstance._Store.sessionId) {
+                self.startNewSession();
+            }
+            self.clearSessionTimeout();
+            self.setSessionTimer();
         }
+        self.startNewSessionIfNeeded();
+    };
 
-        if (cookies.gs && cookies.gs.les) {
-            sessionTimeoutInMilliseconds =
-                mParticle.Store.SDKConfig.sessionTimeout * 60000;
-            var newDate = new Date().getTime();
-            timeSinceLastEventSent = newDate - cookies.gs.les;
+    this.clearSessionTimeout = function() {
+        clearTimeout(mpInstance._Store.globalTimer);
+    };
 
-            if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
-                setSessionTimer();
-            } else {
-                logEvent({ messageType: Types.MessageType.SessionEnd });
+    this.startNewSessionIfNeeded = function() {
+        if (!mpInstance._Store.webviewBridgeEnabled) {
+            var cookies =
+                mpInstance._Persistence.getCookie() ||
+                mpInstance._Persistence.getLocalStorage();
 
-                mParticle.Store.sessionId = null;
-                mParticle.Store.dateLastEventSent = null;
-                mParticle.Store.sessionStartDate = null;
-                mParticle.Store.sessionAttributes = {};
-                Persistence.update();
+            if (!mpInstance._Store.sessionId && cookies) {
+                if (cookies.sid) {
+                    mpInstance._Store.sessionId = cookies.sid;
+                } else {
+                    self.startNewSession();
+                }
             }
         }
-    } else {
-        mParticle.Logger.verbose(
-            Messages.InformationMessages.AbandonEndSession
-        );
-    }
+    };
 }
 
-function setSessionTimer() {
-    var sessionTimeoutInMilliseconds =
-        mParticle.Store.SDKConfig.sessionTimeout * 60000;
-
-    mParticle.Store.globalTimer = window.setTimeout(function() {
-        endSession();
-    }, sessionTimeoutInMilliseconds);
-}
-
-function resetSessionTimer() {
-    if (!mParticle.Store.webviewBridgeEnabled) {
-        if (!mParticle.Store.sessionId) {
-            startNewSession();
-        }
-        clearSessionTimeout();
-        setSessionTimer();
-    }
-    startNewSessionIfNeeded();
-}
-
-function clearSessionTimeout() {
-    clearTimeout(mParticle.Store.globalTimer);
-}
-
-function startNewSessionIfNeeded() {
-    if (!mParticle.Store.webviewBridgeEnabled) {
-        var cookies = Persistence.getCookie() || Persistence.getLocalStorage();
-
-        if (!mParticle.Store.sessionId && cookies) {
-            if (cookies.sid) {
-                mParticle.Store.sessionId = cookies.sid;
-            } else {
-                startNewSession();
-            }
-        }
-    }
-}
-
-export default {
-    initialize: initialize,
-    getSession: getSession,
-    startNewSession: startNewSession,
-    endSession: endSession,
-    setSessionTimer: setSessionTimer,
-    resetSessionTimer: resetSessionTimer,
-    clearSessionTimeout: clearSessionTimeout,
-};
+export default SessionManager;

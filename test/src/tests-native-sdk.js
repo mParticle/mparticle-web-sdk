@@ -1,5 +1,4 @@
 import TestsCore from './tests-core';
-import NativeSdkHelpers from '../../src/nativeSdkHelpers';
 import Constants from '../../src/constants';
 
 var apiKey = TestsCore.apiKey,
@@ -34,53 +33,60 @@ describe('native-sdk methods', function() {
         });
 
         it('isBridgeV2Available returns false if no bridges exist on window', function(done) {
-            NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(
-                false
-            );
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
+                .should.equal(false);
 
             done();
         });
 
         it('isBridgeV2Available returns true if iOS bridge messageHandler bridge exists on window', function(done) {
-            NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(
-                false
-            );
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
+                .should.equal(false);
             window.webkit = {
                 messageHandlers: {
                     mParticle_bridgeName_v2: { postMessage: null },
                 },
             };
 
-            NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(
-                true
-            );
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
+                .should.equal(true);
             delete window.webkit;
 
             done();
         });
 
         it('isBridgeV2Available returns true if iOS bridge nonMessageHandler bridge exists on window', function(done) {
-            NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(
-                false
-            );
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
+                .should.equal(false);
             window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
 
-            NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(
-                true
-            );
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
+                .should.equal(true);
             delete window.webkit;
 
             done();
         });
 
         it('isBridgeV2Available returns true if Android bridge exists on window', function(done) {
-            NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(
-                false
-            );
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
+                .should.equal(false);
             window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
-            NativeSdkHelpers.isBridgeV2Available('bridgeName').should.equal(
-                true
-            );
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isBridgeV2Available('bridgeName')
+                .should.equal(true);
             delete window.mParticleAndroid_bridgeName_v2;
 
             done();
@@ -92,10 +98,13 @@ describe('native-sdk methods', function() {
             mParticle.config.isIOS = true;
             mParticle.init(apiKey, window.mParticle.config);
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                window.mParticle.config.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    window.mParticle.config.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -108,10 +117,13 @@ describe('native-sdk methods', function() {
             // window.mParticle.config.minWebviewBridgeVersion = 2;
             window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                window.mParticle.config.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    window.mParticle.config.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -126,10 +138,13 @@ describe('native-sdk methods', function() {
             };
             mParticle.init(apiKey, window.mParticle.config);
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                window.mParticle.config.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    window.mParticle.config.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -138,10 +153,13 @@ describe('native-sdk methods', function() {
             mParticle.minWebviewBridgeVersion = 2;
             window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                mParticle.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    mParticle.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -150,10 +168,13 @@ describe('native-sdk methods', function() {
             mParticle.minWebviewBridgeVersion = 2;
             window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                mParticle.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    mParticle.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -164,10 +185,13 @@ describe('native-sdk methods', function() {
             mParticle.init(apiKey, window.mParticle.config);
             window.mParticleAndroid = new mParticleAndroid();
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                window.mParticle.config.minWebviewBridgeVersion
-            ).should.equal(false);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    window.mParticle.config.minWebviewBridgeVersion
+                )
+                .should.equal(false);
 
             done();
         });
@@ -178,10 +202,13 @@ describe('native-sdk methods', function() {
             mParticle.init(apiKey, window.mParticle.config);
             mParticle.isIOS = true;
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                window.mParticle.config.minWebviewBridgeVersion
-            ).should.equal(false);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    window.mParticle.config.minWebviewBridgeVersion
+                )
+                .should.equal(false);
 
             delete mParticle.isIOS;
 
@@ -192,10 +219,13 @@ describe('native-sdk methods', function() {
             mParticle.minWebviewBridgeVersion = 1;
             window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                mParticle.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    mParticle.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -208,10 +238,13 @@ describe('native-sdk methods', function() {
                 },
             };
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                mParticle.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    mParticle.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -220,10 +253,13 @@ describe('native-sdk methods', function() {
             mParticle.minWebviewBridgeVersion = 1;
             window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                mParticle.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    mParticle.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             delete mParticle.isIOS;
 
@@ -234,10 +270,13 @@ describe('native-sdk methods', function() {
             mParticle.minWebviewBridgeVersion = 1;
             window.mParticleAndroid_bridgeName_v2 = new mParticleAndroid();
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                mParticle.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    mParticle.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -250,10 +289,13 @@ describe('native-sdk methods', function() {
                 },
             };
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                mParticle.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    mParticle.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -262,10 +304,13 @@ describe('native-sdk methods', function() {
             mParticle.minWebviewBridgeVersion = 1;
             window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
 
-            NativeSdkHelpers.isWebviewEnabled(
-                'bridgeName',
-                mParticle.minWebviewBridgeVersion
-            ).should.equal(true);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    'bridgeName',
+                    mParticle.minWebviewBridgeVersion
+                )
+                .should.equal(true);
 
             done();
         });
@@ -275,11 +320,13 @@ describe('native-sdk methods', function() {
             mParticle.requiredWebviewBridgeName = 'nonmatching';
             window.mParticle.uiwebviewBridgeName = 'mParticle_bridgeName_v2';
             mParticle.isIOS = true;
-
-            NativeSdkHelpers.isWebviewEnabled(
-                mParticle.requiredWebviewBridgeName,
-                mParticle.minWebviewBridgeVersion
-            ).should.equal(false);
+            mParticle
+                .getInstance()
+                ._NativeSdkHelpers.isWebviewEnabled(
+                    mParticle.requiredWebviewBridgeName,
+                    mParticle.minWebviewBridgeVersion
+                )
+                .should.equal(false);
             delete mParticle.isIOS;
             done();
         });
@@ -293,12 +340,12 @@ describe('native-sdk methods', function() {
             mParticle.init(apiKey, window.mParticle.config);
         });
 
-        it('should set mParitcle.Store.SDKConfig.isIOS to true when mParticle.isIOS is true', function(done) {
+        it('should set mParitcle._Store.SDKConfig.isIOS to true when mParticle.isIOS is true', function(done) {
             mParticle.reset(MPConfig);
             mParticle.isIOS = true;
             mParticle.init(apiKey, window.mParticle.config);
 
-            mParticle.Store.SDKConfig.isIOS.should.equal(true);
+            mParticle.getInstance()._Store.SDKConfig.isIOS.should.equal(true);
 
             done();
         });
@@ -539,7 +586,11 @@ describe('native-sdk methods', function() {
             result.httpCode.should.equal(-5);
 
             var JSONData = JSON.stringify(
-                mParticle._IdentityRequest.convertToNative(identityAPIRequest)
+                mParticle
+                    .getInstance()
+                    ._Identity.IdentityRequest.convertToNative(
+                        identityAPIRequest
+                    )
             );
 
             window.mParticleAndroid.loginData.should.equal(JSONData);
@@ -793,9 +844,11 @@ describe('native-sdk methods', function() {
                 result.httpCode.should.equal(-5);
 
                 var JSONData = JSON.stringify(
-                    mParticle._IdentityRequest.convertToNative(
-                        identityAPIRequest
-                    )
+                    mParticle
+                        .getInstance()
+                        ._Identity.IdentityRequest.convertToNative(
+                            identityAPIRequest
+                        )
                 );
 
                 mParticleAndroidV2Bridge.loginData.should.equal(JSONData);
@@ -1160,9 +1213,11 @@ describe('native-sdk methods', function() {
                 };
 
                 var JSONData = JSON.stringify(
-                    mParticle._IdentityRequest.convertToNative(
-                        identityAPIRequest
-                    )
+                    mParticle
+                        .getInstance()
+                        ._Identity.IdentityRequest.convertToNative(
+                            identityAPIRequest
+                        )
                 );
 
                 mParticle.Identity.login(identityAPIRequest, callback);

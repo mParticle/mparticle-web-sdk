@@ -1,7 +1,5 @@
 import Constants from '../../src/constants';
 import TestsCore from './tests-core';
-import Helpers from '../../src/helpers';
-import Identity from '../../src/identity';
 import sinon from 'sinon';
 
 var getLocalStorage = TestsCore.getLocalStorage,
@@ -32,9 +30,7 @@ describe('identity', function() {
             includeOnMatch: true,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 1'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
                     hasConsented: true,
                 },
             ],
@@ -48,9 +44,7 @@ describe('identity', function() {
             includeOnMatch: true,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash(
-                        '1' + 'foo purpose 2'
-                    ),
+                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 2'),
                     hasConsented: true,
                 },
             ],
@@ -70,7 +64,7 @@ describe('identity', function() {
         };
         mParticle.init(apiKey, window.mParticle.config);
 
-        var activeForwarders = mParticle._getActiveForwarders();
+        var activeForwarders = mParticle.getInstance()._getActiveForwarders();
         activeForwarders.length.should.not.be.ok();
 
         var consentState = mParticle.Consent.createConsentState();
@@ -80,7 +74,7 @@ describe('identity', function() {
         );
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
-        activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders = mParticle.getInstance()._getActiveForwarders();
         activeForwarders.length.should.equal(1);
         activeForwarders[0].name.should.equal('MockForwarder1');
 
@@ -95,7 +89,7 @@ describe('identity', function() {
         };
 
         mParticle.Identity.login();
-        activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders = mParticle.getInstance()._getActiveForwarders();
         activeForwarders.length.should.not.be.ok();
 
         consentState = mParticle.Consent.createConsentState();
@@ -105,7 +99,7 @@ describe('identity', function() {
         );
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
-        activeForwarders = mParticle._getActiveForwarders();
+        activeForwarders = mParticle.getInstance()._getActiveForwarders();
         activeForwarders.length.should.equal(1);
         activeForwarders[0].name.should.equal('MockForwarder2');
 
@@ -114,9 +108,11 @@ describe('identity', function() {
 
     it('should not do an identity swap if there is no MPID change', function(done) {
         var cookiesBefore = getLocalStorage();
-        Identity.checkIdentitySwap(testMPID, testMPID);
+        mParticle.getInstance()._Identity.checkIdentitySwap(testMPID, testMPID);
 
-        var cookiesAfter = mParticle.persistence.getLocalStorage();
+        var cookiesAfter = mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage();
 
         cookiesBefore.cu.should.equal(cookiesAfter.cu);
 
@@ -126,9 +122,13 @@ describe('identity', function() {
     it('should do an identity swap if there is an MPID change', function(done) {
         var cookiesBefore = getLocalStorage();
 
-        Identity.checkIdentitySwap(testMPID, 'currentMPID');
+        mParticle
+            .getInstance()
+            ._Identity.checkIdentitySwap(testMPID, 'currentMPID');
 
-        var cookiesAfter = mParticle.persistence.getLocalStorage();
+        var cookiesAfter = mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage();
         cookiesBefore.cu.should.equal(testMPID);
 
         cookiesAfter.cu.should.equal('currentMPID');
@@ -148,18 +148,24 @@ describe('identity', function() {
         };
 
         mParticle.Identity.login();
-        var localStorageDataBeforeSessionEnd = mParticle.persistence.getLocalStorage();
+        var localStorageDataBeforeSessionEnd = mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage();
 
         localStorageDataBeforeSessionEnd.gs.csm.length.should.equal(2);
 
         mParticle.endSession();
-        var localStorageDataAfterSessionEnd1 = mParticle.persistence.getLocalStorage();
+        var localStorageDataAfterSessionEnd1 = mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage();
         localStorageDataAfterSessionEnd1.gs.should.not.have.property('csm');
 
         mParticle.logEvent('hi');
         mParticle.Identity.login();
 
-        var localStorageAfterLoggingEvent = mParticle.persistence.getLocalStorage();
+        var localStorageAfterLoggingEvent = mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage();
         localStorageAfterLoggingEvent.gs.csm.length.should.equal(1);
 
         done();
@@ -173,7 +179,7 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var cookies1 = mParticle.persistence.getLocalStorage();
+        var cookies1 = mParticle.getInstance()._Persistence.getLocalStorage();
         cookies1.cu.should.equal(testMPID);
         cookies1[testMPID].should.have.property('csd');
 
@@ -188,7 +194,9 @@ describe('identity', function() {
         };
 
         mParticle.Identity.login();
-        var cookiesAfterMPIDChange = mParticle.persistence.getLocalStorage();
+        var cookiesAfterMPIDChange = mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage();
         cookiesAfterMPIDChange.should.have.properties([
             'cu',
             'otherMPID',
@@ -343,15 +351,17 @@ describe('identity', function() {
         data.userIdentities.other3 = 'id11';
         data.userIdentities.other4 = 'id12';
 
-        var identityRequest = mParticle._IdentityRequest.createIdentityRequest(
-            data,
-            platform,
-            sdkVendor,
-            sdkVersion,
-            deviceId,
-            context,
-            testMPID
-        );
+        var identityRequest = mParticle
+            .getInstance()
+            ._Identity.IdentityRequest.createIdentityRequest(
+                data,
+                platform,
+                sdkVendor,
+                sdkVersion,
+                deviceId,
+                context,
+                testMPID
+            );
         identityRequest.should.have.properties([
             'client_sdk',
             'environment',
@@ -439,16 +449,18 @@ describe('identity', function() {
         newIdentities.other3 = 'id25';
         newIdentities.other4 = 'id26';
 
-        var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(
-            oldIdentities,
-            newIdentities,
-            platform,
-            sdkVendor,
-            sdkVersion,
-            deviceId,
-            context,
-            testMPID
-        );
+        var identityRequest = mParticle
+            .getInstance()
+            ._Identity.IdentityRequest.createModifyIdentityRequest(
+                oldIdentities,
+                newIdentities,
+                platform,
+                sdkVendor,
+                sdkVersion,
+                deviceId,
+                context,
+                testMPID
+            );
         identityRequest.should.have.properties([
             'client_sdk',
             'environment',
@@ -766,10 +778,12 @@ describe('identity', function() {
         newIdentities.other = 'new_other_id';
         newIdentities.facebook = 'new_facebook_id';
 
-        var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(
-            oldIdentities,
-            newIdentities
-        );
+        var identityRequest = mParticle
+            .getInstance()
+            ._Identity.IdentityRequest.createModifyIdentityRequest(
+                oldIdentities,
+                newIdentities
+            );
 
         identityRequest.identity_changes[0].should.have.properties([
             'identity_type',
@@ -811,10 +825,12 @@ describe('identity', function() {
         var newIdentities = {};
         newIdentities.facebook = 'new_facebook_id';
 
-        var identityRequest = mParticle._IdentityRequest.createModifyIdentityRequest(
-            oldIdentities,
-            newIdentities
-        );
+        var identityRequest = mParticle
+            .getInstance()
+            ._Identity.IdentityRequest.createModifyIdentityRequest(
+                oldIdentities,
+                newIdentities
+            );
 
         identityRequest.identity_changes[0].should.have.properties([
             'identity_type',
@@ -1098,7 +1114,9 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var localStorage = mParticle.persistence.getLocalStorage();
+        var localStorage = mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage();
 
         localStorage.user1.ua.user.should.equal('user1');
         localStorage.user1.ui.should.have.property('1', 'customerid1');
@@ -1121,10 +1139,12 @@ describe('identity', function() {
         };
         var newIdentities = { google: 'google4', twitter: 'twitter5' };
 
-        var modifiedUserIdentities = mParticle._IdentityRequest.modifyUserIdentities(
-            previousIdentities,
-            newIdentities
-        );
+        var modifiedUserIdentities = mParticle
+            .getInstance()
+            ._Identity.IdentityRequest.modifyUserIdentities(
+                previousIdentities,
+                newIdentities
+            );
         modifiedUserIdentities.should.have.properties([1, 3, 4, 7]);
         modifiedUserIdentities[1].should.equal('customerid1');
         modifiedUserIdentities[3].should.equal('twitter5');
@@ -1373,7 +1393,7 @@ describe('identity', function() {
         user5.getUserIdentities().userIdentities.customerid.should.equal('4');
         user5.getMPID().should.equal('mpid4');
 
-        var data = mParticle.persistence.getLocalStorage();
+        var data = mParticle.getInstance()._Persistence.getLocalStorage();
 
         data.cu.should.equal('mpid4');
         data.testMPID.ui[1].should.equal('1');
@@ -1429,27 +1449,27 @@ describe('identity', function() {
             },
         };
 
-        var badUserIdentitiesArrayResult = Helpers.Validators.validateIdentities(
-            badUserIdentitiesArray
-        );
-        var badUserIdentitiesObjectResult = Helpers.Validators.validateIdentities(
-            badUserIdentitiesObject
-        );
-        var badUserIdentitiesBooleanResult = Helpers.Validators.validateIdentities(
-            badUserIdentitiesBoolean
-        );
-        var badUserIdentitiesUndefinedResult = Helpers.Validators.validateIdentities(
-            badUserIdentitiesUndefined
-        );
-        var validUserIdentitiesNullResult = Helpers.Validators.validateIdentities(
-            validUserIdentitiesNull
-        );
-        var validUserIdentitiesStringResult = Helpers.Validators.validateIdentities(
-            validUserIdentitiesString
-        );
-        var invalidUserIdentitiesComboResult = Helpers.Validators.validateIdentities(
-            invalidUserIdentitiesCombo
-        );
+        var badUserIdentitiesArrayResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(badUserIdentitiesArray);
+        var badUserIdentitiesObjectResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(badUserIdentitiesObject);
+        var badUserIdentitiesBooleanResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(badUserIdentitiesBoolean);
+        var badUserIdentitiesUndefinedResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(badUserIdentitiesUndefined);
+        var validUserIdentitiesNullResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(validUserIdentitiesNull);
+        var validUserIdentitiesStringResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(validUserIdentitiesString);
+        var invalidUserIdentitiesComboResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(invalidUserIdentitiesCombo);
 
         badUserIdentitiesArrayResult.valid.should.equal(false);
         badUserIdentitiesObjectResult.valid.should.equal(false);
@@ -1675,7 +1695,7 @@ describe('identity', function() {
         mParticle.Identity.login(user);
         mParticle.Identity.modify(modifiedUser);
 
-        var cookie = mParticle.persistence.getLocalStorage();
+        var cookie = mParticle.getInstance()._Persistence.getLocalStorage();
         cookie.testMPID.ui[1].should.equal('customerId2');
 
         done();
@@ -2231,7 +2251,7 @@ describe('identity', function() {
         server.requests = [];
         mParticle.init(apiKey, window.mParticle.config);
 
-        var cookies = mParticle.persistence.getPersistence();
+        var cookies = mParticle.getInstance()._Persistence.getPersistence();
         cookies.should.have.property('gs');
         cookies.should.not.have.property('cu');
         (mParticle.Identity.getCurrentUser() === null).should.equal(true);
@@ -2246,7 +2266,7 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        cookies = mParticle.persistence.getPersistence();
+        cookies = mParticle.getInstance()._Persistence.getPersistence();
         cookies.should.have.property('gs');
         cookies.should.have.have.property('cu', 'MPID1');
         mParticle.Identity.getCurrentUser().should.not.equal(null);
@@ -2421,7 +2441,7 @@ describe('identity', function() {
         };
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Store.identityCallInFlight = true;
+        mParticle.getInstance()._Store.identityCallInFlight = true;
 
         mParticle.setLogLevel('warning');
 
@@ -2581,14 +2601,16 @@ describe('identity', function() {
         var request = server.requests[0];
         request.url.should.equal(
             'https://jssdks.mparticle.com/v1/identity/' +
-                mParticle.Store.devToken +
+                mParticle.getInstance()._Store.devToken +
                 '/Alias'
         );
         var requestBody = JSON.parse(request.requestText);
         Should(requestBody['request_id']).not.equal(null);
         Should(requestBody['request_type']).equal('alias');
         Should(requestBody['environment']).equal('production');
-        Should(requestBody['api_key']).equal(mParticle.Store.devToken);
+        Should(requestBody['api_key']).equal(
+            mParticle.getInstance()._Store.devToken
+        );
         var dataBody = requestBody['data'];
         Should(dataBody).not.equal(null);
         Should(dataBody['destination_mpid']).equal(1);
@@ -2883,7 +2905,8 @@ describe('identity', function() {
         Should(aliasRequest.destinationMpid).equal('2');
         var oldestAllowedStartTime =
             new Date().getTime() -
-            mParticle.Store.SDKConfig.aliasMaxWindow * millisPerDay;
+            mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
+                millisPerDay;
         Should(aliasRequest.startTime).equal(oldestAllowedStartTime);
         Should(aliasRequest.endTime).equal(new Date().getTime());
         clock.restore();
@@ -2935,12 +2958,13 @@ describe('identity', function() {
         Should(aliasRequest.destinationMpid).equal('2');
         var oldestAllowedStartTime =
             new Date().getTime() -
-            mParticle.Store.SDKConfig.aliasMaxWindow * millisPerDay;
+            mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
+                millisPerDay;
         Should(aliasRequest.startTime).equal(oldestAllowedStartTime);
         Should(aliasRequest.endTime).equal(300);
         Should(warnMessage).equal(
             'Source User has not been seen in the last ' +
-                mParticle.Store.SDKConfig.maxAliasWindow +
+                mParticle.getInstance()._Store.SDKConfig.maxAliasWindow +
                 ' days, Alias Request will likely fail'
         );
 
@@ -2976,7 +3000,7 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Store.isFirstRun.should.equal(false);
+        mParticle.getInstance()._Store.isFirstRun.should.equal(false);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -2990,7 +3014,7 @@ describe('identity', function() {
 
         mParticle.Identity.login({ userIdentities: { customerid: 'abc' } });
 
-        var ls = mParticle.persistence.getLocalStorage();
+        var ls = mParticle.getInstance()._Persistence.getLocalStorage();
         ls['testMPID'].lst.should.not.equal(null);
 
         done();
@@ -3028,35 +3052,44 @@ describe('identity', function() {
             sinon.restore();
         });
         it("should deprecate the user's cart", function() {
-            var bond = sinon.spy(mParticle.Logger, 'warning');
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
+            mParticle.getInstance().Identity.getCurrentUser().getCart();
             mParticle.Identity.getCurrentUser().getCart();
 
             bond.called.should.eql(true);
+            bond.callCount.should.equal(2);
+
             bond.getCalls()[0].args[0].should.eql(
                 'Deprecated function Identity.getCurrentUser().getCart() will be removed in future releases'
             );
         });
         it('should deprecate add', function() {
-            var bond = sinon.spy(mParticle.Logger, 'warning');
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             var product = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 400
             );
+            mParticle.getInstance().Identity.getCurrentUser()
+                .getCart()
+                .add(product);
 
             mParticle.Identity.getCurrentUser()
                 .getCart()
-                .add(product, true);
+                .add(product);
 
             bond.called.should.eql(true);
+            // deprecates on both .getCart, then .add
+            bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
                 'Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases'
             );
+
         });
         it('should deprecate remove', function() {
-            var bond = sinon.spy(mParticle.Logger, 'warning');
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             var product = mParticle.eCommerce.createProduct(
                 'iPhone',
@@ -3064,36 +3097,53 @@ describe('identity', function() {
                 400
             );
 
+            mParticle.getInstance().Identity.getCurrentUser()
+                .getCart()
+                .remove(product, true);
             mParticle.Identity.getCurrentUser()
                 .getCart()
                 .remove(product, true);
 
             bond.called.should.eql(true);
+            // deprecates on both .getCart, then .add
+            bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
                 'Deprecated function Identity.getCurrentUser().getCart().remove() will be removed in future releases'
             );
+
         });
         it('should deprecate clear', function() {
-            var bond = sinon.spy(mParticle.Logger, 'warning');
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
+            mParticle.getInstance().Identity.getCurrentUser()
+                .getCart()
+                .clear();
             mParticle.Identity.getCurrentUser()
                 .getCart()
                 .clear();
 
             bond.called.should.eql(true);
+            // deprecates on both .getCart, then .add
+            bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
                 'Deprecated function Identity.getCurrentUser().getCart().clear() will be removed in future releases'
             );
+
         });
 
         it('should deprecate getCartProducts', function() {
-            var bond = sinon.spy(mParticle.Logger, 'warning');
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
+            mParticle.getInstance().Identity.getCurrentUser()
+                .getCart()
+                .getCartProducts();
             mParticle.Identity.getCurrentUser()
                 .getCart()
                 .getCartProducts();
 
             bond.called.should.eql(true);
+            // deprecates on both .getCart, then .add
+            bond.callCount.should.equal(4);
             bond.getCalls()[1].args[0].should.eql(
                 'Deprecated function Identity.getCurrentUser().getCart().getCartProducts() will be removed in future releases'
             );

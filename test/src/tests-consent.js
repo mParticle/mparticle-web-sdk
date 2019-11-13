@@ -1,25 +1,23 @@
-import Consent from '../../src/consent';
-
 describe('Consent', function() {
     it('Should not create consent object without consented boolean', function(done) {
-        var consent = Consent.createGDPRConsent();
+        var consent = mParticle.getInstance().Consent.createGDPRConsent();
         (consent === null).should.be.ok();
 
-        consent = Consent.createGDPRConsent(0);
+        consent = mParticle.getInstance().Consent.createGDPRConsent(0);
 
-        consent = Consent.createGDPRConsent('foo bar');
+        consent = mParticle.getInstance().Consent.createGDPRConsent('foo bar');
         (consent === null).should.be.ok();
 
         done();
     });
 
     it('Should create basic consent object with only consented boolean', function(done) {
-        var consent = Consent.createGDPRConsent(true);
+        var consent = mParticle.getInstance().Consent.createGDPRConsent(true);
         consent.should.be.ok();
 
         consent.Consented.should.equal(true);
 
-        consent = Consent.createGDPRConsent(false);
+        consent = mParticle.getInstance().Consent.createGDPRConsent(false);
         consent.should.be.ok();
         consent.Consented.should.equal(false);
         done();
@@ -27,7 +25,9 @@ describe('Consent', function() {
 
     it('Should not create consent object with invalid document', function(done) {
         var badDocument = 123;
-        var consent = Consent.createGDPRConsent(true, 123, badDocument);
+        var consent = mParticle
+            .getInstance()
+            .Consent.createGDPRConsent(true, 123, badDocument);
         (consent === null).should.be.ok();
 
         done();
@@ -35,12 +35,9 @@ describe('Consent', function() {
 
     it('Should not create consent object with invalid location', function(done) {
         var badLocation = 123;
-        var consent = Consent.createGDPRConsent(
-            true,
-            123,
-            'foo document',
-            badLocation
-        );
+        var consent = mParticle
+            .getInstance()
+            .Consent.createGDPRConsent(true, 123, 'foo document', badLocation);
         (consent === null).should.be.ok();
 
         done();
@@ -48,13 +45,15 @@ describe('Consent', function() {
 
     it('Should not create consent object with invalid hardware id', function(done) {
         var badHardwareId = 123;
-        var consent = Consent.createGDPRConsent(
-            true,
-            123,
-            'foo document',
-            'foo location',
-            badHardwareId
-        );
+        var consent = mParticle
+            .getInstance()
+            .Consent.createGDPRConsent(
+                true,
+                123,
+                'foo document',
+                'foo location',
+                badHardwareId
+            );
         (consent === null).should.be.ok();
 
         done();
@@ -62,19 +61,21 @@ describe('Consent', function() {
 
     it('Should set current timestamp if none given', function(done) {
         var date = Date.now();
-        var consent = Consent.createGDPRConsent(true);
+        var consent = mParticle.getInstance().Consent.createGDPRConsent(true);
         consent.Timestamp.should.be.aboveOrEqual(date);
         done();
     });
 
     it('Should create complete object', function(done) {
-        var consent = Consent.createGDPRConsent(
-            true,
-            10,
-            'foo document',
-            'foo location',
-            'foo hardware id'
-        );
+        var consent = mParticle
+            .getInstance()
+            .Consent.createGDPRConsent(
+                true,
+                10,
+                'foo document',
+                'foo location',
+                'foo hardware id'
+            );
         consent.should.be.ok();
         consent.should.have.property('Consented', true);
         consent.should.have.property('Timestamp', 10);
@@ -85,18 +86,24 @@ describe('Consent', function() {
     });
 
     it('Should create basic ConsentState object', function(done) {
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.should.be.ok();
         done();
     });
 
     it('Should add GDPR ConsentState object', function(done) {
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.should.be.ok();
 
         consentState
-            .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
-            .addGDPRConsentState('bar', Consent.createGDPRConsent(false));
+            .addGDPRConsentState(
+                'foo',
+                mParticle.getInstance().Consent.createGDPRConsent(true)
+            )
+            .addGDPRConsentState(
+                'bar',
+                mParticle.getInstance().Consent.createGDPRConsent(false)
+            );
 
         consentState.getGDPRConsentState().should.have.property('foo');
         consentState
@@ -113,21 +120,23 @@ describe('Consent', function() {
     });
 
     it('Should replace GDPR ConsentState object', function(done) {
-        var consentState = Consent.createConsentState();
-        var consentState2 = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
+        var consentState2 = mParticle
+            .getInstance()
+            .Consent.createConsentState();
 
         consentState.addGDPRConsentState(
             'foo',
-            Consent.createGDPRConsent(true)
+            mParticle.getInstance().Consent.createGDPRConsent(true)
         );
 
         consentState2.addGDPRConsentState(
             'bar',
-            Consent.createGDPRConsent(false)
+            mParticle.getInstance().Consent.createGDPRConsent(false)
         );
         consentState2.addGDPRConsentState(
             'baz',
-            Consent.createGDPRConsent(false)
+            mParticle.getInstance().Consent.createGDPRConsent(false)
         );
 
         consentState.getGDPRConsentState().should.have.property('foo');
@@ -144,12 +153,18 @@ describe('Consent', function() {
     });
 
     it("Can't modify GDPR ConsentState object", function(done) {
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.should.be.ok();
 
         consentState
-            .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
-            .addGDPRConsentState('bar', Consent.createGDPRConsent(false));
+            .addGDPRConsentState(
+                'foo',
+                mParticle.getInstance().Consent.createGDPRConsent(true)
+            )
+            .addGDPRConsentState(
+                'bar',
+                mParticle.getInstance().Consent.createGDPRConsent(false)
+            );
 
         consentState.getGDPRConsentState().should.have.property('foo');
 
@@ -161,18 +176,26 @@ describe('Consent', function() {
     });
 
     it('Should copy GDPR ConsentState object', function(done) {
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.should.be.ok();
 
         consentState
-            .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
-            .addGDPRConsentState('bar', Consent.createGDPRConsent(false));
+            .addGDPRConsentState(
+                'foo',
+                mParticle.getInstance().Consent.createGDPRConsent(true)
+            )
+            .addGDPRConsentState(
+                'bar',
+                mParticle.getInstance().Consent.createGDPRConsent(false)
+            );
 
-        var consentState2 = Consent.createConsentState(consentState);
+        var consentState2 = mParticle
+            .getInstance()
+            .Consent.createConsentState(consentState);
 
         consentState2.addGDPRConsentState(
             'baz',
-            Consent.createGDPRConsent(false)
+            mParticle.getInstance().Consent.createGDPRConsent(false)
         );
 
         consentState.getGDPRConsentState().should.have.property('foo');
@@ -202,12 +225,18 @@ describe('Consent', function() {
     });
 
     it('Should remove GDPR ConsentState object', function(done) {
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.should.be.ok();
 
         consentState
-            .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
-            .addGDPRConsentState('bar', Consent.createGDPRConsent(false));
+            .addGDPRConsentState(
+                'foo',
+                mParticle.getInstance().Consent.createGDPRConsent(true)
+            )
+            .addGDPRConsentState(
+                'bar',
+                mParticle.getInstance().Consent.createGDPRConsent(false)
+            );
 
         consentState.getGDPRConsentState().should.have.property('foo');
         consentState.getGDPRConsentState().should.have.property('bar');
@@ -220,14 +249,26 @@ describe('Consent', function() {
     });
 
     it('Should normalize GDPR consent purposes on add', function(done) {
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.should.be.ok();
 
         consentState
-            .addGDPRConsentState('foo', Consent.createGDPRConsent(true, 1))
-            .addGDPRConsentState('bar ', Consent.createGDPRConsent(true, 2))
-            .addGDPRConsentState('BAZ ', Consent.createGDPRConsent(false, 3))
-            .addGDPRConsentState('  ', Consent.createGDPRConsent(false, 4));
+            .addGDPRConsentState(
+                'foo',
+                mParticle.getInstance().Consent.createGDPRConsent(true, 1)
+            )
+            .addGDPRConsentState(
+                'bar ',
+                mParticle.getInstance().Consent.createGDPRConsent(true, 2)
+            )
+            .addGDPRConsentState(
+                'BAZ ',
+                mParticle.getInstance().Consent.createGDPRConsent(false, 3)
+            )
+            .addGDPRConsentState(
+                '  ',
+                mParticle.getInstance().Consent.createGDPRConsent(false, 4)
+            );
 
         consentState.getGDPRConsentState().should.have.property('foo');
         consentState.getGDPRConsentState().should.have.property('bar');
@@ -249,13 +290,22 @@ describe('Consent', function() {
     });
 
     it('Should normalize GDPR consent purposes on remove', function(done) {
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.should.be.ok();
 
         consentState
-            .addGDPRConsentState('foo', Consent.createGDPRConsent(true, 1))
-            .addGDPRConsentState('bar ', Consent.createGDPRConsent(true, 2))
-            .addGDPRConsentState('BAZ ', Consent.createGDPRConsent(false, 3));
+            .addGDPRConsentState(
+                'foo',
+                mParticle.getInstance().Consent.createGDPRConsent(true, 1)
+            )
+            .addGDPRConsentState(
+                'bar ',
+                mParticle.getInstance().Consent.createGDPRConsent(true, 2)
+            )
+            .addGDPRConsentState(
+                'BAZ ',
+                mParticle.getInstance().Consent.createGDPRConsent(false, 3)
+            );
 
         consentState.getGDPRConsentState().should.have.property('foo');
         consentState.getGDPRConsentState().should.have.property('bar');
@@ -273,11 +323,14 @@ describe('Consent', function() {
     });
 
     it('Should not set junk GDPR object', function(done) {
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.should.be.ok();
 
         consentState
-            .addGDPRConsentState('foo', Consent.createGDPRConsent(true))
+            .addGDPRConsentState(
+                'foo',
+                mParticle.getInstance().Consent.createGDPRConsent(true)
+            )
             .addGDPRConsentState('bar', {})
             .addGDPRConsentState('baz', '')
             .addGDPRConsentState(10, {});
@@ -291,29 +344,39 @@ describe('Consent', function() {
     });
 
     it('Should toJson/fromJson complete Consent State object', function(done) {
-        var consent1 = Consent.createGDPRConsent(
-            true,
-            10,
-            'foo document',
-            'foo location',
-            'foo hardware id'
-        );
+        var consent1 = mParticle
+            .getInstance()
+            .Consent.createGDPRConsent(
+                true,
+                10,
+                'foo document',
+                'foo location',
+                'foo hardware id'
+            );
 
-        var consent2 = Consent.createGDPRConsent(
-            false,
-            5,
-            'foo document 2',
-            'foo location 2',
-            'foo hardware id 2'
-        );
+        var consent2 = mParticle
+            .getInstance()
+            .Consent.createGDPRConsent(
+                false,
+                5,
+                'foo document 2',
+                'foo location 2',
+                'foo hardware id 2'
+            );
 
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.addGDPRConsentState('foo', consent1);
         consentState.addGDPRConsentState('bar', consent2);
 
-        var consentStateCopy = Consent.Serialization.fromMinifiedJsonObject(
-            Consent.Serialization.toMinifiedJsonObject(consentState)
-        );
+        var consentStateCopy = mParticle
+            .getInstance()
+            ._Consent.ConsentSerialization.fromMinifiedJsonObject(
+                mParticle
+                    .getInstance()
+                    ._Consent.ConsentSerialization.toMinifiedJsonObject(
+                        consentState
+                    )
+            );
 
         consentStateCopy.getGDPRConsentState().should.have.property('foo');
         var consentCopy1 = consentStateCopy.getGDPRConsentState().foo;

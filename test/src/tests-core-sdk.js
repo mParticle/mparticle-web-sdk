@@ -1,6 +1,5 @@
 import TestsCore from './tests-core';
 import Store from '../../src/store';
-import Logger from '../../src/logger';
 import Constants from '../../src/constants';
 import sinon from 'sinon';
 
@@ -55,7 +54,6 @@ describe('core SDK', function() {
             'y',
             'z',
         ];
-
         var sessionId = mParticle.sessionManager.getSession();
         var lowercaseLetterExists;
         sessionId.split('').forEach(function(letter) {
@@ -134,6 +132,17 @@ describe('core SDK', function() {
         var appVersion = mParticle.getAppVersion();
 
         appVersion.should.equal('2.0');
+
+        done();
+    });
+
+    it('should get app version from config', function(done) {
+        mParticle.reset(MPConfig);
+        window.mParticle.config.appName = "testAppName";
+        mParticle.init(apiKey, window.mParticle.config);
+
+        var appName = mParticle.getAppName();
+        appName.should.equal('testAppName');
 
         done();
     });
@@ -248,31 +257,6 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should return the deviceId when provided with serverSettings', function(done) {
-        var serverSettings = {
-            uid: {
-                Expires: '2027-05-09T02:03:06.368056Z',
-                Value:
-                    'u=6100647832327797727&cr=3869403&g=7b0a8d4e-b144-4259-b491-1b3cf76af453&ls=3870112&lbe=3870112',
-            },
-        };
-
-        var deviceId = mParticle.persistence.parseDeviceId(serverSettings);
-        deviceId.should.equal('7b0a8d4e-b144-4259-b491-1b3cf76af453');
-
-        done();
-    });
-
-    it('should create a deviceId when there are no serverSettings', function(done) {
-        var serverSettings = null;
-
-        var deviceId = mParticle.persistence.parseDeviceId(serverSettings);
-
-        Should(deviceId).be.ok();
-
-        done();
-    });
-
     it('should not generate a new device ID if a deviceId exists in localStorage', function(done) {
         mParticle.reset(MPConfig);
 
@@ -299,11 +283,12 @@ describe('core SDK', function() {
 
     it('will create a cgid when no previous cgid exists after initializing storage, and no sid', function(done) {
         mParticle.reset(MPConfig);
-        mParticle.Store.storageName = TestsCore.workspaceCookieName;
-        mParticle.persistence.initializeStorage();
-        mParticle.persistence.update();
 
-        var cookieData = mParticle.persistence.getLocalStorage();
+        mParticle.getInstance()._Store.storageName = TestsCore.workspaceCookieName;
+        mParticle.getInstance()._Persistence.initializeStorage();
+        mParticle.getInstance()._Persistence.update();
+
+        var cookieData = mParticle.getInstance()._Persistence.getLocalStorage();
 
         cookieData.gs.should.have.properties(['cgid']);
         cookieData.gs.should.not.have.property('sid');
@@ -325,7 +310,7 @@ describe('core SDK', function() {
         mParticle.logEvent('Test Event2');
         var data2 = getEvent('Test Event2');
         data.sid.should.not.equal(data2.sid);
-        mParticle.sessionManager.clearSessionTimeout();
+        mParticle.getInstance()._SessionManager.clearSessionTimeout();
         clock.restore();
 
         done();
@@ -379,16 +364,16 @@ describe('core SDK', function() {
         clock.tick(100);
         mParticle.logEvent('Test Event2');
 
-        var sid = mParticle.persistence.getLocalStorage().gs.sid;
+        var sid = mParticle.getInstance()._Persistence.getLocalStorage().gs.sid;
 
-        var newPersistence = {
+        var new_Persistence = {
             gs: {
                 sid: sid,
                 ie: 1,
                 les: 120000,
             },
         };
-        setLocalStorage(workspaceCookieName, newPersistence);
+        setLocalStorage(workspaceCookieName, new_Persistence);
         // This clock tick initiates a session end event that is not successful
         clock.tick(70000);
         var noData = getEvent(2);
@@ -408,7 +393,7 @@ describe('core SDK', function() {
         mParticle.logEvent('Test Event');
         var data = getEvent('Test Event');
 
-        var sessionId = mParticle.sessionManager.getSession();
+        var sessionId = mParticle.getInstance()._SessionManager.getSession();
 
         data.sid.should.equal(sessionId);
 
@@ -488,8 +473,7 @@ describe('core SDK', function() {
     });
 
     it('should have default options as well as configured options on configuration object, overwriting when appropriate', function(done) {
-        var logger = new Logger({});
-        var defaults = new Store({}, logger);
+        var defaults = new Store({}, mParticle.getInstance());
         // all items here should be the default values
         for (var key in DefaultConfig) {
             defaults.SDKConfig.should.have.property(key, DefaultConfig[key]);
@@ -522,7 +506,7 @@ describe('core SDK', function() {
             aliasMaxWindow: 3,
         };
 
-        var mp = new Store(config);
+        var mp = new Store(config, mParticle.getInstance());
         mp.isEnabled.should.equal(true);
         Object.keys(mp.sessionAttributes).length.should.equal(0);
         Object.keys(mp.migrationData).length.should.equal(0);
@@ -698,7 +682,7 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         warnMessage.should.equal(
-            'You should have a workspaceToken on your mParticle.config object for security purposes.'
+            'You should have a workspaceToken on your config object for security purposes.'
         );
 
         done();
@@ -717,17 +701,18 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Store.SDKConfig.v1ServiceUrl =
+        mParticle.getInstance()._Store.SDKConfig.v1ServiceUrl =
             window.mParticle.config.v1ServiceUrl;
-        mParticle.Store.SDKConfig.v1SecureServiceUrl =
+        mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl =
             window.mParticle.config.v1SecureServiceUrl;
-        mParticle.Store.SDKConfig.v2ServiceUrl =
+        mParticle.getInstance()._Store.SDKConfig.v2ServiceUrl =
             window.mParticle.config.v2ServiceUrl;
-        mParticle.Store.SDKConfig.v2SecureServiceUrl =
+        mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl =
             window.mParticle.config.v2SecureServiceUrl;
-        mParticle.Store.SDKConfig.identityUrl =
+        mParticle.getInstance()._Store.SDKConfig.identityUrl =
             window.mParticle.config.identityUrl;
-        mParticle.Store.SDKConfig.aliasUrl = window.mParticle.config.aliasUrl;
+        mParticle.getInstance()._Store.SDKConfig.aliasUrl =
+            window.mParticle.config.aliasUrl;
 
         // test events endpoint
         server.requests = [];
@@ -812,12 +797,13 @@ describe('core SDK', function() {
         window.mParticle.config.requestConfig = true;
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Store.SDKConfig.appName = config.appName;
-        mParticle.Store.SDKConfig.serviceUrl = config.serviceUrl;
-        mParticle.Store.SDKConfig.secureServiceUrl = config.secureServiceUrl;
-        mParticle.Store.SDKConfig.minWebviewBridgeVersion =
+        mParticle.getInstance()._Store.SDKConfig.appName = config.appName;
+        mParticle.getInstance()._Store.SDKConfig.serviceUrl = config.serviceUrl;
+        mParticle.getInstance()._Store.SDKConfig.secureServiceUrl =
+            config.secureServiceUrl;
+        mParticle.getInstance()._Store.SDKConfig.minWebviewBridgeVersion =
             config.minWebviewBridgeVersion;
-        mParticle.Store.SDKConfig.workspaceToken = config.workspaceToken;
+        mParticle.getInstance()._Store.SDKConfig.workspaceToken = config.workspaceToken;
         localStorage.removeItem(config.workspaceToken);
 
         done();
@@ -841,7 +827,7 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Store.isInitialized.should.equal(true);
+        mParticle.getInstance()._Store.isInitialized.should.equal(true);
 
         // have to manually call identify although it was called as part of init because we can only mock the server response once
         server.handle = function(request) {
@@ -856,7 +842,6 @@ describe('core SDK', function() {
 
         mParticle.Identity.identify({ userIdentities: { customerid: 'test' } });
         server.requests = [];
-
         mParticle.logEvent('test');
         server.requests.length.should.equal(1);
 
@@ -869,7 +854,18 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey);
 
-        mParticle.Store.isInitialized.should.equal(true);
+        mParticle.getInstance()._Store.isInitialized.should.equal(true);
+
+        done();
+    });
+
+    it('should generate hash both on the mparticle instance and the mparticle instance manager', function(done) {
+        var hashValue = -1146196832;
+        var hash1 = mParticle.generateHash('TestHash');
+        var hash2 = mParticle.getInstance().generateHash('TestHash');
+
+        hash1.should.equal(hashValue);
+        hash2.should.equal(hashValue);
 
         done();
     });

@@ -1,5 +1,4 @@
 import TestsCore from './tests-core';
-import CookieSyncManager from '../../src/cookieSyncManager';
 
 var setLocalStorage = TestsCore.setLocalStorage,
     testMPID = TestsCore.testMPID,
@@ -30,13 +29,15 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            var data = mParticle.persistence.getLocalStorage();
+            var data = mParticle.getInstance()._Persistence.getLocalStorage();
             data[testMPID].csd.should.have.property('5');
 
             done();
         }, 50);
 
-        Should(mParticle.Store.pixelConfigurations.length).equal(1);
+        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+            1
+        );
     });
 
     it('should sync cookies when current date is beyond the frequency cap and the MPID has not changed', function(done) {
@@ -64,7 +65,7 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            var data = mParticle.persistence.getLocalStorage();
+            var data = mParticle.getInstance()._Persistence.getLocalStorage();
             var updated = data[testMPID].csd['5'] > 500;
 
             Should(updated).be.ok();
@@ -72,7 +73,9 @@ describe('cookie syncing', function() {
             done();
         }, 50);
 
-        Should(mParticle.Store.pixelConfigurations.length).equal(1);
+        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+            1
+        );
     });
 
     it('should not sync cookies when last date is within frequencyCap', function(done) {
@@ -94,13 +97,17 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
         server.requests = [];
 
-        var data = mParticle.persistence.getLocalStorage();
+        var data = mParticle.getInstance()._Persistence.getLocalStorage();
 
         data[testMPID].csd.should.have.property(
             5,
-            mParticle.persistence.getLocalStorage().testMPID.csd['5']
+            mParticle.getInstance()._Persistence.getLocalStorage().testMPID.csd[
+                '5'
+            ]
         );
-        Should(mParticle.Store.pixelConfigurations.length).equal(1);
+        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+            1
+        );
 
         done();
     });
@@ -121,7 +128,7 @@ describe('cookie syncing', function() {
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
-        var data1 = mParticle.persistence.getLocalStorage();
+        var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -135,10 +142,12 @@ describe('cookie syncing', function() {
         };
 
         mParticle.Identity.login();
-        var data2 = mParticle.persistence.getLocalStorage();
+        var data2 = mParticle.getInstance()._Persistence.getLocalStorage();
         data1[testMPID].csd[5].should.be.ok();
         data2['otherMPID'].csd[5].should.be.ok();
-        Should(mParticle.Store.pixelConfigurations.length).equal(1);
+        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+            1
+        );
 
         done();
     });
@@ -161,10 +170,12 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var data1 = mParticle.persistence.getLocalStorage();
+        var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
 
         Object.keys(data1[testMPID]).should.not.have.property('csd');
-        Should(mParticle.Store.pixelConfigurations.length).equal(0);
+        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+            0
+        );
 
         done();
     });
@@ -187,18 +198,22 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var data1 = mParticle.persistence.getLocalStorage();
+        var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
         data1[testMPID].should.not.have.property('csd');
-        Should(mParticle.Store.pixelConfigurations.length).equal(0);
+        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+            0
+        );
 
         done();
     });
 
     it('should replace mpID properly', function(done) {
-        var result = CookieSyncManager.replaceMPID(
-            'www.google.com?mpid=%%mpid%%?foo=bar',
-            123
-        );
+        var result = mParticle
+            .getInstance()
+            ._CookieSyncManager.replaceMPID(
+                'www.google.com?mpid=%%mpid%%?foo=bar',
+                123
+            );
 
         result.should.equal('www.google.com?mpid=123?foo=bar');
 
@@ -206,9 +221,11 @@ describe('cookie syncing', function() {
     });
 
     it("should remove 'amp;' from the URLs", function(done) {
-        var result = CookieSyncManager.replaceAmp(
-            'www.google.com?mpid=%%mpid%%&amp;foo=bar'
-        );
+        var result = mParticle
+            .getInstance()
+            ._CookieSyncManager.replaceAmp(
+                'www.google.com?mpid=%%mpid%%&amp;foo=bar'
+            );
 
         result.should.equal('www.google.com?mpid=%%mpid%%&foo=bar');
 
@@ -250,7 +267,9 @@ describe('cookie syncing', function() {
         // add pixels to preInitConfig
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Store.pixelConfigurations.length.should.equal(1);
+        mParticle
+            .getInstance()
+            ._Store.pixelConfigurations.length.should.equal(1);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');

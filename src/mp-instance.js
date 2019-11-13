@@ -16,9 +16,9 @@
 //  Uses portions of code from jQuery
 //  jQuery v1.10.2 | (c) 2005, 2013 jQuery Foundation, Inc. | jquery.org/license
 
-import Polyfill from './polyfill';
 import Types from './types';
 import Constants from './constants';
+import APIClient from './APIClient';
 import Helpers from './helpers';
 import NativeSdkHelpers from './nativeSdkHelpers';
 import CookieSyncManager from './cookieSyncManager';
@@ -30,63 +30,62 @@ import Persistence from './persistence';
 import Events from './events';
 import Migrations from './migrations';
 import Forwarders from './forwarders';
-import startForwardingStatsTimer from './forwardingStatsUploader';
+import ServerModel from './serverModel';
+import ForwardingStatsUploader from './forwardingStatsUploader';
 import Identity from './identity';
-import ApiClient from './apiClient';
 import Consent from './consent';
 
-var getDeviceId = Persistence.getDeviceId,
-    Messages = Constants.Messages,
-    Validators = Helpers.Validators,
-    mParticleUser = Identity.mParticleUser,
-    IdentityAPI = Identity.IdentityAPI,
-    mParticleUserCart = Identity.mParticleUserCart,
+var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
-
-if (!Array.prototype.forEach) {
-    Array.prototype.forEach = Polyfill.forEach;
-}
-
-if (!Array.prototype.map) {
-    Array.prototype.map = Polyfill.map;
-}
-
-if (!Array.prototype.filter) {
-    Array.prototype.filter = Polyfill.filter;
-}
-
-if (!Array.isArray) {
-    Array.prototype.isArray = Polyfill.isArray;
-}
 
 /**
  * Invoke these methods on the mParticle object.
  * Example: mParticle.endSession()
  *
- * @class mParticle
+ * @class mParticleInstance
  */
 
-var mParticle = {
-    config: window.mParticle ? window.mParticle.config : {},
-    Store: {},
-    getDeviceId: getDeviceId,
-    generateHash: Helpers.generateHash,
-    sessionManager: SessionManager,
-    cookieSyncManager: CookieSyncManager,
-    persistence: Persistence,
-    isIOS:
-        window.mParticle && window.mParticle.isIOS
-            ? window.mParticle.isIOS
-            : false,
-    Identity: IdentityAPI,
-    Validators: Validators,
-    _Identity: Identity,
-    _IdentityRequest: Identity.IdentityRequest,
-    IdentityType: Types.IdentityType,
-    EventType: Types.EventType,
-    CommerceEventType: Types.CommerceEventType,
-    PromotionType: Types.PromotionActionType,
-    ProductActionType: Types.ProductActionType,
+export default function mParticleInstance(instanceName) {
+    var self = this;
+    // These classes are for internal use only. Not documented for public consumption
+    this._instanceName = instanceName;
+    this._NativeSdkHelpers = new NativeSdkHelpers(this);
+    this._Migrations = new Migrations(this);
+    this._SessionManager = new SessionManager(this);
+    this._Persistence = new Persistence(this);
+    this._Helpers = new Helpers(this);
+    this._Forwarders = new Forwarders(this);
+    this._APIClient = new APIClient(this);
+    this._Events = new Events(this);
+    this._CookieSyncManager = new CookieSyncManager(this);
+    this._ServerModel = new ServerModel(this);
+    this._Ecommerce = new Ecommerce(this);
+    this._ForwardingStatsUploader = new ForwardingStatsUploader(this);
+    this._Consent = new Consent(this);
+    this._preInit = {
+        readyQueue: [],
+        integrationDelays: {},
+        forwarderConstructors: [],
+    };
+
+    // required for forwarders once they reference the mparticle instance
+    this.IdentityType = Types.IdentityType;
+    this.EventType = Types.EventType;
+    this.CommerceEventType = Types.CommerceEventType;
+    this.PromotionType = Types.PromotionActionType;
+    this.ProductActionType = Types.ProductActionType;
+
+    this._Identity = new Identity(this);
+    this.Identity = this._Identity.IdentityAPI;
+    this.generateHash = this._Helpers.generateHash;
+    this.getDeviceId = this._Persistence.getDeviceId;
+
+    if (window.mParticle && window.mParticle.config) {
+        if (window.mParticle.config.hasOwnProperty('rq')) {
+            this._preInit.readyQueue = window.mParticle.config.rq;
+        }
+    }
+
     /**
      * Initializes the mParticle SDK
      *
@@ -94,17 +93,16 @@ var mParticle = {
      * @param {String} apiKey your mParticle assigned API key
      * @param {Object} [options] an options object for additional configuration
      */
-    init: function(apiKey, config) {
-        if (!config && window.mParticle.config) {
+    this.init = function(apiKey, config) {
+        if (!config) {
             window.console.warn(
-                'You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly'
+                'You did not pass a config object to init(). mParticle will not initialize properly'
             );
-            config = window.mParticle.config;
         }
 
-        runPreConfigFetchInitialization(apiKey, config);
+        runPreConfigFetchInitialization(this, apiKey, config);
 
-        // /config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
+        // config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
         // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
         // to it for it to be run after fetched
         if (config) {
@@ -112,13 +110,14 @@ var mParticle = {
                 !config.hasOwnProperty('requestConfig') ||
                 config.requestConfig
             ) {
-                ApiClient.getSDKConfiguration(
+                self._APIClient.getSDKConfiguration(
                     apiKey,
                     config,
-                    completeSDKInitialization
+                    completeSDKInitialization,
+                    this
                 );
             } else {
-                completeSDKInitialization(apiKey, config);
+                completeSDKInitialization(apiKey, config, this);
             }
         } else {
             window.console.error(
@@ -126,155 +125,152 @@ var mParticle = {
             );
             return;
         }
-    },
-    setLogLevel: function(newLogLevel) {
-        mParticle.Logger.setLogLevel(newLogLevel);
-    },
-    /**
-     * Completely resets the state of the SDK. mParticle.init(apiKey, window.mParticle.config) will need to be called again.
-     * @method reset
-     * @param {Boolean} keepPersistence if passed as true, this method will only reset the in-memory SDK state.
-     */
-    reset: function(config, keepPersistence) {
-        if (mParticle.Store) {
-            delete mParticle.Store;
+    };
+    this.setLogLevel = function(newLogLevel) {
+        self.Logger.setLogLevel(newLogLevel);
+    };
+    this.reset = function(config, keepPersistence, instance) {
+        if (instance._Store) {
+            delete instance._Store;
         }
-        mParticle.Store = new Store(config);
-        mParticle.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(
+        instance._Store = new Store(config, instance);
+        instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
         );
-
-        Events.stopTracking();
+        instance._Events.stopTracking();
         if (!keepPersistence) {
-            Persistence.resetPersistence();
+            instance._Persistence.reset_Persistence();
         }
-        Persistence.forwardingStatsBatches.uploadsTable = {};
-        Persistence.forwardingStatsBatches.forwardingStatsEventQueue = [];
-        mParticle.preInit = {
+        instance._Persistence.forwardingStatsBatches.uploadsTable = {};
+        instance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue = [];
+        instance._preInit = {
             readyQueue: [],
             pixelConfigurations: [],
             integrationDelays: {},
             forwarderConstructors: [],
             isDevelopmentMode: false,
         };
-    },
-    ready: function(f) {
-        if (mParticle.Store.isInitialized && typeof f === 'function') {
+    };
+    this.ready = function(f) {
+        if (self._Store.isInitialized && typeof f === 'function') {
             f();
         } else {
-            mParticle.preInit.readyQueue.push(f);
+            self._preInit.readyQueue.push(f);
         }
-    },
+    };
     /**
      * Returns the mParticle SDK version number
      * @method getVersion
      * @return {String} mParticle SDK version number
      */
-    getVersion: function() {
+    this.getVersion = function() {
         return Constants.sdkVersion;
-    },
+    };
     /**
      * Sets the app version
      * @method setAppVersion
      * @param {String} version version number
      */
-    setAppVersion: function(version) {
-        mParticle.Store.SDKConfig.appVersion = version;
-        Persistence.update();
-    },
+    this.setAppVersion = function(version) {
+        self._Store.SDKConfig.appVersion = version;
+        self._Persistence.update();
+    };
     /**
      * Gets the app name
      * @method getAppName
      * @return {String} App name
      */
-    getAppName: function() {
-        return mParticle.Store.SDKConfig.appName;
-    },
+    this.getAppName = function() {
+        return self._Store.SDKConfig.appName;
+    };
     /**
      * Sets the app name
      * @method setAppName
      * @param {String} name App Name
      */
-    setAppName: function(name) {
-        mParticle.Store.SDKConfig.appName = name;
-    },
+    this.setAppName = function(name) {
+        self._Store.SDKConfig.appName = name;
+    };
     /**
      * Gets the app version
      * @method getAppVersion
      * @return {String} App version
      */
-    getAppVersion: function() {
-        return mParticle.Store.SDKConfig.appVersion;
-    },
+    this.getAppVersion = function() {
+        return self._Store.SDKConfig.appVersion;
+    };
     /**
      * Stops tracking the location of the user
      * @method stopTrackingLocation
      */
-    stopTrackingLocation: function() {
-        Events.stopTracking();
-    },
+    this.stopTrackingLocation = function() {
+        self._SessionManager.resetSessionTimer();
+        self._Events.stopTracking();
+    };
     /**
      * Starts tracking the location of the user
      * @method startTrackingLocation
      * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
      */
-    startTrackingLocation: function(callback) {
-        if (!Validators.isFunction(callback)) {
-            mParticle.Logger.warning(
+    this.startTrackingLocation = function(callback) {
+        if (!self._Helpers.Validators.isFunction(callback)) {
+            self.Logger.warning(
                 'Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.'
             );
         }
 
-        Events.startTracking(callback);
-    },
+        self._SessionManager.resetSessionTimer();
+        self._Events.startTracking(callback);
+    };
     /**
      * Sets the position of the user
      * @method setPosition
      * @param {Number} lattitude lattitude digit
      * @param {Number} longitude longitude digit
      */
-    setPosition: function(lat, lng) {
+    this.setPosition = function(lat, lng) {
+        self._SessionManager.resetSessionTimer();
         if (typeof lat === 'number' && typeof lng === 'number') {
-            mParticle.Store.currentPosition = {
+            self._Store.currentPosition = {
                 lat: lat,
                 lng: lng,
             };
         } else {
-            mParticle.Logger.error(
+            self.Logger.error(
                 'Position latitude and/or longitude must both be of type number'
             );
         }
-    },
+    };
     /**
      * Starts a new session
      * @method startNewSession
      */
-    startNewSession: function() {
-        SessionManager.startNewSession();
-    },
+    this.startNewSession = function() {
+        self._SessionManager.startNewSession();
+    };
     /**
      * Ends the current session
      * @method endSession
      */
-    endSession: function() {
+    this.endSession = function() {
         // Sends true as an over ride vs when endSession is called from the setInterval
-        SessionManager.endSession(true);
-    },
+        self._SessionManager.endSession(true);
+    };
 
     /**
      * Logs a Base Event to mParticle's servers
      * @param {Object} event Base Event Object
      */
-    logBaseEvent: function(event) {
-        if (!mParticle.Store.isInitialized) {
-            mParticle.ready(function() {
-                mParticle.logBaseEvent(event);
+    this.logBaseEvent = function(event) {
+        if (!self._Store.isInitialized) {
+            self.ready(function() {
+                self.logBaseEvent(event);
             });
             return;
         }
-        SessionManager.resetSessionTimer();
+        self._SessionManager.resetSessionTimer();
         if (typeof event.name !== 'string') {
-            mParticle.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
+            self.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
             return;
         }
 
@@ -282,13 +278,13 @@ var mParticle = {
             event.eventType = Types.EventType.Unknown;
         }
 
-        if (!Helpers.canLog()) {
-            mParticle.Logger.error(Messages.ErrorMessages.LoggingDisabled);
+        if (!self._Helpers.canLog()) {
+            self.Logger.error(Messages.ErrorMessages.LoggingDisabled);
             return;
         }
 
-        Events.logEvent(event);
-    },
+        self._Events.logEvent(event);
+    };
     /**
      * Logs an event to mParticle's servers
      * @method logEvent
@@ -297,21 +293,16 @@ var mParticle = {
      * @param {Object} [eventInfo] Attributes for the event
      * @param {Object} [customFlags] Additional customFlags
      */
-    logEvent: function(eventName, eventType, eventInfo, customFlags) {
-        if (!mParticle.Store.isInitialized) {
-            mParticle.ready(function() {
-                mParticle.logEvent(
-                    eventName,
-                    eventType,
-                    eventInfo,
-                    customFlags
-                );
+    this.logEvent = function(eventName, eventType, eventInfo, customFlags) {
+        if (!self._Store.isInitialized) {
+            self.ready(function() {
+                self.logEvent(eventName, eventType, eventInfo, customFlags);
             });
             return;
         }
-        SessionManager.resetSessionTimer();
+        self._SessionManager.resetSessionTimer();
         if (typeof eventName !== 'string') {
-            mParticle.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
+            self.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
             return;
         }
 
@@ -319,8 +310,8 @@ var mParticle = {
             eventType = Types.EventType.Unknown;
         }
 
-        if (!Helpers.isEventType(eventType)) {
-            mParticle.Logger.error(
+        if (!self._Helpers.isEventType(eventType)) {
+            self.Logger.error(
                 'Invalid event type: ' +
                     eventType +
                     ', must be one of: \n' +
@@ -329,19 +320,19 @@ var mParticle = {
             return;
         }
 
-        if (!Helpers.canLog()) {
-            mParticle.Logger.error(Messages.ErrorMessages.LoggingDisabled);
+        if (!self._Helpers.canLog()) {
+            self.Logger.error(Messages.ErrorMessages.LoggingDisabled);
             return;
         }
 
-        Events.logEvent({
+        self._Events.logEvent({
             messageType: Types.MessageType.PageEvent,
             name: eventName,
             data: eventInfo,
             eventType: eventType,
             customFlags: customFlags,
         });
-    },
+    };
     /**
      * Used to log custom errors
      *
@@ -349,14 +340,14 @@ var mParticle = {
      * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
      * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
      */
-    logError: function(error, attrs) {
-        if (!mParticle.Store.isInitialized) {
-            mParticle.ready(function() {
-                mParticle.logError(error, attrs);
+    this.logError = function(error, attrs) {
+        if (!self._Store.isInitialized) {
+            self.ready(function() {
+                self.logError(error, attrs);
             });
             return;
         }
-        SessionManager.resetSessionTimer();
+        self._SessionManager.resetSessionTimer();
         if (!error) {
             return;
         }
@@ -374,19 +365,19 @@ var mParticle = {
         };
 
         if (attrs) {
-            var sanitized = Helpers.sanitizeAttributes(attrs);
+            var sanitized = self._Helpers.sanitizeAttributes(attrs);
             for (var prop in sanitized) {
                 data[prop] = sanitized[prop];
             }
         }
 
-        Events.logEvent({
+        self._Events.logEvent({
             messageType: Types.MessageType.CrashReport,
             name: error.name ? error.name : 'Error',
             data: data,
             eventType: Types.EventType.Other,
         });
-    },
+    };
     /**
      * Logs `click` events
      * @method logLink
@@ -395,15 +386,15 @@ var mParticle = {
      * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
      * @param {Object} [eventInfo] Attributes for the event
      */
-    logLink: function(selector, eventName, eventType, eventInfo) {
-        Events.addEventHandler(
+    this.logLink = function(selector, eventName, eventType, eventInfo) {
+        self._Events.addEventHandler(
             'click',
             selector,
             eventName,
             eventInfo,
             eventType
         );
-    },
+    };
     /**
      * Logs `submit` events
      * @method logForm
@@ -412,15 +403,15 @@ var mParticle = {
      * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
      * @param {Object} [eventInfo] Attributes for the event
      */
-    logForm: function(selector, eventName, eventType, eventInfo) {
-        Events.addEventHandler(
+    this.logForm = function(selector, eventName, eventType, eventInfo) {
+        self._Events.addEventHandler(
             'submit',
             selector,
             eventName,
             eventInfo,
             eventType
         );
-    },
+    };
     /**
      * Logs a page view
      * @method logPageView
@@ -428,17 +419,17 @@ var mParticle = {
      * @param {Object} [attrs] Attributes for the event
      * @param {Object} [customFlags] Custom flags for the event
      */
-    logPageView: function(eventName, attrs, customFlags) {
-        if (!mParticle.Store.isInitialized) {
-            mParticle.ready(function() {
-                mParticle.logPageView(eventName, attrs, customFlags);
+    this.logPageView = function(eventName, attrs, customFlags) {
+        if (!self._Store.isInitialized) {
+            self.ready(function() {
+                self.logPageView(eventName, attrs, customFlags);
             });
             return;
         }
-        SessionManager.resetSessionTimer();
+        self._SessionManager.resetSessionTimer();
 
-        if (Helpers.canLog()) {
-            if (!Validators.isStringOrNumber(eventName)) {
+        if (self._Helpers.canLog()) {
+            if (!self._Helpers.Validators.isStringOrNumber(eventName)) {
                 eventName = 'PageView';
             }
             if (!attrs) {
@@ -446,16 +437,16 @@ var mParticle = {
                     hostname: window.location.hostname,
                     title: window.document.title,
                 };
-            } else if (!Helpers.isObject(attrs)) {
-                mParticle.Logger.error(
+            } else if (!self._Helpers.isObject(attrs)) {
+                self.Logger.error(
                     'The attributes argument must be an object. A ' +
                         typeof attrs +
                         ' was entered. Please correct and retry.'
                 );
                 return;
             }
-            if (customFlags && !Helpers.isObject(customFlags)) {
-                mParticle.Logger.error(
+            if (customFlags && !self._Helpers.isObject(customFlags)) {
+                self.Logger.error(
                     'The customFlags argument must be an object. A ' +
                         typeof customFlags +
                         ' was entered. Please correct and retry.'
@@ -464,24 +455,24 @@ var mParticle = {
             }
         }
 
-        Events.logEvent({
+        self._Events.logEvent({
             messageType: Types.MessageType.PageView,
             name: eventName,
             data: attrs,
             eventType: Types.EventType.Unknown,
             customFlags: customFlags,
         });
-    },
-    Consent: {
-        createGDPRConsent: Consent.createGDPRConsent,
-        createConsentState: Consent.createConsentState,
-    },
+    };
+    this.Consent = {
+        createGDPRConsent: self._Consent.createGDPRConsent,
+        createConsentState: self._Consent.createConsentState,
+    };
     /**
      * Invoke these methods on the mParticle.eCommerce object.
      * Example: mParticle.eCommerce.createImpresion(...)
      * @class mParticle.eCommerce
      */
-    eCommerce: {
+    this.eCommerce = {
         /**
          * Invoke these methods on the mParticle.eCommerce.Cart object.
          * Example: mParticle.eCommerce.Cart.add(...)
@@ -496,15 +487,17 @@ var mParticle = {
              * @deprecated
              */
             add: function(product, logEventBoolean) {
-                mParticle.Logger.warning(
+                self.Logger.warning(
                     'Deprecated function eCommerce.Cart.add() will be removed in future releases'
                 );
                 var mpid,
-                    currentUser = mParticle.Identity.getCurrentUser();
+                    currentUser = self.Identity.getCurrentUser();
                 if (currentUser) {
                     mpid = currentUser.getMPID();
                 }
-                mParticleUserCart(mpid).add(product, logEventBoolean);
+                self._Identity
+                    .mParticleUserCart(mpid)
+                    .add(product, logEventBoolean);
             },
             /**
              * Removes a product from the cart
@@ -514,15 +507,17 @@ var mParticle = {
              * @deprecated
              */
             remove: function(product, logEventBoolean) {
-                mParticle.Logger.warning(
+                self.Logger.warning(
                     'Deprecated function eCommerce.Cart.remove() will be removed in future releases'
                 );
                 var mpid,
-                    currentUser = mParticle.Identity.getCurrentUser();
+                    currentUser = self.Identity.getCurrentUser();
                 if (currentUser) {
                     mpid = currentUser.getMPID();
                 }
-                mParticleUserCart(mpid).remove(product, logEventBoolean);
+                self._Identity
+                    .mParticleUserCart(mpid)
+                    .remove(product, logEventBoolean);
             },
             /**
              * Clears the cart
@@ -530,15 +525,15 @@ var mParticle = {
              * @deprecated
              */
             clear: function() {
-                mParticle.Logger.warning(
+                self.Logger.warning(
                     'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
                 );
                 var mpid,
-                    currentUser = mParticle.Identity.getCurrentUser();
+                    currentUser = self.Identity.getCurrentUser();
                 if (currentUser) {
                     mpid = currentUser.getMPID();
                 }
-                mParticleUserCart(mpid).clear();
+                self._Identity.mParticleUserCart(mpid).clear();
             },
         },
         /**
@@ -548,19 +543,19 @@ var mParticle = {
          * @param {String} code The currency code
          */
         setCurrencyCode: function(code) {
-            if (!mParticle.Store.isInitialized) {
-                mParticle.ready(function() {
-                    mParticle.eCommerce.setCurrencyCode(code);
+            if (!self._Store.isInitialized) {
+                self.ready(function() {
+                    self.setCurrencyCode(code);
                 });
                 return;
             }
 
             if (typeof code !== 'string') {
-                mParticle.Logger.error('Code must be a string');
+                self.Logger.error('Code must be a string');
                 return;
             }
-            SessionManager.resetSessionTimer();
-            mParticle.Store.currencyCode = code;
+            self._SessionManager.resetSessionTimer();
+            self._Store.currencyCode = code;
         },
         /**
          * Creates a product
@@ -589,7 +584,7 @@ var mParticle = {
             coupon,
             attributes
         ) {
-            return Ecommerce.createProduct(
+            return self._Ecommerce.createProduct(
                 name,
                 sku,
                 price,
@@ -612,7 +607,12 @@ var mParticle = {
          * @param {Number} [position] promotion position
          */
         createPromotion: function(id, creative, name, position) {
-            return Ecommerce.createPromotion(id, creative, name, position);
+            return self._Ecommerce.createPromotion(
+                id,
+                creative,
+                name,
+                position
+            );
         },
         /**
          * Creates a product impression
@@ -622,7 +622,7 @@ var mParticle = {
          * @param {Object} product the product for which an impression is being created
          */
         createImpression: function(name, product) {
-            return Ecommerce.createImpression(name, product);
+            return self._Ecommerce.createImpression(name, product);
         },
         /**
          * Creates a transaction attributes object to be used with a checkout
@@ -643,7 +643,7 @@ var mParticle = {
             shipping,
             tax
         ) {
-            return Ecommerce.createTransactionAttributes(
+            return self._Ecommerce.createTransactionAttributes(
                 id,
                 affiliation,
                 couponCode,
@@ -662,9 +662,9 @@ var mParticle = {
          * @param {Object} [customFlags] Custom flags for the event
          */
         logCheckout: function(step, options, attrs, customFlags) {
-            if (!mParticle.Store.isInitialized) {
-                mParticle.ready(function() {
-                    mParticle.eCommerce.logCheckout(
+            if (!self._Store.isInitialized) {
+                self.ready(function() {
+                    self.eCommerce.logCheckout(
                         step,
                         options,
                         attrs,
@@ -673,8 +673,8 @@ var mParticle = {
                 });
                 return;
             }
-            SessionManager.resetSessionTimer();
-            Events.logCheckoutEvent(step, options, attrs, customFlags);
+            self._SessionManager.resetSessionTimer();
+            self._Events.logCheckoutEvent(step, options, attrs, customFlags);
         },
         /**
          * Logs a product action
@@ -691,9 +691,9 @@ var mParticle = {
             attrs,
             customFlags
         ) {
-            if (!mParticle.Store.isInitialized) {
-                mParticle.ready(function() {
-                    mParticle.eCommerce.logProductAction(
+            if (!self._Store.isInitialized) {
+                self.ready(function() {
+                    self.eCommerce.logProductAction(
                         productActionType,
                         product,
                         attrs,
@@ -702,8 +702,8 @@ var mParticle = {
                 });
                 return;
             }
-            SessionManager.resetSessionTimer();
-            Events.logProductActionEvent(
+            self._SessionManager.resetSessionTimer();
+            self._Events.logProductActionEvent(
                 productActionType,
                 product,
                 attrs,
@@ -727,9 +727,9 @@ var mParticle = {
             attrs,
             customFlags
         ) {
-            if (!mParticle.Store.isInitialized) {
-                mParticle.ready(function() {
-                    mParticle.eCommerce.logPurchase(
+            if (!self._Store.isInitialized) {
+                self.ready(function() {
+                    self.eCommerce.logPurchase(
                         transactionAttributes,
                         product,
                         clearCart,
@@ -740,11 +740,11 @@ var mParticle = {
                 return;
             }
             if (!transactionAttributes || !product) {
-                mParticle.Logger.error(Messages.ErrorMessages.BadLogPurchase);
+                self.Logger.error(Messages.ErrorMessages.BadLogPurchase);
                 return;
             }
-            SessionManager.resetSessionTimer();
-            Events.logPurchaseEvent(
+            self._SessionManager.resetSessionTimer();
+            self._Events.logPurchaseEvent(
                 transactionAttributes,
                 product,
                 attrs,
@@ -752,7 +752,7 @@ var mParticle = {
             );
 
             if (clearCart === true) {
-                mParticle.eCommerce.Cart.clear();
+                self.eCommerce.Cart.clear();
             }
         },
         /**
@@ -765,9 +765,9 @@ var mParticle = {
          * @param {Object} [customFlags] Custom flags for the event
          */
         logPromotion: function(type, promotion, attrs, customFlags) {
-            if (!mParticle.Store.isInitialized) {
-                mParticle.ready(function() {
-                    mParticle.eCommerce.logPromotion(
+            if (!self._Store.isInitialized) {
+                self.ready(function() {
+                    self.eCommerce.logPromotion(
                         type,
                         promotion,
                         attrs,
@@ -776,8 +776,8 @@ var mParticle = {
                 });
                 return;
             }
-            SessionManager.resetSessionTimer();
-            Events.logPromotionEvent(type, promotion, attrs, customFlags);
+            self._SessionManager.resetSessionTimer();
+            self._Events.logPromotionEvent(type, promotion, attrs, customFlags);
         },
         /**
          * Logs a product impression
@@ -788,9 +788,9 @@ var mParticle = {
          * @param {Object} [customFlags] Custom flags for the event
          */
         logImpression: function(impression, attrs, customFlags) {
-            if (!mParticle.Store.isInitialized) {
-                mParticle.ready(function() {
-                    mParticle.eCommerce.logImpression(
+            if (!self._Store.isInitialized) {
+                self.ready(function() {
+                    self.eCommerce.logImpression(
                         impression,
                         attrs,
                         customFlags
@@ -798,8 +798,8 @@ var mParticle = {
                 });
                 return;
             }
-            SessionManager.resetSessionTimer();
-            Events.logImpressionEvent(impression, attrs, customFlags);
+            self._SessionManager.resetSessionTimer();
+            self._Events.logImpressionEvent(impression, attrs, customFlags);
         },
         /**
          * Logs a refund
@@ -818,9 +818,9 @@ var mParticle = {
             attrs,
             customFlags
         ) {
-            if (!mParticle.Store.isInitialized) {
-                mParticle.ready(function() {
-                    mParticle.eCommerce.logRefund(
+            if (!self._Store.isInitialized) {
+                self.ready(function() {
+                    self.eCommerce.logRefund(
                         transactionAttributes,
                         product,
                         clearCart,
@@ -830,8 +830,8 @@ var mParticle = {
                 });
                 return;
             }
-            SessionManager.resetSessionTimer();
-            Events.logRefundEvent(
+            self._SessionManager.resetSessionTimer();
+            self._Events.logRefundEvent(
                 transactionAttributes,
                 product,
                 attrs,
@@ -839,13 +839,13 @@ var mParticle = {
             );
 
             if (clearCart === true) {
-                mParticle.eCommerce.Cart.clear();
+                self.eCommerce.Cart.clear();
             }
         },
         expandCommerceEvent: function(event) {
-            return Ecommerce.expandCommerceEvent(event);
+            return self._Ecommerce.expandCommerceEvent(event);
         },
-    },
+    };
     /**
      * Sets a session attribute
      * @for mParticle
@@ -853,36 +853,35 @@ var mParticle = {
      * @param {String} key key for session attribute
      * @param {String or Number} value value for session attribute
      */
-    setSessionAttribute: function(key, value) {
-        // Logs to cookie
-        // And logs to in-memory object
-        // Example: mParticle.setSessionAttribute('location', '33431');
-
-        if (!mParticle.Store.isInitialized) {
-            mParticle.ready(function() {
-                mParticle.setSessionAttribute(key, value);
+    this.setSessionAttribute = function(key, value) {
+        if (!self._Store.isInitialized) {
+            self.ready(function() {
+                self.setSessionAttribute(key, value);
             });
             return;
         }
-        if (Helpers.canLog()) {
-            if (!Validators.isValidAttributeValue(value)) {
-                mParticle.Logger.error(Messages.ErrorMessages.BadAttribute);
+        // Logs to cookie
+        // And logs to in-memory object
+        // Example: mParticle.setSessionAttribute('location', '33431');
+        if (self._Helpers.canLog()) {
+            if (!self._Helpers.Validators.isValidAttributeValue(value)) {
+                self.Logger.error(Messages.ErrorMessages.BadAttribute);
                 return;
             }
 
-            if (!Validators.isValidKeyValue(key)) {
-                mParticle.Logger.error(Messages.ErrorMessages.BadKey);
+            if (!self._Helpers.Validators.isValidKeyValue(key)) {
+                self.Logger.error(Messages.ErrorMessages.BadKey);
                 return;
             }
 
-            if (mParticle.Store.webviewBridgeEnabled) {
-                NativeSdkHelpers.sendToNative(
+            if (self._Store.webviewBridgeEnabled) {
+                self._NativeSdkHelpers.sendToNative(
                     Constants.NativeSdkPaths.SetSessionAttribute,
                     JSON.stringify({ key: key, value: value })
                 );
             } else {
-                var existingProp = Helpers.findKeyInObject(
-                    mParticle.Store.sessionAttributes,
+                var existingProp = self._Helpers.findKeyInObject(
+                    self._Store.sessionAttributes,
                     key
                 );
 
@@ -890,47 +889,47 @@ var mParticle = {
                     key = existingProp;
                 }
 
-                mParticle.Store.sessionAttributes[key] = value;
-                Persistence.update();
+                self._Store.sessionAttributes[key] = value;
+                self._Persistence.update();
 
-                Forwarders.applyToForwarders('setSessionAttribute', [
+                self._Forwarders.applyToForwarders('setSessionAttribute', [
                     key,
                     value,
                 ]);
             }
         }
-    },
+    };
     /**
      * Set opt out of logging
      * @for mParticle
      * @method setOptOut
      * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
      */
-    setOptOut: function(isOptingOut) {
-        if (!mParticle.Store.isInitialized) {
-            mParticle.ready(function() {
-                mParticle.setOptOut(isOptingOut);
+    this.setOptOut = function(isOptingOut) {
+        if (!self._Store.isInitialized) {
+            self.ready(function() {
+                self.setOptOut(isOptingOut);
             });
             return;
         }
-        SessionManager.resetSessionTimer();
-        mParticle.Store.isEnabled = !isOptingOut;
+        self._SessionManager.resetSessionTimer();
+        self._Store.isEnabled = !isOptingOut;
 
-        Events.logOptOut();
-        Persistence.update();
+        self._Events.logOptOut();
+        self._Persistence.update();
 
-        if (mParticle.Store.activeForwarders.length) {
-            mParticle.Store.activeForwarders.forEach(function(forwarder) {
+        if (self._Store.activeForwarders.length) {
+            self._Store.activeForwarders.forEach(function(forwarder) {
                 if (forwarder.setOptOut) {
                     var result = forwarder.setOptOut(isOptingOut);
 
                     if (result) {
-                        mParticle.Logger.verbose(result);
+                        self.Logger.verbose(result);
                     }
                 }
             });
         }
-    },
+    };
     /**
      * Set or remove the integration attributes for a given integration ID.
      * Integration attributes are keys and values specific to a given integration. For example,
@@ -945,53 +944,54 @@ var mParticle = {
      * Please consult with the mParticle docs or your solutions consultant for the correct value. You may
      * also pass a null or empty map here to remove all of the attributes.
      */
-    setIntegrationAttribute: function(integrationId, attrs) {
-        if (!mParticle.Store.isInitialized) {
-            mParticle.ready(function() {
-                mParticle.setIntegrationAttribute(integrationId, attrs);
+    this.setIntegrationAttribute = function(integrationId, attrs) {
+        if (!self._Store.isInitialized) {
+            self.ready(function() {
+                self.setIntegrationAttribute(integrationId, attrs);
             });
             return;
         }
+
         if (typeof integrationId !== 'number') {
-            mParticle.Logger.error('integrationId must be a number');
+            self.Logger.error('integrationId must be a number');
             return;
         }
         if (attrs === null) {
-            mParticle.Store.integrationAttributes[integrationId] = {};
-        } else if (Helpers.isObject(attrs)) {
+            self._Store.integrationAttributes[integrationId] = {};
+        } else if (self._Helpers.isObject(attrs)) {
             if (Object.keys(attrs).length === 0) {
-                mParticle.Store.integrationAttributes[integrationId] = {};
+                self._Store.integrationAttributes[integrationId] = {};
             } else {
                 for (var key in attrs) {
                     if (typeof key === 'string') {
                         if (typeof attrs[key] === 'string') {
                             if (
-                                Helpers.isObject(
-                                    mParticle.Store.integrationAttributes[
+                                self._Helpers.isObject(
+                                    self._Store.integrationAttributes[
                                         integrationId
                                     ]
                                 )
                             ) {
-                                mParticle.Store.integrationAttributes[
+                                self._Store.integrationAttributes[
                                     integrationId
                                 ][key] = attrs[key];
                             } else {
-                                mParticle.Store.integrationAttributes[
+                                self._Store.integrationAttributes[
                                     integrationId
                                 ] = {};
-                                mParticle.Store.integrationAttributes[
+                                self._Store.integrationAttributes[
                                     integrationId
                                 ][key] = attrs[key];
                             }
                         } else {
-                            mParticle.Logger.error(
+                            self.Logger.error(
                                 'Values for integration attributes must be strings. You entered a ' +
                                     typeof attrs[key]
                             );
                             continue;
                         }
                     } else {
-                        mParticle.Logger.error(
+                        self.Logger.error(
                             'Keys must be strings, you entered a ' + typeof key
                         );
                         continue;
@@ -999,88 +999,108 @@ var mParticle = {
                 }
             }
         } else {
-            mParticle.Logger.error(
+            self.Logger.error(
                 'Attrs must be an object with keys and values. You entered a ' +
                     typeof attrs
             );
             return;
         }
-        Persistence.update();
-    },
+        self._Persistence.update();
+    };
     /**
      * Get integration attributes for a given integration ID.
      * @method getIntegrationAttributes
      * @param {Number} integrationId mParticle integration ID
      * @return {Object} an object map of the integrationId's attributes
      */
-    getIntegrationAttributes: function(integrationId) {
-        if (mParticle.Store.integrationAttributes[integrationId]) {
-            return mParticle.Store.integrationAttributes[integrationId];
+    this.getIntegrationAttributes = function(integrationId) {
+        if (self._Store.integrationAttributes[integrationId]) {
+            return self._Store.integrationAttributes[integrationId];
         } else {
             return {};
         }
-    },
-    addForwarder: function(forwarder) {
-        mParticle.preInit.forwarderConstructors.push(forwarder);
-    },
-    configurePixel: function(settings) {
-        Forwarders.configurePixel(settings);
-    },
-    _getActiveForwarders: function() {
-        return mParticle.Store.activeForwarders;
-    },
-    _getIntegrationDelays: function() {
-        return mParticle.preInit.integrationDelays;
-    },
-    _setIntegrationDelay: function(module, boolean) {
-        mParticle.preInit.integrationDelays[module] = boolean;
-    },
-};
+    };
+    this.addForwarder = function(forwarder) {
+        self._preInit.forwarderConstructors.push(forwarder);
+    };
+    this.configurePixel = function(settings) {
+        self._Forwarders.configurePixel(settings);
+    };
+    this._getActiveForwarders = function() {
+        return self._Store.activeForwarders;
+    };
+    this._getIntegrationDelays = function() {
+        return self._preInit.integrationDelays;
+    };
+    this._setIntegrationDelay = function(module, boolean) {
+        self._preInit.integrationDelays[module] = boolean;
+    };
+}
 
-function completeSDKInitialization(apiKey, config) {
-    mParticle.Store.storageName = Helpers.createMainStorageName(
+function completeSDKInitialization(apiKey, config, mpInstance) {
+    // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
+    if (config.flags) {
+        if (config.flags.hasOwnProperty(Constants.FeatureFlags.EventsV3)) {
+            mpInstance._Store.SDKConfig.flags[Constants.FeatureFlags.EventsV3] =
+                config.flags[Constants.FeatureFlags.EventsV3];
+        }
+        if (
+            config.flags.hasOwnProperty(
+                Constants.FeatureFlags.EventBatchingIntervalMillis
+            )
+        ) {
+            mpInstance._Store.SDKConfig.flags[
+                Constants.FeatureFlags.EventBatchingIntervalMillis
+            ] =
+                config.flags[
+                    Constants.FeatureFlags.EventBatchingIntervalMillis
+                ];
+        }
+    }
+
+    mpInstance._Store.storageName = mpInstance._Helpers.createMainStorageName(
         config.workspaceToken
     );
-    mParticle.Store.prodStorageName = Helpers.createProductStorageName(
+    mpInstance._Store.prodStorageName = mpInstance._Helpers.createProductStorageName(
         config.workspaceToken
     );
     if (config.hasOwnProperty('workspaceToken')) {
-        mParticle.Store.SDKConfig.workspaceToken = config.workspaceToken;
+        mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;
     } else {
-        mParticle.Logger.warning(
-            'You should have a workspaceToken on your mParticle.config object for security purposes.'
+        mpInstance.Logger.warning(
+            'You should have a workspaceToken on your config object for security purposes.'
         );
     }
 
     if (config.hasOwnProperty('requiredWebviewBridgeName')) {
-        mParticle.Store.SDKConfig.requiredWebviewBridgeName =
+        mpInstance._Store.SDKConfig.requiredWebviewBridgeName =
             config.requiredWebviewBridgeName;
     } else if (config.hasOwnProperty('workspaceToken')) {
-        mParticle.Store.SDKConfig.requiredWebviewBridgeName =
+        mpInstance._Store.SDKConfig.requiredWebviewBridgeName =
             config.workspaceToken;
     }
-    mParticle.Store.webviewBridgeEnabled = NativeSdkHelpers.isWebviewEnabled(
-        mParticle.Store.SDKConfig.requiredWebviewBridgeName,
-        mParticle.Store.SDKConfig.minWebviewBridgeVersion
+    mpInstance._Store.webviewBridgeEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled(
+        mpInstance._Store.SDKConfig.requiredWebviewBridgeName,
+        mpInstance._Store.SDKConfig.minWebviewBridgeVersion
     );
 
-    mParticle.Store.configurationLoaded = true;
+    mpInstance._Store.configurationLoaded = true;
 
-    if (!mParticle.Store.webviewBridgeEnabled) {
+    if (!mpInstance._Store.webviewBridgeEnabled) {
         // Migrate any cookies from previous versions to current cookie version
-        Migrations.migrate();
+        mpInstance._Migrations.migrate();
 
         // Load any settings/identities/attributes from cookie or localStorage
-        Persistence.initializeStorage();
+        mpInstance._Persistence.initializeStorage();
     }
 
-    if (mParticle.Store.webviewBridgeEnabled) {
-        NativeSdkHelpers.sendToNative(
+    if (mpInstance._Store.webviewBridgeEnabled) {
+        mpInstance._NativeSdkHelpers.sendToNative(
             Constants.NativeSdkPaths.SetSessionAttribute,
             JSON.stringify({ key: '$src_env', value: 'webview' })
         );
         if (apiKey) {
-            NativeSdkHelpers.sendToNative(
+            mpInstance._NativeSdkHelpers.sendToNative(
                 Constants.NativeSdkPaths.SetSessionAttribute,
                 JSON.stringify({ key: '$src_key', value: apiKey })
             );
@@ -1090,18 +1110,20 @@ function completeSDKInitialization(apiKey, config) {
 
         // If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
         if (
-            (Helpers.isObject(mParticle.Store.SDKConfig.identifyRequest) &&
-                Helpers.isObject(
-                    mParticle.Store.SDKConfig.identifyRequest.userIdentities
+            (mpInstance._Helpers.isObject(
+                mpInstance._Store.SDKConfig.identifyRequest
+            ) &&
+                mpInstance._Helpers.isObject(
+                    mpInstance._Store.SDKConfig.identifyRequest.userIdentities
                 ) &&
                 Object.keys(
-                    mParticle.Store.SDKConfig.identifyRequest.userIdentities
+                    mpInstance._Store.SDKConfig.identifyRequest.userIdentities
                 ).length === 0) ||
-            !mParticle.Store.SDKConfig.identifyRequest
+            !mpInstance._Store.SDKConfig.identifyRequest
         ) {
             var modifiedUIforIdentityRequest = {};
 
-            currentUser = mParticle.Identity.getCurrentUser();
+            currentUser = mpInstance.Identity.getCurrentUser();
             if (currentUser) {
                 var identities =
                     currentUser.getUserIdentities().userIdentities || {};
@@ -1113,42 +1135,50 @@ function completeSDKInitialization(apiKey, config) {
                 }
             }
 
-            mParticle.Store.SDKConfig.identifyRequest = {
+            mpInstance._Store.SDKConfig.identifyRequest = {
                 userIdentities: modifiedUIforIdentityRequest,
             };
         }
 
         // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
-        if (mParticle.Store.migratingToIDSyncCookies) {
-            IdentityAPI.identify(
-                mParticle.Store.SDKConfig.identifyRequest,
-                mParticle.Store.SDKConfig.identityCallback
+        if (mpInstance._Store.migratingToIDSyncCookies) {
+            mpInstance.Identity.identify(
+                mpInstance._Store.SDKConfig.identifyRequest,
+                mpInstance._Store.SDKConfig.identityCallback
             );
-            mParticle.Store.migratingToIDSyncCookies = false;
+            mpInstance._Store.migratingToIDSyncCookies = false;
         }
 
-        currentUser = IdentityAPI.getCurrentUser();
+        currentUser = mpInstance.Identity.getCurrentUser();
 
-        if (Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)) {
-            startForwardingStatsTimer();
-        }
-
-        Forwarders.processForwarders(config, ApiClient.prepareForwardingStats);
-
-        // Call mParticle.Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
         if (
-            !mParticle.Store.identifyCalled &&
-            mParticle.Store.SDKConfig.identityCallback &&
+            mpInstance._Helpers.getFeatureFlag(
+                Constants.FeatureFlags.ReportBatching
+            )
+        ) {
+            mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
+        }
+        mpInstance._Forwarders.processForwarders(
+            config,
+            mpInstance._APIClient.prepareForwardingStats
+        );
+
+        // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
+        if (
+            !mpInstance._Store.identifyCalled &&
+            mpInstance._Store.SDKConfig.identityCallback &&
             currentUser &&
             currentUser.getMPID()
         ) {
-            mParticle.Store.SDKConfig.identityCallback({
+            mpInstance._Store.SDKConfig.identityCallback({
                 httpCode: HTTPCodes.activeSession,
                 getUser: function() {
-                    return mParticleUser(currentUser.getMPID());
+                    return mpInstance._Identity.mParticleUser(
+                        currentUser.getMPID()
+                    );
                 },
                 getPreviousUser: function() {
-                    var users = mParticle.Identity.getUsers();
+                    var users = mpInstance.Identity.getUsers();
                     var mostRecentUser = users.shift();
                     if (
                         mostRecentUser &&
@@ -1161,7 +1191,7 @@ function completeSDKInitialization(apiKey, config) {
                 },
                 body: {
                     mpid: currentUser.getMPID(),
-                    is_logged_in: mParticle.Store.isLoggedIn,
+                    is_logged_in: mpInstance._Store.isLoggedIn,
                     matched_identities: currentUser.getUserIdentities()
                         .userIdentities,
                     context: null,
@@ -1170,44 +1200,48 @@ function completeSDKInitialization(apiKey, config) {
             });
         }
 
-        mParticle.sessionManager.initialize();
-        Events.logAST();
+        mpInstance._SessionManager.initialize();
+        mpInstance._Events.logAST();
     }
 
-    mParticle.Store.isInitialized = true;
+    mpInstance._Store.isInitialized = true;
     // Call any functions that are waiting for the library to be initialized
-    if (mParticle.preInit.readyQueue && mParticle.preInit.readyQueue.length) {
-        mParticle.preInit.readyQueue.forEach(function(readyQueueItem) {
-            if (Validators.isFunction(readyQueueItem)) {
+    if (
+        mpInstance._preInit.readyQueue &&
+        mpInstance._preInit.readyQueue.length
+    ) {
+        mpInstance._preInit.readyQueue.forEach(function(readyQueueItem) {
+            if (mpInstance._Helpers.Validators.isFunction(readyQueueItem)) {
                 readyQueueItem();
             } else if (Array.isArray(readyQueueItem)) {
-                processPreloadedItem(readyQueueItem);
+                processPreloadedItem(readyQueueItem, mpInstance);
             }
         });
 
-        mParticle.preInit.readyQueue = [];
+        mpInstance._preInit.readyQueue = [];
     }
 
-    if (mParticle.Store.isFirstRun) {
-        mParticle.Store.isFirstRun = false;
+    if (mpInstance._Store.isFirstRun) {
+        mpInstance._Store.isFirstRun = false;
     }
 }
 
-function runPreConfigFetchInitialization(apiKey, config) {
-    mParticle.Logger = new Logger(config);
-    mParticle.Store = new Store(config, mParticle.Logger);
-    mParticle.Store.devToken = apiKey || null;
-    mParticle.Logger.verbose(
+function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
+    mpInstance.Logger = new Logger(config);
+    mpInstance._Store = new Store(config, mpInstance);
+    window.mParticle.Store = mpInstance._Store;
+    mpInstance._Store.devToken = apiKey || null;
+    mpInstance.Logger.verbose(
         Messages.InformationMessages.StartingInitialization
     );
 
     //check to see if localStorage is available for migrating purposes
-    mParticle.Store.isLocalStorageAvailable = Persistence.determineLocalStorageAvailability(
+    mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(
         window.localStorage
     );
 }
 
-function processPreloadedItem(readyQueueItem) {
+function processPreloadedItem(readyQueueItem, mpInstance) {
     var args = readyQueueItem,
         method = args.splice(0, 1)[0];
     // if the first argument is a method on the base mParticle object, run it
@@ -1224,25 +1258,9 @@ function processPreloadedItem(readyQueueItem) {
             }
             computedMPFunction.apply(this, args);
         } catch (e) {
-            mParticle.Logger.verbose(
+            mpInstance.Logger.verbose(
                 'Unable to compute proper mParticle function ' + e
             );
         }
     }
 }
-
-mParticle.preInit = {
-    readyQueue: [],
-    integrationDelays: {},
-    forwarderConstructors: [],
-};
-
-if (window.mParticle && window.mParticle.config) {
-    if (window.mParticle.config.hasOwnProperty('rq')) {
-        mParticle.preInit.readyQueue = window.mParticle.config.rq;
-    }
-}
-
-window.mParticle = mParticle;
-
-export default mParticle;

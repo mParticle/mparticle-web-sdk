@@ -2,7 +2,7 @@ const { BUNDLER } = process.env;
 let template = require('./karma.selfhost.cjs.template.config.js');
 let file = './dist/' + BUNDLER + '-output.js';
 
-template.files.push(file);
+template.files.unshift(file);
 template.settings.outputFile = 'test-karma-' + BUNDLER + '.xml';
 template.settings.junitReporter.outputFile =
     'test-karma-' + BUNDLER + '-cjs.xml';

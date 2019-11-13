@@ -1,0 +1,1 @@
+window.mParticle = window.mParticle || {};

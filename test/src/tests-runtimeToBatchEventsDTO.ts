@@ -1,6 +1,5 @@
 import * as Converter from '../../src/sdkToEventsApiConverter';
 import { expect } from 'chai';
-import ServerModel from '../../src/serverModel';
 import Types from '../../src/types';
 import { SDKEvent, MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import * as EventsApi from '../../src/eventsApiModels';
@@ -13,16 +12,16 @@ declare global {
 
 describe('Old model to batch model conversion', () => {
     const batchDataTests = [{ devmode: false }, { devmode: true }];
-
+    
     batchDataTests.forEach(params => {
         it('Batch level conversion ' + params, done => {
-            let batch = Converter.convertEvents(null, null);
+            let batch = Converter.convertEvents(null, null, window.mParticle.getInstance());
             expect(batch).to.be.null;
 
-            batch = Converter.convertEvents(null, []);
+            batch = Converter.convertEvents(null, [], window.mParticle.getInstance());
             expect(batch).to.be.null;
 
-            window.mParticle.Store = {
+            window.mParticle.getInstance()._Store = {
                 sessionId: 'foo-session-id',
                 isFirstRun: false,
                 devToken: 'foo token',
@@ -33,7 +32,7 @@ describe('Old model to batch model conversion', () => {
                 },
             };
 
-            window.mParticle.Identity.getCurrentUser = () => {
+            window.mParticle.getInstance().Identity.getCurrentUser = () => {
                 return {
                     getUserIdentities: () => {
                         return {
@@ -69,12 +68,18 @@ describe('Old model to batch model conversion', () => {
                 eventType: Types.EventType.Navigation,
                 customFlags: { 'foo-flag': 'foo-flag-val' },
             };
-            const sdkEvent = ServerModel.createEventObject(
+
+            const sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(
                 publicEvent
             ) as SDKEvent;
 
+            console.log(sdkEvent);
             expect(sdkEvent).to.be.ok;
-            batch = Converter.convertEvents('123', [sdkEvent, sdkEvent]);
+            batch = Converter.convertEvents(
+                '123',
+                [sdkEvent, sdkEvent],
+                window.mParticle.getInstance()
+            );
             expect(batch).to.be.ok;
             expect(batch.mpid).to.equal('123');
             expect(batch.environment).to.equal(
@@ -109,7 +114,7 @@ describe('Old model to batch model conversion', () => {
     });
 
     it('User attribute conversion ', done => {
-        window.mParticle.Identity.getCurrentUser = () => {
+        window.mParticle.getInstance().Identity.getCurrentUser = () => {
             return {
                 getUserIdentities: () => {
                     return {
@@ -137,10 +142,12 @@ describe('Old model to batch model conversion', () => {
             eventType: Types.EventType.Navigation,
             customFlags: { 'foo-flag': 'foo-flag-val' },
         };
-        const sdkEvent = ServerModel.createEventObject(publicEvent) as SDKEvent;
+        const sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(
+            publicEvent
+        ) as SDKEvent;
 
         expect(sdkEvent).to.be.ok;
-        const batch = Converter.convertEvents('123', [sdkEvent]);
+        const batch = Converter.convertEvents('123', [sdkEvent], window.mParticle.getInstance());
 
         expect(batch.user_attributes).to.be.ok;
         expect(batch.user_attributes).to.deep.equal({
@@ -152,7 +159,7 @@ describe('Old model to batch model conversion', () => {
     });
 
     it('User identity conversion ', done => {
-        window.mParticle.Identity.getCurrentUser = () => {
+        window.mParticle.getInstance().Identity.getCurrentUser = () => {
             return {
                 getUserIdentities: () => {
                     return {
@@ -184,10 +191,16 @@ describe('Old model to batch model conversion', () => {
             eventType: Types.EventType.Navigation,
             customFlags: { 'foo-flag': 'foo-flag-val' },
         };
-        const sdkEvent = ServerModel.createEventObject(publicEvent) as SDKEvent;
+        const sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(
+            publicEvent
+        ) as SDKEvent;
 
         expect(sdkEvent).to.be.ok;
-        const batch = Converter.convertEvents('123', [sdkEvent, sdkEvent]);
+        const batch = Converter.convertEvents(
+            '123',
+            [sdkEvent, sdkEvent],
+            window.mParticle.getInstance()
+        );
 
         expect(batch.user_identities).to.be.ok;
         expect(batch.user_identities.customer_id).to.equal('1234567');
@@ -223,7 +236,7 @@ describe('Old model to batch model conversion', () => {
                 eventType: Types.EventType.Navigation,
                 customFlags: { 'foo-flag': 'foo-flag-val' },
             };
-            let sdkEvent = ServerModel.createEventObject(
+            let sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(
                 publicEvent
             ) as SDKEvent;
 
@@ -237,7 +250,9 @@ describe('Old model to batch model conversion', () => {
                 eventType: Types.EventType.Navigation,
                 customFlags: { 'foo-flag': 'foo-flag-val' },
             };
-            sdkEvent = ServerModel.createEventObject(publicEvent) as SDKEvent;
+            sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(
+                publicEvent
+            ) as SDKEvent;
             expect(sdkEvent).to.be.ok;
 
             event = Converter.convertEvent(sdkEvent);
@@ -306,7 +321,11 @@ describe('Old model to batch model conversion', () => {
             },
             IsFirstRun: false,
         };
-        let batch = Converter.convertEvents('1053073459916128825', [sdkEvent]);
+        let batch = Converter.convertEvents(
+            '1053073459916128825',
+            [sdkEvent],
+            window.mParticle.getInstance()
+        );
         expect(batch).to.be.ok;
         expect(batch.mpid).to.equal(sdkEvent.MPID);
         expect(batch.events.length).to.equal(1);

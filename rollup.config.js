@@ -37,7 +37,7 @@ const babelMinify = babel({
 
 const builds = {
     iife: {
-        input: 'src/main.js',
+        input: 'src/mparticle-instance-manager.js',
         output: {
             ...defaultOutputOptions,
             file: 'dist/mparticle.js',
@@ -54,7 +54,7 @@ const builds = {
         ],
     },
     cjs: {
-        input: 'src/main.js',
+        input: 'src/mparticle-instance-manager.js',
         output: {
             ...defaultOutputOptions,
             file: 'dist/mparticle.common.js',
@@ -71,7 +71,7 @@ const builds = {
         ],
     },
     esm: {
-        input: 'src/main.js',
+        input: 'src/mparticle-instance-manager.js',
         output: {
             ...defaultOutputOptions,
             file: 'dist/mparticle.esm.js',

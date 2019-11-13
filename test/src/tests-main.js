@@ -15,11 +15,11 @@ beforeEach(function() {
     //mocha can't clean up after itself, so this lets
     //tests mock the current user and restores in between runs.
     if (!userApi) {
-        userApi = window.mParticle.Identity.getCurrentUser;
+        userApi = window.mParticle.getInstance().Identity
+            .getCurrentUser;
     } else {
-        window.mParticle.Identity.getCurrentUser = userApi;
+        window.mParticle.getInstance().Identity.getCurrentUser = userApi;
     }
-
     window.mParticle = window.mParticle || {};
     window.mParticle.config = {
         workspaceToken: workspaceToken,
@@ -45,14 +45,8 @@ beforeEach(function() {
     window.mParticle.isIOS = null;
 
     mParticle.reset(MPConfig);
+    delete mParticle._instances['default_instance'];
     mParticle.init(apiKey, window.mParticle.config);
-    window.mParticle.config = {
-        workspaceToken: workspaceToken,
-        logLevel: 'none',
-        kitConfigs: [],
-        requestConfig: false,
-        isDevelopmentMode: false,
-    };
     delete window.MockForwarder1;
 });
 
@@ -77,3 +71,4 @@ import './tests-mParticleUser';
 import './tests-self-hosting-specific';
 import './tests-runtimeToBatchEventsDTO';
 import './tests-apiClient';
+import './tests-mparticle-instance-manager';

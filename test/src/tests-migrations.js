@@ -1,5 +1,5 @@
+import _Persistence from '../../src/persistence';
 import Migrations from '../../src/migrations';
-import Persistence from '../../src/persistence';
 import TestsCore from './tests-core';
 
 /* eslint-disable quotes */
@@ -21,7 +21,7 @@ var apiKey = TestsCore.apiKey,
     server = TestsCore.server;
 
 describe('persistence migrations from SDKv1 to SDKv2', function() {
-    var mP = Persistence;
+    var mP = new _Persistence(mParticle.getInstance());
     var les = new Date().getTime();
 
     var SDKv1CookieV3 =
@@ -78,7 +78,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('unit test - should migrate from SDKv1CookieV3 to SDKv2CookieV4 using convertSDKv1CookiesV3ToSDKv2CookiesV4', function(done) {
         mParticle.reset(MPConfig);
         var v4Cookies = JSON.parse(
-            Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookieV3)
+            new Migrations(
+                mParticle.getInstance()
+            ).convertSDKv1CookiesV3ToSDKv2CookiesV4(SDKv1CookieV3)
         );
 
         v4Cookies.should.have.properties('gs', SDKv1CookieV3Parsed.mpid, 'cu');
@@ -103,7 +105,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('integration test - should migrate from SDKv1CookieV3 to SDKv2CookieV4 and function properly when using cookie storage', function(done) {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = true;
-
         var lsProductsRaw =
             '{"cp":[{"Name":"iPhone"|"Sku":"SKU1"|"Price":1|"Quantity":1|"TotalAmount":1|"Attributes":null}|{"Name":"Android"|"Sku":"SKU2"|"Price":1|"Quantity":1|"TotalAmount":1|"Attributes":null}]}';
         setCookie(v3CookieKey, SDKv1CookieV3, true);
@@ -157,7 +158,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.reset(MPConfig);
 
         var v4Cookies = JSON.parse(
-            Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(
+            new Migrations(
+                mParticle.getInstance()
+            ).convertSDKv1CookiesV3ToSDKv2CookiesV4(
                 SDKv1CookieV3FullLSApostrophes
             )
         );
@@ -275,11 +278,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
             pb: { productBag1: [product1, product2] },
         };
 
-        mParticle.Store.prodStorageName =
-            TestsCore.LocalStorageProductsV4WithWorkSpaceName;
-        Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(
-            JSON.stringify(SDKv1CookieV3)
-        );
+        mParticle.getInstance()._Store.prodStorageName = TestsCore.LocalStorageProductsV4WithWorkSpaceName;
+        new Migrations(
+            mParticle.getInstance()
+        ).convertSDKv1CookiesV3ToSDKv2CookiesV4(JSON.stringify(SDKv1CookieV3));
 
         var localStorageProducts = getLocalStorageProducts();
 
@@ -293,11 +295,13 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     it('unit test - should migrate from SDKv1CookieV3WithEncodedProducts to SDKv2CookieV4 decoded', function(done) {
         mParticle.reset(MPConfig);
         mParticle.config.useCookieStorage = true;
-        mParticle.Store.prodStorageName =
+        mParticle.getInstance()._Store.prodStorageName =
             TestsCore.LocalStorageProductsV4WithWorkSpaceName;
 
         var v4Cookies = JSON.parse(
-            Migrations.convertSDKv1CookiesV3ToSDKv2CookiesV4(
+            new Migrations(
+                mParticle.getInstance()
+            ).convertSDKv1CookiesV3ToSDKv2CookiesV4(
                 decodeURIComponent(SDKv1CookieV3WithEncodedProducts)
             )
         );
@@ -364,7 +368,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var cartProducts = mParticle.Identity.getCurrentUser()
+        var cartProducts = mParticle
+            .getInstance()
+            .Identity.getCurrentUser()
             .getCart()
             .getCartProducts();
         cartProducts.length.should.equal(0);
@@ -419,7 +425,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         );
         mParticle.eCommerce.Cart.add([product1, product2]);
 
-        var products = mParticle.Identity.getCurrentUser()
+        var products = mParticle
+            .getInstance()
+            .Identity.getCurrentUser()
             .getCart()
             .getCartProducts();
         products[0].Name.should.equal(product1.Name);
@@ -451,6 +459,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
             "{'sid':'234B3BA6-7BC2-4142-9CCD-015D7C4D0597'|'ie':1|'ss':'eyJ1aWQiOnsiRXhwaXJlcyI6IjIwMjgtMDktMTRUMjE6MjQ6MDcuNzQ4OTU4MVoiLCJWYWx1ZSI6Imc9NGQzYzE0YmUtNDY3NC00MzY0LWJlOTAtZjBjYmI3ZGI4MTNhJnU9ODE2OTg0NjE2MjM0NjA2NDk0NiZjcj00NTgxOTI0In19'|'dt':'e207c24e36a7a8478ba0fcb3707a616b'|'les':" +
             les +
             "|'ssd':1537219447486|'cgid':'429d1e42-5883-4296-91e6-8157765914d5'|'das':'4d3c14be-4674-4364-be90-f0cbb7db813a'|'mpid':'8169846162346064946'}";
+
         setLocalStorage(v3LSKey, cookieWithoutProducts, true);
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -490,7 +499,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var currentUser = mParticle.Identity.getCurrentUser();
+        var currentUser = mParticle
+            .getInstance()
+            .Identity.getCurrentUser();
         var ui = currentUser.getUserIdentities();
 
         ui.userIdentities.twitter.should.equal('®’');
@@ -511,7 +522,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var currentUser = mParticle.Identity.getCurrentUser();
+        var currentUser = mParticle
+            .getInstance()
+            .Identity.getCurrentUser();
         var ui = currentUser.getUserIdentities();
 
         ui.userIdentities.twitter.should.equal('®’');
@@ -523,11 +536,16 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var currentUser = mParticle.Identity.getCurrentUser();
+        var currentUser = mParticle
+            .getInstance()
+            .Identity.getCurrentUser();
         currentUser.setUserAttribute('test', '®’');
         mParticle.init(apiKey, window.mParticle.config);
 
-        var ua = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+        var ua = mParticle
+            .getInstance()
+            .Identity.getCurrentUser()
+            .getAllUserAttributes();
 
         ua.test.should.equal('®’');
 
@@ -548,9 +566,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var sessionId = mParticle.sessionManager.getSession();
+        var sessionId = mParticle.getInstance()._SessionManager.getSession();
         var das = mParticle.getDeviceId();
-        var cgid = mParticle.persistence.getLocalStorage().gs.cgid;
+        var cgid = mParticle.getInstance()._Persistence.getLocalStorage().gs
+            .cgid;
         sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
         das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
         cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
@@ -572,9 +591,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var sessionId = mParticle.sessionManager.getSession();
+        var sessionId = mParticle.getInstance()._SessionManager.getSession();
         var das = mParticle.getDeviceId();
-        var cgid = mParticle.persistence.getLocalStorage().gs.cgid;
+        var cgid = mParticle.getInstance()._Persistence.getLocalStorage().gs
+            .cgid;
         sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
         das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
         cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
@@ -598,7 +618,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         Should(
-            mParticle.Identity.getCurrentUser()
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
                 .getCart()
                 .getCartProducts().length
         ).not.be.ok();
@@ -698,7 +720,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var newLS = localStorage.getItem(workspaceCookieName);
         Should(newLS).be.ok();
 
-        var data = mParticle.persistence.getLocalStorage();
+        var data = mParticle.getInstance()._Persistence.getLocalStorage();
         data.gs.les.should.aboveOrEqual(date);
         data.gs.should.have.property('dt', apiKey);
         data.gs.should.have.property('cgid', 'testCGID');

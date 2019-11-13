@@ -1212,7 +1212,7 @@ describe('eCommerce', function() {
             sinon.restore();
         });
         it('should deprecate add', function() {
-            var bond = sinon.spy(mParticle.Logger, 'warning');
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             var product = mParticle.eCommerce.createProduct(
                 'iPhone',
@@ -1228,7 +1228,7 @@ describe('eCommerce', function() {
             );
         });
         it('should deprecate remove', function() {
-            var bond = sinon.spy(mParticle.Logger, 'warning');
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             var product = mParticle.eCommerce.createProduct(
                 'iPhone',
@@ -1244,7 +1244,7 @@ describe('eCommerce', function() {
             );
         });
         it('should deprecate clear', function() {
-            var bond = sinon.spy(mParticle.Logger, 'warning');
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             mParticle.eCommerce.Cart.clear();
 

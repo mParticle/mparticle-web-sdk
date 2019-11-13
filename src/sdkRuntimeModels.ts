@@ -102,11 +102,20 @@ export interface SDKProduct {
 export interface MParticleWebSDK {
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
-    Store: SDKStoreApi;
+    _Store: SDKStoreApi;
+    _Helpers: SDKHelpersApi;
+    getInstance();
+    ServerModel();
 }
 
 export interface SDKIdentityApi {
     getCurrentUser();
+    IdentityAPI;
+}
+
+export interface SDKHelpersApi {
+    createServiceUrl(arg0: string, arg1: string): void;
+    generateUniqueId();
 }
 
 export interface SDKLoggerApi {

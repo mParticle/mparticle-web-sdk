@@ -5,6 +5,7 @@ let files = [
     'lib/geomock.js',
     '../node_modules/fetch-mock/dist/es5/client-bundle.js',
     '../node_modules/sinon-browser-only/sinon.js',
+    'config.js',
     '../dist/mparticle.js',
     'test-bundle.js',
 ];

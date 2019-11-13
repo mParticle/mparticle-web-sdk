@@ -597,6 +597,7 @@ describe('identities and attributes', function() {
     });
 
     it('should send user attribute change requests when setting new attributes', function(done) {
+        mParticle.reset(MPConfig);
         window.fetchMock.post(
             'https://jssdks.mparticle.com/v3/JS/test_key/events',
             200
@@ -692,7 +693,7 @@ describe('identities and attributes', function() {
     });
 
     it('should send user identity change requests when setting new identities on new users', function(done) {
-        window.fetchMock._calls = [];
+        mParticle.reset(MPConfig);
 
         window.fetchMock.post(
             'https://jssdks.mparticle.com/v3/JS/test_key/events',
@@ -829,11 +830,7 @@ describe('identities and attributes', function() {
     });
 
     it('should not send user identity change requests when not batching', function(done) {
-        // mock v2 and v3 events endpoints
-        window.fetchMock.post(
-            'https://jssdks.mparticle.com/v2/JS/test_key/Events',
-            200
-        );
+        // mock v3 events endpoint
         window.fetchMock.post(
             'https://jssdks.mparticle.com/v3/JS/test_key/events',
             200
@@ -874,11 +871,7 @@ describe('identities and attributes', function() {
     });
 
     it('should not send user attribute change requests when not batching', function(done) {
-        // mock v2 and v3 events endpoints
-        window.fetchMock.post(
-            'https://jssdks.mparticle.com/v2/JS/test_key/Events',
-            200
-        );
+        // v3 events endpoint
         window.fetchMock.post(
             'https://jssdks.mparticle.com/v3/JS/test_key/events',
             200

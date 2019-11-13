@@ -160,6 +160,7 @@ var Constants = {
         EventsV3: 'eventsV3',
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
     },
+    DefaultInstance: 'default_instance',
 };
 
 export default Constants;

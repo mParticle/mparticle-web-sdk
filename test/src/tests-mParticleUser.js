@@ -47,7 +47,9 @@ describe('mParticleUser', function() {
 
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        config1.userAttributeFilters = [mParticle.generateHash('gender')];
+        config1.userAttributeFilters = [
+            mParticle.generateHash('gender'),
+        ];
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -80,7 +82,9 @@ describe('mParticleUser', function() {
 
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
-        (config1.userAttributeFilters = [mParticle.generateHash('gender')]),
+        (config1.userAttributeFilters = [
+            mParticle.generateHash('gender'),
+        ]),
             window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);

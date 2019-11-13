@@ -24,13 +24,8 @@
         "afterEach": true,
         "after": true
     },
-    "extends": [
-        "plugin:prettier/recommended",
-        "eslint:recommended"
-    ],
-    "plugins": [
-        "prettier"
-    ],
+    "extends": ["plugin:prettier/recommended", "eslint:recommended"],
+    "plugins": ["prettier"],
     "rules": {
         "prettier/prettier": "error",
         "no-prototype-builtins": "off",

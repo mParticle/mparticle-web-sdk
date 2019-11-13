@@ -1,5 +1,4 @@
 import { Batch } from './eventsApiModels';
-import Helpers from './helpers';
 import {
     SDKEvent,
     MParticleUser,
@@ -15,12 +14,12 @@ export class BatchUploader {
     uploadIntervalMillis: number;
     pendingEvents: SDKEvent[];
     pendingUploads: Batch[];
-    webSdk: MParticleWebSDK;
+    mpInstance: MParticleWebSDK;
     uploadUrl: string;
     batchingEnabled: boolean;
 
-    constructor(webSdk: MParticleWebSDK, uploadInterval: number) {
-        this.webSdk = webSdk;
+    constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
+        this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled =
             uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
@@ -30,8 +29,8 @@ export class BatchUploader {
         this.pendingEvents = [];
         this.pendingUploads = [];
 
-        const { SDKConfig, devToken } = this.webSdk.Store;
-        const baseUrl = Helpers.createServiceUrl(
+        const { SDKConfig, devToken } = this.mpInstance._Store;
+        const baseUrl = this.mpInstance._Helpers.createServiceUrl(
             SDKConfig.v3SecureServiceUrl,
             devToken
         );
@@ -64,13 +63,13 @@ export class BatchUploader {
     queueEvent(event: SDKEvent) {
         if (event) {
             //add this for cleaner processing later
-            event.IsFirstRun = this.webSdk.Store.isFirstRun;
+            event.IsFirstRun = this.mpInstance._Store.isFirstRun;
 
             this.pendingEvents.push(event);
-            this.webSdk.Logger.verbose(
+            this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
             );
-            this.webSdk.Logger.verbose(
+            this.mpInstance.Logger.verbose(
                 `Queued event count: ${this.pendingEvents.length}`
             );
             if (!this.batchingEnabled) {
@@ -90,7 +89,8 @@ export class BatchUploader {
      */
     private static createNewUploads(
         sdkEvents: SDKEvent[],
-        defaultUser: MParticleUser
+        defaultUser: MParticleUser,
+        mpInstance: MParticleWebSDK
     ): Batch[] | null {
         if (!defaultUser || !sdkEvents || !sdkEvents.length) {
             return null;
@@ -126,7 +126,7 @@ export class BatchUploader {
                 eventsBySession.set(sdkEvent.SessionId, events);
             }
             for (const entry of Array.from(eventsBySession.entries())) {
-                const upload = convertEvents(mpid, entry[1]);
+                const upload = convertEvents(mpid, entry[1], mpInstance);
                 if (upload) {
                     newUploads.push(upload);
                 }
@@ -144,13 +144,14 @@ export class BatchUploader {
      * @param useBeacon whether to use the beacon API - used when the page is being unloaded
      */
     private async prepareAndUpload(triggerFuture: boolean, useBeacon: boolean) {
-        const currentUser = this.webSdk.Identity.getCurrentUser();
+        const currentUser = this.mpInstance.Identity.getCurrentUser();
 
         const currentEvents = this.pendingEvents;
         this.pendingEvents = [];
         const newUploads = BatchUploader.createNewUploads(
             currentEvents,
-            currentUser
+            currentUser,
+            this.mpInstance
         );
         if (newUploads && newUploads.length) {
             this.pendingUploads.push(...newUploads);
@@ -159,7 +160,7 @@ export class BatchUploader {
         const currentUploads = this.pendingUploads;
         this.pendingUploads = [];
         const remainingUploads = await this.upload(
-            this.webSdk.Logger,
+            this.mpInstance.Logger,
             currentUploads,
             useBeacon
         );

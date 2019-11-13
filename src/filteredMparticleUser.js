@@ -1,24 +1,23 @@
-import Persistence from './persistence';
 import Types from './types';
-import Helpers from './helpers';
 
-export default function getFilteredMparticleUser(mpid, forwarder) {
+export default function filteredMparticleUser(mpid, forwarder, mpInstance) {
+    var self = this;
     return {
         getUserIdentities: function() {
             var currentUserIdentities = {};
-            var identities = Persistence.getUserIdentities(mpid);
+            var identities = mpInstance._Persistence.getUserIdentities(mpid);
 
             for (var identityType in identities) {
                 if (identities.hasOwnProperty(identityType)) {
                     currentUserIdentities[
                         Types.IdentityType.getIdentityName(
-                            Helpers.parseNumber(identityType)
+                            mpInstance._Helpers.parseNumber(identityType)
                         )
                     ] = identities[identityType];
                 }
             }
 
-            currentUserIdentities = Helpers.filterUserIdentitiesForForwarders(
+            currentUserIdentities = mpInstance._Helpers.filterUserIdentitiesForForwarders(
                 currentUserIdentities,
                 forwarder.userIdentityFilters
             );
@@ -34,7 +33,7 @@ export default function getFilteredMparticleUser(mpid, forwarder) {
             var userAttributes,
                 userAttributesLists = {};
 
-            userAttributes = this.getAllUserAttributes();
+            userAttributes = self.getAllUserAttributes();
             for (var key in userAttributes) {
                 if (
                     userAttributes.hasOwnProperty(key) &&
@@ -44,7 +43,7 @@ export default function getFilteredMparticleUser(mpid, forwarder) {
                 }
             }
 
-            userAttributesLists = Helpers.filterUserAttributes(
+            userAttributesLists = mpInstance._Helpers.filterUserAttributes(
                 userAttributesLists,
                 forwarder.userAttributeFilters
             );
@@ -53,7 +52,9 @@ export default function getFilteredMparticleUser(mpid, forwarder) {
         },
         getAllUserAttributes: function() {
             var userAttributesCopy = {};
-            var userAttributes = Persistence.getAllUserAttributes(mpid);
+            var userAttributes = mpInstance._Persistence.getAllUserAttributes(
+                mpid
+            );
 
             if (userAttributes) {
                 for (var prop in userAttributes) {
@@ -69,7 +70,7 @@ export default function getFilteredMparticleUser(mpid, forwarder) {
                 }
             }
 
-            userAttributesCopy = Helpers.filterUserAttributes(
+            userAttributesCopy = mpInstance._Helpers.filterUserAttributes(
                 userAttributesCopy,
                 forwarder.userAttributeFilters
             );

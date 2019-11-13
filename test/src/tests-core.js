@@ -1,5 +1,3 @@
-import Helpers from '../../src/helpers';
-
 var server = new MockHttpServer(),
     apiKey = 'test_key',
     testMPID = 'testMPID',
@@ -9,10 +7,9 @@ var server = new MockHttpServer(),
     v4CookieKey = 'mprtcl-v4',
     v4LSKey = 'mprtcl-v4',
     workspaceToken = 'abcdef',
-    workspaceCookieName = Helpers.createMainStorageName(workspaceToken),
-    LocalStorageProductsV4WithWorkSpaceName = Helpers.createProductStorageName(
-        workspaceToken
-    ),
+    workspaceCookieName = 'mprtcl-v4' + '_' + workspaceToken,
+    LocalStorageProductsV4WithWorkSpaceName =
+        'mprtcl-prodv4' + '_' + workspaceToken,
     pluses = /\+/g,
     MPConfig = {
         workspaceToken: workspaceToken,
@@ -22,7 +19,9 @@ var server = new MockHttpServer(),
         return JSON.parse(
             atob(
                 localStorage.getItem(
-                    Helpers.createProductStorageName(workspaceToken)
+                    mParticle
+                        .getInstance()
+                        ._Helpers.createProductStorageName(workspaceToken)
                 )
             )
         );
@@ -70,12 +69,14 @@ var server = new MockHttpServer(),
     findCookie = function(cookieName) {
         var cookie;
         if (cookieName === v4CookieKey || !cookieName) {
-            cookie = mParticle.persistence.getCookie();
+            cookie = mParticle.getInstance()._Persistence.getCookie();
         } else if (cookieName === v3CookieKey) {
             cookie = JSON.parse(
-                mParticle.persistence.replacePipesWithCommas(
-                    findEncodedCookie(cookieName)
-                )
+                mParticle
+                    .getInstance()
+                    ._Persistence.replacePipesWithCommas(
+                        findEncodedCookie(cookieName)
+                    )
             );
         } else {
             cookie = JSON.parse(findEncodedCookie(cookieName));
@@ -93,9 +94,9 @@ var server = new MockHttpServer(),
             var name = decoded(parts.shift());
             var cookie = decoded(parts.join('='));
             if (cookieName === name) {
-                return mParticle.persistence.replacePipesWithCommas(
-                    converted(cookie)
-                );
+                return mParticle
+                    .getInstance()
+                    ._Persistence.replacePipesWithCommas(converted(cookie));
             }
         }
     },
@@ -108,7 +109,9 @@ var server = new MockHttpServer(),
             cookieDomain,
             value;
         if (cname === v4CookieKey || cname === workspaceCookieName) {
-            value = mParticle.persistence.replaceCommasWithPipes(data);
+            value = mParticle
+                .getInstance()
+                ._Persistence.replaceCommasWithPipes(data);
         } else if (cname === v3CookieKey) {
             value = data;
         } else {
@@ -159,15 +162,15 @@ var server = new MockHttpServer(),
                     csd: btoa(JSON.stringify({ 5: 500 })),
                 },
             };
-            value = mParticle.persistence.createCookieString(
-                JSON.stringify(data)
-            );
+            value = mParticle
+                .getInstance()
+                ._Persistence.createCookieString(JSON.stringify(data));
             name = workspaceCookieName;
         } else {
             if (name === v4LSKey) {
-                value = mParticle.persistence.createCookieString(
-                    JSON.stringify(data)
-                );
+                value = mParticle
+                    .getInstance()
+                    ._Persistence.createCookieString(JSON.stringify(data));
             }
 
             if (raw) {
@@ -179,13 +182,13 @@ var server = new MockHttpServer(),
     },
     getLocalStorage = function(name) {
         if (name === v4LSKey || !name) {
-            return mParticle.persistence.getLocalStorage();
+            return mParticle.getInstance()._Persistence.getLocalStorage();
         }
     },
-    getEvent = function(eventName, isForwarding, server) {
+    getEvent = function(eventName, isForwarding, server, apiKey) {
         var requests = getRequests(
                 isForwarding ? 'Forwarding' : 'Events',
-                server
+                server, apiKey
             ),
             matchedEvent = null,
             data;
@@ -222,7 +225,8 @@ var server = new MockHttpServer(),
             return null;
         }
     },
-    getRequests = function(path, mockServer) {
+    getRequests = function(path, mockServer, token) {
+        apiKey = token || apiKey;
         var requests = [];
         var version = path === 'Forwarding' ? 'v1' : 'v2',
             fullPath = '/' + version + '/JS/' + apiKey + '/' + path;

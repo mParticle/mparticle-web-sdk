@@ -1,20 +1,25 @@
-import ServerModel from '../../src/serverModel';
-import Consent from '../../src/consent';
 import Types from '../../src/types';
+
 describe('Server Model', function() {
     it('Should convert complete consent object', function(done) {
-        var consentState = Consent.createConsentState();
+        var consentState = mParticle
+            .getInstance()
+            ._Consent.createConsentState();
         consentState.addGDPRConsentState(
             'foo',
-            Consent.createGDPRConsent(
-                true,
-                10,
-                'foo document',
-                'foo location',
-                'foo hardware id'
-            )
+            mParticle
+                .getInstance()
+                ._Consent.createGDPRConsent(
+                    true,
+                    10,
+                    'foo document',
+                    'foo location',
+                    'foo hardware id'
+                )
         );
-        var consent = ServerModel.convertToConsentStateDTO(consentState);
+        var consent = mParticle
+            .getInstance()
+            ._ServerModel.convertToConsentStateDTO(consentState);
         consent.should.be.ok();
 
         consent.should.have.property('gdpr');
@@ -28,15 +33,17 @@ describe('Server Model', function() {
     });
 
     it('Should not append user info when no user', function(done) {
-        mParticle.Store.should.be.ok;
+        mParticle.getInstance()._Store.should.be.ok;
 
-        let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent,
-            'foo page',
-            { 'foo-attr': 'foo-val' },
-            Types.EventType.Navigation,
-            { 'foo-flag': 'foo-flag-val' }
-        );
+        let sdkEvent = mParticle
+            .getInstance()
+            ._ServerModel.createEventObject(
+                Types.MessageType.PageEvent,
+                'foo page',
+                { 'foo-attr': 'foo-val' },
+                Types.EventType.Navigation,
+                { 'foo-flag': 'foo-flag-val' }
+            );
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.UserIdentities).not.be.ok;
@@ -46,20 +53,24 @@ describe('Server Model', function() {
     });
 
     it('Should append all user info when user is present', function(done) {
-        mParticle.Store.should.be.ok;
-        var consentState = Consent.createConsentState();
+        mParticle.getInstance()._Store.should.be.ok;
+        var consentState = mParticle
+            .getInstance()
+            ._Consent.createConsentState();
         consentState.addGDPRConsentState(
             'foo',
-            Consent.createGDPRConsent(
-                true,
-                10,
-                'foo document',
-                'foo location',
-                'foo hardware id'
-            )
+            mParticle
+                .getInstance()
+                ._Consent.createGDPRConsent(
+                    true,
+                    10,
+                    'foo document',
+                    'foo location',
+                    'foo hardware id'
+                )
         );
 
-        window.mParticle.Identity.getCurrentUser = () => {
+        window.mParticle.getInstance().Identity.getCurrentUser = () => {
             return {
                 getUserIdentities: () => {
                     return {
@@ -87,14 +98,15 @@ describe('Server Model', function() {
                 },
             };
         };
-
-        let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent,
-            'foo page',
-            { 'foo-attr': 'foo-val' },
-            Types.EventType.Navigation,
-            { 'foo-flag': 'foo-flag-val' }
-        );
+        let sdkEvent = mParticle
+            .getInstance()
+            ._ServerModel.createEventObject(
+                Types.MessageType.PageEvent,
+                'foo page',
+                { 'foo-attr': 'foo-val' },
+                Types.EventType.Navigation,
+                { 'foo-flag': 'foo-flag-val' }
+            );
 
         sdkEvent.should.be.ok;
         sdkEvent.UserIdentities.should.be.ok;
@@ -106,13 +118,15 @@ describe('Server Model', function() {
     });
 
     it('Should append identities when user present', function(done) {
-        let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent,
-            'foo page',
-            { 'foo-attr': 'foo-val' },
-            Types.EventType.Navigation,
-            { 'foo-flag': 'foo-flag-val' }
-        );
+        let sdkEvent = mParticle
+            .getInstance()
+            ._ServerModel.createEventObject(
+                Types.MessageType.PageEvent,
+                'foo page',
+                { 'foo-attr': 'foo-val' },
+                Types.EventType.Navigation,
+                { 'foo-flag': 'foo-flag-val' }
+            );
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.UserIdentities).not.be.ok;
@@ -150,7 +164,7 @@ describe('Server Model', function() {
         identityMapping[Types.IdentityType.Other3] = 'foo-other3';
         identityMapping[Types.IdentityType.Other4] = 'foo-other4';
 
-        ServerModel.appendUserInfo(user, sdkEvent);
+        mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
         sdkEvent.UserIdentities.should.be.ok;
         sdkEvent.UserIdentities.length.should.equal(6);
 
@@ -164,13 +178,15 @@ describe('Server Model', function() {
     });
 
     it('Should append user attributes when user present', function(done) {
-        let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent,
-            'foo page',
-            { 'foo-attr': 'foo-val' },
-            Types.EventType.Navigation,
-            { 'foo-flag': 'foo-flag-val' }
-        );
+        let sdkEvent = mParticle
+            .getInstance()
+            ._ServerModel.createEventObject(
+                Types.MessageType.PageEvent,
+                'foo page',
+                { 'foo-attr': 'foo-val' },
+                Types.EventType.Navigation,
+                { 'foo-flag': 'foo-flag-val' }
+            );
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.UserAttributes).not.be.ok;
@@ -190,7 +206,7 @@ describe('Server Model', function() {
             },
         };
 
-        ServerModel.appendUserInfo(user, sdkEvent);
+        mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
         sdkEvent.UserAttributes.should.be.ok;
         sdkEvent.UserAttributes.should.deepEqual(attributes);
 
@@ -198,13 +214,15 @@ describe('Server Model', function() {
     });
 
     it('Should append mpid when user present', function(done) {
-        let sdkEvent = ServerModel.createEventObject(
-            Types.MessageType.PageEvent,
-            'foo page',
-            { 'foo-attr': 'foo-val' },
-            Types.EventType.Navigation,
-            { 'foo-flag': 'foo-flag-val' }
-        );
+        let sdkEvent = mParticle
+            .getInstance()
+            ._ServerModel.createEventObject(
+                Types.MessageType.PageEvent,
+                'foo page',
+                { 'foo-attr': 'foo-val' },
+                Types.EventType.Navigation,
+                { 'foo-flag': 'foo-flag-val' }
+            );
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.MPID).not.be.ok;
@@ -223,7 +241,7 @@ describe('Server Model', function() {
                 return null;
             },
         };
-        ServerModel.appendUserInfo(user, sdkEvent);
+        mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
         sdkEvent.MPID.should.be.ok;
         sdkEvent.MPID.should.equal('98765');
         done();

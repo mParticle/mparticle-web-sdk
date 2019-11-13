@@ -1,17 +1,27 @@
-import Helpers from '../../src/helpers';
 import TestsCore from './tests-core';
 
-var apiKey = TestsCore.apiKey,
-    Validators = Helpers.Validators;
+var apiKey = TestsCore.apiKey;
 
 describe('helpers', function() {
     it('should correctly validate an attribute value', function(done) {
-        var validatedString = Validators.isValidAttributeValue('testValue1');
-        var validatedNumber = Validators.isValidAttributeValue(1);
-        var validatedNull = Validators.isValidAttributeValue(null);
-        var validatedObject = Validators.isValidAttributeValue({});
-        var validatedArray = Validators.isValidAttributeValue([]);
-        var validatedUndefined = Validators.isValidAttributeValue(undefined);
+        var validatedString = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidAttributeValue('testValue1');
+        var validatedNumber = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidAttributeValue(1);
+        var validatedNull = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidAttributeValue(null);
+        var validatedObject = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidAttributeValue({});
+        var validatedArray = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidAttributeValue([]);
+        var validatedUndefined = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidAttributeValue(undefined);
 
         validatedString.should.be.ok();
         validatedNumber.should.be.ok();
@@ -24,32 +34,46 @@ describe('helpers', function() {
     });
 
     it('should generate ramp number correctly', function(done) {
-        var result = Helpers.getRampNumber();
+        var result = mParticle.getInstance()._Helpers.getRampNumber();
         result.should.equal(100);
 
-        result = Helpers.getRampNumber(null);
+        result = mParticle.getInstance()._Helpers.getRampNumber(null);
         result.should.equal(100);
 
-        var uniqueId = Helpers.generateUniqueId();
-        var result1 = Helpers.getRampNumber(uniqueId);
+        var uniqueId = mParticle.getInstance()._Helpers.generateUniqueId();
+        var result1 = mParticle.getInstance()._Helpers.getRampNumber(uniqueId);
         result1.should.be.below(101);
         result1.should.be.above(0);
 
-        var result2 = Helpers.getRampNumber(uniqueId);
+        var result2 = mParticle.getInstance()._Helpers.getRampNumber(uniqueId);
         result2.should.equal(result1);
 
-        result = Helpers.getRampNumber('2b907d8b-cefe-4530-a6fe-60a381f2e066');
+        result = mParticle
+            .getInstance()
+            ._Helpers.getRampNumber('2b907d8b-cefe-4530-a6fe-60a381f2e066');
         result.should.equal(60);
         done();
     });
 
     it('should correctly validate a key value', function(done) {
-        var validatedString = Validators.isValidKeyValue('testValue1');
-        var validatedNumber = Validators.isValidKeyValue(1);
-        var validatedNull = Validators.isValidKeyValue(null);
-        var validatedObject = Validators.isValidKeyValue({});
-        var validatedArray = Validators.isValidKeyValue([]);
-        var validatedUndefined = Validators.isValidKeyValue(undefined);
+        var validatedString = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidKeyValue('testValue1');
+        var validatedNumber = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidKeyValue(1);
+        var validatedNull = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidKeyValue(null);
+        var validatedObject = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidKeyValue({});
+        var validatedArray = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidKeyValue([]);
+        var validatedUndefined = mParticle
+            .getInstance()
+            ._Helpers.Validators.isValidKeyValue(undefined);
 
         validatedString.should.be.ok();
         validatedNumber.should.be.ok();
@@ -62,12 +86,24 @@ describe('helpers', function() {
     });
 
     it('should correctly validate a string or number', function(done) {
-        var validatedString = Validators.isStringOrNumber('testValue1');
-        var validatedNumber = Validators.isStringOrNumber(1);
-        var validatedNull = Validators.isStringOrNumber(null);
-        var validatedObject = Validators.isStringOrNumber({});
-        var validatedArray = Validators.isStringOrNumber([]);
-        var validatedUndefined = Validators.isStringOrNumber(undefined);
+        var validatedString = mParticle
+            .getInstance()
+            ._Helpers.Validators.isStringOrNumber('testValue1');
+        var validatedNumber = mParticle
+            .getInstance()
+            ._Helpers.Validators.isStringOrNumber(1);
+        var validatedNull = mParticle
+            .getInstance()
+            ._Helpers.Validators.isStringOrNumber(null);
+        var validatedObject = mParticle
+            .getInstance()
+            ._Helpers.Validators.isStringOrNumber({});
+        var validatedArray = mParticle
+            .getInstance()
+            ._Helpers.Validators.isStringOrNumber([]);
+        var validatedUndefined = mParticle
+            .getInstance()
+            ._Helpers.Validators.isStringOrNumber(undefined);
 
         validatedString.should.be.ok();
         validatedNumber.should.be.ok();
@@ -86,22 +122,18 @@ describe('helpers', function() {
             },
             copyUserAttributes: true,
         };
-        var identifyResult = Validators.validateIdentities(
-            identityApiData,
-            'identify'
-        );
-        var logoutResult = Validators.validateIdentities(
-            identityApiData,
-            'logout'
-        );
-        var loginResult = Validators.validateIdentities(
-            identityApiData,
-            'login'
-        );
-        var modifyResult = Validators.validateIdentities(
-            identityApiData,
-            'modify'
-        );
+        var identifyResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(identityApiData, 'identify');
+        var logoutResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(identityApiData, 'logout');
+        var loginResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(identityApiData, 'login');
+        var modifyResult = mParticle
+            .getInstance()
+            ._Helpers.Validators.validateIdentities(identityApiData, 'modify');
 
         identifyResult.valid.should.equal(true);
         logoutResult.valid.should.equal(true);
@@ -117,11 +149,21 @@ describe('helpers', function() {
         var object = {};
         var array = [];
 
-        var stringResult = Helpers.parseStringOrNumber(string);
-        var numberResult = Helpers.parseStringOrNumber(number);
-        var objectResult = Helpers.parseStringOrNumber(object);
-        var arrayResult = Helpers.parseStringOrNumber(array);
-        var nullResult = Helpers.parseStringOrNumber(null);
+        var stringResult = mParticle
+            .getInstance()
+            ._Helpers.parseStringOrNumber(string);
+        var numberResult = mParticle
+            .getInstance()
+            ._Helpers.parseStringOrNumber(number);
+        var objectResult = mParticle
+            .getInstance()
+            ._Helpers.parseStringOrNumber(object);
+        var arrayResult = mParticle
+            .getInstance()
+            ._Helpers.parseStringOrNumber(array);
+        var nullResult = mParticle
+            .getInstance()
+            ._Helpers.parseStringOrNumber(null);
 
         stringResult.should.equal(string);
         numberResult.should.equal(number);
@@ -143,10 +185,9 @@ describe('helpers', function() {
             yahoo: 'yahoo123',
         };
 
-        var filteredIdentities = Helpers.filterUserIdentities(
-            userIdentitiesObject,
-            filterList
-        );
+        var filteredIdentities = mParticle
+            .getInstance()
+            ._Helpers.filterUserIdentities(userIdentitiesObject, filterList);
         filteredIdentities.length.should.equal(3);
         filteredIdentities[0].should.have.property('Identity', '123');
         filteredIdentities[0].should.have.property('Type', 1);
@@ -180,10 +221,18 @@ describe('helpers', function() {
             10: false,
         };
 
-        var result1 = Helpers.isDelayedByIntegration(integrationDelays1);
-        var result2 = Helpers.isDelayedByIntegration(integrationDelays2);
-        var result3 = Helpers.isDelayedByIntegration(integrationDelays3);
-        var result4 = Helpers.isDelayedByIntegration(integrationDelays4);
+        var result1 = mParticle
+            .getInstance()
+            ._Helpers.isDelayedByIntegration(integrationDelays1);
+        var result2 = mParticle
+            .getInstance()
+            ._Helpers.isDelayedByIntegration(integrationDelays2);
+        var result3 = mParticle
+            .getInstance()
+            ._Helpers.isDelayedByIntegration(integrationDelays3);
+        var result4 = mParticle
+            .getInstance()
+            ._Helpers.isDelayedByIntegration(integrationDelays4);
 
         result1.should.equal(true);
         result2.should.equal(true);
@@ -195,7 +244,9 @@ describe('helpers', function() {
 
     it('should return false if integration delay object is empty', function(done) {
         var emptyIntegrationDelays = {};
-        var result1 = Helpers.isDelayedByIntegration(emptyIntegrationDelays);
+        var result1 = mParticle
+            .getInstance()
+            ._Helpers.isDelayedByIntegration(emptyIntegrationDelays);
 
         result1.should.equal(false);
 
@@ -203,36 +254,75 @@ describe('helpers', function() {
     });
 
     it('should return expected boolean value when strings are passed', function(done) {
-        Helpers.returnConvertedBoolean('false').should.equal(false);
-        Helpers.returnConvertedBoolean(false).should.equal(false);
-        Helpers.returnConvertedBoolean('true').should.equal(true);
-        Helpers.returnConvertedBoolean('true').should.equal(true);
-        Helpers.returnConvertedBoolean('randomstring').should.equal(true);
-        Helpers.returnConvertedBoolean(0).should.equal(false);
-        Helpers.returnConvertedBoolean(1).should.equal(true);
-        Helpers.returnConvertedBoolean('0').should.equal(false);
-        Helpers.returnConvertedBoolean('1').should.equal(true);
-        Helpers.returnConvertedBoolean(null).should.equal(false);
-        Helpers.returnConvertedBoolean(undefined).should.equal(false);
-        Helpers.returnConvertedBoolean('').should.equal(false);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean('false')
+            .should.equal(false);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean(false)
+            .should.equal(false);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean('true')
+            .should.equal(true);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean('true')
+            .should.equal(true);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean('randomstring')
+            .should.equal(true);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean(0)
+            .should.equal(false);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean(1)
+            .should.equal(true);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean('0')
+            .should.equal(false);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean('1')
+            .should.equal(true);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean(null)
+            .should.equal(false);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean(undefined)
+            .should.equal(false);
+        mParticle
+            .getInstance()
+            ._Helpers.returnConvertedBoolean('')
+            .should.equal(false);
 
         done();
     });
 
     it('should return 0 when hashing undefined or null', function(done) {
-        Helpers.generateHash(undefined).should.equal(0);
-        Helpers.generateHash(null).should.equal(0);
-        (typeof Helpers.generateHash(false)).should.equal('number');
-        Helpers.generateHash(false).should.not.equal(0);
+        mParticle.generateHash(undefined)
+            .should.equal(0);
+        mParticle.generateHash(null)
+            .should.equal(0);
+        (typeof mParticle.generateHash(false)).should.equal('number');
+        mParticle.generateHash(false)
+            .should.not.equal(0);
 
         done();
     });
 
     it('should generate random value', function(done) {
-        var randomValue = Helpers.generateUniqueId();
+        var randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
         randomValue.should.be.ok();
         window.crypto.getRandomValues = undefined;
-        randomValue = Helpers.generateUniqueId();
+        randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
         randomValue.should.be.ok();
         //old browsers may return undefined despite
         //defining the getRandomValues API.
@@ -241,33 +331,41 @@ describe('helpers', function() {
             return a;
         };
 
-        randomValue = Helpers.generateUniqueId();
+        randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
         randomValue.should.be.ok();
         done();
     });
 
     it('should create a storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
-        var cookieName = Helpers.createMainStorageName(apiKey);
+        var cookieName = mParticle
+            .getInstance()
+            ._Helpers.createMainStorageName(apiKey);
         cookieName.should.equal('mprtcl-v4_test_key');
 
         done();
     });
 
     it('should create a storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
-        var cookieName = Helpers.createMainStorageName();
+        var cookieName = mParticle
+            .getInstance()
+            ._Helpers.createMainStorageName();
         cookieName.should.equal('mprtcl-v4');
 
         done();
     });
 
     it('should create a product storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
-        var cookieName = Helpers.createProductStorageName(apiKey);
+        var cookieName = mParticle
+            .getInstance()
+            ._Helpers.createProductStorageName(apiKey);
         cookieName.should.equal('mprtcl-prodv4_test_key');
 
         done();
     });
     it('should create a product storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
-        var cookieName = Helpers.createProductStorageName();
+        var cookieName = mParticle
+            .getInstance()
+            ._Helpers.createProductStorageName();
         cookieName.should.equal('mprtcl-prodv4');
 
         done();
