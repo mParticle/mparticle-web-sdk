@@ -1,5 +1,7 @@
 import Types from './types';
 import Constants from './constants';
+import Slugify from 'slugify';
+
 var StorageNames = Constants.StorageNames,
     pluses = /\+/g;
 
@@ -715,5 +717,9 @@ export default function Helpers(mpInstance) {
         } else {
             return StorageNames.currentStorageProductsName;
         }
+    };
+
+    this.isSlug = function(str) {
+        return str === Slugify(str);
     };
 }

@@ -582,4 +582,153 @@ describe('event logging', function() {
 
         done();
     });
+
+    it('should log an event on v2 with data planning in the payload', function (done) {
+        mParticle.reset(MPConfig);
+        mParticle.config.logLevel = 'verbose';
+        mParticle.config.dataPlan = {
+            planId: 'plan-slug',
+            planVersion: 10,
+        };
+        mParticle.init(apiKey, mParticle.config);
+
+        window.mParticle.logEvent('Test Event');
+        var data = getEvent('Test Event');
+
+        data.should.have.property('n', 'Test Event');
+        data.should.have.property('dp');
+
+        done();
+    });
+
+    it('should log a batch to v3 with data planning in the payload', function (done) {
+        mParticle.config.logLevel = 'verbose';
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+        mParticle.config.dataPlan = {
+            planId: 'plan-slug',
+            planVersion: 10,
+        };
+
+        mParticle.init(apiKey, mParticle.config);
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.logEvent('Test Event');
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+
+        batch.should.have.property('context');
+        batch.context.should.have.property('data_plan');
+        batch.context.data_plan.should.have.property('plan_version', 10);
+        batch.context.data_plan.should.have.property('plan_id', 'plan-slug');
+
+        delete window.mParticle.config.flags
+
+        done();
+    });
+
+    it('should log a batch to v3 with a null for plan version if no version is passed', function (done) {
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+        mParticle.config.dataPlan = {
+            planId: 'plan-slug'
+        };
+
+        mParticle.init(apiKey, mParticle.config);
+
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.logEvent('Test Event');
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+
+        batch.should.have.property('context');
+        batch.context.should.have.property('data_plan');
+        batch.context.data_plan.should.have.property('plan_version', null);
+        batch.context.data_plan.should.have.property('plan_id', 'plan-slug');
+
+        delete window.mParticle.config.flags
+
+        done();
+    });
+
+    it('should log a batch to v3 with a null for data plan id if no data plan is passed', function (done) {
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+        mParticle.config.dataPlan = {
+            planVersion: 10
+        };
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        mParticle.init(apiKey, mParticle.config);
+
+        window.mParticle.logEvent('Test Event');
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+
+        batch.should.have.property('context');
+        batch.context.should.have.property('data_plan');
+        batch.context.data_plan.should.have.property('plan_version', 10);
+        batch.context.data_plan.should.have.property('plan_id', null);
+
+        delete window.mParticle.config.flags
+
+        done();
+    });
+
+    it('should log an error if a non slug string is passed as the dataplan planId', function (done) {
+        var errorMessage;
+        
+        mParticle.config.logLevel = 'verbose';
+        mParticle.config.logger = {
+            error: function(msg) {
+                errorMessage = msg;
+            }
+        }
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+        mParticle.config.dataPlan = {
+            planId: '--',
+            planVersion: 10,
+        };
+        
+        mParticle.init(apiKey, mParticle.config);
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+            
+        window.mParticle.logEvent('Test Event');
+
+        errorMessage.should.equal('Your data plan id must be in a slug format')
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        batch.should.have.property('context');
+        batch.context.should.have.property('data_plan');
+        batch.context.data_plan.should.have.property('plan_version', 10);
+        batch.context.data_plan.should.have.property('plan_id', null);
+
+        delete window.mParticle.config.flags
+
+        done();
+    });
 });

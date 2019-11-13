@@ -188,6 +188,39 @@ export default function Store(config, mpInstance) {
             this.SDKConfig.sessionTimeout = config.sessionTimeout;
         }
 
+        if (config.hasOwnProperty('dataPlan')) {
+            this.SDKConfig.dataPlan = {
+                PlanVersion: null,
+                PlanId: null,
+            };
+            if (config.dataPlan.hasOwnProperty('planId')) {
+                if (typeof config.dataPlan.planId === 'string') {
+                    if (mpInstance._Helpers.isSlug(config.dataPlan.planId)) {
+                        this.SDKConfig.dataPlan.PlanId = config.dataPlan.planId;
+                    } else {
+                        mpInstance.Logger.error(
+                            'Your data plan id must be in a slug format'
+                        );
+                    }
+                } else {
+                    mpInstance.Logger.error(
+                        'Your data plan id must be a string'
+                    );
+                }
+            }
+
+            if (config.dataPlan.hasOwnProperty('planVersion')) {
+                if (typeof config.dataPlan.planVersion === 'number') {
+                    this.SDKConfig.dataPlan.PlanVersion =
+                        config.dataPlan.planVersion;
+                } else {
+                    mpInstance.Logger.error(
+                        'Your data plan version must be a number'
+                    );
+                }
+            }
+        }
+
         if (config.hasOwnProperty('forceHttps')) {
             this.SDKConfig.forceHttps = config.forceHttps;
         } else {

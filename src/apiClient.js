@@ -482,6 +482,7 @@ export default function APIClient(mpInstance) {
                 dbg: event.Debug,
                 ct: event.Timestamp,
                 eec: event.ExpandedEventCount,
+                dp: event.DataPlan,
             };
 
             if (

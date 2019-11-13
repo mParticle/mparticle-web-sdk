@@ -93,6 +93,7 @@ export interface Batch {
     sdk_version?: string;
     consent_state?: ConsentState;
     job_id?: string;
+    context?: Context;
 }
 
 /**
@@ -297,6 +298,13 @@ export type DeviceCurrentStateStatusBarOrientationEnum =
     | 'FaceUp'
     | 'FaceDown'
     | 'Square';
+
+export interface Context {
+    data_plan: {
+        plan_id: string,
+        plan_version?: number,
+     };
+}
 
 export interface DeviceInformation {
     brand?: string;

@@ -607,8 +607,8 @@ describe('identities and attributes', function() {
             eventsV3: 100,
             EventBatchingIntervalMillis: 0,
         };
+
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
 
         // set a new attribute, age
         window.fetchMock._calls = [];
@@ -689,6 +689,7 @@ describe('identities and attributes', function() {
         event.data.deleted.should.equal(false);
         event.data.is_new_attribute.should.equal(false);
 
+        delete window.mParticle.config.flags
         done();
     });
 

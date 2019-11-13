@@ -192,6 +192,9 @@ export default function ServerModel(mpInstance) {
                 DeviceId: mpInstance._Store.deviceId,
                 IntegrationAttributes: mpInstance._Store.integrationAttributes,
                 CurrencyCode: mpInstance._Store.currencyCode,
+                DataPlan: mpInstance._Store.SDKConfig.dataPlan
+                    ? mpInstance._Store.SDKConfig.dataPlan
+                    : {},
             };
 
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
@@ -241,6 +244,7 @@ export default function ServerModel(mpInstance) {
             av: event.AppVersion,
             cgid: event.ClientGeneratedId,
             das: event.DeviceId,
+            dp: event.DataPlan,
             mpid: event.MPID,
             smpids: event.currentSessionMPIDs,
         };

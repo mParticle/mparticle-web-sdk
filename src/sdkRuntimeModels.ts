@@ -30,6 +30,12 @@ export interface SDKEvent {
     UserIdentityChanges?: SDKUserIdentityChangeData;
     UserAttributeChanges?: SDKUserAttributeChangeData;
     CurrencyCode: string;
+    DataPlan: SDKDataPlan;
+}
+
+export interface SDKDataPlan {
+    PlanVersion?: number | null;
+    PlanId?: string | null;
 }
 
 export interface SDKUserIdentity {

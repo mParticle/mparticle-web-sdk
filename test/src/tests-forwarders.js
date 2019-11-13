@@ -439,6 +439,11 @@ describe('forwarders', function() {
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         window.mParticle.config.kitConfigs.push(config1);
 
+        window.mParticle.config.dataPlan = {
+            planVersion: 10,
+            planId: 'plan-slug',
+        };
+
         window.mParticle.config.flags = {
             reportBatching: true,
         };
@@ -461,6 +466,10 @@ describe('forwarders', function() {
         event.should.have.property('esid', 1234567890);
         event.should.have.property('n', 'send this event to forwarder');
         event.should.have.property('attrs');
+        event.should.have.property('dp');
+        event.dp.should.have.property('PlanVersion', 10);
+        event.dp.should.have.property('PlanId', 'plan-slug');
+        event.should.have.property('dp');
         event.should.have.property('sdk', mParticle.getVersion());
         event.should.have.property('dt', MessageType.PageEvent);
         event.should.have.property('et', mParticle.EventType.Navigation);
