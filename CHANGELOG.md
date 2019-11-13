@@ -2,6 +2,10 @@
 
 --
 
+#### 2.10.0 - 2019-11-13
+
+-   Feat - Implement Multiple Instances
+
 #### 2.9.16 - 2019-11-06
 
 -   Bugfix - Parse string in shouldEnableBatching
