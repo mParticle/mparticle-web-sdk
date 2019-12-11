@@ -633,7 +633,7 @@ describe('event logging', function() {
         done();
     });
 
-    it('should log a batch to v3 with a null for plan version if no version is passed', function (done) {
+    it('should log a batch to v3 with no version if no version is passed', function (done) {
         mParticle.config.flags = {
             eventsV3: '100',
             eventBatchingIntervalMillis: 0,
@@ -656,7 +656,7 @@ describe('event logging', function() {
 
         batch.should.have.property('context');
         batch.context.should.have.property('data_plan');
-        batch.context.data_plan.should.have.property('plan_version', null);
+        batch.context.data_plan.should.not.have.property('plan_version');
         batch.context.data_plan.should.have.property('plan_id', 'plan-slug');
 
         delete window.mParticle.config.flags
@@ -664,7 +664,7 @@ describe('event logging', function() {
         done();
     });
 
-    it('should log a batch to v3 with a null for data plan id if no data plan is passed', function (done) {
+    it('should log a batch to v3 with no context if no data plan is passed', function (done) {
         mParticle.config.flags = {
             eventsV3: '100',
             eventBatchingIntervalMillis: 0,
@@ -684,10 +684,7 @@ describe('event logging', function() {
 
         var batch = JSON.parse(window.fetchMock.lastOptions().body);
 
-        batch.should.have.property('context');
-        batch.context.should.have.property('data_plan');
-        batch.context.data_plan.should.have.property('plan_version', 10);
-        batch.context.data_plan.should.have.property('plan_id', null);
+        batch.should.not.have.property('context');
 
         delete window.mParticle.config.flags
 
@@ -722,11 +719,7 @@ describe('event logging', function() {
 
         errorMessage.should.equal('Your data plan id must be in a slug format')
         var batch = JSON.parse(window.fetchMock.lastOptions().body);
-        batch.should.have.property('context');
-        batch.context.should.have.property('data_plan');
-        batch.context.data_plan.should.have.property('plan_version', 10);
-        batch.context.data_plan.should.have.property('plan_id', null);
-
+        batch.should.not.have.property('context');
         delete window.mParticle.config.flags
 
         done();

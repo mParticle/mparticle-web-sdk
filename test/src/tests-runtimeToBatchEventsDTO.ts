@@ -158,6 +158,50 @@ describe('Old model to batch model conversion', () => {
         done();
     });
 
+    it('Data Plan Context conversion', done => {
+        const publicEvent = {
+            messageType: Types.MessageType.PageEvent,
+            name: 'foo page',
+            data: { 'foo-attr': 'foo-val' },
+            eventType: Types.EventType.Navigation,
+
+        };
+        const sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(
+            publicEvent
+        ) as SDKEvent;
+
+        sdkEvent.DataPlan = null;
+        let batch = Converter.convertEvents('123', [sdkEvent], window.mParticle.getInstance());
+        expect(batch.context).to.be.undefined;
+
+        sdkEvent.DataPlan = {};
+        batch = Converter.convertEvents('123', [sdkEvent], window.mParticle.getInstance());
+        expect(batch.context).to.be.undefined;
+
+        sdkEvent.DataPlan = {PlanId:  null};
+        batch = Converter.convertEvents('123', [sdkEvent], window.mParticle.getInstance());
+        expect(batch.context).to.be.undefined;
+
+        sdkEvent.DataPlan = {PlanId:  null, PlanVersion:  2};
+        batch = Converter.convertEvents('123', [sdkEvent], window.mParticle.getInstance());
+        expect(batch.context).to.be.undefined;
+
+        sdkEvent.DataPlan = {PlanId:  "foo", PlanVersion: null };
+        batch = Converter.convertEvents('123', [sdkEvent], window.mParticle.getInstance());
+        expect(batch.context).to.be.ok;
+        expect(batch.context.data_plan).to.be.ok;
+        expect(batch.context.data_plan.plan_id).to.equal("foo");
+        expect(batch.context.data_plan.plan_version).be.undefined;
+
+        sdkEvent.DataPlan = {PlanId:  "foo", PlanVersion: 4};
+        batch = Converter.convertEvents('123', [sdkEvent], window.mParticle.getInstance());
+        expect(batch.context).to.be.ok;
+        expect(batch.context.data_plan).to.be.ok;
+        expect(batch.context.data_plan.plan_id).to.equal("foo");
+        expect(batch.context.data_plan.plan_version).be.equal(4);
+        done();
+    });
+
     it('User identity conversion ', done => {
         window.mParticle.getInstance().Identity.getCurrentUser = () => {
             return {
