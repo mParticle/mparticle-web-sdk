@@ -934,7 +934,7 @@ finally {
             throw h;
     }
 } if (!e)
-    return null; var l = { source_request_id: c._Helpers.generateUniqueId(), mpid: a, timestamp_unixtime_ms: new Date().getTime(), environment: e.Debug ? "development" : "production", events: d, mp_deviceid: e.DeviceId, sdk_version: e.SDKVersion, application_info: { application_version: e.AppVersion }, device_info: { platform: "web", screen_width: window.screen.width, screen_height: window.screen.height }, user_attributes: e.UserAttributes, user_identities: convertUserIdentities(e.UserIdentities), consent_state: convertConsentState(e.ConsentState), integration_attributes: e.IntegrationAttributes, context: { data_plan: { plan_version: e.DataPlan ? e.DataPlan.PlanVersion : null, plan_id: e.DataPlan ? e.DataPlan.PlanId : null } } }; return l; }
+    return null; var l = { source_request_id: c._Helpers.generateUniqueId(), mpid: a, timestamp_unixtime_ms: new Date().getTime(), environment: e.Debug ? "development" : "production", events: d, mp_deviceid: e.DeviceId, sdk_version: e.SDKVersion, application_info: { application_version: e.AppVersion }, device_info: { platform: "web", screen_width: window.screen.width, screen_height: window.screen.height }, user_attributes: e.UserAttributes, user_identities: convertUserIdentities(e.UserIdentities), consent_state: convertConsentState(e.ConsentState), integration_attributes: e.IntegrationAttributes }; return e.DataPlan && e.DataPlan.PlanId && (l.context = { data_plan: { plan_id: e.DataPlan.PlanId, plan_version: e.DataPlan.PlanVersion || void 0 } }), l; }
 function convertConsentState(a) { if (!a)
     return null; var b = { gdpr: convertGdprConsentState(a.getGDPRConsentState()) }; return b; }
 function convertGdprConsentState(a) { if (!a)

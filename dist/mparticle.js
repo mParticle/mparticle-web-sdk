@@ -1763,14 +1763,16 @@ var mParticle = (function () {
             user_attributes: lastEvent.UserAttributes,
             user_identities: convertUserIdentities(lastEvent.UserIdentities),
             consent_state: convertConsentState(lastEvent.ConsentState),
-            integration_attributes: lastEvent.IntegrationAttributes,
-            context: {
-                data_plan: {
-                    plan_version: lastEvent.DataPlan ? lastEvent.DataPlan.PlanVersion : null,
-                    plan_id: lastEvent.DataPlan ? lastEvent.DataPlan.PlanId : null
-                }
-            }
+            integration_attributes: lastEvent.IntegrationAttributes
         };
+        if (lastEvent.DataPlan && lastEvent.DataPlan.PlanId) {
+            upload.context = {
+                data_plan: {
+                    plan_id: lastEvent.DataPlan.PlanId,
+                    plan_version: lastEvent.DataPlan.PlanVersion || undefined
+                }
+            };
+        }
         return upload;
     }
     function convertConsentState(sdkConsentState) {
