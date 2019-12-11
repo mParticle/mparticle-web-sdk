@@ -2,6 +2,10 @@
 
 --
 
+#### 2.10.1 - 2019-11-13
+
+-   Bugfix - Do not populate data plan context when plan id is null
+
 #### 2.10.0 - 2019-11-13
 
 -   Feat - Implement Multiple Instances
