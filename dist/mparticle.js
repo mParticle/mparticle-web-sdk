@@ -633,7 +633,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.10.0',
+      sdkVersion: '2.10.1',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
