@@ -21,6 +21,7 @@ export interface SDKEvent {
     OptOut?: boolean;
     CustomFlags?: { [key: string]: string };
     AppVersion?: string;
+    AppName?: string;
     ConsentState?: SDKConsentState;
     IntegrationAttributes?: { [key: string]: { [key: string]: string } };
     ProductAction?: SDKProductAction;
@@ -30,7 +31,7 @@ export interface SDKEvent {
     UserIdentityChanges?: SDKUserIdentityChangeData;
     UserAttributeChanges?: SDKUserAttributeChangeData;
     CurrencyCode: string;
-    DataPlan: SDKDataPlan;
+    DataPlan?: SDKDataPlan;
 }
 
 export interface SDKDataPlan {
@@ -110,8 +111,25 @@ export interface MParticleWebSDK {
     Logger: SDKLoggerApi;
     _Store: SDKStoreApi;
     _Helpers: SDKHelpersApi;
+    config: SDKConfig;
+    reset(MPConfig: SDKConfig): void;
+    init(apiKey: string, config: SDKConfig): void;
     getInstance();
     ServerModel();
+}
+
+export interface SDKConfig {
+    isDevelopmentMode?: boolean;
+    appVersion?: string;
+    appName?: string;
+    logLevel?: string;
+    sessionTimeout?: number;
+    useCookieStorage?: boolean;
+    cookieDomain?: string;
+    workspaceToken: string;
+    requiredWebviewBridgeName: string;
+    minWebviewBridgeVersion: number;
+    isIOS?: boolean;
 }
 
 export interface SDKIdentityApi {

@@ -184,6 +184,10 @@ export default function Store(config, mpInstance) {
             this.SDKConfig.appVersion = config.appVersion;
         }
 
+        if (config.hasOwnProperty('appName')) {
+            this.SDKConfig.appName = config.appName;
+        }
+
         if (config.hasOwnProperty('sessionTimeout')) {
             this.SDKConfig.sessionTimeout = config.sessionTimeout;
         }

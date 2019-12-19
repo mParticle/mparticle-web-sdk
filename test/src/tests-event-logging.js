@@ -601,6 +601,55 @@ describe('event logging', function() {
         done();
     });
 
+    it('should log appName in the payload on v3 endpoint when set on config prior to init', function (done) {
+        mParticle.config.appName = 'a name';
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+
+        mParticle.init(apiKey, mParticle.config);
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.logEvent('Test Event');
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+            console.log(batch);
+        batch.application_info.should.have.property('application_name', 'a name');
+
+        delete window.mParticle.config.flags
+
+        done();
+    });
+
+    it('should log appName in the payload on v3 endpoint when set on config prior to init', function (done) {
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+
+        mParticle.init(apiKey, mParticle.config);
+        mParticle.setAppName('another name');
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.logEvent('Test Event');
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        batch.application_info.should.have.property('application_name', 'another name');
+
+        delete window.mParticle.config.flags
+
+        done();
+    });
+
     it('should log a batch to v3 with data planning in the payload', function (done) {
         mParticle.config.logLevel = 'verbose';
         mParticle.config.flags = {

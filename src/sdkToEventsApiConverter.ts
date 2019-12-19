@@ -49,6 +49,7 @@ export function convertEvents(
         sdk_version: lastEvent.SDKVersion,
         application_info: {
             application_version: lastEvent.AppVersion,
+            application_name: lastEvent.AppName,
         },
         device_info: {
             platform: 'web',

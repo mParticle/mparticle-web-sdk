@@ -3,6 +3,10 @@ import { expect } from 'chai';
 import Types from '../../src/types';
 import { SDKEvent, MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import * as EventsApi from '../../src/eventsApiModels';
+import TestsCore from './tests-core';
+
+var MPConfig = TestsCore.MPConfig,
+    apiKey = TestsCore.apiKey;
 
 declare global {
     interface Window {
@@ -12,26 +16,24 @@ declare global {
 
 describe('Old model to batch model conversion', () => {
     const batchDataTests = [{ devmode: false }, { devmode: true }];
-    
     batchDataTests.forEach(params => {
         it('Batch level conversion ' + params, done => {
+            window.mParticle.reset(MPConfig);
+            window.mParticle.config.appVersion = 'a version';
+            window.mParticle.config.appName = 'a name';
+
+            window.mParticle.init(apiKey, window.mParticle.config);
             let batch = Converter.convertEvents(null, null, window.mParticle.getInstance());
             expect(batch).to.be.null;
 
             batch = Converter.convertEvents(null, [], window.mParticle.getInstance());
             expect(batch).to.be.null;
-
-            window.mParticle.getInstance()._Store = {
-                sessionId: 'foo-session-id',
-                isFirstRun: false,
-                devToken: 'foo token',
-                deviceId: 'a device id',
-                SDKConfig: {
-                    isDevelopmentMode: params.devmode,
-                    appVersion: 'a version',
-                },
-            };
-
+            
+            window.mParticle.getInstance()._Store.sessionId = 'foo-session-id';
+            window.mParticle.getInstance()._Store.isFirstRun = false;
+            window.mParticle.getInstance()._Store.devToken = 'foo token';
+            window.mParticle.getInstance()._Store.deviceId = 'a device id';
+            window.mParticle.getInstance()._Store.SDKConfig.isDevelopmentMode = params.devmode;
             window.mParticle.getInstance().Identity.getCurrentUser = () => {
                 return {
                     getUserIdentities: () => {
@@ -71,10 +73,9 @@ describe('Old model to batch model conversion', () => {
 
             const sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(
                 publicEvent
-            ) as SDKEvent;
-
-            console.log(sdkEvent);
-            expect(sdkEvent).to.be.ok;
+                ) as SDKEvent;
+                console.log(sdkEvent);
+                expect(sdkEvent).to.be.ok;
             batch = Converter.convertEvents(
                 '123',
                 [sdkEvent, sdkEvent],
@@ -88,6 +89,9 @@ describe('Old model to batch model conversion', () => {
             expect(batch.application_info).to.be.ok;
             expect(batch.application_info.application_version).to.equal(
                 'a version'
+            );
+            expect(batch.application_info.application_name).to.equal(
+                'a name'
             );
             expect(batch.mp_deviceid).to.equal('a device id');
             expect(batch.user_attributes).to.be.ok;
