@@ -2,7 +2,11 @@
 
 --
 
-#### 2.10.1 - 2019-11-13
+#### 2.10.2 - 2019-12-19
+
+-   Feat - Pass appName to config
+
+#### 2.10.1 - 2019-12-11
 
 -   Bugfix - Do not populate data plan context when plan id is null
 
