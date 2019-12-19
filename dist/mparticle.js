@@ -633,7 +633,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.10.1',
+      sdkVersion: '2.10.2',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -1753,7 +1753,8 @@ var mParticle = (function () {
             mp_deviceid: lastEvent.DeviceId,
             sdk_version: lastEvent.SDKVersion,
             application_info: {
-                application_version: lastEvent.AppVersion
+                application_version: lastEvent.AppVersion,
+                application_name: lastEvent.AppName
             },
             device_info: {
                 platform: 'web',
@@ -4624,6 +4625,10 @@ var mParticle = (function () {
           this.SDKConfig.appVersion = config.appVersion;
         }
 
+        if (config.hasOwnProperty('appName')) {
+          this.SDKConfig.appName = config.appName;
+        }
+
         if (config.hasOwnProperty('sessionTimeout')) {
           this.SDKConfig.sessionTimeout = config.sessionTimeout;
         }
@@ -6951,7 +6956,8 @@ var mParticle = (function () {
             Location: mpInstance._Store.currentPosition,
             OptOut: optOut,
             ExpandedEventCount: 0,
-            AppVersion: mpInstance._Store.SDKConfig.appVersion,
+            AppVersion: mpInstance.getAppVersion(),
+            AppName: mpInstance.getAppName(),
             ClientGeneratedId: mpInstance._Store.clientId,
             DeviceId: mpInstance._Store.deviceId,
             IntegrationAttributes: mpInstance._Store.integrationAttributes,
