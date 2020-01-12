@@ -66,9 +66,9 @@ export function convertEvents(
         upload.context = {
             data_plan: {
                 plan_id: lastEvent.DataPlan.PlanId,
-                plan_version: lastEvent.DataPlan.PlanVersion || undefined
-            }
-        }
+                plan_version: lastEvent.DataPlan.PlanVersion || undefined,
+            },
+        };
     }
     return upload;
 }

@@ -67,6 +67,7 @@ import './tests-cookie-syncing';
 import './tests-native-sdk';
 import './tests-consent';
 import './tests-serverModel';
+import './tests-mockBatchCreator.ts';
 import './tests-mParticleUser';
 import './tests-self-hosting-specific';
 import './tests-runtimeToBatchEventsDTO';

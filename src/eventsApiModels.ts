@@ -182,6 +182,7 @@ export interface CommonEventData {
     session_start_unixtime_ms?: number;
     event_start_unixtime_ms?: number;
     custom_attributes?: { [key: string]: string };
+    custom_flags?: { [key: string]: string };
     location?: GeoLocation;
     device_current_state?: DeviceCurrentState;
     is_goal_defined?: boolean;
@@ -301,9 +302,9 @@ export type DeviceCurrentStateStatusBarOrientationEnum =
 
 export interface Context {
     data_plan: {
-        plan_id: string,
-        plan_version?: number,
-     };
+        plan_id: string;
+        plan_version?: number;
+    };
 }
 
 export interface DeviceInformation {

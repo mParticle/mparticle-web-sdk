@@ -195,3 +195,11 @@ export interface SDKUserAttributeChangeData {
     Deleted: boolean;
     IsNewAttribute: boolean;
 }
+
+export interface BaseEvent {
+    messageType: number;
+    name: string;
+    eventType?: number;
+    data?: { [key: string]: string };
+    customFlags?: { [key: string]: string };
+}
