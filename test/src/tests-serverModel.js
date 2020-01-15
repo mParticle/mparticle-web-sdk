@@ -9,7 +9,7 @@ describe('Server Model', function() {
             'foo',
             mParticle
                 .getInstance()
-                ._Consent.createGDPRConsent(
+                ._Consent.createPrivacyConsent(
                     true,
                     10,
                     'foo document',
@@ -61,7 +61,7 @@ describe('Server Model', function() {
             'foo',
             mParticle
                 .getInstance()
-                ._Consent.createGDPRConsent(
+                ._Consent.createPrivacyConsent(
                     true,
                     10,
                     'foo document',

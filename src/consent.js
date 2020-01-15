@@ -1,6 +1,8 @@
 export default function Consent(mpInstance) {
     var self = this;
-    this.createGDPRConsent = function(
+    var CCPAPurpose = 'data_sale_opt_out';
+
+    this.createPrivacyConsent = function(
         consented,
         timestamp,
         consentDocument,
@@ -9,31 +11,31 @@ export default function Consent(mpInstance) {
     ) {
         if (typeof consented !== 'boolean') {
             mpInstance.Logger.error(
-                'Consented boolean is required when constructing a GDPR Consent object.'
+                'Consented boolean is required when constructing a Consent object.'
             );
             return null;
         }
         if (timestamp && isNaN(timestamp)) {
             mpInstance.Logger.error(
-                'Timestamp must be a valid number when constructing a GDPR Consent object.'
+                'Timestamp must be a valid number when constructing a Consent object.'
             );
             return null;
         }
         if (consentDocument && typeof consentDocument !== 'string') {
             mpInstance.Logger.error(
-                'Document must be a valid string when constructing a GDPR Consent object.'
+                'Document must be a valid string when constructing a Consent object.'
             );
             return null;
         }
         if (location && typeof location !== 'string') {
             mpInstance.Logger.error(
-                'Location must be a valid string when constructing a GDPR Consent object.'
+                'Location must be a valid string when constructing a Consent object.'
             );
             return null;
         }
         if (hardwareId && typeof hardwareId !== 'string') {
             mpInstance.Logger.error(
-                'Hardware ID must be a valid string when constructing a GDPR Consent object.'
+                'Hardware ID must be a valid string when constructing a Consent object.'
             );
             return null;
         }
@@ -82,6 +84,33 @@ export default function Consent(mpInstance) {
                         }
                     }
                 }
+
+                var ccpaConsentState = state.getCCPAConsentState();
+                if (ccpaConsentState) {
+                    jsonObject.ccpa = {};
+                    jsonObject.ccpa[CCPAPurpose] = {};
+
+                    if (typeof ccpaConsentState.Consented === 'boolean') {
+                        jsonObject.ccpa[CCPAPurpose].c =
+                            ccpaConsentState.Consented;
+                    }
+                    if (typeof ccpaConsentState.Timestamp === 'number') {
+                        jsonObject.ccpa[CCPAPurpose].ts =
+                            ccpaConsentState.Timestamp;
+                    }
+                    if (typeof ccpaConsentState.ConsentDocument === 'string') {
+                        jsonObject.ccpa[CCPAPurpose].d =
+                            ccpaConsentState.ConsentDocument;
+                    }
+                    if (typeof ccpaConsentState.Location === 'string') {
+                        jsonObject.ccpa[CCPAPurpose].l =
+                            ccpaConsentState.Location;
+                    }
+                    if (typeof ccpaConsentState.HardwareId === 'string') {
+                        jsonObject.ccpa[CCPAPurpose].h =
+                            ccpaConsentState.HardwareId;
+                    }
+                }
             }
             return jsonObject;
         },
@@ -91,7 +120,7 @@ export default function Consent(mpInstance) {
             if (json.gdpr) {
                 for (var purpose in json.gdpr) {
                     if (json.gdpr.hasOwnProperty(purpose)) {
-                        var gdprConsent = self.createGDPRConsent(
+                        var gdprConsent = self.createPrivacyConsent(
                             json.gdpr[purpose].c,
                             json.gdpr[purpose].ts,
                             json.gdpr[purpose].d,
@@ -102,15 +131,30 @@ export default function Consent(mpInstance) {
                     }
                 }
             }
+
+            if (json.ccpa) {
+                if (json.ccpa.hasOwnProperty(CCPAPurpose)) {
+                    var ccpaConsent = self.createPrivacyConsent(
+                        json.ccpa[CCPAPurpose].c,
+                        json.ccpa[CCPAPurpose].ts,
+                        json.ccpa[CCPAPurpose].d,
+                        json.ccpa[CCPAPurpose].l,
+                        json.ccpa[CCPAPurpose].h
+                    );
+                    state.setCCPAConsentState(ccpaConsent);
+                }
+            }
             return state;
         },
     };
 
     this.createConsentState = function(consentState) {
         var gdpr = {};
+        var ccpa = {};
 
         if (consentState) {
             setGDPRConsentState(consentState.getGDPRConsentState());
+            setCCPAConsentState(consentState.getCCPAConsentState());
         }
 
         function canonicalizeForDeduplication(purpose) {
@@ -141,18 +185,16 @@ export default function Consent(mpInstance) {
         function addGDPRConsentState(purpose, gdprConsent) {
             var normalizedPurpose = canonicalizeForDeduplication(purpose);
             if (!normalizedPurpose) {
-                mpInstance.Logger.error(
-                    'addGDPRConsentState() invoked with bad purpose. Purpose must be a string.'
-                );
+                mpInstance.Logger.error('Purpose must be a string.');
                 return this;
             }
             if (!mpInstance._Helpers.isObject(gdprConsent)) {
                 mpInstance.Logger.error(
-                    'addGDPRConsentState() invoked with bad or empty GDPR consent object.'
+                    'Invoked with a bad or empty consent object.'
                 );
                 return this;
             }
-            var gdprConsentCopy = self.createGDPRConsent(
+            var gdprConsentCopy = self.createPrivacyConsent(
                 gdprConsent.Consented,
                 gdprConsent.Timestamp,
                 gdprConsent.ConsentDocument,
@@ -178,11 +220,43 @@ export default function Consent(mpInstance) {
             return mpInstance._Helpers.extend({}, gdpr);
         }
 
+        function setCCPAConsentState(ccpaConsent) {
+            if (!mpInstance._Helpers.isObject(ccpaConsent)) {
+                mpInstance.Logger.error(
+                    'Invoked with a bad or empty CCPA consent object.'
+                );
+                return this;
+            }
+            var ccpaConsentCopy = self.createPrivacyConsent(
+                ccpaConsent.Consented,
+                ccpaConsent.Timestamp,
+                ccpaConsent.ConsentDocument,
+                ccpaConsent.Location,
+                ccpaConsent.HardwareId
+            );
+            if (ccpaConsentCopy) {
+                ccpa[CCPAPurpose] = ccpaConsentCopy;
+            }
+            return this;
+        }
+
+        function getCCPAConsentState() {
+            return ccpa[CCPAPurpose];
+        }
+
+        function removeCCPAState() {
+            delete ccpa[CCPAPurpose];
+            return this;
+        }
+
         return {
             setGDPRConsentState: setGDPRConsentState,
             addGDPRConsentState: addGDPRConsentState,
+            setCCPAConsentState: setCCPAConsentState,
+            getCCPAConsentState: getCCPAConsentState,
             getGDPRConsentState: getGDPRConsentState,
             removeGDPRConsentState: removeGDPRConsentState,
+            removeCCPAState: removeCCPAState,
         };
     };
 }

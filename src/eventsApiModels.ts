@@ -197,7 +197,8 @@ export interface CommonEventData {
 }
 
 export interface ConsentState {
-    gdpr: { [key: string]: GDPRConsentState };
+    gdpr?: { [key: string]: GDPRConsentState };
+    ccpa?: { data_sale_opt_out?: CCPAConsentState };
 }
 
 export interface CrashReportEvent {
@@ -397,6 +398,7 @@ export type EventType =
     | 'user_attribute_change'
     | 'user_identity_change'
     | 'uninstall';
+
 export interface GDPRConsentState {
     regulation?: string;
     document?: string;
@@ -405,6 +407,8 @@ export interface GDPRConsentState {
     location?: string;
     hardware_id?: string;
 }
+
+export interface CCPAConsentState extends GDPRConsentState {}
 
 export interface GeoLocation {
     latitude: number | string;

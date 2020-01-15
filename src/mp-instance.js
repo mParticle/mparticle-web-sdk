@@ -464,7 +464,8 @@ export default function mParticleInstance(instanceName) {
         });
     };
     this.Consent = {
-        createGDPRConsent: self._Consent.createGDPRConsent,
+        createCCPAConsent: self._Consent.createPrivacyConsent,
+        createGDPRConsent: self._Consent.createPrivacyConsent,
         createConsentState: self._Consent.createConsentState,
     };
     /**

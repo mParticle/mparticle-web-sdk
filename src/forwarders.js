@@ -87,21 +87,35 @@ export default function Forwarders(mpInstance) {
         if (!user) {
             return false;
         }
+
         var purposeHashes = {};
-        var GDPRConsentHashPrefix = '1';
         var consentState = user.getConsentState();
         if (consentState) {
+            // the server hashes consent purposes in the following way:
+            // GDPR - '1' + purpose name
+            // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
+            var GDPRConsentHashPrefix = '1';
+            var CCPAPurpose = 'data_sale_opt_out';
+            var CCPAHashString = '2' + CCPAPurpose;
+
             var gdprConsentState = consentState.getGDPRConsentState();
             if (gdprConsentState) {
                 for (var purpose in gdprConsentState) {
                     if (gdprConsentState.hasOwnProperty(purpose)) {
-                        var purposeHash = mpInstance._Helpers
+                        purposeHash = mpInstance._Helpers
                             .generateHash(GDPRConsentHashPrefix + purpose)
                             .toString();
                         purposeHashes[purposeHash] =
                             gdprConsentState[purpose].Consented;
                     }
                 }
+            }
+            var CCPAConsentState = consentState.getCCPAConsentState();
+            if (CCPAConsentState) {
+                var purposeHash = mpInstance._Helpers
+                    .generateHash(CCPAHashString)
+                    .toString();
+                purposeHashes[purposeHash] = CCPAConsentState.Consented;
             }
         }
         var isMatch = false;

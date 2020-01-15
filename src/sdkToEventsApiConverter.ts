@@ -2,6 +2,7 @@ import {
     SDKEvent,
     SDKConsentState,
     SDKGDPRConsentState,
+    SDKCCPAConsentState,
     SDKProduct,
     SDKPromotion,
     SDKUserIdentity,
@@ -81,6 +82,7 @@ export function convertConsentState(
     }
     const consentState: EventsApi.ConsentState = {
         gdpr: convertGdprConsentState(sdkConsentState.getGDPRConsentState()),
+        ccpa: convertCcpaConsentState(sdkConsentState.getCCPAConsentState()),
     };
     return consentState;
 }
@@ -103,6 +105,29 @@ export function convertGdprConsentState(sdkGdprConsentState: {
             };
         }
     }
+    return state;
+}
+
+export function convertCcpaConsentState(
+    sdkCcpaConsentState: Record<string, SDKCCPAConsentState>
+): Record<string, EventsApi.GDPRConsentState> {
+    if (!sdkCcpaConsentState) {
+        return null;
+    }
+    const state: { data_sale_opt_out: EventsApi.CCPAConsentState } = {
+        data_sale_opt_out: null,
+    };
+    if (sdkCcpaConsentState.hasOwnProperty('data_sale_opt_out')) {
+        state.data_sale_opt_out = {
+            consented: sdkCcpaConsentState['data_sale_opt_out'].Consented,
+            hardware_id: sdkCcpaConsentState['data_sale_opt_out'].HardwareId,
+            document: sdkCcpaConsentState['data_sale_opt_out'].ConsentDocument,
+            timestamp_unixtime_ms:
+                sdkCcpaConsentState['data_sale_opt_out'].Timestamp,
+            location: sdkCcpaConsentState['data_sale_opt_out'].Location,
+        };
+    }
+
     return state;
 }
 

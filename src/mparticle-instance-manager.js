@@ -149,10 +149,6 @@ function mParticle() {
     this.logPageView = function(eventName, attrs, customFlags) {
         self.getInstance().logPageView(eventName, attrs, customFlags);
     };
-    this.Consent = {
-        createGDPRConsent: self.getInstance().createGDPRConsent,
-        createConsentState: self.getInstance().createConsentStatet,
-    };
     this.eCommerce = {
         Cart: {
             add: function(product, logEventBoolean) {
@@ -352,6 +348,23 @@ function mParticle() {
             return self.getInstance().Consent.createConsentState();
         },
         createGDPRConsent: function(
+            consented,
+            timestamp,
+            consentDocument,
+            location,
+            hardwareId
+        ) {
+            return self
+                .getInstance()
+                .Consent.createGDPRConsent(
+                    consented,
+                    timestamp,
+                    consentDocument,
+                    location,
+                    hardwareId
+                );
+        },
+        createCCPAConsent: function(
             consented,
             timestamp,
             consentDocument,

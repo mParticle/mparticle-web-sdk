@@ -124,6 +124,7 @@ describe('mParticle instance manager', function() {
         ]);
         mParticle.Consent.should.have.properties([
             'createGDPRConsent',
+            'createCCPAConsent',
             'createConsentState',
         ]);
         mParticle.sessionManager.should.have.property('getSession');

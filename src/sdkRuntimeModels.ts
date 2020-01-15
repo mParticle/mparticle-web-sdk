@@ -166,6 +166,7 @@ export interface MParticleUser {
 
 export interface SDKConsentState {
     getGDPRConsentState(): { [key: string]: SDKGDPRConsentState };
+    getCCPAConsentState(): { [key: string]: SDKCCPAConsentState };
 }
 
 export interface SDKGDPRConsentState {
@@ -175,6 +176,8 @@ export interface SDKGDPRConsentState {
     Location?: string;
     HardwareId?: string;
 }
+
+export interface SDKCCPAConsentState extends SDKGDPRConsentState {}
 
 export interface SDKUserIdentityChangeData {
     New: Identity;

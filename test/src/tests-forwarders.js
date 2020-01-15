@@ -126,8 +126,8 @@ describe('forwarders', function() {
         };
     };
 
-    it('should disable forwarder if consent has been rejected.', function(done) {
-        var enableForwarder = false;
+    it('should disable forwarder if \'do not forward\' is selected and consent has been rejected', function(done) {
+        var enableForwarder = false;   // 'do not forward' chosen in UI, 'includeOnMatch' in config
         var consented = false;
         mParticle.reset(MPConfig);
         mParticle.config.isDevelopmentMode = false;
@@ -170,8 +170,8 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should disable forwarder if consent has been accepted.', function(done) {
-        var enableForwarder = false;
+    it('should disable forwarder if \'do not forward\' is selected and consent has been accepted.', function(done) {
+        var enableForwarder = false;   // 'do not forward' chosen in UI, 'includeOnMatch' in config
         var consented = true;
         mParticle.reset(MPConfig);
         mParticle.config.isDevelopmentMode = false;
@@ -213,8 +213,8 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should enable forwarder if consent has been rejected.', function(done) {
-        var enableForwarder = true;
+    it('should enable forwarder if \'only forward\' is selected and consent has been rejected.', function(done) {
+        var enableForwarder = true;   // 'only forward if' in UI, 'includeOnMatch' in config
         var consented = false;
         mParticle.reset(MPConfig);
         mParticle.config.isDevelopmentMode = false;
@@ -255,8 +255,8 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should enable forwarder if consent has been accepted.', function(done) {
-        var enableForwarder = true;
+    it('should enable forwarder if \'only forward if\' is selected and consent has been accepted.', function(done) {
+        var enableForwarder = true;   // 'only forward if' in UI, 'includeOnMatch' in config
         var consented = true;
         mParticle.reset(MPConfig);
         mParticle.config.isDevelopmentMode = false;
@@ -295,6 +295,182 @@ describe('forwarders', function() {
                 user
             );
         enabled.should.be.ok();
+        done();
+    });
+
+    it('should enable forwarder if \'only forward\' is selected and CCPA data sale opt out is present.', function(done) {
+        var enableForwarder = true;   // 'only forward' in UI, 'includeOnMatch' in config
+        var consentPresent = true;
+        mParticle.reset(MPConfig);
+        mParticle.config.isDevelopmentMode = false;
+        var mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        var config = forwarderDefaultConfiguration('MockForwarder');
+
+        config.filteringConsentRuleValues = {
+            includeOnMatch: enableForwarder,
+            values: [
+                {
+                    consentPurpose: mParticle.generateHash(
+                        '2' + 'data_sale_opt_out'
+                    ),
+                    hasConsented: consentPresent,
+                },
+            ],
+        };
+        window.mParticle.config.kitConfigs.push(config);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        var consentState = mParticle
+            .getInstance()
+            .Consent.createConsentState()
+            .setCCPAConsentState(
+                mParticle.getInstance().Consent.createCCPAConsent(consentPresent)
+            );
+        var user = MockUser();
+        user.setConsentState(consentState);
+
+        var enabled = mParticle
+            .getInstance()
+            ._Forwarders.isEnabledForUserConsent(
+                window.MockForwarder1.instance.filteringConsentRuleValues,
+                user
+            );
+        enabled.should.be.ok();
+        done();
+    });
+
+    it('should enable forwarder if \'only forward\' is selected and CCPA data sale opt out is not present.', function(done) {
+        var enableForwarder = true;   // 'only forward' in UI, 'includeOnMatch' in config
+        var consentPresent = false;
+        mParticle.reset(MPConfig);
+        mParticle.config.isDevelopmentMode = false;
+        var mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        var config = forwarderDefaultConfiguration('MockForwarder');
+
+        config.filteringConsentRuleValues = {
+            includeOnMatch: enableForwarder,
+            values: [
+                {
+                    consentPurpose: mParticle.generateHash(
+                        '2' + 'data_sale_opt_out'
+                    ),
+                    hasConsented: consentPresent,
+                },
+            ],
+        };
+        window.mParticle.config.kitConfigs.push(config);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        var consentState = mParticle
+            .getInstance()
+            .Consent.createConsentState()
+            .setCCPAConsentState(
+                mParticle.getInstance().Consent.createCCPAConsent(consentPresent)
+            );
+        var user = MockUser();
+        user.setConsentState(consentState);
+
+        var enabled = mParticle
+            .getInstance()
+            ._Forwarders.isEnabledForUserConsent(
+                window.MockForwarder1.instance.filteringConsentRuleValues,
+                user
+            );
+        enabled.should.be.ok();
+        done();
+    });
+
+    it('should disable forwarder if \'do not forward\' is selected and CCPA data sale opt out is present.', function(done) {
+        var enableForwarder = false;   // 'do not forward' in UI, 'includeOnMatch' in config
+        var consentPresent = true;
+        mParticle.reset(MPConfig);
+        mParticle.config.isDevelopmentMode = false;
+        var mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        var config = forwarderDefaultConfiguration('MockForwarder');
+
+        config.filteringConsentRuleValues = {
+            includeOnMatch: enableForwarder,
+            values: [
+                {
+                    consentPurpose: mParticle.generateHash(
+                        '2' + 'data_sale_opt_out'
+                    ),
+                    hasConsented: consentPresent,
+                },
+            ],
+        };
+        window.mParticle.config.kitConfigs.push(config);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        var consentState = mParticle
+            .getInstance()
+            .Consent.createConsentState()
+            .setCCPAConsentState(
+                mParticle.getInstance().Consent.createCCPAConsent(consentPresent)
+            );
+        var user = MockUser();
+        user.setConsentState(consentState);
+
+        var enabled = mParticle
+            .getInstance()
+            ._Forwarders.isEnabledForUserConsent(
+                window.MockForwarder1.instance.filteringConsentRuleValues,
+                user
+            );
+        enabled.should.not.be.ok();
+        done();
+    });
+
+    it('should disable forwarder if \'do not forward\' is selected and CCPA data sale opt out is not present.', function(done) {
+        var enableForwarder = false;   // 'do not forward' in UI, 'includeOnMatch' in config
+        var consentPresent = false;
+        mParticle.reset(MPConfig);
+        mParticle.config.isDevelopmentMode = false;
+        var mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        var config = forwarderDefaultConfiguration('MockForwarder');
+
+        config.filteringConsentRuleValues = {
+            includeOnMatch: enableForwarder,
+            values: [
+                {
+                    consentPurpose: mParticle.generateHash(
+                        '2' + 'data_sale_opt_out'
+                    ),
+                    hasConsented: consentPresent,
+                },
+            ],
+        };
+        window.mParticle.config.kitConfigs.push(config);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        var consentState = mParticle
+            .getInstance()
+            .Consent.createConsentState()
+            .setCCPAConsentState(
+                mParticle.getInstance().Consent.createCCPAConsent(consentPresent)
+            );
+        var user = MockUser();
+        user.setConsentState(consentState);
+
+        var enabled = mParticle
+            .getInstance()
+            ._Forwarders.isEnabledForUserConsent(
+                window.MockForwarder1.instance.filteringConsentRuleValues,
+                user
+            );
+        enabled.should.not.be.ok();
         done();
     });
 

@@ -140,6 +140,19 @@ export default function ServerModel(mpInstance) {
             }
         }
 
+        var ccpaConsentState = state.getCCPAConsentState();
+        if (ccpaConsentState) {
+            jsonObject.ccpa = {
+                data_sale_opt_out: {
+                    c: ccpaConsentState.Consented,
+                    ts: ccpaConsentState.Timestamp,
+                    d: ccpaConsentState.ConsentDocument,
+                    l: ccpaConsentState.Location,
+                    h: ccpaConsentState.HardwareId,
+                },
+            };
+        }
+
         return jsonObject;
     };
 

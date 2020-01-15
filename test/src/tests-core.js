@@ -1,4 +1,4 @@
-var server = new MockHttpServer(),
+var server = new window.MockHttpServer(),
     apiKey = 'test_key',
     testMPID = 'testMPID',
     v3CookieKey = 'mprtcl-v3',
