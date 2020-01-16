@@ -11,4 +11,6 @@ cache:
         - node_modules
 script:
     - npm install
-    - npm run testKarma -- --single-run=true --browsers=ChromeHeadless,FirefoxHeadless
+    - npm run test
+    - npm run test:integrations
+    - npm run test:stub
