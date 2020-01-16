@@ -633,7 +633,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.10.2',
+      sdkVersion: '2.11.0',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -1781,7 +1781,8 @@ var mParticle = (function () {
             return null;
         }
         var consentState = {
-            gdpr: convertGdprConsentState(sdkConsentState.getGDPRConsentState())
+            gdpr: convertGdprConsentState(sdkConsentState.getGDPRConsentState()),
+            ccpa: convertCcpaConsentState(sdkConsentState.getCCPAConsentState())
         };
         return consentState;
     }
@@ -1800,6 +1801,24 @@ var mParticle = (function () {
                     location: sdkGdprConsentState[purpose].Location
                 };
             }
+        }
+        return state;
+    }
+    function convertCcpaConsentState(sdkCcpaConsentState) {
+        if (!sdkCcpaConsentState) {
+            return null;
+        }
+        var state = {
+            data_sale_opt_out: null
+        };
+        if (sdkCcpaConsentState.hasOwnProperty('data_sale_opt_out')) {
+            state.data_sale_opt_out = {
+                consented: sdkCcpaConsentState['data_sale_opt_out'].Consented,
+                hardware_id: sdkCcpaConsentState['data_sale_opt_out'].HardwareId,
+                document: sdkCcpaConsentState['data_sale_opt_out'].ConsentDocument,
+                timestamp_unixtime_ms: sdkCcpaConsentState['data_sale_opt_out'].Timestamp,
+                location: sdkCcpaConsentState['data_sale_opt_out'].Location
+            };
         }
         return state;
     }
@@ -6380,20 +6399,32 @@ var mParticle = (function () {
         }
 
         var purposeHashes = {};
-        var GDPRConsentHashPrefix = '1';
         var consentState = user.getConsentState();
 
         if (consentState) {
+          // the server hashes consent purposes in the following way:
+          // GDPR - '1' + purpose name
+          // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
+          var GDPRConsentHashPrefix = '1';
+          var CCPAPurpose = 'data_sale_opt_out';
+          var CCPAHashString = '2' + CCPAPurpose;
           var gdprConsentState = consentState.getGDPRConsentState();
 
           if (gdprConsentState) {
             for (var purpose in gdprConsentState) {
               if (gdprConsentState.hasOwnProperty(purpose)) {
-                var purposeHash = mpInstance._Helpers.generateHash(GDPRConsentHashPrefix + purpose).toString();
-
+                purposeHash = mpInstance._Helpers.generateHash(GDPRConsentHashPrefix + purpose).toString();
                 purposeHashes[purposeHash] = gdprConsentState[purpose].Consented;
               }
             }
+          }
+
+          var CCPAConsentState = consentState.getCCPAConsentState();
+
+          if (CCPAConsentState) {
+            var purposeHash = mpInstance._Helpers.generateHash(CCPAHashString).toString();
+
+            purposeHashes[purposeHash] = CCPAConsentState.Consented;
           }
         }
 
@@ -6918,6 +6949,20 @@ var mParticle = (function () {
               }
             }
           }
+        }
+
+        var ccpaConsentState = state.getCCPAConsentState();
+
+        if (ccpaConsentState) {
+          jsonObject.ccpa = {
+            data_sale_opt_out: {
+              c: ccpaConsentState.Consented,
+              ts: ccpaConsentState.Timestamp,
+              d: ccpaConsentState.ConsentDocument,
+              l: ccpaConsentState.Location,
+              h: ccpaConsentState.HardwareId
+            }
+          };
         }
 
         return jsonObject;
@@ -8404,30 +8449,31 @@ var mParticle = (function () {
 
     function Consent(mpInstance) {
       var self = this;
+      var CCPAPurpose = 'data_sale_opt_out';
 
-      this.createGDPRConsent = function (consented, timestamp, consentDocument, location, hardwareId) {
+      this.createPrivacyConsent = function (consented, timestamp, consentDocument, location, hardwareId) {
         if (typeof consented !== 'boolean') {
-          mpInstance.Logger.error('Consented boolean is required when constructing a GDPR Consent object.');
+          mpInstance.Logger.error('Consented boolean is required when constructing a Consent object.');
           return null;
         }
 
         if (timestamp && isNaN(timestamp)) {
-          mpInstance.Logger.error('Timestamp must be a valid number when constructing a GDPR Consent object.');
+          mpInstance.Logger.error('Timestamp must be a valid number when constructing a Consent object.');
           return null;
         }
 
         if (consentDocument && typeof consentDocument !== 'string') {
-          mpInstance.Logger.error('Document must be a valid string when constructing a GDPR Consent object.');
+          mpInstance.Logger.error('Document must be a valid string when constructing a Consent object.');
           return null;
         }
 
         if (location && typeof location !== 'string') {
-          mpInstance.Logger.error('Location must be a valid string when constructing a GDPR Consent object.');
+          mpInstance.Logger.error('Location must be a valid string when constructing a Consent object.');
           return null;
         }
 
         if (hardwareId && typeof hardwareId !== 'string') {
-          mpInstance.Logger.error('Hardware ID must be a valid string when constructing a GDPR Consent object.');
+          mpInstance.Logger.error('Hardware ID must be a valid string when constructing a Consent object.');
           return null;
         }
 
@@ -8477,6 +8523,33 @@ var mParticle = (function () {
                 }
               }
             }
+
+            var ccpaConsentState = state.getCCPAConsentState();
+
+            if (ccpaConsentState) {
+              jsonObject.ccpa = {};
+              jsonObject.ccpa[CCPAPurpose] = {};
+
+              if (typeof ccpaConsentState.Consented === 'boolean') {
+                jsonObject.ccpa[CCPAPurpose].c = ccpaConsentState.Consented;
+              }
+
+              if (typeof ccpaConsentState.Timestamp === 'number') {
+                jsonObject.ccpa[CCPAPurpose].ts = ccpaConsentState.Timestamp;
+              }
+
+              if (typeof ccpaConsentState.ConsentDocument === 'string') {
+                jsonObject.ccpa[CCPAPurpose].d = ccpaConsentState.ConsentDocument;
+              }
+
+              if (typeof ccpaConsentState.Location === 'string') {
+                jsonObject.ccpa[CCPAPurpose].l = ccpaConsentState.Location;
+              }
+
+              if (typeof ccpaConsentState.HardwareId === 'string') {
+                jsonObject.ccpa[CCPAPurpose].h = ccpaConsentState.HardwareId;
+              }
+            }
           }
 
           return jsonObject;
@@ -8487,9 +8560,16 @@ var mParticle = (function () {
           if (json.gdpr) {
             for (var purpose in json.gdpr) {
               if (json.gdpr.hasOwnProperty(purpose)) {
-                var gdprConsent = self.createGDPRConsent(json.gdpr[purpose].c, json.gdpr[purpose].ts, json.gdpr[purpose].d, json.gdpr[purpose].l, json.gdpr[purpose].h);
+                var gdprConsent = self.createPrivacyConsent(json.gdpr[purpose].c, json.gdpr[purpose].ts, json.gdpr[purpose].d, json.gdpr[purpose].l, json.gdpr[purpose].h);
                 state.addGDPRConsentState(purpose, gdprConsent);
               }
+            }
+          }
+
+          if (json.ccpa) {
+            if (json.ccpa.hasOwnProperty(CCPAPurpose)) {
+              var ccpaConsent = self.createPrivacyConsent(json.ccpa[CCPAPurpose].c, json.ccpa[CCPAPurpose].ts, json.ccpa[CCPAPurpose].d, json.ccpa[CCPAPurpose].l, json.ccpa[CCPAPurpose].h);
+              state.setCCPAConsentState(ccpaConsent);
             }
           }
 
@@ -8499,9 +8579,11 @@ var mParticle = (function () {
 
       this.createConsentState = function (consentState) {
         var gdpr = {};
+        var ccpa = {};
 
         if (consentState) {
           setGDPRConsentState(consentState.getGDPRConsentState());
+          setCCPAConsentState(consentState.getCCPAConsentState());
         }
 
         function canonicalizeForDeduplication(purpose) {
@@ -8538,16 +8620,16 @@ var mParticle = (function () {
           var normalizedPurpose = canonicalizeForDeduplication(purpose);
 
           if (!normalizedPurpose) {
-            mpInstance.Logger.error('addGDPRConsentState() invoked with bad purpose. Purpose must be a string.');
+            mpInstance.Logger.error('Purpose must be a string.');
             return this;
           }
 
           if (!mpInstance._Helpers.isObject(gdprConsent)) {
-            mpInstance.Logger.error('addGDPRConsentState() invoked with bad or empty GDPR consent object.');
+            mpInstance.Logger.error('Invoked with a bad or empty consent object.');
             return this;
           }
 
-          var gdprConsentCopy = self.createGDPRConsent(gdprConsent.Consented, gdprConsent.Timestamp, gdprConsent.ConsentDocument, gdprConsent.Location, gdprConsent.HardwareId);
+          var gdprConsentCopy = self.createPrivacyConsent(gdprConsent.Consented, gdprConsent.Timestamp, gdprConsent.ConsentDocument, gdprConsent.Location, gdprConsent.HardwareId);
 
           if (gdprConsentCopy) {
             gdpr[normalizedPurpose] = gdprConsentCopy;
@@ -8571,11 +8653,38 @@ var mParticle = (function () {
           return mpInstance._Helpers.extend({}, gdpr);
         }
 
+        function setCCPAConsentState(ccpaConsent) {
+          if (!mpInstance._Helpers.isObject(ccpaConsent)) {
+            mpInstance.Logger.error('Invoked with a bad or empty CCPA consent object.');
+            return this;
+          }
+
+          var ccpaConsentCopy = self.createPrivacyConsent(ccpaConsent.Consented, ccpaConsent.Timestamp, ccpaConsent.ConsentDocument, ccpaConsent.Location, ccpaConsent.HardwareId);
+
+          if (ccpaConsentCopy) {
+            ccpa[CCPAPurpose] = ccpaConsentCopy;
+          }
+
+          return this;
+        }
+
+        function getCCPAConsentState() {
+          return ccpa[CCPAPurpose];
+        }
+
+        function removeCCPAState() {
+          delete ccpa[CCPAPurpose];
+          return this;
+        }
+
         return {
           setGDPRConsentState: setGDPRConsentState,
           addGDPRConsentState: addGDPRConsentState,
+          setCCPAConsentState: setCCPAConsentState,
+          getCCPAConsentState: getCCPAConsentState,
           getGDPRConsentState: getGDPRConsentState,
-          removeGDPRConsentState: removeGDPRConsentState
+          removeGDPRConsentState: removeGDPRConsentState,
+          removeCCPAState: removeCCPAState
         };
       };
     }
@@ -9016,7 +9125,8 @@ var mParticle = (function () {
       };
 
       this.Consent = {
-        createGDPRConsent: self._Consent.createGDPRConsent,
+        createCCPAConsent: self._Consent.createPrivacyConsent,
+        createGDPRConsent: self._Consent.createPrivacyConsent,
         createConsentState: self._Consent.createConsentState
       };
       /**
@@ -9674,6 +9784,53 @@ var mParticle = (function () {
       }
     }
 
+    var _BatchValidator = 
+    /*#__PURE__*/
+    function () {
+        function _BatchValidator() {
+            classCallCheck(this, _BatchValidator);
+        }
+        createClass(_BatchValidator, [{
+                key: "getMPInstance",
+                value: function getMPInstance() {
+                    return {
+                        // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
+                        _Helpers: {
+                            sanitizeAttributes: window.mParticle.getInstance()._Helpers.sanitizeAttributes,
+                            generateUniqueId: function generateUniqueId() {
+                                return 'mockId';
+                            },
+                            extend: window.mParticle.getInstance()._Helpers.extend
+                        },
+                        _Store: {
+                            sessionId: 'mockSessionId',
+                            SDKConfig: {}
+                        },
+                        Identity: {
+                            getCurrentUser: function getCurrentUser() {
+                                return null;
+                            }
+                        },
+                        getAppVersion: function getAppVersion() {
+                            return null;
+                        },
+                        getAppName: function getAppName() {
+                            return null;
+                        }
+                    };
+                }
+            }, {
+                key: "returnBatch",
+                value: function returnBatch(event) {
+                    var mpInstance = this.getMPInstance();
+                    var sdkEvent = new ServerModel(mpInstance).createEventObject(event);
+                    var batch = convertEvents('0', [sdkEvent], mpInstance);
+                    return batch;
+                }
+            }]);
+        return _BatchValidator;
+    }();
+
     if (!Array.prototype.forEach) {
       Array.prototype.forEach = Polyfill.forEach;
     }
@@ -9825,10 +9982,6 @@ var mParticle = (function () {
         self.getInstance().logPageView(eventName, attrs, customFlags);
       };
 
-      this.Consent = {
-        createGDPRConsent: self.getInstance().createGDPRConsent,
-        createConsentState: self.getInstance().createConsentStatet
-      };
       this.eCommerce = {
         Cart: {
           add: function add(product, logEventBoolean) {
@@ -9936,6 +10089,9 @@ var mParticle = (function () {
         },
         createGDPRConsent: function createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId) {
           return self.getInstance().Consent.createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId);
+        },
+        createCCPAConsent: function createCCPAConsent(consented, timestamp, consentDocument, location, hardwareId) {
+          return self.getInstance().Consent.createGDPRConsent(consented, timestamp, consentDocument, location, hardwareId);
         }
       };
 
@@ -9978,6 +10134,7 @@ var mParticle = (function () {
 
     var mparticleInstance = new mParticle$1();
     window.mParticle = mparticleInstance;
+    window.mParticle._BatchValidator = new _BatchValidator();
 
     return mparticleInstance;
 
