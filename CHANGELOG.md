@@ -2,6 +2,11 @@
 
 --
 
+#### 2.11.0 - 2020-01-16
+
+-   Feat - Add CCPA support
+-   Add batch creator class for ESLint data planning plugin
+
 #### 2.10.2 - 2019-12-19
 
 -   Feat - Pass appName to config
