@@ -1237,9 +1237,16 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     );
 
     //check to see if localStorage is available for migrating purposes
-    mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(
-        window.localStorage
-    );
+    try {
+        mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(
+            window.localStorage
+        );
+    } catch (e) {
+        mpInstance.Loger.warning(
+            'localStorage is not available, using cookies if avaialble'
+        );
+        mpInstance._Store.isLocalStorageAvailable = false;
+    }
 }
 
 function processPreloadedItem(readyQueueItem, mpInstance) {
