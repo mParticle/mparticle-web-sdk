@@ -258,10 +258,16 @@ export default function ServerModel(mpInstance) {
             av: event.AppVersion,
             cgid: event.ClientGeneratedId,
             das: event.DeviceId,
-            dp: event.DataPlan,
             mpid: event.MPID,
             smpids: event.currentSessionMPIDs,
         };
+
+        if (event.DataPlan && event.DataPlan.PlanId) {
+            dto.dp_id = event.DataPlan.PlanId;
+            if (event.DataPlan.PlanVersion) {
+                dto.dp_v = event.DataPlan.PlanVersion;
+            }
+        }
 
         var consent = self.convertToConsentStateDTO(event.ConsentState);
         if (consent) {

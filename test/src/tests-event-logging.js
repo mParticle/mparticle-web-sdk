@@ -583,24 +583,6 @@ describe('event logging', function() {
         done();
     });
 
-    it('should log an event on v2 with data planning in the payload', function (done) {
-        mParticle.reset(MPConfig);
-        mParticle.config.logLevel = 'verbose';
-        mParticle.config.dataPlan = {
-            planId: 'plan-slug',
-            planVersion: 10,
-        };
-        mParticle.init(apiKey, mParticle.config);
-
-        window.mParticle.logEvent('Test Event');
-        var data = getEvent('Test Event');
-
-        data.should.have.property('n', 'Test Event');
-        data.should.have.property('dp');
-
-        done();
-    });
-
     it('should log appName in the payload on v3 endpoint when set on config prior to init', function (done) {
         mParticle.config.appName = 'a name';
         mParticle.config.flags = {

@@ -1,6 +1,103 @@
 import Types from '../../src/types';
 
 describe('Server Model', function() {
+
+    it('Should not convert data plan object to server DTO when no id or version is set', function(done) {
+        let sdkEvent = mParticle
+            .getInstance()
+            ._ServerModel.createEventObject(
+                Types.MessageType.PageEvent,
+                'foo page',
+                { 'foo-attr': 'foo-val' },
+                Types.EventType.Navigation,
+                { 'foo-flag': 'foo-flag-val' }
+            );
+        
+        let upload = mParticle
+            .getInstance()
+            ._ServerModel.convertEventToDTO(sdkEvent, false);
+
+        upload.should.not.have.property('dp_id');
+        upload.should.not.have.property('dp_v');
+        done();
+    });
+
+    it('Should convert data plan id to server DTO', function(done) {
+        mParticle.reset();
+        mParticle.config.dataPlan = {
+            planId: 'plan-slug'
+        };
+
+        mParticle.init('foo', mParticle.config);
+        let sdkEvent = mParticle
+            .getInstance()
+            ._ServerModel.createEventObject(
+                Types.MessageType.PageEvent,
+                'foo page',
+                { 'foo-attr': 'foo-val' },
+                Types.EventType.Navigation,
+                { 'foo-flag': 'foo-flag-val' }
+            );
+        let upload = mParticle
+            .getInstance()
+            ._ServerModel.convertEventToDTO(sdkEvent, false);
+
+        upload.should.have.property('dp_id', 'plan-slug');
+        upload.should.not.have.property('dp_v');
+        done();
+    });
+
+    it('Should not convert data plan object to server DTO when no id is set', function(done) {
+        mParticle.reset();
+        mParticle.config.dataPlan = {
+            planVersion: 5
+        };
+
+        mParticle.init('foo', mParticle.config);
+        let sdkEvent = mParticle
+            .getInstance()
+            ._ServerModel.createEventObject(
+                Types.MessageType.PageEvent,
+                'foo page',
+                { 'foo-attr': 'foo-val' },
+                Types.EventType.Navigation,
+                { 'foo-flag': 'foo-flag-val' }
+            );
+        let upload = mParticle
+            .getInstance()
+            ._ServerModel.convertEventToDTO(sdkEvent, false);
+
+        upload.should.not.have.property('dp_id');
+        upload.should.not.have.property('dp_v');
+        done();
+    });
+
+    it('Should convert entire data plan object to server DTO', function(done) {
+        mParticle.reset();
+        mParticle.config.dataPlan = {
+            planId: 'plan-slug',
+            planVersion: 10
+        };
+
+        mParticle.init('foo', mParticle.config);
+        let sdkEvent = mParticle
+            .getInstance()
+            ._ServerModel.createEventObject(
+                Types.MessageType.PageEvent,
+                'foo page',
+                { 'foo-attr': 'foo-val' },
+                Types.EventType.Navigation,
+                { 'foo-flag': 'foo-flag-val' }
+            );
+        let upload = mParticle
+            .getInstance()
+            ._ServerModel.convertEventToDTO(sdkEvent, false);
+
+        upload.should.have.property('dp_id', 'plan-slug');
+        upload.should.have.property('dp_v', 10);
+        done();
+    });
+
     it('Should convert complete consent object', function(done) {
         var consentState = mParticle
             .getInstance()
