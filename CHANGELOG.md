@@ -2,6 +2,12 @@
 
 --
 
+#### 2.11.1 - 2020-01-29
+
+-   Bugfix - resolve when browser has disabled localStorage
+-   Bugfix - Do not log deprecated warnings when logging purchases
+-   Feat - Add support for Data Planning to V2 Events upload
+
 #### 2.11.0 - 2020-01-16
 
 -   Feat - Add CCPA support
