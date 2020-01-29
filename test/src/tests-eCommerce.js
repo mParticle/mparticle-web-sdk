@@ -423,16 +423,6 @@ describe('eCommerce', function() {
         products1[testMPID].cp.length.should.equal(10);
         Should(foundProductInCookies).be.ok();
 
-        // Events log with in memory data, so product bag has 21 and product is found in memory
-        mParticle.eCommerce.logCheckout();
-        var event = getEvent('eCommerce - Checkout');
-        var product11 = event.pd.pl.filter(function(product) {
-            return product.nm === 'Product11';
-        })[0];
-
-        event.pd.pl.length.should.equal(10);
-        product11.nm.should.equal('Product11');
-
         done();
     });
 
@@ -903,6 +893,8 @@ describe('eCommerce', function() {
         var eventAttributes = {};
         eventAttributes['foo-event-attribute-key'] =
             'foo-event-attribute-value';
+        eventAttributes['Checkout Step'] = 'foo-step';
+        eventAttributes['Checkout Options'] = 'foo-options';
 
         var productAttributes = {};
         productAttributes['foo-attribute-key'] = 'foo-product-attribute-value';
@@ -921,14 +913,13 @@ describe('eCommerce', function() {
         );
 
         mParticle.eCommerce.Cart.add(product, true);
-        mParticle.eCommerce.logCheckout(
-            'foo-step',
-            'foo-options',
-            eventAttributes
-        );
+
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product], eventAttributes);
+
         window.MockForwarder1.instance.receivedEvent.should.have.property(
             'ProductAction'
         );
+
         var expandedEvents = mParticle.eCommerce.expandCommerceEvent(
             window.MockForwarder1.instance.receivedEvent
         );
@@ -982,6 +973,7 @@ describe('eCommerce', function() {
             'foo-name',
             5
         );
+
         mParticle.eCommerce.logPromotion(
             mParticle.PromotionType.PromotionClick,
             promotion,
@@ -993,6 +985,7 @@ describe('eCommerce', function() {
         var expandedEvents = mParticle.eCommerce.expandCommerceEvent(
             window.MockForwarder1.instance.receivedEvent
         );
+
         expandedEvents.should.be.instanceof(Array).and.have.lengthOf(1);
 
         var promotionEvent = expandedEvents[0];
@@ -1252,6 +1245,18 @@ describe('eCommerce', function() {
             bond.getCalls()[0].args[0].should.eql(
                 'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
             );
+        });
+
+        it('should no longer log deprecated function warnings when logging a purchase', function() {
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+            var product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
+            var ta = mParticle.eCommerce.createTransactionAttributes('TAid1', 'aff1', 'coupon', 1798, 10, 5)
+            var clearCartBoolean = true;
+
+            mParticle.eCommerce.logPurchase(ta, product1, clearCartBoolean);
+
+            bond.called.should.eql(false);
+            bond.getCalls().length.should.equal(0);
         });
     });
 });

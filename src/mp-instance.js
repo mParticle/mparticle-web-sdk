@@ -18,7 +18,7 @@
 
 import Types from './types';
 import Constants from './constants';
-import APIClient from './APIClient';
+import APIClient from './apiClient';
 import Helpers from './helpers';
 import NativeSdkHelpers from './nativeSdkHelpers';
 import CookieSyncManager from './cookieSyncManager';
@@ -751,10 +751,6 @@ export default function mParticleInstance(instanceName) {
                 attrs,
                 customFlags
             );
-
-            if (clearCart === true) {
-                self.eCommerce.Cart.clear();
-            }
         },
         /**
          * Logs a product promotion
@@ -838,10 +834,6 @@ export default function mParticleInstance(instanceName) {
                 attrs,
                 customFlags
             );
-
-            if (clearCart === true) {
-                self.eCommerce.Cart.clear();
-            }
         },
         expandCommerceEvent: function(event) {
             return self._Ecommerce.expandCommerceEvent(event);

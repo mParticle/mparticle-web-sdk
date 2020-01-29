@@ -1646,12 +1646,7 @@ describe('identity', function() {
 
         mParticle.eCommerce.logCheckout(1);
         var commerceEventUser2 = getEvent('eCommerce - Checkout');
-        commerceEventUser2.sc.pl[0].nm.should.equal('Windows');
-        commerceEventUser2.sc.pl[0].id.should.equal('SKU3');
-        commerceEventUser2.sc.pl[0].pr.should.equal(3);
-        commerceEventUser2.sc.pl[1].nm.should.equal('HTC');
-        commerceEventUser2.sc.pl[1].id.should.equal('SKU4');
-        commerceEventUser2.sc.pl[1].pr.should.equal(4);
+        commerceEventUser2.sc.pl.length.should.equal(0)
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -1669,12 +1664,7 @@ describe('identity', function() {
         mParticle.eCommerce.logCheckout(1);
 
         var commerceEventUser1 = getEvent('eCommerce - Checkout');
-        commerceEventUser1.sc.pl[0].nm.should.equal('iPhone');
-        commerceEventUser1.sc.pl[0].id.should.equal('SKU1');
-        commerceEventUser1.sc.pl[0].pr.should.equal(1);
-        commerceEventUser1.sc.pl[1].nm.should.equal('Android');
-        commerceEventUser1.sc.pl[1].id.should.equal('SKU2');
-        commerceEventUser1.sc.pl[1].pr.should.equal(2);
+        commerceEventUser1.sc.pl.length.should.equal(0);
 
         done();
     });
@@ -1877,109 +1867,6 @@ describe('identity', function() {
             Object.keys(user2AttributeListsAfterRemoving).length
         ).not.be.ok();
         user3UserAttributeListsAfterAdding.list.length.should.equal(5);
-
-        done();
-    });
-
-    it('should add, remove, and clear products properly', function(done) {
-        var newUserProductsAfter,
-            oldUserProductsBefore,
-            oldUserProductsAfter,
-            newUserProductsBefore;
-        var user1 = {
-            userIdentities: {
-                customerid: 'customerId1',
-            },
-        };
-
-        var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
-            product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1);
-
-        mParticle.Identity.login(user1);
-        mParticle.eCommerce.Cart.add([product1, product2]);
-        var user1Products = mParticle.Identity.getCurrentUser()
-            .getCart()
-            .getCartProducts();
-        user1Products.length.should.equal(2);
-        JSON.stringify(user1Products).should.equal(
-            JSON.stringify([product1, product2])
-        );
-
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'otherMPID',
-                })
-            );
-        };
-
-        var user2 = {
-            userIdentities: {
-                customerid: 'customerId2',
-            },
-            onUserAlias: function(oldUser, newUser) {
-                var oldUserAttributes = oldUser.getAllUserAttributes();
-                for (var key in oldUserAttributes) {
-                    if (key !== 'gender') {
-                        newUser.setUserAttribute(key, oldUserAttributes[key]);
-                    }
-                }
-
-                oldUserProductsBefore = oldUser.getCart().getCartProducts();
-                newUserProductsBefore = newUser.getCart().getCartProducts();
-                newUser.getCart().add(oldUser.getCart().getCartProducts());
-
-                newUserProductsAfter = newUser.getCart().getCartProducts();
-                oldUser.getCart().remove(product1);
-                oldUserProductsAfter = oldUser.getCart().getCartProducts();
-            },
-        };
-
-        mParticle.Identity.login(user2);
-        newUserProductsBefore.length.should.equal(0);
-        newUserProductsAfter.length.should.equal(2);
-        JSON.stringify(newUserProductsAfter).should.equal(
-            JSON.stringify([product1, product2])
-        );
-        oldUserProductsAfter.length.should.equal(1);
-        JSON.stringify(oldUserProductsAfter).should.equal(
-            JSON.stringify([product2])
-        );
-        JSON.stringify(oldUserProductsBefore).should.equal(
-            JSON.stringify([product1, product2])
-        );
-
-        mParticle.eCommerce.logCheckout(1);
-        var event = getEvent('eCommerce - Checkout');
-        event.sc.pl[0].should.have.property('id', 'SKU1');
-        event.sc.pl[0].should.have.property('nm', 'iPhone');
-        event.sc.pl[0].should.have.property('pr', 1);
-        event.sc.pl[1].should.have.property('id', 'SKU2');
-        event.sc.pl[1].should.have.property('nm', 'Android');
-        event.sc.pl[1].should.have.property('pr', 1);
-
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'testMPID',
-                })
-            );
-        };
-
-        mParticle.Identity.login(user1);
-        mParticle.eCommerce.logCheckout(1);
-
-        event = getEvent('eCommerce - Checkout');
-        event.sc.pl[0].should.have.property('id', 'SKU2');
-        event.sc.pl[0].should.have.property('nm', 'Android');
-        event.sc.pl[0].should.have.property('pr', 1);
-        event.sc.pl.length.should.equal(1);
 
         done();
     });

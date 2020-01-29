@@ -120,13 +120,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
 
-        event.sc.pl[0].should.have.property('id', 'SKU1');
-        event.sc.pl[0].should.have.property('nm', 'iPhone');
-        event.sc.pl[0].should.have.property('pr', 1);
-        event.sc.pl[1].should.have.property('id', 'SKU2');
-        event.sc.pl[1].should.have.property('nm', 'Android');
-        event.sc.pl[1].should.have.property('pr', 1);
-
         done();
     });
 
@@ -143,13 +136,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var event = getEvent('eCommerce - Checkout');
         event.ui[0].should.have.property('Identity', 'test@email.com');
         event.ui[0].should.have.property('Type', 7);
-
-        event.sc.pl[0].should.have.property('id', 'SKU1');
-        event.sc.pl[0].should.have.property('nm', 'iPhone');
-        event.sc.pl[0].should.have.property('pr', 1);
-        event.sc.pl[1].should.have.property('id', 'SKU2');
-        event.sc.pl[1].should.have.property('nm', 'Android');
-        event.sc.pl[1].should.have.property('pr', 1);
 
         done();
     });
@@ -211,12 +197,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[0].should.have.property('Type', 1);
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
-        event.sc.pl[0].should.have.property('id', 'SKU1');
-        event.sc.pl[0].should.have.property('nm', 'iPhone');
-        event.sc.pl[0].should.have.property('pr', 1);
-        event.sc.pl[1].should.have.property('id', 'SKU2');
-        event.sc.pl[1].should.have.property('nm', 'Android');
-        event.sc.pl[1].should.have.property('pr', 1);
 
         done();
     });
@@ -236,12 +216,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         event.ui[0].should.have.property('Type', 1);
         event.ui[1].should.have.property('Identity', 'test@email.com');
         event.ui[1].should.have.property('Type', 7);
-        event.sc.pl[0].should.have.property('id', 'SKU1');
-        event.sc.pl[0].should.have.property('nm', 'iPhone');
-        event.sc.pl[0].should.have.property('pr', 1);
-        event.sc.pl[1].should.have.property('id', 'SKU2');
-        event.sc.pl[1].should.have.property('nm', 'Android');
-        event.sc.pl[1].should.have.property('pr', 1);
 
         done();
     });
@@ -345,13 +319,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.eCommerce.logCheckout(1);
 
         var event = getEvent('eCommerce - Checkout');
-
-        event.sc.pl[0].should.have.property('id', 'SKU1');
-        event.sc.pl[0].should.have.property('nm', "'apostrophes in''' name");
-        event.sc.pl[0].should.have.property('pr', 123);
-        event.sc.pl[1].should.have.property('id', 'sku123');
-        event.sc.pl[1].should.have.property('nm', testName);
-        event.sc.pl[1].should.have.property('pr', 1);
+        event.sc.pl.length.should.equal(0);
 
         done();
     });
@@ -396,12 +364,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.eCommerce.logCheckout(1);
 
         var event = getEvent('eCommerce - Checkout');
-        event.sc.pl[0].should.have.property('id', 'SKU1');
-        event.sc.pl[0].should.have.property('nm', "'apostrophes in''' name");
-        event.sc.pl[0].should.have.property('pr', 123);
-        event.sc.pl[1].should.have.property('id', 'sku123');
-        event.sc.pl[1].should.have.property('nm', testName);
-        event.sc.pl[1].should.have.property('pr', 1);
+        event.sc.pl.length.should.equal(0);
 
         done();
     });

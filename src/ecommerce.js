@@ -493,8 +493,7 @@ export default function Ecommerce(mpInstance) {
     };
 
     this.createCommerceEventObject = function(customFlags) {
-        var baseEvent,
-            currentUser = mpInstance.Identity.getCurrentUser();
+        var baseEvent;
 
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogCommerceEvent
@@ -505,12 +504,9 @@ export default function Ecommerce(mpInstance) {
                 messageType: Types.MessageType.Commerce,
             });
             baseEvent.EventName = 'eCommerce - ';
+
             baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
-            baseEvent.ShoppingCart = {
-                ProductList: currentUser
-                    ? currentUser.getCart().getCartProducts()
-                    : [],
-            };
+            baseEvent.ShoppingCart = [];
             baseEvent.CustomFlags = customFlags;
 
             return baseEvent;
