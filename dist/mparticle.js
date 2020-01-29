@@ -633,7 +633,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.0',
+      sdkVersion: '2.11.1',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -4447,8 +4447,7 @@ var mParticle = (function () {
       };
 
       this.createCommerceEventObject = function (customFlags) {
-        var baseEvent,
-            currentUser = mpInstance.Identity.getCurrentUser();
+        var baseEvent;
         mpInstance.Logger.verbose(Messages$4.InformationMessages.StartingLogCommerceEvent);
 
         if (mpInstance._Helpers.canLog()) {
@@ -4457,9 +4456,7 @@ var mParticle = (function () {
           });
           baseEvent.EventName = 'eCommerce - ';
           baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
-          baseEvent.ShoppingCart = {
-            ProductList: currentUser ? currentUser.getCart().getCartProducts() : []
-          };
+          baseEvent.ShoppingCart = [];
           baseEvent.CustomFlags = customFlags;
           return baseEvent;
         } else {
@@ -7050,10 +7047,18 @@ var mParticle = (function () {
           av: event.AppVersion,
           cgid: event.ClientGeneratedId,
           das: event.DeviceId,
-          dp: event.DataPlan,
           mpid: event.MPID,
           smpids: event.currentSessionMPIDs
         };
+
+        if (event.DataPlan && event.DataPlan.PlanId) {
+          dto.dp_id = event.DataPlan.PlanId;
+
+          if (event.DataPlan.PlanVersion) {
+            dto.dp_v = event.DataPlan.PlanVersion;
+          }
+        }
+
         var consent = self.convertToConsentStateDTO(event.ConsentState);
 
         if (consent) {
@@ -9350,10 +9355,6 @@ var mParticle = (function () {
           self._SessionManager.resetSessionTimer();
 
           self._Events.logPurchaseEvent(transactionAttributes, product, attrs, customFlags);
-
-          if (clearCart === true) {
-            self.eCommerce.Cart.clear();
-          }
         },
 
         /**
@@ -9420,10 +9421,6 @@ var mParticle = (function () {
           self._SessionManager.resetSessionTimer();
 
           self._Events.logRefundEvent(transactionAttributes, product, attrs, customFlags);
-
-          if (clearCart === true) {
-            self.eCommerce.Cart.clear();
-          }
         },
         expandCommerceEvent: function expandCommerceEvent(event) {
           return self._Ecommerce.expandCommerceEvent(event);
@@ -9757,7 +9754,12 @@ var mParticle = (function () {
       mpInstance._Store.devToken = apiKey || null;
       mpInstance.Logger.verbose(Messages$8.InformationMessages.StartingInitialization); //check to see if localStorage is available for migrating purposes
 
-      mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(window.localStorage);
+      try {
+        mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(window.localStorage);
+      } catch (e) {
+        mpInstance.Loger.warning('localStorage is not available, using cookies if avaialble');
+        mpInstance._Store.isLocalStorageAvailable = false;
+      }
     }
 
     function processPreloadedItem(readyQueueItem, mpInstance) {
