@@ -633,7 +633,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.1',
+      sdkVersion: '2.11.2',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -4561,6 +4561,10 @@ var mParticle = (function () {
 
         if (config.hasOwnProperty('v2SecureServiceUrl')) {
           this.SDKConfig.v2SecureServiceUrl = config.v2SecureServiceUrl;
+        }
+
+        if (config.hasOwnProperty('v3SecureServiceUrl')) {
+          this.SDKConfig.v3SecureServiceUrl = config.v3SecureServiceUrl;
         }
 
         if (config.hasOwnProperty('identityUrl')) {
