@@ -760,6 +760,44 @@ describe('core SDK', function() {
         done();
     });
 
+    const configOptions = [
+        'serviceUrl',
+        'v2ServiceUrl',
+        'secureServiceUrl',
+        'v2SecureServiceUrl',
+        'v3SecureServiceUrl',
+        'identityUrl',
+        'aliasUrl',
+        'configUrl',
+        'logLevel',
+        'useNativeSdk',
+        'kits',
+        'isIOS',
+        'useCookieStorage',
+        'maxProducts',
+        'maxCookieSize',
+        'appName',
+        'integrationDelayTimeout',
+        'identifyRequest',
+        'appVersion',
+        'appName',
+        'sessionTimeout',
+        'forceHttps',
+        'customFlags',
+        'minWebviewBridgeVersion',
+        'aliasMaxWindow'
+    ];
+    configOptions.forEach(option => {
+        it('Store should configure SDKConfig itself with ' + option, done => {
+            mParticle.reset();
+            const config = {}
+            config[option] = 'custom-' + option;
+            mParticle.init(apiKey, config);
+            mParticle.getInstance()._Store.SDKConfig[option].should.equal('custom-' + option);
+            done();
+        });
+    });
+
     it('should hit url with query parameter of env=1 for debug mode for forwarders', function(done) {
         mParticle.reset(MPConfig);
         mParticle.config.isDevelopmentMode = true;

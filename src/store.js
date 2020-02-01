@@ -98,6 +98,10 @@ export default function Store(config, mpInstance) {
             this.SDKConfig.v2SecureServiceUrl = config.v2SecureServiceUrl;
         }
 
+        if (config.hasOwnProperty('v3SecureServiceUrl')) {
+            this.SDKConfig.v3SecureServiceUrl = config.v3SecureServiceUrl;
+        }
+
         if (config.hasOwnProperty('identityUrl')) {
             this.SDKConfig.identityUrl = config.identityUrl;
         }
