@@ -2,6 +2,10 @@
 
 --
 
+#### 2.11.2 - 2020-02-01
+
+-   Feat - Add support for custom v3 URL
+
 #### 2.11.1 - 2020-01-29
 
 -   Bugfix - resolve when browser has disabled localStorage
