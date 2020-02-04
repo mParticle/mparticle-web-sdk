@@ -11,6 +11,7 @@
     "files": [
         "dist/mparticle.common.js",
         "dist/mparticle.esm.js",
+        "dist/mparticle.js",
         "src/"
     ],
     "main": "dist/mparticle.common.js",
