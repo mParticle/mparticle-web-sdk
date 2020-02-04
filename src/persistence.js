@@ -360,7 +360,7 @@ export default function _Persistence(mpInstance) {
             try {
                 window.localStorage.setItem(
                     encodeURIComponent(key),
-                    self.encodeCookies(JSON.stringify(localStorageData))
+                    self.encodePersistence(JSON.stringify(localStorageData))
                 );
             } catch (e) {
                 mpInstance.Logger.error(
@@ -398,7 +398,7 @@ export default function _Persistence(mpInstance) {
         }
 
         var key = mpInstance._Store.storageName,
-            localStorageData = self.decodeCookies(
+            localStorageData = self.decodePersistence(
                 window.localStorage.getItem(key)
             ),
             obj = {},
@@ -471,7 +471,7 @@ export default function _Persistence(mpInstance) {
 
         if (result) {
             mpInstance.Logger.verbose(Messages.InformationMessages.CookieFound);
-            return JSON.parse(self.decodeCookies(result));
+            return JSON.parse(self.decodePersistence(result));
         } else {
             return null;
         }
@@ -530,7 +530,7 @@ export default function _Persistence(mpInstance) {
             mpInstance._Store.nonCurrentUserMPIDs = {};
         }
 
-        encodedCookiesWithExpirationAndPath = self.reduceAndEncodeCookies(
+        encodedCookiesWithExpirationAndPath = self.reduceAndEncodePersistence(
             cookies,
             expires,
             domain,
@@ -555,20 +555,20 @@ export default function _Persistence(mpInstance) {
         b. Then remove MPIDs based on order in currentSessionMPIDs array, which
         stores MPIDs based on earliest login.
 */
-    this.reduceAndEncodeCookies = function(
-        cookies,
+    this.reduceAndEncodePersistence = function(
+        persistence,
         expires,
         domain,
         maxCookieSize
     ) {
         var encodedCookiesWithExpirationAndPath,
-            currentSessionMPIDs = cookies.gs.csm ? cookies.gs.csm : [];
+            currentSessionMPIDs = persistence.gs.csm ? persistence.gs.csm : [];
         // Comment 1 above
         if (!currentSessionMPIDs.length) {
-            for (var key in cookies) {
-                if (cookies.hasOwnProperty(key)) {
+            for (var key in persistence) {
+                if (persistence.hasOwnProperty(key)) {
                     encodedCookiesWithExpirationAndPath = createFullEncodedCookie(
-                        cookies,
+                        persistence,
                         expires,
                         domain
                     );
@@ -578,9 +578,9 @@ export default function _Persistence(mpInstance) {
                     ) {
                         if (
                             !SDKv2NonMPIDCookieKeys[key] &&
-                            key !== cookies.cu
+                            key !== persistence.cu
                         ) {
-                            delete cookies[key];
+                            delete persistence[key];
                         }
                     }
                 }
@@ -588,11 +588,11 @@ export default function _Persistence(mpInstance) {
         } else {
             // Comment 2 above - First create an object of all MPIDs on the cookie
             var MPIDsOnCookie = {};
-            for (var potentialMPID in cookies) {
-                if (cookies.hasOwnProperty(potentialMPID)) {
+            for (var potentialMPID in persistence) {
+                if (persistence.hasOwnProperty(potentialMPID)) {
                     if (
                         !SDKv2NonMPIDCookieKeys[potentialMPID] &&
-                        potentialMPID !== cookies.cu
+                        potentialMPID !== persistence.cu
                     ) {
                         MPIDsOnCookie[potentialMPID] = 1;
                     }
@@ -602,7 +602,7 @@ export default function _Persistence(mpInstance) {
             if (Object.keys(MPIDsOnCookie).length) {
                 for (var mpid in MPIDsOnCookie) {
                     encodedCookiesWithExpirationAndPath = createFullEncodedCookie(
-                        cookies,
+                        persistence,
                         expires,
                         domain
                     );
@@ -612,7 +612,7 @@ export default function _Persistence(mpInstance) {
                     ) {
                         if (MPIDsOnCookie.hasOwnProperty(mpid)) {
                             if (currentSessionMPIDs.indexOf(mpid) === -1) {
-                                delete cookies[mpid];
+                                delete persistence[mpid];
                             }
                         }
                     }
@@ -621,7 +621,7 @@ export default function _Persistence(mpInstance) {
             // Comment 2b above
             for (var i = 0; i < currentSessionMPIDs.length; i++) {
                 encodedCookiesWithExpirationAndPath = createFullEncodedCookie(
-                    cookies,
+                    persistence,
                     expires,
                     domain
                 );
@@ -629,14 +629,14 @@ export default function _Persistence(mpInstance) {
                     encodedCookiesWithExpirationAndPath.length > maxCookieSize
                 ) {
                     var MPIDtoRemove = currentSessionMPIDs[i];
-                    if (cookies[MPIDtoRemove]) {
+                    if (persistence[MPIDtoRemove]) {
                         mpInstance.Logger.verbose(
                             'Size of new encoded cookie is larger than maxCookieSize setting of ' +
                                 maxCookieSize +
                                 '. Removing from cookie the earliest logged in MPID containing: ' +
-                                JSON.stringify(cookies[MPIDtoRemove], 0, 2)
+                                JSON.stringify(persistence[MPIDtoRemove], 0, 2)
                         );
-                        delete cookies[MPIDtoRemove];
+                        delete persistence[MPIDtoRemove];
                     } else {
                         mpInstance.Logger.error(
                             'Unable to save MPID data to cookies because the resulting encoded cookie is larger than the maxCookieSize setting of ' +
@@ -653,9 +653,9 @@ export default function _Persistence(mpInstance) {
         return encodedCookiesWithExpirationAndPath;
     };
 
-    function createFullEncodedCookie(cookies, expires, domain) {
+    function createFullEncodedCookie(persistence, expires, domain) {
         return (
-            self.encodeCookies(JSON.stringify(cookies)) +
+            self.encodePersistence(JSON.stringify(persistence)) +
             ';expires=' +
             expires +
             ';path=/' +
@@ -664,17 +664,17 @@ export default function _Persistence(mpInstance) {
     }
 
     this.findPrevCookiesBasedOnUI = function(identityApiData) {
-        var cookies = self.getCookie() || self.getLocalStorage();
+        var persistence = mpInstance._Persistence.getPersistence();
         var matchedUser;
 
         if (identityApiData) {
             for (var requestedIdentityType in identityApiData.userIdentities) {
-                if (cookies && Object.keys(cookies).length) {
-                    for (var key in cookies) {
-                        // any value in cookies that has an MPID key will be an MPID to search through
+                if (persistence && Object.keys(persistence).length) {
+                    for (var key in persistence) {
+                        // any value in persistence that has an MPID key will be an MPID to search through
                         // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
-                        if (cookies[key].mpid) {
-                            var cookieUIs = cookies[key].ui;
+                        if (persistence[key].mpid) {
+                            var cookieUIs = persistence[key].ui;
                             for (var cookieUIType in cookieUIs) {
                                 if (
                                     requestedIdentityType === cookieUIType &&
@@ -693,57 +693,59 @@ export default function _Persistence(mpInstance) {
         }
 
         if (matchedUser) {
-            self.storeDataInMemory(cookies, matchedUser);
+            self.storeDataInMemory(persistence, matchedUser);
         }
     };
 
-    this.encodeCookies = function(cookie) {
-        cookie = JSON.parse(cookie);
-        for (var key in cookie.gs) {
-            if (cookie.gs.hasOwnProperty(key)) {
+    this.encodePersistence = function(persistence) {
+        persistence = JSON.parse(persistence);
+        for (var key in persistence.gs) {
+            if (persistence.gs.hasOwnProperty(key)) {
                 if (Base64CookieKeys[key]) {
-                    if (cookie.gs[key]) {
+                    if (persistence.gs[key]) {
                         // base64 encode any value that is an object or Array in globalSettings
                         if (
-                            (Array.isArray(cookie.gs[key]) &&
-                                cookie.gs[key].length) ||
-                            (mpInstance._Helpers.isObject(cookie.gs[key]) &&
-                                Object.keys(cookie.gs[key]).length)
+                            (Array.isArray(persistence.gs[key]) &&
+                                persistence.gs[key].length) ||
+                            (mpInstance._Helpers.isObject(
+                                persistence.gs[key]
+                            ) &&
+                                Object.keys(persistence.gs[key]).length)
                         ) {
-                            cookie.gs[key] = Base64.encode(
-                                JSON.stringify(cookie.gs[key])
+                            persistence.gs[key] = Base64.encode(
+                                JSON.stringify(persistence.gs[key])
                             );
                         } else {
-                            delete cookie.gs[key];
+                            delete persistence.gs[key];
                         }
                     } else {
-                        delete cookie.gs[key];
+                        delete persistence.gs[key];
                     }
                 } else if (key === 'ie') {
-                    cookie.gs[key] = cookie.gs[key] ? 1 : 0;
-                } else if (!cookie.gs[key]) {
-                    delete cookie.gs[key];
+                    persistence.gs[key] = persistence.gs[key] ? 1 : 0;
+                } else if (!persistence.gs[key]) {
+                    delete persistence.gs[key];
                 }
             }
         }
 
-        for (var mpid in cookie) {
-            if (cookie.hasOwnProperty(mpid)) {
+        for (var mpid in persistence) {
+            if (persistence.hasOwnProperty(mpid)) {
                 if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                    for (key in cookie[mpid]) {
-                        if (cookie[mpid].hasOwnProperty(key)) {
+                    for (key in persistence[mpid]) {
+                        if (persistence[mpid].hasOwnProperty(key)) {
                             if (Base64CookieKeys[key]) {
                                 if (
                                     mpInstance._Helpers.isObject(
-                                        cookie[mpid][key]
+                                        persistence[mpid][key]
                                     ) &&
-                                    Object.keys(cookie[mpid][key]).length
+                                    Object.keys(persistence[mpid][key]).length
                                 ) {
-                                    cookie[mpid][key] = Base64.encode(
-                                        JSON.stringify(cookie[mpid][key])
+                                    persistence[mpid][key] = Base64.encode(
+                                        JSON.stringify(persistence[mpid][key])
                                     );
                                 } else {
-                                    delete cookie[mpid][key];
+                                    delete persistence[mpid][key];
                                 }
                             }
                         }
@@ -752,39 +754,43 @@ export default function _Persistence(mpInstance) {
             }
         }
 
-        return self.createCookieString(JSON.stringify(cookie));
+        return self.createCookieString(JSON.stringify(persistence));
     };
 
-    this.decodeCookies = function(cookie) {
+    this.decodePersistence = function(persistence) {
         try {
-            if (cookie) {
-                cookie = JSON.parse(self.revertCookieString(cookie));
+            if (persistence) {
+                persistence = JSON.parse(self.revertCookieString(persistence));
                 if (
-                    mpInstance._Helpers.isObject(cookie) &&
-                    Object.keys(cookie).length
+                    mpInstance._Helpers.isObject(persistence) &&
+                    Object.keys(persistence).length
                 ) {
-                    for (var key in cookie.gs) {
-                        if (cookie.gs.hasOwnProperty(key)) {
+                    for (var key in persistence.gs) {
+                        if (persistence.gs.hasOwnProperty(key)) {
                             if (Base64CookieKeys[key]) {
-                                cookie.gs[key] = JSON.parse(
-                                    Base64.decode(cookie.gs[key])
+                                persistence.gs[key] = JSON.parse(
+                                    Base64.decode(persistence.gs[key])
                                 );
                             } else if (key === 'ie') {
-                                cookie.gs[key] = Boolean(cookie.gs[key]);
+                                persistence.gs[key] = Boolean(
+                                    persistence.gs[key]
+                                );
                             }
                         }
                     }
 
-                    for (var mpid in cookie) {
-                        if (cookie.hasOwnProperty(mpid)) {
+                    for (var mpid in persistence) {
+                        if (persistence.hasOwnProperty(mpid)) {
                             if (!SDKv2NonMPIDCookieKeys[mpid]) {
-                                for (key in cookie[mpid]) {
-                                    if (cookie[mpid].hasOwnProperty(key)) {
+                                for (key in persistence[mpid]) {
+                                    if (persistence[mpid].hasOwnProperty(key)) {
                                         if (Base64CookieKeys[key]) {
-                                            if (cookie[mpid][key].length) {
-                                                cookie[mpid][key] = JSON.parse(
+                                            if (persistence[mpid][key].length) {
+                                                persistence[mpid][
+                                                    key
+                                                ] = JSON.parse(
                                                     Base64.decode(
-                                                        cookie[mpid][key]
+                                                        persistence[mpid][key]
                                                     )
                                                 );
                                             }
@@ -792,13 +798,13 @@ export default function _Persistence(mpInstance) {
                                     }
                                 }
                             } else if (mpid === 'l') {
-                                cookie[mpid] = Boolean(cookie[mpid]);
+                                persistence[mpid] = Boolean(persistence[mpid]);
                             }
                         }
                     }
                 }
 
-                return JSON.stringify(cookie);
+                return JSON.stringify(persistence);
             }
         } catch (e) {
             mpInstance.Logger.error('Problem with decoding cookie', e);
@@ -872,20 +878,20 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getUserIdentities = function(mpid) {
-        var cookies = self.getPersistence();
+        var persistence = self.getPersistence();
 
-        if (cookies && cookies[mpid] && cookies[mpid].ui) {
-            return cookies[mpid].ui;
+        if (persistence && persistence[mpid] && persistence[mpid].ui) {
+            return persistence[mpid].ui;
         } else {
             return {};
         }
     };
 
     this.getAllUserAttributes = function(mpid) {
-        var cookies = self.getPersistence();
+        var persistence = self.getPersistence();
 
-        if (cookies && cookies[mpid] && cookies[mpid].ua) {
-            return cookies[mpid].ua;
+        if (persistence && persistence[mpid] && persistence[mpid].ua) {
+            return persistence[mpid].ua;
         } else {
             return {};
         }
@@ -926,51 +932,51 @@ export default function _Persistence(mpInstance) {
             );
         }
     };
-    this.saveUserIdentitiesToCookies = function(mpid, userIdentities) {
+    this.saveUserIdentitiesToPersistence = function(mpid, userIdentities) {
         if (userIdentities) {
-            var cookies = self.getPersistence();
-            if (cookies) {
-                if (cookies[mpid]) {
-                    cookies[mpid].ui = userIdentities;
+            var persistence = self.getPersistence();
+            if (persistence) {
+                if (persistence[mpid]) {
+                    persistence[mpid].ui = userIdentities;
                 } else {
-                    cookies[mpid] = {
+                    persistence[mpid] = {
                         ui: userIdentities,
                     };
                 }
-                self.saveCookies(cookies);
+                self.savePersistence(persistence);
             }
         }
     };
 
-    this.saveUserAttributesToCookies = function(mpid, userAttributes) {
-        var cookies = self.getPersistence();
+    this.saveUserAttributesToPersistence = function(mpid, userAttributes) {
+        var persistence = self.getPersistence();
         if (userAttributes) {
-            if (cookies) {
-                if (cookies[mpid]) {
-                    cookies[mpid].ui = userAttributes;
+            if (persistence) {
+                if (persistence[mpid]) {
+                    persistence[mpid].ui = userAttributes;
                 } else {
-                    cookies[mpid] = {
+                    persistence[mpid] = {
                         ui: userAttributes,
                     };
                 }
             }
-            self.saveCookies(cookies);
+            self.savePersistence(persistence);
         }
     };
 
-    this.saveUserCookieSyncDatesToCookies = function(mpid, csd) {
+    this.saveUserCookieSyncDatesToPersistence = function(mpid, csd) {
         if (csd) {
-            var cookies = self.getPersistence();
-            if (cookies) {
-                if (cookies[mpid]) {
-                    cookies[mpid].csd = csd;
+            var persistence = self.getPersistence();
+            if (persistence) {
+                if (persistence[mpid]) {
+                    persistence[mpid].csd = csd;
                 } else {
-                    cookies[mpid] = {
+                    persistence[mpid] = {
                         csd: csd,
                     };
                 }
             }
-            self.saveCookies(cookies);
+            self.savePersistence(persistence);
         }
     };
 
@@ -978,28 +984,30 @@ export default function _Persistence(mpInstance) {
         //it's currently not supported to set persistence
         //for any MPID that's not the current one.
         if (consentState || consentState === null) {
-            var cookies = self.getPersistence();
-            if (cookies) {
-                if (cookies[mpid]) {
-                    cookies[
+            var persistence = self.getPersistence();
+            if (persistence) {
+                if (persistence[mpid]) {
+                    persistence[
                         mpid
                     ].con = mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(
                         consentState
                     );
                 } else {
-                    cookies[mpid] = {
+                    persistence[mpid] = {
                         con: mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(
                             consentState
                         ),
                     };
                 }
-                self.saveCookies(cookies);
+                self.savePersistence(persistence);
             }
         }
     };
 
-    this.saveCookies = function(cookies) {
-        var encodedCookies = self.encodeCookies(JSON.stringify(cookies)),
+    this.savePersistence = function(persistence) {
+        var encodedPersistence = self.encodePersistence(
+                JSON.stringify(persistence)
+            ),
             date = new Date(),
             key = mpInstance._Store.storageName,
             expires = new Date(
@@ -1020,8 +1028,8 @@ export default function _Persistence(mpInstance) {
         }
 
         if (mpInstance._Store.SDKConfig.useCookieStorage) {
-            var encodedCookiesWithExpirationAndPath = self.reduceAndEncodeCookies(
-                cookies,
+            var encodedCookiesWithExpirationAndPath = self.reduceAndEncodePersistence(
+                persistence,
                 expires,
                 domain,
                 mpInstance._Store.SDKConfig.maxCookieSize
@@ -1034,29 +1042,26 @@ export default function _Persistence(mpInstance) {
             if (mpInstance._Store.isLocalStorageAvailable) {
                 localStorage.setItem(
                     mpInstance._Store.storageName,
-                    encodedCookies
+                    encodedPersistence
                 );
             }
         }
     };
 
     this.getPersistence = function() {
-        var cookies;
-        if (mpInstance._Store.SDKConfig.useCookieStorage) {
-            cookies = self.getCookie();
-        } else {
-            cookies = self.getLocalStorage();
-        }
+        var persistence = this.useLocalStorage()
+            ? this.getLocalStorage()
+            : this.getCookie();
 
-        return cookies;
+        return persistence;
     };
 
     this.getConsentState = function(mpid) {
-        var cookies = self.getPersistence();
+        var persistence = self.getPersistence();
 
-        if (cookies && cookies[mpid] && cookies[mpid].con) {
+        if (persistence && persistence[mpid] && persistence[mpid].con) {
             return mpInstance._Consent.ConsentSerialization.fromMinifiedJsonObject(
-                cookies[mpid].con
+                persistence[mpid].con
             );
         } else {
             return null;
@@ -1067,9 +1072,9 @@ export default function _Persistence(mpInstance) {
         if (!mpid) {
             return null;
         }
-        var cookies = self.getPersistence();
-        if (cookies && cookies[mpid] && cookies[mpid].fst) {
-            return cookies[mpid].fst;
+        var persistence = self.getPersistence();
+        if (persistence && persistence[mpid] && persistence[mpid].fst) {
+            return persistence[mpid].fst;
         } else {
             return null;
         }
@@ -1086,14 +1091,14 @@ export default function _Persistence(mpInstance) {
         if (!time) {
             time = new Date().getTime();
         }
-        var cookies = self.getPersistence();
-        if (cookies) {
-            if (!cookies[mpid]) {
-                cookies[mpid] = {};
+        var persistence = self.getPersistence();
+        if (persistence) {
+            if (!persistence[mpid]) {
+                persistence[mpid] = {};
             }
-            if (!cookies[mpid].fst) {
-                cookies[mpid].fst = time;
-                self.saveCookies(cookies);
+            if (!persistence[mpid].fst) {
+                persistence[mpid].fst = time;
+                self.savePersistence(persistence);
             }
         }
     };
@@ -1111,9 +1116,9 @@ export default function _Persistence(mpInstance) {
             //if the mpid is the current user, its last seen time is the current time
             return new Date().getTime();
         } else {
-            var cookies = self.getPersistence();
-            if (cookies && cookies[mpid] && cookies[mpid].lst) {
-                return cookies[mpid].lst;
+            var persistence = self.getPersistence();
+            if (persistence && persistence[mpid] && persistence[mpid].lst) {
+                return persistence[mpid].lst;
             }
             return null;
         }
@@ -1126,10 +1131,10 @@ export default function _Persistence(mpInstance) {
         if (!time) {
             time = new Date().getTime();
         }
-        var cookies = self.getPersistence();
-        if (cookies && cookies[mpid]) {
-            cookies[mpid].lst = time;
-            self.saveCookies(cookies);
+        var persistence = self.getPersistence();
+        if (persistence && persistence[mpid]) {
+            persistence[mpid].lst = time;
+            self.savePersistence(persistence);
         }
     };
 

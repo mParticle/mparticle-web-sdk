@@ -622,7 +622,7 @@ describe('core SDK', function() {
         mParticle.setLogLevel('verbose');
 
         mParticle.logEvent('hi');
-        infoMessages[1].should.equal('Starting to log event: hi');
+        infoMessages[0].should.equal('Starting to log event: hi');
 
         done();
     });

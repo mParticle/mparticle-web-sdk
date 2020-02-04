@@ -24,30 +24,32 @@ export default function cookieSyncManager(mpInstance) {
                     ? self.replaceMPID(pixelConfig.redirectUrl, mpid)
                     : '';
                 urlWithRedirect = url + encodeURIComponent(redirect);
-                var cookies = mpInstance._Persistence.getPersistence();
+                var persistence = mpInstance._Persistence.getPersistence();
 
                 if (previousMPID && previousMPID !== mpid) {
-                    if (cookies && cookies[mpid]) {
-                        if (!cookies[mpid].csd) {
-                            cookies[mpid].csd = {};
+                    if (persistence && persistence[mpid]) {
+                        if (!persistence[mpid].csd) {
+                            persistence[mpid].csd = {};
                         }
                         self.performCookieSync(
                             urlWithRedirect,
                             pixelConfig.moduleId,
                             mpid,
-                            cookies[mpid].csd
+                            persistence[mpid].csd
                         );
                     }
                     return;
                 } else {
-                    if (cookies[mpid]) {
-                        if (!cookies[mpid].csd) {
-                            cookies[mpid].csd = {};
+                    if (persistence[mpid]) {
+                        if (!persistence[mpid].csd) {
+                            persistence[mpid].csd = {};
                         }
-                        lastSyncDateForModule = cookies[mpid].csd[
+                        lastSyncDateForModule = persistence[mpid].csd[
                             pixelConfig.moduleId.toString()
                         ]
-                            ? cookies[mpid].csd[pixelConfig.moduleId.toString()]
+                            ? persistence[mpid].csd[
+                                  pixelConfig.moduleId.toString()
+                              ]
                             : null;
 
                         if (lastSyncDateForModule) {
@@ -65,7 +67,7 @@ export default function cookieSyncManager(mpInstance) {
                                     urlWithRedirect,
                                     pixelConfig.moduleId,
                                     mpid,
-                                    cookies[mpid].csd
+                                    persistence[mpid].csd
                                 );
                             }
                         } else {
@@ -73,7 +75,7 @@ export default function cookieSyncManager(mpInstance) {
                                 urlWithRedirect,
                                 pixelConfig.moduleId,
                                 mpid,
-                                cookies[mpid].csd
+                                persistence[mpid].csd
                             );
                         }
                     }
@@ -97,7 +99,7 @@ export default function cookieSyncManager(mpInstance) {
 
         img.src = url;
         cookieSyncDates[moduleId.toString()] = new Date().getTime();
-        mpInstance._Persistence.saveUserCookieSyncDatesToCookies(
+        mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
             mpid,
             cookieSyncDates
         );

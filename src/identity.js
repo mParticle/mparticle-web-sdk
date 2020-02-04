@@ -12,12 +12,12 @@ export default function Identity(mpInstance) {
         currentSessionMPIDs
     ) {
         if (previousMPID && currentMPID && previousMPID !== currentMPID) {
-            var cookies = mpInstance._Persistence.useLocalStorage()
-                ? mpInstance._Persistence.getLocalStorage()
-                : mpInstance._Persistence.getCookie();
-            cookies.cu = currentMPID;
-            cookies.gs.csm = currentSessionMPIDs;
-            mpInstance._Persistence.saveCookies(cookies);
+            var persistence = mpInstance._Persistence.getPersistence();
+            if (persistence) {
+                persistence.cu = currentMPID;
+                persistence.gs.csm = currentSessionMPIDs;
+                mpInstance._Persistence.savePersistence(persistence);
+            }
         }
     };
 
@@ -568,10 +568,10 @@ export default function Identity(mpInstance) {
          * @return {Object} the user for  mpid
          */
         getUser: function(mpid) {
-            var cookies = mpInstance._Persistence.getPersistence();
-            if (cookies) {
+            var persistence = mpInstance._Persistence.getPersistence();
+            if (persistence) {
                 if (
-                    cookies[mpid] &&
+                    persistence[mpid] &&
                     !Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(mpid)
                 ) {
                     return self.mParticleUser(mpid);
@@ -589,10 +589,10 @@ export default function Identity(mpInstance) {
          * @return {Array} array of users
          */
         getUsers: function() {
-            var cookies = mpInstance._Persistence.getPersistence();
+            var persistence = mpInstance._Persistence.getPersistence();
             var users = [];
-            if (cookies) {
-                for (var key in cookies) {
+            if (persistence) {
+                for (var key in persistence) {
                     if (!Constants.SDKv2NonMPIDCookieKeys.hasOwnProperty(key)) {
                         users.push(self.mParticleUser(key));
                     }
@@ -884,7 +884,10 @@ export default function Identity(mpInstance) {
                         userAttributes[key] = newValue;
                         if (cookies && cookies[mpid]) {
                             cookies[mpid].ua = userAttributes;
-                            mpInstance._Persistence.saveCookies(cookies, mpid);
+                            mpInstance._Persistence.savePersistence(
+                                cookies,
+                                mpid
+                            );
                         }
 
                         mpInstance._Forwarders.initForwarders(
@@ -965,7 +968,7 @@ export default function Identity(mpInstance) {
 
                     if (cookies && cookies[mpid]) {
                         cookies[mpid].ua = userAttributes;
-                        mpInstance._Persistence.saveCookies(cookies, mpid);
+                        mpInstance._Persistence.savePersistence(cookies, mpid);
                     }
 
                     mpInstance._Forwarders.initForwarders(
@@ -1072,7 +1075,7 @@ export default function Identity(mpInstance) {
                     userAttributes[key] = arrayCopy;
                     if (cookies && cookies[mpid]) {
                         cookies[mpid].ua = userAttributes;
-                        mpInstance._Persistence.saveCookies(cookies, mpid);
+                        mpInstance._Persistence.savePersistence(cookies, mpid);
                     }
 
                     mpInstance._Forwarders.initForwarders(
@@ -1443,7 +1446,7 @@ export default function Identity(mpInstance) {
                         userIdentitiesForModify,
                         identityApiData.userIdentities
                     );
-                    mpInstance._Persistence.saveUserIdentitiesToCookies(
+                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
                         prevUser.getMPID(),
                         newIdentities
                     );
@@ -1513,7 +1516,7 @@ export default function Identity(mpInstance) {
                         );
                     }
 
-                    mpInstance._Persistence.saveUserIdentitiesToCookies(
+                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
                         identityApiResult.mpid,
                         newIdentities
                     );
@@ -1536,7 +1539,7 @@ export default function Identity(mpInstance) {
                         var userAttributes =
                             mpInstance._Store.migrationData.userAttributes ||
                             {};
-                        mpInstance._Persistence.saveUserAttributesToCookies(
+                        mpInstance._Persistence.saveUserAttributesToPersistence(
                             identityApiResult.mpid,
                             userAttributes
                         );
@@ -1553,7 +1556,7 @@ export default function Identity(mpInstance) {
                         }
                     }
 
-                    mpInstance._Persistence.saveUserIdentitiesToCookies(
+                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
                         identityApiResult.mpid,
                         newIdentities
                     );
@@ -1588,13 +1591,11 @@ export default function Identity(mpInstance) {
                         );
                     }
                 }
-                var cookies =
-                    mpInstance._Persistence.getCookie() ||
-                    mpInstance._Persistence.getLocalStorage();
+                var persistence = mpInstance._Persistence.getPersistence();
 
                 if (newUser) {
                     mpInstance._Persistence.storeDataInMemory(
-                        cookies,
+                        persistence,
                         newUser.getMPID()
                     );
                     if (

@@ -254,8 +254,6 @@ describe('migrations and persistence-related', function() {
     });
 
     it('puts data into localStorage when running initializeStorage with useCookieStorage = false', function(done) {
-        // window.mParticle.config.useCookieStorage = false;
-
         mParticle.init(apiKey, window.mParticle.config);
 
         var cookieData = mParticle.getInstance()._Persistence.getCookie();
@@ -772,7 +770,7 @@ describe('migrations and persistence-related', function() {
         ).toGMTString();
         var cookiesWithExpiration = mParticle
             .getInstance()
-            ._Persistence.reduceAndEncodeCookies(
+            ._Persistence.reduceAndEncodePersistence(
                 cookies,
                 expires,
                 'testDomain',
@@ -785,7 +783,7 @@ describe('migrations and persistence-related', function() {
         var cookiesResult = JSON.parse(
             mParticle
                 .getInstance()
-                ._Persistence.decodeCookies(cookiesWithoutExpiration)
+                ._Persistence.decodePersistence(cookiesWithoutExpiration)
         );
         Should(cookiesResult['mpid1']).not.be.ok();
         Should(cookiesResult['mpid2']).be.ok();
@@ -1021,7 +1019,7 @@ describe('migrations and persistence-related', function() {
 
         var cookiesWithExpiration = mParticle
             .getInstance()
-            ._Persistence.reduceAndEncodeCookies(
+            ._Persistence.reduceAndEncodePersistence(
                 cookies,
                 expires,
                 'testDomain',
@@ -1034,7 +1032,7 @@ describe('migrations and persistence-related', function() {
         var cookiesResult = JSON.parse(
             mParticle
                 .getInstance()
-                ._Persistence.decodeCookies(cookiesWithoutExpiration)
+                ._Persistence.decodePersistence(cookiesWithoutExpiration)
         );
 
         Should(cookiesResult['mpid1']).not.be.ok();

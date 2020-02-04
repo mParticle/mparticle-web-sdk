@@ -20,8 +20,8 @@ function SessionManager(mpInstance) {
                 self.endSession();
                 self.startNewSession();
             } else {
-                var cookies = mpInstance._Persistence.getPersistence();
-                if (cookies && !cookies.cu) {
+                var persistence = mpInstance._Persistence.getPersistence();
+                if (persistence && !persistence.cu) {
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
                         mpInstance._Store.SDKConfig.identityCallback
@@ -98,9 +98,7 @@ function SessionManager(mpInstance) {
         } else if (mpInstance._Helpers.canLog()) {
             var sessionTimeoutInMilliseconds, cookies, timeSinceLastEventSent;
 
-            cookies =
-                mpInstance._Persistence.getCookie() ||
-                mpInstance._Persistence.getLocalStorage();
+            cookies = mpInstance._Persistence.getPersistence();
 
             if (!cookies) {
                 return;
@@ -174,13 +172,11 @@ function SessionManager(mpInstance) {
 
     this.startNewSessionIfNeeded = function() {
         if (!mpInstance._Store.webviewBridgeEnabled) {
-            var cookies =
-                mpInstance._Persistence.getCookie() ||
-                mpInstance._Persistence.getLocalStorage();
+            var persistence = mpInstance._Persistence.getPersistence();
 
-            if (!mpInstance._Store.sessionId && cookies) {
-                if (cookies.sid) {
-                    mpInstance._Store.sessionId = cookies.sid;
+            if (!mpInstance._Store.sessionId && persistence) {
+                if (persistence.sid) {
+                    mpInstance._Store.sessionId = persistence.sid;
                 } else {
                     self.startNewSession();
                 }
