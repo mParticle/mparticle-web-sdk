@@ -2,6 +2,10 @@
 
 --
 
+#### 2.11.3 - 2020-02-04
+
+-   Update package.json (Add mparticle.js to dist/ for partner kit testing)
+
 #### 2.11.2 - 2020-02-01
 
 -   Feat - Add support for custom v3 URL
