@@ -9,7 +9,7 @@ import {
     SDKProductActionType,
     MParticleWebSDK,
 } from './sdkRuntimeModels';
-import * as EventsApi from './eventsApiModels';
+import * as EventsApi from '@mparticle/event-models';
 import Types from './types';
 
 export function convertEvents(

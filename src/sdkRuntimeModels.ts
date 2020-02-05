@@ -1,4 +1,4 @@
-import * as EventsApi from './eventsApiModels';
+import * as EventsApi from '@mparticle/event-models';
 
 export interface SDKEvent {
     DeviceId: string;

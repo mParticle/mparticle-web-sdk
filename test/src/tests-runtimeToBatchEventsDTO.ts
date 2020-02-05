@@ -2,7 +2,7 @@ import * as Converter from '../../src/sdkToEventsApiConverter';
 import { expect } from 'chai';
 import Types from '../../src/types';
 import { SDKEvent, MParticleWebSDK } from '../../src/sdkRuntimeModels';
-import * as EventsApi from '../../src/eventsApiModels';
+import * as EventsApi from '@mparticle/event-models';
 import TestsCore from './tests-core';
 
 var MPConfig = TestsCore.MPConfig,

@@ -1,4 +1,4 @@
-import { Batch } from './eventsApiModels';
+import { Batch } from '@mparticle/event-models';
 import {
     SDKEvent,
     MParticleUser,
