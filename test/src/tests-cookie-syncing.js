@@ -11,7 +11,7 @@ var setLocalStorage = TestsCore.setLocalStorage,
 
 describe('cookie syncing', function() {
     it('should sync cookies when there was not a previous cookie-sync', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -41,7 +41,7 @@ describe('cookie syncing', function() {
     });
 
     it('should sync cookies when current date is beyond the frequency cap and the MPID has not changed', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -79,7 +79,7 @@ describe('cookie syncing', function() {
     });
 
     it('should not sync cookies when last date is within frequencyCap', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var pixelSettings = {
             name: 'AdobeEventForwarder',
             moduleId: 5,
@@ -124,7 +124,7 @@ describe('cookie syncing', function() {
             pixelUrl: 'http://www.yahoo.com',
             redirectUrl: '',
         };
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -164,7 +164,7 @@ describe('cookie syncing', function() {
             pixelUrl: 'http://www.yahoo.com',
             redirectUrl: '',
         };
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
@@ -192,7 +192,7 @@ describe('cookie syncing', function() {
             pixelUrl: 'http://www.yahoo.com',
             redirectUrl: '',
         };
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
@@ -233,7 +233,7 @@ describe('cookie syncing', function() {
     });
 
     it('parse and capture pixel settings properly from backend', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         // create some cookies
         mParticle.init(apiKey, window.mParticle.config);

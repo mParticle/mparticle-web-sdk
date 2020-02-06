@@ -15,6 +15,7 @@ describe('mParticle stubs', function() {
         mParticle.logPageView();
         mParticle.ready();
         mParticle.reset();
+        mParticle._resetForTests();
         mParticle.setAppName();
         mParticle.setAppVersion();
         mParticle.setLogLevel();

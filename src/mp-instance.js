@@ -129,7 +129,15 @@ export default function mParticleInstance(instanceName) {
     this.setLogLevel = function(newLogLevel) {
         self.Logger.setLogLevel(newLogLevel);
     };
-    this.reset = function(config, keepPersistence, instance) {
+
+    this.reset = function(instance) {
+        instance._Persistence.resetPersistence();
+        if (instance._Store) {
+            delete instance._Store;
+        }
+    };
+
+    this._resetForTests = function(config, keepPersistence, instance) {
         if (instance._Store) {
             delete instance._Store;
         }
@@ -139,7 +147,7 @@ export default function mParticleInstance(instanceName) {
         );
         instance._Events.stopTracking();
         if (!keepPersistence) {
-            instance._Persistence.reset_Persistence();
+            instance._Persistence.resetPersistence();
         }
         instance._Persistence.forwardingStatsBatches.uploadsTable = {};
         instance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue = [];

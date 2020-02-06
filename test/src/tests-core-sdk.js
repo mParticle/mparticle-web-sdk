@@ -103,7 +103,7 @@ describe('core SDK', function() {
     it('should process ready queue when initialized', function(done) {
         var readyFuncCalled = false;
 
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.ready(function() {
             readyFuncCalled = true;
@@ -137,7 +137,7 @@ describe('core SDK', function() {
     });
 
     it('should get app version from config', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.appName = "testAppName";
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -258,7 +258,7 @@ describe('core SDK', function() {
     });
 
     it('should not generate a new device ID if a deviceId exists in localStorage', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         setLocalStorage();
         mParticle.init(apiKey, window.mParticle.config);
@@ -270,7 +270,7 @@ describe('core SDK', function() {
     });
 
     it('should return the deviceId when requested', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
         var deviceId = mParticle.getDeviceId();
@@ -282,7 +282,7 @@ describe('core SDK', function() {
     });
 
     it('will create a cgid when no previous cgid exists after initializing storage, and no sid', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.getInstance()._Store.storageName = TestsCore.workspaceCookieName;
         mParticle.getInstance()._Persistence.initializeStorage();
@@ -297,7 +297,7 @@ describe('core SDK', function() {
     });
 
     it('creates a new session when elapsed time between actions is greater than session timeout', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
@@ -317,7 +317,7 @@ describe('core SDK', function() {
     });
 
     it('should end session when last event sent is outside of sessionTimeout', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
@@ -344,7 +344,7 @@ describe('core SDK', function() {
 
     it('should not end session when end session is called within sessionTimeout timeframe', function(done) {
         // This test mimics if another tab is open and events are sent, but previous tab's sessionTimeout is still ongoing
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
@@ -427,7 +427,7 @@ describe('core SDK', function() {
     });
 
     it('should update session start date when session times out,then starting a new one', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
 
         var clock = sinon.useFakeTimers();
@@ -567,7 +567,7 @@ describe('core SDK', function() {
         );
         mp.SDKConfig.aliasMaxWindow.should.equal(config.aliasMaxWindow);
 
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         done();
     });
@@ -689,7 +689,7 @@ describe('core SDK', function() {
     });
 
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
         window.mParticle.config.v1SecureServiceUrl =
@@ -789,7 +789,7 @@ describe('core SDK', function() {
     ];
     configOptions.forEach(option => {
         it('Store should configure SDKConfig itself with ' + option, done => {
-            mParticle.reset();
+            mParticle._resetForTests();
             const config = {}
             config[option] = 'custom-' + option;
             mParticle.init(apiKey, config);
@@ -799,7 +799,7 @@ describe('core SDK', function() {
     });
 
     it('should hit url with query parameter of env=1 for debug mode for forwarders', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         mParticle.config.requestConfig = true;
         server.requests = [];
@@ -818,7 +818,7 @@ describe('core SDK', function() {
     });
 
     it('should fetch from /config and keep everything properly on the store', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var config = {
             appName: 'appNameTest',
             serviceUrl: 'testServiceUrl',
@@ -849,7 +849,7 @@ describe('core SDK', function() {
 
     it('should initialize and log events even with a failed /config fetch and empty config', function(done) {
         // this instance occurs when self hosting and the user only passes an object into init
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -888,7 +888,7 @@ describe('core SDK', function() {
 
     it('should initialize without a config object passed to init', function(done) {
         // this instance occurs when self hosting and the user only passes an object into init
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey);
 
@@ -905,6 +905,41 @@ describe('core SDK', function() {
         hash1.should.equal(hashValue);
         hash2.should.equal(hashValue);
 
+        done();
+    });
+
+    it('should remove localstorage when calling reset', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        window.mParticle.config.workspaceToken = 'defghi';
+        mParticle.init(apiKey, window.mParticle.config)
+        var ls = localStorage.getItem('mprtcl-v4_defghi');
+
+        ls.should.be.ok();
+        mParticle.reset()
+        
+        ls = localStorage.getItem('mprtcl-v4_defghi');
+        (ls === null).should.equal(true)
+        
+        done();
+    });
+    
+    it('should remove cookies when calling reset', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        window.mParticle.config.useCookieStorage = true;
+        window.mParticle.config.workspaceToken = 'defghi';
+        mParticle.init(apiKey, window.mParticle.config)
+
+        var cookie = document.cookie;
+        cookie.includes('mprtcl-v4_defghi').should.equal(true);
+        mParticle.reset();
+
+        cookie = document.cookie;
+        
+        cookie.includes('mprtcl-v4_defghi').should.equal(false);
+        
+        window.mParticle.config.useCookieStorage = false;
         done();
     });
 });

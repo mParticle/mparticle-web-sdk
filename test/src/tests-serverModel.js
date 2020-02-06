@@ -23,7 +23,7 @@ describe('Server Model', function() {
     });
 
     it('Should convert data plan id to server DTO', function(done) {
-        mParticle.reset();
+        mParticle._resetForTests();
         mParticle.config.dataPlan = {
             planId: 'plan-slug'
         };
@@ -48,7 +48,7 @@ describe('Server Model', function() {
     });
 
     it('Should not convert data plan object to server DTO when no id is set', function(done) {
-        mParticle.reset();
+        mParticle._resetForTests();
         mParticle.config.dataPlan = {
             planVersion: 5
         };
@@ -73,7 +73,7 @@ describe('Server Model', function() {
     });
 
     it('Should convert entire data plan object to server DTO', function(done) {
-        mParticle.reset();
+        mParticle._resetForTests();
         mParticle.config.dataPlan = {
             planId: 'plan-slug',
             planVersion: 10

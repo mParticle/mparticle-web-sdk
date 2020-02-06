@@ -18,7 +18,7 @@ describe('Old model to batch model conversion', () => {
     const batchDataTests = [{ devmode: false }, { devmode: true }];
     batchDataTests.forEach(params => {
         it('Batch level conversion ' + params, done => {
-            window.mParticle.reset(MPConfig);
+            window.mParticle._resetForTests(MPConfig);
             window.mParticle.config.appVersion = 'a version';
             window.mParticle.config.appName = 'a name';
 

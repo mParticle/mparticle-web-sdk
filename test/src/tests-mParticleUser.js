@@ -7,7 +7,7 @@ var apiKey = TestsCore.apiKey,
 
 describe('mParticleUser', function() {
     it('should call forwarder onUserIdentified method with a filtered user identity list', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -42,7 +42,7 @@ describe('mParticleUser', function() {
     });
 
     it('should call forwarder onUserIdentified method with a filtered user attributes list', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -77,7 +77,7 @@ describe('mParticleUser', function() {
     });
 
     it('should call forwarder onIdentifyComplete/onLoginComplete/onLogoutComplete/onModifyComplete method with the proper identity method passed through', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);

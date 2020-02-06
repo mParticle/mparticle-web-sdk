@@ -578,7 +578,7 @@ describe('eCommerce', function() {
     });
 
     it('should support array of products when adding to cart', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
         var product1 = mParticle.eCommerce.createProduct(
@@ -614,7 +614,7 @@ describe('eCommerce', function() {
     });
 
     it('should support a single product when adding to cart', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
         var product1 = mParticle.eCommerce.createProduct(
@@ -641,7 +641,7 @@ describe('eCommerce', function() {
     });
 
     it('expand product purchase commerce event', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -746,7 +746,7 @@ describe('eCommerce', function() {
     });
 
     it('expand product refund commerce event', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -814,7 +814,7 @@ describe('eCommerce', function() {
     });
 
     it('expand non-plus-one-product commerce event', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -882,7 +882,7 @@ describe('eCommerce', function() {
     });
 
     it('expand checkout commerce event', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -955,7 +955,7 @@ describe('eCommerce', function() {
     });
 
     it('expand promotion commerce event', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1019,7 +1019,7 @@ describe('eCommerce', function() {
     });
 
     it('expand impression commerce event', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);

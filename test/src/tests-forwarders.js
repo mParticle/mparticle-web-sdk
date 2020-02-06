@@ -13,7 +13,7 @@ var getEvent = TestsCore.getEvent,
 
 describe('forwarders', function() {
     it('should add forwarders via dynamic script loading via the addForwarder method', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
         mParticle.addForwarder(mockForwarder);
@@ -33,7 +33,7 @@ describe('forwarders', function() {
     });
 
     it('should invoke forwarder setIdentity on initialized forwarders (debug = false)', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.identifyRequest = {
             userIdentities: {
                 google: 'google123',
@@ -63,7 +63,7 @@ describe('forwarders', function() {
     });
 
     it('should permit forwarder if no consent configured.', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
@@ -87,7 +87,7 @@ describe('forwarders', function() {
     it('should not permit forwarder if consent configured but there is no user.', function(done) {
         var enableForwarder = true;
         var consented = false;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -129,7 +129,7 @@ describe('forwarders', function() {
     it('should disable forwarder if \'do not forward\' is selected and consent has been rejected', function(done) {
         var enableForwarder = false;   // 'do not forward' chosen in UI, 'includeOnMatch' in config
         var consented = false;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -173,7 +173,7 @@ describe('forwarders', function() {
     it('should disable forwarder if \'do not forward\' is selected and consent has been accepted.', function(done) {
         var enableForwarder = false;   // 'do not forward' chosen in UI, 'includeOnMatch' in config
         var consented = true;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -216,7 +216,7 @@ describe('forwarders', function() {
     it('should enable forwarder if \'only forward\' is selected and consent has been rejected.', function(done) {
         var enableForwarder = true;   // 'only forward if' in UI, 'includeOnMatch' in config
         var consented = false;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -258,7 +258,7 @@ describe('forwarders', function() {
     it('should enable forwarder if \'only forward if\' is selected and consent has been accepted.', function(done) {
         var enableForwarder = true;   // 'only forward if' in UI, 'includeOnMatch' in config
         var consented = true;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -301,7 +301,7 @@ describe('forwarders', function() {
     it('should enable forwarder if \'only forward\' is selected and CCPA data sale opt out is present.', function(done) {
         var enableForwarder = true;   // 'only forward' in UI, 'includeOnMatch' in config
         var consentPresent = true;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -345,7 +345,7 @@ describe('forwarders', function() {
     it('should enable forwarder if \'only forward\' is selected and CCPA data sale opt out is not present.', function(done) {
         var enableForwarder = true;   // 'only forward' in UI, 'includeOnMatch' in config
         var consentPresent = false;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -389,7 +389,7 @@ describe('forwarders', function() {
     it('should disable forwarder if \'do not forward\' is selected and CCPA data sale opt out is present.', function(done) {
         var enableForwarder = false;   // 'do not forward' in UI, 'includeOnMatch' in config
         var consentPresent = true;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -433,7 +433,7 @@ describe('forwarders', function() {
     it('should disable forwarder if \'do not forward\' is selected and CCPA data sale opt out is not present.', function(done) {
         var enableForwarder = false;   // 'do not forward' in UI, 'includeOnMatch' in config
         var consentPresent = false;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -475,7 +475,7 @@ describe('forwarders', function() {
     });
 
     it("does not initialize a forwarder when forwarder's isDebug != mParticle.isDevelopmentMode", function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -497,7 +497,7 @@ describe('forwarders', function() {
     });
 
     it('initializes a forwarder with isDebug = false && mParticle.config.isDevelopmentMode = false', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -519,7 +519,7 @@ describe('forwarders', function() {
     });
 
     it('initializes a forwarder with isDebug = true && mParticle.config.isDevelopmentMode = true', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -538,7 +538,7 @@ describe('forwarders', function() {
     });
 
     it('initializes forwarders when isDebug = mParticle.config.isDevelopmentMode', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -564,7 +564,7 @@ describe('forwarders', function() {
     });
 
     it("sends events to forwarder when forwarder's isDebug = mParticle.config.isDevelopmentMode ", function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -584,7 +584,7 @@ describe('forwarders', function() {
     });
 
     it('sends events to forwarder v1 endpoint when mParticle.config.isDevelopmentMode = config.isDebug = false', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -608,7 +608,7 @@ describe('forwarders', function() {
     });
 
     it('sends forwarding stats to v2 endpoint when featureFlag setting of batching is true', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -661,7 +661,7 @@ describe('forwarders', function() {
     });
 
     it('should not send forwarding stats to invisible forwarders', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -684,7 +684,7 @@ describe('forwarders', function() {
     });
 
     it('should invoke forwarder opt out', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -703,7 +703,7 @@ describe('forwarders', function() {
     });
 
     it('should invoke forwarder setuserattribute', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -722,7 +722,7 @@ describe('forwarders', function() {
     });
 
     it('should invoke forwarder setuserattribute when calling setUserAttributeList', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -742,7 +742,7 @@ describe('forwarders', function() {
     });
 
     it('should invoke forwarder removeuserattribute', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -761,7 +761,7 @@ describe('forwarders', function() {
     });
 
     it('should filter user attributes from forwarder on log event', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -782,7 +782,7 @@ describe('forwarders', function() {
     });
 
     it('should filter user identities from forwarder on init and bring customerid as first ID', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -815,7 +815,7 @@ describe('forwarders', function() {
     });
 
     it('should filter user identities from forwarder on log event and bring customerid as first ID', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -852,7 +852,7 @@ describe('forwarders', function() {
     });
 
     it('should filter user attributes from forwarder on init, and on subsequent set attribute calls', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
@@ -886,7 +886,7 @@ describe('forwarders', function() {
     });
 
     it('should filter event names', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
 
@@ -916,7 +916,7 @@ describe('forwarders', function() {
     });
 
     it('should filter page event names', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -939,7 +939,7 @@ describe('forwarders', function() {
     });
 
     it('should filter event attributes', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
@@ -968,7 +968,7 @@ describe('forwarders', function() {
     });
 
     it('should filter page event attributes', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
 
@@ -999,7 +999,7 @@ describe('forwarders', function() {
     });
 
     it('should call logout on forwarder', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1018,7 +1018,7 @@ describe('forwarders', function() {
 
     it('should pass in app name to forwarder on initialize', function(done) {
         mParticle.config.appName = 'Unit Tests';
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1035,7 +1035,7 @@ describe('forwarders', function() {
     });
 
     it('should pass in app version to forwarder on initialize', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
@@ -1053,7 +1053,7 @@ describe('forwarders', function() {
     });
 
     it('should pass in user identities to forwarder on initialize', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         setLocalStorage();
 
@@ -1072,7 +1072,7 @@ describe('forwarders', function() {
     });
 
     it('should pass in user attributes to forwarder on initialize', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         setLocalStorage();
 
@@ -1094,7 +1094,7 @@ describe('forwarders', function() {
     });
 
     it('should not forward event if attribute forwarding rule is set', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1129,7 +1129,7 @@ describe('forwarders', function() {
     });
 
     it('should forward event if event attribute forwarding rule is set and includeOnMatch is true', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1162,7 +1162,7 @@ describe('forwarders', function() {
     });
 
     it('should not forward event if event attribute forwarding rule is set and includeOnMatch is true but attributes do not match', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1197,7 +1197,7 @@ describe('forwarders', function() {
     });
 
     it('should not forward event if event attribute forwarding rule is set and includeOnMatch is false', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1232,7 +1232,7 @@ describe('forwarders', function() {
     });
 
     it('should forward event if event attribute forwarding rule is set and includeOnMatch is false but attributes do not match', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
 
@@ -1268,7 +1268,7 @@ describe('forwarders', function() {
     });
 
     it('should send event to forwarder if filtering attribute and includingOnMatch is true', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1296,7 +1296,7 @@ describe('forwarders', function() {
     });
 
     it('should not send event to forwarder if filtering attribute and includingOnMatch is false', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
 
@@ -1337,7 +1337,7 @@ describe('forwarders', function() {
     });
 
     it('should send event to forwarder if there are no user attributes on event if includeOnMatch = false', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1364,7 +1364,7 @@ describe('forwarders', function() {
     });
 
     it('should not send event to forwarder if there are no user attributes on event if includeOnMatch = true', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1388,7 +1388,7 @@ describe('forwarders', function() {
     });
 
     it('should send event to forwarder if there is no match and includeOnMatch = false', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1416,7 +1416,7 @@ describe('forwarders', function() {
     });
 
     it('should not send event to forwarder if there is no match and includeOnMatch = true', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1443,7 +1443,7 @@ describe('forwarders', function() {
     });
 
     it('should reinitialize forwarders when user attribute changes', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
 
@@ -1490,7 +1490,7 @@ describe('forwarders', function() {
     });
 
     it('should send event to forwarder if the filterinUserAttribute object is invalid', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1514,7 +1514,7 @@ describe('forwarders', function() {
     });
 
     it('should call forwarder onUserIdentified method when identity is returned', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1535,7 +1535,7 @@ describe('forwarders', function() {
     it('should queue forwarder stats reporting and send after 5 seconds if batching feature is true', function(done) {
         var clock = sinon.useFakeTimers();
 
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -1571,7 +1571,7 @@ describe('forwarders', function() {
     });
 
     it('should initialize forwarders when a user is not logged in and excludeAnonymousUser=false', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
         var mockForwarder2 = new MockForwarder('MockForwarder2', 2);
@@ -1611,7 +1611,7 @@ describe('forwarders', function() {
     });
 
     it('should only initialize forwarders with excludeUnknownUser = false for non-logged-in users', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
         var mockForwarder2 = new MockForwarder('MockForwarder2', 2);
@@ -1651,7 +1651,7 @@ describe('forwarders', function() {
     });
 
     it('should initialize all forwarders when a user is logged in and the page reloads', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
         var mockForwarder2 = new MockForwarder('MockForwarder2', 2);
@@ -1719,7 +1719,7 @@ describe('forwarders', function() {
     });
 
     it('should save logged in status of most recent user to cookies when logged in', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -1836,7 +1836,7 @@ describe('forwarders', function() {
     });
 
     it('integration test - should not log events if there are any integrations delaying, then resume logging events once delays are gone', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         // this code will be put in each forwarder as each forwarder is initialized
         mParticle._setIntegrationDelay(128, true);
         mParticle._setIntegrationDelay(24, false);
@@ -1867,7 +1867,7 @@ describe('forwarders', function() {
     it('integration test - should send events after a configured delay, or 5 seconds by default if setIntegrationDelays are still true', function(done) {
         // testing default of 5000 ms
         var clock = sinon.useFakeTimers();
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         // this code will be put in each forwarder as each forwarder is initialized
         mParticle._setIntegrationDelay(128, true);
         Should(
@@ -1906,7 +1906,7 @@ describe('forwarders', function() {
 
         // testing user-configured integrationDelayTimeout
         clock = sinon.useFakeTimers();
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.integrationDelayTimeout = 1000;
         mParticle._setIntegrationDelay(128, true);
         mParticle._setIntegrationDelay(24, false);
@@ -1935,7 +1935,7 @@ describe('forwarders', function() {
     });
 
     it('parse and capture forwarderConfiguration properly from backend', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.config.requestConfig = true;
 
@@ -2020,7 +2020,7 @@ describe('forwarders', function() {
     });
 
     it('configures forwarders before events are logged via identify callback', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -2053,6 +2053,49 @@ describe('forwarders', function() {
             true
         );
 
+        done();
+    });
+
+    it('should retain preInit.forwarderConstructors, and reinitialize forwarders after calling reset, then init', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        window.mParticle.config.kitConfigs.push(
+            forwarderDefaultConfiguration('MockForwarder')
+        );
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle
+            .getInstance()
+            ._getActiveForwarders()
+            .length.should.equal(1);
+
+        // client calls reset
+        mParticle.reset();
+
+        // forwarderConstructors are still there
+        mParticle
+            .getInstance()
+            ._preInit.forwarderConstructors
+            .length.should.equal(1);
+
+        // client reinitializes mParticle after a reset
+        mParticle.init(apiKey, window.mParticle.config);
+
+        // forwarderConstructors are still there
+        mParticle
+            .getInstance()
+            ._getActiveForwarders()
+            .length.should.equal(1);
+
+        mParticle.logEvent('send this event to forwarder');
+        window.MockForwarder1.instance.should.have.property(
+            'processCalled',
+            true
+        );
         done();
     });
 });

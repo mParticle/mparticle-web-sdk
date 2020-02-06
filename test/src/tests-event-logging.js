@@ -108,7 +108,7 @@ describe('event logging', function() {
     });
 
     it('should log an AST on init with firstRun = false when cookies already exist', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         server.requests = [];
 
         setLocalStorage();
@@ -456,7 +456,7 @@ describe('event logging', function() {
     });
 
     it('should run the callback once when tracking succeeds', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -489,7 +489,7 @@ describe('event logging', function() {
     });
 
     it('should run the callback once when tracking fails', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -526,7 +526,7 @@ describe('event logging', function() {
     });
 
     it('should pass the found or existing position to the callback in startTrackingLocation', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -553,7 +553,7 @@ describe('event logging', function() {
     });
 
     it('should run the callback if tracking already exists', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);

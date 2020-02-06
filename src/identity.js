@@ -549,12 +549,20 @@ export default function Identity(mpInstance) {
          * @return {Object} the current user object
          */
         getCurrentUser: function() {
-            var mpid = mpInstance._Store.mpid;
-            if (mpid) {
-                mpid = mpInstance._Store.mpid.slice();
-                return self.mParticleUser(mpid, mpInstance._Store.isLoggedIn);
-            } else if (mpInstance._Store.webviewBridgeEnabled) {
-                return self.mParticleUser();
+            var mpid;
+            if (mpInstance._Store) {
+                mpid = mpInstance._Store.mpid;
+                if (mpid) {
+                    mpid = mpInstance._Store.mpid.slice();
+                    return self.mParticleUser(
+                        mpid,
+                        mpInstance._Store.isLoggedIn
+                    );
+                } else if (mpInstance._Store.webviewBridgeEnabled) {
+                    return self.mParticleUser();
+                } else {
+                    return null;
+                }
             } else {
                 return null;
             }

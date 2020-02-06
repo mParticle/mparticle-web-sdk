@@ -112,7 +112,7 @@ export interface MParticleWebSDK {
     _Store: SDKStoreApi;
     _Helpers: SDKHelpersApi;
     config: SDKConfig;
-    reset(MPConfig: SDKConfig): void;
+    _resetForTests(MPConfig: SDKConfig): void;
     init(apiKey: string, config: SDKConfig): void;
     getInstance();
     ServerModel();

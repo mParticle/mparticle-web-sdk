@@ -12,6 +12,7 @@ let mParticle = {
     logPageView: voidFunction,
     ready: voidFunction,
     reset: voidFunction,
+    _resetForTests: voidFunction,
     setAppName: voidFunction,
     setAppVersion: voidFunction,
     setLogLevel: voidFunction,

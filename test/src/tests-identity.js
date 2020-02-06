@@ -20,7 +20,7 @@ var getLocalStorage = TestsCore.getLocalStorage,
 
 describe('identity', function() {
     it('should respect consent rules on consent-change', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         var mockForwarder = new MockForwarder('MockForwarder1');
         mockForwarder.register(window.mParticle.config);
@@ -172,7 +172,7 @@ describe('identity', function() {
     });
 
     it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.useCookieStorage = false;
 
         setLocalStorage();
@@ -230,7 +230,7 @@ describe('identity', function() {
     });
 
     it('cookies - should switch user cookies to new mpid details from cookies when a new mpid is provided', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
 
         setLocalStorage();
@@ -878,7 +878,7 @@ describe('identity', function() {
     });
 
     it('Ensure that automatic identify is not called more than once.', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var spy = sinon.spy();
         mParticle.config.identityCallback = spy;
         server.handle = function(request) {
@@ -900,7 +900,7 @@ describe('identity', function() {
     });
 
     it('queue events when MPID is 0, and then flush events once MPID changes', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -944,7 +944,7 @@ describe('identity', function() {
     });
 
     it('getUsers should return all mpids available in local storage', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var user1 = {};
         var user2 = {};
@@ -1028,7 +1028,7 @@ describe('identity', function() {
     });
 
     it('should only update its own cookies, not any other mpids when initializing with a different set of credentials', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var user1 = {
             userIdentities: {
@@ -1155,7 +1155,7 @@ describe('identity', function() {
     });
 
     it('should convert user identities object to an array if no identityRequest is passed through', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         server.requests = [];
 
         mParticle.identifyRequest = null;
@@ -1187,7 +1187,7 @@ describe('identity', function() {
     });
 
     it("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var user1 = {
             userIdentities: {
                 customerid: 'customerid1',
@@ -1299,7 +1299,7 @@ describe('identity', function() {
     });
 
     it('Should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous one will keep the last MPID ', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var user1 = {
             userIdentities: {
                 customerid: '1',
@@ -1594,7 +1594,7 @@ describe('identity', function() {
     });
 
     it("saves proper cookies for each user's products, and purchases record cartProducts correctly", function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var identityAPIRequest1 = {
             userIdentities: {
@@ -1915,8 +1915,8 @@ describe('identity', function() {
     });
 
     it('should trigger the identifyCallback when a successful identify call is sent', function(done) {
-        // MP.sessionID does not exist yet because we perform an mParticle.reset(MPConfig);
-        mParticle.reset(MPConfig);
+        // MP.sessionID does not exist yet because we perform an mParticle._resetForTests(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var mpid;
         server.handle = function(request) {
@@ -1941,7 +1941,7 @@ describe('identity', function() {
     });
 
     it('should still trigger the identifyCallback when no identify request is sent because there are already cookies', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var les = new Date().getTime();
         var cookies =
             "{'gs':{'ie':1|'dt':'test_key'|'cgid':'886e874b-862b-4822-a24a-1146cd057101'|'das':'62c91b8d-fef6-44ea-b2cc-b55714b0d827'|'csm':'WyJ0ZXN0TVBJRCJd'|'sid':'2535f9ed-ab19-4a7c-9eeb-ce4e41e0cb06'|'les': " +
@@ -2004,7 +2004,7 @@ describe('identity', function() {
 
     it('identifyCallback response should have a getUser function on the result object', function(done) {
         var result;
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -2036,7 +2036,7 @@ describe('identity', function() {
     it('identityCallback responses should all have a getUser function on their result objects', function(done) {
         var result, loginResult, logoutResult, modifyResult;
 
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.config.identityCallback = function(resp) {
             resp.getUser().setUserAttribute('attr', 'value');
@@ -2115,7 +2115,7 @@ describe('identity', function() {
     it('should call identify when there is an active session but no current user', function(done) {
         // this broken cookie state occurs when an initial identify request is made, fails, and the
         // client had no programmatic handling of a failed identify request
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -2162,7 +2162,7 @@ describe('identity', function() {
     });
 
     it('Users should have firstSeenTime and lastSeenTime', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         server.handle = function(request) {
             request.setResponseHeader('Content-Type', 'application/json');
@@ -2198,7 +2198,7 @@ describe('identity', function() {
     });
 
     it('firstSeenTime should stay the same for a user', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var clock = sinon.useFakeTimers();
         clock.tick(100);
@@ -2276,7 +2276,7 @@ describe('identity', function() {
     });
 
     it('List returned by Identity.getUsers() should be sorted by lastSeenTime, with nulls last', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var cookies = JSON.stringify({
             gs: {
@@ -2320,7 +2320,7 @@ describe('identity', function() {
 
     it('does not error when simultaneous identity calls are out', function(done) {
         var errorMessages = [];
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.config.logger = {
             error: function(msg) {
                 errorMessages.push(msg);
@@ -2339,7 +2339,7 @@ describe('identity', function() {
     });
 
     it('Startup identity callback should include getPreviousUser()', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var cookies = JSON.stringify({
             gs: {
@@ -2377,7 +2377,7 @@ describe('identity', function() {
     });
 
     it('Identity callback should include getPreviousUser()', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var cookies = JSON.stringify({
             testMPID: {
@@ -2417,7 +2417,7 @@ describe('identity', function() {
     });
 
     it('should return the correct user for Previous User', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var cookies = JSON.stringify({
             gs: {
@@ -2674,7 +2674,7 @@ describe('identity', function() {
     });
 
     it('Should properly create AliasRequest', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var cookies = JSON.stringify({
             gs: {
@@ -2713,7 +2713,7 @@ describe('identity', function() {
     });
 
     it('Should fill in missing fst and lst in createAliasRequest', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var cookies = JSON.stringify({
             gs: {
@@ -2756,7 +2756,7 @@ describe('identity', function() {
     });
 
     it('Should fix startTime when default is outside max window create AliasRequest', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var millisPerDay = 24 * 60 * 60 * 1000;
         var cookies = JSON.stringify({
@@ -2860,7 +2860,7 @@ describe('identity', function() {
     });
 
     it("Alias request should have environment 'development' when isDevelopmentMode is true", function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -2883,7 +2883,7 @@ describe('identity', function() {
     });
 
     it('should set isFirtRun to false after an app is initialized', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -2908,7 +2908,7 @@ describe('identity', function() {
     });
 
     it('should send back an httpCode of -1 when there is a no coverage (http code returns 0)', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         var result;
 

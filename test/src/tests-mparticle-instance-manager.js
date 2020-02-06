@@ -144,6 +144,7 @@ describe('mParticle instance manager', function() {
             'init',
             'setLogLevel',
             'reset',
+            '_resetForTests',
             'ready',
             'getVersion',
             'setAppVersion',
@@ -189,7 +190,7 @@ describe('mParticle instance manager', function() {
             localStorage.removeItem('mprtcl-prodv4_wtTest2');
             localStorage.removeItem('mprtcl-prodv4_wtTest3');
 
-            mParticle.reset(MPConfig);
+            mParticle._resetForTests(MPConfig);
 
             mockServer = sinon.createFakeServer();
             mockServer.respondImmediately = true;

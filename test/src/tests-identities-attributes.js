@@ -10,7 +10,7 @@ var apiKey = TestsCore.apiKey,
 
 describe('identities and attributes', function() {
     it('should set user attribute', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -31,7 +31,7 @@ describe('identities and attributes', function() {
     });
 
     it('should set user attribute be case insensitive', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -67,7 +67,7 @@ describe('identities and attributes', function() {
     });
 
     it('should set multiple user attributes with setUserAttributes', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -93,7 +93,7 @@ describe('identities and attributes', function() {
     });
 
     it('should remove user attribute', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -113,7 +113,7 @@ describe('identities and attributes', function() {
     });
 
     it('should remove user attribute case insensitive', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
@@ -278,7 +278,7 @@ describe('identities and attributes', function() {
     });
 
     it('should set user attribute list', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
@@ -303,7 +303,7 @@ describe('identities and attributes', function() {
     });
 
     it('should set user attribute list case insensitive', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
@@ -354,7 +354,7 @@ describe('identities and attributes', function() {
     it('should make a copy of user attribute list', function(done) {
         var list = [1, 2, 3, 4, 5];
 
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -380,7 +380,7 @@ describe('identities and attributes', function() {
     });
 
     it('should remove all user attributes', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
@@ -404,7 +404,7 @@ describe('identities and attributes', function() {
     });
 
     it('should get user attribute lists', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -426,7 +426,7 @@ describe('identities and attributes', function() {
     });
 
     it('should copy when calling get user attribute lists', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
@@ -449,7 +449,7 @@ describe('identities and attributes', function() {
     });
 
     it('should copy when calling get user attributes', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
@@ -475,7 +475,7 @@ describe('identities and attributes', function() {
     });
 
     it('should get all user attributes', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -494,7 +494,7 @@ describe('identities and attributes', function() {
     });
 
     it('should not set user attribute list if value is not array', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttributeList('mykey', 1234);
@@ -597,7 +597,7 @@ describe('identities and attributes', function() {
     });
 
     it('should send user attribute change requests when setting new attributes', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.fetchMock.post(
             'https://jssdks.mparticle.com/v3/JS/test_key/events',
             200
@@ -694,7 +694,7 @@ describe('identities and attributes', function() {
     });
 
     it('should send user identity change requests when setting new identities on new users', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
 
         window.fetchMock.post(
             'https://jssdks.mparticle.com/v3/JS/test_key/events',

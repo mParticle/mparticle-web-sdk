@@ -383,11 +383,23 @@ function mParticle() {
         },
     };
 
-    this.reset = function(MPConfig, boolean) {
-        if (typeof boolean === 'boolean') {
-            self.getInstance().reset(MPConfig, boolean, self.getInstance());
+    this.reset = function() {
+        self.getInstance().reset(self.getInstance());
+    };
+
+    this._resetForTests = function(MPConfig, keepPersistence) {
+        if (typeof keepPersistence === 'boolean') {
+            self.getInstance()._resetForTests(
+                MPConfig,
+                keepPersistence,
+                self.getInstance()
+            );
         } else {
-            self.getInstance().reset(MPConfig, false, self.getInstance());
+            self.getInstance()._resetForTests(
+                MPConfig,
+                false,
+                self.getInstance()
+            );
         }
     };
 

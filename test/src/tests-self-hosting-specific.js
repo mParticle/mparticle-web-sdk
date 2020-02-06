@@ -8,7 +8,7 @@ var apiKey = TestsCore.apiKey,
 // Calls to /config are specific to only the self hosting environment
 describe('/config self-hosting integration tests', function() {
     it('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
 
         window.mParticle.config.identifyRequest = {
@@ -55,7 +55,7 @@ describe('/config self-hosting integration tests', function() {
 
     it('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
         var messages = [];
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.logLevel = 'verbose';
         delete window.mParticle.config.workspaceToken;
@@ -124,7 +124,7 @@ describe('/config self-hosting integration tests', function() {
     });
 
     it('cookie name has workspace token in it in self hosting mode after config fetch', function(done) {
-        mParticle.reset(MPConfig);
+        mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.logLevel = 'verbose';
         delete window.mParticle.config.workspaceToken;

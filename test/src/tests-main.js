@@ -44,7 +44,7 @@ beforeEach(function() {
     window.mParticleAndroid = null;
     window.mParticle.isIOS = null;
 
-    mParticle.reset(MPConfig);
+    mParticle._resetForTests(MPConfig);
     delete mParticle._instances['default_instance'];
     mParticle.init(apiKey, window.mParticle.config);
     delete window.MockForwarder1;

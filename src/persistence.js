@@ -1142,17 +1142,21 @@ export default function _Persistence(mpInstance) {
         return mpInstance._Store.deviceId;
     };
 
-    this.reset_Persistence = function() {
+    this.resetPersistence = function() {
         removeLocalStorage(StorageNames.localStorageName);
         removeLocalStorage(StorageNames.localStorageNameV3);
         removeLocalStorage(StorageNames.localStorageNameV4);
         removeLocalStorage(mpInstance._Store.prodStorageName);
+        removeLocalStorage(mpInstance._Store.storageName);
         removeLocalStorage(StorageNames.localStorageProductsV4);
 
         self.expireCookies(StorageNames.cookieName);
         self.expireCookies(StorageNames.cookieNameV2);
         self.expireCookies(StorageNames.cookieNameV3);
         self.expireCookies(StorageNames.cookieNameV4);
+        self.expireCookies(mpInstance._Store.prodStorageName);
+        self.expireCookies(mpInstance._Store.storageName);
+
         if (mParticle._isTestEnv) {
             var testWorkspaceToken = 'abcdef';
             removeLocalStorage(
