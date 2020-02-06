@@ -2,6 +2,12 @@
 
 --
 
+#### 2.11.4 - 2020-02-06
+
+-   Feat - Modify reset API for public consumption
+-   Feat - Import @mparticle/event-models to replace eventApiModels
+-   Bugfix - Typo & keep persistence checking consistent
+
 #### 2.11.3 - 2020-02-04
 
 -   Update package.json (Add mparticle.js to dist/ for partner kit testing)
