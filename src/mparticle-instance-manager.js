@@ -39,6 +39,15 @@ function mParticle() {
             ? window.mParticle.config
             : {};
 
+    /**
+     * Initializes the mParticle instance. If no instanceName is provided, an instance name of `default_instance` will be used.
+     * <p>
+     * If you'd like to initiate multiple mParticle instances, first review our <a href="https://docs.mparticle.com/developers/sdk/web/multiple-instances/">doc site</a>, and ensure you pass a unique instance name as the third argument as shown below.
+     * @method init
+     * @param {String} apiKey your mParticle assigned API key
+     * @param {Object} [config] an options object for additional configuration
+     * @param {String} [instanceName] If you are self hosting the JS SDK and working with multiple instances, you would pass an instanceName to `init`. This instance will be selected when invoking other methods. See the above link to the doc site for more info and examples.
+     */
     this.init = function(apiKey, config, instanceName) {
         if (!config && (window.mParticle && window.mParticle.config)) {
             window.console.warn(

@@ -39,10 +39,16 @@ var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
 
 /**
- * Invoke these methods on the mParticle object.
- * Example: mParticle.endSession()
+ * <p>All of the following methods can be called on the primary mParticle class. In version 2.10.0, we introduced <a href="https://docs.mparticle.com/developers/sdk/web/multiple-instances/">multiple instances</a>. If you are using multiple instances (self hosted environments only), you should call these methods on each instance.</p>
+ * <p>In current versions of mParticle, if your site has one instance, that instance name is 'default_instance'. Any methods called on mParticle on a site with one instance will be mapped to the `default_instance`.</p>
+ * <p>This is for simplicity and backwards compatibility. For example, calling mParticle.logPageView() automatically maps to mParticle.getInstance('default_instance').logPageView().</p>
+ * <p>If you have multiple instances, instances must first be initialized and then a method can be called on that instance. For example:</p>
+ * <code>
+ *  mParticle.init('apiKey', config, 'another_instance');
+ *  mParticle.getInstance('another_instance').logPageView();
+ * </code>
  *
- * @class mParticleInstance
+ * @class mParticle & mParticleInstance
  */
 
 export default function mParticleInstance(instanceName) {
@@ -86,13 +92,6 @@ export default function mParticleInstance(instanceName) {
         }
     }
 
-    /**
-     * Initializes the mParticle SDK
-     *
-     * @method init
-     * @param {String} apiKey your mParticle assigned API key
-     * @param {Object} [options] an options object for additional configuration
-     */
     this.init = function(apiKey, config) {
         if (!config) {
             window.console.warn(
@@ -126,10 +125,21 @@ export default function mParticleInstance(instanceName) {
             return;
         }
     };
+    /**
+     * Resets the SDK to an uninitialized state and removes cookies/localStorage. You MUST call mParticle.init(apiKey, window.mParticle.config)
+     * before any other mParticle methods or the SDK will not function as intended.
+     * @method setLogLevel
+     * @param {String} logLevel verbose, warning, or none. By default, `warning` is chosen.
+     */
     this.setLogLevel = function(newLogLevel) {
         self.Logger.setLogLevel(newLogLevel);
     };
 
+    /**
+     * Resets the SDK to an uninitialized state and removes cookies/localStorage. You MUST call mParticle.init(apiKey, window.mParticle.config)
+     * before any other mParticle methods or the SDK will not function as intended.
+     * @method reset
+     */
     this.reset = function(instance) {
         instance._Persistence.resetPersistence();
         if (instance._Store) {
@@ -159,6 +169,11 @@ export default function mParticleInstance(instanceName) {
             isDevelopmentMode: false,
         };
     };
+    /**
+     * A callback method that is invoked after mParticle is initialized.
+     * @method ready
+     * @param {Function} function A function to be called after mParticle is initialized
+     */
     this.ready = function(f) {
         if (self._Store.isInitialized && typeof f === 'function') {
             f();
@@ -471,9 +486,44 @@ export default function mParticleInstance(instanceName) {
             customFlags: customFlags,
         });
     };
+
+    /**
+     * Invoke these methods on the mParticle.Consent object.
+     * Example: mParticle.Consent.createConsentState()
+     *
+     * @class mParticle.Consent
+     */
     this.Consent = {
+        /**
+         * Creates a CCPA Opt Out Consent State.
+         *
+         * @method createCCPAConsent
+         * @param {Boolean} optOut true represents a "data sale opt-out", false represents the user declining a "data sale opt-out"
+         * @param {Number} timestamp Unix time (likely to be Date.now())
+         * @param {String} consentDocument document version or experience that the user may have consented to
+         * @param {String} location location where the user gave consent
+         * @param {String} hardwareId hardware ID for the device or browser used to give consent. This property exists only to provide additional context and is not used to identify users
+         * @return {Object} CCPA Consent State
+         */
         createCCPAConsent: self._Consent.createPrivacyConsent,
+        /**
+         * Creates a GDPR Consent State.
+         *
+         * @method createGDPRConsent
+         * @param {Boolean} consent true represents a "data sale opt-out", false represents the user declining a "data sale opt-out"
+         * @param {Number} timestamp Unix time (likely to be Date.now())
+         * @param {String} consentDocument document version or experience that the user may have consented to
+         * @param {String} location location where the user gave consent
+         * @param {String} hardwareId hardware ID for the device or browser used to give consent. This property exists only to provide additional context and is not used to identify users
+         * @return {Object} GDPR Consent State
+         */
         createGDPRConsent: self._Consent.createPrivacyConsent,
+        /**
+         * Creates a Consent State Object, which can then be used to set CCPA states, add multiple GDPR states, as well as get and remove these privacy states.
+         *
+         * @method createConsentState
+         * @return {Object} ConsentState object
+         */
         createConsentState: self._Consent.createConsentState,
     };
     /**
@@ -486,6 +536,7 @@ export default function mParticleInstance(instanceName) {
          * Invoke these methods on the mParticle.eCommerce.Cart object.
          * Example: mParticle.eCommerce.Cart.add(...)
          * @class mParticle.eCommerce.Cart
+         * @deprecated
          */
         Cart: {
             /**
@@ -849,7 +900,6 @@ export default function mParticleInstance(instanceName) {
     };
     /**
      * Sets a session attribute
-     * @for mParticle
      * @method setSessionAttribute
      * @param {String} key key for session attribute
      * @param {String or Number} value value for session attribute
@@ -902,7 +952,6 @@ export default function mParticleInstance(instanceName) {
     };
     /**
      * Set opt out of logging
-     * @for mParticle
      * @method setOptOut
      * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
      */
@@ -938,7 +987,6 @@ export default function mParticleInstance(instanceName) {
      * for a given device, and will be able to use these values for server-to-server communication to services.
      * This is often useful when used in combination with a server-to-server feed, allowing the feed to be enriched
      * with the necessary integration attributes to be properly forwarded to the given integration.
-     * @for mParticle
      * @method setIntegrationAttribute
      * @param {Number} integrationId mParticle integration ID
      * @param {Object} attrs a map of attributes that will replace any current attributes. The keys are predefined by mParticle.
@@ -1021,6 +1069,7 @@ export default function mParticleInstance(instanceName) {
             return {};
         }
     };
+    // Used by our forwarders
     this.addForwarder = function(forwarder) {
         self._preInit.forwarderConstructors.push(forwarder);
     };
