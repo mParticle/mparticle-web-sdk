@@ -82,16 +82,8 @@ export default function Store(config, mpInstance) {
             this.SDKConfig.isDevelopmentMode = false;
         }
 
-        if (config.hasOwnProperty('serviceUrl')) {
-            this.SDKConfig.serviceUrl = config.serviceUrl;
-        }
-
-        if (config.hasOwnProperty('secureServiceUrl')) {
-            this.SDKConfig.secureServiceUrl = config.secureServiceUrl;
-        }
-
-        if (config.hasOwnProperty('v2ServiceUrl')) {
-            this.SDKConfig.v2ServiceUrl = config.v2ServiceUrl;
+        if (config.hasOwnProperty('v1SecureServiceUrl')) {
+            this.SDKConfig.v1SecureServiceUrl = config.v1SecureServiceUrl;
         }
 
         if (config.hasOwnProperty('v2SecureServiceUrl')) {

@@ -688,6 +688,21 @@ describe('core SDK', function() {
         done();
     });
 
+    it('should use default urls if no custom urls are set in config object', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(Constants.DefaultUrls.v1SecureServiceUrl);
+        mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(Constants.DefaultUrls.v2SecureServiceUrl)
+        mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(Constants.DefaultUrls.v3SecureServiceUrl)
+        mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(Constants.DefaultUrls.configUrl)
+        mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(Constants.DefaultUrls.identityUrl)
+        mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(Constants.DefaultUrls.aliasUrl)
+
+        done();
+    });
+
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', function(done) {
         mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, window.mParticle.config);
@@ -696,23 +711,21 @@ describe('core SDK', function() {
             'custom-v1SecureServiceUrl/';
         window.mParticle.config.v2SecureServiceUrl =
             'custom-v2SecureServiceUrl/v2/JS/';
+        window.mParticle.config.v3SecureServiceUrl =
+            'custom-v3SecureServiceUrl/v2/JS/';
+        window.mParticle.config.configUrl =
+            'custom-configUrl/v2/JS/';
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
         window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.getInstance()._Store.SDKConfig.v1ServiceUrl =
-            window.mParticle.config.v1ServiceUrl;
-        mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl =
-            window.mParticle.config.v1SecureServiceUrl;
-        mParticle.getInstance()._Store.SDKConfig.v2ServiceUrl =
-            window.mParticle.config.v2ServiceUrl;
-        mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl =
-            window.mParticle.config.v2SecureServiceUrl;
-        mParticle.getInstance()._Store.SDKConfig.identityUrl =
-            window.mParticle.config.identityUrl;
-        mParticle.getInstance()._Store.SDKConfig.aliasUrl =
-            window.mParticle.config.aliasUrl;
+        mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(window.mParticle.config.v1SecureServiceUrl)
+        mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(window.mParticle.config.v2SecureServiceUrl)
+        mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
+        mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl)
+        mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(window.mParticle.config.identityUrl)
+        mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(window.mParticle.config.aliasUrl)
 
         // test events endpoint
         server.requests = [];
@@ -746,7 +759,7 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should user configUrl when specified on config object', function(done) {
+    it('should use configUrl when specified on config object', function(done) {
         mParticle.config.configUrl = 'testConfigUrl/';
         mParticle.config.requestConfig = true;
 
@@ -760,10 +773,33 @@ describe('core SDK', function() {
         done();
     });
 
+    it('should use custom v3 endpoint when specified on config object', function(done) {
+        mParticle.config.v3SecureServiceUrl = 'custom-v3SecureServiceUrl/v2/JS/';
+
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+
+        window.fetchMock.post(
+            'https://custom-v3SecureServiceUrl/v2/JS/test_key/events',
+            200
+        );
+
+        mParticle.init(apiKey, mParticle.config);
+
+        server.requests = [];
+        mParticle.init(apiKey, window.mParticle.config);
+
+        window.mParticle.logEvent('Test Event');
+
+        window.fetchMock.lastOptions().body.should.be.ok()
+
+        done();
+    });
+
     const configOptions = [
-        'serviceUrl',
-        'v2ServiceUrl',
-        'secureServiceUrl',
+        'v1SecureServiceUrl',
         'v2SecureServiceUrl',
         'v3SecureServiceUrl',
         'identityUrl',
@@ -821,8 +857,6 @@ describe('core SDK', function() {
         mParticle._resetForTests(MPConfig);
         var config = {
             appName: 'appNameTest',
-            serviceUrl: 'testServiceUrl',
-            secureServiceUrl: 'secureTestServiceUrl',
             minWebviewBridgeVersion: 1,
             workspaceToken: 'token1',
         };
@@ -836,9 +870,6 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.getInstance()._Store.SDKConfig.appName = config.appName;
-        mParticle.getInstance()._Store.SDKConfig.serviceUrl = config.serviceUrl;
-        mParticle.getInstance()._Store.SDKConfig.secureServiceUrl =
-            config.secureServiceUrl;
         mParticle.getInstance()._Store.SDKConfig.minWebviewBridgeVersion =
             config.minWebviewBridgeVersion;
         mParticle.getInstance()._Store.SDKConfig.workspaceToken = config.workspaceToken;
