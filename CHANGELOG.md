@@ -2,6 +2,12 @@
 
 --
 
+#### 2.11.5 - 2020-02-12
+
+-   Update node version for Travis
+-   Api docs update
+-   Bugfix - Enable configuration of v1 endpoints
+
 #### 2.11.4 - 2020-02-06
 
 -   Feat - Modify reset API for public consumption
