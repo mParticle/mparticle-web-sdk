@@ -1,7 +1,16 @@
 import Types from '../../src/types';
 import Constants from '../../src/constants';
+import { apiKey, MPConfig } from './config';
 
 describe('Api Client', function() {
+    beforeEach(function() {
+        mParticle.init(apiKey, window.mParticle.config);
+    });
+
+    afterEach(function() {
+        mParticle._resetForTests(MPConfig);
+    });
+
     it('Should enable batching for ramp percentages', function(done) {
         mParticle.getInstance()._Store.SDKConfig.flags[
             Constants.FeatureFlags.EventsV3

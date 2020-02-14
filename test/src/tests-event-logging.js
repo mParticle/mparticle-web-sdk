@@ -1,23 +1,46 @@
-import TestsCore from './tests-core';
+import Utils from './utils';
 import sinon from 'sinon';
+import { urls, apiKey,
+    testMPID,
+    MPConfig,
+    MessageType } from './config';
 
-var getEvent = TestsCore.getEvent,
-    getIdentityEvent = TestsCore.getIdentityEvent,
-    apiKey = TestsCore.apiKey,
-    testMPID = TestsCore.testMPID,
-    setLocalStorage = TestsCore.setLocalStorage,
-    server = TestsCore.server,
-    MPConfig = TestsCore.MPConfig,
-    MessageType = TestsCore.MessageType;
+var getEvent = Utils.getEvent,
+    getIdentityEvent = Utils.getIdentityEvent,
+    mockServer;
 
 describe('event logging', function() {
+    beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
+        delete mParticle._instances['default_instance'];
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, Store: {}})
+        ]);
+
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+        mParticle.init(apiKey, window.mParticle.config)
+    });
+
+    afterEach(function() {
+        mockServer.restore();
+    });
+
     it('should log an event', function(done) {
         window.mParticle.logEvent(
             'Test Event',
             mParticle.EventType.Navigation,
             { mykey: 'myvalue' }
         );
-        var data = getEvent('Test Event');
+        var data = getEvent(mockServer.requests, 'Test Event');
 
         data.should.have.property('n', 'Test Event');
         data.should.have.property('et', mParticle.EventType.Navigation);
@@ -31,7 +54,7 @@ describe('event logging', function() {
     it('should log an error', function(done) {
         mParticle.logError('my error');
 
-        var data = getEvent('Error');
+        var data = getEvent(mockServer.requests, 'Error');
 
         Should(data).be.ok();
 
@@ -48,7 +71,7 @@ describe('event logging', function() {
 
         mParticle.logError(error);
 
-        var data = getEvent('Error');
+        var data = getEvent(mockServer.requests, 'Error');
 
         Should(data).be.ok();
 
@@ -67,7 +90,7 @@ describe('event logging', function() {
 
         mParticle.logError(error, { location: 'my path', myData: 'my data' });
 
-        var data = getEvent('Error');
+        var data = getEvent(mockServer.requests, 'Error');
 
         Should(data).be.ok();
         data.should.have.property('n', 'Error');
@@ -84,7 +107,7 @@ describe('event logging', function() {
             valid: 10,
         });
 
-        var data = getEvent('Error');
+        var data = getEvent(mockServer.requests, 'Error');
 
         Should(data).be.ok();
         data.should.have.property('n', 'Error');
@@ -95,8 +118,8 @@ describe('event logging', function() {
         done();
     });
 
-    it('should log an AST with firstRun = true when first visiting a page', function(done) {
-        var data = getEvent(MessageType.AppStateTransition);
+    it('should log an AST with firstRun = true when first visiting a page', function(done) {       
+        var data = getEvent(mockServer.requests, MessageType.AppStateTransition);
         data.should.have.property('at', 1);
         data.should.have.property('fr', true);
         data.should.have.property('iu', false);
@@ -108,14 +131,13 @@ describe('event logging', function() {
     });
 
     it('should log an AST on init with firstRun = false when cookies already exist', function(done) {
-        mParticle._resetForTests(MPConfig);
-        server.requests = [];
+        // cookies currently exist, mParticle.init called from beforeEach
 
-        setLocalStorage();
-
+        mockServer.requests = [];
+        // log second AST
         mParticle.init(apiKey, window.mParticle.config);
 
-        var data2 = getEvent(MessageType.AppStateTransition);
+        var data2 = getEvent(mockServer.requests, MessageType.AppStateTransition);
         data2.should.have.property('fr', false);
 
         done();
@@ -124,7 +146,7 @@ describe('event logging', function() {
     it('should log a page view', function(done) {
         mParticle.logPageView();
 
-        var event = getEvent('PageView');
+        var event = getEvent(mockServer.requests, 'PageView');
 
         Should(event).be.ok();
 
@@ -144,7 +166,7 @@ describe('event logging', function() {
             }
         );
 
-        var event = getEvent('My Page View');
+        var event = getEvent(mockServer.requests, 'My Page View');
 
         event.should.have.property('attrs');
         event.attrs.should.have.property('testattr', 1);
@@ -160,7 +182,7 @@ describe('event logging', function() {
             'MyCustom.Flag': 'Test',
         });
 
-        var event = getEvent('test');
+        var event = getEvent(mockServer.requests, 'test');
 
         Should(event).be.ok();
 
@@ -179,7 +201,7 @@ describe('event logging', function() {
             'MyCustom.Array': ['Blah', 'Hello', {}],
         });
 
-        var event = getEvent('test');
+        var event = getEvent(mockServer.requests, 'test');
 
         Should(event).be.ok();
 
@@ -195,7 +217,7 @@ describe('event logging', function() {
 
     it('should not log a PageView event if there are invalid attrs', function(done) {
         mParticle.logPageView('test1', 'invalid', null);
-        var event2 = getEvent('test1');
+        var event2 = getEvent(mockServer.requests, 'test1');
 
         Should(event2).not.be.ok();
 
@@ -204,29 +226,29 @@ describe('event logging', function() {
 
     it('should not log an event that has an invalid customFlags', function(done) {
         mParticle.logPageView('test', null, 'invalid');
-        var event1 = getEvent('test');
+        var event1 = getEvent(mockServer.requests, 'test');
         Should(event1).not.be.ok();
 
         done();
     });
 
     it('should log event with name PageView when an invalid event name is passed', function(done) {
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logPageView(null);
-        server.requests.length.should.equal(1);
-        var event1 = getEvent('PageView');
+        mockServer.requests.length.should.equal(1);
+        var event1 = getEvent(mockServer.requests, 'PageView');
         event1.n.should.equal('PageView');
 
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logPageView({ test: 'test' });
-        server.requests.length.should.equal(1);
-        var event2 = getEvent('PageView');
+        mockServer.requests.length.should.equal(1);
+        var event2 = getEvent(mockServer.requests, 'PageView');
         event2.n.should.equal('PageView');
 
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logPageView([1, 2, 3]);
-        server.requests.length.should.equal(1);
-        var event3 = getEvent('PageView');
+        mockServer.requests.length.should.equal(1);
+        var event3 = getEvent(mockServer.requests, 'PageView');
         event3.n.should.equal('PageView');
 
         done();
@@ -235,7 +257,7 @@ describe('event logging', function() {
     it('should log opt out', function(done) {
         mParticle.setOptOut(true);
 
-        var event = getEvent(MessageType.OptOut);
+        var event = getEvent(mockServer.requests, MessageType.OptOut);
 
         event.should.have.property('dt', MessageType.OptOut);
         event.should.have.property('o', true);
@@ -244,24 +266,22 @@ describe('event logging', function() {
     });
 
     it('should parse response after logging event', function(done) {
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {
-                        testprop: {
-                            Expires: new Date(2040, 1, 1),
-                            Value: 'blah',
-                        },
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({
+                Store: {
+                    testprop: {
+                        Expires: new Date(2040, 1, 1),
+                        Value: 'blah',
                     },
-                })
-            );
-        };
-
+                },
+            })
+        ]);
+        
         mParticle.logEvent('test event2');
         mParticle.logEvent('test event');
-        var event = getEvent('test event');
+        var event = getEvent(mockServer.requests, 'test event');
 
         event.should.have.property('str');
         event.str.should.have.property('testprop');
@@ -271,19 +291,19 @@ describe('event logging', function() {
     });
 
     it('log event requires name', function(done) {
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logEvent();
 
-        Should(server.requests).have.lengthOf(0);
+        Should(mockServer.requests).have.lengthOf(0);
 
         done();
     });
 
     it('log event requires valid event type', function(done) {
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logEvent('test', 100);
 
-        Should(server.requests).have.lengthOf(0);
+        Should(mockServer.requests).have.lengthOf(0);
 
         done();
     });
@@ -291,7 +311,7 @@ describe('event logging', function() {
     it('event attributes must be object', function(done) {
         mParticle.logEvent('test', null, 1);
 
-        var data = getEvent('test');
+        var data = getEvent(mockServer.requests, 'test');
 
         data.should.have.property('attrs', null);
 
@@ -300,32 +320,32 @@ describe('event logging', function() {
 
     it('opting out should prevent events being sent', function(done) {
         mParticle.setOptOut(true);
-        server.requests = [];
+        mockServer.requests = [];
 
         mParticle.logEvent('test');
-        server.requests.should.have.lengthOf(0);
+        mockServer.requests.should.have.lengthOf(0);
 
         done();
     });
 
     it('after logging optout, and reloading, events still should not be sent until opt out is enabled when using local storage', function(done) {
         mParticle.setOptOut(true);
-        server.requests = [];
+        mockServer.requests = [];
 
         mParticle.logEvent('test');
-        server.requests.should.have.lengthOf(0);
+        mockServer.requests.should.have.lengthOf(0);
         mParticle.setOptOut(false);
 
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logEvent('test');
-        server.requests.should.have.lengthOf(1);
+        mockServer.requests.should.have.lengthOf(1);
 
         mParticle.setOptOut(true);
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logEvent('test');
-        server.requests.should.have.lengthOf(0);
+        mockServer.requests.should.have.lengthOf(0);
 
         done();
     });
@@ -334,29 +354,34 @@ describe('event logging', function() {
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.setOptOut(true);
-        server.requests = [];
+        mockServer.requests = [];
 
         mParticle.logEvent('test');
-        server.requests.should.have.lengthOf(0);
+        mockServer.requests.should.have.lengthOf(0);
         mParticle.setOptOut(false);
 
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logEvent('test');
-        server.requests.should.have.lengthOf(1);
+        mockServer.requests.should.have.lengthOf(1);
 
         mParticle.setOptOut(true);
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logEvent('test');
-        server.requests.should.have.lengthOf(0);
+        mockServer.requests.should.have.lengthOf(0);
 
         done();
     });
 
     it('should log logout event', function(done) {
+        mockServer.respondWith(urls.logout, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
         mParticle.Identity.logout();
-        var data = getIdentityEvent('logout');
+        var data = getIdentityEvent(mockServer.requests, 'logout');
         data.should.have.properties(
             'client_sdk',
             'environment',
@@ -370,8 +395,14 @@ describe('event logging', function() {
     });
 
     it('should log login event', function(done) {
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
         mParticle.Identity.login();
-        var data = getIdentityEvent('login');
+        var data = getIdentityEvent(mockServer.requests, 'login');
         data.should.have.properties(
             'client_sdk',
             'environment',
@@ -385,8 +416,13 @@ describe('event logging', function() {
     });
 
     it('should log modify event', function(done) {
+        mockServer.respondWith(urls.modify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
         mParticle.Identity.modify();
-        var data = getIdentityEvent('modify');
+        var data = getIdentityEvent(mockServer.requests, 'modify');
         data.should.have.properties(
             'client_sdk',
             'environment',
@@ -401,7 +437,7 @@ describe('event logging', function() {
 
     it('should send das with each event logged', function(done) {
         window.mParticle.logEvent('Test Event');
-        var data = getEvent('Test Event');
+        var data = getEvent(mockServer.requests, 'Test Event');
 
         data.should.have.property('das');
         data.das.length.should.equal(36);
@@ -423,7 +459,7 @@ describe('event logging', function() {
         mParticle.Identity.getCurrentUser().setConsentState(consentState);
 
         window.mParticle.logEvent('Test Event');
-        var data = getEvent('Test Event');
+        var data = getEvent(mockServer.requests, 'Test Event');
 
         data.should.have.property('con');
         data.con.should.have.property('gdpr');
@@ -436,8 +472,8 @@ describe('event logging', function() {
 
         mParticle.Identity.getCurrentUser().setConsentState(null);
 
-        window.mParticle.logEvent('Test Event');
-        data = getEvent('Test Event');
+        window.mParticle.logEvent('Test Event2');
+        data = getEvent(mockServer.requests, 'Test Event2');
         data.should.have.not.property('con');
 
         done();
@@ -446,7 +482,7 @@ describe('event logging', function() {
     it('should log integration attributes with each event', function(done) {
         mParticle.setIntegrationAttribute(128, { MCID: 'abcdefg' });
         mParticle.logEvent('Test Event');
-        var data = getEvent('Test Event');
+        var data = getEvent(mockServer.requests, 'Test Event');
 
         data.should.have.property('ia');
         data.ia.should.have.property('128');
@@ -456,7 +492,6 @@ describe('event logging', function() {
     });
 
     it('should run the callback once when tracking succeeds', function(done) {
-        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -473,14 +508,14 @@ describe('event logging', function() {
         // mock geo will successfully run after 1 second (geomock.js // navigator.geolocation.delay)
         clock.tick(1000);
         successCallbackCalled.should.equal(true);
-        var event = getEvent('test event');
+        var event = getEvent(mockServer.requests, 'test event');
         event.lc.lat.should.equal(52.5168);
         event.lc.lng.should.equal(13.3889);
-        server.requests = [];
+        mockServer.requests = [];
         //this will hit the watch position again, but won't call the callback again
         clock.tick(1000);
         numberTimesCalled.should.equal(1);
-        event = getEvent('test event');
+        event = getEvent(mockServer.requests, 'test event');
         Should(event).not.be.ok();
 
         clock.restore();
@@ -489,7 +524,6 @@ describe('event logging', function() {
     });
 
     it('should run the callback once when tracking fails', function(done) {
-        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -508,14 +542,14 @@ describe('event logging', function() {
         // mock geo will successfully run after 1 second (geomock.js // navigator.geolocation.delay)
         clock.tick(1000);
         successCallbackCalled.should.equal(true);
-        var event = getEvent('test event');
+        var event = getEvent(mockServer.requests, 'test event');
         event.should.have.property('lc', null);
-        server.requests = [];
+        mockServer.requests = [];
 
         //this will hit the watch position again, but won't call the callback again
         clock.tick(1000);
         numberTimesCalled.should.equal(1);
-        event = getEvent('test event');
+        event = getEvent(mockServer.requests, 'test event');
         Should(event).not.be.ok();
 
         navigator.geolocation.shouldFail = false;
@@ -526,7 +560,6 @@ describe('event logging', function() {
     });
 
     it('should pass the found or existing position to the callback in startTrackingLocation', function(done) {
-        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -553,7 +586,6 @@ describe('event logging', function() {
     });
 
     it('should run the callback if tracking already exists', function(done) {
-        mParticle._resetForTests(MPConfig);
         var clock = sinon.useFakeTimers();
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -572,7 +604,7 @@ describe('event logging', function() {
         // mock geo will successfully run after 1 second (geomock.js // navigator.geolocation.delay)
         clock.tick(1000);
         successCallbackCalled.should.equal(true);
-        var event = getEvent('test event');
+        var event = getEvent(mockServer.requests, 'test event');
         var latitudeResult = 52.5168;
         var longitudeResult = 13.3889;
         event.lc.lat.should.equal(latitudeResult);

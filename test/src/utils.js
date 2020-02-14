@@ -1,20 +1,6 @@
-var server = new window.MockHttpServer(),
-    apiKey = 'test_key',
-    testMPID = 'testMPID',
-    v3CookieKey = 'mprtcl-v3',
-    v3LSKey = v3CookieKey,
-    localStorageProductsV4 = 'mprtcl-prodv4',
-    v4CookieKey = 'mprtcl-v4',
-    v4LSKey = 'mprtcl-v4',
-    workspaceToken = 'abcdef',
-    workspaceCookieName = 'mprtcl-v4' + '_' + workspaceToken,
-    LocalStorageProductsV4WithWorkSpaceName =
-        'mprtcl-prodv4' + '_' + workspaceToken,
-    pluses = /\+/g,
-    MPConfig = {
-        workspaceToken: workspaceToken,
-    },
-    das = 'das-test',
+import { apiKey, testMPID, v3CookieKey, v4CookieKey, v4LSKey, workspaceToken, workspaceCookieName, das } from './config';
+
+var pluses = /\+/g,
     getLocalStorageProducts = function getLocalStorageProducts() {
         return JSON.parse(
             atob(
@@ -185,148 +171,73 @@ var server = new window.MockHttpServer(),
             return mParticle.getInstance()._Persistence.getLocalStorage();
         }
     },
-    getEvent = function(eventName, isForwarding, server, apiKey) {
-        var requests = getRequests(
-                isForwarding ? 'Forwarding' : 'Events',
-                server, apiKey
-            ),
-            matchedEvent = null,
-            data;
-        requests.forEach(function(item) {
-            if (item.requestText) {
-                data = JSON.parse(item.requestText);
-            } else if (item.requestBody) {
-                data = JSON.parse(item.requestBody);
-            }
-            if (data.n === eventName) {
-                matchedEvent = data;
-            }
-        });
-
-        return matchedEvent;
+    getEvent = function(requests, eventName) {
+        if (requests.length) {
+            var events = requests.filter(function(request) {
+                if (request.requestBody) {
+                    return JSON.parse(request.requestBody).n === eventName
+                } else {
+                    return null;
+                }
+            })
+            .map(function(request) {
+                return JSON.parse(request.requestBody)
+            });
+    
+            return events[0]
+        }
     },
-    getForwarderEvent = function(eventName) {
-        var requests = [];
-        if (getForwarderRequests().length) {
-            getForwarderRequests().forEach(function(request) {
-                JSON.parse(request.requestText).data.forEach(function(
-                    internalRequest
-                ) {
+    getForwarderEvent = function(requests, eventName) {
+        var url = `https://jssdks.mparticle.com/v2/JS/${apiKey}/Forwarding`
+        var returnedReqs = [];
+        if (requests.length) {
+            requests.filter(function(request) {
+                return (request.url === url)
+            }).forEach(function(request) {
+                JSON.parse(request.requestBody).data.forEach(function(internalRequest) {
                     if (internalRequest.n === eventName) {
-                        requests.push(internalRequest);
+                        returnedReqs.push(internalRequest)
                     }
-                });
+                })
             });
         }
-
-        if (requests.length) {
-            return requests[0];
+        if (returnedReqs.length) {
+            return (returnedReqs[0]);
         } else {
             return null;
         }
     },
-    getRequests = function(path, mockServer, token) {
-        apiKey = token || apiKey;
-        var requests = [];
-        var version = path === 'Forwarding' ? 'v1' : 'v2',
-            fullPath = '/' + version + '/JS/' + apiKey + '/' + path;
-        mockServer = mockServer || server;
-        mockServer.requests.forEach(function(item) {
-            if (item.urlParts) {
-                if (item.urlParts.path == fullPath) {
-                    requests.push(item);
-                }
-            } else if (item.url) {
-                if (item.url.includes(fullPath)) {
-                    requests.push(item);
-                }
-            }
-        });
+    findRequest = function(requests, eventName) {
+        var reqs = requests.filter(function(request) {
+            return JSON.parse(request.requestBody).n === eventName
+        })
 
-        return requests;
+        return reqs[0]
     },
-    getForwarderRequests = function() {
-        var requests = [];
-        var version = 'v2',
-            fullPath = '/' + version + '/JS/' + apiKey + '/' + 'Forwarding';
-
-        server.requests.forEach(function(item) {
-            if (item.urlParts.path == fullPath) {
-                requests.push(item);
-            }
-        });
-
-        return requests;
-    },
-    getIdentityRequests = function(path) {
-        var requests = [],
-            fullPath = '/v1/' + path;
-
+    getIdentityRequests = function(requests, path) {
+        var returnedRequests = [],
+            fullPath = 'https://identity.mparticle.com/v1/' + path;
         if (path !== 'modify') {
-            server.requests.forEach(function(item) {
-                if (item.urlParts.path === fullPath) {
-                    requests.push(item);
+            requests.forEach(function(item) {
+                if (item.url === fullPath) {
+                    returnedRequests.push(item);
                 }
             });
         } else {
-            server.requests.forEach(function(item) {
-                if (item.urlParts.path.slice(-6) === 'modify') {
-                    requests.push(item);
+            requests.forEach(function(item) {
+                if (item.url.slice(-6) === 'modify') {
+                    returnedRequests.push(item);
                 }
             });
         }
 
-        return requests;
+        return returnedRequests;
     },
-    getIdentityEvent = function(endpoint) {
-        var requests = getIdentityRequests(endpoint);
-        if (requests[0] && requests[0].requestText) {
-            return JSON.parse(requests[0].requestText);
+    getIdentityEvent = function(mockRequests, endpoint) {
+        var returnedReqs = getIdentityRequests(mockRequests, endpoint);
+        if (returnedReqs[0] && returnedReqs[0].requestBody) {
+            return JSON.parse(returnedReqs[0].requestBody);
         }
-    },
-    MessageType = {
-        SessionStart: 1,
-        SessionEnd: 2,
-        PageView: 3,
-        PageEvent: 4,
-        CrashReport: 5,
-        OptOut: 6,
-        AppStateTransition: 10,
-        Profile: 14,
-        Commerce: 16,
-    },
-    ProductActionType = {
-        Unknown: 0,
-        AddToCart: 1,
-        RemoveFromCart: 2,
-        Checkout: 3,
-        CheckoutOption: 4,
-        Click: 5,
-        ViewDetail: 6,
-        Purchase: 7,
-        Refund: 8,
-        AddToWishlist: 9,
-        RemoveFromWishlist: 10,
-    },
-    PromotionActionType = {
-        Unknown: 0,
-        PromotionView: 1,
-        PromotionClick: 2,
-    },
-    CommerceEventType = {
-        ProductAddToCart: 10,
-        ProductRemoveFromCart: 11,
-        ProductCheckout: 12,
-        ProductCheckoutOption: 13,
-        ProductClick: 14,
-        ProductViewDetail: 15,
-        ProductPurchase: 16,
-        ProductRefund: 17,
-        PromotionView: 18,
-        PromotionClick: 19,
-        ProductAddToWishlist: 20,
-        ProductRemoveFromWishlist: 21,
-        ProductImpression: 22,
     },
     forwarderDefaultConfiguration = function(
         forwarderName,
@@ -586,8 +497,6 @@ var server = new window.MockHttpServer(),
     };
 
 var TestsCore = {
-    apiKey: apiKey,
-    testMPID: testMPID,
     getLocalStorageProducts: getLocalStorageProducts,
     findCookie: findCookie,
     setCookie: setCookie,
@@ -595,26 +504,16 @@ var TestsCore = {
     getLocalStorage: getLocalStorage,
     getEvent: getEvent,
     getForwarderEvent: getForwarderEvent,
+    findRequest: findRequest,
     getIdentityEvent: getIdentityEvent,
-    MessageType: MessageType,
-    ProductActionType: ProductActionType,
-    PromotionActionType: PromotionActionType,
-    CommerceEventType: CommerceEventType,
     MockForwarder: MockForwarder,
     mParticleAndroid: mParticleAndroid,
     mParticleIOS: mParticleIOS,
-    v3LSKey: v3LSKey,
-    v3CookieKey: v3CookieKey,
     v4CookieKey: v4CookieKey,
     v4LSKey: v4LSKey,
-    das: das,
-    localStorageProductsV4: localStorageProductsV4,
-    LocalStorageProductsV4WithWorkSpaceName: LocalStorageProductsV4WithWorkSpaceName,
     workspaceToken: workspaceToken,
     workspaceCookieName: workspaceCookieName,
-    forwarderDefaultConfiguration: forwarderDefaultConfiguration,
-    MPConfig: MPConfig,
-    server: server,
+    forwarderDefaultConfiguration: forwarderDefaultConfiguration
 };
 
 export default TestsCore;

@@ -1,26 +1,39 @@
 import _Persistence from '../../src/persistence';
 import Migrations from '../../src/migrations';
-import TestsCore from './tests-core';
+import Utils from './utils';
+import sinon from 'sinon';
+import { urls, apiKey, testMPID, MPConfig, v3CookieKey, workspaceCookieName, v3LSKey, localStorageProductsV4, LocalStorageProductsV4WithWorkSpaceName } from './config';
 
 /* eslint-disable quotes */
-var apiKey = TestsCore.apiKey,
-    testMPID = TestsCore.testMPID,
-    v3CookieKey = TestsCore.v3CookieKey,
-    MPConfig = TestsCore.MPConfig,
-    getLocalStorageProducts = TestsCore.getLocalStorageProducts,
-    workspaceCookieName = TestsCore.workspaceCookieName,
-    setCookie = TestsCore.setCookie,
-    setLocalStorage = TestsCore.setLocalStorage,
-    getEvent = TestsCore.getEvent,
-    v3LSKey = TestsCore.v3LSKey,
-    findCookie = TestsCore.findCookie,
-    v4CookieKey = TestsCore.v4CookieKey,
-    localStorageProductsV4 = TestsCore.localStorageProductsV4,
-    LocalStorageProductsV4WithWorkSpaceName =
-        TestsCore.LocalStorageProductsV4WithWorkSpaceName,
-    server = TestsCore.server;
+var getLocalStorageProducts = Utils.getLocalStorageProducts,
+    setCookie = Utils.setCookie,
+    setLocalStorage = Utils.setLocalStorage,
+    getEvent = Utils.getEvent,
+    findCookie = Utils.findCookie,
+    v4CookieKey = Utils.v4CookieKey,
+    mockServer;
 
 describe('persistence migrations from SDKv1 to SDKv2', function() {
+    beforeEach(function() {
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, Store: {}})
+        ]);
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+    });
+
+    afterEach(function() {
+        mockServer.restore();
+    });
+
     var mP = new _Persistence(mParticle.getInstance());
     var les = new Date().getTime();
 
@@ -111,10 +124,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         localStorage.setItem(v3LSKey, lsProductsRaw);
         mParticle.init(apiKey, window.mParticle.config);
 
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent('eCommerce - Checkout');
+        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
         event.ui[0].should.have.property('Identity', 'customerid1');
         event.ui[0].should.have.property('Type', 1);
         event.ui[1].should.have.property('Identity', 'test@email.com');
@@ -130,10 +143,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         setLocalStorage(v3LSKey, SDKv1CookieV3Full, true);
 
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent('eCommerce - Checkout');
+        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
         event.ui[0].should.have.property('Identity', 'test@email.com');
         event.ui[0].should.have.property('Type', 7);
 
@@ -189,10 +202,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent('eCommerce - Checkout');
+        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
         event.ui[0].should.have.property('Identity', 'customerid1');
         event.ui[0].should.have.property('Type', 1);
         event.ui[1].should.have.property('Identity', 'test@email.com');
@@ -208,10 +221,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         setLocalStorage(v3LSKey, SDKv1CookieV3FullLSApostrophes, true);
         mParticle.init(apiKey, window.mParticle.config);
 
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent('eCommerce - Checkout');
+        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
         event.ui[0].should.have.property('Identity', 'customerid1');
         event.ui[0].should.have.property('Type', 1);
         event.ui[1].should.have.property('Identity', 'test@email.com');
@@ -252,7 +265,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
             pb: { productBag1: [product1, product2] },
         };
 
-        mParticle.getInstance()._Store.prodStorageName = TestsCore.LocalStorageProductsV4WithWorkSpaceName;
+        mParticle.getInstance()._Store.prodStorageName = LocalStorageProductsV4WithWorkSpaceName;
         new Migrations(
             mParticle.getInstance()
         ).convertSDKv1CookiesV3ToSDKv2CookiesV4(JSON.stringify(SDKv1CookieV3));
@@ -270,7 +283,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
         mParticle.getInstance()._Store.prodStorageName =
-            TestsCore.LocalStorageProductsV4WithWorkSpaceName;
+            LocalStorageProductsV4WithWorkSpaceName;
 
         var v4Cookies = JSON.parse(
             new Migrations(
@@ -311,14 +324,14 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         setCookie(v3CookieKey, SDKv1CookieV3WithEncodedProducts, true);
 
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
         var testName = "' ' test name ' with apostrophes";
         mParticle.eCommerce.Cart.add(
             mParticle.eCommerce.createProduct(testName, 'sku123', 1)
         );
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent('eCommerce - Checkout');
+        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
         event.sc.pl.length.should.equal(0);
 
         done();
@@ -345,7 +358,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         var LS = localStorage.getItem(LocalStorageProductsV4WithWorkSpaceName);
 
         LS.should.equal('eyJ0ZXN0TVBJRCI6eyJjcCI6W119fQ==');
-
+        
         done();
     });
 
@@ -356,14 +369,14 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         setLocalStorage(v3LSKey, SDKv1CookieV3WithEncodedProducts, true);
         mParticle.init(apiKey, window.mParticle.config);
 
-        server.requests = [];
+        mockServer.requests = [];
         var testName = "' ' test name ' with apostrophes";
         mParticle.eCommerce.Cart.add(
             mParticle.eCommerce.createProduct(testName, 'sku123', 1)
         );
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent('eCommerce - Checkout');
+        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
         event.sc.pl.length.should.equal(0);
 
         done();

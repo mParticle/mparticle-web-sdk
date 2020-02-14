@@ -1,6 +1,30 @@
 import Types from '../../src/types';
+import sinon from 'sinon';
+import { urls, testMPID, apiKey } from './config';
+
+var mockServer;
 
 describe('Server Model', function() {
+    beforeEach(function() {
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, Store: {}})
+        ]);
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+        mParticle.init(apiKey, window.mParticle.config);
+    });
+
+    afterEach(function() {
+        mockServer.restore();
+    });
 
     it('Should not convert data plan object to server DTO when no id or version is set', function(done) {
         let sdkEvent = mParticle

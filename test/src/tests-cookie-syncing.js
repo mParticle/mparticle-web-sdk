@@ -1,15 +1,36 @@
-import TestsCore from './tests-core';
+import Utils from './utils';
+import sinon from 'sinon';
+import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config';
 
-var setLocalStorage = TestsCore.setLocalStorage,
-    testMPID = TestsCore.testMPID,
-    MPConfig = TestsCore.MPConfig,
-    MockForwarder = TestsCore.MockForwarder,
-    getLocalStorage = TestsCore.getLocalStorage,
-    v4LSKey = TestsCore.v4LSKey,
-    apiKey = TestsCore.apiKey,
-    server = TestsCore.server;
+var setLocalStorage = Utils.setLocalStorage,
+    MockForwarder = Utils.MockForwarder,
+    getLocalStorage = Utils.getLocalStorage,
+    mockServer;
 
 describe('cookie syncing', function() {
+
+    beforeEach(function() {
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, Store: {}})
+        ])
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+        mParticle.init(apiKey, window.mParticle.config);
+    });
+
+    afterEach(function() {
+        mockServer.restore();
+        mParticle._resetForTests(MPConfig);
+    });
+
     it('should sync cookies when there was not a previous cookie-sync', function(done) {
         mParticle._resetForTests(MPConfig);
         var pixelSettings = {
@@ -95,7 +116,7 @@ describe('cookie syncing', function() {
 
         setLocalStorage();
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
 
         var data = mParticle.getInstance()._Persistence.getLocalStorage();
 
@@ -130,16 +151,11 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
         var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'otherMPID',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
         var data2 = mParticle.getInstance()._Persistence.getLocalStorage();
@@ -259,11 +275,14 @@ describe('cookie syncing', function() {
                 },
             ],
         };
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify(forwarderConfigurationResult));
-        };
-        server.requests = [];
+
+        mockServer.respondWith(urls.config, [
+            200,
+            {},
+            JSON.stringify(forwarderConfigurationResult),
+        ]);
+
+        mockServer.requests = [];
         // add pixels to preInitConfig
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -271,16 +290,11 @@ describe('cookie syncing', function() {
             .getInstance()
             ._Store.pixelConfigurations.length.should.equal(1);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
+            mockServer.respondWith(urls.login, [
                 200,
-                JSON.stringify({
-                    status: 200,
-                    mpid: 'MPID1',
-                })
-            );
-        };
+                {},
+                JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+            ]);
 
         // force the preInit cookie configurations to fire
         mParticle.Identity.login({ userIdentities: { customerid: 'abc' } });

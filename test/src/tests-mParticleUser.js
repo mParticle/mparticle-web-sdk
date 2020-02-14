@@ -1,11 +1,52 @@
-import TestsCore from './tests-core';
+import Utils from './utils';
+import sinon from 'sinon';
+import { urls, apiKey, MPConfig } from './config';
 
-var apiKey = TestsCore.apiKey,
-    MPConfig = TestsCore.MPConfig,
-    forwarderDefaultConfiguration = TestsCore.forwarderDefaultConfiguration,
-    MockForwarder = TestsCore.MockForwarder;
+var forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
+    MockForwarder = Utils.MockForwarder,
+    mockServer;
 
 describe('mParticleUser', function() {
+    beforeEach(function() {
+        // TODO - for some reason when these MPIDs are all testMPID, the following test breaks:
+        // onIdentifyComplete/onLoginComplete/onLogoutComplete/onModifyComplete 
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'testtest', Store: {}})
+        ]);
+
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
+        ]);
+
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
+        ]);
+
+        mockServer.respondWith(urls.logout, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
+        ]);
+
+        mockServer.respondWith('https://identity.mparticle.com/v1/testtest/modify', [
+            200,
+            {},
+            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
+        ]);
+    });
+
+    afterEach(function() {
+        mockServer.restore();
+    });
+
     it('should call forwarder onUserIdentified method with a filtered user identity list', function(done) {
         mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();

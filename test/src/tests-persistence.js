@@ -1,26 +1,36 @@
-import TestsCore from './tests-core';
+import Utils from './utils';
 import sinon from 'sinon';
+import { urls, apiKey, testMPID, MPConfig,localStorageProductsV4, LocalStorageProductsV4WithWorkSpaceName, workspaceCookieName, v4LSKey } from './config';
 
 /* eslint-disable quotes*/
-var apiKey = TestsCore.apiKey,
-    testMPID = TestsCore.testMPID,
-    findCookie = TestsCore.findCookie,
-    MPConfig = TestsCore.MPConfig,
-    localStorageProductsV4 = TestsCore.localStorageProductsV4,
-    LocalStorageProductsV4WithWorkSpaceName =
-        TestsCore.LocalStorageProductsV4WithWorkSpaceName,
-    workspaceCookieName = TestsCore.workspaceCookieName,
-    getLocalStorage = TestsCore.getLocalStorage,
-    getLocalStorageProducts = TestsCore.getLocalStorageProducts,
-    setCookie = TestsCore.setCookie,
-    setLocalStorage = TestsCore.setLocalStorage,
-    server = TestsCore.server,
-    v4LSKey = 'mprtcl-v4',
-    getEvent = TestsCore.getEvent;
+var findCookie = Utils.findCookie,
+    getLocalStorage = Utils.getLocalStorage,
+    getLocalStorageProducts = Utils.getLocalStorageProducts,
+    setCookie = Utils.setCookie,
+    setLocalStorage = Utils.setLocalStorage,
+    getEvent = Utils.getEvent,
+    mockServer;
 
 describe('migrations and persistence-related', function() {
     beforeEach(function() {
-        delete mParticle.config.useCookieStorage;
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, Store: {}})
+        ])
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+        mParticle.init(apiKey, window.mParticle.config);
+    });
+
+    afterEach(function() {
+        mockServer.restore();
     });
 
     it('should move new schema from cookies to localStorage with useCookieStorage = false', function(done) {
@@ -126,15 +136,11 @@ describe('migrations and persistence-related', function() {
             'cp',
         ];
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'otherMPID',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -193,15 +199,11 @@ describe('migrations and persistence-related', function() {
             'cp',
         ];
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'otherMPID',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
         var cookies2 = findCookie();
@@ -408,10 +410,10 @@ describe('migrations and persistence-related', function() {
 
     it('should save integration attributes properly on a page refresh', function(done) {
         mParticle.setIntegrationAttribute(128, { MCID: 'abcedfg' });
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.logEvent('Test Event');
-        var data = getEvent('Test Event');
-
+        var data = getEvent(mockServer.requests, 'Test Event');
         data.ia.should.have.property('128');
         data.ia['128'].should.have.property('MCID', 'abcedfg');
 
@@ -446,18 +448,14 @@ describe('migrations and persistence-related', function() {
         mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
+        
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
+        ]);
+        
         var user1 = { userIdentities: { customerid: 'customerid1' } };
-
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'mpid1',
-                })
-            );
-        };
 
         mParticle.Identity.login(user1);
         var user1Result = mParticle
@@ -466,16 +464,11 @@ describe('migrations and persistence-related', function() {
             .getUserIdentities();
         user1Result.userIdentities.customerid.should.equal('customerid1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'mpid2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.logout, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid2', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.logout();
 
@@ -523,48 +516,33 @@ describe('migrations and persistence-related', function() {
         var data = mParticle.getInstance()._Persistence.getLocalStorage();
         data.cu.should.equal(testMPID);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'mpid1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login(user1);
         var user1Data = mParticle.getInstance()._Persistence.getLocalStorage();
 
         user1Data.cu.should.equal('mpid1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'mpid2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid2', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login(user2);
         var user2Data = mParticle.getInstance()._Persistence.getLocalStorage();
 
         user2Data.cu.should.equal('mpid2');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'mpid3',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid3', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login(user3);
         var user3data = mParticle.getInstance()._Persistence.getLocalStorage();
@@ -595,16 +573,17 @@ describe('migrations and persistence-related', function() {
         data.cu.should.equal(testMPID);
         data.testMPID.ua.should.have.property('test1', 'test1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'mpid1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
+        ]);
+
+        mockServer.respondWith('https://identity.mparticle.com/v1/mpid1/modify', [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login(user1);
 
@@ -622,16 +601,11 @@ describe('migrations and persistence-related', function() {
         user1Data.mpid1.ui.should.have.property('7', 'email@test.com');
         user1Data.mpid1.ui.should.have.property('1', 'customerid1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'mpid2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid2', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login(user2);
         mParticle
@@ -644,16 +618,11 @@ describe('migrations and persistence-related', function() {
         user2Data.mpid2.ui.should.have.property('1', 'customerid2');
         user2Data.mpid2.ua.should.have.property('test3', 'test3');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    Store: {},
-                    mpid: 'mpid1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login(user1);
         var user1RelogInData = mParticle
@@ -802,15 +771,11 @@ describe('migrations and persistence-related', function() {
         mParticle.config.maxCookieSize = 1000;
         mParticle.init(apiKey, window.mParticle.config);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -818,15 +783,11 @@ describe('migrations and persistence-related', function() {
         cookieData.gs.csm[0].should.be.equal('testMPID');
         cookieData.gs.csm[1].should.be.equal('MPID1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -835,15 +796,11 @@ describe('migrations and persistence-related', function() {
         cookieData.gs.csm[1].should.be.equal('MPID1');
         cookieData.gs.csm[2].should.be.equal('MPID2');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'testMPID',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'testMPID', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -883,15 +840,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
+            mockServer.respondWith(urls.login, [
                 200,
-                JSON.stringify({
-                    mpid: 'MPID1',
-                })
-            );
-        };
+                {},
+                JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+            ]);
 
         mParticle.Identity.login();
 
@@ -920,15 +873,12 @@ describe('migrations and persistence-related', function() {
         cookieData.gs.csm[0].should.equal('testMPID');
         cookieData.gs.csm[1].should.equal('MPID1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+        ]);
+
         mParticle.Identity.login();
 
         mParticle
@@ -1073,15 +1023,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
+            mockServer.respondWith(urls.login, [
                 200,
-                JSON.stringify({
-                    mpid: 'MPID1',
-                })
-            );
-        };
+                {},
+                JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+            ]);
 
         mParticle.Identity.login();
 
@@ -1111,15 +1057,11 @@ describe('migrations and persistence-related', function() {
         cookieData.gs.csm[0].should.equal('testMPID');
         cookieData.gs.csm[1].should.equal('MPID1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+        ]);
 
         mParticle.endSession();
         mParticle.Identity.login();
@@ -1189,15 +1131,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -1222,15 +1160,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id2');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -1293,15 +1227,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -1326,15 +1256,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id2');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -1422,15 +1348,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -1455,15 +1377,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id2');
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -1567,15 +1485,11 @@ describe('migrations and persistence-related', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
         var user1StoredConsentState = mParticle
@@ -1597,15 +1511,12 @@ describe('migrations and persistence-related', function() {
         mParticle._resetForTests(MPConfig, true);
         mParticle.init(apiKey, window.mParticle.config);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'MPID2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+        ]);
+
         mParticle.Identity.login();
 
         var user2StoredConsentState = mParticle
@@ -1932,15 +1843,11 @@ describe('migrations and persistence-related', function() {
             cu: 'current',
         });
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    mpid: 'current',
-                })
-            );
-        };
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'current', is_logged_in: false }),
+        ]);
 
         setCookie(workspaceCookieName, cookies, true);
         mParticle.useCookieStorage = true;

@@ -1,17 +1,47 @@
-import TestsCore from './tests-core';
+import Utils from './utils';
 import sinon from 'sinon';
+import { urls } from './config';
+import { apiKey, MPConfig, testMPID, MessageType } from './config';
 
-var getEvent = TestsCore.getEvent,
-    getForwarderEvent = TestsCore.getForwarderEvent,
-    server = TestsCore.server,
-    apiKey = TestsCore.apiKey,
-    setLocalStorage = TestsCore.setLocalStorage,
-    forwarderDefaultConfiguration = TestsCore.forwarderDefaultConfiguration,
-    MPConfig = TestsCore.MPConfig,
-    MessageType = TestsCore.MessageType,
-    MockForwarder = TestsCore.MockForwarder;
+var getEvent = Utils.getEvent,
+    getForwarderEvent = Utils.getForwarderEvent,
+    setLocalStorage = Utils.setLocalStorage,
+    forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
+    MockForwarder = Utils.MockForwarder,
+    mockServer;
 
 describe('forwarders', function() {
+    beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
+        delete mParticle._instances['default_instance'];
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, Store: {}})
+        ]);
+
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
+        mockServer.respondWith(urls.forwarding, [
+            202,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+        mParticle.init(apiKey, window.mParticle.config);
+    });
+
+    afterEach(function() {
+        delete window.MockForwarder1;
+        mockServer.restore();
+    });
+
     it('should add forwarders via dynamic script loading via the addForwarder method', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -593,16 +623,16 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        server.requests = [];
+        mockServer.requests = [];
+
         mParticle.logEvent('send this event to forwarder');
 
         window.MockForwarder1.instance.should.have.property(
             'processCalled',
             true
         );
-        server.requests[1].urlParts.path.should.equal(
-            '/v1/JS/test_key/Forwarding'
-        );
+
+        mockServer.requests[mockServer.requests.length-1].url.includes('/v1/JS/test_key/Forwarding');
 
         done();
     });
@@ -624,7 +654,7 @@ describe('forwarders', function() {
             reportBatching: true,
         };
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
 
         mParticle.logEvent(
             'send this event to forwarder',
@@ -632,12 +662,11 @@ describe('forwarders', function() {
             { 'my-key': 'my-value' }
         );
         clock.tick(5000);
-        var event = getForwarderEvent('send this event to forwarder', true);
+        
+        var event = getForwarderEvent(mockServer.requests, 'send this event to forwarder', true);
         Should(event).should.be.ok();
 
-        server.requests[1].urlParts.path.should.equal(
-            '/v2/JS/test_key/Forwarding'
-        );
+        mockServer.requests[mockServer.requests.length-1].url.includes('/v2/JS/test_key/Forwarding');
         event.should.have.property('mid', 1);
         event.should.have.property('esid', 1234567890);
         event.should.have.property('n', 'send this event to forwarder');
@@ -676,7 +705,7 @@ describe('forwarders', function() {
             { 'my-key': 'my-value' }
         );
 
-        var event = getEvent('send this event to forwarder', true);
+        var event = getEvent(mockServer.requests, 'send this event to forwarder', true);
 
         Should(event).should.not.have.property('n');
 
@@ -791,6 +820,13 @@ describe('forwarders', function() {
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.userIdentityFilters = [mParticle.IdentityType.Google];
         window.mParticle.config.kitConfigs.push(config1);
+
+        mockServer.respondWith(urls.modify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
         mParticle.Identity.modify({
             userIdentities: {
                 google: 'test@google.com',
@@ -798,6 +834,7 @@ describe('forwarders', function() {
                 customerid: '123',
             },
         });
+
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.userIdentitiesFilterOnInitTest.length.should.equal(2);
@@ -824,6 +861,12 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
+
+        mockServer.respondWith(urls.modify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
 
         mParticle.Identity.modify({
             userIdentities: {
@@ -1556,14 +1599,14 @@ describe('forwarders', function() {
         );
         mParticle.eCommerce.Cart.add(product, true);
 
-        var result = getForwarderEvent('not in forwarder');
+        var result = getForwarderEvent(mockServer.requests, 'not in forwarder');
 
         Should(result).not.be.ok();
         clock.tick(5001);
 
-        result = getForwarderEvent('not in forwarder');
+        result = getForwarderEvent(mockServer.requests, 'not in forwarder');
         result.should.be.ok();
-        result = getForwarderEvent('eCommerce - AddToCart');
+        result = getForwarderEvent(mockServer.requests, 'eCommerce - AddToCart');
         result.should.be.ok();
         clock.restore();
 
@@ -1587,16 +1630,12 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
         window.mParticle.config.kitConfigs.push(config2);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    is_logged_in: false,
-                    mpid: 'MPID1',
-                })
-            );
-        };
+        
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -1627,16 +1666,17 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
         window.mParticle.config.kitConfigs.push(config2);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    is_logged_in: false,
-                    mpid: 'MPID1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
+
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -1668,17 +1708,6 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
         window.mParticle.config.kitConfigs.push(config2);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    is_logged_in: false,
-                    mpid: 'MPID1',
-                })
-            );
-        };
-
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.Identity.getCurrentUser()
             .isLoggedIn()
@@ -1690,16 +1719,11 @@ describe('forwarders', function() {
             },
         };
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    is_logged_in: true,
-                    mpid: 'MPID2',
-                })
-            );
-        };
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID2', is_logged_in: true }),
+        ]);
 
         mParticle.Identity.login(user);
         mParticle.Identity.getCurrentUser()
@@ -1721,16 +1745,11 @@ describe('forwarders', function() {
     it('should save logged in status of most recent user to cookies when logged in', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    is_logged_in: true,
-                    mpid: 'MPID1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: true }),
+        ]);
 
         mParticle.init(apiKey, window.mParticle.config);
         var ls = mParticle.getInstance()._Persistence.getLocalStorage();
@@ -1740,16 +1759,11 @@ describe('forwarders', function() {
         var ls2 = mParticle.getInstance()._Persistence.getLocalStorage();
         ls2.hasOwnProperty('l').should.equal(true);
 
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(
-                200,
-                JSON.stringify({
-                    is_logged_in: false,
-                    mpid: 'MPID1',
-                })
-            );
-        };
+        mockServer.respondWith(urls.logout, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.logout();
         var ls3 = mParticle.getInstance()._Persistence.getLocalStorage();
@@ -1843,18 +1857,18 @@ describe('forwarders', function() {
         mParticle._setIntegrationDelay(10, true);
 
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logEvent('test1');
-        server.requests.length.should.equal(0);
+        mockServer.requests.length.should.equal(0);
 
         mParticle._setIntegrationDelay(10, false);
         mParticle._setIntegrationDelay(128, false);
         mParticle.logEvent('test2');
-        server.requests.length.should.equal(4);
-        var sessionStartEvent = getEvent(1);
-        var astEvent = getEvent(10);
-        var test1 = getEvent('test1');
-        var test2 = getEvent('test2');
+        mockServer.requests.length.should.equal(4);
+        var sessionStartEvent = getEvent(mockServer.requests, 1);
+        var astEvent = getEvent(mockServer.requests, 10);
+        var test1 = getEvent(mockServer.requests, 'test1');
+        var test2 = getEvent(mockServer.requests, 'test2');
 
         (typeof sessionStartEvent === 'object').should.equal(true);
         (typeof astEvent === 'object').should.equal(true);
@@ -1885,18 +1899,18 @@ describe('forwarders', function() {
                 .length
         ).equal(3);
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logEvent('test1');
-        server.requests.length.should.equal(0);
+        mockServer.requests.length.should.equal(0);
 
         clock.tick(5001);
 
         mParticle.logEvent('test2');
-        server.requests.length.should.equal(4);
-        var sessionStartEvent = getEvent(1);
-        var astEvent = getEvent(10);
-        var test1 = getEvent('test1');
-        var test2 = getEvent('test2');
+        mockServer.requests.length.should.equal(4);
+        var sessionStartEvent = getEvent(mockServer.requests, 1);
+        var astEvent = getEvent(mockServer.requests, 10);
+        var test1 = getEvent(mockServer.requests, 'test1');
+        var test2 = getEvent(mockServer.requests, 'test2');
 
         (typeof sessionStartEvent === 'object').should.equal(true);
         (typeof astEvent === 'object').should.equal(true);
@@ -1912,18 +1926,18 @@ describe('forwarders', function() {
         mParticle._setIntegrationDelay(24, false);
         mParticle._setIntegrationDelay(10, true);
         mParticle.init(apiKey, window.mParticle.config);
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.logEvent('test1');
-        server.requests.length.should.equal(0);
+        mockServer.requests.length.should.equal(0);
 
         clock.tick(1001);
 
         mParticle.logEvent('test2');
-        server.requests.length.should.equal(4);
-        sessionStartEvent = getEvent(1);
-        astEvent = getEvent(10);
-        test1 = getEvent('test1');
-        test2 = getEvent('test2');
+        mockServer.requests.length.should.equal(4);
+        sessionStartEvent = getEvent(mockServer.requests, 1);
+        astEvent = getEvent(mockServer.requests, 10);
+        test1 = getEvent(mockServer.requests, 'test1');
+        test2 = getEvent(mockServer.requests, 'test2');
 
         (typeof sessionStartEvent === 'object').should.equal(true);
         (typeof astEvent === 'object').should.equal(true);
@@ -2001,11 +2015,14 @@ describe('forwarders', function() {
                 },
             ],
         };
-        server.handle = function(request) {
-            request.setResponseHeader('Content-Type', 'application/json');
-            request.receive(200, JSON.stringify(config));
-        };
-        server.requests = [];
+
+        mockServer.respondWith(urls.config, [
+            200,
+            {},
+            JSON.stringify(config),
+        ]);
+
+        mockServer.requests = [];
 
         mParticle.init(apiKey, window.mParticle.config);
 

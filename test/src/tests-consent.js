@@ -1,9 +1,34 @@
-import TestsCore from './tests-core';
+import Utils from './utils';
+import sinon from 'sinon';
+import { urls } from './config';
+import { apiKey, MPConfig, testMPID } from './config';
 
-var server = TestsCore.server,
-    getEvent = TestsCore.getEvent;
+var getEvent = Utils.getEvent,
+    mockServer;
 
 describe('Consent', function() {
+    beforeEach(function() {
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, Store: {}})
+        ]);
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+        mParticle.init(apiKey, window.mParticle.config);
+    });
+
+    afterEach(function() {
+        mockServer.restore();
+        mParticle._resetForTests(MPConfig);
+    });
+
     it('Should not create consent object without consented boolean', function(done) {
         var consent = mParticle.Consent.createGDPRConsent();
         (consent === null).should.be.ok();
@@ -529,9 +554,8 @@ describe('Consent', function() {
         var user = mParticle.Identity.getCurrentUser()
         user.setConsentState(consentState)
 
-        server.requests = []
         mParticle.logEvent('test');
-        var event = getEvent('test');
+        var event = getEvent(mockServer.requests, 'test')
 
         event.should.have.property('con');
         event.con.should.have.property('ccpa');
@@ -555,9 +579,8 @@ describe('Consent', function() {
         var user = mParticle.Identity.getCurrentUser()
         user.setConsentState(consentState)
 
-        server.requests = []
         mParticle.logEvent('test');
-        var event = getEvent('test');
+        var event = getEvent(mockServer.requests, 'test')
 
         event.should.have.property('con');
         event.con.should.have.property('ccpa');

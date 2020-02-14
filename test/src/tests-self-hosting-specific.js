@@ -1,12 +1,17 @@
-import TestsCore from './tests-core';
+import Utils from './utils';
 import sinon from 'sinon';
+import { urls, apiKey, MPConfig } from './config';
 
-var apiKey = TestsCore.apiKey,
-    getEvent = TestsCore.getEvent,
-    MPConfig = TestsCore.MPConfig;
+var getEvent = Utils.getEvent;
+
+var mockServer;
 
 // Calls to /config are specific to only the self hosting environment
 describe('/config self-hosting integration tests', function() {
+    beforeEach(function() {
+        mockServer = sinon.createFakeServer();
+    });
+
     it('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', function(done) {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
@@ -19,17 +24,16 @@ describe('/config self-hosting integration tests', function() {
 
         // start fake timer and mock server in order to
         var clock = sinon.useFakeTimers();
-        var mockServer = sinon.createFakeServer();
         mockServer.autoRespond = true;
         mockServer.autoRespondAfter = 100;
 
-        mockServer.respondWith('https://identity.mparticle.com/v1/identify', [
+        mockServer.respondWith(urls.identify, [
             200,
             {},
             JSON.stringify({ mpid: 'identifyMPID', is_logged_in: false }),
         ]);
         mockServer.respondWith(
-            'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0',
+            urls.config,
             [200, {}, JSON.stringify({})]
         );
 
@@ -37,19 +41,19 @@ describe('/config self-hosting integration tests', function() {
 
         // log event before config and identify come back
         mParticle.logEvent('Test');
-        var event = getEvent('Test', false, mockServer);
+        var event = getEvent(mockServer.requests, 'Test');
         Should(event).not.be.ok();
 
         // config and identify now get triggered, which runs through the event queue
         clock.tick(300);
 
-        event = getEvent('Test', false, mockServer);
+        event = getEvent(mockServer.requests, 'Test');
         event.should.be.ok();
         event.mpid.should.equal('identifyMPID');
 
         mockServer.restore();
         clock.restore();
-
+        window.mParticle.config.requestConfig = false;
         done();
     });
 
@@ -76,20 +80,19 @@ describe('/config self-hosting integration tests', function() {
 
         // start fake timer and mock server
         var clock = sinon.useFakeTimers();
-        var mockServer = sinon.createFakeServer();
         mockServer.autoRespond = true;
         mockServer.autoRespondAfter = 100;
 
         mockServer.respondWith(
-            'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0',
+            urls.config,
             [200, {}, JSON.stringify({ workspaceToken: 'workspaceTokenTest' })]
         );
-        mockServer.respondWith('https://identity.mparticle.com/v1/identify', [
+        mockServer.respondWith(urls.identify, [
             200,
             {},
             JSON.stringify({ mpid: 'identifyMPID', is_logged_in: false }),
         ]);
-        mockServer.respondWith('https://identity.mparticle.com/v1/login', [
+        mockServer.respondWith(urls.login, [
             200,
             {},
             JSON.stringify({ mpid: 'loginMPID', is_logged_in: false }),
@@ -103,7 +106,7 @@ describe('/config self-hosting integration tests', function() {
         // config triggers, login triggers immediately before identify
         clock.tick(300);
 
-        var event1 = getEvent('Test', false, mockServer);
+        var event1 = getEvent(mockServer.requests, 'Test', false, mockServer);
         event1.mpid.should.equal('loginMPID');
         messages
             .indexOf('Parsing "login" identity response from server')
@@ -113,13 +116,15 @@ describe('/config self-hosting integration tests', function() {
         messages
             .indexOf('Parsing "identify" identity response from server')
             .should.equal(-1);
-        var event2 = getEvent('identify callback event', false, mockServer);
+        var event2 = getEvent(mockServer.requests, 'identify callback event', false, mockServer);
         event2.mpid.should.equal('loginMPID');
 
         mockServer.restore();
         clock.restore();
 
         localStorage.removeItem('mprtcl-v4_workspaceTokenTest');
+        window.mParticle.config.requestConfig = false;
+
         done();
     });
 
@@ -131,12 +136,11 @@ describe('/config self-hosting integration tests', function() {
 
         // start fake timer and mock server
         var clock = sinon.useFakeTimers();
-        var mockServer = sinon.createFakeServer();
         mockServer.autoRespond = true;
         mockServer.autoRespondAfter = 100;
 
         mockServer.respondWith(
-            'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0',
+            urls.config,
             [200, {}, JSON.stringify({ workspaceToken: 'wtTest' })]
         );
 
@@ -148,6 +152,8 @@ describe('/config self-hosting integration tests', function() {
 
         mockServer.restore();
         clock.restore();
+
+        window.mParticle.config.requestConfig = false;
 
         done();
     });

@@ -3,10 +3,8 @@ import { expect } from 'chai';
 import Types from '../../src/types';
 import { SDKEvent, MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
-import TestsCore from './tests-core';
-
-var MPConfig = TestsCore.MPConfig,
-    apiKey = TestsCore.apiKey;
+import Utils from './utils';
+import { urls, MPConfig, apiKey } from './config';
 
 declare global {
     interface Window {
@@ -15,6 +13,14 @@ declare global {
 }
 
 describe('Old model to batch model conversion', () => {
+    beforeEach(function() {
+        window.mParticle.init(apiKey, window.mParticle.config);
+    });
+
+    afterEach(function() {
+        window.mParticle._resetForTests(MPConfig);
+    });
+
     const batchDataTests = [{ devmode: false }, { devmode: true }];
     batchDataTests.forEach(params => {
         it('Batch level conversion ' + params, done => {

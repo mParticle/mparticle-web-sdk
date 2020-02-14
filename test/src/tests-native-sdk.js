@@ -1,11 +1,10 @@
-import TestsCore from './tests-core';
+import Utils from './utils';
+import { apiKey, MPConfig } from './config';
 import Constants from '../../src/constants';
 
-var apiKey = TestsCore.apiKey,
-    getLocalStorage = TestsCore.getLocalStorage,
-    mParticleIOS = TestsCore.mParticleIOS,
-    MPConfig = TestsCore.MPConfig,
-    mParticleAndroid = TestsCore.mParticleAndroid,
+var getLocalStorage = Utils.getLocalStorage,
+    mParticleIOS = Utils.mParticleIOS,
+    mParticleAndroid = Utils.mParticleAndroid,
     HTTPCodes = Constants.HTTPCodes;
 
 describe('native-sdk methods', function() {
@@ -21,6 +20,8 @@ describe('native-sdk methods', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
             mParticle.config = {};
+            window.mParticleAndroid = null;
+            window.mParticle.isIOS = null;
         });
 
         after(function() {
@@ -335,6 +336,8 @@ describe('native-sdk methods', function() {
     describe('bridge version 1', function() {
         beforeEach(function() {
             mParticle._resetForTests(MPConfig);
+            window.mParticleAndroid = null;
+            window.mParticle.isIOS = null;
             window.mParticleAndroid = new mParticleAndroid();
             window.mParticle.config.minWebviewBridgeVersion = 1;
             mParticle.init(apiKey, window.mParticle.config);
@@ -618,6 +621,8 @@ describe('native-sdk methods', function() {
         describe('android', function() {
             var mParticleAndroidV2Bridge;
             beforeEach(function() {
+                window.mParticleAndroid = null;
+                window.mParticle.isIOS = null;
                 mParticle._resetForTests(MPConfig);
                 window.mParticle.config.minWebviewBridgeVersion = 2;
                 window.mParticle.config.requiredWebviewBridgeName =
@@ -947,6 +952,8 @@ describe('native-sdk methods', function() {
         describe('iOS', function() {
             var mParticleIOSV2Bridge;
             beforeEach(function() {
+                window.mParticleAndroid = null;
+                window.mParticle.isIOS = null;
                 mParticle._resetForTests(MPConfig);
                 window.mParticle.config.minWebviewBridgeVersion = 2;
                 window.mParticle.config.requiredWebviewBridgeName =

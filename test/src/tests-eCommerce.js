@@ -1,20 +1,38 @@
-import TestsCore from './tests-core';
+import Utils from './utils';
 import sinon from 'sinon';
+import { urls, apiKey, CommerceEventType, workspaceToken, MPConfig, testMPID, ProductActionType, PromotionActionType } from './config';
 
-var apiKey = TestsCore.apiKey,
-    testMPID = TestsCore.testMPID,
-    getLocalStorageProducts = TestsCore.getLocalStorageProducts,
-    MPConfig = TestsCore.MPConfig,
-    forwarderDefaultConfiguration = TestsCore.forwarderDefaultConfiguration,
-    ProductActionType = TestsCore.ProductActionType,
-    PromotionActionType = TestsCore.PromotionActionType,
-    getEvent = TestsCore.getEvent,
-    workspaceToken = TestsCore.workspaceToken,
-    CommerceEventType = TestsCore.CommerceEventType,
-    MockForwarder = TestsCore.MockForwarder,
-    server = TestsCore.server;
+var getLocalStorageProducts = Utils.getLocalStorageProducts,
+    forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
+    getEvent = Utils.getEvent,
+    MockForwarder = Utils.MockForwarder,
+    mockServer;
 
 describe('eCommerce', function() {
+    beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
+        delete mParticle._instances['default_instance'];
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.events, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, Store: {}})
+        ])
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+        mParticle.init(apiKey, window.mParticle.config);
+    });
+
+    afterEach(function() {
+        mockServer.restore();
+        mParticle._resetForTests(MPConfig);
+    });
+
     it('should create ecommerce product', function(done) {
         var product = mParticle.eCommerce.createProduct(
             'iPhone',
@@ -77,7 +95,7 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var data = getEvent('eCommerce - Purchase');
+        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
 
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.Purchase);
@@ -129,7 +147,7 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var data = getEvent('eCommerce - Purchase');
+        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
 
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.Purchase);
@@ -169,7 +187,7 @@ describe('eCommerce', function() {
             product1,
             product2,
         ]);
-        var data = getEvent('eCommerce - Purchase');
+        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
 
         data.should.have.property('pd');
         data.pd.should.have.property('pl').with.lengthOf(2);
@@ -190,7 +208,7 @@ describe('eCommerce', function() {
             product1,
             product2,
         ]);
-        var data = getEvent('eCommerce - Refund');
+        var data = getEvent(mockServer.requests, 'eCommerce - Refund');
 
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.Refund);
@@ -232,7 +250,7 @@ describe('eCommerce', function() {
             promotion
         );
 
-        var event = getEvent('eCommerce - PromotionClick');
+        var event = getEvent(mockServer.requests, 'eCommerce - PromotionClick');
 
         Should(event).be.ok();
 
@@ -271,7 +289,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logImpression(impression);
 
-        var event = getEvent('eCommerce - Impression');
+        var event = getEvent(mockServer.requests, 'eCommerce - Impression');
 
         Should(event).be.ok();
 
@@ -301,7 +319,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logImpression([impression, impression2]);
 
-        var event1 = getEvent('eCommerce - Impression');
+        var event1 = getEvent(mockServer.requests, 'eCommerce - Impression');
 
         event1.should.have.property('pi').with.lengthOf(2);
         event1.pi[0].should.have.property('pil', 'impression-name1');
@@ -322,7 +340,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logRefund(transaction);
 
-        var event = getEvent('eCommerce - Refund');
+        var event = getEvent(mockServer.requests, 'eCommerce - Refund');
 
         Should(event).be.ok();
 
@@ -338,7 +356,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add(product, true);
 
-        var data = getEvent('eCommerce - AddToCart');
+        var data = getEvent(mockServer.requests, 'eCommerce - AddToCart');
 
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.AddToCart);
@@ -354,7 +372,7 @@ describe('eCommerce', function() {
         mParticle.eCommerce.Cart.add(product);
         mParticle.eCommerce.Cart.remove({ Sku: '12345' }, true);
 
-        var data = getEvent('eCommerce - RemoveFromCart');
+        var data = getEvent(mockServer.requests, 'eCommerce - RemoveFromCart');
 
         data.should.have.property('pd');
         data.pd.should.have.property('an', ProductActionType.RemoveFromCart);
@@ -429,7 +447,7 @@ describe('eCommerce', function() {
     it('should log checkout', function(done) {
         mParticle.eCommerce.logCheckout(1, 'Visa');
 
-        var event = getEvent('eCommerce - Checkout');
+        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
 
         Should(event).be.ok();
 
@@ -445,14 +463,14 @@ describe('eCommerce', function() {
 
     it('should log checkout option', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400);
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.eCommerce.logProductAction(
             ProductActionType.CheckoutOption,
             product,
             { color: 'blue' }
         );
 
-        var event = getEvent('eCommerce - CheckoutOption');
+        var event = getEvent(mockServer.requests, 'eCommerce - CheckoutOption');
 
         Should(event).be.ok();
 
@@ -475,7 +493,7 @@ describe('eCommerce', function() {
             product
         );
 
-        var event = getEvent('eCommerce - ViewDetail');
+        var event = getEvent(mockServer.requests, 'eCommerce - ViewDetail');
 
         event.should.have.property('et', CommerceEventType.ProductViewDetail);
         event.should.have.property('pd');
@@ -570,7 +588,7 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var data = getEvent('eCommerce - Purchase');
+        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
 
         data.pd.pl[0].should.have.property('ps', 0);
 
@@ -578,9 +596,6 @@ describe('eCommerce', function() {
     });
 
     it('should support array of products when adding to cart', function(done) {
-        mParticle._resetForTests(MPConfig);
-        mParticle.init(apiKey, window.mParticle.config);
-
         var product1 = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
@@ -596,7 +611,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add([product1, product2], true);
 
-        var event = getEvent('eCommerce - AddToCart');
+        var event = getEvent(mockServer.requests, 'eCommerce - AddToCart');
 
         Should(event).be.ok();
 
@@ -614,9 +629,6 @@ describe('eCommerce', function() {
     });
 
     it('should support a single product when adding to cart', function(done) {
-        mParticle._resetForTests(MPConfig);
-        mParticle.init(apiKey, window.mParticle.config);
-
         var product1 = mParticle.eCommerce.createProduct(
             'iPhone',
             '12345',
@@ -626,7 +638,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add(product1, true);
 
-        var event = getEvent('eCommerce - AddToCart');
+        var event = getEvent(mockServer.requests, 'eCommerce - AddToCart');
 
         Should(event).be.ok();
 
@@ -1099,7 +1111,7 @@ describe('eCommerce', function() {
 
     it('should add customFlags to logCheckout events', function(done) {
         mParticle.eCommerce.logCheckout(1, {}, {}, { interactionEvent: true });
-        var event = getEvent('eCommerce - Checkout');
+        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
 
@@ -1115,7 +1127,7 @@ describe('eCommerce', function() {
             { interactionEvent: true }
         );
 
-        var event = getEvent('eCommerce - Unknown');
+        var event = getEvent(mockServer.requests, 'eCommerce - Unknown');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
 
@@ -1136,7 +1148,7 @@ describe('eCommerce', function() {
             { shipping: 5 },
             { interactionEvent: true }
         );
-        var event = getEvent('eCommerce - Purchase');
+        var event = getEvent(mockServer.requests, 'eCommerce - Purchase');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
 
@@ -1155,7 +1167,7 @@ describe('eCommerce', function() {
             { shipping: 5 },
             { interactionEvent: true }
         );
-        var event = getEvent('eCommerce - Unknown');
+        var event = getEvent(mockServer.requests, 'eCommerce - Unknown');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
 
@@ -1173,7 +1185,7 @@ describe('eCommerce', function() {
             { shipping: 5 },
             { interactionEvent: true }
         );
-        var event = getEvent('eCommerce - Impression');
+        var event = getEvent(mockServer.requests, 'eCommerce - Impression');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
 
@@ -1194,7 +1206,7 @@ describe('eCommerce', function() {
             { shipping: 5 },
             { interactionEvent: true }
         );
-        var event = getEvent('eCommerce - Refund');
+        var event = getEvent(mockServer.requests, 'eCommerce - Refund');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');
 

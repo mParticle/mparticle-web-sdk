@@ -1,16 +1,8 @@
-import TestsCore from './tests-core';
+import { MPConfig, workspaceToken} from './config';
 
-var testMPID = TestsCore.testMPID,
-    MPConfig = TestsCore.MPConfig,
-    apiKey = TestsCore.apiKey,
-    workspaceToken = TestsCore.workspaceToken,
-    server = TestsCore.server,
-    userApi = null;
+var userApi = null;
 
-before(function() {
-    server.start();
-});
-
+mParticle._isTestEnv = true;
 beforeEach(function() {
     //mocha can't clean up after itself, so this lets
     //tests mock the current user and restores in between runs.
@@ -28,26 +20,9 @@ beforeEach(function() {
         requestConfig: false,
         isDevelopmentMode: false,
     };
-
-    mParticle._isTestEnv = true;
-    server.requests = [];
-    server.handle = function(request) {
-        request.setResponseHeader('Content-Type', 'application/json');
-        request.receive(
-            200,
-            JSON.stringify({
-                Store: {},
-                mpid: testMPID,
-            })
-        );
-    };
-    window.mParticleAndroid = null;
-    window.mParticle.isIOS = null;
-
+    
     mParticle._resetForTests(MPConfig);
     delete mParticle._instances['default_instance'];
-    mParticle.init(apiKey, window.mParticle.config);
-    delete window.MockForwarder1;
 });
 
 afterEach(function() {

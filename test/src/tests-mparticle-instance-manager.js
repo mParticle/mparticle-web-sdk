@@ -1,7 +1,7 @@
-import TestsCore from './tests-core';
 import sinon from 'sinon';
+import { urls, MPConfig } from './config';
 
-var MPConfig = TestsCore.MPConfig;
+var mockServer;
 
 function returnEventForMPInstance(server, apiKey, eventName) {
     var requests = [];
@@ -179,8 +179,6 @@ describe('mParticle instance manager', function() {
     });
 
     describe('multiple instances testing', function() {
-        var mockServer;
-
         beforeEach(function() {
             //remove each of the instance's localStorage
             localStorage.removeItem('mprtcl-v4_wtTest1');
@@ -229,7 +227,7 @@ describe('mParticle instance manager', function() {
 
             // identity mock
             mockServer.respondWith(
-                'https://identity.mparticle.com/v1/identify',
+                urls.identify,
                 [
                     200,
                     {},

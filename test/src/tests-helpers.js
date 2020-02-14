@@ -1,8 +1,10 @@
-import TestsCore from './tests-core';
-
-var apiKey = TestsCore.apiKey;
+import { apiKey } from './config';
 
 describe('helpers', function() {
+    beforeEach(function() {
+        mParticle.init(apiKey, window.mParticle.config);
+    });
+
     it('should correctly validate an attribute value', function(done) {
         var validatedString = mParticle
             .getInstance()
