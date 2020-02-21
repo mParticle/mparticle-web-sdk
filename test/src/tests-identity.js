@@ -1931,6 +1931,37 @@ describe('identity', function() {
         done();
     });
 
+    it('should trigger the identityCallback before eventQueue is flushed', function(done) {
+        mParticle._resetForTests(MPConfig);
+        var clock = sinon.useFakeTimers();
+        mockServer.respondImmediately = false;
+        mockServer.autoRespond = true;
+        mockServer.autoRespondAfter = 500;
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
+
+        mParticle.config.identityCallback = function() {
+            mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'bar');
+        };
+
+        mockServer.requests = [];
+        mParticle.init(apiKey, window.mParticle.config);
+
+        (mockServer.requests.length === 0).should.equal.true
+        clock.tick(1000);
+        
+        var sessionStart = getEvent(mockServer.requests, 1);
+        var ASTEvent = getEvent(mockServer.requests, 10);
+        sessionStart.ua.should.have.property('foo', 'bar');
+        ASTEvent.ua.should.have.property('foo', 'bar');
+        clock.restore();
+
+        done();
+    });
+
     it('should still trigger the identifyCallback when no identify request is sent because there are already cookies', function(done) {
         mParticle._resetForTests(MPConfig);
         var les = new Date().getTime();

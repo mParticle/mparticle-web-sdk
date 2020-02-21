@@ -804,7 +804,7 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, mParticle.config);
 
-        server.requests = [];
+        mockServer.requests = [];
         mParticle.init(apiKey, window.mParticle.config);
 
         window.mParticle.logEvent('Test Event');

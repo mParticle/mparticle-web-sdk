@@ -1628,8 +1628,6 @@ export default function Identity(mpInstance) {
                         method
                     );
                 }
-
-                mpInstance._APIClient.processQueuedEvents();
             }
 
             if (callback) {
@@ -1662,6 +1660,8 @@ export default function Identity(mpInstance) {
                     );
                 }
             }
+
+            mpInstance._APIClient.processQueuedEvents();
         } catch (e) {
             if (callback) {
                 mpInstance._Helpers.invokeCallback(
