@@ -2,6 +2,11 @@
 
 --
 
+#### 2.11.6 - 2020-02-26
+
+-   Migrate network tests from local Mockhttprequest to Sinon
+-   Bugfix - Flush eventQueue after identity callback
+
 #### 2.11.5 - 2020-02-12
 
 -   Update node version for Travis
