@@ -633,7 +633,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.5',
+      sdkVersion: '2.11.6',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -8332,8 +8332,6 @@ var mParticle = (function () {
 
               mpInstance._Forwarders.setForwarderOnUserIdentified(newUser, method);
             }
-
-            mpInstance._APIClient.processQueuedEvents();
           }
 
           if (callback) {
@@ -8347,6 +8345,8 @@ var mParticle = (function () {
               mpInstance.Logger.error('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
             }
           }
+
+          mpInstance._APIClient.processQueuedEvents();
         } catch (e) {
           if (callback) {
             mpInstance._Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
