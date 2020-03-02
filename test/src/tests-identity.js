@@ -24,7 +24,7 @@ describe('identity', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.events, [
+        mockServer.respondWith(urls.eventsV2, [
             200,
             {},
             JSON.stringify({ mpid: testMPID, Store: {}})
@@ -169,7 +169,7 @@ describe('identity', function() {
 
         localStorageDataBeforeSessionEnd.gs.csm.length.should.equal(2);
 
-        mockServer.respondWith(urls.events, [
+        mockServer.respondWith(urls.eventsV2, [
             200,
             {},
             JSON.stringify({ mpid: 'otherMPID', Store: {}})
@@ -917,7 +917,7 @@ describe('identity', function() {
     it('queue events when MPID is 0, and then flush events once MPID changes', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        mockServer.respondWith(urls.events, [
+        mockServer.respondWith(urls.eventsV2, [
             200,
             {},
             JSON.stringify({})

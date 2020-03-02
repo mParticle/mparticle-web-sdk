@@ -116,11 +116,17 @@ export interface MParticleWebSDK {
     init(apiKey: string, config: SDKConfig): void;
     getInstance();
     ServerModel();
+    upload();
+    logEvent(eventName: string): void;
+    eCommerce: any;
+    logLevel: string;
+    ProductActionType: SDKProductActionType;
 }
 
 export interface SDKConfig {
     isDevelopmentMode?: boolean;
     appVersion?: string;
+    flags?: { [key: string]: string | number };
     appName?: string;
     logLevel?: string;
     sessionTimeout?: number;

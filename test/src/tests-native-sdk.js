@@ -353,7 +353,7 @@ describe('native-sdk methods', function() {
             done();
         });
 
-        it("invoke setSessionAttributes of $src_key/$src_env of apikey/'webview' to the native SDK's on init if apiKey is available", function(done) {
+        it('invoke setSessionAttributes of $src_key/$src_env of apikey/\'webview\' to the Android\'s on init if apiKey is available', function(done) {
             mParticle._resetForTests(MPConfig);
             window.mParticleAndroid = new mParticleAndroid();
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -390,7 +390,7 @@ describe('native-sdk methods', function() {
             done();
         });
 
-        it('should invoke setSessionAttributes on native SDK and pass through proper data', function(done) {
+        it('should invoke setSessionAttributes on Android and pass through proper data', function(done) {
             window.mParticleAndroid.resetSessionAttrData();
 
             mParticle.setSessionAttribute('key', 'value');
@@ -404,7 +404,7 @@ describe('native-sdk methods', function() {
             done();
         });
 
-        it('should invoke logEvent on native SDK and pass through proper event', function(done) {
+        it('should invoke logEvent on Android and pass through proper event', function(done) {
             mParticle.logEvent('testEvent');
 
             window.mParticleAndroid.logEventCalled.should.equal(true);
@@ -420,7 +420,7 @@ describe('native-sdk methods', function() {
             done();
         });
 
-        it('should invoke setAttribute on native SDK and pass through proper data', function(done) {
+        it('should invoke setAttribute on Android and pass through proper data', function(done) {
             mParticle.Identity.getCurrentUser().setUserAttribute(
                 'key',
                 'value'
@@ -436,7 +436,7 @@ describe('native-sdk methods', function() {
             done();
         });
 
-        it('should invoke setAttribute on native SDK and pass through proper data when invoking setUserAttributes', function(done) {
+        it('should invoke setAttribute on Android and pass through proper data when invoking setUserAttributes', function(done) {
             mParticle.Identity.getCurrentUser().setUserAttributes({
                 gender: 'male',
                 age: 21,
@@ -556,7 +556,7 @@ describe('native-sdk methods', function() {
             done();
         });
 
-        it("should send a JSON object to the native SDK's Identity methods", function(done) {
+        it('should send a JSON object to the native SDK\'s Identity methods', function(done) {
             var result,
                 identityAPIRequest = {
                     userIdentities: {
@@ -640,7 +640,7 @@ describe('native-sdk methods', function() {
                 delete window.mParticleAndroid_bridgeName_v2;
             });
 
-            it('should invoke logEvent on native SDK and pass through proper event', function(done) {
+            it('should invoke logEvent on Android and pass through proper event', function(done) {
                 mParticle.logEvent('testEvent');
 
                 mParticleAndroidV2Bridge.logEventCalled.should.equal(true);
@@ -658,7 +658,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke setAttribute on native SDK and pass through proper data', function(done) {
+            it('should invoke setAttribute on Android and pass through proper data', function(done) {
                 mParticle.Identity.getCurrentUser().setUserAttribute(
                     'key',
                     'value'
@@ -674,7 +674,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke setAttribute on native SDK and pass through proper data when invoking setUserAttributes', function(done) {
+            it('should invoke setAttribute on Android and pass through proper data when invoking setUserAttributes', function(done) {
                 mParticle.Identity.getCurrentUser().setUserAttributes({
                     gender: 'male',
                     age: 21,
@@ -693,7 +693,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke removeAttributes on native SDK', function(done) {
+            it('should invoke removeAttributes on Android', function(done) {
                 mParticle.Identity.getCurrentUser().setUserAttribute(
                     'key',
                     'value'
@@ -710,7 +710,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke setSessionAttributes on native SDK and pass through proper data', function(done) {
+            it('should invoke setSessionAttributes on Android and pass through proper data', function(done) {
                 mParticle.setSessionAttribute('key', 'value');
 
                 mParticleAndroidV2Bridge.setSessionAttributeCalled.should.equal(
@@ -723,7 +723,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke native sdk method addToCart', function(done) {
+            it('should invoke Android method addToCart', function(done) {
                 var product = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
@@ -758,7 +758,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke native sdk method removeFromCart', function(done) {
+            it('should invoke Android method removeFromCart', function(done) {
                 var product = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
@@ -785,7 +785,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke native sdk method clearCart', function(done) {
+            it('should invoke Android method clearCart', function(done) {
                 mParticle.eCommerce.Cart.clear();
 
                 mParticleAndroidV2Bridge.should.have.property(
@@ -816,7 +816,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it("should send a JSON object to the native SDK's Identity methods", function(done) {
+            it('should send a JSON object to the Android\'s Identity methods', function(done) {
                 var result,
                     identityAPIRequest = {
                         userIdentities: {
@@ -863,7 +863,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it("should send a JSON object to the native SDK's Alias method", function(done) {
+            it('should send a JSON object to the Android\'s Alias method', function(done) {
                 var callbackResult;
                 var aliasRequest = {
                     destinationMpid: '101',
@@ -947,6 +947,14 @@ describe('native-sdk methods', function() {
 
                 done();
             });
+
+            it('should invoke upload on native SDK', function(done) {
+                mParticle.upload();
+
+                mParticleAndroidV2Bridge.uploadCalled.should.equal(true);
+
+                done();
+            });
         });
 
         describe('iOS', function() {
@@ -978,7 +986,7 @@ describe('native-sdk methods', function() {
                 delete mParticle.enableWebviewBridge;
             });
 
-            it('should invoke logEvent on native SDK and pass through proper event', function(done) {
+            it('should invoke logEvent on iOS SDK and pass through proper event', function(done) {
                 mParticle.logEvent('testEvent');
 
                 JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
@@ -1000,7 +1008,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke setAttribute on native SDK and pass through proper data', function(done) {
+            it('should invoke setAttribute on iOS SDK and pass through proper data', function(done) {
                 mParticle.Identity.getCurrentUser().setUserAttribute(
                     'key',
                     'value'
@@ -1021,7 +1029,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke setAttribute on native SDK and pass through proper data when invoking setUserAttributes', function(done) {
+            it('should invoke setAttribute on iOS SDK and pass through proper data when invoking setUserAttributes', function(done) {
                 mParticle.Identity.getCurrentUser().setUserAttributes({
                     gender: 'male',
                     age: 21,
@@ -1055,7 +1063,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke removeAttributes on native SDK', function(done) {
+            it('should invoke removeAttributes on iOS SDK', function(done) {
                 mParticle.Identity.getCurrentUser().setUserAttribute(
                     'key',
                     'value'
@@ -1090,7 +1098,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke setSessionAttributes on native SDK and pass through proper data', function(done) {
+            it('should invoke setSessionAttributes on ios SDK and pass through proper data', function(done) {
                 mParticle.setSessionAttribute('key', 'value');
 
                 JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
@@ -1109,7 +1117,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke native sdk method addToCart', function(done) {
+            it('should invoke ios sdk method addToCart', function(done) {
                 var product = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
@@ -1150,7 +1158,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke native sdk method removeFromCart', function(done) {
+            it('should invoke ios sdk method removeFromCart', function(done) {
                 var product = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
@@ -1173,7 +1181,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it('should invoke native sdk method clearCart', function(done) {
+            it('should invoke ios sdk method clearCart', function(done) {
                 mParticle.eCommerce.Cart.clear();
 
                 JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
@@ -1206,7 +1214,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it("should send a JSON object to the native SDK's Identity methods", function(done) {
+            it('should send a JSON object to the ios SDK\'s Identity methods', function(done) {
                 var result,
                     identityAPIRequest = {
                         userIdentities: {
@@ -1265,7 +1273,7 @@ describe('native-sdk methods', function() {
                 done();
             });
 
-            it("should send a JSON object to the native SDK's Alias method", function(done) {
+            it('should send a JSON object to the iOS SDK\'s Alias method', function(done) {
                 var callbackResult;
                 var aliasRequest = {
                     destinationMpid: '101',
@@ -1376,6 +1384,22 @@ describe('native-sdk methods', function() {
                 ).value.ProductAction.ProductList[1].Name.should.equal(
                     'product2'
                 );
+
+                done();
+            });
+
+            it('should invoke upload on iOS SDK', function(done) {
+                mParticle.upload();
+
+
+                JSON.parse(mParticleIOSV2Bridge.data[0]).should.have.properties(
+                    ['path', 'value']
+                );
+                JSON.parse(mParticleIOSV2Bridge.data[0]).path.should.equal(
+                    'upload'
+                );
+                
+                (JSON.parse(mParticleIOSV2Bridge.data[0]).value === null).should.equal(true);
 
                 done();
             });

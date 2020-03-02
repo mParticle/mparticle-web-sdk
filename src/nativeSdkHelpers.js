@@ -181,6 +181,7 @@ export default function NativeSdkHelpers(mpInstance) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.SendIOS + path
             );
+
             iOSBridgeMessageHandler.postMessage(
                 JSON.stringify({
                     path: path,

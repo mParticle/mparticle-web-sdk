@@ -16,7 +16,7 @@ describe('core SDK', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.events, [
+        mockServer.respondWith(urls.eventsV2, [
             200,
             {},
             JSON.stringify({ mpid: testMPID, Store: {}})
@@ -478,14 +478,14 @@ describe('core SDK', function() {
 
         var event1 = findRequest(mockServer.requests, 'Test Event1');
         event1.url.should.equal(
-            urls.events
+            urls.eventsV2
         );
 
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.logEvent('Test Event2');
         var event2 = findRequest(mockServer.requests, 'Test Event2')
         event2.url.should.equal(
-            urls.events
+            urls.eventsV2
         );
 
         done();
@@ -611,7 +611,7 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         infoMessage.should.equal(
-            'Parsed store from response, updating local settings'
+            'Received OK from server'
         );
 
         mParticle.eCommerce.createProduct();
@@ -728,7 +728,7 @@ describe('core SDK', function() {
         window.mParticle.config.v2SecureServiceUrl =
             'custom-v2SecureServiceUrl/v2/JS/';
         window.mParticle.config.v3SecureServiceUrl =
-            'custom-v3SecureServiceUrl/v2/JS/';
+            'custom-v3SecureServiceUrl/v3/JS/';
         window.mParticle.config.configUrl =
             'custom-configUrl/v2/JS/';
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
@@ -790,7 +790,7 @@ describe('core SDK', function() {
     });
 
     it('should use custom v3 endpoint when specified on config object', function(done) {
-        mParticle.config.v3SecureServiceUrl = 'custom-v3SecureServiceUrl/v2/JS/';
+        mParticle.config.v3SecureServiceUrl = 'custom-v3SecureServiceUrl/v3/JS/';
 
         mParticle.config.flags = {
             eventsV3: '100',
@@ -798,7 +798,7 @@ describe('core SDK', function() {
         }
 
         window.fetchMock.post(
-            'https://custom-v3SecureServiceUrl/v2/JS/test_key/events',
+            'https://custom-v3SecureServiceUrl/v3/JS/test_key/events',
             200
         );
 

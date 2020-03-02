@@ -19,10 +19,6 @@ export default function APIClient(mpInstance) {
     };
 
     this.shouldEnableBatching = function() {
-        if (!window.fetch) {
-            return false;
-        }
-
         // Returns a string of a number that must be parsed
         // Invalid strings will be parsed to NaN which is falsey
         var eventsV3Percentage = parseInt(
@@ -120,7 +116,7 @@ export default function APIClient(mpInstance) {
                     mpInstance.Logger.verbose(
                         'Received ' + xhr.statusText + ' from server'
                     );
-                    self.parseEventResponse(xhr.responseText);
+                    mpInstance._Persistence.update();
                 }
             };
 
@@ -152,60 +148,6 @@ export default function APIClient(mpInstance) {
                     'Error sending event to mParticle servers. ' + e
                 );
             }
-        }
-    };
-
-    this.parseEventResponse = function(responseText) {
-        var now = new Date(),
-            settings,
-            prop,
-            fullProp;
-
-        if (!responseText) {
-            return;
-        }
-
-        try {
-            mpInstance.Logger.verbose('Parsing response from server');
-            settings = JSON.parse(responseText);
-
-            if (settings && settings.Store) {
-                mpInstance.Logger.verbose(
-                    'Parsed store from response, updating local settings'
-                );
-
-                if (!mpInstance._Store.serverSettings) {
-                    mpInstance._Store.serverSettings = {};
-                }
-
-                for (prop in settings.Store) {
-                    if (!settings.Store.hasOwnProperty(prop)) {
-                        continue;
-                    }
-
-                    fullProp = settings.Store[prop];
-
-                    if (!fullProp.Value || new Date(fullProp.Expires) < now) {
-                        // This setting should be deleted from the local store if it exists
-
-                        if (
-                            mpInstance._Store.serverSettings.hasOwnProperty(
-                                prop
-                            )
-                        ) {
-                            delete mpInstance._Store.serverSettings[prop];
-                        }
-                    } else {
-                        // This is a valid setting
-                        mpInstance._Store.serverSettings[prop] = fullProp;
-                    }
-                }
-            }
-            mpInstance._Persistence.update();
-        } catch (e) {
-            mpInstance.Logger.error(
-                'Error parsing JSON response from server: ' + e.name
-            );
         }
     };
 

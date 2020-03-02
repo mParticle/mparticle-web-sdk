@@ -158,6 +158,9 @@ function mParticle() {
     this.logPageView = function(eventName, attrs, customFlags) {
         self.getInstance().logPageView(eventName, attrs, customFlags);
     };
+    this.upload = function() {
+        self.getInstance().upload();
+    };
     this.eCommerce = {
         Cart: {
             add: function(product, logEventBoolean) {

@@ -17,7 +17,7 @@ describe('forwarders', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.events, [
+        mockServer.respondWith(urls.eventsV2, [
             200,
             {},
             JSON.stringify({ mpid: testMPID, Store: {}})
@@ -1672,7 +1672,7 @@ describe('forwarders', function() {
             JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
         ]);
 
-        mockServer.respondWith(urls.events, [
+        mockServer.respondWith(urls.eventsV2, [
             200,
             {},
             JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),

@@ -12,7 +12,7 @@ describe('mParticleUser', function() {
         // onIdentifyComplete/onLoginComplete/onLogoutComplete/onModifyComplete 
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
-        mockServer.respondWith(urls.events, [
+        mockServer.respondWith(urls.eventsV2, [
             200,
             {},
             JSON.stringify({ mpid: 'testtest', Store: {}})

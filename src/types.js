@@ -13,6 +13,10 @@ var MessageType = {
     UserIdentityChange: 18,
 };
 
+var TriggerUploadType = {
+    [MessageType.Commerce]: 1,
+};
+
 var EventType = {
     Unknown: 0,
     Navigation: 1,
@@ -26,6 +30,8 @@ var EventType = {
     Media: 9,
     getName: function(id) {
         switch (id) {
+            case EventType.Unknown:
+                return 'Unknown';
             case EventType.Navigation:
                 return 'Navigation';
             case EventType.Location:
@@ -315,4 +321,5 @@ export default {
     ApplicationTransitionType: ApplicationTransitionType,
     ProductActionType: ProductActionType,
     PromotionActionType: PromotionActionType,
+    TriggerUploadType: TriggerUploadType,
 };

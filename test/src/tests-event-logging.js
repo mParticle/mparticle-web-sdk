@@ -16,7 +16,7 @@ describe('event logging', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.events, [
+        mockServer.respondWith(urls.eventsV2, [
             200,
             {},
             JSON.stringify({ mpid: testMPID, Store: {}})
@@ -261,31 +261,6 @@ describe('event logging', function() {
 
         event.should.have.property('dt', MessageType.OptOut);
         event.should.have.property('o', true);
-
-        done();
-    });
-
-    it('should parse response after logging event', function(done) {
-        mockServer.respondWith(urls.events, [
-            200,
-            {},
-            JSON.stringify({
-                Store: {
-                    testprop: {
-                        Expires: new Date(2040, 1, 1),
-                        Value: 'blah',
-                    },
-                },
-            })
-        ]);
-        
-        mParticle.logEvent('test event2');
-        mParticle.logEvent('test event');
-        var event = getEvent(mockServer.requests, 'test event');
-
-        event.should.have.property('str');
-        event.str.should.have.property('testprop');
-        event.str.testprop.should.have.property('Value', 'blah');
 
         done();
     });

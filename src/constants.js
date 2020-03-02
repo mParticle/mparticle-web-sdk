@@ -95,6 +95,7 @@ var Constants = {
         Login: 'login',
         Modify: 'modify',
         Alias: 'aliasUsers',
+        Upload: 'upload',
     },
     StorageNames: {
         localStorageName: 'mprtcl-api', // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2

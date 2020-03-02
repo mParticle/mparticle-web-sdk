@@ -6,6 +6,7 @@ import {
     SDKLoggerApi,
 } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
+import Types from './types';
 
 export class BatchUploader {
     //we upload JSON, but this content type is required to avoid a CORS preflight request
@@ -39,18 +40,17 @@ export class BatchUploader {
         setTimeout(() => {
             this.prepareAndUpload(true, false);
         }, this.uploadIntervalMillis);
-
         this.addEventListeners();
     }
 
     private addEventListeners() {
         const _this = this;
-        window.addEventListener('beforeunload', () => {
+        window.onbeforeunload = () => {
             _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
-        window.addEventListener('pagehide', () => {
+        };
+        window.onpagehide = () => {
             _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
+        };
     }
 
     private isBeaconAvailable(): boolean {
@@ -72,7 +72,11 @@ export class BatchUploader {
             this.mpInstance.Logger.verbose(
                 `Queued event count: ${this.pendingEvents.length}`
             );
-            if (!this.batchingEnabled) {
+
+            if (
+                !this.batchingEnabled ||
+                Types.TriggerUploadType[event.EventDataType]
+            ) {
                 this.prepareAndUpload(false, false);
             }
         }
@@ -159,7 +163,7 @@ export class BatchUploader {
 
         const currentUploads = this.pendingUploads;
         this.pendingUploads = [];
-        const remainingUploads = await this.upload(
+        const remainingUploads: Batch[] = await this.upload(
             this.mpInstance.Logger,
             currentUploads,
             useBeacon
@@ -180,6 +184,7 @@ export class BatchUploader {
         uploads: Batch[],
         useBeacon: boolean
     ): Promise<Batch[]> {
+        let uploader;
         if (!uploads || uploads.length < 1) {
             return null;
         }
@@ -187,7 +192,7 @@ export class BatchUploader {
         logger.verbose(`Batch count: ${uploads.length}`);
 
         for (let i = 0; i < uploads.length; i++) {
-            const settings = {
+            const fetchPayload: fetchPayload = {
                 method: 'POST',
                 headers: {
                     Accept: BatchUploader.CONTENT_TYPE,
@@ -195,18 +200,29 @@ export class BatchUploader {
                 },
                 body: JSON.stringify(uploads[i]),
             };
-            try {
-                if (useBeacon) {
-                    const blob = new Blob([settings.body], {
-                        type: 'text/plain;charset=UTF-8',
-                    });
-                    navigator.sendBeacon(this.uploadUrl, blob);
-                } else {
-                    logger.verbose(
-                        `Uploading request ID: ${uploads[i].source_request_id}`
+
+            // beacon is only used on onbeforeunload onpagehide events
+            if (useBeacon && this.isBeaconAvailable()) {
+                let blob = new Blob([fetchPayload.body], {
+                    type: 'text/plain;charset=UTF-8',
+                });
+                navigator.sendBeacon(this.uploadUrl, blob);
+            } else {
+                if (!uploader) {
+                    if (window.fetch) {
+                        uploader = new FetchUploader(this.uploadUrl, logger);
+                    } else {
+                        uploader = new XHRUploader(this.uploadUrl, logger);
+                    }
+                }
+                try {
+                    const response = await uploader.upload(
+                        fetchPayload,
+                        uploads,
+                        i
                     );
-                    const response = await fetch(this.uploadUrl, settings);
-                    if (response.ok) {
+
+                    if (response.status >= 200 && response.status < 300) {
                         logger.verbose(
                             `Upload success for request ID: ${uploads[i].source_request_id}`
                         );
@@ -214,6 +230,9 @@ export class BatchUploader {
                         response.status >= 500 ||
                         response.status === 429
                     ) {
+                        logger.error(
+                            `HTTP error status ${response.status} received`
+                        );
                         //server error, add back current events and try again later
                         return uploads.slice(i, uploads.length);
                     } else if (response.status >= 401) {
@@ -223,12 +242,87 @@ export class BatchUploader {
                         //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
                         return null;
                     }
+                } catch (e) {
+                    logger.error(
+                        `Error sending event to mParticle servers. ${e}`
+                    );
+                    return uploads.slice(i, uploads.length);
                 }
-            } catch (e) {
-                logger.error(`Exception while uploading: ${e}`);
-                return uploads.slice(i, uploads.length);
             }
         }
         return null;
     }
+}
+
+abstract class AsyncUploader {
+    url: string;
+    logger: SDKLoggerApi;
+
+    constructor(url: string, logger: SDKLoggerApi) {
+        this.url = url;
+        this.logger = logger;
+    }
+}
+
+class FetchUploader extends AsyncUploader {
+    private async upload(
+        fetchPayload: fetchPayload,
+        uploads: Batch[],
+        i: number
+    ) {
+        const response: XHRResponse = await fetch(this.url, fetchPayload);
+        return response;
+    }
+}
+
+class XHRUploader extends AsyncUploader {
+    private async upload(
+        fetchPayload: fetchPayload,
+        uploads: Batch[],
+        i: number
+    ) {
+        const response: XHRResponse = await this.makeRequest(
+            this.url,
+            this.logger,
+            fetchPayload.body
+        );
+        return response;
+    }
+
+    private async makeRequest(
+        url: string,
+        logger: SDKLoggerApi,
+        data: string
+    ): Promise<XMLHttpRequest> {
+        const xhr: XMLHttpRequest = new XMLHttpRequest();
+        return new Promise((resolve, reject) => {
+            xhr.onreadystatechange = () => {
+                if (xhr.readyState !== 4) return;
+
+                // Process the response
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(xhr);
+                } else {
+                    reject(xhr);
+                }
+            };
+
+            xhr.open('post', url);
+            xhr.send(data);
+        });
+    }
+}
+
+interface XHRResponse {
+    status: number;
+    statusText?: string;
+}
+
+interface fetchPayload {
+    method: string;
+    headers: {
+        Accept: string;
+        'Content-Type': string;
+    };
+    body: string;
 }

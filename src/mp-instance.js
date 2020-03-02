@@ -486,7 +486,21 @@ export default function mParticleInstance(instanceName) {
             customFlags: customFlags,
         });
     };
-
+    /**
+     * Forces an upload of the batch
+     * @method upload
+     */
+    this.upload = function() {
+        if (self._Helpers.canLog()) {
+            if (self._Store.webviewBridgeEnabled) {
+                self._NativeSdkHelpers.sendToNative(
+                    Constants.NativeSdkPaths.Upload
+                );
+            } else {
+                self._APIClient.uploader.prepareAndUpload(false, false);
+            }
+        }
+    };
     /**
      * Invoke these methods on the mParticle.Consent object.
      * Example: mParticle.Consent.createConsentState()

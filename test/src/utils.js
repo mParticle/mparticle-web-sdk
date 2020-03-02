@@ -419,6 +419,7 @@ var pluses = /\+/g,
         this.userAttrData = [];
         this.sessionAttrData = [];
         this.aliasUsers = null;
+        this.uploadCalled = false;
 
         this.resetSessionAttrData = function() {
             self.sessionAttrData = [];
@@ -483,6 +484,9 @@ var pluses = /\+/g,
         };
         this.aliasUsers = function(item) {
             self.aliasUsers = item;
+        };
+        this.upload = function() {
+            self.uploadCalled = true;
         };
     },
     mParticleIOS = function() {
