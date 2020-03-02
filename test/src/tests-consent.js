@@ -540,7 +540,7 @@ describe('Consent', function() {
             );
 
         consentState.getCCPAConsentState().should.have.properties('Consented', 'ConsentDocument', 'HardwareId', 'Location', 'Timestamp');
-        consentState.removeCCPAState();
+        consentState.removeCCPAConsentState();
         (consentState.getCCPAConsentState() === undefined).should.equal(true);
 
         done();
@@ -600,5 +600,27 @@ describe('Consent', function() {
         event.con.gdpr['test purpose'].should.have.property('h', 'hardware');
 
         done();
-    })
+    });
+
+    it('Should log deprecated message when using removeCCPAState', function (done) {
+        var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+        var consentState = mParticle.getInstance().Consent.createConsentState();
+        consentState.should.be.ok();
+
+        consentState
+            .setCCPAConsentState(
+                mParticle.Consent.createCCPAConsent(false)
+            );
+
+        consentState.getCCPAConsentState().should.have.properties('Consented', 'ConsentDocument', 'HardwareId', 'Location', 'Timestamp');
+        consentState.removeCCPAState();
+        (consentState.getCCPAConsentState() === undefined).should.equal(true);
+
+        bond.called.should.eql(true);
+        bond.getCalls()[0].args[0].should.eql(
+            'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead'
+        );
+
+        done();
+    });
 });

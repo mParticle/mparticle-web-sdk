@@ -291,11 +291,18 @@ export default function Consent(mpInstance) {
         /**
          * Removes CCPA from the consent state object
          *
-         * @method removeCCPAState
+         * @method removeCCPAConsentState
          */
-        function removeCCPAState() {
+        function removeCCPAConsentState() {
             delete ccpa[CCPAPurpose];
             return this;
+        }
+
+        function removeCCPAState() {
+            mpInstance.Logger.warning(
+                'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead'
+            );
+            return removeCCPAConsentState();
         }
 
         return {
@@ -306,6 +313,7 @@ export default function Consent(mpInstance) {
             getGDPRConsentState: getGDPRConsentState,
             removeGDPRConsentState: removeGDPRConsentState,
             removeCCPAState: removeCCPAState,
+            removeCCPAConsentState: removeCCPAConsentState,
         };
     };
 }
