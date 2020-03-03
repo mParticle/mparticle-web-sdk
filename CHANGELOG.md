@@ -2,6 +2,11 @@
 
 --
 
+#### 2.11.7 - 2020-03-04
+
+-   Deprecate removeCCPAState in favor of removeCCPAConsentState
+-   Feat - XHR Support for Batching
+
 #### 2.11.6 - 2020-02-26
 
 -   Migrate network tests from local Mockhttprequest to Sinon
