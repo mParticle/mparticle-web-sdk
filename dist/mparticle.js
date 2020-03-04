@@ -242,6 +242,23 @@ var mParticle = (function () {
       Base64: Base64
     };
 
+    function _defineProperty(obj, key, value) {
+      if (key in obj) {
+        Object.defineProperty(obj, key, {
+          value: value,
+          enumerable: true,
+          configurable: true,
+          writable: true
+        });
+      } else {
+        obj[key] = value;
+      }
+
+      return obj;
+    }
+
+    var defineProperty = _defineProperty;
+
     var MessageType = {
       SessionStart: 1,
       SessionEnd: 2,
@@ -256,6 +273,9 @@ var mParticle = (function () {
       UserAttributeChange: 17,
       UserIdentityChange: 18
     };
+
+    var TriggerUploadType = defineProperty({}, MessageType.Commerce, 1);
+
     var EventType = {
       Unknown: 0,
       Navigation: 1,
@@ -269,6 +289,9 @@ var mParticle = (function () {
       Media: 9,
       getName: function getName(id) {
         switch (id) {
+          case EventType.Unknown:
+            return 'Unknown';
+
           case EventType.Navigation:
             return 'Navigation';
 
@@ -629,11 +652,12 @@ var mParticle = (function () {
       ProfileMessageType: ProfileMessageType,
       ApplicationTransitionType: ApplicationTransitionType,
       ProductActionType: ProductActionType,
-      PromotionActionType: PromotionActionType
+      PromotionActionType: PromotionActionType,
+      TriggerUploadType: TriggerUploadType
     };
 
     var Constants = {
-      sdkVersion: '2.11.6',
+      sdkVersion: '2.11.7',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -713,7 +737,8 @@ var mParticle = (function () {
         Logout: 'logout',
         Login: 'login',
         Modify: 'modify',
-        Alias: 'aliasUsers'
+        Alias: 'aliasUsers',
+        Upload: 'upload'
       },
       StorageNames: {
         localStorageName: 'mprtcl-api',
@@ -826,6 +851,67 @@ var mParticle = (function () {
 
     module.exports = _typeof;
     });
+
+    function _assertThisInitialized(self) {
+      if (self === void 0) {
+        throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+      }
+
+      return self;
+    }
+
+    var assertThisInitialized = _assertThisInitialized;
+
+    function _possibleConstructorReturn(self, call) {
+      if (call && (_typeof_1(call) === "object" || typeof call === "function")) {
+        return call;
+      }
+
+      return assertThisInitialized(self);
+    }
+
+    var possibleConstructorReturn = _possibleConstructorReturn;
+
+    var getPrototypeOf = createCommonjsModule(function (module) {
+    function _getPrototypeOf(o) {
+      module.exports = _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
+        return o.__proto__ || Object.getPrototypeOf(o);
+      };
+      return _getPrototypeOf(o);
+    }
+
+    module.exports = _getPrototypeOf;
+    });
+
+    var setPrototypeOf = createCommonjsModule(function (module) {
+    function _setPrototypeOf(o, p) {
+      module.exports = _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) {
+        o.__proto__ = p;
+        return o;
+      };
+
+      return _setPrototypeOf(o, p);
+    }
+
+    module.exports = _setPrototypeOf;
+    });
+
+    function _inherits(subClass, superClass) {
+      if (typeof superClass !== "function" && superClass !== null) {
+        throw new TypeError("Super expression must either be null or a function");
+      }
+
+      subClass.prototype = Object.create(superClass && superClass.prototype, {
+        constructor: {
+          value: subClass,
+          writable: true,
+          configurable: true
+        }
+      });
+      if (superClass) setPrototypeOf(subClass, superClass);
+    }
+
+    var inherits = _inherits;
 
     var runtime_1 = createCommonjsModule(function (module) {
     /**
@@ -1651,23 +1737,6 @@ var mParticle = (function () {
 
     var createClass = _createClass;
 
-    function _defineProperty(obj, key, value) {
-      if (key in obj) {
-        Object.defineProperty(obj, key, {
-          value: value,
-          enumerable: true,
-          configurable: true,
-          writable: true
-        });
-      } else {
-        obj[key] = value;
-      }
-
-      return obj;
-    }
-
-    var defineProperty = _defineProperty;
-
     var SDKProductActionType;
     (function (SDKProductActionType) {
         SDKProductActionType[SDKProductActionType["Unknown"] = 0] = "Unknown";
@@ -2331,12 +2400,12 @@ var mParticle = (function () {
                 key: "addEventListeners",
                 value: function addEventListeners() {
                     var _this = this;
-                    window.addEventListener('beforeunload', function () {
+                    window.onbeforeunload = function () {
                         _this.prepareAndUpload(false, _this.isBeaconAvailable());
-                    });
-                    window.addEventListener('pagehide', function () {
+                    };
+                    window.onpagehide = function () {
                         _this.prepareAndUpload(false, _this.isBeaconAvailable());
-                    });
+                    };
                 }
             }, {
                 key: "isBeaconAvailable",
@@ -2355,7 +2424,7 @@ var mParticle = (function () {
                         this.pendingEvents.push(event);
                         this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
                         this.mpInstance.Logger.verbose("Queued event count: ".concat(this.pendingEvents.length));
-                        if (!this.batchingEnabled) {
+                        if (!this.batchingEnabled || Types.TriggerUploadType[event.EventDataType]) {
                             this.prepareAndUpload(false, false);
                         }
                     }
@@ -2428,7 +2497,7 @@ var mParticle = (function () {
                     var _upload = asyncToGenerator(
                     /*#__PURE__*/
                     regenerator.mark(function _callee2(logger, uploads, useBeacon) {
-                        var i, settings, blob, response;
+                        var uploader, i, _fetchPayload, blob, response;
                         return regenerator.wrap(function _callee2$(_context2) {
                             while (1) {
                                 switch (_context2.prev = _context2.next) {
@@ -2444,74 +2513,82 @@ var mParticle = (function () {
                                         i = 0;
                                     case 5:
                                         if (!(i < uploads.length)) {
-                                            _context2.next = 37;
+                                            _context2.next = 38;
                                             break;
                                         }
-                                        settings = {
+                                        _fetchPayload = {
                                             method: 'POST',
                                             headers: {
                                                 Accept: BatchUploader.CONTENT_TYPE,
                                                 'Content-Type': 'text/plain;charset=UTF-8'
                                             },
                                             body: JSON.stringify(uploads[i])
-                                        };
-                                        _context2.prev = 7;
-                                        if (!useBeacon) {
-                                            _context2.next = 13;
+                                        }; // beacon is only used on onbeforeunload onpagehide events
+                                        if (!(useBeacon && this.isBeaconAvailable())) {
+                                            _context2.next = 12;
                                             break;
                                         }
-                                        blob = new Blob([settings.body], {
+                                        blob = new Blob([_fetchPayload.body], {
                                             type: 'text/plain;charset=UTF-8'
                                         });
                                         navigator.sendBeacon(this.uploadUrl, blob);
-                                        _context2.next = 28;
+                                        _context2.next = 35;
                                         break;
-                                    case 13:
-                                        logger.verbose("Uploading request ID: ".concat(uploads[i].source_request_id));
+                                    case 12:
+                                        if (!uploader) {
+                                            if (window.fetch) {
+                                                uploader = new FetchUploader(this.uploadUrl, logger);
+                                            }
+                                            else {
+                                                uploader = new XHRUploader(this.uploadUrl, logger);
+                                            }
+                                        }
+                                        _context2.prev = 13;
                                         _context2.next = 16;
-                                        return fetch(this.uploadUrl, settings);
+                                        return uploader.upload(_fetchPayload, uploads, i);
                                     case 16:
                                         response = _context2.sent;
-                                        if (!response.ok) {
+                                        if (!(response.status >= 200 && response.status < 300)) {
                                             _context2.next = 21;
                                             break;
                                         }
                                         logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
-                                        _context2.next = 28;
+                                        _context2.next = 29;
                                         break;
                                     case 21:
                                         if (!(response.status >= 500 || response.status === 429)) {
-                                            _context2.next = 25;
+                                            _context2.next = 26;
                                             break;
                                         }
+                                        logger.error("HTTP error status ".concat(response.status, " received")); //server error, add back current events and try again later
                                         return _context2.abrupt("return", uploads.slice(i, uploads.length));
-                                    case 25:
+                                    case 26:
                                         if (!(response.status >= 401)) {
-                                            _context2.next = 28;
+                                            _context2.next = 29;
                                             break;
                                         }
                                         logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key.")); //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
                                         return _context2.abrupt("return", null);
-                                    case 28:
-                                        _context2.next = 34;
+                                    case 29:
+                                        _context2.next = 35;
                                         break;
-                                    case 30:
-                                        _context2.prev = 30;
-                                        _context2.t0 = _context2["catch"](7);
-                                        logger.error("Exception while uploading: ".concat(_context2.t0));
+                                    case 31:
+                                        _context2.prev = 31;
+                                        _context2.t0 = _context2["catch"](13);
+                                        logger.error("Error sending event to mParticle servers. ".concat(_context2.t0));
                                         return _context2.abrupt("return", uploads.slice(i, uploads.length));
-                                    case 34:
+                                    case 35:
                                         i++;
                                         _context2.next = 5;
                                         break;
-                                    case 37:
-                                        return _context2.abrupt("return", null);
                                     case 38:
+                                        return _context2.abrupt("return", null);
+                                    case 39:
                                     case "end":
                                         return _context2.stop();
                                 }
                             }
-                        }, _callee2, this, [[7, 30]]);
+                        }, _callee2, this, [[13, 31]]);
                     }));
                     function upload(_x3, _x4, _x5) {
                         return _upload.apply(this, arguments);
@@ -2611,6 +2688,129 @@ var mParticle = (function () {
     }();
     defineProperty(BatchUploader, "CONTENT_TYPE", 'text/plain;charset=UTF-8');
     defineProperty(BatchUploader, "MINIMUM_INTERVAL_MILLIS", 500);
+    var AsyncUploader = function AsyncUploader(url, logger) {
+        classCallCheck(this, AsyncUploader);
+        defineProperty(this, "url", void 0);
+        defineProperty(this, "logger", void 0);
+        this.url = url;
+        this.logger = logger;
+    };
+    var FetchUploader = 
+    /*#__PURE__*/
+    function (_AsyncUploader) {
+        inherits(FetchUploader, _AsyncUploader);
+        function FetchUploader() {
+            classCallCheck(this, FetchUploader);
+            return possibleConstructorReturn(this, getPrototypeOf(FetchUploader).apply(this, arguments));
+        }
+        createClass(FetchUploader, [{
+                key: "upload",
+                value: function () {
+                    var _upload2 = asyncToGenerator(
+                    /*#__PURE__*/
+                    regenerator.mark(function _callee3(fetchPayload, uploads, i) {
+                        var response;
+                        return regenerator.wrap(function _callee3$(_context3) {
+                            while (1) {
+                                switch (_context3.prev = _context3.next) {
+                                    case 0:
+                                        _context3.next = 2;
+                                        return fetch(this.url, fetchPayload);
+                                    case 2:
+                                        response = _context3.sent;
+                                        return _context3.abrupt("return", response);
+                                    case 4:
+                                    case "end":
+                                        return _context3.stop();
+                                }
+                            }
+                        }, _callee3, this);
+                    }));
+                    function upload(_x6, _x7, _x8) {
+                        return _upload2.apply(this, arguments);
+                    }
+                    return upload;
+                }()
+            }]);
+        return FetchUploader;
+    }(AsyncUploader);
+    var XHRUploader = 
+    /*#__PURE__*/
+    function (_AsyncUploader2) {
+        inherits(XHRUploader, _AsyncUploader2);
+        function XHRUploader() {
+            classCallCheck(this, XHRUploader);
+            return possibleConstructorReturn(this, getPrototypeOf(XHRUploader).apply(this, arguments));
+        }
+        createClass(XHRUploader, [{
+                key: "upload",
+                value: function () {
+                    var _upload3 = asyncToGenerator(
+                    /*#__PURE__*/
+                    regenerator.mark(function _callee4(fetchPayload, uploads, i) {
+                        var response;
+                        return regenerator.wrap(function _callee4$(_context4) {
+                            while (1) {
+                                switch (_context4.prev = _context4.next) {
+                                    case 0:
+                                        _context4.next = 2;
+                                        return this.makeRequest(this.url, this.logger, fetchPayload.body);
+                                    case 2:
+                                        response = _context4.sent;
+                                        return _context4.abrupt("return", response);
+                                    case 4:
+                                    case "end":
+                                        return _context4.stop();
+                                }
+                            }
+                        }, _callee4, this);
+                    }));
+                    function upload(_x9, _x10, _x11) {
+                        return _upload3.apply(this, arguments);
+                    }
+                    return upload;
+                }()
+            }, {
+                key: "makeRequest",
+                value: function () {
+                    var _makeRequest = asyncToGenerator(
+                    /*#__PURE__*/
+                    regenerator.mark(function _callee5(url, logger, data) {
+                        var xhr;
+                        return regenerator.wrap(function _callee5$(_context5) {
+                            while (1) {
+                                switch (_context5.prev = _context5.next) {
+                                    case 0:
+                                        xhr = new XMLHttpRequest();
+                                        return _context5.abrupt("return", new Promise(function (resolve, reject) {
+                                            xhr.onreadystatechange = function () {
+                                                if (xhr.readyState !== 4)
+                                                    return; // Process the response
+                                                if (xhr.status >= 200 && xhr.status < 300) {
+                                                    resolve(xhr);
+                                                }
+                                                else {
+                                                    reject(xhr);
+                                                }
+                                            };
+                                            xhr.open('post', url);
+                                            xhr.send(data);
+                                        }));
+                                    case 2:
+                                    case "end":
+                                        return _context5.stop();
+                                }
+                            }
+                        }, _callee5);
+                    }));
+                    function makeRequest(_x12, _x13, _x14) {
+                        return _makeRequest.apply(this, arguments);
+                    }
+                    return makeRequest;
+                }()
+            }]);
+        return XHRUploader;
+    }(AsyncUploader);
 
     var HTTPCodes = Constants.HTTPCodes,
         Messages = Constants.Messages;
@@ -2629,12 +2829,8 @@ var mParticle = (function () {
       };
 
       this.shouldEnableBatching = function () {
-        if (!window.fetch) {
-          return false;
-        } // Returns a string of a number that must be parsed
+        // Returns a string of a number that must be parsed
         // Invalid strings will be parsed to NaN which is falsey
-
-
         var eventsV3Percentage = parseInt(mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3), 10);
 
         if (!eventsV3Percentage) {
@@ -2719,7 +2915,8 @@ var mParticle = (function () {
             xhrCallback = function xhrCallback() {
           if (xhr.readyState === 4) {
             mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server');
-            self.parseEventResponse(xhr.responseText);
+
+            mpInstance._Persistence.update();
           }
         };
 
@@ -2738,52 +2935,6 @@ var mParticle = (function () {
           } catch (e) {
             mpInstance.Logger.error('Error sending event to mParticle servers. ' + e);
           }
-        }
-      };
-
-      this.parseEventResponse = function (responseText) {
-        var now = new Date(),
-            settings,
-            prop,
-            fullProp;
-
-        if (!responseText) {
-          return;
-        }
-
-        try {
-          mpInstance.Logger.verbose('Parsing response from server');
-          settings = JSON.parse(responseText);
-
-          if (settings && settings.Store) {
-            mpInstance.Logger.verbose('Parsed store from response, updating local settings');
-
-            if (!mpInstance._Store.serverSettings) {
-              mpInstance._Store.serverSettings = {};
-            }
-
-            for (prop in settings.Store) {
-              if (!settings.Store.hasOwnProperty(prop)) {
-                continue;
-              }
-
-              fullProp = settings.Store[prop];
-
-              if (!fullProp.Value || new Date(fullProp.Expires) < now) {
-                // This setting should be deleted from the local store if it exists
-                if (mpInstance._Store.serverSettings.hasOwnProperty(prop)) {
-                  delete mpInstance._Store.serverSettings[prop];
-                }
-              } else {
-                // This is a valid setting
-                mpInstance._Store.serverSettings[prop] = fullProp;
-              }
-            }
-          }
-
-          mpInstance._Persistence.update();
-        } catch (e) {
-          mpInstance.Logger.error('Error parsing JSON response from server: ' + e.name);
         }
       };
 
@@ -8727,13 +8878,18 @@ var mParticle = (function () {
         /**
          * Removes CCPA from the consent state object
          *
-         * @method removeCCPAState
+         * @method removeCCPAConsentState
          */
 
 
-        function removeCCPAState() {
+        function removeCCPAConsentState() {
           delete ccpa[CCPAPurpose];
           return this;
+        }
+
+        function removeCCPAState() {
+          mpInstance.Logger.warning('removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead');
+          return removeCCPAConsentState();
         }
 
         return {
@@ -8743,7 +8899,8 @@ var mParticle = (function () {
           getCCPAConsentState: getCCPAConsentState,
           getGDPRConsentState: getGDPRConsentState,
           removeGDPRConsentState: removeGDPRConsentState,
-          removeCCPAState: removeCCPAState
+          removeCCPAState: removeCCPAState,
+          removeCCPAConsentState: removeCCPAConsentState
         };
       };
     }
@@ -9206,6 +9363,21 @@ var mParticle = (function () {
           eventType: Types.EventType.Unknown,
           customFlags: customFlags
         });
+      };
+      /**
+       * Forces an upload of the batch
+       * @method upload
+       */
+
+
+      this.upload = function () {
+        if (self._Helpers.canLog()) {
+          if (self._Store.webviewBridgeEnabled) {
+            self._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Upload);
+          } else {
+            self._APIClient.uploader.prepareAndUpload(false, false);
+          }
+        }
       };
       /**
        * Invoke these methods on the mParticle.Consent object.
@@ -10106,6 +10278,10 @@ var mParticle = (function () {
 
       this.logPageView = function (eventName, attrs, customFlags) {
         self.getInstance().logPageView(eventName, attrs, customFlags);
+      };
+
+      this.upload = function () {
+        self.getInstance().upload();
       };
 
       this.eCommerce = {
