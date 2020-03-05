@@ -1270,5 +1270,30 @@ describe('eCommerce', function() {
             bond.called.should.eql(false);
             bond.getCalls().length.should.equal(0);
         });
+        it('should be empty when transactionAttributes is empty', function() {
+            var mparticle = mParticle.getInstance()
+            var productAction = {}
+            mparticle._Ecommerce.convertTransactionAttributesToProductAction({}, productAction)
+            Object.keys(productAction).length.should.equal(0);
+        })
+        it('should be full when transactionAttributes is full', function() {
+            var mparticle = mParticle.getInstance()
+            var transactionAttributes = {
+                Id: "id",
+                Affiliation: "affiliation",
+                CouponCode: "couponCode",
+                Revenue: "revenue",
+                Shipping: "shipping",
+                Tax: "tax"
+            }
+            var productAction = {};
+            mparticle._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, productAction)
+            productAction.TransactionId.should.equal("id")
+            productAction.Affiliation.should.equal("affiliation")
+            productAction.CouponCode.should.equal("couponCode")
+            productAction.TotalAmount.should.equal("revenue")
+            productAction.ShippingAmount.should.equal("shipping")
+            productAction.TaxAmount.should.equal("tax")
+        })
     });
 });
