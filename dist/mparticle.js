@@ -657,7 +657,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.7',
+      sdkVersion: '2.11.8',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -4151,12 +4151,29 @@ var mParticle = (function () {
       var self = this;
 
       this.convertTransactionAttributesToProductAction = function (transactionAttributes, productAction) {
-        productAction.TransactionId = transactionAttributes.Id;
-        productAction.Affiliation = transactionAttributes.Affiliation;
-        productAction.CouponCode = transactionAttributes.CouponCode;
-        productAction.TotalAmount = transactionAttributes.Revenue;
-        productAction.ShippingAmount = transactionAttributes.Shipping;
-        productAction.TaxAmount = transactionAttributes.Tax;
+        if (transactionAttributes.Id) {
+          productAction.TransactionId = transactionAttributes.Id;
+        }
+
+        if (transactionAttributes.Affiliation) {
+          productAction.Affiliation = transactionAttributes.Affiliation;
+        }
+
+        if (transactionAttributes.CouponCode) {
+          productAction.CouponCode = transactionAttributes.CouponCode;
+        }
+
+        if (transactionAttributes.Revenue) {
+          productAction.TotalAmount = transactionAttributes.Revenue;
+        }
+
+        if (transactionAttributes.Shipping) {
+          productAction.ShippingAmount = transactionAttributes.Shipping;
+        }
+
+        if (transactionAttributes.Tax) {
+          productAction.TaxAmount = transactionAttributes.Tax;
+        }
       };
 
       this.getProductActionEventName = function (productActionType) {
