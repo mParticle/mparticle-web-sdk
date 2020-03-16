@@ -2,6 +2,10 @@
 
 --
 
+#### 2.11.8 - 2020-03-16
+
+-   Don't set empty TransactionAttribute fields
+
 #### 2.11.7 - 2020-03-04
 
 -   Deprecate removeCCPAState in favor of removeCCPAConsentState
