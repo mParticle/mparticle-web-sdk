@@ -51,16 +51,18 @@ describe('Api Client', function() {
     });
 
     it('Should update queued events with latest user info', function(done) {
+        var event = {
+            messageType: Types.MessageType.PageEvent,
+            name: 'foo page',
+            data: { 'foo-attr': 'foo-val' },
+            eventType: Types.EventType.Navigation,
+            customFlags:{ 'foo-flag': 'foo-flag-val' }
+        };
+
         mParticle.getInstance()._Store.should.be.ok();
         let sdkEvent1 = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
 
         sdkEvent1.should.be.ok();
         Should(sdkEvent1.MPID).equal(null);
@@ -70,13 +72,7 @@ describe('Api Client', function() {
 
         let sdkEvent2 = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
 
         sdkEvent2.should.be.ok();
         Should(sdkEvent2.MPID).equal(null);

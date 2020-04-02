@@ -715,6 +715,80 @@ describe('identities and attributes', function() {
         done();
     });
 
+    it('should send user attribute change requests for the MPID it is being set on', function(done) {
+        mParticle._resetForTests(MPConfig);
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.config.flags = {
+            eventsV3: 100,
+            EventBatchingIntervalMillis: 0,
+        };
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
+        var testMPID = mParticle.Identity.getCurrentUser().getMPID();
+        var body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.mpid.should.equal(testMPID);
+        var event = body.events[0]
+        event.event_type.should.equal('user_attribute_change');
+
+        // new user logs in
+        var loginUser = {
+            userIdentities: {
+                customerid: 'customerid1',
+            },
+        };
+
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'anotherMPID', is_logged_in: false }),
+        ]);
+
+        mParticle.Identity.login(loginUser);
+
+        var users = mParticle.Identity.getUsers();
+        users.length.should.equal(2);
+
+        var anotherMPIDUser = users[0];
+        var testMPIDUser = users[1];
+
+        anotherMPIDUser.getMPID().should.equal('anotherMPID');
+        testMPIDUser.getMPID().should.equal('testMPID');
+
+        anotherMPIDUser.setUserAttribute('age', '30');
+        body = JSON.parse(window.fetchMock.lastOptions().body)
+        event = body.events[0];
+        body.mpid.should.equal(anotherMPIDUser.getMPID());
+        event.event_type.should.equal('user_attribute_change');
+
+        testMPIDUser.setUserAttribute('age', '20');
+        body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.mpid.should.equal(testMPIDUser.getMPID());
+        event = body.events[0];
+        event.event_type.should.equal('user_attribute_change');
+
+        // remove user attribute 
+        anotherMPIDUser.removeUserAttribute('age');
+        body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.mpid.should.equal(anotherMPIDUser.getMPID());
+        event = body.events[0];
+        event.event_type.should.equal('user_attribute_change');
+
+        testMPIDUser.removeUserAttribute('age');
+        body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.mpid.should.equal(testMPIDUser.getMPID());
+        event = body.events[0];
+        event.event_type.should.equal('user_attribute_change');
+        
+        delete window.mParticle.config.flags
+        done();
+    });
+
     it('should send user identity change requests when setting new identities on new users', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -739,11 +813,16 @@ describe('identities and attributes', function() {
         mockServer.respondWith(urls.login, [
             200,
             {},
-            JSON.stringify({ mpid: 'testMPID', is_logged_in: false }),
+            JSON.stringify({ mpid: 'anotherMPID', is_logged_in: false }),
         ]);
 
         mParticle.Identity.login(loginUser);
-        var event = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+
+        var body = JSON.parse(window.fetchMock.lastOptions().body);
+        // should be the new MPID
+        body.mpid.should.equal('anotherMPID');
+
+        var event = body.events[0];
         event.should.be.ok();
         event.event_type.should.equal('user_identity_change');
         event.data.new.identity_type.should.equal('customerid');
@@ -761,16 +840,17 @@ describe('identities and attributes', function() {
                 customerid: 'customerid2',
             },
         };
-
-        mockServer.respondWith(urls.modify, [
+        mockServer.respondWith('https://identity.mparticle.com/v1/anotherMPID/modify', [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            JSON.stringify({ mpid: 'anotherMPID', is_logged_in: false }),
         ]);
-
         mParticle.Identity.modify(modifyUser);
 
-        var event2 = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        var body2 = JSON.parse(window.fetchMock.lastOptions().body);
+        body2.mpid.should.equal('anotherMPID');
+
+        var event2 = body2.events[0];
         event2.should.be.ok();
         event2.event_type.should.equal('user_identity_change');
         event2.data.new.identity_type.should.equal('customerid');
@@ -794,7 +874,10 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.modify(modifyUser2);
 
-        var event3 = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+        var body3 = JSON.parse(window.fetchMock.lastOptions().body);
+        body3.mpid.should.equal('anotherMPID');
+
+        var event3 = body3.events[0];
         event3.should.be.ok();
         event3.event_type.should.equal('user_identity_change');
         event3.data.new.identity_type.should.equal('email');
@@ -822,7 +905,11 @@ describe('identities and attributes', function() {
         ]);
 
         mParticle.Identity.logout(logoutUser);
-        var event4 = JSON.parse(window.fetchMock.lastOptions().body).events[0];
+
+        var body4 = JSON.parse(window.fetchMock.lastOptions().body);
+        body4.mpid.should.equal('mpid2');
+
+        var event4 = body4.events[0];
         event4.should.be.ok();
         event4.event_type.should.equal('user_identity_change');
         event4.data.new.identity_type.should.equal('other');

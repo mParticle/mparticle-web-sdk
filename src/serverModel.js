@@ -156,7 +156,7 @@ export default function ServerModel(mpInstance) {
         return jsonObject;
     };
 
-    this.createEventObject = function(event) {
+    this.createEventObject = function(event, user) {
         var uploadObject = {};
         var eventObject = {};
         var optOut =
@@ -212,7 +212,7 @@ export default function ServerModel(mpInstance) {
             };
 
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
-            var currentUser = mpInstance.Identity.getCurrentUser();
+            var currentUser = user || mpInstance.Identity.getCurrentUser();
             self.appendUserInfo(currentUser, eventObject);
 
             if (event.messageType === Types.MessageType.SessionEnd) {

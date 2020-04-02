@@ -886,7 +886,8 @@ export default function Identity(mpInstance) {
                             newValue,
                             previousUserAttributeValue,
                             isNewAttribute,
-                            false
+                            false,
+                            this
                         );
 
                         userAttributes[key] = newValue;
@@ -960,7 +961,8 @@ export default function Identity(mpInstance) {
                         null,
                         userAttributes[key],
                         false,
-                        true
+                        true,
+                        this
                     );
 
                     var existingProp = mpInstance._Helpers.findKeyInObject(
@@ -1075,7 +1077,8 @@ export default function Identity(mpInstance) {
                                 newValue,
                                 previousUserAttributeValue,
                                 isNewAttribute,
-                                false
+                                false,
+                                this
                             );
                         }
                     }
@@ -1437,23 +1440,43 @@ export default function Identity(mpInstance) {
             );
             if (xhr.responseText) {
                 identityApiResult = JSON.parse(xhr.responseText);
-                self.sendUserIdentityChange(
-                    identityApiData,
-                    method,
-                    identityApiResult.mpid
-                );
 
                 if (identityApiResult.hasOwnProperty('is_logged_in')) {
                     mpInstance._Store.isLoggedIn =
                         identityApiResult.is_logged_in;
                 }
             }
+
+            // set currentUser
+            if (
+                !prevUser ||
+                (prevUser.getMPID() &&
+                    identityApiResult.mpid &&
+                    identityApiResult.mpid !== prevUser.getMPID())
+            ) {
+                mpInstance._Store.mpid = identityApiResult.mpid;
+
+                if (prevUser) {
+                    mpInstance._Persistence.setLastSeenTime(previousMPID);
+                }
+                mpInstance._Persistence.setFirstSeenTime(
+                    identityApiResult.mpid
+                );
+            }
+
+            self.sendUserIdentityChangeEvent(
+                identityApiData,
+                method,
+                identityApiResult.mpid
+            );
+
             if (xhr.status === 200) {
                 if (method === 'modify') {
                     newIdentities = mpInstance._Identity.IdentityRequest.modifyUserIdentities(
                         userIdentitiesForModify,
                         identityApiData.userIdentities
                     );
+
                     mpInstance._Persistence.saveUserIdentitiesToPersistence(
                         prevUser.getMPID(),
                         newIdentities
@@ -1464,23 +1487,6 @@ export default function Identity(mpInstance) {
                     mpInstance.Logger.verbose(
                         'Successfully parsed Identity Response'
                     );
-
-                    if (
-                        !prevUser ||
-                        (prevUser.getMPID() &&
-                            identityApiResult.mpid &&
-                            identityApiResult.mpid !== prevUser.getMPID())
-                    ) {
-                        mpInstance._Store.mpid = identityApiResult.mpid;
-                        if (prevUser) {
-                            mpInstance._Persistence.setLastSeenTime(
-                                previousMPID
-                            );
-                        }
-                        mpInstance._Persistence.setFirstSeenTime(
-                            identityApiResult.mpid
-                        );
-                    }
 
                     //this covers an edge case where, users stored before "firstSeenTime" was introduced
                     //will not have a value for "fst" until the current MPID changes, and in some cases,
@@ -1524,10 +1530,6 @@ export default function Identity(mpInstance) {
                         );
                     }
 
-                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
-                        identityApiResult.mpid,
-                        newIdentities
-                    );
                     mpInstance._CookieSyncManager.attemptCookieSync(
                         previousMPID,
                         identityApiResult.mpid
@@ -1680,7 +1682,11 @@ export default function Identity(mpInstance) {
     // compare what identities exist vs what is previously was for the specific user if they were in memory before.
     // if it's the first time the user is logging in, send a user identity change request with
 
-    this.sendUserIdentityChange = function(newIdentityApiData, method, mpid) {
+    this.sendUserIdentityChangeEvent = function(
+        newIdentityApiData,
+        method,
+        mpid
+    ) {
         var userInMemory, userIdentitiesInMemory, userIdentityChangeEvent;
 
         if (!mpInstance._APIClient.shouldEnableBatching()) {
@@ -1693,10 +1699,7 @@ export default function Identity(mpInstance) {
             }
         }
 
-        userInMemory =
-            method === 'modify'
-                ? this.IdentityAPI.getCurrentUser()
-                : this.IdentityAPI.getUser(mpid);
+        userInMemory = this.IdentityAPI.getUser(mpid);
         var newUserIdentities = newIdentityApiData.userIdentities;
         // if there is not a user in memory with this mpid, then it is a new user, and we send a user identity
         // change for each identity on the identity api request
@@ -1710,7 +1713,8 @@ export default function Identity(mpInstance) {
                     identityType,
                     newUserIdentities[identityType],
                     null,
-                    true
+                    true,
+                    userInMemory
                 );
                 mpInstance._APIClient.sendEventToServer(
                     userIdentityChangeEvent
@@ -1731,7 +1735,8 @@ export default function Identity(mpInstance) {
                     identityType,
                     newUserIdentities[identityType],
                     userIdentitiesInMemory[identityType],
-                    isNewUserIdentityType
+                    isNewUserIdentityType,
+                    userInMemory
                 );
                 mpInstance._APIClient.sendEventToServer(
                     userIdentityChangeEvent
@@ -1744,7 +1749,8 @@ export default function Identity(mpInstance) {
         identityType,
         newIdentity,
         oldIdentity,
-        newCreatedThisBatch
+        newCreatedThisBatch,
+        userInMemory
     ) {
         var userIdentityChangeEvent;
 
@@ -1762,6 +1768,7 @@ export default function Identity(mpInstance) {
                     CreatedThisBatch: false,
                 },
             },
+            userInMemory,
         });
 
         return userIdentityChangeEvent;
@@ -1772,7 +1779,8 @@ export default function Identity(mpInstance) {
         newUserAttributeValue,
         previousUserAttributeValue,
         isNewAttribute,
-        deleted
+        deleted,
+        user
     ) {
         if (!mpInstance._APIClient.shouldEnableBatching()) {
             return;
@@ -1782,7 +1790,8 @@ export default function Identity(mpInstance) {
             newUserAttributeValue,
             previousUserAttributeValue,
             isNewAttribute,
-            deleted
+            deleted,
+            user
         );
         if (userAttributeChangeEvent) {
             mpInstance._APIClient.sendEventToServer(userAttributeChangeEvent);
@@ -1794,7 +1803,8 @@ export default function Identity(mpInstance) {
         newValue,
         previousUserAttributeValue,
         isNewAttribute,
-        deleted
+        deleted,
+        user
     ) {
         if (!previousUserAttributeValue) {
             previousUserAttributeValue = null;
@@ -1811,7 +1821,8 @@ export default function Identity(mpInstance) {
                         Deleted: deleted,
                         IsNewAttribute: isNewAttribute,
                     },
-                }
+                },
+                user
             );
         }
         return userAttributeChangeEvent;

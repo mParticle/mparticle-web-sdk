@@ -5,6 +5,14 @@ import { urls, testMPID, apiKey } from './config';
 var mockServer;
 
 describe('Server Model', function() {
+    var event = {
+        messageType: Types.MessageType.PageEvent,
+        name: 'foo page',
+        data: { 'foo-attr': 'foo-val' },
+        eventType: Types.EventType.Navigation,
+        customFlags:{ 'foo-flag': 'foo-flag-val' }
+    };
+
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
@@ -29,13 +37,7 @@ describe('Server Model', function() {
     it('Should not convert data plan object to server DTO when no id or version is set', function(done) {
         let sdkEvent = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
         
         let upload = mParticle
             .getInstance()
@@ -55,13 +57,7 @@ describe('Server Model', function() {
         mParticle.init('foo', mParticle.config);
         let sdkEvent = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
         let upload = mParticle
             .getInstance()
             ._ServerModel.convertEventToDTO(sdkEvent, false);
@@ -80,13 +76,7 @@ describe('Server Model', function() {
         mParticle.init('foo', mParticle.config);
         let sdkEvent = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
         let upload = mParticle
             .getInstance()
             ._ServerModel.convertEventToDTO(sdkEvent, false);
@@ -106,13 +96,7 @@ describe('Server Model', function() {
         mParticle.init('foo', mParticle.config);
         let sdkEvent = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
         let upload = mParticle
             .getInstance()
             ._ServerModel.convertEventToDTO(sdkEvent, false);
@@ -158,13 +142,7 @@ describe('Server Model', function() {
 
         let sdkEvent = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.UserIdentities).not.be.ok;
@@ -221,13 +199,7 @@ describe('Server Model', function() {
         };
         let sdkEvent = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
         sdkEvent.UserIdentities.should.be.ok;
@@ -241,13 +213,7 @@ describe('Server Model', function() {
     it('Should append identities when user present', function(done) {
         let sdkEvent = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.UserIdentities).not.be.ok;
@@ -301,13 +267,7 @@ describe('Server Model', function() {
     it('Should append user attributes when user present', function(done) {
         let sdkEvent = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.UserAttributes).not.be.ok;
@@ -337,13 +297,7 @@ describe('Server Model', function() {
     it('Should append mpid when user present', function(done) {
         let sdkEvent = mParticle
             .getInstance()
-            ._ServerModel.createEventObject(
-                Types.MessageType.PageEvent,
-                'foo page',
-                { 'foo-attr': 'foo-val' },
-                Types.EventType.Navigation,
-                { 'foo-flag': 'foo-flag-val' }
-            );
+            ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
         Should(sdkEvent.MPID).not.be.ok;
