@@ -2,6 +2,11 @@
 
 --
 
+#### 2.11.9 - 2020-04-02
+
+-   Bugfix - Send specific user along with UIC and UAC Events
+-   Dependabot - Bump Acorn version
+
 #### 2.11.8 - 2020-03-16
 
 -   Don't set empty TransactionAttribute fields
