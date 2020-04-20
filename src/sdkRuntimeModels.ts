@@ -17,7 +17,7 @@ export interface SDKEvent {
     Timestamp: number;
     EventDataType: number;
     Debug: boolean;
-    Location?: { latitude: number | string; longitude: number | string };
+    Location?: SDKGeoLocation;
     OptOut?: boolean;
     CustomFlags?: { [key: string]: string };
     AppVersion?: string;
@@ -32,6 +32,11 @@ export interface SDKEvent {
     UserAttributeChanges?: SDKUserAttributeChangeData;
     CurrencyCode: string;
     DataPlan?: SDKDataPlan;
+}
+
+export interface SDKGeoLocation {
+    lat: number | string;
+    lng: number | string;
 }
 
 export interface SDKDataPlan {
@@ -117,6 +122,7 @@ export interface MParticleWebSDK {
     getInstance();
     ServerModel();
     upload();
+    setPosition(lat: number | string, lng: number | string): void;
     logEvent(eventName: string): void;
     eCommerce: any;
     logLevel: string;

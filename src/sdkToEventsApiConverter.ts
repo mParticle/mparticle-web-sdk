@@ -2,6 +2,7 @@ import {
     SDKEvent,
     SDKConsentState,
     SDKGDPRConsentState,
+    SDKGeoLocation,
     SDKCCPAConsentState,
     SDKProduct,
     SDKPromotion,
@@ -557,10 +558,22 @@ export function convertBaseEventData(
         session_uuid: sdkEvent.SessionId,
         session_start_unixtime_ms: sdkEvent.SessionStartDate,
         custom_attributes: sdkEvent.EventAttributes,
-        location: sdkEvent.Location,
+        location: convertSDKLocation(sdkEvent.Location),
     };
 
     return commonEventData;
+}
+
+export function convertSDKLocation(
+    sdkEventLocation: SDKGeoLocation
+): EventsApi.GeoLocation {
+    if (sdkEventLocation && Object.keys(sdkEventLocation).length) {
+        return {
+            latitude: sdkEventLocation.lat,
+            longitude: sdkEventLocation.lng,
+        };
+    }
+    return null;
 }
 
 export function convertUserAttributeChangeEvent(

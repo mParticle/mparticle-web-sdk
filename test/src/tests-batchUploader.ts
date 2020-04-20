@@ -75,6 +75,25 @@ describe('batch uploader', () => {
             done();
         });
 
+        it('should have latitude/longitude for location when batching', function(done) {
+            window.mParticle._resetForTests(MPConfig);
+            window.mParticle.init(apiKey, window.mParticle.config);
+    
+            window.mParticle.setPosition(100, 100);
+            window.mParticle.logEvent('Test Event');
+            clock.tick(1000);
+
+            // Tick forward 1000 ms to hit upload interval and force an upload
+            const lastCall = window.fetchMock.lastCall();
+            const endpoint = lastCall[0];
+            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+            endpoint.should.equal(urls.eventsV3);
+            batch.events[2].data.location.should.have.property('latitude', 100)
+            batch.events[2].data.location.should.have.property('longitude', 100)
+    
+            done();
+        });
+
         it('should force uploads when using public `upload`', function(done) {
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
