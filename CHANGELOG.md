@@ -2,6 +2,10 @@
 
 --
 
+#### 2.11.10 - 2020-04-23
+
+-   Bugfix - Fix v3 events endpoint location payload
+
 #### 2.11.9 - 2020-04-02
 
 -   Bugfix - Send specific user along with UIC and UAC Events
