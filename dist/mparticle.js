@@ -657,7 +657,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.9',
+      sdkVersion: '2.11.10',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -2325,9 +2325,18 @@ var mParticle = (function () {
             session_uuid: sdkEvent.SessionId,
             session_start_unixtime_ms: sdkEvent.SessionStartDate,
             custom_attributes: sdkEvent.EventAttributes,
-            location: sdkEvent.Location
+            location: convertSDKLocation(sdkEvent.Location)
         };
         return commonEventData;
+    }
+    function convertSDKLocation(sdkEventLocation) {
+        if (sdkEventLocation && Object.keys(sdkEventLocation).length) {
+            return {
+                latitude: sdkEventLocation.lat,
+                longitude: sdkEventLocation.lng
+            };
+        }
+        return null;
     }
     function convertUserAttributeChangeEvent(sdkEvent) {
         var commonEventData = convertBaseEventData(sdkEvent);
