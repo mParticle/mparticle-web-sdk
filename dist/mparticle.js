@@ -385,7 +385,16 @@ var mParticle = (function () {
       FacebookCustomAudienceId: 9,
       Other2: 10,
       Other3: 11,
-      Other4: 12
+      Other4: 12,
+      Other5: 13,
+      Other6: 14,
+      Other7: 15,
+      Other8: 16,
+      Other9: 17,
+      Other10: 18,
+      MobileNumber: 19,
+      PhoneNumber2: 20,
+      PhoneNumber3: 21
     };
 
     IdentityType.isValid = function (identityType) {
@@ -471,6 +480,33 @@ var mParticle = (function () {
         case 'other4':
           return IdentityType.Other4;
 
+        case 'other5':
+          return IdentityType.Other5;
+
+        case 'other6':
+          return IdentityType.Other6;
+
+        case 'other7':
+          return IdentityType.Other7;
+
+        case 'other8':
+          return IdentityType.Other8;
+
+        case 'other9':
+          return IdentityType.Other9;
+
+        case 'other10':
+          return IdentityType.Other10;
+
+        case 'mobile_number':
+          return IdentityType.MobileNumber;
+
+        case 'phone_number_2':
+          return IdentityType.PhoneNumber2;
+
+        case 'phone_number_3':
+          return IdentityType.PhoneNumber3;
+
         default:
           return false;
       }
@@ -513,6 +549,33 @@ var mParticle = (function () {
 
         case IdentityType.Other4:
           return 'other4';
+
+        case IdentityType.Other5:
+          return 'other5';
+
+        case IdentityType.Other6:
+          return 'other6';
+
+        case IdentityType.Other7:
+          return 'other7';
+
+        case IdentityType.Other8:
+          return 'other8';
+
+        case IdentityType.Other9:
+          return 'other9';
+
+        case IdentityType.Other10:
+          return 'other10';
+
+        case IdentityType.MobileNumber:
+          return 'mobile_number';
+
+        case IdentityType.PhoneNumber2:
+          return 'phone_number_2';
+
+        case IdentityType.PhoneNumber3:
+          return 'phone_number_3';
       }
     };
 
@@ -657,7 +720,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.10',
+      sdkVersion: '2.11.11',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -833,16 +896,16 @@ var mParticle = (function () {
     }
 
     var _typeof_1 = createCommonjsModule(function (module) {
-    function _typeof2(obj) { if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof2 = function _typeof2(obj) { return typeof obj; }; } else { _typeof2 = function _typeof2(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof2(obj); }
-
     function _typeof(obj) {
-      if (typeof Symbol === "function" && _typeof2(Symbol.iterator) === "symbol") {
+      "@babel/helpers - typeof";
+
+      if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
         module.exports = _typeof = function _typeof(obj) {
-          return _typeof2(obj);
+          return typeof obj;
         };
       } else {
         module.exports = _typeof = function _typeof(obj) {
-          return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : _typeof2(obj);
+          return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
         };
       }
 
@@ -850,37 +913,6 @@ var mParticle = (function () {
     }
 
     module.exports = _typeof;
-    });
-
-    function _assertThisInitialized(self) {
-      if (self === void 0) {
-        throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
-      }
-
-      return self;
-    }
-
-    var assertThisInitialized = _assertThisInitialized;
-
-    function _possibleConstructorReturn(self, call) {
-      if (call && (_typeof_1(call) === "object" || typeof call === "function")) {
-        return call;
-      }
-
-      return assertThisInitialized(self);
-    }
-
-    var possibleConstructorReturn = _possibleConstructorReturn;
-
-    var getPrototypeOf = createCommonjsModule(function (module) {
-    function _getPrototypeOf(o) {
-      module.exports = _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
-        return o.__proto__ || Object.getPrototypeOf(o);
-      };
-      return _getPrototypeOf(o);
-    }
-
-    module.exports = _getPrototypeOf;
     });
 
     var setPrototypeOf = createCommonjsModule(function (module) {
@@ -912,6 +944,37 @@ var mParticle = (function () {
     }
 
     var inherits = _inherits;
+
+    function _assertThisInitialized(self) {
+      if (self === void 0) {
+        throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+      }
+
+      return self;
+    }
+
+    var assertThisInitialized = _assertThisInitialized;
+
+    function _possibleConstructorReturn(self, call) {
+      if (call && (_typeof_1(call) === "object" || typeof call === "function")) {
+        return call;
+      }
+
+      return assertThisInitialized(self);
+    }
+
+    var possibleConstructorReturn = _possibleConstructorReturn;
+
+    var getPrototypeOf = createCommonjsModule(function (module) {
+    function _getPrototypeOf(o) {
+      module.exports = _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
+        return o.__proto__ || Object.getPrototypeOf(o);
+      };
+      return _getPrototypeOf(o);
+    }
+
+    module.exports = _getPrototypeOf;
+    });
 
     var runtime_1 = createCommonjsModule(function (module) {
     /**
@@ -1045,7 +1108,7 @@ var mParticle = (function () {
         return { __await: arg };
       };
 
-      function AsyncIterator(generator) {
+      function AsyncIterator(generator, PromiseImpl) {
         function invoke(method, arg, resolve, reject) {
           var record = tryCatch(generator[method], generator, arg);
           if (record.type === "throw") {
@@ -1056,14 +1119,14 @@ var mParticle = (function () {
             if (value &&
                 typeof value === "object" &&
                 hasOwn.call(value, "__await")) {
-              return Promise.resolve(value.__await).then(function(value) {
+              return PromiseImpl.resolve(value.__await).then(function(value) {
                 invoke("next", value, resolve, reject);
               }, function(err) {
                 invoke("throw", err, resolve, reject);
               });
             }
 
-            return Promise.resolve(value).then(function(unwrapped) {
+            return PromiseImpl.resolve(value).then(function(unwrapped) {
               // When a yielded Promise is resolved, its final value becomes
               // the .value of the Promise<{value,done}> result for the
               // current iteration.
@@ -1081,7 +1144,7 @@ var mParticle = (function () {
 
         function enqueue(method, arg) {
           function callInvokeWithMethodAndArg() {
-            return new Promise(function(resolve, reject) {
+            return new PromiseImpl(function(resolve, reject) {
               invoke(method, arg, resolve, reject);
             });
           }
@@ -1121,9 +1184,12 @@ var mParticle = (function () {
       // Note that simple async functions are implemented on top of
       // AsyncIterator objects; they just return a Promise for the value of
       // the final result produced by the iterator.
-      exports.async = function(innerFn, outerFn, self, tryLocsList) {
+      exports.async = function(innerFn, outerFn, self, tryLocsList, PromiseImpl) {
+        if (PromiseImpl === void 0) PromiseImpl = Promise;
+
         var iter = new AsyncIterator(
-          wrap(innerFn, outerFn, self, tryLocsList)
+          wrap(innerFn, outerFn, self, tryLocsList),
+          PromiseImpl
         );
 
         return exports.isGeneratorFunction(outerFn)
@@ -1643,32 +1709,49 @@ var mParticle = (function () {
 
     var regenerator = runtime_1;
 
-    function _arrayWithoutHoles(arr) {
-      if (Array.isArray(arr)) {
-        for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) {
-          arr2[i] = arr[i];
-        }
+    function _arrayLikeToArray(arr, len) {
+      if (len == null || len > arr.length) len = arr.length;
 
-        return arr2;
+      for (var i = 0, arr2 = new Array(len); i < len; i++) {
+        arr2[i] = arr[i];
       }
+
+      return arr2;
+    }
+
+    var arrayLikeToArray = _arrayLikeToArray;
+
+    function _arrayWithoutHoles(arr) {
+      if (Array.isArray(arr)) return arrayLikeToArray(arr);
     }
 
     var arrayWithoutHoles = _arrayWithoutHoles;
 
     function _iterableToArray(iter) {
-      if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter);
+      if (typeof Symbol !== "undefined" && Symbol.iterator in Object(iter)) return Array.from(iter);
     }
 
     var iterableToArray = _iterableToArray;
 
+    function _unsupportedIterableToArray(o, minLen) {
+      if (!o) return;
+      if (typeof o === "string") return arrayLikeToArray(o, minLen);
+      var n = Object.prototype.toString.call(o).slice(8, -1);
+      if (n === "Object" && o.constructor) n = o.constructor.name;
+      if (n === "Map" || n === "Set") return Array.from(o);
+      if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return arrayLikeToArray(o, minLen);
+    }
+
+    var unsupportedIterableToArray = _unsupportedIterableToArray;
+
     function _nonIterableSpread() {
-      throw new TypeError("Invalid attempt to spread non-iterable instance");
+      throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
     }
 
     var nonIterableSpread = _nonIterableSpread;
 
     function _toConsumableArray(arr) {
-      return arrayWithoutHoles(arr) || iterableToArray(arr) || nonIterableSpread();
+      return arrayWithoutHoles(arr) || iterableToArray(arr) || unsupportedIterableToArray(arr) || nonIterableSpread();
     }
 
     var toConsumableArray = _toConsumableArray;
@@ -1761,15 +1844,41 @@ var mParticle = (function () {
     function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) {
         var source = arguments[i] != null ? arguments[i] : {};
         if (i % 2) {
-            ownKeys(source, true).forEach(function (key) { defineProperty(target, key, source[key]); });
+            ownKeys(Object(source), true).forEach(function (key) { defineProperty(target, key, source[key]); });
         }
         else if (Object.getOwnPropertyDescriptors) {
             Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
         }
         else {
-            ownKeys(source).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); });
+            ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); });
         }
     } return target; }
+    function _createForOfIteratorHelper(o) { if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) {
+        if (Array.isArray(o) || (o = _unsupportedIterableToArray$1(o))) {
+            var i = 0;
+            var F = function F() { };
+            return { s: F, n: function n() { if (i >= o.length)
+                    return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F };
+        }
+        throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+    } var it, normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try {
+            if (!normalCompletion && it["return"] != null)
+                it["return"]();
+        }
+        finally {
+            if (didErr)
+                throw err;
+        } } }; }
+    function _unsupportedIterableToArray$1(o, minLen) { if (!o)
+        return; if (typeof o === "string")
+        return _arrayLikeToArray$1(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor)
+        n = o.constructor.name; if (n === "Map" || n === "Set")
+        return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
+        return _arrayLikeToArray$1(o, minLen); }
+    function _arrayLikeToArray$1(arr, len) { if (len == null || len > arr.length)
+        len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) {
+        arr2[i] = arr[i];
+    } return arr2; }
     function convertEvents(mpid, sdkEvents, mpInstance) {
         if (!mpid) {
             return null;
@@ -1779,11 +1888,9 @@ var mParticle = (function () {
         }
         var uploadEvents = [];
         var lastEvent = null;
-        var _iteratorNormalCompletion = true;
-        var _didIteratorError = false;
-        var _iteratorError = undefined;
+        var _iterator = _createForOfIteratorHelper(sdkEvents), _step;
         try {
-            for (var _iterator = sdkEvents[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+            for (_iterator.s(); !(_step = _iterator.n()).done;) {
                 var sdkEvent = _step.value;
                 if (sdkEvent) {
                     lastEvent = sdkEvent;
@@ -1795,20 +1902,10 @@ var mParticle = (function () {
             }
         }
         catch (err) {
-            _didIteratorError = true;
-            _iteratorError = err;
+            _iterator.e(err);
         }
         finally {
-            try {
-                if (!_iteratorNormalCompletion && _iterator["return"] != null) {
-                    _iterator["return"]();
-                }
-            }
-            finally {
-                if (_didIteratorError) {
-                    throw _iteratorError;
-                }
-            }
+            _iterator.f();
         }
         if (!lastEvent) {
             return null;
@@ -1896,11 +1993,9 @@ var mParticle = (function () {
             return null;
         }
         var batchIdentities = {};
-        var _iteratorNormalCompletion2 = true;
-        var _didIteratorError2 = false;
-        var _iteratorError2 = undefined;
+        var _iterator2 = _createForOfIteratorHelper(sdkUserIdentities), _step2;
         try {
-            for (var _iterator2 = sdkUserIdentities[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+            for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
                 var identity = _step2.value;
                 switch (identity.Type) {
                     case Types.IdentityType.CustomerId:
@@ -1933,26 +2028,44 @@ var mParticle = (function () {
                     case Types.IdentityType.Other4:
                         batchIdentities.other_id_4 = identity.Identity;
                         break;
+                    case Types.IdentityType.Other5:
+                        batchIdentities.other_id_5 = identity.Identity;
+                        break;
+                    case Types.IdentityType.Other6:
+                        batchIdentities.other_id_6 = identity.Identity;
+                        break;
+                    case Types.IdentityType.Other7:
+                        batchIdentities.other_id_7 = identity.Identity;
+                        break;
+                    case Types.IdentityType.Other8:
+                        batchIdentities.other_id_8 = identity.Identity;
+                        break;
+                    case Types.IdentityType.Other9:
+                        batchIdentities.other_id_9 = identity.Identity;
+                        break;
+                    case Types.IdentityType.Other10:
+                        batchIdentities.other_id_10 = identity.Identity;
+                        break;
+                    case Types.IdentityType.MobileNumber:
+                        batchIdentities.mobile_number = identity.Identity;
+                        break;
+                    case Types.IdentityType.PhoneNumber2:
+                        batchIdentities.phone_number_2 = identity.Identity;
+                        break;
+                    case Types.IdentityType.PhoneNumber3:
+                        debugger;
+                        batchIdentities.phone_number_3 = identity.Identity;
+                        break;
                     default:
                         break;
                 }
             }
         }
         catch (err) {
-            _didIteratorError2 = true;
-            _iteratorError2 = err;
+            _iterator2.e(err);
         }
         finally {
-            try {
-                if (!_iteratorNormalCompletion2 && _iterator2["return"] != null) {
-                    _iterator2["return"]();
-                }
-            }
-            finally {
-                if (_didIteratorError2) {
-                    throw _iteratorError2;
-                }
-            }
+            _iterator2.f();
         }
         return batchIdentities;
     }
@@ -1984,8 +2097,6 @@ var mParticle = (function () {
                 return convertUserAttributeChangeEvent(sdkEvent);
             case Types.MessageType.UserIdentityChange:
                 return convertUserIdentityChangeEvent(sdkEvent);
-            default:
-                break;
         }
         return null;
     }
@@ -2041,11 +2152,9 @@ var mParticle = (function () {
             return null;
         }
         var products = [];
-        var _iteratorNormalCompletion3 = true;
-        var _didIteratorError3 = false;
-        var _iteratorError3 = undefined;
+        var _iterator3 = _createForOfIteratorHelper(sdkProducts), _step3;
         try {
-            for (var _iterator3 = sdkProducts[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+            for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
                 var sdkProduct = _step3.value;
                 var product = {
                     id: sdkProduct.Sku,
@@ -2064,20 +2173,10 @@ var mParticle = (function () {
             }
         }
         catch (err) {
-            _didIteratorError3 = true;
-            _iteratorError3 = err;
+            _iterator3.e(err);
         }
         finally {
-            try {
-                if (!_iteratorNormalCompletion3 && _iterator3["return"] != null) {
-                    _iterator3["return"]();
-                }
-            }
-            finally {
-                if (_didIteratorError3) {
-                    throw _iteratorError3;
-                }
-            }
+            _iterator3.f();
         }
         return products;
     }
@@ -2096,11 +2195,9 @@ var mParticle = (function () {
             return null;
         }
         var promotions = [];
-        var _iteratorNormalCompletion4 = true;
-        var _didIteratorError4 = false;
-        var _iteratorError4 = undefined;
+        var _iterator4 = _createForOfIteratorHelper(sdkPromotions), _step4;
         try {
-            for (var _iterator4 = sdkPromotions[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+            for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
                 var sdkPromotion = _step4.value;
                 var promotion = {
                     id: sdkPromotion.Id,
@@ -2112,20 +2209,10 @@ var mParticle = (function () {
             }
         }
         catch (err) {
-            _didIteratorError4 = true;
-            _iteratorError4 = err;
+            _iterator4.e(err);
         }
         finally {
-            try {
-                if (!_iteratorNormalCompletion4 && _iterator4["return"] != null) {
-                    _iterator4["return"]();
-                }
-            }
-            finally {
-                if (_didIteratorError4) {
-                    throw _iteratorError4;
-                }
-            }
+            _iterator4.f();
         }
         return promotions;
     }
@@ -2134,11 +2221,9 @@ var mParticle = (function () {
             return null;
         }
         var impressions = [];
-        var _iteratorNormalCompletion5 = true;
-        var _didIteratorError5 = false;
-        var _iteratorError5 = undefined;
+        var _iterator5 = _createForOfIteratorHelper(sdkEvent.ProductImpressions), _step5;
         try {
-            for (var _iterator5 = sdkEvent.ProductImpressions[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+            for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
                 var sdkImpression = _step5.value;
                 var impression = {
                     product_impression_list: sdkImpression.ProductImpressionList,
@@ -2148,20 +2233,10 @@ var mParticle = (function () {
             }
         }
         catch (err) {
-            _didIteratorError5 = true;
-            _iteratorError5 = err;
+            _iterator5.e(err);
         }
         finally {
-            try {
-                if (!_iteratorNormalCompletion5 && _iterator5["return"] != null) {
-                    _iterator5["return"]();
-                }
-            }
-            finally {
-                if (_didIteratorError5) {
-                    throw _iteratorError5;
-                }
-            }
+            _iterator5.f();
         }
         return impressions;
     }
@@ -2347,7 +2422,7 @@ var mParticle = (function () {
             deleted: sdkEvent.UserAttributeChanges.Deleted,
             is_new_attribute: sdkEvent.UserAttributeChanges.IsNewAttribute
         };
-        userAttributeChangeEvent = _objectSpread({}, userAttributeChangeEvent, {}, commonEventData);
+        userAttributeChangeEvent = _objectSpread(_objectSpread({}, userAttributeChangeEvent), commonEventData);
         return {
             event_type: 'user_attribute_change',
             data: userAttributeChangeEvent
@@ -2376,9 +2451,50 @@ var mParticle = (function () {
         };
     }
 
-    var BatchUploader = 
-    /*#__PURE__*/
-    function () {
+    function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function () { var Super = getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) {
+        var NewTarget = getPrototypeOf(this).constructor;
+        result = Reflect.construct(Super, arguments, NewTarget);
+    }
+    else {
+        result = Super.apply(this, arguments);
+    } return possibleConstructorReturn(this, result); }; }
+    function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct)
+        return false; if (Reflect.construct.sham)
+        return false; if (typeof Proxy === "function")
+        return true; try {
+        Date.prototype.toString.call(Reflect.construct(Date, [], function () { }));
+        return true;
+    }
+    catch (e) {
+        return false;
+    } }
+    function _createForOfIteratorHelper$1(o) { if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) {
+        if (Array.isArray(o) || (o = _unsupportedIterableToArray$2(o))) {
+            var i = 0;
+            var F = function F() { };
+            return { s: F, n: function n() { if (i >= o.length)
+                    return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F };
+        }
+        throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
+    } var it, normalCompletion = true, didErr = false, err; return { s: function s() { it = o[Symbol.iterator](); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try {
+            if (!normalCompletion && it["return"] != null)
+                it["return"]();
+        }
+        finally {
+            if (didErr)
+                throw err;
+        } } }; }
+    function _unsupportedIterableToArray$2(o, minLen) { if (!o)
+        return; if (typeof o === "string")
+        return _arrayLikeToArray$2(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor)
+        n = o.constructor.name; if (n === "Map" || n === "Set")
+        return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
+        return _arrayLikeToArray$2(o, minLen); }
+    function _arrayLikeToArray$2(arr, len) { if (len == null || len > arr.length)
+        len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) {
+        arr2[i] = arr[i];
+    } return arr2; }
+    var BatchUploader = /*#__PURE__*/ function () {
         //we upload JSON, but this content type is required to avoid a CORS preflight request
         function BatchUploader(mpInstance, uploadInterval) {
             var _this2 = this;
@@ -2458,9 +2574,7 @@ var mParticle = (function () {
                  * @param useBeacon whether to use the beacon API - used when the page is being unloaded
                  */
                 value: function () {
-                    var _prepareAndUpload = asyncToGenerator(
-                    /*#__PURE__*/
-                    regenerator.mark(function _callee(triggerFuture, useBeacon) {
+                    var _prepareAndUpload = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee(triggerFuture, useBeacon) {
                         var _this3 = this;
                         var currentUser, currentEvents, newUploads, _this$pendingUploads, currentUploads, remainingUploads, _this$pendingUploads2;
                         return regenerator.wrap(function _callee$(_context) {
@@ -2503,9 +2617,7 @@ var mParticle = (function () {
             }, {
                 key: "upload",
                 value: function () {
-                    var _upload = asyncToGenerator(
-                    /*#__PURE__*/
-                    regenerator.mark(function _callee2(logger, uploads, useBeacon) {
+                    var _upload = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee2(logger, uploads, useBeacon) {
                         var uploader, i, _fetchPayload, blob, response;
                         return regenerator.wrap(function _callee2$(_context2) {
                             while (1) {
@@ -2612,79 +2724,55 @@ var mParticle = (function () {
                     } //bucket by MPID, and then by session, ordered by timestamp
                     var newUploads = [];
                     var eventsByUser = new Map();
-                    var _iteratorNormalCompletion = true;
-                    var _didIteratorError = false;
-                    var _iteratorError = undefined;
+                    var _iterator = _createForOfIteratorHelper$1(sdkEvents), _step;
                     try {
-                        for (var _iterator = sdkEvents[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-                            var sdkEvent = _step.value;
+                        for (_iterator.s(); !(_step = _iterator.n()).done;) {
+                            var _sdkEvent = _step.value;
                             //on initial startup, there may be events logged without an mpid.
-                            if (!sdkEvent.MPID) {
-                                var mpid = defaultUser.getMPID();
-                                sdkEvent.MPID = mpid;
+                            if (!_sdkEvent.MPID) {
+                                var _mpid = defaultUser.getMPID();
+                                _sdkEvent.MPID = _mpid;
                             }
-                            var events = eventsByUser.get(sdkEvent.MPID);
-                            if (!events) {
-                                events = [];
+                            var _events = eventsByUser.get(_sdkEvent.MPID);
+                            if (!_events) {
+                                _events = [];
                             }
-                            events.push(sdkEvent);
-                            eventsByUser.set(sdkEvent.MPID, events);
+                            _events.push(_sdkEvent);
+                            eventsByUser.set(_sdkEvent.MPID, _events);
                         }
                     }
                     catch (err) {
-                        _didIteratorError = true;
-                        _iteratorError = err;
+                        _iterator.e(err);
                     }
                     finally {
-                        try {
-                            if (!_iteratorNormalCompletion && _iterator["return"] != null) {
-                                _iterator["return"]();
-                            }
-                        }
-                        finally {
-                            if (_didIteratorError) {
-                                throw _iteratorError;
-                            }
-                        }
+                        _iterator.f();
                     }
                     for (var _i = 0, _Array$from = Array.from(eventsByUser.entries()); _i < _Array$from.length; _i++) {
                         var entry = _Array$from[_i];
-                        var _mpid = entry[0];
+                        var mpid = entry[0];
                         var userEvents = entry[1];
                         var eventsBySession = new Map();
-                        var _iteratorNormalCompletion2 = true;
-                        var _didIteratorError2 = false;
-                        var _iteratorError2 = undefined;
+                        var _iterator2 = _createForOfIteratorHelper$1(userEvents), _step2;
                         try {
-                            for (var _iterator2 = userEvents[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                                var _sdkEvent = _step2.value;
-                                var _events = eventsBySession.get(_sdkEvent.SessionId);
-                                if (!_events) {
-                                    _events = [];
+                            for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+                                var sdkEvent = _step2.value;
+                                var events = eventsBySession.get(sdkEvent.SessionId);
+                                if (!events) {
+                                    events = [];
                                 }
-                                _events.push(_sdkEvent);
-                                eventsBySession.set(_sdkEvent.SessionId, _events);
+                                events.push(sdkEvent);
+                                eventsBySession.set(sdkEvent.SessionId, events);
                             }
                         }
                         catch (err) {
-                            _didIteratorError2 = true;
-                            _iteratorError2 = err;
+                            _iterator2.e(err);
                         }
                         finally {
-                            try {
-                                if (!_iteratorNormalCompletion2 && _iterator2["return"] != null) {
-                                    _iterator2["return"]();
-                                }
-                            }
-                            finally {
-                                if (_didIteratorError2) {
-                                    throw _iteratorError2;
-                                }
-                            }
+                            _iterator2.f();
                         }
                         for (var _i2 = 0, _Array$from2 = Array.from(eventsBySession.entries()); _i2 < _Array$from2.length; _i2++) {
                             var _entry = _Array$from2[_i2];
-                            var upload = convertEvents(_mpid, _entry[1], mpInstance);
+                            var upload = convertEvents(mpid, _entry[1], mpInstance);
                             if (upload) {
                                 newUploads.push(upload);
                             }
@@ -2704,20 +2792,17 @@ var mParticle = (function () {
         this.url = url;
         this.logger = logger;
     };
-    var FetchUploader = 
-    /*#__PURE__*/
-    function (_AsyncUploader) {
+    var FetchUploader = /*#__PURE__*/ function (_AsyncUploader) {
         inherits(FetchUploader, _AsyncUploader);
+        var _super = _createSuper(FetchUploader);
         function FetchUploader() {
             classCallCheck(this, FetchUploader);
-            return possibleConstructorReturn(this, getPrototypeOf(FetchUploader).apply(this, arguments));
+            return _super.apply(this, arguments);
         }
         createClass(FetchUploader, [{
                 key: "upload",
                 value: function () {
-                    var _upload2 = asyncToGenerator(
-                    /*#__PURE__*/
-                    regenerator.mark(function _callee3(fetchPayload, uploads, i) {
+                    var _upload2 = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee3(fetchPayload, uploads, i) {
                         var response;
                         return regenerator.wrap(function _callee3$(_context3) {
                             while (1) {
@@ -2743,20 +2828,17 @@ var mParticle = (function () {
             }]);
         return FetchUploader;
     }(AsyncUploader);
-    var XHRUploader = 
-    /*#__PURE__*/
-    function (_AsyncUploader2) {
+    var XHRUploader = /*#__PURE__*/ function (_AsyncUploader2) {
         inherits(XHRUploader, _AsyncUploader2);
+        var _super2 = _createSuper(XHRUploader);
         function XHRUploader() {
             classCallCheck(this, XHRUploader);
-            return possibleConstructorReturn(this, getPrototypeOf(XHRUploader).apply(this, arguments));
+            return _super2.apply(this, arguments);
         }
         createClass(XHRUploader, [{
                 key: "upload",
                 value: function () {
-                    var _upload3 = asyncToGenerator(
-                    /*#__PURE__*/
-                    regenerator.mark(function _callee4(fetchPayload, uploads, i) {
+                    var _upload3 = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee4(fetchPayload, uploads, i) {
                         var response;
                         return regenerator.wrap(function _callee4$(_context4) {
                             while (1) {
@@ -2782,9 +2864,7 @@ var mParticle = (function () {
             }, {
                 key: "makeRequest",
                 value: function () {
-                    var _makeRequest = asyncToGenerator(
-                    /*#__PURE__*/
-                    regenerator.mark(function _callee5(url, logger, data) {
+                    var _makeRequest = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee5(url, logger, data) {
                         var xhr;
                         return regenerator.wrap(function _callee5$(_context5) {
                             while (1) {
@@ -3164,23 +3244,37 @@ var mParticle = (function () {
         }
 
         options = (typeof options === 'string')
-          ? { replacement: options }
+          ? {replacement: options}
           : options || {};
 
         var locale = locales[options.locale] || {};
 
+        var replacement = options.replacement || '-';
+
         var slug = string.split('')
+          // replace characters based on charMap
           .reduce(function (result, ch) {
             return result + (locale[ch] || charMap[ch] || ch)
-              // allowed
-              .replace(options.remove || /[^\w\s$*_+~.()'"!\-:@]/g, '')
           }, '')
+          // remove not allowed characters
+          .replace(options.remove || /[^\w\s$*_+~.()'"!\-:@]+/g, '')
           // trim leading/trailing spaces
           .trim()
-          // convert spaces
-          .replace(/[-\s]+/g, options.replacement || '-');
+          // convert spaces to replacement character
+          // also remove duplicates of the replacement character
+          .replace(new RegExp('[\\s' + replacement + ']+', 'g'), replacement);
 
-        return options.lower ? slug.toLowerCase() : slug
+        if (options.lower) {
+          slug = slug.toLowerCase();
+        }
+
+        if (options.strict) {
+          // remove anything besides letters, numbers, and the replacement char
+          slug = slug
+            .replace(new RegExp('[^a-zA-Z0-9' + replacement + ']', 'g'), '');
+        }
+
+        return slug
       }
 
       replace.extend = function (customMap) {
@@ -10099,9 +10193,7 @@ var mParticle = (function () {
       }
     }
 
-    var _BatchValidator = 
-    /*#__PURE__*/
-    function () {
+    var _BatchValidator = /*#__PURE__*/ function () {
         function _BatchValidator() {
             classCallCheck(this, _BatchValidator);
         }
