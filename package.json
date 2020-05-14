@@ -64,7 +64,7 @@
         "@babel/plugin-transform-runtime": "^7.6.0",
         "@babel/preset-env": "^7.6.0",
         "@babel/preset-typescript": "^7.6.0",
-        "@mparticle/event-models": "^1.0.3",
+        "@mparticle/event-models": "^1.1.0-alpha.2",
         "@types/chai": "^4.2.3",
         "@types/mocha": "^5.2.7",
         "@types/node": "^10.0.3",

@@ -108,6 +108,15 @@ var IdentityType = {
     Other2: 10,
     Other3: 11,
     Other4: 12,
+    Other5: 13,
+    Other6: 14,
+    Other7: 15,
+    Other8: 16,
+    Other9: 17,
+    Other10: 18,
+    MobileNumber: 19,
+    PhoneNumber2: 20,
+    PhoneNumber3: 21,
 };
 
 IdentityType.isValid = function(identityType) {
@@ -173,6 +182,24 @@ IdentityType.getIdentityType = function(identityName) {
             return IdentityType.Other3;
         case 'other4':
             return IdentityType.Other4;
+        case 'other5':
+            return IdentityType.Other5;
+        case 'other6':
+            return IdentityType.Other6;
+        case 'other7':
+            return IdentityType.Other7;
+        case 'other8':
+            return IdentityType.Other8;
+        case 'other9':
+            return IdentityType.Other9;
+        case 'other10':
+            return IdentityType.Other10;
+        case 'mobile_number':
+            return IdentityType.MobileNumber;
+        case 'phone_number_2':
+            return IdentityType.PhoneNumber2;
+        case 'phone_number_3':
+            return IdentityType.PhoneNumber3;
         default:
             return false;
     }
@@ -204,6 +231,24 @@ IdentityType.getIdentityName = function(identityType) {
             return 'other3';
         case IdentityType.Other4:
             return 'other4';
+        case IdentityType.Other5:
+            return 'other5';
+        case IdentityType.Other6:
+            return 'other6';
+        case IdentityType.Other7:
+            return 'other7';
+        case IdentityType.Other8:
+            return 'other8';
+        case IdentityType.Other9:
+            return 'other9';
+        case IdentityType.Other10:
+            return 'other10';
+        case IdentityType.MobileNumber:
+            return 'mobile_number';
+        case IdentityType.PhoneNumber2:
+            return 'phone_number_2';
+        case IdentityType.PhoneNumber3:
+            return 'phone_number_3';
     }
 };
 

@@ -362,6 +362,15 @@ describe('identity', function() {
         data.userIdentities.other2 = 'id10';
         data.userIdentities.other3 = 'id11';
         data.userIdentities.other4 = 'id12';
+        data.userIdentities.other5 = 'id13';
+        data.userIdentities.other6 = 'id14';
+        data.userIdentities.other7 = 'id15';
+        data.userIdentities.other8 = 'id16';
+        data.userIdentities.other9 = 'id17';
+        data.userIdentities.other10 = 'id18';
+        data.userIdentities.mobile_number = 'id19';
+        data.userIdentities.phone_number_2 = 'id20';
+        data.userIdentities.phone_number_3 = 'id21';
 
         var identityRequest = mParticle
             .getInstance()
@@ -405,6 +414,15 @@ describe('identity', function() {
             'other2',
             'other3',
             'other4',
+            'other5',
+            'other6',
+            'other7',
+            'other8',
+            'other9',
+            'other10',
+            'phone_number_2',
+            'phone_number_3',
+            'mobile_number',
             'device_application_stamp',
         ]);
         identityRequest.known_identities.other.should.equal('id1');
@@ -421,6 +439,15 @@ describe('identity', function() {
         identityRequest.known_identities.other2.should.equal('id10');
         identityRequest.known_identities.other3.should.equal('id11');
         identityRequest.known_identities.other4.should.equal('id12');
+        identityRequest.known_identities.other5.should.equal('id13');
+        identityRequest.known_identities.other6.should.equal('id14');
+        identityRequest.known_identities.other7.should.equal('id15');
+        identityRequest.known_identities.other8.should.equal('id16');
+        identityRequest.known_identities.other9.should.equal('id17');
+        identityRequest.known_identities.other10.should.equal('id18');
+        identityRequest.known_identities.mobile_number.should.equal('id19');
+        identityRequest.known_identities.phone_number_2.should.equal('id20');
+        identityRequest.known_identities.phone_number_3.should.equal('id21');
 
         done();
     });
@@ -446,6 +473,15 @@ describe('identity', function() {
         oldIdentities['other2'] = 'id11';
         oldIdentities['other3'] = 'id12';
         oldIdentities['other4'] = 'id13';
+        oldIdentities['other5'] = 'id14';
+        oldIdentities['other6'] = 'id15';
+        oldIdentities['other7'] = 'id16';
+        oldIdentities['other8'] = 'id17';
+        oldIdentities['other9'] = 'id18';
+        oldIdentities['other10'] = 'id19';
+        oldIdentities['mobile_number'] = 'id20';
+        oldIdentities['phone_number_2'] = 'id21';
+        oldIdentities['phone_number_3'] = 'id22';
         var newIdentities = {};
         newIdentities.other = 'id14';
         newIdentities.customerid = 'id15';
@@ -460,6 +496,15 @@ describe('identity', function() {
         newIdentities.other2 = 'id24';
         newIdentities.other3 = 'id25';
         newIdentities.other4 = 'id26';
+        newIdentities.other5 = 'id27';
+        newIdentities.other6 = 'id28';
+        newIdentities.other7 = 'id29';
+        newIdentities.other8 = 'id30';
+        newIdentities.other9 = 'id31';
+        newIdentities.other10 = 'id32';
+        newIdentities.mobile_number = 'id33';
+        newIdentities.phone_number_2 = 'id34';
+        newIdentities.phone_number_3 = 'id35';
 
         var identityRequest = mParticle
             .getInstance()
@@ -624,6 +669,60 @@ describe('identity', function() {
             'other4'
         );
         identityRequest.identity_changes[12].new_value.should.equal('id26');
+
+        identityRequest.identity_changes[13].old_value.should.equal('id14');
+        identityRequest.identity_changes[13].identity_type.should.equal(
+            'other5'
+        );
+        identityRequest.identity_changes[13].new_value.should.equal('id27');
+
+        identityRequest.identity_changes[14].old_value.should.equal('id15');
+        identityRequest.identity_changes[14].identity_type.should.equal(
+            'other6'
+        );
+        identityRequest.identity_changes[14].new_value.should.equal('id28');
+
+        identityRequest.identity_changes[15].old_value.should.equal('id16');
+        identityRequest.identity_changes[15].identity_type.should.equal(
+            'other7'
+        );
+        identityRequest.identity_changes[15].new_value.should.equal('id29');
+
+        identityRequest.identity_changes[16].old_value.should.equal('id17');
+        identityRequest.identity_changes[16].identity_type.should.equal(
+            'other8'
+        );
+        identityRequest.identity_changes[16].new_value.should.equal('id30');
+
+        identityRequest.identity_changes[17].old_value.should.equal('id18');
+        identityRequest.identity_changes[17].identity_type.should.equal(
+            'other9'
+        );
+        identityRequest.identity_changes[17].new_value.should.equal('id31');
+
+        identityRequest.identity_changes[18].old_value.should.equal('id19');
+        identityRequest.identity_changes[18].identity_type.should.equal(
+            'other10'
+        );
+        identityRequest.identity_changes[18].new_value.should.equal('id32');
+        
+        identityRequest.identity_changes[19].old_value.should.equal('id20');
+        identityRequest.identity_changes[19].identity_type.should.equal(
+            'mobile_number'
+        );
+        identityRequest.identity_changes[19].new_value.should.equal('id33');
+
+        identityRequest.identity_changes[20].old_value.should.equal('id21');
+        identityRequest.identity_changes[20].identity_type.should.equal(
+            'phone_number_2'
+        );
+        identityRequest.identity_changes[20].new_value.should.equal('id34');
+
+        identityRequest.identity_changes[21].old_value.should.equal('id22');
+        identityRequest.identity_changes[21].identity_type.should.equal(
+            'phone_number_3'
+        );
+        identityRequest.identity_changes[21].new_value.should.equal('id35');
 
         done();
     });

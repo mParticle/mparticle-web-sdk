@@ -171,6 +171,34 @@ export function convertUserIdentities(
             case Types.IdentityType.Other4:
                 batchIdentities.other_id_4 = identity.Identity;
                 break;
+            case Types.IdentityType.Other5:
+                batchIdentities.other_id_5 = identity.Identity;
+                break;
+            case Types.IdentityType.Other6:
+                batchIdentities.other_id_6 = identity.Identity;
+                break;
+            case Types.IdentityType.Other7:
+                batchIdentities.other_id_7 = identity.Identity;
+                break;
+            case Types.IdentityType.Other8:
+                batchIdentities.other_id_8 = identity.Identity;
+                break;
+            case Types.IdentityType.Other9:
+                batchIdentities.other_id_9 = identity.Identity;
+                break;
+            case Types.IdentityType.Other10:
+                batchIdentities.other_id_10 = identity.Identity;
+                break;
+            case Types.IdentityType.MobileNumber:
+                batchIdentities.mobile_number = identity.Identity;
+                break;
+            case Types.IdentityType.PhoneNumber2:
+                batchIdentities.phone_number_2 = identity.Identity;
+                break;
+            case Types.IdentityType.PhoneNumber3:
+                debugger;
+                batchIdentities.phone_number_3 = identity.Identity;
+                break;
             default:
                 break;
         }
