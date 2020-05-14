@@ -4,7 +4,7 @@
 
 #### 2.11.11 - 2020-05-12
 
--   Bugfix - Fix v3 events endpoint location payload
+-   Feat - Add Other5-Other10, mobile/phone number identity types
 
 #### 2.11.10 - 2020-04-23
 
