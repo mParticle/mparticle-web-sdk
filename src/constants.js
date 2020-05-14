@@ -1,5 +1,5 @@
 var Constants = {
-    sdkVersion: '2.11.10',
+    sdkVersion: '2.11.11',
     sdkVendor: 'mparticle',
     platform: 'web',
     Messages: {
