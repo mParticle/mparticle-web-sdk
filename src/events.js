@@ -145,6 +145,17 @@ export default function Events(mpInstance) {
                 ProductList: Array.isArray(product) ? product : [product],
             };
 
+            if (
+                event.EventCategory ===
+                    Types.CommerceEventType.ProductPurchase ||
+                event.EventCategory === Types.CommerceEventType.ProductRefund
+            ) {
+                mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
+                    attrs,
+                    event.ProductAction
+                );
+            }
+
             self.logCommerceEvent(event, attrs);
         }
     };

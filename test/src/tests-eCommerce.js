@@ -176,6 +176,62 @@ describe('eCommerce', function() {
         done();
     });
 
+    it('should log identical events for logPurchase and logProductAction with product action type of `purchase`', function(done) {
+        var product = mParticle.eCommerce.createProduct(
+                'iPhone',
+                '12345',
+                '400',
+                2,
+                'Plus',
+                'Phones',
+                'Apple',
+                1,
+                'my-coupon-code',
+                { customkey: 'customvalue' }
+            ),
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                '12345',
+                'test-affiliation',
+                'coupon-code',
+                44334,
+                600,
+                200
+            );
+
+        mParticle.eCommerce.logPurchase(transactionAttributes, product);
+        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
+
+        mockServer.requests = [];
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Purchase, product, transactionAttributes)
+        var data2 = getEvent(mockServer.requests, 'eCommerce - Purchase');
+
+        data.should.have.property('pd');
+
+        data.pd.an.should.equal(data2.pd.an);
+        data.pd.ti.should.equal(data2.pd.ti);
+        data.pd.ta.should.equal(data2.pd.ta);
+        data.pd.tcc.should.equal(data2.pd.tcc);
+        data.pd.tr.should.equal(data2.pd.tr);
+        data.pd.ts.should.equal(data2.pd.ts);
+        data.pd.tt.should.equal(data2.pd.tt);
+        data.pd.pl.length.should.equal(data2.pd.pl.length)
+
+        data.pd.pl[0].id.should.equal(data2.pd.pl[0].id)
+        data.pd.pl[0].pr.should.equal(data2.pd.pl[0].pr)
+        data.pd.pl[0].qt.should.equal(data2.pd.pl[0].qt)
+        data.pd.pl[0].br.should.equal(data2.pd.pl[0].br)
+        data.pd.pl[0].va.should.equal(data2.pd.pl[0].va)
+        data.pd.pl[0].ca.should.equal(data2.pd.pl[0].ca)
+        data.pd.pl[0].ps.should.equal(data2.pd.pl[0].ps)
+        data.pd.pl[0].cc.should.equal(data2.pd.pl[0].cc)
+        data.pd.pl[0].tpa.should.equal(data2.pd.pl[0].tpa)
+        data.pd.pl[0].nm.should.equal(data2.pd.pl[0].nm)
+        
+        data.pd.pl[0].attrs.customkey.should.equal(data2.pd.pl[0].attrs.customkey);
+
+        done();
+    });
+
     it('logPurchase should support array of products', function(done) {
         var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1),
@@ -334,19 +390,101 @@ describe('eCommerce', function() {
     });
 
     it('should log ecommerce refund', function(done) {
-        var transaction = mParticle.eCommerce.createTransactionAttributes(
-            '12345'
+        var product = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            400,
+            2,
+            'Apple',
+            'Plus',
+            'Phones'
+        ),
+        transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            '12345',
+            'test-affiliation',
+            'coupon-code',
+            44334,
+            600,
+            200
         );
 
-        mParticle.eCommerce.logRefund(transaction);
+        mParticle.eCommerce.logRefund(transactionAttributes, product);
 
         var event = getEvent(mockServer.requests, 'eCommerce - Refund');
-
         Should(event).be.ok();
 
         event.should.have.property('pd');
+
         event.pd.should.have.property('an', ProductActionType.Refund);
         event.pd.should.have.property('ti', '12345');
+        event.pd.should.have.property('ta', 'test-affiliation');
+        event.pd.should.have.property('tcc', 'coupon-code');
+        event.pd.should.have.property('tr', 44334);
+        event.pd.should.have.property('ts', 600);
+        event.pd.should.have.property('tt', 200);
+        event.pd.pl.should.have.length(1);
+        event.pd.pl[0].should.have.property('id', '12345')
+        event.pd.pl[0].should.have.property('nm', 'iPhone')
+        event.pd.pl[0].should.have.property('pr', 400)
+        event.pd.pl[0].should.have.property('qt', 2)
+        event.pd.pl[0].should.have.property('br', 'Phones')
+        event.pd.pl[0].should.have.property('va', 'Apple')
+        event.pd.pl[0].should.have.property('ca', 'Plus')
+        event.pd.pl[0].should.have.property('tpa', 800)
+
+        done();
+    });
+
+    it('should log identical events for logRefund and logProductAction with a product action of refund', function(done) {
+        var product = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            '400',
+            2,
+            'Plus',
+            'Phones',
+            'Apple',
+            1,
+            'my-coupon-code',
+            { customkey: 'customvalue' }
+        ),
+        transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            '12345',
+            'test-affiliation',
+            'coupon-code',
+            44334,
+            600,
+            200
+        );
+
+        mParticle.eCommerce.logRefund(transactionAttributes, product);
+        
+        var data = getEvent(mockServer.requests, 'eCommerce - Refund');
+        
+        mockServer.requests = [];
+        
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Refund, product, transactionAttributes)
+
+        var data2 = getEvent(mockServer.requests, 'eCommerce - Refund');
+
+        Should(data2).be.ok();
+
+        data.pd.an.should.equal(data2.pd.an);
+        data.pd.ti.should.equal(data2.pd.ti);
+        data.pd.ta.should.equal(data2.pd.ta);
+        data.pd.tcc.should.equal(data2.pd.tcc);
+        data.pd.tr.should.equal(data2.pd.tr);
+        data.pd.ts.should.equal(data2.pd.ts);
+        data.pd.tt.should.equal(data2.pd.tt);
+        data.pd.pl.length.should.equal(data2.pd.pl.length)
+
+        data.pd.pl[0].id.should.equal(data2.pd.pl[0].id)
+        data.pd.pl[0].pr.should.equal(data2.pd.pl[0].pr)
+        data.pd.pl[0].qt.should.equal(data2.pd.pl[0].qt)
+        data.pd.pl[0].br.should.equal(data2.pd.pl[0].br)
+        data.pd.pl[0].va.should.equal(data2.pd.pl[0].va)
+        data.pd.pl[0].ca.should.equal(data2.pd.pl[0].ca)
+        data.pd.pl[0].ps.should.equal(data2.pd.pl[0].ps)
 
         done();
     });
@@ -1270,12 +1408,14 @@ describe('eCommerce', function() {
             bond.called.should.eql(false);
             bond.getCalls().length.should.equal(0);
         });
+
         it('should be empty when transactionAttributes is empty', function() {
             var mparticle = mParticle.getInstance()
             var productAction = {}
             mparticle._Ecommerce.convertTransactionAttributesToProductAction({}, productAction)
             Object.keys(productAction).length.should.equal(0);
-        })
+        });
+
         it('should be full when transactionAttributes is full', function() {
             var mparticle = mParticle.getInstance()
             var transactionAttributes = {
@@ -1294,6 +1434,6 @@ describe('eCommerce', function() {
             productAction.TotalAmount.should.equal("revenue")
             productAction.ShippingAmount.should.equal("shipping")
             productAction.TaxAmount.should.equal("tax")
-        })
+        });
     });
 });
