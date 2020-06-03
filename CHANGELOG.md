@@ -2,6 +2,10 @@
 
 --
 
+#### 2.11.12 - 2020-06-03
+
+-   Bugfix - logProductActions of purchase/refund conform to logPurchase/logRefund
+
 #### 2.11.11 - 2020-05-12
 
 -   Feat - Add Other5-Other10, mobile/phone number identity types
