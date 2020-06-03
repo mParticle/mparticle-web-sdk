@@ -720,7 +720,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.11',
+      sdkVersion: '2.11.12',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -6153,6 +6153,11 @@ var mParticle = (function () {
             ProductActionType: productActionType,
             ProductList: Array.isArray(product) ? product : [product]
           };
+
+          if (event.EventCategory === Types.CommerceEventType.ProductPurchase || event.EventCategory === Types.CommerceEventType.ProductRefund) {
+            mpInstance._Ecommerce.convertTransactionAttributesToProductAction(attrs, event.ProductAction);
+          }
+
           self.logCommerceEvent(event, attrs);
         }
       };
