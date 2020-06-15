@@ -177,11 +177,15 @@ export interface MParticleUser {
 }
 
 export interface SDKConsentState {
-    getGDPRConsentState(): { [key: string]: SDKGDPRConsentState };
-    getCCPAConsentState(): { [key: string]: SDKCCPAConsentState };
+    getGDPRConsentState(): SDKGDPRConsentState;
+    getCCPAConsentState(): SDKCCPAConsentState;
 }
 
 export interface SDKGDPRConsentState {
+    [key: string]: SDKConsentStateData;
+}
+
+export interface SDKConsentStateData {
     Consented: boolean;
     Timestamp?: number;
     ConsentDocument?: string;
@@ -189,7 +193,7 @@ export interface SDKGDPRConsentState {
     HardwareId?: string;
 }
 
-export interface SDKCCPAConsentState extends SDKGDPRConsentState {}
+export interface SDKCCPAConsentState extends SDKConsentStateData {}
 
 export interface SDKUserIdentityChangeData {
     New: Identity;
@@ -197,7 +201,7 @@ export interface SDKUserIdentityChangeData {
 }
 
 export interface Identity {
-    IdentityType: EventsApi.identityType;
+    IdentityType: EventsApi.IdentityType;
     Identity: string;
     Timestamp: number;
     CreatedThisBatch: boolean;

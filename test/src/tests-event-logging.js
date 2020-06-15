@@ -762,4 +762,69 @@ describe('event logging', function() {
 
         done();
     });
+
+    it('should log consent properly to v3 endpoint ', function (done) {
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+        mParticle.config.dataPlan = {
+            planVersion: 10
+        };
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        mParticle.init(apiKey, mParticle.config);
+
+        var user = mParticle.Identity.getCurrentUser()
+        // Add to your consent state
+        var consentState = mParticle.Consent.createConsentState();
+
+        var ccpa = mParticle.Consent.createCCPAConsent(
+            true,
+            Date.now(),
+            "doc1",
+            "location1",
+            "hardwareid"
+        );
+
+        consentState.setCCPAConsentState(ccpa);
+        var location_collection_consent = mParticle.Consent.createGDPRConsent(
+            true,
+            Date.now(),
+            "doc1",
+            "location1",
+            "hardwareid"
+        );
+
+        // Add to your consent state
+        consentState.addGDPRConsentState("My GDPR Purpose", location_collection_consent);
+        user.setConsentState(consentState);
+
+        window.mParticle.logEvent('Test Event');
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+
+        batch.should.have.property('consent_state');
+        batch.consent_state.should.have.properties(['gdpr', 'ccpa']);
+        batch.consent_state.gdpr.should.have.property('my gdpr purpose');
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('consented', true);
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('document', 'doc1');
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('location', 'location1');
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('hardware_id', 'hardwareid');
+        batch.consent_state.gdpr['my gdpr purpose'].should.have.property('timestamp_unixtime_ms');
+
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('consented', true);
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('document', 'doc1');
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('location', 'location1');
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('hardware_id', 'hardwareid');
+        batch.consent_state.ccpa['data_sale_opt_out'].should.have.property('timestamp_unixtime_ms');
+
+        delete window.mParticle.config.flags
+        
+        done();
+    });
 });

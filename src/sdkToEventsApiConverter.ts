@@ -88,9 +88,9 @@ export function convertConsentState(
     return consentState;
 }
 
-export function convertGdprConsentState(sdkGdprConsentState: {
-    [key: string]: SDKGDPRConsentState;
-}): { [key: string]: EventsApi.GDPRConsentState | null } {
+export function convertGdprConsentState(
+    sdkGdprConsentState: SDKGDPRConsentState
+): { [key: string]: EventsApi.GDPRConsentState | null } {
     if (!sdkGdprConsentState) {
         return null;
     }
@@ -110,24 +110,20 @@ export function convertGdprConsentState(sdkGdprConsentState: {
 }
 
 export function convertCcpaConsentState(
-    sdkCcpaConsentState: Record<string, SDKCCPAConsentState>
-): Record<string, EventsApi.GDPRConsentState> {
+    sdkCcpaConsentState: SDKCCPAConsentState
+): { data_sale_opt_out: EventsApi.CCPAConsentState } {
     if (!sdkCcpaConsentState) {
         return null;
     }
     const state: { data_sale_opt_out: EventsApi.CCPAConsentState } = {
-        data_sale_opt_out: null,
+        data_sale_opt_out: {
+            consented: sdkCcpaConsentState.Consented,
+            hardware_id: sdkCcpaConsentState.HardwareId,
+            document: sdkCcpaConsentState.ConsentDocument,
+            timestamp_unixtime_ms: sdkCcpaConsentState.Timestamp,
+            location: sdkCcpaConsentState.Location,
+        },
     };
-    if (sdkCcpaConsentState.hasOwnProperty('data_sale_opt_out')) {
-        state.data_sale_opt_out = {
-            consented: sdkCcpaConsentState['data_sale_opt_out'].Consented,
-            hardware_id: sdkCcpaConsentState['data_sale_opt_out'].HardwareId,
-            document: sdkCcpaConsentState['data_sale_opt_out'].ConsentDocument,
-            timestamp_unixtime_ms:
-                sdkCcpaConsentState['data_sale_opt_out'].Timestamp,
-            location: sdkCcpaConsentState['data_sale_opt_out'].Location,
-        };
-    }
 
     return state;
 }
@@ -196,7 +192,6 @@ export function convertUserIdentities(
                 batchIdentities.phone_number_2 = identity.Identity;
                 break;
             case Types.IdentityType.PhoneNumber3:
-                debugger;
                 batchIdentities.phone_number_3 = identity.Identity;
                 break;
             default:
