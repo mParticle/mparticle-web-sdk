@@ -2,6 +2,10 @@
 
 --
 
+#### 2.11.13 - 2020-06-17
+
+-   Bugfix - prevent null CCPA consent on events v3 endpoint
+
 #### 2.11.12 - 2020-06-03
 
 -   Bugfix - logProductActions of purchase/refund conform to logPurchase/logRefund
