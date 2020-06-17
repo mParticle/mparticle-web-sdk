@@ -720,7 +720,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.12',
+      sdkVersion: '2.11.13',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -1975,17 +1975,14 @@ var mParticle = (function () {
             return null;
         }
         var state = {
-            data_sale_opt_out: null
+            data_sale_opt_out: {
+                consented: sdkCcpaConsentState.Consented,
+                hardware_id: sdkCcpaConsentState.HardwareId,
+                document: sdkCcpaConsentState.ConsentDocument,
+                timestamp_unixtime_ms: sdkCcpaConsentState.Timestamp,
+                location: sdkCcpaConsentState.Location
+            }
         };
-        if (sdkCcpaConsentState.hasOwnProperty('data_sale_opt_out')) {
-            state.data_sale_opt_out = {
-                consented: sdkCcpaConsentState['data_sale_opt_out'].Consented,
-                hardware_id: sdkCcpaConsentState['data_sale_opt_out'].HardwareId,
-                document: sdkCcpaConsentState['data_sale_opt_out'].ConsentDocument,
-                timestamp_unixtime_ms: sdkCcpaConsentState['data_sale_opt_out'].Timestamp,
-                location: sdkCcpaConsentState['data_sale_opt_out'].Location
-            };
-        }
         return state;
     }
     function convertUserIdentities(sdkUserIdentities) {
@@ -2053,7 +2050,6 @@ var mParticle = (function () {
                         batchIdentities.phone_number_2 = identity.Identity;
                         break;
                     case Types.IdentityType.PhoneNumber3:
-                        debugger;
                         batchIdentities.phone_number_3 = identity.Identity;
                         break;
                     default:
