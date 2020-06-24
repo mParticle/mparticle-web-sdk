@@ -2,6 +2,10 @@
 
 --
 
+#### 2.11.14 - 2020-06-24
+
+-   Bugfix - Make tagging batches with appropriate UI more robust
+
 #### 2.11.13 - 2020-06-17
 
 -   Bugfix - prevent null CCPA consent on events v3 endpoint
