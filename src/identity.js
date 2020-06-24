@@ -158,25 +158,25 @@ export default function Identity(mpInstance) {
             return identityChanges;
         },
 
-        modifyUserIdentities: function(
-            previousUserIdentities,
-            newUserIdentities
-        ) {
-            var modifiedUserIdentities = {};
+        // takes 2 UI objects keyed by name, combines them, returns them keyed by type
+        combineUserIdentities: function(previousUIByName, newUIByName) {
+            var combinedUIByType = {};
 
-            for (var key in newUserIdentities) {
-                modifiedUserIdentities[
-                    Types.IdentityType.getIdentityType(key)
-                ] = newUserIdentities[key];
-            }
+            var combinedUIByName = mpInstance._Helpers.extend(
+                previousUIByName,
+                newUIByName
+            );
 
-            for (key in previousUserIdentities) {
-                if (!modifiedUserIdentities[key]) {
-                    modifiedUserIdentities[key] = previousUserIdentities[key];
+            for (var key in combinedUIByName) {
+                var type = Types.IdentityType.getIdentityType(key);
+                // this check removes anything that is not whitelisted as an identity type
+                if (type !== false && type >= 0) {
+                    combinedUIByType[Types.IdentityType.getIdentityType(key)] =
+                        combinedUIByName[key];
                 }
             }
 
-            return modifiedUserIdentities;
+            return combinedUIByType;
         },
 
         createAliasNetworkRequest: function(aliasRequest) {
@@ -881,15 +881,6 @@ export default function Identity(mpInstance) {
                             isNewAttribute = true;
                         }
 
-                        self.sendUserAttributeChangeEvent(
-                            key,
-                            newValue,
-                            previousUserAttributeValue,
-                            isNewAttribute,
-                            false,
-                            this
-                        );
-
                         userAttributes[key] = newValue;
                         if (cookies && cookies[mpid]) {
                             cookies[mpid].ua = userAttributes;
@@ -898,6 +889,15 @@ export default function Identity(mpInstance) {
                                 mpid
                             );
                         }
+
+                        self.sendUserAttributeChangeEvent(
+                            key,
+                            newValue,
+                            previousUserAttributeValue,
+                            isNewAttribute,
+                            false,
+                            this
+                        );
 
                         mpInstance._Forwarders.initForwarders(
                             self.IdentityAPI.getCurrentUser().getUserIdentities(),
@@ -956,15 +956,6 @@ export default function Identity(mpInstance) {
 
                     userAttributes = this.getAllUserAttributes();
 
-                    self.sendUserAttributeChangeEvent(
-                        key,
-                        null,
-                        userAttributes[key],
-                        false,
-                        true,
-                        this
-                    );
-
                     var existingProp = mpInstance._Helpers.findKeyInObject(
                         userAttributes,
                         key
@@ -974,12 +965,25 @@ export default function Identity(mpInstance) {
                         key = existingProp;
                     }
 
+                    var deletedUAKeyCopy = userAttributes[key]
+                        ? userAttributes[key].toString()
+                        : null;
+
                     delete userAttributes[key];
 
                     if (cookies && cookies[mpid]) {
                         cookies[mpid].ua = userAttributes;
                         mpInstance._Persistence.savePersistence(cookies, mpid);
                     }
+
+                    self.sendUserAttributeChangeEvent(
+                        key,
+                        null,
+                        deletedUAKeyCopy,
+                        false,
+                        true,
+                        this
+                    );
 
                     mpInstance._Forwarders.initForwarders(
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
@@ -1045,6 +1049,12 @@ export default function Identity(mpInstance) {
                         isNewAttribute = true;
                     }
 
+                    userAttributes[key] = arrayCopy;
+                    if (cookies && cookies[mpid]) {
+                        cookies[mpid].ua = userAttributes;
+                        mpInstance._Persistence.savePersistence(cookies, mpid);
+                    }
+
                     if (mpInstance._APIClient.shouldEnableBatching()) {
                         // If the new attributeList length is different previous, then there is a change event.
                         // Loop through new attributes list, see if they are all in the same index as previous user attributes list
@@ -1081,12 +1091,6 @@ export default function Identity(mpInstance) {
                                 this
                             );
                         }
-                    }
-
-                    userAttributes[key] = arrayCopy;
-                    if (cookies && cookies[mpid]) {
-                        cookies[mpid].ua = userAttributes;
-                        mpInstance._Persistence.savePersistence(cookies, mpid);
                     }
 
                     mpInstance._Forwarders.initForwarders(
@@ -1416,22 +1420,18 @@ export default function Identity(mpInstance) {
         identityApiData,
         method
     ) {
-        var prevUser = mpInstance.Identity.getCurrentUser(),
+        var prevUser = mpInstance.Identity.getUser(previousMPID),
             newUser,
             identityApiResult,
-            indexOfMPID;
-        var userIdentitiesForModify = {},
-            userIdentities = prevUser
+            indexOfMPID,
+            newIdentitiesByType = {},
+            previousUIByName = prevUser
                 ? prevUser.getUserIdentities().userIdentities
-                : {};
-        for (var identityKey in userIdentities) {
-            userIdentitiesForModify[
-                Types.IdentityType.getIdentityType(identityKey)
-            ] = userIdentities[identityKey];
-        }
-
-        var newIdentities = {};
-
+                : {},
+            previousUIByNameCopy = mpInstance._Helpers.extend(
+                {},
+                previousUIByName
+            );
         mpInstance._Store.identityCallInFlight = false;
 
         try {
@@ -1464,26 +1464,30 @@ export default function Identity(mpInstance) {
                 );
             }
 
-            self.sendUserIdentityChangeEvent(
-                identityApiData,
-                method,
-                identityApiResult.mpid
-            );
-
             if (xhr.status === 200) {
                 if (method === 'modify') {
-                    newIdentities = mpInstance._Identity.IdentityRequest.modifyUserIdentities(
-                        userIdentitiesForModify,
+                    newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(
+                        previousUIByName,
                         identityApiData.userIdentities
                     );
 
                     mpInstance._Persistence.saveUserIdentitiesToPersistence(
-                        prevUser.getMPID(),
-                        newIdentities
+                        previousMPID,
+                        newIdentitiesByType
                     );
                 } else {
-                    identityApiResult = JSON.parse(xhr.responseText);
+                    var incomingUser = self.IdentityAPI.getUser(
+                        identityApiResult.mpid
+                    );
 
+                    var incomingMpidUIByName = incomingUser
+                        ? incomingUser.getUserIdentities().userIdentities
+                        : {};
+
+                    var incomingMpidUIByNameCopy = mpInstance._Helpers.extend(
+                        {},
+                        incomingMpidUIByName
+                    );
                     mpInstance.Logger.verbose(
                         'Successfully parsed Identity Response'
                     );
@@ -1543,7 +1547,7 @@ export default function Identity(mpInstance) {
 
                     //if there is any previous migration data
                     if (Object.keys(mpInstance._Store.migrationData).length) {
-                        newIdentities =
+                        newIdentitiesByType =
                             mpInstance._Store.migrationData.userIdentities ||
                             {};
                         var userAttributes =
@@ -1559,8 +1563,8 @@ export default function Identity(mpInstance) {
                             identityApiData.userIdentities &&
                             Object.keys(identityApiData.userIdentities).length
                         ) {
-                            newIdentities = mpInstance._Identity.IdentityRequest.modifyUserIdentities(
-                                userIdentitiesForModify,
+                            newIdentitiesByType = self.IdentityRequest.combineUserIdentities(
+                                incomingMpidUIByName,
                                 identityApiData.userIdentities
                             );
                         }
@@ -1568,7 +1572,7 @@ export default function Identity(mpInstance) {
 
                     mpInstance._Persistence.saveUserIdentitiesToPersistence(
                         identityApiResult.mpid,
-                        newIdentities
+                        newIdentitiesByType
                     );
                     mpInstance._Persistence.update();
 
@@ -1630,6 +1634,24 @@ export default function Identity(mpInstance) {
                         method
                     );
                 }
+                var newIdentitiesByName = {};
+
+                for (var key in newIdentitiesByType) {
+                    newIdentitiesByName[
+                        Types.IdentityType.getIdentityName(
+                            mpInstance._Helpers.parseNumber(key)
+                        )
+                    ] = newIdentitiesByType[key];
+                }
+
+                self.sendUserIdentityChangeEvent(
+                    newIdentitiesByName,
+                    method,
+                    identityApiResult.mpid,
+                    method === 'modify'
+                        ? previousUIByNameCopy
+                        : incomingMpidUIByNameCopy
+                );
             }
 
             if (callback) {
@@ -1683,11 +1705,12 @@ export default function Identity(mpInstance) {
     // if it's the first time the user is logging in, send a user identity change request with
 
     this.sendUserIdentityChangeEvent = function(
-        newIdentityApiData,
+        newUserIdentities,
         method,
-        mpid
+        mpid,
+        prevUserIdentities
     ) {
-        var userInMemory, userIdentitiesInMemory, userIdentityChangeEvent;
+        var currentUserInMemory, userIdentityChangeEvent;
 
         if (!mpInstance._APIClient.shouldEnableBatching()) {
             return;
@@ -1699,44 +1722,20 @@ export default function Identity(mpInstance) {
             }
         }
 
-        userInMemory = this.IdentityAPI.getUser(mpid);
-        var newUserIdentities = newIdentityApiData.userIdentities;
-        // if there is not a user in memory with this mpid, then it is a new user, and we send a user identity
-        // change for each identity on the identity api request
-        if (userInMemory) {
-            userIdentitiesInMemory = userInMemory.getUserIdentities()
-                ? userInMemory.getUserIdentities().userIdentities
-                : {};
-        } else {
-            for (var identityType in newUserIdentities) {
-                userIdentityChangeEvent = this.createUserIdentityChange(
-                    identityType,
-                    newUserIdentities[identityType],
-                    null,
-                    true,
-                    userInMemory
-                );
-                mpInstance._APIClient.sendEventToServer(
-                    userIdentityChangeEvent
-                );
-            }
-            return;
-        }
+        currentUserInMemory = this.IdentityAPI.getUser(mpid);
 
-        for (identityType in newUserIdentities) {
+        for (var identityType in newUserIdentities) {
             if (
-                userIdentitiesInMemory[identityType] !==
+                prevUserIdentities[identityType] !==
                 newUserIdentities[identityType]
             ) {
-                var isNewUserIdentityType = !userIdentitiesInMemory[
-                    identityType
-                ];
+                var isNewUserIdentityType = !prevUserIdentities[identityType];
                 userIdentityChangeEvent = self.createUserIdentityChange(
                     identityType,
                     newUserIdentities[identityType],
-                    userIdentitiesInMemory[identityType],
+                    prevUserIdentities[identityType],
                     isNewUserIdentityType,
-                    userInMemory
+                    currentUserInMemory
                 );
                 mpInstance._APIClient.sendEventToServer(
                     userIdentityChangeEvent

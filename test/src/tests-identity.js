@@ -1208,25 +1208,30 @@ describe('identity', function() {
         done();
     });
 
-    it('should create a new modified user identity object', function(done) {
-        var previousIdentities = {
-            1: 'customerid1',
-            7: 'email2@test.com',
-            3: 'test3',
+    it('should create a new modified user identity object, removing any invalid identity types', function(done) {
+        var previousUIByName = {
+            customerid: 'customerid1',
+            email: 'email2@test.com',
+            twitter: 'test3',
+            device_application_stamp: 'das-test',
         };
-        var newIdentities = { google: 'google4', twitter: 'twitter5' };
+        var newUIByName = { google: 'google4', twitter: 'twitter5', invalidKey: 'test' };
 
-        var modifiedUserIdentities = mParticle
+        var combinedUIsByType = mParticle
             .getInstance()
-            ._Identity.IdentityRequest.modifyUserIdentities(
-                previousIdentities,
-                newIdentities
+            ._Identity.IdentityRequest.combineUserIdentities(
+                previousUIByName,
+                newUIByName
             );
-        modifiedUserIdentities.should.have.properties([1, 3, 4, 7]);
-        modifiedUserIdentities[1].should.equal('customerid1');
-        modifiedUserIdentities[3].should.equal('twitter5');
-        modifiedUserIdentities[4].should.equal('google4');
-        modifiedUserIdentities[7].should.equal('email2@test.com');
+
+        combinedUIsByType.should.have.properties([1, 3, 4, 7]);
+        combinedUIsByType[1].should.equal('customerid1');
+        combinedUIsByType[3].should.equal('twitter5');
+        combinedUIsByType[4].should.equal('google4');
+        combinedUIsByType[7].should.equal('email2@test.com');
+        // if an invalid identity type is added to the
+        combinedUIsByType.should.not.have.property(false);
+        Object.keys(combinedUIsByType).length.should.equal(4);
 
         done();
     });
