@@ -45,7 +45,9 @@ export function convertEvents(
         source_request_id: mpInstance._Helpers.generateUniqueId(),
         mpid,
         timestamp_unixtime_ms: new Date().getTime(),
-        environment: lastEvent.Debug ? 'development' : 'production',
+        environment: lastEvent.Debug
+            ? EventsApi.BatchEnvironmentEnum.development
+            : EventsApi.BatchEnvironmentEnum.production,
         events: uploadEvents,
         mp_deviceid: lastEvent.DeviceId,
         sdk_version: lastEvent.SDKVersion,
@@ -54,7 +56,7 @@ export function convertEvents(
             application_name: lastEvent.AppName,
         },
         device_info: {
-            platform: 'web',
+            platform: EventsApi.DeviceInformationPlatformEnum.web,
             screen_width: window.screen.width,
             screen_height: window.screen.height,
         },
@@ -238,31 +240,31 @@ export function convertProductActionType(
     actionType: SDKProductActionType
 ): EventsApi.ProductActionActionEnum {
     if (!actionType) {
-        return 'unknown';
+        return EventsApi.ProductActionActionEnum.unknown;
     }
     switch (actionType) {
         case SDKProductActionType.AddToCart:
-            return 'add_to_cart';
+            return EventsApi.ProductActionActionEnum.addToCart;
         case SDKProductActionType.AddToWishlist:
-            return 'add_to_wishlist';
+            return EventsApi.ProductActionActionEnum.addToWishlist;
         case SDKProductActionType.Checkout:
-            return 'checkout';
+            return EventsApi.ProductActionActionEnum.checkout;
         case SDKProductActionType.CheckoutOption:
-            return 'checkout_option';
+            return EventsApi.ProductActionActionEnum.checkoutOption;
         case SDKProductActionType.Click:
-            return 'click';
+            return EventsApi.ProductActionActionEnum.click;
         case SDKProductActionType.Purchase:
-            return 'purchase';
+            return EventsApi.ProductActionActionEnum.purchase;
         case SDKProductActionType.Refund:
-            return 'refund';
+            return EventsApi.ProductActionActionEnum.refund;
         case SDKProductActionType.RemoveFromCart:
-            return 'remove_from_cart';
+            return EventsApi.ProductActionActionEnum.removeFromCart;
         case SDKProductActionType.RemoveFromWishlist:
-            return 'remove_from_wish_list';
+            return EventsApi.ProductActionActionEnum.removeFromWishlist;
         case SDKProductActionType.ViewDetail:
-            return 'view_detail';
+            return EventsApi.ProductActionActionEnum.viewDetail;
         default:
-            return 'unknown';
+            return EventsApi.ProductActionActionEnum.unknown;
     }
 }
 
@@ -398,7 +400,7 @@ export function convertCommerceEvent(
 
     commerceEventData = Object.assign(commerceEventData, commonEventData);
     return {
-        event_type: 'commerce_event',
+        event_type: EventsApi.EventTypeEnum.commerceEvent,
         data: commerceEventData,
     };
 }
@@ -413,7 +415,7 @@ export function convertCrashReportEvent(
     };
     crashReportEventData = Object.assign(crashReportEventData, commonEventData);
     return {
-        event_type: 'crash_report',
+        event_type: EventsApi.EventTypeEnum.crashReport,
         data: crashReportEventData,
     };
 }
@@ -425,13 +427,16 @@ export function convertAST(
         sdkEvent
     );
     let astEventData: EventsApi.ApplicationStateTransitionEventData = {
-        application_transition_type: 'application_initialized',
+        application_transition_type:
+            EventsApi
+                .ApplicationStateTransitionEventDataApplicationTransitionTypeEnum
+                .applicationInitialized,
         is_first_run: sdkEvent.IsFirstRun,
         is_upgrade: false,
     };
     astEventData = Object.assign(astEventData, commonEventData);
     return {
-        event_type: 'application_state_transition',
+        event_type: EventsApi.EventTypeEnum.applicationStateTransition,
         data: astEventData,
     };
 }
@@ -449,7 +454,7 @@ export function convertSessionEndEvent(
     };
     sessionEndEventData = Object.assign(sessionEndEventData, commonEventData);
     return {
-        event_type: 'session_end',
+        event_type: EventsApi.EventTypeEnum.sessionEnd,
         data: sessionEndEventData,
     };
 }
@@ -466,7 +471,7 @@ export function convertSessionStartEvent(
         commonEventData
     );
     return {
-        event_type: 'session_start',
+        event_type: EventsApi.EventTypeEnum.sessionStart,
         data: sessionStartEventData,
     };
 }
@@ -483,7 +488,7 @@ export function convertPageViewEvent(
     };
     screenViewEventData = Object.assign(screenViewEventData, commonEventData);
     return {
-        event_type: 'screen_view',
+        event_type: EventsApi.EventTypeEnum.screenView,
         data: screenViewEventData,
     };
 }
@@ -497,7 +502,7 @@ export function convertOptOutEvent(sdkEvent: SDKEvent): EventsApi.OptOutEvent {
     };
     optOutEventData = Object.assign(optOutEventData, commonEventData);
     return {
-        event_type: 'opt_out',
+        event_type: EventsApi.EventTypeEnum.optOut,
         data: optOutEventData,
     };
 }
@@ -515,7 +520,7 @@ export function convertCustomEvent(sdkEvent: SDKEvent): EventsApi.CustomEvent {
     };
     customEventData = Object.assign(customEventData, commonEventData);
     return {
-        event_type: 'custom_event',
+        event_type: EventsApi.EventTypeEnum.customEvent,
         data: customEventData,
     };
 }
@@ -527,50 +532,54 @@ export function convertSdkEventType(
     | EventsApi.CommerceEventDataCustomEventTypeEnum {
     switch (sdkEventType) {
         case Types.EventType.Other:
-            return 'other';
+            return EventsApi.CustomEventDataCustomEventTypeEnum.other;
         case Types.EventType.Location:
-            return 'location';
+            return EventsApi.CustomEventDataCustomEventTypeEnum.location;
         case Types.EventType.Navigation:
-            return 'navigation';
+            return EventsApi.CustomEventDataCustomEventTypeEnum.navigation;
         case Types.EventType.Search:
-            return 'search';
+            return EventsApi.CustomEventDataCustomEventTypeEnum.search;
         case Types.EventType.Social:
-            return 'social';
+            return EventsApi.CustomEventDataCustomEventTypeEnum.social;
         case Types.EventType.Transaction:
-            return 'transaction';
+            return EventsApi.CustomEventDataCustomEventTypeEnum.transaction;
         case Types.EventType.UserContent:
-            return 'user_content';
+            return EventsApi.CustomEventDataCustomEventTypeEnum.userContent;
         case Types.EventType.UserPreference:
-            return 'user_preference';
+            return EventsApi.CustomEventDataCustomEventTypeEnum.userPreference;
         case Types.CommerceEventType.ProductAddToCart:
-            return 'add_to_cart';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum.addToCart;
         case Types.CommerceEventType.ProductAddToWishlist:
-            return 'add_to_wishlist';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum.addToWishlist;
         case Types.CommerceEventType.ProductCheckout:
-            return 'checkout';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum.checkout;
         case Types.CommerceEventType.ProductCheckoutOption:
-            return 'checkout_option';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum
+                .checkoutOption;
         case Types.CommerceEventType.ProductClick:
-            return 'click';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum.click;
         case Types.CommerceEventType.ProductImpression:
-            return 'impression';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum.impression;
         case Types.CommerceEventType.ProductPurchase:
-            return 'purchase';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum.purchase;
         case Types.CommerceEventType.ProductRefund:
-            return 'refund';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum.refund;
         case Types.CommerceEventType.ProductRemoveFromCart:
-            return 'remove_from_cart';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum
+                .removeFromCart;
         case Types.CommerceEventType.ProductRemoveFromWishlist:
-            return 'remove_from_wishlist';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum
+                .removeFromWishlist;
         case Types.CommerceEventType.ProductViewDetail:
-            return 'view_detail';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum.viewDetail;
         case Types.CommerceEventType.PromotionClick:
-            return 'promotion_click';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum
+                .promotionClick;
         case Types.CommerceEventType.PromotionView:
-            return 'promotion_view';
+            return EventsApi.CommerceEventDataCustomEventTypeEnum.promotionView;
 
         default:
-            return 'unknown';
+            return EventsApi.CustomEventDataCustomEventTypeEnum.unknown;
     }
 }
 export function convertBaseEventData(
@@ -619,7 +628,7 @@ export function convertUserAttributeChangeEvent(
     };
 
     return {
-        event_type: 'user_attribute_change',
+        event_type: EventsApi.EventTypeEnum.userAttributeChange,
         data: userAttributeChangeEvent,
     };
 }
@@ -654,7 +663,7 @@ export function convertUserIdentityChangeEvent(
     );
 
     return {
-        event_type: 'user_identity_change',
+        event_type: EventsApi.EventTypeEnum.userIdentityChange,
         data: userIdentityChangeEvent,
     };
 }
