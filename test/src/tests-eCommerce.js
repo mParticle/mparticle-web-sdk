@@ -202,7 +202,7 @@ describe('eCommerce', function() {
         var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
 
         mockServer.requests = [];
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Purchase, product, transactionAttributes)
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Purchase, product, null, null, transactionAttributes)
         var data2 = getEvent(mockServer.requests, 'eCommerce - Purchase');
 
         data.should.have.property('pd');
@@ -435,7 +435,7 @@ describe('eCommerce', function() {
         done();
     });
 
-    it('should log identical events for logRefund and logProductAction with a product action of refund', function(done) {
+    it('should log identical events for logRefund and logProductAction with a product action of `refund`', function(done) {
         var product = mParticle.eCommerce.createProduct(
             'iPhone',
             '12345',
@@ -463,7 +463,7 @@ describe('eCommerce', function() {
         
         mockServer.requests = [];
         
-        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Refund, product, transactionAttributes)
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Refund, product, null, null, transactionAttributes)
 
         var data2 = getEvent(mockServer.requests, 'eCommerce - Refund');
 
@@ -582,8 +582,35 @@ describe('eCommerce', function() {
         done();
     });
 
-    it('should log checkout', function(done) {
+    it('should log checkout via deprecated logCheckout method', function(done) {
+        var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+
         mParticle.eCommerce.logCheckout(1, 'Visa');
+
+        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
+
+        Should(event).be.ok();
+
+        bond.called.should.eql(true);
+        bond.getCalls()[0].args[0].should.eql(
+            'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
+        );
+
+        event.should.have.property('et', CommerceEventType.ProductCheckout);
+        event.should.have.property('pd');
+
+        event.pd.should.have.property('an', ProductActionType.Checkout);
+        event.pd.should.have.property('cs', 1);
+        event.pd.should.have.property('co', 'Visa');
+
+        done();
+    });
+
+    it('should log checkout via mParticle.logProductAction method', function(done) {
+        var product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
+        var product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799);
+
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product1, product2], null, null, {Step: 4, Option: 'Visa'});
 
         var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
 
@@ -591,9 +618,10 @@ describe('eCommerce', function() {
 
         event.should.have.property('et', CommerceEventType.ProductCheckout);
         event.should.have.property('pd');
-
+        event.pd.pl[0].id.should.equal('iphoneSKU')
+        event.pd.pl[1].id.should.equal('galaxySKU')
         event.pd.should.have.property('an', ProductActionType.Checkout);
-        event.pd.should.have.property('cs', 1);
+        event.pd.should.have.property('cs', 4);
         event.pd.should.have.property('co', 'Visa');
 
         done();
@@ -1386,6 +1414,7 @@ describe('eCommerce', function() {
                 'Deprecated function eCommerce.Cart.remove() will be removed in future releases'
             );
         });
+
         it('should deprecate clear', function() {
             var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
@@ -1395,18 +1424,6 @@ describe('eCommerce', function() {
             bond.getCalls()[0].args[0].should.eql(
                 'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
             );
-        });
-
-        it('should no longer log deprecated function warnings when logging a purchase', function() {
-            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-            var product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
-            var ta = mParticle.eCommerce.createTransactionAttributes('TAid1', 'aff1', 'coupon', 1798, 10, 5)
-            var clearCartBoolean = true;
-
-            mParticle.eCommerce.logPurchase(ta, product1, clearCartBoolean);
-
-            bond.called.should.eql(false);
-            bond.getCalls().length.should.equal(0);
         });
 
         it('should be empty when transactionAttributes is empty', function() {

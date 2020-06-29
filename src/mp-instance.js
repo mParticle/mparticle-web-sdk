@@ -731,16 +731,20 @@ export default function mParticleInstance(instanceName) {
          * @for mParticle.eCommerce
          * @method logCheckout
          * @param {Number} step checkout step number
-         * @param {Object} options
+         * @param {String} option
          * @param {Object} attrs
          * @param {Object} [customFlags] Custom flags for the event
+         * @deprecated
          */
-        logCheckout: function(step, options, attrs, customFlags) {
+        logCheckout: function(step, option, attrs, customFlags) {
+            self.Logger.warning(
+                'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
+            );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
                     self.eCommerce.logCheckout(
                         step,
-                        options,
+                        option,
                         attrs,
                         customFlags
                     );
@@ -748,7 +752,7 @@ export default function mParticleInstance(instanceName) {
                 return;
             }
             self._SessionManager.resetSessionTimer();
-            self._Events.logCheckoutEvent(step, options, attrs, customFlags);
+            self._Events.logCheckoutEvent(step, option, attrs, customFlags);
         },
         /**
          * Logs a product action
@@ -758,12 +762,14 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} product the product for which you are creating the product action
          * @param {Object} [attrs] attributes related to the product action
          * @param {Object} [customFlags] Custom flags for the event
+         * @param {Object} [transactionAttributes] Transaction Attributes for the event
          */
         logProductAction: function(
             productActionType,
             product,
             attrs,
-            customFlags
+            customFlags,
+            transactionAttributes
         ) {
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -771,7 +777,8 @@ export default function mParticleInstance(instanceName) {
                         productActionType,
                         product,
                         attrs,
-                        customFlags
+                        customFlags,
+                        transactionAttributes
                     );
                 });
                 return;
@@ -781,7 +788,8 @@ export default function mParticleInstance(instanceName) {
                 productActionType,
                 product,
                 attrs,
-                customFlags
+                customFlags,
+                transactionAttributes
             );
         },
         /**
@@ -793,6 +801,7 @@ export default function mParticleInstance(instanceName) {
          * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
          * @param {Object} [attrs] other attributes related to the product purchase
          * @param {Object} [customFlags] Custom flags for the event
+         * @deprecated
          */
         logPurchase: function(
             transactionAttributes,
@@ -801,6 +810,9 @@ export default function mParticleInstance(instanceName) {
             attrs,
             customFlags
         ) {
+            self.Logger.warning(
+                'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead'
+            );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
                     self.eCommerce.logPurchase(
@@ -880,6 +892,7 @@ export default function mParticleInstance(instanceName) {
          * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
          * @param {Object} [attrs] attributes related to the refund
          * @param {Object} [customFlags] Custom flags for the event
+         * @deprecated
          */
         logRefund: function(
             transactionAttributes,
@@ -888,6 +901,9 @@ export default function mParticleInstance(instanceName) {
             attrs,
             customFlags
         ) {
+            self.Logger.warning(
+                'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead'
+            );
             if (!self._Store.isInitialized) {
                 self.ready(function() {
                     self.eCommerce.logRefund(

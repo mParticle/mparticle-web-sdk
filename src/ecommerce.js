@@ -9,23 +9,29 @@ export default function Ecommerce(mpInstance) {
         transactionAttributes,
         productAction
     ) {
-        if (transactionAttributes.Id) {
+        if (transactionAttributes.hasOwnProperty('Id')) {
             productAction.TransactionId = transactionAttributes.Id;
         }
-        if (transactionAttributes.Affiliation) {
+        if (transactionAttributes.hasOwnProperty('Affiliation')) {
             productAction.Affiliation = transactionAttributes.Affiliation;
         }
-        if (transactionAttributes.CouponCode) {
+        if (transactionAttributes.hasOwnProperty('CouponCode')) {
             productAction.CouponCode = transactionAttributes.CouponCode;
         }
-        if (transactionAttributes.Revenue) {
+        if (transactionAttributes.hasOwnProperty('Revenue')) {
             productAction.TotalAmount = transactionAttributes.Revenue;
         }
-        if (transactionAttributes.Shipping) {
+        if (transactionAttributes.hasOwnProperty('Shipping')) {
             productAction.ShippingAmount = transactionAttributes.Shipping;
         }
-        if (transactionAttributes.Tax) {
+        if (transactionAttributes.hasOwnProperty('Tax')) {
             productAction.TaxAmount = transactionAttributes.Tax;
+        }
+        if (transactionAttributes.hasOwnProperty('Step')) {
+            productAction.CheckoutStep = transactionAttributes.Step;
+        }
+        if (transactionAttributes.hasOwnProperty('Option')) {
+            productAction.CheckoutOptions = transactionAttributes.Option;
         }
     };
 

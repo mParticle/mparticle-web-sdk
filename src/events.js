@@ -102,7 +102,7 @@ export default function Events(mpInstance) {
         self.logEvent({ messageType: Types.MessageType.AppStateTransition });
     };
 
-    this.logCheckoutEvent = function(step, options, attrs, customFlags) {
+    this.logCheckoutEvent = function(step, option, attrs, customFlags) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -115,8 +115,8 @@ export default function Events(mpInstance) {
             event.ProductAction = {
                 ProductActionType: Types.ProductActionType.Checkout,
                 CheckoutStep: step,
-                CheckoutOptions: options,
-                ProductList: event.ShoppingCart.ProductList,
+                CheckoutOptions: option,
+                ProductList: [],
             };
 
             self.logCommerceEvent(event, attrs);
@@ -126,8 +126,9 @@ export default function Events(mpInstance) {
     this.logProductActionEvent = function(
         productActionType,
         product,
-        attrs,
-        customFlags
+        customAttrs,
+        customFlags,
+        transactionAttributes
     ) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
@@ -145,18 +146,14 @@ export default function Events(mpInstance) {
                 ProductList: Array.isArray(product) ? product : [product],
             };
 
-            if (
-                event.EventCategory ===
-                    Types.CommerceEventType.ProductPurchase ||
-                event.EventCategory === Types.CommerceEventType.ProductRefund
-            ) {
+            if (mpInstance._Helpers.isObject(transactionAttributes)) {
                 mpInstance._Ecommerce.convertTransactionAttributesToProductAction(
-                    attrs,
+                    transactionAttributes,
                     event.ProductAction
                 );
             }
 
-            self.logCommerceEvent(event, attrs);
+            self.logCommerceEvent(event, customAttrs);
         }
     };
 

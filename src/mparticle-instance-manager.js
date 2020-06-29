@@ -245,13 +245,15 @@ function mParticle() {
             productActionType,
             product,
             attrs,
-            customFlags
+            customFlags,
+            transactionAttributes
         ) {
             self.getInstance().eCommerce.logProductAction(
                 productActionType,
                 product,
                 attrs,
-                customFlags
+                customFlags,
+                transactionAttributes
             );
         },
         logPurchase: function(
