@@ -2,6 +2,10 @@
 
 --
 
+#### 2.11.15 - 2020-06-30
+
+-   Feat - Add transactionAttributes to logProductAction method signature
+
 #### 2.11.14 - 2020-06-24
 
 -   Bugfix - Make tagging batches with appropriate UI more robust
