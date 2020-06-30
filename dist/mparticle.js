@@ -720,7 +720,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.14',
+      sdkVersion: '2.11.15',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -890,6 +890,10 @@ var mParticle = (function () {
     };
 
     var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+
+    function unwrapExports (x) {
+    	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+    }
 
     function createCommonjsModule(fn, module) {
     	return module = { exports: {} }, fn(module, module.exports), module.exports;
@@ -1835,6 +1839,384 @@ var mParticle = (function () {
         SDKProductActionType[SDKProductActionType["RemoveFromWishlist"] = 10] = "RemoveFromWishlist";
     })(SDKProductActionType || (SDKProductActionType = {}));
 
+    var dist = createCommonjsModule(function (module, exports) {
+    Object.defineProperty(exports, "__esModule", { value: true });
+    /**
+     * Enum for the os property.
+     */
+    var ApplicationInformationOsEnum;
+    (function (ApplicationInformationOsEnum) {
+        ApplicationInformationOsEnum["unknown"] = "Unknown";
+        ApplicationInformationOsEnum["iOS"] = "IOS";
+        ApplicationInformationOsEnum["android"] = "Android";
+        ApplicationInformationOsEnum["windowsPhone"] = "WindowsPhone";
+        ApplicationInformationOsEnum["mobileWeb"] = "MobileWeb";
+        ApplicationInformationOsEnum["unityIOS"] = "UnityIOS";
+        ApplicationInformationOsEnum["unityAndroid"] = "UnityAndroid";
+        ApplicationInformationOsEnum["desktop"] = "Desktop";
+        ApplicationInformationOsEnum["tvOS"] = "TVOS";
+        ApplicationInformationOsEnum["roku"] = "Roku";
+        ApplicationInformationOsEnum["outOfBand"] = "OutOfBand";
+        ApplicationInformationOsEnum["alexa"] = "Alexa";
+        ApplicationInformationOsEnum["smartTV"] = "SmartTV";
+        ApplicationInformationOsEnum["fireTV"] = "FireTV";
+        ApplicationInformationOsEnum["xbox"] = "Xbox";
+    })(ApplicationInformationOsEnum = exports.ApplicationInformationOsEnum || (exports.ApplicationInformationOsEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var ApplicationStateTransitionEventEventTypeEnum;
+    (function (ApplicationStateTransitionEventEventTypeEnum) {
+        ApplicationStateTransitionEventEventTypeEnum["applicationStateTransition"] = "application_state_transition";
+    })(ApplicationStateTransitionEventEventTypeEnum = exports.ApplicationStateTransitionEventEventTypeEnum || (exports.ApplicationStateTransitionEventEventTypeEnum = {}));
+    /**
+     * Enum for the application_transition_type property.
+     */
+    var ApplicationStateTransitionEventDataApplicationTransitionTypeEnum;
+    (function (ApplicationStateTransitionEventDataApplicationTransitionTypeEnum) {
+        ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationInitialized"] = "application_initialized";
+        ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationExit"] = "application_exit";
+        ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationBackground"] = "application_background";
+        ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationForeground"] = "application_foreground";
+    })(ApplicationStateTransitionEventDataApplicationTransitionTypeEnum = exports.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum || (exports.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum = {}));
+    /**
+     * Enum for the environment property.
+     */
+    var BatchEnvironmentEnum;
+    (function (BatchEnvironmentEnum) {
+        BatchEnvironmentEnum["unknown"] = "unknown";
+        BatchEnvironmentEnum["development"] = "development";
+        BatchEnvironmentEnum["production"] = "production";
+    })(BatchEnvironmentEnum = exports.BatchEnvironmentEnum || (exports.BatchEnvironmentEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var BreadcrumbEventEventTypeEnum;
+    (function (BreadcrumbEventEventTypeEnum) {
+        BreadcrumbEventEventTypeEnum["breadcrumb"] = "breadcrumb";
+    })(BreadcrumbEventEventTypeEnum = exports.BreadcrumbEventEventTypeEnum || (exports.BreadcrumbEventEventTypeEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var CommerceEventEventTypeEnum;
+    (function (CommerceEventEventTypeEnum) {
+        CommerceEventEventTypeEnum["commerceEvent"] = "commerce_event";
+    })(CommerceEventEventTypeEnum = exports.CommerceEventEventTypeEnum || (exports.CommerceEventEventTypeEnum = {}));
+    /**
+     * Enum for the custom_event_type property.
+     */
+    var CommerceEventDataCustomEventTypeEnum;
+    (function (CommerceEventDataCustomEventTypeEnum) {
+        CommerceEventDataCustomEventTypeEnum["addToCart"] = "add_to_cart";
+        CommerceEventDataCustomEventTypeEnum["removeFromCart"] = "remove_from_cart";
+        CommerceEventDataCustomEventTypeEnum["checkout"] = "checkout";
+        CommerceEventDataCustomEventTypeEnum["checkoutOption"] = "checkout_option";
+        CommerceEventDataCustomEventTypeEnum["click"] = "click";
+        CommerceEventDataCustomEventTypeEnum["viewDetail"] = "view_detail";
+        CommerceEventDataCustomEventTypeEnum["purchase"] = "purchase";
+        CommerceEventDataCustomEventTypeEnum["refund"] = "refund";
+        CommerceEventDataCustomEventTypeEnum["promotionView"] = "promotion_view";
+        CommerceEventDataCustomEventTypeEnum["promotionClick"] = "promotion_click";
+        CommerceEventDataCustomEventTypeEnum["addToWishlist"] = "add_to_wishlist";
+        CommerceEventDataCustomEventTypeEnum["removeFromWishlist"] = "remove_from_wishlist";
+        CommerceEventDataCustomEventTypeEnum["impression"] = "impression";
+    })(CommerceEventDataCustomEventTypeEnum = exports.CommerceEventDataCustomEventTypeEnum || (exports.CommerceEventDataCustomEventTypeEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var CrashReportEventEventTypeEnum;
+    (function (CrashReportEventEventTypeEnum) {
+        CrashReportEventEventTypeEnum["crashReport"] = "crash_report";
+    })(CrashReportEventEventTypeEnum = exports.CrashReportEventEventTypeEnum || (exports.CrashReportEventEventTypeEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var CustomEventEventTypeEnum;
+    (function (CustomEventEventTypeEnum) {
+        CustomEventEventTypeEnum["customEvent"] = "custom_event";
+    })(CustomEventEventTypeEnum = exports.CustomEventEventTypeEnum || (exports.CustomEventEventTypeEnum = {}));
+    /**
+     * Enum for the custom_event_type property.
+     */
+    var CustomEventDataCustomEventTypeEnum;
+    (function (CustomEventDataCustomEventTypeEnum) {
+        CustomEventDataCustomEventTypeEnum["navigation"] = "navigation";
+        CustomEventDataCustomEventTypeEnum["location"] = "location";
+        CustomEventDataCustomEventTypeEnum["search"] = "search";
+        CustomEventDataCustomEventTypeEnum["transaction"] = "transaction";
+        CustomEventDataCustomEventTypeEnum["userContent"] = "user_content";
+        CustomEventDataCustomEventTypeEnum["userPreference"] = "user_preference";
+        CustomEventDataCustomEventTypeEnum["social"] = "social";
+        CustomEventDataCustomEventTypeEnum["other"] = "other";
+        CustomEventDataCustomEventTypeEnum["unknown"] = "unknown";
+    })(CustomEventDataCustomEventTypeEnum = exports.CustomEventDataCustomEventTypeEnum || (exports.CustomEventDataCustomEventTypeEnum = {}));
+    /**
+     * Enum for the device_orientation property.
+     */
+    var DeviceCurrentStateDeviceOrientationEnum;
+    (function (DeviceCurrentStateDeviceOrientationEnum) {
+        DeviceCurrentStateDeviceOrientationEnum["portrait"] = "portrait";
+        DeviceCurrentStateDeviceOrientationEnum["portraitUpsideDown"] = "portrait_upside_down";
+        DeviceCurrentStateDeviceOrientationEnum["landscape"] = "landscape";
+        DeviceCurrentStateDeviceOrientationEnum["landscapeLeft"] = "LandscapeLeft";
+        DeviceCurrentStateDeviceOrientationEnum["landscapeRight"] = "LandscapeRight";
+        DeviceCurrentStateDeviceOrientationEnum["faceUp"] = "FaceUp";
+        DeviceCurrentStateDeviceOrientationEnum["faceDown"] = "FaceDown";
+        DeviceCurrentStateDeviceOrientationEnum["square"] = "Square";
+    })(DeviceCurrentStateDeviceOrientationEnum = exports.DeviceCurrentStateDeviceOrientationEnum || (exports.DeviceCurrentStateDeviceOrientationEnum = {}));
+    /**
+     * Enum for the status_bar_orientation property.
+     */
+    var DeviceCurrentStateStatusBarOrientationEnum;
+    (function (DeviceCurrentStateStatusBarOrientationEnum) {
+        DeviceCurrentStateStatusBarOrientationEnum["portrait"] = "portrait";
+        DeviceCurrentStateStatusBarOrientationEnum["portraitUpsideDown"] = "portrait_upside_down";
+        DeviceCurrentStateStatusBarOrientationEnum["landscape"] = "landscape";
+        DeviceCurrentStateStatusBarOrientationEnum["landscapeLeft"] = "LandscapeLeft";
+        DeviceCurrentStateStatusBarOrientationEnum["landscapeRight"] = "LandscapeRight";
+        DeviceCurrentStateStatusBarOrientationEnum["faceUp"] = "FaceUp";
+        DeviceCurrentStateStatusBarOrientationEnum["faceDown"] = "FaceDown";
+        DeviceCurrentStateStatusBarOrientationEnum["square"] = "Square";
+    })(DeviceCurrentStateStatusBarOrientationEnum = exports.DeviceCurrentStateStatusBarOrientationEnum || (exports.DeviceCurrentStateStatusBarOrientationEnum = {}));
+    /**
+     * Enum for the platform property.
+     */
+    var DeviceInformationPlatformEnum;
+    (function (DeviceInformationPlatformEnum) {
+        DeviceInformationPlatformEnum["iOS"] = "iOS";
+        DeviceInformationPlatformEnum["android"] = "Android";
+        DeviceInformationPlatformEnum["web"] = "web";
+        DeviceInformationPlatformEnum["desktop"] = "desktop";
+        DeviceInformationPlatformEnum["tvOS"] = "tvOS";
+        DeviceInformationPlatformEnum["roku"] = "roku";
+        DeviceInformationPlatformEnum["outOfBand"] = "out_of_band";
+        DeviceInformationPlatformEnum["smartTV"] = "smart_tv";
+        DeviceInformationPlatformEnum["xbox"] = "xbox";
+    })(DeviceInformationPlatformEnum = exports.DeviceInformationPlatformEnum || (exports.DeviceInformationPlatformEnum = {}));
+    var EventTypeEnum;
+    (function (EventTypeEnum) {
+        EventTypeEnum["unknown"] = "unknown";
+        EventTypeEnum["sessionStart"] = "session_start";
+        EventTypeEnum["sessionEnd"] = "session_end";
+        EventTypeEnum["screenView"] = "screen_view";
+        EventTypeEnum["customEvent"] = "custom_event";
+        EventTypeEnum["crashReport"] = "crash_report";
+        EventTypeEnum["optOut"] = "opt_out";
+        EventTypeEnum["firstRun"] = "first_run";
+        EventTypeEnum["preAttribution"] = "pre_attribution";
+        EventTypeEnum["pushRegistration"] = "push_registration";
+        EventTypeEnum["applicationStateTransition"] = "application_state_transition";
+        EventTypeEnum["pushMessage"] = "push_message";
+        EventTypeEnum["networkPerformance"] = "network_performance";
+        EventTypeEnum["breadcrumb"] = "breadcrumb";
+        EventTypeEnum["profile"] = "profile";
+        EventTypeEnum["pushReaction"] = "push_reaction";
+        EventTypeEnum["commerceEvent"] = "commerce_event";
+        EventTypeEnum["userAttributeChange"] = "user_attribute_change";
+        EventTypeEnum["userIdentityChange"] = "user_identity_change";
+        EventTypeEnum["uninstall"] = "uninstall";
+        EventTypeEnum["validationResult"] = "validation_result";
+    })(EventTypeEnum = exports.EventTypeEnum || (exports.EventTypeEnum = {}));
+    var IdentityTypeEnum;
+    (function (IdentityTypeEnum) {
+        IdentityTypeEnum["other"] = "other";
+        IdentityTypeEnum["customerId"] = "customer_id";
+        IdentityTypeEnum["facebook"] = "facebook";
+        IdentityTypeEnum["twitter"] = "twitter";
+        IdentityTypeEnum["google"] = "google";
+        IdentityTypeEnum["microsoft"] = "microsoft";
+        IdentityTypeEnum["yahoo"] = "yahoo";
+        IdentityTypeEnum["email"] = "email";
+        IdentityTypeEnum["alias"] = "alias";
+        IdentityTypeEnum["facebookCustomAudienceId"] = "facebook_custom_audience_id";
+        IdentityTypeEnum["otherId2"] = "other_id_2";
+        IdentityTypeEnum["otherId3"] = "other_id_3";
+        IdentityTypeEnum["otherId4"] = "other_id_4";
+        IdentityTypeEnum["otherId5"] = "other_id_5";
+        IdentityTypeEnum["otherId6"] = "other_id_6";
+        IdentityTypeEnum["otherId7"] = "other_id_7";
+        IdentityTypeEnum["otherId8"] = "other_id_8";
+        IdentityTypeEnum["otherId9"] = "other_id_9";
+        IdentityTypeEnum["otherId10"] = "other_id_10";
+        IdentityTypeEnum["mobileNumber"] = "mobile_number";
+        IdentityTypeEnum["phoneNumber2"] = "phone_number_2";
+        IdentityTypeEnum["phoneNumber3"] = "phone_number_3";
+    })(IdentityTypeEnum = exports.IdentityTypeEnum || (exports.IdentityTypeEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var NetworkPerformanceEventEventTypeEnum;
+    (function (NetworkPerformanceEventEventTypeEnum) {
+        NetworkPerformanceEventEventTypeEnum["networkPerformance"] = "network_performance";
+    })(NetworkPerformanceEventEventTypeEnum = exports.NetworkPerformanceEventEventTypeEnum || (exports.NetworkPerformanceEventEventTypeEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var OptOutEventEnum;
+    (function (OptOutEventEnum) {
+        OptOutEventEnum["optOut"] = "opt_out";
+    })(OptOutEventEnum = exports.OptOutEventEnum || (exports.OptOutEventEnum = {}));
+    /**
+     * Enum for the action property.
+     */
+    var ProductActionActionEnum;
+    (function (ProductActionActionEnum) {
+        ProductActionActionEnum["unknown"] = "unknown";
+        ProductActionActionEnum["addToCart"] = "add_to_cart";
+        ProductActionActionEnum["removeFromCart"] = "remove_from_cart";
+        ProductActionActionEnum["checkout"] = "checkout";
+        ProductActionActionEnum["checkoutOption"] = "checkout_option";
+        ProductActionActionEnum["click"] = "click";
+        ProductActionActionEnum["viewDetail"] = "view_detail";
+        ProductActionActionEnum["purchase"] = "purchase";
+        ProductActionActionEnum["refund"] = "refund";
+        ProductActionActionEnum["addToWishlist"] = "add_to_wishlist";
+        ProductActionActionEnum["removeFromWishlist"] = "remove_from_wish_list";
+    })(ProductActionActionEnum = exports.ProductActionActionEnum || (exports.ProductActionActionEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var ProfileEventEventTypeEnum;
+    (function (ProfileEventEventTypeEnum) {
+        ProfileEventEventTypeEnum["profile"] = "profile";
+    })(ProfileEventEventTypeEnum = exports.ProfileEventEventTypeEnum || (exports.ProfileEventEventTypeEnum = {}));
+    /**
+     * Enum for the profile_event_type property.
+     */
+    var ProfileEventDataProfileEventTypeEnum;
+    (function (ProfileEventDataProfileEventTypeEnum) {
+        ProfileEventDataProfileEventTypeEnum["signup"] = "signup";
+        ProfileEventDataProfileEventTypeEnum["login"] = "login";
+        ProfileEventDataProfileEventTypeEnum["logout"] = "logout";
+        ProfileEventDataProfileEventTypeEnum["update"] = "update";
+        ProfileEventDataProfileEventTypeEnum["delete"] = "delete";
+    })(ProfileEventDataProfileEventTypeEnum = exports.ProfileEventDataProfileEventTypeEnum || (exports.ProfileEventDataProfileEventTypeEnum = {}));
+    /**
+     * Enum for the action property.
+     */
+    var PromotionActionActionEnum;
+    (function (PromotionActionActionEnum) {
+        PromotionActionActionEnum["view"] = "view";
+        PromotionActionActionEnum["click"] = "click";
+    })(PromotionActionActionEnum = exports.PromotionActionActionEnum || (exports.PromotionActionActionEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var PushMessageEventEventTypeEnum;
+    (function (PushMessageEventEventTypeEnum) {
+        PushMessageEventEventTypeEnum["pushMessage"] = "push_message";
+    })(PushMessageEventEventTypeEnum = exports.PushMessageEventEventTypeEnum || (exports.PushMessageEventEventTypeEnum = {}));
+    /**
+     * Enum for the push_message_type property.
+     */
+    var PushMessageEventDataPushMessageTypeEnum;
+    (function (PushMessageEventDataPushMessageTypeEnum) {
+        PushMessageEventDataPushMessageTypeEnum["sent"] = "sent";
+        PushMessageEventDataPushMessageTypeEnum["received"] = "received";
+        PushMessageEventDataPushMessageTypeEnum["action"] = "action";
+    })(PushMessageEventDataPushMessageTypeEnum = exports.PushMessageEventDataPushMessageTypeEnum || (exports.PushMessageEventDataPushMessageTypeEnum = {}));
+    /**
+     * Enum for the application_state property.
+     */
+    var PushMessageEventDataApplicationStateEnum;
+    (function (PushMessageEventDataApplicationStateEnum) {
+        PushMessageEventDataApplicationStateEnum["notRunning"] = "not_running";
+        PushMessageEventDataApplicationStateEnum["background"] = "background";
+        PushMessageEventDataApplicationStateEnum["foreground"] = "foreground";
+    })(PushMessageEventDataApplicationStateEnum = exports.PushMessageEventDataApplicationStateEnum || (exports.PushMessageEventDataApplicationStateEnum = {}));
+    /**
+     * Enum for the push_message_behavior property.
+     */
+    var PushMessageEventDataPushMessageBehaviorEnum;
+    (function (PushMessageEventDataPushMessageBehaviorEnum) {
+        PushMessageEventDataPushMessageBehaviorEnum["received"] = "Received";
+        PushMessageEventDataPushMessageBehaviorEnum["directOpen"] = "DirectOpen";
+        PushMessageEventDataPushMessageBehaviorEnum["read"] = "Read";
+        PushMessageEventDataPushMessageBehaviorEnum["influencedOpen"] = "InfluencedOpen";
+        PushMessageEventDataPushMessageBehaviorEnum["displayed"] = "Displayed";
+    })(PushMessageEventDataPushMessageBehaviorEnum = exports.PushMessageEventDataPushMessageBehaviorEnum || (exports.PushMessageEventDataPushMessageBehaviorEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var PushRegistrationEventEventTypeEnum;
+    (function (PushRegistrationEventEventTypeEnum) {
+        PushRegistrationEventEventTypeEnum["pushRegistration"] = "push_registration";
+    })(PushRegistrationEventEventTypeEnum = exports.PushRegistrationEventEventTypeEnum || (exports.PushRegistrationEventEventTypeEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var SessionEndEventEventTypeEnum;
+    (function (SessionEndEventEventTypeEnum) {
+        SessionEndEventEventTypeEnum["sessionEnd"] = "session_end";
+    })(SessionEndEventEventTypeEnum = exports.SessionEndEventEventTypeEnum || (exports.SessionEndEventEventTypeEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var SessionStartEventEventTypeEnum;
+    (function (SessionStartEventEventTypeEnum) {
+        SessionStartEventEventTypeEnum["sessionStart"] = "session_start";
+    })(SessionStartEventEventTypeEnum = exports.SessionStartEventEventTypeEnum || (exports.SessionStartEventEventTypeEnum = {}));
+    /**
+     * Enum for the channel property.
+     */
+    var SourceInformationChannelEnum;
+    (function (SourceInformationChannelEnum) {
+        SourceInformationChannelEnum["native"] = "native";
+        SourceInformationChannelEnum["javascript"] = "javascript";
+        SourceInformationChannelEnum["pixel"] = "pixel";
+        SourceInformationChannelEnum["desktop"] = "desktop";
+        SourceInformationChannelEnum["partner"] = "partner";
+        SourceInformationChannelEnum["serverToServer"] = "server_to_server";
+    })(SourceInformationChannelEnum = exports.SourceInformationChannelEnum || (exports.SourceInformationChannelEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var UserAttributeChangeEventEventTypeEnum;
+    (function (UserAttributeChangeEventEventTypeEnum) {
+        UserAttributeChangeEventEventTypeEnum["userAttributeChange"] = "user_attribute_change";
+    })(UserAttributeChangeEventEventTypeEnum = exports.UserAttributeChangeEventEventTypeEnum || (exports.UserAttributeChangeEventEventTypeEnum = {}));
+    /**
+     * Enum for the event_type property.
+     */
+    var UserIdentityChangeEventEventTypeEnum;
+    (function (UserIdentityChangeEventEventTypeEnum) {
+        UserIdentityChangeEventEventTypeEnum["userIdentityChange"] = "user_identity_change";
+    })(UserIdentityChangeEventEventTypeEnum = exports.UserIdentityChangeEventEventTypeEnum || (exports.UserIdentityChangeEventEventTypeEnum = {}));
+    });
+
+    unwrapExports(dist);
+    var dist_1 = dist.ApplicationInformationOsEnum;
+    var dist_2 = dist.ApplicationStateTransitionEventEventTypeEnum;
+    var dist_3 = dist.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum;
+    var dist_4 = dist.BatchEnvironmentEnum;
+    var dist_5 = dist.BreadcrumbEventEventTypeEnum;
+    var dist_6 = dist.CommerceEventEventTypeEnum;
+    var dist_7 = dist.CommerceEventDataCustomEventTypeEnum;
+    var dist_8 = dist.CrashReportEventEventTypeEnum;
+    var dist_9 = dist.CustomEventEventTypeEnum;
+    var dist_10 = dist.CustomEventDataCustomEventTypeEnum;
+    var dist_11 = dist.DeviceCurrentStateDeviceOrientationEnum;
+    var dist_12 = dist.DeviceCurrentStateStatusBarOrientationEnum;
+    var dist_13 = dist.DeviceInformationPlatformEnum;
+    var dist_14 = dist.EventTypeEnum;
+    var dist_15 = dist.IdentityTypeEnum;
+    var dist_16 = dist.NetworkPerformanceEventEventTypeEnum;
+    var dist_17 = dist.OptOutEventEnum;
+    var dist_18 = dist.ProductActionActionEnum;
+    var dist_19 = dist.ProfileEventEventTypeEnum;
+    var dist_20 = dist.ProfileEventDataProfileEventTypeEnum;
+    var dist_21 = dist.PromotionActionActionEnum;
+    var dist_22 = dist.PushMessageEventEventTypeEnum;
+    var dist_23 = dist.PushMessageEventDataPushMessageTypeEnum;
+    var dist_24 = dist.PushMessageEventDataApplicationStateEnum;
+    var dist_25 = dist.PushMessageEventDataPushMessageBehaviorEnum;
+    var dist_26 = dist.PushRegistrationEventEventTypeEnum;
+    var dist_27 = dist.SessionEndEventEventTypeEnum;
+    var dist_28 = dist.SessionStartEventEventTypeEnum;
+    var dist_29 = dist.SourceInformationChannelEnum;
+    var dist_30 = dist.UserAttributeChangeEventEventTypeEnum;
+    var dist_31 = dist.UserIdentityChangeEventEventTypeEnum;
+
     function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) {
         var symbols = Object.getOwnPropertySymbols(object);
         if (enumerableOnly)
@@ -1914,7 +2296,7 @@ var mParticle = (function () {
             source_request_id: mpInstance._Helpers.generateUniqueId(),
             mpid: mpid,
             timestamp_unixtime_ms: new Date().getTime(),
-            environment: lastEvent.Debug ? 'development' : 'production',
+            environment: lastEvent.Debug ? dist_4.development : dist_4.production,
             events: uploadEvents,
             mp_deviceid: lastEvent.DeviceId,
             sdk_version: lastEvent.SDKVersion,
@@ -1923,7 +2305,7 @@ var mParticle = (function () {
                 application_name: lastEvent.AppName
             },
             device_info: {
-                platform: 'web',
+                platform: dist_13.web,
                 screen_width: window.screen.width,
                 screen_height: window.screen.height
             },
@@ -2098,31 +2480,31 @@ var mParticle = (function () {
     }
     function convertProductActionType(actionType) {
         if (!actionType) {
-            return 'unknown';
+            return dist_18.unknown;
         }
         switch (actionType) {
             case SDKProductActionType.AddToCart:
-                return 'add_to_cart';
+                return dist_18.addToCart;
             case SDKProductActionType.AddToWishlist:
-                return 'add_to_wishlist';
+                return dist_18.addToWishlist;
             case SDKProductActionType.Checkout:
-                return 'checkout';
+                return dist_18.checkout;
             case SDKProductActionType.CheckoutOption:
-                return 'checkout_option';
+                return dist_18.checkoutOption;
             case SDKProductActionType.Click:
-                return 'click';
+                return dist_18.click;
             case SDKProductActionType.Purchase:
-                return 'purchase';
+                return dist_18.purchase;
             case SDKProductActionType.Refund:
-                return 'refund';
+                return dist_18.refund;
             case SDKProductActionType.RemoveFromCart:
-                return 'remove_from_cart';
+                return dist_18.removeFromCart;
             case SDKProductActionType.RemoveFromWishlist:
-                return 'remove_from_wish_list';
+                return dist_18.removeFromWishlist;
             case SDKProductActionType.ViewDetail:
-                return 'view_detail';
+                return dist_18.viewDetail;
             default:
-                return 'unknown';
+                return dist_18.unknown;
         }
     }
     function convertProductAction(sdkEvent) {
@@ -2257,7 +2639,7 @@ var mParticle = (function () {
         };
         commerceEventData = Object.assign(commerceEventData, commonEventData);
         return {
-            event_type: 'commerce_event',
+            event_type: dist_14.commerceEvent,
             data: commerceEventData
         };
     }
@@ -2268,20 +2650,20 @@ var mParticle = (function () {
         };
         crashReportEventData = Object.assign(crashReportEventData, commonEventData);
         return {
-            event_type: 'crash_report',
+            event_type: dist_14.crashReport,
             data: crashReportEventData
         };
     }
     function convertAST(sdkEvent) {
         var commonEventData = convertBaseEventData(sdkEvent);
         var astEventData = {
-            application_transition_type: 'application_initialized',
+            application_transition_type: dist_3.applicationInitialized,
             is_first_run: sdkEvent.IsFirstRun,
             is_upgrade: false
         };
         astEventData = Object.assign(astEventData, commonEventData);
         return {
-            event_type: 'application_state_transition',
+            event_type: dist_14.applicationStateTransition,
             data: astEventData
         };
     }
@@ -2293,7 +2675,7 @@ var mParticle = (function () {
         };
         sessionEndEventData = Object.assign(sessionEndEventData, commonEventData);
         return {
-            event_type: 'session_end',
+            event_type: dist_14.sessionEnd,
             data: sessionEndEventData
         };
     }
@@ -2302,7 +2684,7 @@ var mParticle = (function () {
         var sessionStartEventData = {};
         sessionStartEventData = Object.assign(sessionStartEventData, commonEventData);
         return {
-            event_type: 'session_start',
+            event_type: dist_14.sessionStart,
             data: sessionStartEventData
         };
     }
@@ -2314,7 +2696,7 @@ var mParticle = (function () {
         };
         screenViewEventData = Object.assign(screenViewEventData, commonEventData);
         return {
-            event_type: 'screen_view',
+            event_type: dist_14.screenView,
             data: screenViewEventData
         };
     }
@@ -2325,7 +2707,7 @@ var mParticle = (function () {
         };
         optOutEventData = Object.assign(optOutEventData, commonEventData);
         return {
-            event_type: 'opt_out',
+            event_type: dist_14.optOut,
             data: optOutEventData
         };
     }
@@ -2338,56 +2720,56 @@ var mParticle = (function () {
         };
         customEventData = Object.assign(customEventData, commonEventData);
         return {
-            event_type: 'custom_event',
+            event_type: dist_14.customEvent,
             data: customEventData
         };
     }
     function convertSdkEventType(sdkEventType) {
         switch (sdkEventType) {
             case Types.EventType.Other:
-                return 'other';
+                return dist_10.other;
             case Types.EventType.Location:
-                return 'location';
+                return dist_10.location;
             case Types.EventType.Navigation:
-                return 'navigation';
+                return dist_10.navigation;
             case Types.EventType.Search:
-                return 'search';
+                return dist_10.search;
             case Types.EventType.Social:
-                return 'social';
+                return dist_10.social;
             case Types.EventType.Transaction:
-                return 'transaction';
+                return dist_10.transaction;
             case Types.EventType.UserContent:
-                return 'user_content';
+                return dist_10.userContent;
             case Types.EventType.UserPreference:
-                return 'user_preference';
+                return dist_10.userPreference;
             case Types.CommerceEventType.ProductAddToCart:
-                return 'add_to_cart';
+                return dist_7.addToCart;
             case Types.CommerceEventType.ProductAddToWishlist:
-                return 'add_to_wishlist';
+                return dist_7.addToWishlist;
             case Types.CommerceEventType.ProductCheckout:
-                return 'checkout';
+                return dist_7.checkout;
             case Types.CommerceEventType.ProductCheckoutOption:
-                return 'checkout_option';
+                return dist_7.checkoutOption;
             case Types.CommerceEventType.ProductClick:
-                return 'click';
+                return dist_7.click;
             case Types.CommerceEventType.ProductImpression:
-                return 'impression';
+                return dist_7.impression;
             case Types.CommerceEventType.ProductPurchase:
-                return 'purchase';
+                return dist_7.purchase;
             case Types.CommerceEventType.ProductRefund:
-                return 'refund';
+                return dist_7.refund;
             case Types.CommerceEventType.ProductRemoveFromCart:
-                return 'remove_from_cart';
+                return dist_7.removeFromCart;
             case Types.CommerceEventType.ProductRemoveFromWishlist:
-                return 'remove_from_wishlist';
+                return dist_7.removeFromWishlist;
             case Types.CommerceEventType.ProductViewDetail:
-                return 'view_detail';
+                return dist_7.viewDetail;
             case Types.CommerceEventType.PromotionClick:
-                return 'promotion_click';
+                return dist_7.promotionClick;
             case Types.CommerceEventType.PromotionView:
-                return 'promotion_view';
+                return dist_7.promotionView;
             default:
-                return 'unknown';
+                return dist_10.unknown;
         }
     }
     function convertBaseEventData(sdkEvent) {
@@ -2420,7 +2802,7 @@ var mParticle = (function () {
         };
         userAttributeChangeEvent = _objectSpread(_objectSpread({}, userAttributeChangeEvent), commonEventData);
         return {
-            event_type: 'user_attribute_change',
+            event_type: dist_14.userAttributeChange,
             data: userAttributeChangeEvent
         };
     }
@@ -2442,7 +2824,7 @@ var mParticle = (function () {
         };
         userIdentityChangeEvent = Object.assign(userIdentityChangeEvent, commonEventData);
         return {
-            event_type: 'user_identity_change',
+            event_type: dist_14.userIdentityChange,
             data: userIdentityChangeEvent
         };
     }
@@ -4250,28 +4632,36 @@ var mParticle = (function () {
       var self = this;
 
       this.convertTransactionAttributesToProductAction = function (transactionAttributes, productAction) {
-        if (transactionAttributes.Id) {
+        if (transactionAttributes.hasOwnProperty('Id')) {
           productAction.TransactionId = transactionAttributes.Id;
         }
 
-        if (transactionAttributes.Affiliation) {
+        if (transactionAttributes.hasOwnProperty('Affiliation')) {
           productAction.Affiliation = transactionAttributes.Affiliation;
         }
 
-        if (transactionAttributes.CouponCode) {
+        if (transactionAttributes.hasOwnProperty('CouponCode')) {
           productAction.CouponCode = transactionAttributes.CouponCode;
         }
 
-        if (transactionAttributes.Revenue) {
+        if (transactionAttributes.hasOwnProperty('Revenue')) {
           productAction.TotalAmount = transactionAttributes.Revenue;
         }
 
-        if (transactionAttributes.Shipping) {
+        if (transactionAttributes.hasOwnProperty('Shipping')) {
           productAction.ShippingAmount = transactionAttributes.Shipping;
         }
 
-        if (transactionAttributes.Tax) {
+        if (transactionAttributes.hasOwnProperty('Tax')) {
           productAction.TaxAmount = transactionAttributes.Tax;
+        }
+
+        if (transactionAttributes.hasOwnProperty('Step')) {
+          productAction.CheckoutStep = transactionAttributes.Step;
+        }
+
+        if (transactionAttributes.hasOwnProperty('Option')) {
+          productAction.CheckoutOptions = transactionAttributes.Option;
         }
       };
 
@@ -6123,7 +6513,7 @@ var mParticle = (function () {
         });
       };
 
-      this.logCheckoutEvent = function (step, options, attrs, customFlags) {
+      this.logCheckoutEvent = function (step, option, attrs, customFlags) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
 
         if (event) {
@@ -6132,14 +6522,14 @@ var mParticle = (function () {
           event.ProductAction = {
             ProductActionType: Types.ProductActionType.Checkout,
             CheckoutStep: step,
-            CheckoutOptions: options,
-            ProductList: event.ShoppingCart.ProductList
+            CheckoutOptions: option,
+            ProductList: []
           };
           self.logCommerceEvent(event, attrs);
         }
       };
 
-      this.logProductActionEvent = function (productActionType, product, attrs, customFlags) {
+      this.logProductActionEvent = function (productActionType, product, customAttrs, customFlags, transactionAttributes) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
 
         if (event) {
@@ -6150,11 +6540,11 @@ var mParticle = (function () {
             ProductList: Array.isArray(product) ? product : [product]
           };
 
-          if (event.EventCategory === Types.CommerceEventType.ProductPurchase || event.EventCategory === Types.CommerceEventType.ProductRefund) {
-            mpInstance._Ecommerce.convertTransactionAttributesToProductAction(attrs, event.ProductAction);
+          if (mpInstance._Helpers.isObject(transactionAttributes)) {
+            mpInstance._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
           }
 
-          self.logCommerceEvent(event, attrs);
+          self.logCommerceEvent(event, customAttrs);
         }
       };
 
@@ -9696,21 +10086,24 @@ var mParticle = (function () {
          * @for mParticle.eCommerce
          * @method logCheckout
          * @param {Number} step checkout step number
-         * @param {Object} options
+         * @param {String} option
          * @param {Object} attrs
          * @param {Object} [customFlags] Custom flags for the event
+         * @deprecated
          */
-        logCheckout: function logCheckout(step, options, attrs, customFlags) {
+        logCheckout: function logCheckout(step, option, attrs, customFlags) {
+          self.Logger.warning('mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead');
+
           if (!self._Store.isInitialized) {
             self.ready(function () {
-              self.eCommerce.logCheckout(step, options, attrs, customFlags);
+              self.eCommerce.logCheckout(step, option, attrs, customFlags);
             });
             return;
           }
 
           self._SessionManager.resetSessionTimer();
 
-          self._Events.logCheckoutEvent(step, options, attrs, customFlags);
+          self._Events.logCheckoutEvent(step, option, attrs, customFlags);
         },
 
         /**
@@ -9721,18 +10114,19 @@ var mParticle = (function () {
          * @param {Object} product the product for which you are creating the product action
          * @param {Object} [attrs] attributes related to the product action
          * @param {Object} [customFlags] Custom flags for the event
+         * @param {Object} [transactionAttributes] Transaction Attributes for the event
          */
-        logProductAction: function logProductAction(productActionType, product, attrs, customFlags) {
+        logProductAction: function logProductAction(productActionType, product, attrs, customFlags, transactionAttributes) {
           if (!self._Store.isInitialized) {
             self.ready(function () {
-              self.eCommerce.logProductAction(productActionType, product, attrs, customFlags);
+              self.eCommerce.logProductAction(productActionType, product, attrs, customFlags, transactionAttributes);
             });
             return;
           }
 
           self._SessionManager.resetSessionTimer();
 
-          self._Events.logProductActionEvent(productActionType, product, attrs, customFlags);
+          self._Events.logProductActionEvent(productActionType, product, attrs, customFlags, transactionAttributes);
         },
 
         /**
@@ -9744,8 +10138,11 @@ var mParticle = (function () {
          * @param {Boolean} [clearCart] boolean to clear the cart after logging or not. Defaults to false
          * @param {Object} [attrs] other attributes related to the product purchase
          * @param {Object} [customFlags] Custom flags for the event
+         * @deprecated
          */
         logPurchase: function logPurchase(transactionAttributes, product, clearCart, attrs, customFlags) {
+          self.Logger.warning('mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead');
+
           if (!self._Store.isInitialized) {
             self.ready(function () {
               self.eCommerce.logPurchase(transactionAttributes, product, clearCart, attrs, customFlags);
@@ -9815,8 +10212,11 @@ var mParticle = (function () {
          * @param {Boolean} [clearCart] boolean to clear the cart after refund is logged. Defaults to false.
          * @param {Object} [attrs] attributes related to the refund
          * @param {Object} [customFlags] Custom flags for the event
+         * @deprecated
          */
         logRefund: function logRefund(transactionAttributes, product, clearCart, attrs, customFlags) {
+          self.Logger.warning('mParticle.logRefund is deprecated, please use mParticle.logProductAction instead');
+
           if (!self._Store.isInitialized) {
             self.ready(function () {
               self.eCommerce.logRefund(transactionAttributes, product, clearCart, attrs, customFlags);
@@ -10429,8 +10829,8 @@ var mParticle = (function () {
         logCheckout: function logCheckout(step, options, attrs, customFlags) {
           self.getInstance().eCommerce.logCheckout(step, options, attrs, customFlags);
         },
-        logProductAction: function logProductAction(productActionType, product, attrs, customFlags) {
-          self.getInstance().eCommerce.logProductAction(productActionType, product, attrs, customFlags);
+        logProductAction: function logProductAction(productActionType, product, attrs, customFlags, transactionAttributes) {
+          self.getInstance().eCommerce.logProductAction(productActionType, product, attrs, customFlags, transactionAttributes);
         },
         logPurchase: function logPurchase(transactionAttributes, product, clearCart, attrs, customFlags) {
           self.getInstance().eCommerce.logPurchase(transactionAttributes, product, clearCart, attrs, customFlags);
