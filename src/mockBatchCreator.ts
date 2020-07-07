@@ -3,7 +3,7 @@
 import ServerModel from './serverModel';
 import { SDKEvent, BaseEvent, MParticleWebSDK } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
-import * as EventsApi from './eventsApiModels';
+import * as EventsApi from '@mparticle/event-models';
 export default class _BatchValidator {
     private getMPInstance() {
         return {
