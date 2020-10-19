@@ -176,7 +176,8 @@ export default function ServerModel(mpInstance) {
                     EventName: event.name || event.messageType,
                     EventCategory: event.eventType,
                     EventAttributes: mpInstance._Helpers.sanitizeAttributes(
-                        event.data
+                        event.data,
+                        event.name
                     ),
                     EventDataType: event.messageType,
                     CustomFlags: event.customFlags || {},

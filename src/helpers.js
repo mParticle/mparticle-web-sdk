@@ -503,7 +503,7 @@ export default function Helpers(mpInstance) {
         return hash;
     };
 
-    this.sanitizeAttributes = function(attrs) {
+    this.sanitizeAttributes = function(attrs, name) {
         if (!attrs || !self.isObject(attrs)) {
             return null;
         }
@@ -519,9 +519,11 @@ export default function Helpers(mpInstance) {
                 sanitizedAttrs[prop] = attrs[prop];
             } else {
                 mpInstance.Logger.warning(
-                    'The corresponding attribute value of ' +
+                    "For '" +
+                        name +
+                        "', the corresponding attribute value of '" +
                         prop +
-                        ' must be a string, number, boolean, or null.'
+                        "' must be a string, number, boolean, or null."
                 );
             }
         }

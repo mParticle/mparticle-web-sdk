@@ -10,9 +10,6 @@ export default function Events(mpInstance) {
             Messages.InformationMessages.StartingLogEvent + ': ' + event.name
         );
         if (mpInstance._Helpers.canLog()) {
-            if (event.data) {
-                event.data = mpInstance._Helpers.sanitizeAttributes(event.data);
-            }
             var uploadObject = mpInstance._ServerModel.createEventObject(event);
             mpInstance._APIClient.sendEventToServer(uploadObject);
         } else {
@@ -284,7 +281,10 @@ export default function Events(mpInstance) {
             Messages.InformationMessages.StartingLogCommerceEvent
         );
 
-        attrs = mpInstance._Helpers.sanitizeAttributes(attrs);
+        attrs = mpInstance._Helpers.sanitizeAttributes(
+            attrs,
+            commerceEvent.EventName
+        );
 
         if (mpInstance._Helpers.canLog()) {
             if (mpInstance._Store.webviewBridgeEnabled) {

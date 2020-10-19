@@ -1,4 +1,5 @@
 import { apiKey } from './config';
+import sinon from 'sinon';
 
 describe('helpers', function() {
     beforeEach(function() {
@@ -31,6 +32,63 @@ describe('helpers', function() {
         validatedObject.should.not.be.ok();
         validatedArray.should.not.be.ok();
         validatedUndefined.should.not.be.ok();
+
+        done();
+    });
+
+    it('should return event name in warning when sanitizing invalid attributes', function(done) {
+        var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+        mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
+
+        bond.called.should.eql(true);
+        bond.callCount.should.equal(1);
+
+        bond.getCalls()[0].args[0].should.eql(
+            "For 'eventName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
+        );
+
+        done();
+    });
+
+    it('should return product name in warning when sanitizing invalid attributes', function(done) {
+        var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+        mParticle.eCommerce.createProduct(
+            'productName',
+            'sku',
+            1,
+            1,
+            'variant',
+        'category',
+        'brand',
+        'position',
+        'couponCode',
+        {invalidValue: {}}
+        )
+        bond.called.should.eql(true);
+        bond.callCount.should.equal(1);
+
+        bond.getCalls()[0].args[0].should.eql(
+            "For 'productName', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
+        );
+
+        done();
+    });
+
+    it('should return commerce event name in warning when sanitizing invalid attributes', function(done) {
+        var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+
+        var product1 = mParticle.eCommerce.createProduct('prod1', 'prod1sku', 999);
+        var product2 = mParticle.eCommerce.createProduct('prod2', 'prod2sku', 799);
+
+        var customAttributes = {invalidValue: {}};
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [product1, product2], customAttributes);
+
+        bond.called.should.eql(true);
+        bond.callCount.should.equal(1);
+        
+        bond.getCalls()[0].args[0].should.eql(
+            "For 'eCommerce - AddToCart', the corresponding attribute value of 'invalidValue' must be a string, number, boolean, or null."
+        );
 
         done();
     });

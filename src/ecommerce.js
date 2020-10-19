@@ -241,7 +241,7 @@ export default function Ecommerce(mpInstance) {
         couponCode,
         attributes
     ) {
-        attributes = mpInstance._Helpers.sanitizeAttributes(attributes);
+        attributes = mpInstance._Helpers.sanitizeAttributes(attributes, name);
 
         if (typeof name !== 'string') {
             mpInstance.Logger.error('Name is required when creating a product');
