@@ -168,6 +168,44 @@ describe('core SDK', function() {
         done();
     });
 
+    it('should send new appName via event payload', function (done) {
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+
+        mParticle.config.appName = 'newAppName';
+
+        mParticle.init(apiKey, mParticle.config);
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.logEvent('Test Event');
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+
+        batch.application_info.should.have.property('application_name', 'newAppName');
+        
+        done();
+    });
+
+    it('should allow app name to be changed via setAppName', function (done) {
+        mParticle._resetForTests(MPConfig);
+
+        const newConfig = { ...window.mParticle.config, appName: 'OverrideTestName'};
+
+        mParticle.init(apiKey, newConfig);
+
+        var appName = mParticle.getAppName();
+        appName.should.equal('OverrideTestName');
+
+
+        done();
+    })
+
     it('should set client id', function(done) {
         window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation);
         var data = getEvent(mockServer.requests, 'Test Event');
