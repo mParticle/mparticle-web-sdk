@@ -216,6 +216,7 @@ export function convertEvent(sdkEvent: SDKEvent): EventsApi.BaseEvent | null {
         case Types.MessageType.OptOut:
             return convertOptOutEvent(sdkEvent);
         case Types.MessageType.PageEvent:
+            // Note: Media Events are also sent as PageEvents/CustomEvents
             return convertCustomEvent(sdkEvent);
         case Types.MessageType.PageView:
             return convertPageViewEvent(sdkEvent);
@@ -547,6 +548,8 @@ export function convertSdkEventType(
             return EventsApi.CustomEventDataCustomEventTypeEnum.userContent;
         case Types.EventType.UserPreference:
             return EventsApi.CustomEventDataCustomEventTypeEnum.userPreference;
+        case Types.EventType.Media:
+            return EventsApi.CustomEventDataCustomEventTypeEnum.media;
         case Types.CommerceEventType.ProductAddToCart:
             return EventsApi.CommerceEventDataCustomEventTypeEnum.addToCart;
         case Types.CommerceEventType.ProductAddToWishlist:
