@@ -1947,6 +1947,7 @@ var mParticle = (function () {
         CustomEventDataCustomEventTypeEnum["userContent"] = "user_content";
         CustomEventDataCustomEventTypeEnum["userPreference"] = "user_preference";
         CustomEventDataCustomEventTypeEnum["social"] = "social";
+        CustomEventDataCustomEventTypeEnum["media"] = "media";
         CustomEventDataCustomEventTypeEnum["other"] = "other";
         CustomEventDataCustomEventTypeEnum["unknown"] = "unknown";
     })(CustomEventDataCustomEventTypeEnum = exports.CustomEventDataCustomEventTypeEnum || (exports.CustomEventDataCustomEventTypeEnum = {}));
@@ -2461,6 +2462,7 @@ var mParticle = (function () {
             case Types.MessageType.OptOut:
                 return convertOptOutEvent(sdkEvent);
             case Types.MessageType.PageEvent:
+                // Note: Media Events are also sent as PageEvents/CustomEvents
                 return convertCustomEvent(sdkEvent);
             case Types.MessageType.PageView:
                 return convertPageViewEvent(sdkEvent);
@@ -2742,6 +2744,8 @@ var mParticle = (function () {
                 return dist_10.userContent;
             case Types.EventType.UserPreference:
                 return dist_10.userPreference;
+            case Types.EventType.Media:
+                return dist_10.media;
             case Types.CommerceEventType.ProductAddToCart:
                 return dist_7.addToCart;
             case Types.CommerceEventType.ProductAddToWishlist:
@@ -4110,7 +4114,7 @@ var mParticle = (function () {
         return hash;
       };
 
-      this.sanitizeAttributes = function (attrs) {
+      this.sanitizeAttributes = function (attrs, name) {
         if (!attrs || !self.isObject(attrs)) {
           return null;
         }
@@ -4122,7 +4126,7 @@ var mParticle = (function () {
           if (attrs.hasOwnProperty(prop) && self.Validators.isValidAttributeValue(attrs[prop])) {
             sanitizedAttrs[prop] = attrs[prop];
           } else {
-            mpInstance.Logger.warning('The corresponding attribute value of ' + prop + ' must be a string, number, boolean, or null.');
+            mpInstance.Logger.warning("For '" + name + "', the corresponding attribute value of '" + prop + "' must be a string, number, boolean, or null.");
           }
         }
 
@@ -4884,7 +4888,7 @@ var mParticle = (function () {
       };
 
       this.createProduct = function (name, sku, price, quantity, variant, category, brand, position, couponCode, attributes) {
-        attributes = mpInstance._Helpers.sanitizeAttributes(attributes);
+        attributes = mpInstance._Helpers.sanitizeAttributes(attributes, name);
 
         if (typeof name !== 'string') {
           mpInstance.Logger.error('Name is required when creating a product');
@@ -6427,10 +6431,6 @@ var mParticle = (function () {
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogEvent + ': ' + event.name);
 
         if (mpInstance._Helpers.canLog()) {
-          if (event.data) {
-            event.data = mpInstance._Helpers.sanitizeAttributes(event.data);
-          }
-
           var uploadObject = mpInstance._ServerModel.createEventObject(event);
 
           mpInstance._APIClient.sendEventToServer(uploadObject);
@@ -6625,7 +6625,7 @@ var mParticle = (function () {
 
       this.logCommerceEvent = function (commerceEvent, attrs) {
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogCommerceEvent);
-        attrs = mpInstance._Helpers.sanitizeAttributes(attrs);
+        attrs = mpInstance._Helpers.sanitizeAttributes(attrs, commerceEvent.EventName);
 
         if (mpInstance._Helpers.canLog()) {
           if (mpInstance._Store.webviewBridgeEnabled) {
@@ -7632,7 +7632,7 @@ var mParticle = (function () {
             eventObject = {
               EventName: event.name || event.messageType,
               EventCategory: event.eventType,
-              EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data),
+              EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
               EventDataType: event.messageType,
               CustomFlags: event.customFlags || {},
               UserAttributeChanges: event.userAttributeChanges,
