@@ -2,6 +2,13 @@
 
 --
 
+#### 2.11.16 - 2020-10-26
+
+-   Remove eventsApiModels.ts in favor of js-events npm module
+-   Feat - Add event and product context to sanitized attributes
+-   Add logic to handle Media Events as Custom Events
+-   Add additional tests for app name change in config
+
 #### 2.11.15 - 2020-06-30
 
 -   Feat - Add transactionAttributes to logProductAction method signature
