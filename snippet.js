@@ -17,7 +17,7 @@
     window.mParticle.Identity = {};
     window.mParticle.config = window.mParticle.config || {};
     window.mParticle.config.rq = [];
-    window.mParticle.config.snippetVersion = 2.2;
+    window.mParticle.config.snippetVersion = 2.3;
     window.mParticle.ready = function(f) {
         window.mParticle.config.rq.push(f);
     };
@@ -71,6 +71,25 @@
         };
     }
 
+    // set data planning query parameters
+    var dpId,
+        dpV,
+        config = window.mParticle.config,
+        env = config.isDevelopmentMode ? 1 : 0,
+        dbUrl = '?env=' + env,
+        dataPlan = window.mParticle.config.dataPlan;
+
+    if (dataPlan) {
+        dpId = dataPlan.planId;
+        dpV = dataPlan.planVersion;
+        if (dpId) {
+            if (dpV && (dpV < 1 || dpV > 1000)) {
+                dpV = null;
+            }
+            dbUrl += '&plan_id=' + dpId + (dpV ? '&plan_version=' + dpV : '');
+        }
+    }
+
     // add mParticle script dynamically to the page, insert before the first script tag
     var mp = document.createElement('script');
     mp.type = 'text/javascript';
@@ -81,7 +100,7 @@
             : 'http://jssdkcdn') +
         '.mparticle.com/js/v2/' +
         apiKey +
-        '/mparticle.js';
+        '/mparticle.js' + dbUrl;
     var s = document.getElementsByTagName('script')[0];
     s.parentNode.insertBefore(mp, s);
 })('REPLACE WITH API KEY');
