@@ -2,6 +2,11 @@
 
 --
 
+#### 2.12.0 - 2020-10-29
+
+-   Feat - Implement client side kit blocking
+    You can now use Data Master to block unplanned events and attributes from being sent to client side forwarders.
+
 #### 2.11.16 - 2020-10-26
 
 -   Remove eventsApiModels.ts in favor of js-events npm module
