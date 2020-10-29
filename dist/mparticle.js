@@ -720,7 +720,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.11.15',
+      sdkVersion: '2.12.0',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -3283,9 +3283,8 @@ var mParticle = (function () {
         return XHRUploader;
     }(AsyncUploader);
 
-    var HTTPCodes = Constants.HTTPCodes,
-        Messages = Constants.Messages;
-    function APIClient(mpInstance) {
+    var Messages = Constants.Messages;
+    function APIClient(mpInstance, kitBlocker) {
       this.uploader = null;
       var self = this;
 
@@ -3373,7 +3372,13 @@ var mParticle = (function () {
         }
 
         if (event && event.EventName !== Types.MessageType.AppStateTransition) {
-          mpInstance._Forwarders.sendEventToForwarders(event);
+          if (kitBlocker && kitBlocker.kitBlockingEnabled) {
+            event = kitBlocker.createBlockedEvent(event);
+          }
+
+          if (event) {
+            mpInstance._Forwarders.sendEventToForwarders(event);
+          }
         }
       };
 
@@ -3405,93 +3410,6 @@ var mParticle = (function () {
             xhr.send(JSON.stringify(mpInstance._ServerModel.convertEventToDTO(event, mpInstance._Store.isFirstRun)));
           } catch (e) {
             mpInstance.Logger.error('Error sending event to mParticle servers. ' + e);
-          }
-        }
-      };
-
-      this.sendAliasRequest = function (aliasRequest, callback) {
-        var xhr,
-            xhrCallback = function xhrCallback() {
-          if (xhr.readyState === 4) {
-            mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server'); //only parse error messages from failing requests
-
-            if (xhr.status !== 200 && xhr.status !== 202) {
-              if (xhr.responseText) {
-                var response = JSON.parse(xhr.responseText);
-
-                if (response.hasOwnProperty('message')) {
-                  var errorMessage = response.message;
-
-                  mpInstance._Helpers.invokeAliasCallback(callback, xhr.status, errorMessage);
-
-                  return;
-                }
-              }
-            }
-
-            mpInstance._Helpers.invokeAliasCallback(callback, xhr.status);
-          }
-        };
-
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendAliasHttp);
-        xhr = mpInstance._Helpers.createXHR(xhrCallback);
-
-        if (xhr) {
-          try {
-            xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.aliasUrl, mpInstance._Store.devToken) + '/Alias');
-            xhr.send(JSON.stringify(aliasRequest));
-          } catch (e) {
-            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes.noHttpCoverage, e);
-
-            mpInstance.Logger.error('Error sending alias request to mParticle servers. ' + e);
-          }
-        }
-      };
-
-      this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid) {
-        var xhr,
-            previousMPID,
-            xhrCallback = function xhrCallback() {
-          if (xhr.readyState === 4) {
-            mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server');
-            parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method);
-          }
-        };
-
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendIdentityBegin);
-
-        if (!identityApiRequest) {
-          mpInstance.Logger.error(Messages.ErrorMessages.APIRequestEmpty);
-          return;
-        }
-
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendIdentityHttp);
-        xhr = mpInstance._Helpers.createXHR(xhrCallback);
-
-        if (xhr) {
-          try {
-            if (mpInstance._Store.identityCallInFlight) {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
-            } else {
-              previousMPID = mpid || null;
-
-              if (method === 'modify') {
-                xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl) + mpid + '/' + method);
-              } else {
-                xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl) + method);
-              }
-
-              xhr.setRequestHeader('Content-Type', 'application/json');
-              xhr.setRequestHeader('x-mp-key', mpInstance._Store.devToken);
-              mpInstance._Store.identityCallInFlight = true;
-              xhr.send(JSON.stringify(identityApiRequest));
-            }
-          } catch (e) {
-            mpInstance._Store.identityCallInFlight = false;
-
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, e);
-
-            mpInstance.Logger.error('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
           }
         }
       };
@@ -3538,45 +3456,6 @@ var mParticle = (function () {
           }
         } catch (e) {
           mpInstance.Logger.error('Error sending forwarding stats to mParticle servers.');
-        }
-      };
-
-      this.getSDKConfiguration = function (apiKey, config, completeSDKInitialization, mpInstance) {
-        var url;
-
-        try {
-          var xhrCallback = function xhrCallback() {
-            if (xhr.readyState === 4) {
-              // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
-              if (xhr.status === 200) {
-                config = mpInstance._Helpers.extend({}, config, JSON.parse(xhr.responseText));
-                completeSDKInitialization(apiKey, config, mpInstance);
-                mpInstance.Logger.verbose('Successfully received configuration from server');
-              } else {
-                // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
-                completeSDKInitialization(apiKey, config, mpInstance);
-                mpInstance.Logger.verbose('Issue with receiving configuration from server, received HTTP Code of ' + xhr.status);
-              }
-            }
-          };
-
-          var xhr = mpInstance._Helpers.createXHR(xhrCallback);
-
-          url = 'https://' + mpInstance._Store.SDKConfig.configUrl + apiKey + '/config?env=';
-
-          if (config.isDevelopmentMode) {
-            url = url + '1';
-          } else {
-            url = url + '0';
-          }
-
-          if (xhr) {
-            xhr.open('get', url);
-            xhr.send(null);
-          }
-        } catch (e) {
-          completeSDKInitialization(apiKey, config, mpInstance);
-          mpInstance.Logger.error('Error getting forwarder configuration from mParticle servers.');
         }
       };
 
@@ -5356,6 +5235,12 @@ var mParticle = (function () {
           this.SDKConfig.aliasMaxWindow = Constants.DefaultConfig.aliasMaxWindow;
         }
 
+        if (config.hasOwnProperty('dataPlanOptions')) {
+          if (!config.dataPlanOptions.hasOwnProperty('dataPlanVersion') || !config.dataPlanOptions.hasOwnProperty('blockUserAttributes') || !config.dataPlanOptions.hasOwnProperty('blockEventAttribute') || !config.dataPlanOptions.hasOwnProperty('blockEvents') || !config.dataPlanOptions.hasOwnProperty('blockIdentities')) {
+            mpInstance.Logger.error('Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttribute", "blockEvents", "blockIdentities" booleans');
+          }
+        }
+
         if (!config.hasOwnProperty('flags')) {
           this.SDKConfig.flags = {};
         }
@@ -6941,7 +6826,7 @@ var mParticle = (function () {
       }
     }
 
-    function filteredMparticleUser(mpid, forwarder, mpInstance) {
+    function filteredMparticleUser(mpid, forwarder, mpInstance, kitBlocker) {
       var self = this;
       return {
         getUserIdentities: function getUserIdentities() {
@@ -6951,7 +6836,9 @@ var mParticle = (function () {
 
           for (var identityType in identities) {
             if (identities.hasOwnProperty(identityType)) {
-              currentUserIdentities[Types.IdentityType.getIdentityName(mpInstance._Helpers.parseNumber(identityType))] = identities[identityType];
+              var identityName = Types.IdentityType.getIdentityName(mpInstance._Helpers.parseNumber(identityType));
+              if (!kitBlocker || kitBlocker && !kitBlocker.isIdentityBlocked(identityName)) //if identity type is not blocked
+                currentUserIdentities[identityName] = identities[identityType];
             }
           }
 
@@ -6970,7 +6857,9 @@ var mParticle = (function () {
 
           for (var key in userAttributes) {
             if (userAttributes.hasOwnProperty(key) && Array.isArray(userAttributes[key])) {
-              userAttributesLists[key] = userAttributes[key].slice();
+              if (!kitBlocker || kitBlocker && !kitBlocker.isAttributeKeyBlocked(key)) {
+                userAttributesLists[key] = userAttributes[key].slice();
+              }
             }
           }
 
@@ -6985,10 +6874,12 @@ var mParticle = (function () {
           if (userAttributes) {
             for (var prop in userAttributes) {
               if (userAttributes.hasOwnProperty(prop)) {
-                if (Array.isArray(userAttributes[prop])) {
-                  userAttributesCopy[prop] = userAttributes[prop].slice();
-                } else {
-                  userAttributesCopy[prop] = userAttributes[prop];
+                if (!kitBlocker || kitBlocker && !kitBlocker.isAttributeKeyBlocked(prop)) {
+                  if (Array.isArray(userAttributes[prop])) {
+                    userAttributesCopy[prop] = userAttributes[prop].slice();
+                  } else {
+                    userAttributesCopy[prop] = userAttributes[prop];
+                  }
                 }
               }
             }
@@ -7000,7 +6891,7 @@ var mParticle = (function () {
       };
     }
 
-    function Forwarders(mpInstance) {
+    function Forwarders(mpInstance, kitBlocker) {
       var self = this;
 
       this.initForwarders = function (userIdentities, forwardingStatsCallback) {
@@ -7288,6 +7179,10 @@ var mParticle = (function () {
       };
 
       this.callSetUserAttributeOnForwarders = function (key, value) {
+        if (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) {
+          return;
+        }
+
         if (mpInstance._Store.activeForwarders.length) {
           mpInstance._Store.activeForwarders.forEach(function (forwarder) {
             if (forwarder.setUserAttribute && forwarder.userAttributeFilters && !mpInstance._Helpers.inArray(forwarder.userAttributeFilters, mpInstance._Helpers.generateHash(key))) {
@@ -7323,7 +7218,7 @@ var mParticle = (function () {
 
       this.setForwarderOnUserIdentified = function (user) {
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
-          var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance);
+          var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker);
 
           if (forwarder.onUserIdentified) {
             var result = forwarder.onUserIdentified(filteredUser);
@@ -7339,7 +7234,7 @@ var mParticle = (function () {
         var result;
 
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
-          var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance);
+          var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker);
 
           if (identityMethod === 'identify') {
             if (forwarder.onIdentifyComplete) {
@@ -7836,7 +7731,7 @@ var mParticle = (function () {
     }
 
     var Messages$7 = Constants.Messages,
-        HTTPCodes$1 = Constants.HTTPCodes;
+        HTTPCodes = Constants.HTTPCodes;
     function Identity(mpInstance) {
       var self = this;
 
@@ -8004,7 +7899,7 @@ var mParticle = (function () {
        */
 
       this.IdentityAPI = {
-        HTTPCodes: HTTPCodes$1,
+        HTTPCodes: HTTPCodes,
 
         /**
          * Initiate a logout request to the mParticle server
@@ -8028,17 +7923,17 @@ var mParticle = (function () {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
 
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Identify request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Identify request sent to native sdk');
               } else {
-                mpInstance._APIClient.sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, self.parseIdentityResponse, mpid);
+                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, self.parseIdentityResponse, mpid);
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
 
               mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
 
             mpInstance.Logger.verbose(preProcessResult);
           }
@@ -8067,9 +7962,9 @@ var mParticle = (function () {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
 
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Logout request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
               } else {
-                mpInstance._APIClient.sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, self.parseIdentityResponse, mpid);
+                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, self.parseIdentityResponse, mpid);
 
                 evt = mpInstance._ServerModel.createEventObject({
                   messageType: Types.MessageType.Profile
@@ -8085,12 +7980,12 @@ var mParticle = (function () {
                 }
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
 
               mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
 
             mpInstance.Logger.verbose(preProcessResult);
           }
@@ -8118,17 +8013,17 @@ var mParticle = (function () {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
 
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Login request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Login request sent to native sdk');
               } else {
-                mpInstance._APIClient.sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, self.parseIdentityResponse, mpid);
+                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, self.parseIdentityResponse, mpid);
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
 
               mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
 
             mpInstance.Logger.verbose(preProcessResult);
           }
@@ -8158,17 +8053,17 @@ var mParticle = (function () {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
 
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Modify request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Modify request sent to native sdk');
               } else {
-                mpInstance._APIClient.sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, self.parseIdentityResponse, mpid);
+                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, self.parseIdentityResponse, mpid);
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
 
               mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
 
             mpInstance.Logger.verbose(preProcessResult);
           }
@@ -8278,7 +8173,7 @@ var mParticle = (function () {
           if (message) {
             mpInstance.Logger.warning(message);
 
-            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$1.validationIssue, message);
+            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes.validationIssue, message);
 
             return;
           }
@@ -8287,16 +8182,16 @@ var mParticle = (function () {
             if (mpInstance._Store.webviewBridgeEnabled) {
               mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Alias, JSON.stringify(mpInstance._Identity.IdentityRequest.convertAliasToNative(aliasRequest)));
 
-              mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$1.nativeIdentityRequest, 'Alias request sent to native sdk');
+              mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes.nativeIdentityRequest, 'Alias request sent to native sdk');
             } else {
               mpInstance.Logger.verbose(Messages$7.InformationMessages.StartingAliasRequest + ': ' + aliasRequest.sourceMpid + ' -> ' + aliasRequest.destinationMpid);
 
               var aliasRequestMessage = mpInstance._Identity.IdentityRequest.createAliasNetworkRequest(aliasRequest);
 
-              mpInstance._APIClient.sendAliasRequest(aliasRequestMessage, callback);
+              mpInstance._IdentityAPIClient.sendAliasRequest(aliasRequestMessage, callback);
             }
           } else {
-            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$1.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonAliasUsers);
+            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonAliasUsers);
 
             mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonAliasUsers);
           }
@@ -9007,7 +8902,7 @@ var mParticle = (function () {
 
           if (callback) {
             if (xhr.status === 0) {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.noHttpCoverage, identityApiResult || null, newUser);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, identityApiResult || null, newUser);
             } else {
               mpInstance._Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
             }
@@ -9412,7 +9307,648 @@ var mParticle = (function () {
       };
     }
 
-    var Messages$8 = Constants.Messages,
+    function ownKeys$1(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) {
+        var symbols = Object.getOwnPropertySymbols(object);
+        if (enumerableOnly)
+            symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; });
+        keys.push.apply(keys, symbols);
+    } return keys; }
+    function _objectSpread$1(target) { for (var i = 1; i < arguments.length; i++) {
+        var source = arguments[i] != null ? arguments[i] : {};
+        if (i % 2) {
+            ownKeys$1(Object(source), true).forEach(function (key) { defineProperty(target, key, source[key]); });
+        }
+        else if (Object.getOwnPropertyDescriptors) {
+            Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+        }
+        else {
+            ownKeys$1(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); });
+        }
+    } return target; }
+    /*
+        TODO: Including this as a workaround because attempting to import it from
+        @mparticle/data-planning-models directly creates a build error.
+     */
+    var DataPlanMatchType = {
+        ScreenView: "screen_view",
+        CustomEvent: "custom_event",
+        Commerce: "commerce",
+        UserAttributes: "user_attributes",
+        UserIdentities: "user_identities",
+        ProductAction: "product_action",
+        PromotionAction: "promotion_action",
+        ProductImpression: "product_impression"
+    };
+    /*
+        inspiration from https://github.com/mParticle/data-planning-node/blob/master/src/data_planning/data_plan_event_validator.ts
+        but modified to only include commerce events, custom events, screen views, and removes validation
+
+        The purpose of the KitBlocker class is to parse a data plan and determine what events, event/user/product attributes, and user identities should be blocked from downstream forwarders.
+
+        KitBlocker is instantiated with a data plan on mParticle initialization. KitBlocker.kitBlockingEnabled is false if no data plan is passed.
+        It parses the data plan by creating a `dataPlanMatchLookups` object in the following manner:
+            1. For all events and user attributes/identities, it generates a `matchKey` in the shape of `typeOfEvent:eventType:nameOfEvent`
+                a. The matchKeys' value will return `true` if additionalProperties for the custom attributes/identities is `true`, otherwise it will return an object of planned attribute/identities
+            2. For commerce events, after step 1 and 1a, a second `matchKey` is included that appends `Products`. This is used to determine productAttributes blocked
+        
+        When an event is logged in mParticle, it is sent to our server and then calls `KitBlocker.createBlockedEvent` before passing the event to each forwarder.
+        If the event is blocked, it will not send to the forwarder. If the event is not blocked, event/user/product attributes and user identities will be removed from the returned event if blocked.
+    */
+    var KitBlocker = /*#__PURE__*/ function () {
+        function KitBlocker(dataPlan, mpInstance) {
+            var _dataPlan$document, _dataPlan$document$dt, _dataPlan$document$dt2, _dataPlan$document2, _dataPlan$document2$d, _dataPlan$document2$d2, _dataPlan$document3, _dataPlan$document3$d, _dataPlan$document3$d2, _dataPlan$document4, _dataPlan$document4$d, _dataPlan$document4$d2, _dataPlan$document5, _dataPlan$document5$d, _dataPlan$document5$d2, _this = this;
+            classCallCheck(this, KitBlocker);
+            defineProperty(this, "dataPlanMatchLookups", {});
+            defineProperty(this, "blockEvents", false);
+            defineProperty(this, "blockEventAttributes", false);
+            defineProperty(this, "blockUserAttributes", false);
+            defineProperty(this, "blockUserIdentities", false);
+            defineProperty(this, "kitBlockingEnabled", false);
+            defineProperty(this, "mpInstance", void 0);
+            // if data plan is not requested, the data plan is {document: null}
+            if (dataPlan && !dataPlan.document) {
+                this.kitBlockingEnabled = false;
+                return;
+            }
+            this.kitBlockingEnabled = true;
+            this.mpInstance = mpInstance;
+            this.blockEvents = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document = dataPlan.document) === null || _dataPlan$document === void 0 ? void 0 : (_dataPlan$document$dt = _dataPlan$document.dtpn) === null || _dataPlan$document$dt === void 0 ? void 0 : (_dataPlan$document$dt2 = _dataPlan$document$dt.blok) === null || _dataPlan$document$dt2 === void 0 ? void 0 : _dataPlan$document$dt2.ev;
+            this.blockEventAttributes = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document2 = dataPlan.document) === null || _dataPlan$document2 === void 0 ? void 0 : (_dataPlan$document2$d = _dataPlan$document2.dtpn) === null || _dataPlan$document2$d === void 0 ? void 0 : (_dataPlan$document2$d2 = _dataPlan$document2$d.blok) === null || _dataPlan$document2$d2 === void 0 ? void 0 : _dataPlan$document2$d2.ea;
+            this.blockUserAttributes = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document3 = dataPlan.document) === null || _dataPlan$document3 === void 0 ? void 0 : (_dataPlan$document3$d = _dataPlan$document3.dtpn) === null || _dataPlan$document3$d === void 0 ? void 0 : (_dataPlan$document3$d2 = _dataPlan$document3$d.blok) === null || _dataPlan$document3$d2 === void 0 ? void 0 : _dataPlan$document3$d2.ua;
+            this.blockUserIdentities = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document4 = dataPlan.document) === null || _dataPlan$document4 === void 0 ? void 0 : (_dataPlan$document4$d = _dataPlan$document4.dtpn) === null || _dataPlan$document4$d === void 0 ? void 0 : (_dataPlan$document4$d2 = _dataPlan$document4$d.blok) === null || _dataPlan$document4$d2 === void 0 ? void 0 : _dataPlan$document4$d2.id;
+            var versionDocument = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document5 = dataPlan.document) === null || _dataPlan$document5 === void 0 ? void 0 : (_dataPlan$document5$d = _dataPlan$document5.dtpn) === null || _dataPlan$document5$d === void 0 ? void 0 : (_dataPlan$document5$d2 = _dataPlan$document5$d.vers) === null || _dataPlan$document5$d2 === void 0 ? void 0 : _dataPlan$document5$d2.version_document;
+            var dataPoints = versionDocument === null || versionDocument === void 0 ? void 0 : versionDocument.data_points;
+            if (versionDocument) {
+                try {
+                    if ((dataPoints === null || dataPoints === void 0 ? void 0 : dataPoints.length) > 0) {
+                        dataPoints.forEach(function (point) {
+                            return _this.addToMatchLookups(point);
+                        });
+                    }
+                }
+                catch (e) {
+                    this.mpInstance.Logger.error('There was an issue with the data plan: ' + e);
+                }
+            }
+        }
+        createClass(KitBlocker, [{
+                key: "addToMatchLookups",
+                value: function addToMatchLookups(point) {
+                    var _point$match, _point$match2, _point$match3;
+                    if (!point.match || !point.validator) {
+                        this.mpInstance.Logger.warning("Data Plan Point is not valid' + ".concat(point));
+                        return;
+                    } // match keys for non product custom attribute related data points
+                    var matchKey = this.generateMatchKey(point.match);
+                    var properties = this.getPlannedProperties(point.match.type, point.validator);
+                    this.dataPlanMatchLookups[matchKey] = properties; // match keys for product custom attribute related data points
+                    if ((point === null || point === void 0 ? void 0 : (_point$match = point.match) === null || _point$match === void 0 ? void 0 : _point$match.type) === DataPlanMatchType.ProductImpression || (point === null || point === void 0 ? void 0 : (_point$match2 = point.match) === null || _point$match2 === void 0 ? void 0 : _point$match2.type) === DataPlanMatchType.ProductAction || (point === null || point === void 0 ? void 0 : (_point$match3 = point.match) === null || _point$match3 === void 0 ? void 0 : _point$match3.type) === DataPlanMatchType.PromotionAction) {
+                        matchKey = this.generateProductAttributeMatchKey(point.match);
+                        properties = this.getProductProperties(point.match.type, point.validator);
+                        this.dataPlanMatchLookups[matchKey] = properties;
+                    }
+                }
+            }, {
+                key: "generateMatchKey",
+                value: function generateMatchKey(match) {
+                    var criteria = match.criteria || '';
+                    switch (match.type) {
+                        case DataPlanMatchType.CustomEvent:
+                            var customEventCriteria = criteria;
+                            return [DataPlanMatchType.CustomEvent, customEventCriteria.custom_event_type, customEventCriteria.event_name].join(':');
+                        case DataPlanMatchType.ScreenView:
+                            var screenViewCriteria = criteria;
+                            return [DataPlanMatchType.ScreenView, '', screenViewCriteria.screen_name].join(':');
+                        case DataPlanMatchType.ProductAction:
+                            var productActionMatch = criteria;
+                            return [match.type, productActionMatch.action].join(':');
+                        case DataPlanMatchType.PromotionAction:
+                            var promoActionMatch = criteria;
+                            return [match.type, promoActionMatch.action].join(':');
+                        case DataPlanMatchType.ProductImpression:
+                            var productImpressionActionMatch = criteria;
+                            return [match.type, productImpressionActionMatch.action].join(':');
+                        case DataPlanMatchType.UserIdentities:
+                        case DataPlanMatchType.UserAttributes:
+                            return [match.type].join(':');
+                        default:
+                            return null;
+                    }
+                }
+            }, {
+                key: "generateProductAttributeMatchKey",
+                value: function generateProductAttributeMatchKey(match) {
+                    var criteria = match.criteria || '';
+                    switch (match.type) {
+                        case DataPlanMatchType.ProductAction:
+                            var productActionMatch = criteria;
+                            return [match.type, productActionMatch.action, 'ProductAttributes'].join(':');
+                        case DataPlanMatchType.PromotionAction:
+                            var promoActionMatch = criteria;
+                            return [match.type, promoActionMatch.action, 'ProductAttributes'].join(':');
+                        case DataPlanMatchType.ProductImpression:
+                            var productImpressionActionMatch = criteria;
+                            return [match.type, productImpressionActionMatch.action, 'ProductAttributes'].join(':');
+                        default:
+                            return null;
+                    }
+                }
+            }, {
+                key: "getPlannedProperties",
+                value: function getPlannedProperties(type, validator) {
+                    var _validator$definition, _validator$definition2, _validator$definition3, _validator$definition4, _validator$definition8;
+                    var customAttributes;
+                    var userAdditionalProperties;
+                    switch (type) {
+                        case DataPlanMatchType.CustomEvent:
+                        case DataPlanMatchType.ScreenView:
+                        case DataPlanMatchType.ProductAction:
+                        case DataPlanMatchType.PromotionAction:
+                        case DataPlanMatchType.ProductImpression:
+                            customAttributes = validator === null || validator === void 0 ? void 0 : (_validator$definition = validator.definition) === null || _validator$definition === void 0 ? void 0 : (_validator$definition2 = _validator$definition.properties) === null || _validator$definition2 === void 0 ? void 0 : (_validator$definition3 = _validator$definition2.data) === null || _validator$definition3 === void 0 ? void 0 : (_validator$definition4 = _validator$definition3.properties) === null || _validator$definition4 === void 0 ? void 0 : _validator$definition4.custom_attributes;
+                            if (customAttributes) {
+                                if (customAttributes.additionalProperties === true || customAttributes.additionalProperties === undefined) {
+                                    return true;
+                                }
+                                else {
+                                    var properties = {};
+                                    for (var _i = 0, _Object$keys = Object.keys(customAttributes.properties); _i < _Object$keys.length; _i++) {
+                                        var property = _Object$keys[_i];
+                                        properties[property] = true;
+                                    }
+                                    return properties;
+                                }
+                            }
+                            else {
+                                var _validator$definition5, _validator$definition6, _validator$definition7;
+                                if ((validator === null || validator === void 0 ? void 0 : (_validator$definition5 = validator.definition) === null || _validator$definition5 === void 0 ? void 0 : (_validator$definition6 = _validator$definition5.properties) === null || _validator$definition6 === void 0 ? void 0 : (_validator$definition7 = _validator$definition6.data) === null || _validator$definition7 === void 0 ? void 0 : _validator$definition7.additionalProperties) === false) {
+                                    return {};
+                                }
+                                else {
+                                    return true;
+                                }
+                            }
+                        case DataPlanMatchType.UserAttributes:
+                        case DataPlanMatchType.UserIdentities:
+                            userAdditionalProperties = validator === null || validator === void 0 ? void 0 : (_validator$definition8 = validator.definition) === null || _validator$definition8 === void 0 ? void 0 : _validator$definition8.additionalProperties;
+                            if (userAdditionalProperties === true || userAdditionalProperties === undefined) {
+                                return true;
+                            }
+                            else {
+                                var _properties = {};
+                                var userProperties = validator.definition.properties;
+                                for (var _i2 = 0, _Object$keys2 = Object.keys(userProperties); _i2 < _Object$keys2.length; _i2++) {
+                                    var _property = _Object$keys2[_i2];
+                                    _properties[_property] = true;
+                                }
+                                return _properties;
+                            }
+                        default:
+                            return null;
+                    }
+                }
+            }, {
+                key: "getProductProperties",
+                value: function getProductProperties(type, validator) {
+                    var _validator$definition9, _validator$definition10, _validator$definition11, _validator$definition12, _validator$definition13, _validator$definition14, _validator$definition15, _validator$definition16, _validator$definition17;
+                    var productCustomAttributes;
+                    switch (type) {
+                        case DataPlanMatchType.ProductAction:
+                        case DataPlanMatchType.PromotionAction:
+                        case DataPlanMatchType.ProductImpression:
+                            //product transaction attributes
+                            productCustomAttributes = validator === null || validator === void 0 ? void 0 : (_validator$definition9 = validator.definition) === null || _validator$definition9 === void 0 ? void 0 : (_validator$definition10 = _validator$definition9.properties) === null || _validator$definition10 === void 0 ? void 0 : (_validator$definition11 = _validator$definition10.data) === null || _validator$definition11 === void 0 ? void 0 : (_validator$definition12 = _validator$definition11.properties) === null || _validator$definition12 === void 0 ? void 0 : (_validator$definition13 = _validator$definition12.product_action) === null || _validator$definition13 === void 0 ? void 0 : (_validator$definition14 = _validator$definition13.properties) === null || _validator$definition14 === void 0 ? void 0 : (_validator$definition15 = _validator$definition14.products) === null || _validator$definition15 === void 0 ? void 0 : (_validator$definition16 = _validator$definition15.items) === null || _validator$definition16 === void 0 ? void 0 : (_validator$definition17 = _validator$definition16.properties) === null || _validator$definition17 === void 0 ? void 0 : _validator$definition17.custom_attributes; //product item attributes
+                            if (productCustomAttributes) {
+                                if (productCustomAttributes.additionalProperties === true || productCustomAttributes.additionalProperties === undefined) {
+                                    return true;
+                                }
+                                else {
+                                    var properties = {};
+                                    for (var _i3 = 0, _Object$keys3 = Object.keys((_productCustomAttribu = productCustomAttributes) === null || _productCustomAttribu === void 0 ? void 0 : _productCustomAttribu.properties); _i3 < _Object$keys3.length; _i3++) {
+                                        var _productCustomAttribu;
+                                        var property = _Object$keys3[_i3];
+                                        properties[property] = true;
+                                    }
+                                    return properties;
+                                }
+                            }
+                            else {
+                                return true;
+                            }
+                        default:
+                            return null;
+                    }
+                }
+            }, {
+                key: "getMatchKey",
+                value: function getMatchKey(eventToMatch) {
+                    switch (eventToMatch.event_type) {
+                        case dist_14.screenView:
+                            var screenViewEvent = eventToMatch;
+                            if (screenViewEvent.data) {
+                                return ['screen_view', '', screenViewEvent.data.screen_name].join(':');
+                            }
+                            return null;
+                        case dist_14.commerceEvent:
+                            var commerceEvent = eventToMatch;
+                            var matchKey = [];
+                            if (commerceEvent && commerceEvent.data) {
+                                var _commerceEvent$data = commerceEvent.data, product_action = _commerceEvent$data.product_action, product_impressions = _commerceEvent$data.product_impressions, promotion_action = _commerceEvent$data.promotion_action;
+                                if (product_action) {
+                                    matchKey.push(DataPlanMatchType.ProductAction);
+                                    matchKey.push(product_action.action);
+                                }
+                                else if (promotion_action) {
+                                    matchKey.push(DataPlanMatchType.PromotionAction);
+                                    matchKey.push(promotion_action.action);
+                                }
+                                else if (product_impressions) {
+                                    matchKey.push(DataPlanMatchType.ProductImpression);
+                                }
+                            }
+                            return matchKey.join(':');
+                        case dist_14.customEvent:
+                            var customEvent = eventToMatch;
+                            if (customEvent.data) {
+                                return ['custom_event', customEvent.data.custom_event_type, customEvent.data.event_name].join(':');
+                            }
+                            return null;
+                        default:
+                            return null;
+                    }
+                }
+            }, {
+                key: "getProductAttributeMatchKey",
+                value: function getProductAttributeMatchKey(eventToMatch) {
+                    switch (eventToMatch.event_type) {
+                        case dist_14.commerceEvent:
+                            var commerceEvent = eventToMatch;
+                            var matchKey = [];
+                            var _commerceEvent$data2 = commerceEvent.data, product_action = _commerceEvent$data2.product_action, product_impressions = _commerceEvent$data2.product_impressions, promotion_action = _commerceEvent$data2.promotion_action;
+                            if (product_action) {
+                                matchKey.push(DataPlanMatchType.ProductAction);
+                                matchKey.push(product_action.action);
+                                matchKey.push('ProductAttributes');
+                            }
+                            else if (promotion_action) {
+                                matchKey.push(DataPlanMatchType.PromotionAction);
+                                matchKey.push(promotion_action.action);
+                                matchKey.push('ProductAttributes');
+                            }
+                            else if (product_impressions) {
+                                matchKey.push(DataPlanMatchType.ProductImpression);
+                                matchKey.push('ProductAttributes');
+                            }
+                            return matchKey.join(':');
+                        default:
+                            return null;
+                    }
+                }
+            }, {
+                key: "createBlockedEvent",
+                value: function createBlockedEvent(event) {
+                    /*
+                        return a transformed event based on event/event attributes,
+                        then product attributes if applicable, then user attributes,
+                        then the user identities
+                    */
+                    try {
+                        if (event) {
+                            event = this.transformEventAndEventAttributes(event);
+                        }
+                        if (event && event.EventDataType === Types.MessageType.Commerce) {
+                            event = this.transformProductAttributes(event);
+                        }
+                        if (event) {
+                            event = this.transformUserAttributes(event);
+                            event = this.transformUserIdentities(event);
+                        }
+                        return event;
+                    }
+                    catch (e) {
+                        return event;
+                    }
+                }
+            }, {
+                key: "transformEventAndEventAttributes",
+                value: function transformEventAndEventAttributes(event) {
+                    var clonedEvent = _objectSpread$1({}, event);
+                    var baseEvent = convertEvent(clonedEvent);
+                    var matchKey = this.getMatchKey(baseEvent);
+                    var matchedEvent = this.dataPlanMatchLookups[matchKey];
+                    if (this.blockEvents) {
+                        /*
+                            If the event is not planned, it doesn't exist in dataPlanMatchLookups
+                            and should be blocked (return null to not send anything to forwarders)
+                        */
+                        if (!matchedEvent) {
+                            return null;
+                        }
+                    }
+                    if (this.blockEventAttributes) {
+                        /*
+                            matchedEvent is set to `true` if additionalProperties is `true`
+                            otherwise, delete attributes that exist on event.EventAttributes
+                            that aren't on
+                        */
+                        if (matchedEvent === true) {
+                            return clonedEvent;
+                        }
+                        if (matchedEvent) {
+                            for (var _i4 = 0, _Object$keys4 = Object.keys(clonedEvent.EventAttributes); _i4 < _Object$keys4.length; _i4++) {
+                                var _key = _Object$keys4[_i4];
+                                if (!matchedEvent[_key]) {
+                                    delete clonedEvent.EventAttributes[_key];
+                                }
+                            }
+                            return clonedEvent;
+                        }
+                        else {
+                            return clonedEvent;
+                        }
+                    }
+                    return clonedEvent;
+                }
+            }, {
+                key: "transformProductAttributes",
+                value: function transformProductAttributes(event) {
+                    var clonedEvent = _objectSpread$1({}, event);
+                    var baseEvent = convertEvent(clonedEvent);
+                    var matchKey = this.getProductAttributeMatchKey(baseEvent);
+                    var matchedEvent = this.dataPlanMatchLookups[matchKey];
+                    if (this.blockEvents) {
+                        /*
+                            If the event is not planned, it doesn't exist in dataPlanMatchLookups
+                            and should be blocked (return null to not send anything to forwarders)
+                        */
+                        if (!matchedEvent) {
+                            return null;
+                        }
+                    }
+                    if (this.blockEventAttributes) {
+                        /*
+                            matchedEvent is set to `true` if additionalProperties is `true`
+                            otherwise, delete attributes that exist on event.EventAttributes
+                            that aren't on
+                        */
+                        if (matchedEvent === true) {
+                            return clonedEvent;
+                        }
+                        if (matchedEvent) {
+                            var _clonedEvent$ProductA, _clonedEvent$ProductA2;
+                            (_clonedEvent$ProductA = clonedEvent.ProductAction) === null || _clonedEvent$ProductA === void 0 ? void 0 : (_clonedEvent$ProductA2 = _clonedEvent$ProductA.ProductList) === null || _clonedEvent$ProductA2 === void 0 ? void 0 : _clonedEvent$ProductA2.forEach(function (product) {
+                                for (var _i5 = 0, _Object$keys5 = Object.keys(product.Attributes); _i5 < _Object$keys5.length; _i5++) {
+                                    var productKey = _Object$keys5[_i5];
+                                    if (!matchedEvent[productKey]) {
+                                        delete product.Attributes[productKey];
+                                    }
+                                }
+                            });
+                            return clonedEvent;
+                        }
+                        else {
+                            return clonedEvent;
+                        }
+                    }
+                    return clonedEvent;
+                }
+            }, {
+                key: "transformUserAttributes",
+                value: function transformUserAttributes(event) {
+                    var clonedEvent = _objectSpread$1({}, event);
+                    if (this.blockUserAttributes) {
+                        /*
+                            If the user attribute is not found in the matchedAttributes
+                            then remove it from event.UserAttributes as it is blocked
+                        */
+                        var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
+                        if (this.mpInstance._Helpers.isObject(matchedAttributes)) {
+                            for (var _i6 = 0, _Object$keys6 = Object.keys(clonedEvent.UserAttributes); _i6 < _Object$keys6.length; _i6++) {
+                                var ua = _Object$keys6[_i6];
+                                if (!matchedAttributes[ua]) {
+                                    delete clonedEvent.UserAttributes[ua];
+                                }
+                            }
+                        }
+                    }
+                    return clonedEvent;
+                }
+            }, {
+                key: "isAttributeKeyBlocked",
+                value: function isAttributeKeyBlocked(key) {
+                    /* used when an attribute is added to the user */
+                    if (!this.blockUserAttributes) {
+                        return false;
+                    }
+                    if (this.blockUserAttributes) {
+                        var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
+                        if (matchedAttributes === true) {
+                            return false;
+                        }
+                        if (!matchedAttributes[key]) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+            }, {
+                key: "isIdentityBlocked",
+                value: function isIdentityBlocked(key) {
+                    /* used when an attribute is added to the user */
+                    if (!this.blockUserIdentities) {
+                        return false;
+                    }
+                    if (this.blockUserIdentities) {
+                        var matchedIdentities = this.dataPlanMatchLookups['user_identities'];
+                        if (matchedIdentities === true) {
+                            return false;
+                        }
+                        if (!matchedIdentities[key]) {
+                            return true;
+                        }
+                    }
+                    else {
+                        return false;
+                    }
+                    return false;
+                }
+            }, {
+                key: "transformUserIdentities",
+                value: function transformUserIdentities(event) {
+                    var _this2 = this;
+                    /*
+                        If the user identity is not found in matchedIdentities
+                        then remove it from event.UserIdentities as it is blocked.
+                        event.UserIdentities is of type [{Identity: 'id1', Type: 7}, ...]
+                        and so to compare properly in matchedIdentities, each Type needs
+                        to be converted to an identityName
+                    */
+                    var clonedEvent = _objectSpread$1({}, event);
+                    if (this.blockUserIdentities) {
+                        var matchedIdentities = this.dataPlanMatchLookups['user_identities'];
+                        if (this.mpInstance._Helpers.isObject(matchedIdentities)) {
+                            var _clonedEvent$UserIden;
+                            if (clonedEvent === null || clonedEvent === void 0 ? void 0 : (_clonedEvent$UserIden = clonedEvent.UserIdentities) === null || _clonedEvent$UserIden === void 0 ? void 0 : _clonedEvent$UserIden.length) {
+                                clonedEvent.UserIdentities.forEach(function (uiByType, i) {
+                                    var identityName = Types.IdentityType.getIdentityName(_this2.mpInstance._Helpers.parseNumber(uiByType.Type));
+                                    if (!matchedIdentities[identityName]) {
+                                        clonedEvent.UserIdentities.splice(i, 1);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    return clonedEvent;
+                }
+            }]);
+        return KitBlocker;
+    }();
+
+    function ConfigAPIClient() {
+      this.getSDKConfiguration = function (apiKey, config, completeSDKInitialization, mpInstance) {
+        var url;
+
+        try {
+          var xhrCallback = function xhrCallback() {
+            if (xhr.readyState === 4) {
+              // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
+              if (xhr.status === 200) {
+                config = mpInstance._Helpers.extend({}, config, JSON.parse(xhr.responseText));
+                completeSDKInitialization(apiKey, config, mpInstance);
+                mpInstance.Logger.verbose('Successfully received configuration from server');
+              } else {
+                // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
+                completeSDKInitialization(apiKey, config, mpInstance);
+                mpInstance.Logger.verbose('Issue with receiving configuration from server, received HTTP Code of ' + xhr.status);
+              }
+            }
+          };
+
+          var xhr = mpInstance._Helpers.createXHR(xhrCallback);
+
+          url = 'https://' + mpInstance._Store.SDKConfig.configUrl + apiKey + '/config?env=';
+
+          if (config.isDevelopmentMode) {
+            url = url + '1';
+          } else {
+            url = url + '0';
+          }
+
+          var dataPlan = config.dataPlan;
+
+          if (dataPlan) {
+            if (dataPlan.planId) {
+              url = url + '&plan_id=' + dataPlan.planId || '';
+            }
+
+            if (dataPlan.planVersion) {
+              url = url + '&plan_version=' + dataPlan.planVersion || '';
+            }
+          }
+
+          if (xhr) {
+            xhr.open('get', url);
+            xhr.send(null);
+          }
+        } catch (e) {
+          completeSDKInitialization(apiKey, config, mpInstance);
+          mpInstance.Logger.error('Error getting forwarder configuration from mParticle servers.');
+        }
+      };
+    }
+
+    var HTTPCodes$1 = Constants.HTTPCodes,
+        Messages$8 = Constants.Messages;
+    function IdentityAPIClient(mpInstance) {
+      this.sendAliasRequest = function (aliasRequest, callback) {
+        var xhr,
+            xhrCallback = function xhrCallback() {
+          if (xhr.readyState === 4) {
+            mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server'); //only parse error messages from failing requests
+
+            if (xhr.status !== 200 && xhr.status !== 202) {
+              if (xhr.responseText) {
+                var response = JSON.parse(xhr.responseText);
+
+                if (response.hasOwnProperty('message')) {
+                  var errorMessage = response.message;
+
+                  mpInstance._Helpers.invokeAliasCallback(callback, xhr.status, errorMessage);
+
+                  return;
+                }
+              }
+            }
+
+            mpInstance._Helpers.invokeAliasCallback(callback, xhr.status);
+          }
+        };
+
+        mpInstance.Logger.verbose(Messages$8.InformationMessages.SendAliasHttp);
+        xhr = mpInstance._Helpers.createXHR(xhrCallback);
+
+        if (xhr) {
+          try {
+            xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.aliasUrl, mpInstance._Store.devToken) + '/Alias');
+            xhr.send(JSON.stringify(aliasRequest));
+          } catch (e) {
+            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$1.noHttpCoverage, e);
+
+            mpInstance.Logger.error('Error sending alias request to mParticle servers. ' + e);
+          }
+        }
+      };
+
+      this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid) {
+        var xhr,
+            previousMPID,
+            xhrCallback = function xhrCallback() {
+          if (xhr.readyState === 4) {
+            mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server');
+            parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method);
+          }
+        };
+
+        mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIdentityBegin);
+
+        if (!identityApiRequest) {
+          mpInstance.Logger.error(Messages$8.ErrorMessages.APIRequestEmpty);
+          return;
+        }
+
+        mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIdentityHttp);
+        xhr = mpInstance._Helpers.createXHR(xhrCallback);
+
+        if (xhr) {
+          try {
+            if (mpInstance._Store.identityCallInFlight) {
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
+            } else {
+              previousMPID = mpid || null;
+
+              if (method === 'modify') {
+                xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl) + mpid + '/' + method);
+              } else {
+                xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl) + method);
+              }
+
+              xhr.setRequestHeader('Content-Type', 'application/json');
+              xhr.setRequestHeader('x-mp-key', mpInstance._Store.devToken);
+              mpInstance._Store.identityCallInFlight = true;
+              xhr.send(JSON.stringify(identityApiRequest));
+            }
+          } catch (e) {
+            mpInstance._Store.identityCallInFlight = false;
+
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.noHttpCoverage, e);
+
+            mpInstance.Logger.error('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
+          }
+        }
+      };
+    }
+
+    var Messages$9 = Constants.Messages,
         HTTPCodes$2 = Constants.HTTPCodes;
     /**
      * <p>All of the following methods can be called on the primary mParticle class. In version 2.10.0, we introduced <a href="https://docs.mparticle.com/developers/sdk/web/multiple-instances/">multiple instances</a>. If you are using multiple instances (self hosted environments only), you should call these methods on each instance.</p>
@@ -9436,14 +9972,13 @@ var mParticle = (function () {
       this._SessionManager = new SessionManager(this);
       this._Persistence = new _Persistence(this);
       this._Helpers = new Helpers(this);
-      this._Forwarders = new Forwarders(this);
-      this._APIClient = new APIClient(this);
       this._Events = new Events(this);
       this._CookieSyncManager = new cookieSyncManager(this);
       this._ServerModel = new ServerModel(this);
       this._Ecommerce = new Ecommerce(this);
       this._ForwardingStatsUploader = new forwardingStatsUploader(this);
       this._Consent = new Consent(this);
+      this._IdentityAPIClient = new IdentityAPIClient(this);
       this._preInit = {
         readyQueue: [],
         integrationDelays: {},
@@ -9477,7 +10012,7 @@ var mParticle = (function () {
 
         if (config) {
           if (!config.hasOwnProperty('requestConfig') || config.requestConfig) {
-            self._APIClient.getSDKConfiguration(apiKey, config, completeSDKInitialization, this);
+            new ConfigAPIClient().getSDKConfiguration(apiKey, config, completeSDKInitialization, this);
           } else {
             completeSDKInitialization(apiKey, config, this);
           }
@@ -9685,7 +10220,7 @@ var mParticle = (function () {
         self._SessionManager.resetSessionTimer();
 
         if (typeof event.name !== 'string') {
-          self.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType);
+          self.Logger.error(Messages$9.ErrorMessages.EventNameInvalidType);
           return;
         }
 
@@ -9694,7 +10229,7 @@ var mParticle = (function () {
         }
 
         if (!self._Helpers.canLog()) {
-          self.Logger.error(Messages$8.ErrorMessages.LoggingDisabled);
+          self.Logger.error(Messages$9.ErrorMessages.LoggingDisabled);
           return;
         }
 
@@ -9721,7 +10256,7 @@ var mParticle = (function () {
         self._SessionManager.resetSessionTimer();
 
         if (typeof eventName !== 'string') {
-          self.Logger.error(Messages$8.ErrorMessages.EventNameInvalidType);
+          self.Logger.error(Messages$9.ErrorMessages.EventNameInvalidType);
           return;
         }
 
@@ -9735,7 +10270,7 @@ var mParticle = (function () {
         }
 
         if (!self._Helpers.canLog()) {
-          self.Logger.error(Messages$8.ErrorMessages.LoggingDisabled);
+          self.Logger.error(Messages$9.ErrorMessages.LoggingDisabled);
           return;
         }
 
@@ -10151,7 +10686,7 @@ var mParticle = (function () {
           }
 
           if (!transactionAttributes || !product) {
-            self.Logger.error(Messages$8.ErrorMessages.BadLogPurchase);
+            self.Logger.error(Messages$9.ErrorMessages.BadLogPurchase);
             return;
           }
 
@@ -10252,12 +10787,12 @@ var mParticle = (function () {
 
         if (self._Helpers.canLog()) {
           if (!self._Helpers.Validators.isValidAttributeValue(value)) {
-            self.Logger.error(Messages$8.ErrorMessages.BadAttribute);
+            self.Logger.error(Messages$9.ErrorMessages.BadAttribute);
             return;
           }
 
           if (!self._Helpers.Validators.isValidKeyValue(key)) {
-            self.Logger.error(Messages$8.ErrorMessages.BadKey);
+            self.Logger.error(Messages$9.ErrorMessages.BadKey);
             return;
           }
 
@@ -10412,10 +10947,13 @@ var mParticle = (function () {
       this._setIntegrationDelay = function (module, _boolean) {
         self._preInit.integrationDelays[module] = _boolean;
       };
-    }
+    } // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 
     function completeSDKInitialization(apiKey, config, mpInstance) {
-      // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
+      var kitBlocker = createKitBlocker(config, mpInstance);
+      mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
+      mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
+
       if (config.flags) {
         if (config.flags.hasOwnProperty(Constants.FeatureFlags.EventsV3)) {
           mpInstance._Store.SDKConfig.flags[Constants.FeatureFlags.EventsV3] = config.flags[Constants.FeatureFlags.EventsV3];
@@ -10551,12 +11089,72 @@ var mParticle = (function () {
       }
     }
 
+    function createKitBlocker(config, mpInstance) {
+      var kitBlocker, dataPlanForKitBlocker, kitBlockError, kitBlockOptions;
+      /*  There are three ways a data plan object for blocking can be passed to the SDK:
+              1. Manually via config.dataPlanOptions (this takes priority)
+              If not passed in manually, we user the server provided via either
+              2. Snippet via /mparticle.js endpoint (config.dataPlan.document)
+              3. Self hosting via /config endpoint (config.dataPlanResult)
+      */
+
+      if (config.dataPlanOptions) {
+        mpInstance.Logger.verbose('Customer provided data plan found');
+        kitBlockOptions = config.dataPlanOptions;
+        dataPlanForKitBlocker = {
+          document: {
+            dtpn: {
+              vers: kitBlockOptions.dataPlanVersion,
+              blok: {
+                ev: kitBlockOptions.blockEvents,
+                ea: kitBlockOptions.blockEventAttributes,
+                ua: kitBlockOptions.blockUserAttributes,
+                id: kitBlockOptions.blockUserIdentities
+              }
+            }
+          }
+        };
+      }
+
+      if (!dataPlanForKitBlocker) {
+        // config.dataPlan.document returns on /mparticle.js endpoint
+        if (config.dataPlan && config.dataPlan.document) {
+          if (config.dataPlan.document.error_message) {
+            kitBlockError = config.dataPlan.document.error_message;
+          } else {
+            mpInstance.Logger.verbose('Data plan found from mParticle.js');
+            dataPlanForKitBlocker = config.dataPlan;
+          }
+        } // config.dataPlanResult returns on /config endpoint
+        else if (config.dataPlanResult) {
+            if (config.dataPlanResult.error_message) {
+              kitBlockError = config.dataPlanResult.error_message;
+            } else {
+              mpInstance.Logger.verbose('Data plan found from /config');
+              dataPlanForKitBlocker = {
+                document: config.dataPlanResult
+              };
+            }
+          }
+      }
+
+      if (kitBlockError) {
+        mpInstance.Logger.error(kitBlockError);
+      }
+
+      if (dataPlanForKitBlocker) {
+        kitBlocker = new KitBlocker(dataPlanForKitBlocker, mpInstance);
+      }
+
+      return kitBlocker;
+    }
+
     function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
       mpInstance.Logger = new Logger(config);
       mpInstance._Store = new Store(config, mpInstance);
       window.mParticle.Store = mpInstance._Store;
       mpInstance._Store.devToken = apiKey || null;
-      mpInstance.Logger.verbose(Messages$8.InformationMessages.StartingInitialization); //check to see if localStorage is available for migrating purposes
+      mpInstance.Logger.verbose(Messages$9.InformationMessages.StartingInitialization); //check to see if localStorage is available for migrating purposes
 
       try {
         mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(window.localStorage);
