@@ -276,7 +276,7 @@ export default function Identity(mpInstance) {
                             'Identify request sent to native sdk'
                         );
                     } else {
-                        mpInstance._APIClient.sendIdentityRequest(
+                        mpInstance._IdentityAPIClient.sendIdentityRequest(
                             identityApiRequest,
                             'identify',
                             callback,
@@ -350,7 +350,7 @@ export default function Identity(mpInstance) {
                             'Logout request sent to native sdk'
                         );
                     } else {
-                        mpInstance._APIClient.sendIdentityRequest(
+                        mpInstance._IdentityAPIClient.sendIdentityRequest(
                             identityApiRequest,
                             'logout',
                             callback,
@@ -438,7 +438,7 @@ export default function Identity(mpInstance) {
                             'Login request sent to native sdk'
                         );
                     } else {
-                        mpInstance._APIClient.sendIdentityRequest(
+                        mpInstance._IdentityAPIClient.sendIdentityRequest(
                             identityApiRequest,
                             'login',
                             callback,
@@ -515,7 +515,7 @@ export default function Identity(mpInstance) {
                             'Modify request sent to native sdk'
                         );
                     } else {
-                        mpInstance._APIClient.sendIdentityRequest(
+                        mpInstance._IdentityAPIClient.sendIdentityRequest(
                             identityApiRequest,
                             'modify',
                             callback,
@@ -673,7 +673,7 @@ export default function Identity(mpInstance) {
                     var aliasRequestMessage = mpInstance._Identity.IdentityRequest.createAliasNetworkRequest(
                         aliasRequest
                     );
-                    mpInstance._APIClient.sendAliasRequest(
+                    mpInstance._IdentityAPIClient.sendAliasRequest(
                         aliasRequestMessage,
                         callback
                     );

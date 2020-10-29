@@ -849,7 +849,7 @@ describe('identities and attributes', function() {
             eventsV3: 100,
             EventBatchingIntervalMillis: 0,
         };
-        // debugger;
+
         mParticle.init(apiKey, window.mParticle.config);
 
         JSON.parse(window.fetchMock.lastOptions().body).user_identities.should.have.property(

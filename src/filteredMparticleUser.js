@@ -1,6 +1,11 @@
 import Types from './types';
 
-export default function filteredMparticleUser(mpid, forwarder, mpInstance) {
+export default function filteredMparticleUser(
+    mpid,
+    forwarder,
+    mpInstance,
+    kitBlocker
+) {
     var self = this;
     return {
         getUserIdentities: function() {
@@ -9,11 +14,17 @@ export default function filteredMparticleUser(mpid, forwarder, mpInstance) {
 
             for (var identityType in identities) {
                 if (identities.hasOwnProperty(identityType)) {
-                    currentUserIdentities[
-                        Types.IdentityType.getIdentityName(
-                            mpInstance._Helpers.parseNumber(identityType)
-                        )
-                    ] = identities[identityType];
+                    var identityName = Types.IdentityType.getIdentityName(
+                        mpInstance._Helpers.parseNumber(identityType)
+                    );
+                    if (
+                        !kitBlocker ||
+                        (kitBlocker &&
+                            !kitBlocker.isIdentityBlocked(identityName))
+                    )
+                        //if identity type is not blocked
+                        currentUserIdentities[identityName] =
+                            identities[identityType];
                 }
             }
 
@@ -39,7 +50,12 @@ export default function filteredMparticleUser(mpid, forwarder, mpInstance) {
                     userAttributes.hasOwnProperty(key) &&
                     Array.isArray(userAttributes[key])
                 ) {
-                    userAttributesLists[key] = userAttributes[key].slice();
+                    if (
+                        !kitBlocker ||
+                        (kitBlocker && !kitBlocker.isAttributeKeyBlocked(key))
+                    ) {
+                        userAttributesLists[key] = userAttributes[key].slice();
+                    }
                 }
             }
 
@@ -59,12 +75,18 @@ export default function filteredMparticleUser(mpid, forwarder, mpInstance) {
             if (userAttributes) {
                 for (var prop in userAttributes) {
                     if (userAttributes.hasOwnProperty(prop)) {
-                        if (Array.isArray(userAttributes[prop])) {
-                            userAttributesCopy[prop] = userAttributes[
-                                prop
-                            ].slice();
-                        } else {
-                            userAttributesCopy[prop] = userAttributes[prop];
+                        if (
+                            !kitBlocker ||
+                            (kitBlocker &&
+                                !kitBlocker.isAttributeKeyBlocked(prop))
+                        ) {
+                            if (Array.isArray(userAttributes[prop])) {
+                                userAttributesCopy[prop] = userAttributes[
+                                    prop
+                                ].slice();
+                            } else {
+                                userAttributesCopy[prop] = userAttributes[prop];
+                            }
                         }
                     }
                 }

@@ -898,14 +898,14 @@ describe('forwarders', function() {
         mParticle._resetForTests(MPConfig);
         var mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
-        mParticle.init(apiKey, window.mParticle.config);
-
+        
         var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.userAttributeFilters = [
             mParticle.generateHash('gender'),
             mParticle.generateHash('age'),
         ];
         window.mParticle.config.kitConfigs.push(config1);
+        mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.userAttributesFilterOnInitTest.should.not.have.property(

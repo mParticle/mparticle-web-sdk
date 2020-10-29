@@ -7,7 +7,9 @@
         "sourceMap": true,
         "noImplicitAny": false,
         "strictNullChecks": false,
-        "target": "es5"
+        "target": "es5",
+        "moduleResolution": "Node",
+        "resolveJsonModule": true
     },
     "include": ["src/**/*.ts", "test/**/*.ts"]
 }

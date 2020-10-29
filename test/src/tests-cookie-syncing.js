@@ -8,7 +8,6 @@ var setLocalStorage = Utils.setLocalStorage,
     mockServer;
 
 describe('cookie syncing', function() {
-
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;

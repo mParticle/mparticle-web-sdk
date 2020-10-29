@@ -735,7 +735,9 @@ describe('event logging', function() {
         mParticle.config.logLevel = 'verbose';
         mParticle.config.logger = {
             error: function(msg) {
-                errorMessage = msg;
+                if (!errorMessage) {
+                    errorMessage = msg;
+                }
             }
         }
         mParticle.config.flags = {

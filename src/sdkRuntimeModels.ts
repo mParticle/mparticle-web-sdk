@@ -1,4 +1,5 @@
 import * as EventsApi from '@mparticle/event-models';
+import { DataPlanVersion } from '@mparticle/data-planning-models';
 
 export interface SDKEvent {
     DeviceId: string;
@@ -112,6 +113,7 @@ export interface SDKProduct {
 }
 
 export interface MParticleWebSDK {
+    addForwarder(mockForwarder: any);
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     _Store: SDKStoreApi;
@@ -123,16 +125,24 @@ export interface MParticleWebSDK {
     ServerModel();
     upload();
     setPosition(lat: number | string, lng: number | string): void;
-    logEvent(eventName: string): void;
+    logEvent(eventName: string, eventType?: number, attrs?: { [key: string]: string }): void;
     eCommerce: any;
     logLevel: string;
     ProductActionType: SDKProductActionType;
+    generateHash(value: string);
 }
 
 export interface SDKConfig {
     isDevelopmentMode?: boolean;
+    logger: {
+        error?(msg);
+        warning?(msg) 
+        verbose?(msg) 
+    };
+    dataPlan: DataPlanConfig;
     appVersion?: string;
     flags?: { [key: string]: string | number };
+    kitConfigs: any;
     appName?: string;
     logLevel?: string;
     sessionTimeout?: number;
@@ -142,21 +152,37 @@ export interface SDKConfig {
     requiredWebviewBridgeName: string;
     minWebviewBridgeVersion: number;
     isIOS?: boolean;
+    identifyRequest: { [key: string]: {[key: string]: string} };
+    requestConfig: boolean;
+    dataPlanOptions: KitBlockerOptions
+}
+
+export interface DataPlanConfig {
+    planId?: string;
+    planVersion?: number;
+    document?: any
 }
 
 export interface SDKIdentityApi {
     getCurrentUser();
     IdentityAPI;
+    identify;
+    login;
+    logout;
+    modify;
 }
 
 export interface SDKHelpersApi {
     createServiceUrl(arg0: string, arg1: string): void;
+    parseNumber(value: number)
     generateUniqueId();
+    isObject(item: any)
 }
 
 export interface SDKLoggerApi {
     error(arg0: string): void;
     verbose(arg0: string): void;
+    warning(arg0: string): void;
 }
 
 export interface SDKStoreApi {
@@ -221,4 +247,12 @@ export interface BaseEvent {
     eventType?: number;
     data?: { [key: string]: string };
     customFlags?: { [key: string]: string };
+}
+
+export interface KitBlockerOptions {
+    dataPlanVersion: any;
+    blockUserAttributes: boolean;
+    blockEventAttributes: boolean;
+    blockEvents: boolean;
+    blockUserIdentities: boolean;
 }

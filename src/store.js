@@ -246,6 +246,20 @@ export default function Store(config, mpInstance) {
                 Constants.DefaultConfig.aliasMaxWindow;
         }
 
+        if (config.hasOwnProperty('dataPlanOptions')) {
+            if (
+                !config.dataPlanOptions.hasOwnProperty('dataPlanVersion') ||
+                !config.dataPlanOptions.hasOwnProperty('blockUserAttributes') ||
+                !config.dataPlanOptions.hasOwnProperty('blockEventAttribute') ||
+                !config.dataPlanOptions.hasOwnProperty('blockEvents') ||
+                !config.dataPlanOptions.hasOwnProperty('blockIdentities')
+            ) {
+                mpInstance.Logger.error(
+                    'Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttribute", "blockEvents", "blockIdentities" booleans'
+                );
+            }
+        }
+
         if (!config.hasOwnProperty('flags')) {
             this.SDKConfig.flags = {};
         }

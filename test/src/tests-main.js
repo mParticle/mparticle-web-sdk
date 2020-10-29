@@ -31,6 +31,7 @@ afterEach(function() {
 
 import './tests-core-sdk';
 import './tests-batchUploader';
+import './tests-kit-blocking';
 import './tests-migrations';
 import './tests-persistence';
 import './tests-forwarders';

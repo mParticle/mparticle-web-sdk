@@ -34,6 +34,9 @@ import ServerModel from './serverModel';
 import ForwardingStatsUploader from './forwardingStatsUploader';
 import Identity from './identity';
 import Consent from './consent';
+import KitBlocker from './kitBlocking';
+import ConfigAPIClient from './configAPIClient';
+import IdentityAPIClient from './identityApiClient';
 
 var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
@@ -60,14 +63,13 @@ export default function mParticleInstance(instanceName) {
     this._SessionManager = new SessionManager(this);
     this._Persistence = new Persistence(this);
     this._Helpers = new Helpers(this);
-    this._Forwarders = new Forwarders(this);
-    this._APIClient = new APIClient(this);
     this._Events = new Events(this);
     this._CookieSyncManager = new CookieSyncManager(this);
     this._ServerModel = new ServerModel(this);
     this._Ecommerce = new Ecommerce(this);
     this._ForwardingStatsUploader = new ForwardingStatsUploader(this);
     this._Consent = new Consent(this);
+    this._IdentityAPIClient = new IdentityAPIClient(this);
     this._preInit = {
         readyQueue: [],
         integrationDelays: {},
@@ -109,7 +111,7 @@ export default function mParticleInstance(instanceName) {
                 !config.hasOwnProperty('requestConfig') ||
                 config.requestConfig
             ) {
-                self._APIClient.getSDKConfiguration(
+                new ConfigAPIClient().getSDKConfiguration(
                     apiKey,
                     config,
                     completeSDKInitialization,
@@ -1117,8 +1119,12 @@ export default function mParticleInstance(instanceName) {
     };
 }
 
+// Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 function completeSDKInitialization(apiKey, config, mpInstance) {
-    // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
+    var kitBlocker = createKitBlocker(config, mpInstance);
+
+    mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
+    mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
     if (config.flags) {
         if (config.flags.hasOwnProperty(Constants.FeatureFlags.EventsV3)) {
             mpInstance._Store.SDKConfig.flags[Constants.FeatureFlags.EventsV3] =
@@ -1304,6 +1310,67 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;
     }
+}
+
+function createKitBlocker(config, mpInstance) {
+    var kitBlocker, dataPlanForKitBlocker, kitBlockError, kitBlockOptions;
+
+    /*  There are three ways a data plan object for blocking can be passed to the SDK:
+            1. Manually via config.dataPlanOptions (this takes priority)
+            If not passed in manually, we user the server provided via either
+            2. Snippet via /mparticle.js endpoint (config.dataPlan.document)
+            3. Self hosting via /config endpoint (config.dataPlanResult)
+    */
+
+    if (config.dataPlanOptions) {
+        mpInstance.Logger.verbose('Customer provided data plan found');
+        kitBlockOptions = config.dataPlanOptions;
+
+        dataPlanForKitBlocker = {
+            document: {
+                dtpn: {
+                    vers: kitBlockOptions.dataPlanVersion,
+                    blok: {
+                        ev: kitBlockOptions.blockEvents,
+                        ea: kitBlockOptions.blockEventAttributes,
+                        ua: kitBlockOptions.blockUserAttributes,
+                        id: kitBlockOptions.blockUserIdentities,
+                    },
+                },
+            },
+        };
+    }
+
+    if (!dataPlanForKitBlocker) {
+        // config.dataPlan.document returns on /mparticle.js endpoint
+        if (config.dataPlan && config.dataPlan.document) {
+            if (config.dataPlan.document.error_message) {
+                kitBlockError = config.dataPlan.document.error_message;
+            } else {
+                mpInstance.Logger.verbose('Data plan found from mParticle.js');
+                dataPlanForKitBlocker = config.dataPlan;
+            }
+        }
+        // config.dataPlanResult returns on /config endpoint
+        else if (config.dataPlanResult) {
+            if (config.dataPlanResult.error_message) {
+                kitBlockError = config.dataPlanResult.error_message;
+            } else {
+                mpInstance.Logger.verbose('Data plan found from /config');
+                dataPlanForKitBlocker = { document: config.dataPlanResult };
+            }
+        }
+    }
+
+    if (kitBlockError) {
+        mpInstance.Logger.error(kitBlockError);
+    }
+
+    if (dataPlanForKitBlocker) {
+        kitBlocker = new KitBlocker(dataPlanForKitBlocker, mpInstance);
+    }
+
+    return kitBlocker;
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {

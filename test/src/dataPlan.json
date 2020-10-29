@@ -1,0 +1,374 @@
+{
+  "dtpn": {
+    "blok": {
+      "ev": true,
+      "ea": true,
+      "ua": true,
+      "id": true
+    },
+    "vers": {
+      "version": 1,
+      "data_plan_id": "robs_plan",
+      "last_modified_on": "2020-10-27T19:12:42.397Z",
+      "version_document": {
+        "data_points": [
+          {
+            "description": "",
+            "match": {
+              "type": "screen_view",
+              "criteria": {
+                "screen_name": "another new screenview event"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "properties": {
+                  "data": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "activity_type": {
+                        "description": "",
+                        "pattern": "[a-z]",
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            "active_transformation_ids": null
+          },
+          {
+            "match": {
+              "type": "custom_event",
+              "criteria": {
+                "event_name": "Search Event",
+                "custom_event_type": "search"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {}
+            }
+          },
+          {
+            "match": {
+              "type": "custom_event",
+              "criteria": {
+                "event_name": "locationEvent",
+                "custom_event_type": "location"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "custom_attributes": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "foo": {},
+                          "foo foo": {},
+                          "foo number": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "type": "product_action",
+              "criteria": {
+                "action": "add_to_cart"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "custom_attributes": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "attributeBoolean": {},
+                          "attributeEmail": {},
+                          "attributeNumEnum": {},
+                          "attributeNumMinMax": {},
+                          "attributeStringAlpha": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "type": "promotion_action",
+              "criteria": {
+                "action": "view"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "custom_attributes": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "not required": {},
+                          "required": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "type": "custom_event",
+              "criteria": {
+                "event_name": "TestEvent",
+                "custom_event_type": "navigation"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {}
+            }
+          },
+          {
+            "match": {
+              "type": "product_impression"
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "custom_attributes": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "thing1": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "type": "screen_view",
+              "criteria": {
+                "screen_name": "A New ScreenViewEvent"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {}
+            }
+          },
+          {
+            "match": {
+              "type": "screen_view",
+              "criteria": {
+                "screen_name": "my screeeen"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "custom_attributes": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "test1key": {},
+                          "test2key": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "type": "custom_event",
+              "criteria": {
+                "event_name": "something something something",
+                "custom_event_type": "navigation"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {}
+            }
+          },
+          {
+            "match": {
+              "type": "user_attributes"
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "additionalProperties": false,
+                "properties": {
+                  "a third attribute": {},
+                  "my attribute": {},
+                  "my other attribute": {}
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "type": "custom_event",
+              "criteria": {
+                "event_name": "SocialEvent",
+                "custom_event_type": "social"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "custom_attributes": {
+                        "additionalProperties": false,
+                        "properties": {}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "type": "product_action",
+              "criteria": {
+                "action": "purchase"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "custom_attributes": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "eventAttribute1": {},
+                          "eventAttribute2": {}
+                        }
+                      },
+                      "product_action": {
+                        "properties": {
+                          "products": {
+                            "items": {
+                              "properties": {
+                                "custom_attributes": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "plannedAttr1": {},
+                                    "plannedAttr2": {}
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "match": {
+              "type": "promotion_action",
+              "criteria": {
+                "action": "click"
+              }
+            },
+            "validator": {
+              "type": "json_schema",
+              "definition": {
+                "properties": {
+                  "data": {
+                    "properties": {
+                      "custom_attributes": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "eventAttribute1": {},
+                          "eventAttribute2": {}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+        "description": "User Identities",
+        "match": {
+          "type": "user_identities",
+          "criteria": {}
+        },
+        "validator": {
+          "type": "json_schema",
+          "definition": {
+            "additionalProperties": true,
+            "properties": {
+              "customerid": {
+                "description": "",
+                "type": "string"
+              },
+              "amp_id": {
+                "description": "",
+                "type": "string"
+              },
+              "email": {
+                "description": "",
+                "type": "string"
+              }
+            },
+            "required": [
+              "email"
+            ],
+            "type": "object"
+          }
+        }
+      }
+        ]
+      }
+    }
+  }
+}
+
+
+                  
+                  
