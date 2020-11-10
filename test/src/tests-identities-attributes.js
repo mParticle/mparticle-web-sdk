@@ -891,11 +891,11 @@ describe('identities and attributes', function() {
         var event = body.events[0];
         event.should.be.ok();
         event.event_type.should.equal('user_identity_change');
-        event.data.new.identity_type.should.equal('customerid');
+        event.data.new.identity_type.should.equal('customer_id');
         event.data.new.identity.should.equal('customerid1');
         (typeof event.data.new.timestamp_unixtime_ms).should.equal('number');
         event.data.new.created_this_batch.should.equal(true);
-        event.data.old.identity_type.should.equal('customerid');
+        event.data.old.identity_type.should.equal('customer_id');
         (event.data.old.identity === null).should.equal(true);
         (typeof event.data.old.timestamp_unixtime_ms).should.equal('number');
         event.data.old.created_this_batch.should.equal(false);
@@ -927,11 +927,11 @@ describe('identities and attributes', function() {
         var event2 = body2.events[0];
         event2.should.be.ok();
         event2.event_type.should.equal('user_identity_change');
-        event2.data.new.identity_type.should.equal('customerid');
+        event2.data.new.identity_type.should.equal('customer_id');
         event2.data.new.identity.should.equal('customerid2');
         (typeof event2.data.new.timestamp_unixtime_ms).should.equal('number');
         event2.data.new.created_this_batch.should.equal(false);
-        event2.data.old.identity_type.should.equal('customerid');
+        event2.data.old.identity_type.should.equal('customer_id');
         event2.data.old.identity.should.equal('customerid1');
         (typeof event2.data.old.timestamp_unixtime_ms).should.equal('number');
         event2.data.old.created_this_batch.should.equal(false);

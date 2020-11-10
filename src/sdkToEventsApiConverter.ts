@@ -9,6 +9,7 @@ import {
     SDKUserIdentity,
     SDKProductActionType,
     MParticleWebSDK,
+    SDKIdentityTypeEnum,
 } from './sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
 import Types from './types';
@@ -645,14 +646,18 @@ export function convertUserIdentityChangeEvent(
 
     let userIdentityChangeEvent: EventsApi.UserIdentityChangeEventData = {
         new: {
-            identity_type: sdkEvent.UserIdentityChanges.New.IdentityType,
+            identity_type: convertUserIdentityTypeToServerIdentityType(
+                sdkEvent.UserIdentityChanges.New.IdentityType
+            ),
             identity: sdkEvent.UserIdentityChanges.New.Identity || null,
             timestamp_unixtime_ms: sdkEvent.Timestamp,
             created_this_batch:
                 sdkEvent.UserIdentityChanges.New.CreatedThisBatch,
         },
         old: {
-            identity_type: sdkEvent.UserIdentityChanges.Old.IdentityType,
+            identity_type: convertUserIdentityTypeToServerIdentityType(
+                sdkEvent.UserIdentityChanges.Old.IdentityType
+            ),
             identity: sdkEvent.UserIdentityChanges.Old.Identity || null,
             timestamp_unixtime_ms: sdkEvent.Timestamp,
             created_this_batch:
@@ -669,4 +674,55 @@ export function convertUserIdentityChangeEvent(
         event_type: EventsApi.EventTypeEnum.userIdentityChange,
         data: userIdentityChangeEvent,
     };
+}
+
+export function convertUserIdentityTypeToServerIdentityType(
+    identityType: SDKIdentityTypeEnum
+): EventsApi.IdentityType {
+    switch (identityType) {
+        case SDKIdentityTypeEnum.other:
+            return EventsApi.IdentityTypeEnum.other
+        case SDKIdentityTypeEnum.customerId:
+            return EventsApi.IdentityTypeEnum.customerId
+        case SDKIdentityTypeEnum.facebook:
+            return EventsApi.IdentityTypeEnum.facebook
+        case SDKIdentityTypeEnum.twitter:
+            return EventsApi.IdentityTypeEnum.twitter
+        case SDKIdentityTypeEnum.google:
+            return EventsApi.IdentityTypeEnum.google
+        case SDKIdentityTypeEnum.microsoft:
+            return EventsApi.IdentityTypeEnum.microsoft
+        case SDKIdentityTypeEnum.yahoo:
+            return EventsApi.IdentityTypeEnum.yahoo
+        case SDKIdentityTypeEnum.email:
+            return EventsApi.IdentityTypeEnum.email
+        case SDKIdentityTypeEnum.alias:
+            return EventsApi.IdentityTypeEnum.alias
+        case SDKIdentityTypeEnum.facebookCustomAudienceId:
+            return EventsApi.IdentityTypeEnum.facebookCustomAudienceId
+        case SDKIdentityTypeEnum.otherId2:
+            return EventsApi.IdentityTypeEnum.otherId2
+        case SDKIdentityTypeEnum.otherId3:
+            return EventsApi.IdentityTypeEnum.otherId3
+        case SDKIdentityTypeEnum.otherId4:
+            return EventsApi.IdentityTypeEnum.otherId4
+        case SDKIdentityTypeEnum.otherId5:
+            return EventsApi.IdentityTypeEnum.otherId5
+        case SDKIdentityTypeEnum.otherId6:
+            return EventsApi.IdentityTypeEnum.otherId6
+        case SDKIdentityTypeEnum.otherId7:
+            return EventsApi.IdentityTypeEnum.otherId7
+        case SDKIdentityTypeEnum.otherId8:
+            return EventsApi.IdentityTypeEnum.otherId8
+        case SDKIdentityTypeEnum.otherId9:
+            return EventsApi.IdentityTypeEnum.otherId9
+        case SDKIdentityTypeEnum.otherId10:
+            return EventsApi.IdentityTypeEnum.otherId10
+        case SDKIdentityTypeEnum.mobileNumber:
+            return EventsApi.IdentityTypeEnum.mobileNumber
+        case SDKIdentityTypeEnum.phoneNumber2:
+            return EventsApi.IdentityTypeEnum.phoneNumber2
+        case SDKIdentityTypeEnum.phoneNumber3:
+            return EventsApi.IdentityTypeEnum.phoneNumber3
+    }
 }

@@ -227,7 +227,7 @@ export interface SDKUserIdentityChangeData {
 }
 
 export interface Identity {
-    IdentityType: EventsApi.IdentityType;
+    IdentityType: SDKIdentityTypeEnum;
     Identity: string;
     Timestamp: number;
     CreatedThisBatch: boolean;
@@ -255,4 +255,29 @@ export interface KitBlockerOptions {
     blockEventAttributes: boolean;
     blockEvents: boolean;
     blockUserIdentities: boolean;
+}
+
+export enum SDKIdentityTypeEnum {
+    other = "other",
+    customerId = "customerid",
+    facebook = "facebook",
+    twitter = "twitter",
+    google = "google",
+    microsoft = "microsoft",
+    yahoo = "yahoo",
+    email = "email",
+    alias = "alias",
+    facebookCustomAudienceId = "facebookcustomaudienceid",
+    otherId2 = "other2",
+    otherId3 = "other3",
+    otherId4 = "other4",
+    otherId5 = "other5",
+    otherId6 = "other6",
+    otherId7 = "other7",
+    otherId8 = "other8",
+    otherId9 = "other9",
+    otherId10 = "other10",
+    mobileNumber = "mobile_number",
+    phoneNumber2 = "phone_number_2",
+    phoneNumber3 = "phone_number_3"
 }
