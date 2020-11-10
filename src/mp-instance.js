@@ -1389,7 +1389,7 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
         );
     } catch (e) {
         mpInstance.Logger.warning(
-            'localStorage is not available, using cookies if avaialble'
+            'localStorage is not available, using cookies if available'
         );
         mpInstance._Store.isLocalStorageAvailable = false;
     }
