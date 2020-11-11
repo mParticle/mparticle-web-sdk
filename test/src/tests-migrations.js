@@ -11,6 +11,7 @@ var getLocalStorageProducts = Utils.getLocalStorageProducts,
     getEvent = Utils.getEvent,
     findCookie = Utils.findCookie,
     v4CookieKey = Utils.v4CookieKey,
+    deleteAllCookies = Utils.deleteAllCookies,
     mockServer;
 
 describe('persistence migrations from SDKv1 to SDKv2', function() {
@@ -31,6 +32,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     });
 
     afterEach(function() {
+        deleteAllCookies();
         mockServer.restore();
     });
 
@@ -741,6 +743,21 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         products[1].should.have.property('Name', 'galaxy');
         products[1].should.have.property('Sku', 'galaxySKU');
         products[1].should.have.property('Price', 799);
+
+        done();
+    });
+
+    it('should ignore cookies it cannot parse', function(done) {
+        mParticle._resetForTests(MPConfig);
+        mParticle.init(apiKey, window.mParticle.config);
+
+        setCookie('abc', 'x%DA%D336566%07%00%04%23%014', true);
+        var noError = mParticle.getInstance()._Persistence.getCookie();
+        (noError === null).should.equal(true);
+
+        mParticle.init(apiKey, window.mParticle.config);
+        //set to be valid to avoid disrupting other tests
+        setCookie('abc', '', true);
 
         done();
     });

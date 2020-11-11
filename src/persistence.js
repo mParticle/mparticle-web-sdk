@@ -455,9 +455,15 @@ export default function _Persistence(mpInstance) {
         mpInstance.Logger.verbose(Messages.InformationMessages.CookieSearch);
 
         for (i = 0, l = cookies.length; i < l; i++) {
-            parts = cookies[i].split('=');
-            name = mpInstance._Helpers.decoded(parts.shift());
-            cookie = mpInstance._Helpers.decoded(parts.join('='));
+            try {
+                parts = cookies[i].split('=');
+                name = mpInstance._Helpers.decoded(parts.shift());
+                cookie = mpInstance._Helpers.decoded(parts.join('='));
+            } catch (e) {
+                mpInstance.Logger.verbose(
+                    'Unable to parse cookie: ' + name + '. Skipping.'
+                );
+            }
 
             if (key && key === name) {
                 result = mpInstance._Helpers.converted(cookie);

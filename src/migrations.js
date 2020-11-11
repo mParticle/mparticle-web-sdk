@@ -50,9 +50,15 @@ export default function Migrations(mpInstance) {
         );
 
         for (i = 0, l = cookies.length; i < l; i++) {
-            parts = cookies[i].split('=');
-            name = mpInstance._Helpers.decoded(parts.shift());
-            cookie = mpInstance._Helpers.decoded(parts.join('='));
+            try {
+                parts = cookies[i].split('=');
+                name = mpInstance._Helpers.decoded(parts.shift());
+                cookie = mpInstance._Helpers.decoded(parts.join('='));
+            } catch (e) {
+                mpInstance.Logger.verbose(
+                    'Unable to parse cookie: ' + name + '. Skipping.'
+                );
+            }
 
             //most recent version needs no migration
             if (name === mpInstance._Store.storageName) {
