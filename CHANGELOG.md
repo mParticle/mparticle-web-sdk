@@ -2,6 +2,12 @@
 
 --
 
+#### 2.12.1 - 2020-11-11
+
+-   Fix Typo in logging
+-   Update identity mappings
+-   Bugfix - Add check for window for node environments
+
 #### 2.12.0 - 2020-10-29
 
 -   Feat - Implement client side kit blocking
