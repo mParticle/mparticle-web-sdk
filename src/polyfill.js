@@ -10,7 +10,7 @@ var Base64 = {
                 return window.btoa(unescape(encodeURIComponent(input)));
             }
         } catch (e) {
-            window.console.log('Error encoding cookie values into Base64:' + e);
+            console.error('Error encoding cookie values into Base64:' + e);
         }
         return this._encode(input);
     },

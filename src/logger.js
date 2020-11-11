@@ -41,19 +41,19 @@ function Logger(config) {
 
 function ConsoleLogger() {
     this.verbose = function(msg) {
-        if (window.console && window.console.info) {
-            window.console.info(msg);
+        if (console && console.info) {
+            console.info(msg);
         }
     };
 
     this.error = function(msg) {
-        if (window.console && window.console.error) {
-            window.console.error(msg);
+        if (console && console.error) {
+            console.error(msg);
         }
     };
     this.warning = function(msg) {
-        if (window.console && window.console.warn) {
-            window.console.warn(msg);
+        if (console && console.warn) {
+            console.warn(msg);
         }
     };
 }

@@ -30,14 +30,16 @@ function mParticle() {
     this.CommerceEventType = Types.CommerceEventType;
     this.PromotionType = Types.PromotionActionType;
     this.ProductActionType = Types.ProductActionType;
-    this.isIOS =
-        window.mParticle && window.mParticle.isIOS
-            ? window.mParticle.isIOS
-            : false;
-    this.config =
-        window.mParticle && window.mParticle.config
-            ? window.mParticle.config
-            : {};
+    if (typeof window !== 'undefined') {
+        this.isIOS =
+            window.mParticle && window.mParticle.isIOS
+                ? window.mParticle.isIOS
+                : false;
+        this.config =
+            window.mParticle && window.mParticle.config
+                ? window.mParticle.config
+                : {};
+    }
 
     /**
      * Initializes the mParticle instance. If no instanceName is provided, an instance name of `default_instance` will be used.
@@ -50,7 +52,7 @@ function mParticle() {
      */
     this.init = function(apiKey, config, instanceName) {
         if (!config && (window.mParticle && window.mParticle.config)) {
-            window.console.warn(
+            console.warn(
                 'You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly'
             );
             config = window.mParticle ? window.mParticle.config : {};
@@ -442,7 +444,10 @@ function mParticle() {
 }
 
 var mparticleInstance = new mParticle();
-window.mParticle = mparticleInstance;
-window.mParticle._BatchValidator = new _BatchValidator();
+
+if (typeof window !== 'undefined') {
+    window.mParticle = mparticleInstance;
+    window.mParticle._BatchValidator = new _BatchValidator();
+}
 
 export default mparticleInstance;

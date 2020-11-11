@@ -87,16 +87,16 @@ export default function mParticleInstance(instanceName) {
     this.Identity = this._Identity.IdentityAPI;
     this.generateHash = this._Helpers.generateHash;
     this.getDeviceId = this._Persistence.getDeviceId;
-
-    if (window.mParticle && window.mParticle.config) {
-        if (window.mParticle.config.hasOwnProperty('rq')) {
-            this._preInit.readyQueue = window.mParticle.config.rq;
+    if (typeof window !== 'undefined') {
+        if (window.mParticle && window.mParticle.config) {
+            if (window.mParticle.config.hasOwnProperty('rq')) {
+                this._preInit.readyQueue = window.mParticle.config.rq;
+            }
         }
     }
-
     this.init = function(apiKey, config) {
         if (!config) {
-            window.console.warn(
+            console.warn(
                 'You did not pass a config object to init(). mParticle will not initialize properly'
             );
         }
@@ -121,7 +121,7 @@ export default function mParticleInstance(instanceName) {
                 completeSDKInitialization(apiKey, config, this);
             }
         } else {
-            window.console.error(
+            console.error(
                 'No config available on the window, please pass a config object to mParticle.init()'
             );
             return;
