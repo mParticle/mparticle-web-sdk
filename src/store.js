@@ -247,15 +247,16 @@ export default function Store(config, mpInstance) {
         }
 
         if (config.hasOwnProperty('dataPlanOptions')) {
+            const dataPlanOptions = config.dataPlanOptions;
             if (
-                !config.dataPlanOptions.hasOwnProperty('dataPlanVersion') ||
-                !config.dataPlanOptions.hasOwnProperty('blockUserAttributes') ||
-                !config.dataPlanOptions.hasOwnProperty('blockEventAttribute') ||
-                !config.dataPlanOptions.hasOwnProperty('blockEvents') ||
-                !config.dataPlanOptions.hasOwnProperty('blockIdentities')
+                !dataPlanOptions.hasOwnProperty('dataPlanVersion') ||
+                !dataPlanOptions.hasOwnProperty('blockUserAttributes') ||
+                !dataPlanOptions.hasOwnProperty('blockEventAttributes') ||
+                !dataPlanOptions.hasOwnProperty('blockEvents') ||
+                !dataPlanOptions.hasOwnProperty('blockUserIdentities')
             ) {
                 mpInstance.Logger.error(
-                    'Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttribute", "blockEvents", "blockIdentities" booleans'
+                    'Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans'
                 );
             }
         }

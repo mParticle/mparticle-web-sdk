@@ -1,5 +1,5 @@
 import * as EventsApi from '@mparticle/event-models';
-import { DataPlanVersion } from '@mparticle/data-planning-models';
+import { DataPlanVersion, DataPlan } from '@mparticle/data-planning-models';
 
 export interface SDKEvent {
     DeviceId: string;
@@ -154,13 +154,14 @@ export interface SDKConfig {
     isIOS?: boolean;
     identifyRequest: { [key: string]: {[key: string]: string} };
     requestConfig: boolean;
-    dataPlanOptions: KitBlockerOptions
+    dataPlanOptions: KitBlockerOptions // when the user provides their own data plan
+    dataPlanResult?: DataPlanResult  // when the data plan comes from the server via /config
 }
 
 export interface DataPlanConfig {
     planId?: string;
     planVersion?: number;
-    document?: any
+    document?: DataPlanResult  // when the data plan comes from the server via /mparticle.js
 }
 
 export interface SDKIdentityApi {
@@ -250,13 +251,29 @@ export interface BaseEvent {
 }
 
 export interface KitBlockerOptions {
-    dataPlanVersion: any;
+    dataPlanVersion: DataPlanVersion;
     blockUserAttributes: boolean;
     blockEventAttributes: boolean;
     blockEvents: boolean;
     blockUserIdentities: boolean;
 }
 
+export interface KitBlockerDataPlan {
+    document: DataPlanResult
+}
+
+export interface DataPlanResult {
+    dtpn?: {
+        vers: DataPlanVersion;
+        blok: {
+            ev: boolean;
+            ea: boolean;
+            ua: boolean;
+            id: boolean;
+        };
+    };
+    error_message?: string
+}
 export enum SDKIdentityTypeEnum {
     other = "other",
     customerId = "customerid",

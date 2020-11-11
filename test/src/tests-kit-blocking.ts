@@ -1,11 +1,12 @@
 import sinon from 'sinon';
 import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
-import { MParticleWebSDK, SDKEvent, SDKProductActionType, DataPlanConfig } from  '../../src/sdkRuntimeModels';
+import { MParticleWebSDK, SDKEvent, SDKProductActionType, DataPlanResult, KitBlockerDataPlan } from  '../../src/sdkRuntimeModels';
 import * as dataPlan from './dataPlan.json';
 import Utils from './utils';
 import KitBlocker from '../../src/kitBlocking';
 import Types from '../../src/types';
+import { DataPlanVersion } from '@mparticle/data-planning-models';
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
@@ -19,13 +20,16 @@ declare global {
 
 describe('kit blocking', () => {
     let mockServer;
+    let kitBlockerDataPlan: KitBlockerDataPlan = {
+        document: dataPlan
+    } as KitBlockerDataPlan;
 
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
         
         window.mParticle.config.dataPlan = {
-            document: dataPlan
+            document: dataPlan as DataPlanResult
         };
         window.mParticle.config.kitConfigs = []
     });
@@ -37,7 +41,7 @@ describe('kit blocking', () => {
 
     describe('kitBlocker', () => {
         it('kitBlocker should parse data plan into dataPlanMatchLookups properly', function(done) {
-            let kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             let dataPlanMatchLookups = kitBlocker.dataPlanMatchLookups;
             dataPlanMatchLookups.should.have.property('custom_event:search:Search Event', true);
             dataPlanMatchLookups.should.have.property('screen_view::another new screenview event', {});
@@ -97,7 +101,7 @@ describe('kit blocking', () => {
         let event: SDKEvent;
 
         beforeEach(() => {
-             kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+             kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
              event = {
                 DeviceId: 'test',
                 IsFirstRun: true,
@@ -185,7 +189,7 @@ describe('kit blocking', () => {
             });
             socialDataPoint.validator.definition.properties.data.properties.custom_attributes.additionalProperties = true;
 
-            kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
 
             event.EventName = 'SocialEvent';
             event.EventCategory = Types.EventType.Social;
@@ -208,7 +212,7 @@ describe('kit blocking', () => {
         let event: SDKEvent;
 
         beforeEach(() => {
-             kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+             kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
              event = {
                 DeviceId: 'test',
                 IsFirstRun: true,
@@ -238,7 +242,7 @@ describe('kit blocking', () => {
                 'unplanned attribute': 'test4',
             }
 
-            let kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             let transformdEvent = kitBlocker.transformUserAttributes(event);
             transformdEvent.UserAttributes.should.have.property('my attribute', 'test1');
             transformdEvent.UserAttributes.should.have.property('my other attribute', 'test2');
@@ -263,7 +267,7 @@ describe('kit blocking', () => {
                 'unplanned attribute': 'test4',
             };
 
-            let kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             let transformdEvent = kitBlocker.transformUserAttributes(event);
             transformdEvent.UserAttributes.should.have.property('my attribute', 'test1');
             transformdEvent.UserAttributes.should.have.property('my other attribute', 'test2');
@@ -278,7 +282,7 @@ describe('kit blocking', () => {
 
         it('isAttributeKeyBlocked should return false for attributes that are blocked and true for properties that are not', function(done) {
             // this key is blocked because the default data plan has user_attributes>additional_properties = false
-            const kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            const kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
 
             let isBlocked = kitBlocker.isAttributeKeyBlocked('blocked');
             isBlocked.should.equal(true);
@@ -288,7 +292,7 @@ describe('kit blocking', () => {
             });
             userAttributeDataPoint.validator.definition.additionalProperties = true;
                 
-            const kitBlocker2 = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            const kitBlocker2 = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             isBlocked = kitBlocker2.isAttributeKeyBlocked('my attribute');
             isBlocked.should.equal(false);
 
@@ -309,7 +313,7 @@ describe('kit blocking', () => {
                 { Type: 4, Identity: 'GoogleId' }
             ];
 
-            let kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             let transformdEvent = kitBlocker.transformUserIdentities(event);
 
             transformdEvent.UserIdentities.filter(UI => UI.Type === 1)[0].should.have.property('Identity', 'customerid1');
@@ -336,7 +340,7 @@ describe('kit blocking', () => {
                 { Type: 4, Identity: 'GoogleId' }
             ];
 
-            let kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             let transformdEvent = kitBlocker.transformUserIdentities(event);
 
             transformdEvent.UserIdentities.find(UI => UI.Type === 1).should.have.property('Identity', 'customerid1');
@@ -351,7 +355,7 @@ describe('kit blocking', () => {
 
         it('isIdentityBlocked should return false for identities that are blocked and true for properties that are not', function(done) {
             // this identity is not blocked because the default data plan has user_identities>additional_properties = false
-            const kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            const kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
 
             let isBlocked = kitBlocker.isIdentityBlocked('random identity');
             isBlocked.should.equal(false);
@@ -363,7 +367,7 @@ describe('kit blocking', () => {
 
             userIdentityDataPoint.validator.definition.additionalProperties = false;
                 
-            const kitBlocker2 = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            const kitBlocker2 = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             isBlocked = kitBlocker2.isIdentityBlocked('facebook');
             isBlocked.should.equal(true);
 
@@ -379,7 +383,7 @@ describe('kit blocking', () => {
         let event: SDKEvent;
 
         beforeEach(() => {
-             kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+             kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
              event = {
                 DeviceId: 'test',
                 IsFirstRun: true,
@@ -440,7 +444,7 @@ describe('kit blocking', () => {
             event.EventDataType = Types.MessageType.Commerce;
             event.ProductAction.ProductActionType = SDKProductActionType.Purchase;
 
-            let kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             let transformdEvent = kitBlocker.transformProductAttributes(event);
             
             transformdEvent.ProductAction.ProductList[0].Attributes.should.not.have.property('unplannedAttr1');
@@ -460,7 +464,7 @@ describe('kit blocking', () => {
             event.EventDataType = Types.MessageType.Commerce;
             event.ProductAction.ProductActionType = SDKProductActionType.AddToCart;
 
-            let kitBlocker = new KitBlocker({document: dataPlan}, window.mParticle.getInstance());
+            let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
             let transformdEvent = kitBlocker.transformProductAttributes(event);
             
             transformdEvent.ProductAction.ProductList[0].Attributes.should.have.property('unplannedAttr1');
@@ -1054,15 +1058,51 @@ describe('kit blocking', () => {
         })
 
         describe('integration tests - client passed in data plan', () => {
+            let clientProvidedDataPlan: DataPlanVersion = {
+                version_document: {
+                    data_points: [
+                        {
+                            match: {
+                                // @ts-ignore (fix this after DataPlanMatchType importing works)
+                                type: 'custom_event',
+                                criteria: {
+                                    event_name: 'locationEvent123',
+                                    custom_event_type: 'location'
+                                }
+                            },
+                            validator: {
+                                // @ts-ignore (fix this after DataPlanMatchType importing works)
+                                type: 'json_schema',
+                                definition: {
+                                    properties: {
+                                        data: {
+                                            properties: {
+                                                custom_attributes: {
+                                                    additionalProperties: false,
+                                                    properties: {
+                                                        foo: {},
+                                                        'foo foo': {},
+                                                        'foo number': {}
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+
             it('integration test - should log an error if the client passes a data plan without the proper keys', function(done) {
-                /* tslint:disable */
-                window.mParticle.config.dataPlanOptions = {
-                    dataPlanOptions: dataPlan,
+                // @ts-ignore - purposely leaving out blockUserIdentities as a key below
+                window.mParticle.config.dataPlanOptions = { 
+                    dataPlanVersion: clientProvidedDataPlan,
                     blockUserAttributes: true,
                     blockEventAttributes: true,
                     blockEvents: true,
                 };
-                /* tslint:enable */
 
                 let errorMessages = [];
 
@@ -1076,14 +1116,19 @@ describe('kit blocking', () => {
                 }
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-                errorMessages[0].should.equal('Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttribute", "blockEvents", "blockIdentities" booleans');
+                errorMessages[0].should.equal('Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans');
 
                 done();
             });
 
             it('integration test - should prioritize data plan from config.dataPlanOptions over server provided data plan', function(done) {
+                window.mParticle._resetForTests(MPConfig);
+                let mockForwarder = new MockForwarder();
+                window.mParticle.addForwarder(mockForwarder);
+                window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
+
                 window.mParticle.config.dataPlanOptions = {
-                    dataPlanOptions: dataPlan,
+                    dataPlanVersion: clientProvidedDataPlan,
                     blockUserAttributes: true,
                     blockEventAttributes: true,
                     blockEvents: true,
@@ -1092,7 +1137,6 @@ describe('kit blocking', () => {
 
                 let logs = [];
 
-                window.mParticle._resetForTests(MPConfig);
                 window.mParticle.config.logLevel = 'verbose';
 
                 window.mParticle.config.logger = {
@@ -1106,6 +1150,24 @@ describe('kit blocking', () => {
                 logs.includes('Data plan found from mParticle.js').should.equal(false);
                 logs.includes('Data plan found from /config').should.equal(false);
 
+                // this event is part of the server provided data plan (dataPlan.json) which is being ignored, so the event doesn't go through;
+                window.mParticle.logEvent('something something something', Types.EventType.Navigation);
+
+                let event = window.MockForwarder1.instance.receivedEvent;
+                (event === null).should.equal(true);
+
+                // this event is part of the clientGeneratedDataPlan
+                window.mParticle.logEvent('locationEvent123', Types.EventType.Location, {
+                    unplannedAttr: 'test',
+                    foo: 'hi' 
+                });
+
+                event = window.MockForwarder1.instance.receivedEvent;
+
+                event.should.have.property('EventName', 'locationEvent123');
+                event.EventAttributes.should.have.property('foo', 'hi');
+                event.EventAttributes.should.not.have.property('unplannedAttr');
+
                 done();
             });
 
@@ -1116,12 +1178,12 @@ describe('kit blocking', () => {
 
                 delete window.mParticle.config.dataPlan;
                 window.mParticle.config.dataPlanOptions = {
-                    dataPlanVersion: dataPlan.dtpn.vers,
+                    dataPlanVersion: clientProvidedDataPlan,
                     blockUserAttributes: true,
                     blockEventAttributes: true,
                     blockEvents: true,
                     blockUserIdentities: true
-                };
+                }
 
                 window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
                 window.mParticle.init(apiKey, window.mParticle.config);
@@ -1131,14 +1193,14 @@ describe('kit blocking', () => {
                 let event = window.MockForwarder1.instance.receivedEvent;
                 (event === null).should.equal(true);
 
-                window.mParticle.logEvent('locationEvent', Types.EventType.Location, {
+                window.mParticle.logEvent('locationEvent123', Types.EventType.Location, {
                     unplannedAttr: 'test',
                     foo: 'hi' 
                 });
 
                 event = window.MockForwarder1.instance.receivedEvent;
 
-                event.should.have.property('EventName', 'locationEvent');
+                event.should.have.property('EventName', 'locationEvent123');
                 event.EventAttributes.should.have.property('foo', 'hi');
                 event.EventAttributes.should.not.have.property('unplannedAttr');
 

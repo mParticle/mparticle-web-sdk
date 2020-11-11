@@ -1,5 +1,5 @@
 import { convertEvent } from './sdkToEventsApiConverter';
-import { SDKEvent, MParticleWebSDK } from './sdkRuntimeModels';
+import { SDKEvent, MParticleWebSDK, KitBlockerDataPlan } from './sdkRuntimeModels';
 import { BaseEvent, EventTypeEnum, CommerceEvent, ScreenViewEvent, CustomEvent } from '@mparticle/event-models';
 import Types from './types'
 import { DataPlanPoint } from '@mparticle/data-planning-models';
@@ -43,7 +43,7 @@ export default class KitBlocker {
     kitBlockingEnabled = false;
     mpInstance: MParticleWebSDK;
 
-    constructor(dataPlan: any, mpInstance: MParticleWebSDK) {
+    constructor(dataPlan: KitBlockerDataPlan, mpInstance: MParticleWebSDK) {
         // if data plan is not requested, the data plan is {document: null}
         if (dataPlan && !dataPlan.document) {
             this.kitBlockingEnabled = false;
