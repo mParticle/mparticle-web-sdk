@@ -9,7 +9,7 @@ var mParticle = (function () {
             return window.btoa(unescape(encodeURIComponent(input)));
           }
         } catch (e) {
-          window.console.log('Error encoding cookie values into Base64:' + e);
+          console.error('Error encoding cookie values into Base64:' + e);
         }
 
         return this._encode(input);
@@ -720,7 +720,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.12.0',
+      sdkVersion: '2.12.1',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -1838,6 +1838,31 @@ var mParticle = (function () {
         SDKProductActionType[SDKProductActionType["AddToWishlist"] = 9] = "AddToWishlist";
         SDKProductActionType[SDKProductActionType["RemoveFromWishlist"] = 10] = "RemoveFromWishlist";
     })(SDKProductActionType || (SDKProductActionType = {}));
+    var SDKIdentityTypeEnum;
+    (function (SDKIdentityTypeEnum) {
+        SDKIdentityTypeEnum["other"] = "other";
+        SDKIdentityTypeEnum["customerId"] = "customerid";
+        SDKIdentityTypeEnum["facebook"] = "facebook";
+        SDKIdentityTypeEnum["twitter"] = "twitter";
+        SDKIdentityTypeEnum["google"] = "google";
+        SDKIdentityTypeEnum["microsoft"] = "microsoft";
+        SDKIdentityTypeEnum["yahoo"] = "yahoo";
+        SDKIdentityTypeEnum["email"] = "email";
+        SDKIdentityTypeEnum["alias"] = "alias";
+        SDKIdentityTypeEnum["facebookCustomAudienceId"] = "facebookcustomaudienceid";
+        SDKIdentityTypeEnum["otherId2"] = "other2";
+        SDKIdentityTypeEnum["otherId3"] = "other3";
+        SDKIdentityTypeEnum["otherId4"] = "other4";
+        SDKIdentityTypeEnum["otherId5"] = "other5";
+        SDKIdentityTypeEnum["otherId6"] = "other6";
+        SDKIdentityTypeEnum["otherId7"] = "other7";
+        SDKIdentityTypeEnum["otherId8"] = "other8";
+        SDKIdentityTypeEnum["otherId9"] = "other9";
+        SDKIdentityTypeEnum["otherId10"] = "other10";
+        SDKIdentityTypeEnum["mobileNumber"] = "mobile_number";
+        SDKIdentityTypeEnum["phoneNumber2"] = "phone_number_2";
+        SDKIdentityTypeEnum["phoneNumber3"] = "phone_number_3";
+    })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
     var dist = createCommonjsModule(function (module, exports) {
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -2814,13 +2839,13 @@ var mParticle = (function () {
         var commonEventData = convertBaseEventData(sdkEvent);
         var userIdentityChangeEvent = {
             "new": {
-                identity_type: sdkEvent.UserIdentityChanges.New.IdentityType,
+                identity_type: convertUserIdentityTypeToServerIdentityType(sdkEvent.UserIdentityChanges.New.IdentityType),
                 identity: sdkEvent.UserIdentityChanges.New.Identity || null,
                 timestamp_unixtime_ms: sdkEvent.Timestamp,
                 created_this_batch: sdkEvent.UserIdentityChanges.New.CreatedThisBatch
             },
             old: {
-                identity_type: sdkEvent.UserIdentityChanges.Old.IdentityType,
+                identity_type: convertUserIdentityTypeToServerIdentityType(sdkEvent.UserIdentityChanges.Old.IdentityType),
                 identity: sdkEvent.UserIdentityChanges.Old.Identity || null,
                 timestamp_unixtime_ms: sdkEvent.Timestamp,
                 created_this_batch: sdkEvent.UserIdentityChanges.Old.CreatedThisBatch
@@ -2831,6 +2856,54 @@ var mParticle = (function () {
             event_type: dist_14.userIdentityChange,
             data: userIdentityChangeEvent
         };
+    }
+    function convertUserIdentityTypeToServerIdentityType(identityType) {
+        switch (identityType) {
+            case SDKIdentityTypeEnum.other:
+                return dist_15.other;
+            case SDKIdentityTypeEnum.customerId:
+                return dist_15.customerId;
+            case SDKIdentityTypeEnum.facebook:
+                return dist_15.facebook;
+            case SDKIdentityTypeEnum.twitter:
+                return dist_15.twitter;
+            case SDKIdentityTypeEnum.google:
+                return dist_15.google;
+            case SDKIdentityTypeEnum.microsoft:
+                return dist_15.microsoft;
+            case SDKIdentityTypeEnum.yahoo:
+                return dist_15.yahoo;
+            case SDKIdentityTypeEnum.email:
+                return dist_15.email;
+            case SDKIdentityTypeEnum.alias:
+                return dist_15.alias;
+            case SDKIdentityTypeEnum.facebookCustomAudienceId:
+                return dist_15.facebookCustomAudienceId;
+            case SDKIdentityTypeEnum.otherId2:
+                return dist_15.otherId2;
+            case SDKIdentityTypeEnum.otherId3:
+                return dist_15.otherId3;
+            case SDKIdentityTypeEnum.otherId4:
+                return dist_15.otherId4;
+            case SDKIdentityTypeEnum.otherId5:
+                return dist_15.otherId5;
+            case SDKIdentityTypeEnum.otherId6:
+                return dist_15.otherId6;
+            case SDKIdentityTypeEnum.otherId7:
+                return dist_15.otherId7;
+            case SDKIdentityTypeEnum.otherId8:
+                return dist_15.otherId8;
+            case SDKIdentityTypeEnum.otherId9:
+                return dist_15.otherId9;
+            case SDKIdentityTypeEnum.otherId10:
+                return dist_15.otherId10;
+            case SDKIdentityTypeEnum.mobileNumber:
+                return dist_15.mobileNumber;
+            case SDKIdentityTypeEnum.phoneNumber2:
+                return dist_15.phoneNumber2;
+            case SDKIdentityTypeEnum.phoneNumber3:
+                return dist_15.phoneNumber3;
+        }
     }
 
     function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function () { var Super = getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) {
@@ -5300,20 +5373,20 @@ var mParticle = (function () {
 
     function ConsoleLogger() {
       this.verbose = function (msg) {
-        if (window.console && window.console.info) {
-          window.console.info(msg);
+        if (console && console.info) {
+          console.info(msg);
         }
       };
 
       this.error = function (msg) {
-        if (window.console && window.console.error) {
-          window.console.error(msg);
+        if (console && console.error) {
+          console.error(msg);
         }
       };
 
       this.warning = function (msg) {
-        if (window.console && window.console.warn) {
-          window.console.warn(msg);
+        if (console && console.warn) {
+          console.warn(msg);
         }
       };
     }
@@ -9995,15 +10068,17 @@ var mParticle = (function () {
       this.generateHash = this._Helpers.generateHash;
       this.getDeviceId = this._Persistence.getDeviceId;
 
-      if (window.mParticle && window.mParticle.config) {
-        if (window.mParticle.config.hasOwnProperty('rq')) {
-          this._preInit.readyQueue = window.mParticle.config.rq;
+      if (typeof window !== 'undefined') {
+        if (window.mParticle && window.mParticle.config) {
+          if (window.mParticle.config.hasOwnProperty('rq')) {
+            this._preInit.readyQueue = window.mParticle.config.rq;
+          }
         }
       }
 
       this.init = function (apiKey, config) {
         if (!config) {
-          window.console.warn('You did not pass a config object to init(). mParticle will not initialize properly');
+          console.warn('You did not pass a config object to init(). mParticle will not initialize properly');
         }
 
         runPreConfigFetchInitialization(this, apiKey, config); // config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
@@ -10017,7 +10092,7 @@ var mParticle = (function () {
             completeSDKInitialization(apiKey, config, this);
           }
         } else {
-          window.console.error('No config available on the window, please pass a config object to mParticle.init()');
+          console.error('No config available on the window, please pass a config object to mParticle.init()');
           return;
         }
       };
@@ -11159,7 +11234,7 @@ var mParticle = (function () {
       try {
         mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(window.localStorage);
       } catch (e) {
-        mpInstance.Logger.warning('localStorage is not available, using cookies if avaialble');
+        mpInstance.Logger.warning('localStorage is not available, using cookies if available');
         mpInstance._Store.isLocalStorageAvailable = false;
       }
     }
@@ -11259,8 +11334,11 @@ var mParticle = (function () {
       this.CommerceEventType = Types.CommerceEventType;
       this.PromotionType = Types.PromotionActionType;
       this.ProductActionType = Types.ProductActionType;
-      this.isIOS = window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false;
-      this.config = window.mParticle && window.mParticle.config ? window.mParticle.config : {};
+
+      if (typeof window !== 'undefined') {
+        this.isIOS = window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false;
+        this.config = window.mParticle && window.mParticle.config ? window.mParticle.config : {};
+      }
       /**
        * Initializes the mParticle instance. If no instanceName is provided, an instance name of `default_instance` will be used.
        * <p>
@@ -11271,9 +11349,10 @@ var mParticle = (function () {
        * @param {String} [instanceName] If you are self hosting the JS SDK and working with multiple instances, you would pass an instanceName to `init`. This instance will be selected when invoking other methods. See the above link to the doc site for more info and examples.
        */
 
+
       this.init = function (apiKey, config, instanceName) {
         if (!config && window.mParticle && window.mParticle.config) {
-          window.console.warn('You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly');
+          console.warn('You did not pass a config object to mParticle.init(). Attempting to use the window.mParticle.config if it exists. Please note that in a future release, this may not work and mParticle will not initialize properly');
           config = window.mParticle ? window.mParticle.config : {};
         }
 
@@ -11552,8 +11631,11 @@ var mParticle = (function () {
     }
 
     var mparticleInstance = new mParticle$1();
-    window.mParticle = mparticleInstance;
-    window.mParticle._BatchValidator = new _BatchValidator();
+
+    if (typeof window !== 'undefined') {
+      window.mParticle = mparticleInstance;
+      window.mParticle._BatchValidator = new _BatchValidator();
+    }
 
     return mparticleInstance;
 
