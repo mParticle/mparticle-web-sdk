@@ -2,6 +2,11 @@
 
 --
 
+#### 2.12.2 - 2020-11-12
+
+-   Bugfix - Fix data plan options API
+-   Bugfix - Add try/catch to cookie searching
+
 #### 2.12.1 - 2020-11-11
 
 -   Fix Typo in logging
