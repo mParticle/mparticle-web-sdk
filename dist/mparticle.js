@@ -720,7 +720,7 @@ var mParticle = (function () {
     };
 
     var Constants = {
-      sdkVersion: '2.12.1',
+      sdkVersion: '2.12.2',
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
@@ -5309,8 +5309,10 @@ var mParticle = (function () {
         }
 
         if (config.hasOwnProperty('dataPlanOptions')) {
-          if (!config.dataPlanOptions.hasOwnProperty('dataPlanVersion') || !config.dataPlanOptions.hasOwnProperty('blockUserAttributes') || !config.dataPlanOptions.hasOwnProperty('blockEventAttribute') || !config.dataPlanOptions.hasOwnProperty('blockEvents') || !config.dataPlanOptions.hasOwnProperty('blockIdentities')) {
-            mpInstance.Logger.error('Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttribute", "blockEvents", "blockIdentities" booleans');
+          var dataPlanOptions = config.dataPlanOptions;
+
+          if (!dataPlanOptions.hasOwnProperty('dataPlanVersion') || !dataPlanOptions.hasOwnProperty('blockUserAttributes') || !dataPlanOptions.hasOwnProperty('blockEventAttributes') || !dataPlanOptions.hasOwnProperty('blockEvents') || !dataPlanOptions.hasOwnProperty('blockUserIdentities')) {
+            mpInstance.Logger.error('Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans');
           }
         }
 
@@ -5774,9 +5776,13 @@ var mParticle = (function () {
         mpInstance.Logger.verbose(Messages$5.InformationMessages.CookieSearch);
 
         for (i = 0, l = cookies.length; i < l; i++) {
-          parts = cookies[i].split('=');
-          name = mpInstance._Helpers.decoded(parts.shift());
-          cookie = mpInstance._Helpers.decoded(parts.join('='));
+          try {
+            parts = cookies[i].split('=');
+            name = mpInstance._Helpers.decoded(parts.shift());
+            cookie = mpInstance._Helpers.decoded(parts.join('='));
+          } catch (e) {
+            mpInstance.Logger.verbose('Unable to parse cookie: ' + name + '. Skipping.');
+          }
 
           if (key && key === name) {
             result = mpInstance._Helpers.converted(cookie);
@@ -6715,9 +6721,14 @@ var mParticle = (function () {
         mpInstance.Logger.verbose(Constants.Messages.InformationMessages.CookieSearch);
 
         for (i = 0, l = cookies.length; i < l; i++) {
-          parts = cookies[i].split('=');
-          name = mpInstance._Helpers.decoded(parts.shift());
-          cookie = mpInstance._Helpers.decoded(parts.join('=')); //most recent version needs no migration
+          try {
+            parts = cookies[i].split('=');
+            name = mpInstance._Helpers.decoded(parts.shift());
+            cookie = mpInstance._Helpers.decoded(parts.join('='));
+          } catch (e) {
+            mpInstance.Logger.verbose('Unable to parse cookie: ' + name + '. Skipping.');
+          } //most recent version needs no migration
+
 
           if (name === mpInstance._Store.storageName) {
             return;
