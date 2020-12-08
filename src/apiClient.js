@@ -141,10 +141,7 @@ export default function APIClient(mpInstance, kitBlocker) {
                 );
                 xhr.send(
                     JSON.stringify(
-                        mpInstance._ServerModel.convertEventToDTO(
-                            event,
-                            mpInstance._Store.isFirstRun
-                        )
+                        mpInstance._ServerModel.convertEventToDTO(event)
                     )
                 );
             } catch (e) {

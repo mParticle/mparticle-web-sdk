@@ -62,9 +62,6 @@ export class BatchUploader {
 
     queueEvent(event: SDKEvent) {
         if (event) {
-            //add this for cleaner processing later
-            event.IsFirstRun = this.mpInstance._Store.isFirstRun;
-
             this.pendingEvents.push(event);
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`

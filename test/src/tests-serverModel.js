@@ -41,7 +41,7 @@ describe('Server Model', function() {
         
         let upload = mParticle
             .getInstance()
-            ._ServerModel.convertEventToDTO(sdkEvent, false);
+            ._ServerModel.convertEventToDTO(sdkEvent);
 
         upload.should.not.have.property('dp_id');
         upload.should.not.have.property('dp_v');
@@ -60,7 +60,7 @@ describe('Server Model', function() {
             ._ServerModel.createEventObject(event);
         let upload = mParticle
             .getInstance()
-            ._ServerModel.convertEventToDTO(sdkEvent, false);
+            ._ServerModel.convertEventToDTO(sdkEvent);
 
         upload.should.have.property('dp_id', 'plan-slug');
         upload.should.not.have.property('dp_v');
@@ -79,7 +79,7 @@ describe('Server Model', function() {
             ._ServerModel.createEventObject(event);
         let upload = mParticle
             .getInstance()
-            ._ServerModel.convertEventToDTO(sdkEvent, false);
+            ._ServerModel.convertEventToDTO(sdkEvent);
 
         upload.should.not.have.property('dp_id');
         upload.should.not.have.property('dp_v');
@@ -99,7 +99,7 @@ describe('Server Model', function() {
             ._ServerModel.createEventObject(event);
         let upload = mParticle
             .getInstance()
-            ._ServerModel.convertEventToDTO(sdkEvent, false);
+            ._ServerModel.convertEventToDTO(sdkEvent);
 
         upload.should.have.property('dp_id', 'plan-slug');
         upload.should.have.property('dp_v', 10);

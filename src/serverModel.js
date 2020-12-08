@@ -212,6 +212,10 @@ export default function ServerModel(mpInstance) {
                     : {},
             };
 
+            if (eventObject.EventDataType === MessageType.AppStateTransition) {
+                eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
+            }
+
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
             var currentUser = user || mpInstance.Identity.getCurrentUser();
             self.appendUserInfo(currentUser, eventObject);
@@ -237,7 +241,7 @@ export default function ServerModel(mpInstance) {
         return null;
     };
 
-    this.convertEventToDTO = function(event, isFirstRun) {
+    this.convertEventToDTO = function(event) {
         var dto = {
             n: event.EventName,
             et: event.EventCategory,
@@ -276,7 +280,7 @@ export default function ServerModel(mpInstance) {
         }
 
         if (event.EventDataType === MessageType.AppStateTransition) {
-            dto.fr = isFirstRun;
+            dto.fr = event.IsFirstRun;
             dto.iu = false;
             dto.at = ApplicationTransitionType.AppInit;
             dto.lr = window.location.href || null;

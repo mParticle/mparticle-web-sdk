@@ -118,7 +118,7 @@ describe('event logging', function() {
         done();
     });
 
-    it('should log an AST with firstRun = true when first visiting a page', function(done) {       
+    it('should log an AST with firstRun = true when first visiting a page, and firstRun = false when reloading the page', function(done) {
         var data = getEvent(mockServer.requests, MessageType.AppStateTransition);
         data.should.have.property('at', 1);
         data.should.have.property('fr', true);
@@ -126,6 +126,12 @@ describe('event logging', function() {
         if (document.referrer && document.referrer.length > 0) {
             data.should.have.property('lr', window.location.href);
         }
+
+        mockServer.requests = [];
+
+        mParticle.init(apiKey, window.mParticle.config)
+        var data2 = getEvent(mockServer.requests, MessageType.AppStateTransition);
+        data2.should.have.property('fr', false);
 
         done();
     });
@@ -607,8 +613,34 @@ describe('event logging', function() {
         window.mParticle.logEvent('Test Event');
 
         var batch = JSON.parse(window.fetchMock.lastOptions().body);
-            console.log(batch);
+
         batch.application_info.should.have.property('application_name', 'a name');
+
+        delete window.mParticle.config.flags
+
+        done();
+    });
+
+    it('should log AST first_run as true on new page loads, and false for when a page has previously been loaded', function (done) {
+        mParticle._resetForTests(MPConfig);
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+
+        mParticle.init(apiKey, mParticle.config);
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        batch.events[0].data.should.have.property('is_first_run', true);
+        
+        mParticle.init(apiKey, mParticle.config);
+        var batch2 = JSON.parse(window.fetchMock.lastOptions().body);
+        batch2.events[0].data.should.have.property('is_first_run', false);
 
         delete window.mParticle.config.flags
 
