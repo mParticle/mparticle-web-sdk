@@ -19,13 +19,22 @@ export default function Ecommerce(mpInstance) {
             productAction.CouponCode = transactionAttributes.CouponCode;
         }
         if (transactionAttributes.hasOwnProperty('Revenue')) {
-            productAction.TotalAmount = transactionAttributes.Revenue;
+            productAction.TotalAmount = this.sanitizeAmount(
+                transactionAttributes.Revenue,
+                'Revenue'
+            );
         }
         if (transactionAttributes.hasOwnProperty('Shipping')) {
-            productAction.ShippingAmount = transactionAttributes.Shipping;
+            productAction.ShippingAmount = this.sanitizeAmount(
+                transactionAttributes.Shipping,
+                'Shipping'
+            );
         }
         if (transactionAttributes.hasOwnProperty('Tax')) {
-            productAction.TaxAmount = transactionAttributes.Tax;
+            productAction.TaxAmount = this.sanitizeAmount(
+                transactionAttributes.Tax,
+                'Tax'
+            );
         }
         if (transactionAttributes.hasOwnProperty('Step')) {
             productAction.CheckoutStep = transactionAttributes.Step;
@@ -260,6 +269,8 @@ export default function Ecommerce(mpInstance) {
                 'Price is required when creating a product, and must be a string or a number'
             );
             return null;
+        } else {
+            price = mpInstance._Helpers.parseNumber(price);
         }
 
         if (position && !mpInstance._Helpers.Validators.isNumber(position)) {
@@ -269,8 +280,10 @@ export default function Ecommerce(mpInstance) {
             position = null;
         }
 
-        if (!quantity) {
+        if (!mpInstance._Helpers.Validators.isStringOrNumber(quantity)) {
             quantity = 1;
+        } else {
+            quantity = mpInstance._Helpers.parseNumber(quantity);
         }
 
         return {
@@ -535,5 +548,23 @@ export default function Ecommerce(mpInstance) {
         }
 
         return null;
+    };
+
+    // sanitizes any non number, non string value to 0
+    this.sanitizeAmount = function(amount, category) {
+        if (!mpInstance._Helpers.Validators.isStringOrNumber(amount)) {
+            var message = [
+                category,
+                'must be of type number. A',
+                typeof amount,
+                'was passed. Converting to 0',
+            ].join(' ');
+
+            mpInstance.Logger.warning(message);
+            return 0;
+        }
+
+        // if amount is a string, it will be parsed into a number if possible, or set to 0
+        return mpInstance._Helpers.parseNumber(amount);
     };
 }

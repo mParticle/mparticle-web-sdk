@@ -131,6 +131,35 @@ export default function Events(mpInstance) {
             customFlags
         );
 
+        var productList = Array.isArray(product) ? product : [product];
+
+        productList.forEach(function(product) {
+            if (product.TotalAmount) {
+                product.TotalAmount = mpInstance._Ecommerce.sanitizeAmount(
+                    product.TotalAmount,
+                    'TotalAmount'
+                );
+            }
+            if (product.Position) {
+                product.Position = mpInstance._Ecommerce.sanitizeAmount(
+                    product.Position,
+                    'Position'
+                );
+            }
+            if (product.Price) {
+                product.Price = mpInstance._Ecommerce.sanitizeAmount(
+                    product.Price,
+                    'Price'
+                );
+            }
+            if (product.Quantity) {
+                product.Quantity = mpInstance._Ecommerce.sanitizeAmount(
+                    product.Quantity,
+                    'Quantity'
+                );
+            }
+        });
+
         if (event) {
             event.EventCategory = mpInstance._Ecommerce.convertProductActionToEventType(
                 productActionType
@@ -140,7 +169,7 @@ export default function Events(mpInstance) {
             );
             event.ProductAction = {
                 ProductActionType: productActionType,
-                ProductList: Array.isArray(product) ? product : [product],
+                ProductList: productList,
             };
 
             if (mpInstance._Helpers.isObject(transactionAttributes)) {

@@ -1321,7 +1321,7 @@ describe('identity', function() {
             'quantity'
         );
         products.testMPID.cp[0].should.have.property('Sku', '12345');
-        products.testMPID.cp[0].should.have.property('Price', '1000');
+        products.testMPID.cp[0].should.have.property('Price', 1000);
         products.testMPID.cp[0].should.have.property('Quantity', 2);
 
         var user2 = {
@@ -1370,7 +1370,7 @@ describe('identity', function() {
             'quantity'
         );
         products2.testMPID.cp[0].should.have.property('Sku', '12345');
-        products2.testMPID.cp[0].should.have.property('Price', '1000');
+        products2.testMPID.cp[0].should.have.property('Price', 1000);
         products2.testMPID.cp[0].should.have.property('Quantity', 2);
 
         done();

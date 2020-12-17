@@ -1433,7 +1433,16 @@ describe('eCommerce', function() {
             Object.keys(productAction).length.should.equal(0);
         });
 
-        it('should be full when transactionAttributes is full', function() {
+        it('should sanitize certain ecommerce amounts from strings to 0', function() {
+            mParticle.getInstance()._Ecommerce.sanitizeAmount('$42', 'Price').should.equal(0);
+            mParticle.getInstance()._Ecommerce.sanitizeAmount('$100', 'TotalAmount').should.equal(0);
+            mParticle.getInstance()._Ecommerce.sanitizeAmount('first', 'Position').should.equal(0);
+            mParticle.getInstance()._Ecommerce.sanitizeAmount('two', 'Quantity').should.equal(0);
+            mParticle.getInstance()._Ecommerce.sanitizeAmount('string', 'Shipping').should.equal(0);
+            mParticle.getInstance()._Ecommerce.sanitizeAmount('$5.80', 'Tax').should.equal(0);
+        });
+
+        it('should convert transactionAttributes strings to numbers or zero', function() {
             var mparticle = mParticle.getInstance()
             var transactionAttributes = {
                 Id: "id",
@@ -1442,15 +1451,18 @@ describe('eCommerce', function() {
                 Revenue: "revenue",
                 Shipping: "shipping",
                 Tax: "tax"
-            }
+            };
+
             var productAction = {};
             mparticle._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, productAction)
             productAction.TransactionId.should.equal("id")
             productAction.Affiliation.should.equal("affiliation")
             productAction.CouponCode.should.equal("couponCode")
-            productAction.TotalAmount.should.equal("revenue")
-            productAction.ShippingAmount.should.equal("shipping")
-            productAction.TaxAmount.should.equal("tax")
+
+            // convert strings to 0 
+            productAction.TotalAmount.should.equal(0)
+            productAction.ShippingAmount.should.equal(0)
+            productAction.TaxAmount.should.equal(0)
         });
     });
 });

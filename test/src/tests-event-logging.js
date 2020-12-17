@@ -861,4 +861,96 @@ describe('event logging', function() {
         
         done();
     });
+
+    it('should sanitize transaction attributes in the payload on v3 endpoint', function (done) {
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+
+        mParticle.init(apiKey, mParticle.config);
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        var product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999, 1);
+        var product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 799, 1);
+
+        var transactionAttributes = {
+            Id: 'foo-transaction-id',
+            Revenue: 'string',
+            Tax: 'string',
+            Shipping: 'string'
+        };
+
+        var customAttributes = {sale: true};
+        var customFlags = {'Google.Category': 'travel'}
+
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            [product1, product2],
+            customAttributes,
+            customFlags,
+            transactionAttributes);
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        
+        batch.events[0].data.product_action.total_amount.should.equal(0);
+        batch.events[0].data.product_action.shipping_amount.should.equal(0);
+        batch.events[0].data.product_action.tax_amount.should.equal(0);
+
+        delete window.mParticle.config.flags
+
+        done();
+    });
+
+    it('should sanitize product attributes in the payload on v3 endpoint', function (done) {
+       mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+
+        mParticle.init(apiKey, mParticle.config);
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        var product1 = mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 'string', 'string', 'variant', 'category', 'brand', 'string', 'coupon');
+        var product2 = mParticle.eCommerce.createProduct('galaxy', 'galaxySKU', 'string', 'string', 'variant', 'category', 'brand', 'string', 'coupon');
+
+        var transactionAttributes = {
+            Id: 'foo-transaction-id',
+            Revenue: 'string',
+            Tax: 'string',
+            Shipping: 'string'
+        };
+
+        var customAttributes = {sale: true};
+        var customFlags = {'Google.Category': 'travel'}
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            [product1, product2],
+            customAttributes,
+            customFlags,
+            transactionAttributes);
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        (batch.events[0].data.product_action.products[0].position === null).should.equal(true)
+        batch.events[0].data.product_action.products[0].price.should.equal(0);
+        batch.events[0].data.product_action.products[0].quantity.should.equal(0);
+        batch.events[0].data.product_action.products[0].total_product_amount.should.equal(0);
+
+        (batch.events[0].data.product_action.products[1].position === null).should.equal(true)
+        batch.events[0].data.product_action.products[1].price.should.equal(0);
+        batch.events[0].data.product_action.products[1].quantity.should.equal(0);
+        batch.events[0].data.product_action.products[1].total_product_amount.should.equal(0);
+
+        delete window.mParticle.config.flags
+
+        done(); 
+    });
 });
