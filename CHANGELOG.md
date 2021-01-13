@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.1.0...v1.2.0) (2021-01-13)
+
+
+### Features
+
+* add github workflow ([e48c8f6](https://github.com/rmi22186/rob-changelog-release-test/commit/e48c8f6cae3051f0373027401b5e46652ed65a92))
+
+
+### Bug Fixes
+
+* add abc.js ([cf361ff](https://github.com/rmi22186/rob-changelog-release-test/commit/cf361ff13247e3ac5bd75ea7cdd94910831428b7))
+
 ## [1.1.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.0.4...v1.1.0) (2021-01-13)
 
 
