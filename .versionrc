@@ -1,0 +1,3 @@
+{
+    "commitUrlFormat": "{{host}}/{{owner}}/{{repository}}/comit/{{hash}}
+}
