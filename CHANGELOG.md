@@ -1,3 +1,10 @@
+## [1.3.2](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.3.1...v1.3.2) (2021-01-14)
+
+
+### Bug Fixes
+
+* add git assets and changelog ([5aad715](https://github.com/rmi22186/rob-changelog-release-test/commit/5aad715bbf02d961dc3419463272a8dde1e4e0c5))
+
 ## [1.3.1](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.3.0...v1.3.1) (2021-01-14)
 
 
