@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.3.0...v1.3.1) (2021-01-14)
+
+
+### Bug Fixes
+
+* remove host ([b4a99c4](https://github.com/rmi22186/rob-changelog-release-test/commit/b4a99c422dcfa6c886883e9b82f5429eb40b4b1b))
+
 # [1.3.0](abcdefg/rmi22186/rob-changelog-release-test/compare/v1.2.1...v1.3.0) (2021-01-14)
 
 

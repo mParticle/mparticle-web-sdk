@@ -6,7 +6,14 @@
         ["@semantic-release/release-notes-generator", {
             "preset": "angular"
         }],
-        ["@semantic-release/changelog", {"changelogFile": "CHANGELOG.md"}]
+        ["@semantic-release/changelog", {"changelogFile": "CHANGELOG.md"}],
+        ["@semantic-release/github", {
+            "assets": "abc.js"
+        }],
+        ["@semantic-release/git", {
+            "assets": ["package.json", "CHANGELOG.md"],
+            "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+    }],
     ],
     "ci": false,
     "dryRun": false,
