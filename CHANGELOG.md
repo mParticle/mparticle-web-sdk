@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v2.0.0...v2.1.0) (2021-01-14)
+
+
+### Features
+
+* ok ([89dbe70](https://github.com/rmi22186/rob-changelog-release-test/commit/89dbe70e9960741c22c4eeb0a6ebb86fab1867cb))
+
 # [2.0.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.6.0...v2.0.0) (2021-01-14)
 
 
