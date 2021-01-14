@@ -3,9 +3,12 @@
     "repositoryUrl": "https://github.com/rmi22186/rob-changelog-release-test",
     "tagFormat": "v${version}",
     "plugins": [
-        ["@semantic-release/release-notes-generator", {"preset": "angular"}],
+        ["@semantic-release/release-notes-generator", {
+            "preset": "angular",
+            "host": 'abcdefg'
+        }],
         ["@semantic-release/changelog", {"changelogFile": "CHANGELOG.md"}]
     ],
     "ci": false,
-    "dryRun": false,
+    "dryRun": true,
 }
