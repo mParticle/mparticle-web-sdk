@@ -5,7 +5,9 @@
     "plugins": [
         ["@semantic-release/release-notes-generator", {
             "preset": "angular",
-            "linkReferences": false
+            "issue": false,
+            "repository": "custom-repo",
+            "owner": "custom-owner"
         }],
         ["@semantic-release/changelog", {"changelogFile": "CHANGELOG.md"}],
         ["@semantic-release/github", {
