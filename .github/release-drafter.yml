@@ -1,3 +1,11 @@
+categories:
+  - title: "Enhancements"
+    labels: "enhancement"
+  - title: "Features"
+    labels: "feature"
+  - title: "Bug Fixes"
+    labels: "fix"
+
 template: |
   ## What’s Changed
 
