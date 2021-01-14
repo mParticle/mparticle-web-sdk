@@ -4,8 +4,7 @@
     "tagFormat": "v${version}",
     "plugins": [
         ["@semantic-release/release-notes-generator", {
-            "preset": "angular",
-            "host": 'abcdefg'
+            "preset": "angular"
         }],
         ["@semantic-release/changelog", {"changelogFile": "CHANGELOG.md"}]
     ],

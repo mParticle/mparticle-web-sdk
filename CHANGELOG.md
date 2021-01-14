@@ -1,3 +1,15 @@
+# [1.3.0](abcdefg/rmi22186/rob-changelog-release-test/compare/v1.2.1...v1.3.0) (2021-01-14)
+
+
+### Bug Fixes
+
+* update dryrun to false ([9bbbbcb](abcdefg/rmi22186/rob-changelog-release-test/commit/9bbbbcba32961fd3502d10435408f40f1b8bf16c))
+
+
+### Features
+
+* more updates to releaserc ([#30](abcdefg/rmi22186/rob-changelog-release-test/issues/30)) ([8e2e978](abcdefg/rmi22186/rob-changelog-release-test/commit/8e2e97830482284d11f8e358f40a81f1c284bc89))
+
 ## Releases
 
 --
