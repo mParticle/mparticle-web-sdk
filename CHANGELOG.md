@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.5.0...v1.6.0) (2021-01-14)
+
+
+### Features
+
+* update releaserc ff47ba8
+
 # Changelog
 
 ## [v1.5.0](https://github.com/rmi22186/rob-changelog-release-test/tree/v1.5.0) (2021-01-14)
