@@ -1,11 +1,12 @@
-# [1.5.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.4.0...v1.5.0) (2021-01-14)
-
-
-### Features
-
-* abc ([#11](https://github.com/rmi22186/rob-changelog-release-test/issues/11)) ([b0e9323](https://github.com/rmi22186/rob-changelog-release-test/commit/b0e9323a74eab0761bbe566d3303a3547d7cf464))
-
 # Changelog
+
+## [v1.5.0](https://github.com/rmi22186/rob-changelog-release-test/tree/v1.5.0) (2021-01-14)
+
+[Full Changelog](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.4.0...v1.5.0)
+
+**Merged pull requests:**
+
+- feat: abc [\#11](https://github.com/rmi22186/rob-changelog-release-test/pull/11) ([rmi22186](https://github.com/rmi22186))
 
 ## [v1.4.0](https://github.com/rmi22186/rob-changelog-release-test/tree/v1.4.0) (2021-01-14)
 
