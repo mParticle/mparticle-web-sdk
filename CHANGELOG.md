@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.2.0...v1.2.1) (2021-01-14)
+
+
+### Bug Fixes
+
+* added console.log ([#6](https://github.com/rmi22186/rob-changelog-release-test/issues/6)) ([1393f58](https://github.com/rmi22186/rob-changelog-release-test/commit/1393f58aa17857254a5f84e5e32f4db39ba93673))
+
 # Changelog
 
 ## [1.2.1](https://github.com/rmi22186/rob-changelog-release-test/tree/1.2.1) (2021-01-14)
