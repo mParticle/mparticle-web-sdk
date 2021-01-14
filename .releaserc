@@ -1,0 +1,5 @@
+{
+    "branches": ["master"],
+    "repositoryUrl": "https://github.com/rmi22186/rob-changelog-release-test",
+    "tagFormat": "v${version}"
+}

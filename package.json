@@ -1,14 +1,20 @@
 {
   "name": "rob-changelog-release-test",
-  "version": "1.2.0",
+  "version": "0.0.0-development",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "release": "standard-version"
+    "release": "standard-version",
+    "semantic-release": "semantic-release"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "semantic-release": "^17.3.2",
     "standard-version": "^9.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rmi22186/rob-changelog-release-test.git"
   }
 }
