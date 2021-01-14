@@ -1,3 +1,15 @@
+# [2.0.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.6.0...v2.0.0) (2021-01-14)
+
+
+### fea
+
+* new major version release test ([#12](https://github.com/rmi22186/rob-changelog-release-test/issues/12)) 30e086e
+
+
+### BREAKING CHANGES
+
+* new major release, see docs for more updates
+
 # [1.6.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.5.0...v1.6.0) (2021-01-14)
 
 
