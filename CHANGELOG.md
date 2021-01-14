@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.4.0...v1.5.0) (2021-01-14)
+
+
+### Features
+
+* abc ([#11](https://github.com/rmi22186/rob-changelog-release-test/issues/11)) ([b0e9323](https://github.com/rmi22186/rob-changelog-release-test/commit/b0e9323a74eab0761bbe566d3303a3547d7cf464))
+
 # Changelog
 
 ## [v1.4.0](https://github.com/rmi22186/rob-changelog-release-test/tree/v1.4.0) (2021-01-14)
