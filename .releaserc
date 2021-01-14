@@ -10,5 +10,5 @@
         ["@semantic-release/changelog", {"changelogFile": "CHANGELOG.md"}]
     ],
     "ci": false,
-    "dryRun": true,
+    "dryRun": false,
 }
