@@ -5,7 +5,7 @@
     "plugins": [
         ["@semantic-release/release-notes-generator", {
             "preset": "angular",
-            "issue": false,
+            "issue": 'ignore',
             "repository": "custom-repo",
             "owner": "custom-owner"
         }],
