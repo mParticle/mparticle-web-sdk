@@ -1,3 +1,15 @@
+# [1.4.0](https://github.com/rmi22186/rob-changelog-release-test/compare/v1.3.2...v1.4.0) (2021-01-14)
+
+
+### Bug Fixes
+
+* update gitignore ([d0f1e61](https://github.com/rmi22186/rob-changelog-release-test/commit/d0f1e61f3c801e976eae67591226ffb602ba0d9e))
+
+
+### Features
+
+* add yoo123 ([70fe8c4](https://github.com/rmi22186/rob-changelog-release-test/commit/70fe8c417a922bc294344120fa9d09fe02ce5345))
+
 # Changelog
 
 ## [v1.3.2](https://github.com/rmi22186/rob-changelog-release-test/tree/v1.3.2) (2021-01-14)
