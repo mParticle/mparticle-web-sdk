@@ -196,7 +196,7 @@ export default function ServerModel(mpInstance) {
                 SessionId: mpInstance._Store.sessionId,
                 SessionStartDate: mpInstance._Store.sessionStartDate
                     ? mpInstance._Store.sessionStartDate.getTime()
-                    : null,
+                    : 0,
                 Debug: mpInstance._Store.SDKConfig.isDevelopmentMode,
                 Location: mpInstance._Store.currentPosition,
                 OptOut: optOut,

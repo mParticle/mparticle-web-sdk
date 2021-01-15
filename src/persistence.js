@@ -386,7 +386,7 @@ export default function _Persistence(mpInstance) {
         data.gs.c = store.context;
         data.gs.ssd = store.sessionStartDate
             ? store.sessionStartDate.getTime()
-            : null;
+            : 0;
         data.gs.ia = store.integrationAttributes;
 
         return data;
