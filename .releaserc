@@ -4,10 +4,9 @@
     "tagFormat": "v${version}",
     "plugins": [
         ["@semantic-release/commit-analyzer", {
-            "preset": "conventionalcommits",
+            "preset": "conventional-changelog-conventionalcommits",
         }],
         ["@semantic-release/release-notes-generator", {
-            "preset": "conventionalcommits",
             "repository": "custom-repo",
             "owner": "custom-owner"
         }],
