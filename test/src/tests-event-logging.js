@@ -102,6 +102,8 @@ describe('event logging', function() {
     });
 
     it('should sanitize error custom attrs', function(done) {
+        var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+
         mParticle.logError('my error', {
             invalid: ['my invalid attr'],
             valid: 10,
@@ -114,6 +116,13 @@ describe('event logging', function() {
         data.should.have.property('attrs');
         data.attrs.should.have.property('valid', 10);
         data.attrs.should.not.have.property('invalid');
+
+        bond.called.should.eql(true);
+        bond.callCount.should.equal(1);
+
+        bond.getCalls()[0].args[0].should.eql(
+            'For \'my error\', the corresponding attribute value of \'invalid\' must be a string, number, boolean, or null.'
+        );
 
         done();
     });

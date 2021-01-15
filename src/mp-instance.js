@@ -386,11 +386,11 @@ export default function mParticleInstance(instanceName) {
         var data = {
             m: error.message ? error.message : error,
             s: 'Error',
-            t: error.stack,
+            t: error.stack || null,
         };
 
         if (attrs) {
-            var sanitized = self._Helpers.sanitizeAttributes(attrs);
+            var sanitized = self._Helpers.sanitizeAttributes(attrs, data.m);
             for (var prop in sanitized) {
                 data[prop] = sanitized[prop];
             }
