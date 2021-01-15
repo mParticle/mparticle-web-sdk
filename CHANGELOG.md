@@ -1,3 +1,11 @@
+## [2.1.2](https://github.com/rmi22186/rob-changelog-release-test/compare/v2.1.1...v2.1.2) (2021-01-15)
+
+
+### Bug Fixes
+
+* add comma in .releaserc ([05d40e6](https://github.com/rmi22186/rob-changelog-release-test/commit/05d40e6484470746f1206ce9a52c95011250c0ff))
+* add semantic-release/npm ([97994f5](https://github.com/rmi22186/rob-changelog-release-test/commit/97994f5161cdf51890004e7d7a09c2819412f3e0))
+
 ## [2.1.1](https://github.com/rmi22186/rob-changelog-release-test/compare/v2.1.0...v2.1.1) (2021-01-14)
 
 
