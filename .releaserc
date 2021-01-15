@@ -4,7 +4,7 @@
     "tagFormat": "v${version}",
     "plugins": [
         ["@semantic-release/release-notes-generator", {
-            "preset": "angular",
+            "preset": "conventionalcommits",
             "issue": 'ignore',
             "repository": "custom-repo",
             "owner": "custom-owner"
@@ -22,5 +22,5 @@
     }],
     ],
     "ci": false,
-    "dryRun": true,
+    "dryRun": false,
 }
