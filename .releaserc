@@ -3,9 +3,6 @@
     "repositoryUrl": "https://github.com/rmi22186/rob-changelog-release-test",
     "tagFormat": "v${version}",
     "plugins": [
-        ["@semantic-release/commit-analyzer", {
-            "preset": "conventional-changelog-conventionalcommits",
-        }],
         ["@semantic-release/release-notes-generator", {
             "repository": "custom-repo",
             "owner": "custom-owner"
