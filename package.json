@@ -18,5 +18,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/rmi22186/rob-changelog-release-test.git"
+  },
+  "dependencies": {
+    "branch-mparticle-web-kit": "^1.0.4"
   }
 }
