@@ -279,7 +279,8 @@ export default function ServerModel(mpInstance) {
             dto.fr = isFirstRun;
             dto.iu = false;
             dto.at = ApplicationTransitionType.AppInit;
-            dto.lr = window.location.href || null;
+            // Note(colin) exclude query parameters
+            dto.lr = window.location.href.split("?")[0] || null;
             dto.attrs = null;
         }
 
