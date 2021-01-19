@@ -16,7 +16,7 @@
     ],
     "main": "dist/mparticle.common.js",
     "module": "dist/mparticle.esm.js",
-    "repository": "https://github.com/mParticle/mparticle-web-sdk",
+    "repository": "https://github.com/postmates/mparticle-web-sdk",
     "scripts": {
         "build": "ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js",
         "build:dev": "ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js",
