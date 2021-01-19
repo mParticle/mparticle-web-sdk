@@ -1,5 +1,5 @@
 {
-    "name": "@mparticle/web-sdk",
+    "name": "@postmates/web-sdk",
     "version": "2.12.3",
     "description": "mParticle core SDK for web applications",
     "license": "Apache-2.0",
