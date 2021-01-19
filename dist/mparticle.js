@@ -7702,8 +7702,9 @@ var mParticle = (function () {
         if (event.EventDataType === MessageType$1.AppStateTransition) {
           dto.fr = isFirstRun;
           dto.iu = false;
-          dto.at = ApplicationTransitionType$1.AppInit;
-          dto.lr = window.location.href || null;
+          dto.at = ApplicationTransitionType$1.AppInit; // Note(colin) exclude query parameters
+
+          dto.lr = window.location.href.split("?")[0] || null;
           dto.attrs = null;
         }
 
