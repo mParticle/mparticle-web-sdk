@@ -2999,8 +2999,6 @@ var mParticle = (function () {
                 key: "queueEvent",
                 value: function queueEvent(event) {
                     if (event) {
-                        //add this for cleaner processing later
-                        event.IsFirstRun = this.mpInstance._Store.isFirstRun;
                         this.pendingEvents.push(event);
                         this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
                         this.mpInstance.Logger.verbose("Queued event count: ".concat(this.pendingEvents.length));
@@ -3480,7 +3478,7 @@ var mParticle = (function () {
         if (xhr) {
           try {
             xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.v2SecureServiceUrl, mpInstance._Store.devToken) + '/Events');
-            xhr.send(JSON.stringify(mpInstance._ServerModel.convertEventToDTO(event, mpInstance._Store.isFirstRun)));
+            xhr.send(JSON.stringify(mpInstance._ServerModel.convertEventToDTO(event)));
           } catch (e) {
             mpInstance.Logger.error('Error sending event to mParticle servers. ' + e);
           }
@@ -4601,15 +4599,15 @@ var mParticle = (function () {
         }
 
         if (transactionAttributes.hasOwnProperty('Revenue')) {
-          productAction.TotalAmount = transactionAttributes.Revenue;
+          productAction.TotalAmount = this.sanitizeAmount(transactionAttributes.Revenue, 'Revenue');
         }
 
         if (transactionAttributes.hasOwnProperty('Shipping')) {
-          productAction.ShippingAmount = transactionAttributes.Shipping;
+          productAction.ShippingAmount = this.sanitizeAmount(transactionAttributes.Shipping, 'Shipping');
         }
 
         if (transactionAttributes.hasOwnProperty('Tax')) {
-          productAction.TaxAmount = transactionAttributes.Tax;
+          productAction.TaxAmount = this.sanitizeAmount(transactionAttributes.Tax, 'Tax');
         }
 
         if (transactionAttributes.hasOwnProperty('Step')) {
@@ -4855,6 +4853,8 @@ var mParticle = (function () {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(price)) {
           mpInstance.Logger.error('Price is required when creating a product, and must be a string or a number');
           return null;
+        } else {
+          price = mpInstance._Helpers.parseNumber(price);
         }
 
         if (position && !mpInstance._Helpers.Validators.isNumber(position)) {
@@ -4862,8 +4862,10 @@ var mParticle = (function () {
           position = null;
         }
 
-        if (!quantity) {
+        if (!mpInstance._Helpers.Validators.isStringOrNumber(quantity)) {
           quantity = 1;
+        } else {
+          quantity = mpInstance._Helpers.parseNumber(quantity);
         }
 
         return {
@@ -5077,6 +5079,18 @@ var mParticle = (function () {
         }
 
         return null;
+      }; // sanitizes any non number, non string value to 0
+
+
+      this.sanitizeAmount = function (amount, category) {
+        if (!mpInstance._Helpers.Validators.isStringOrNumber(amount)) {
+          var message = [category, 'must be of type number. A', _typeof_1(amount), 'was passed. Converting to 0'].join(' ');
+          mpInstance.Logger.warning(message);
+          return 0;
+        } // if amount is a string, it will be parsed into a number if possible, or set to 0
+
+
+        return mpInstance._Helpers.parseNumber(amount);
       };
     }
 
@@ -5710,7 +5724,7 @@ var mParticle = (function () {
         data.gs.cgid = store.clientId;
         data.gs.das = store.deviceId;
         data.gs.c = store.context;
-        data.gs.ssd = store.sessionStartDate ? store.sessionStartDate.getTime() : null;
+        data.gs.ssd = store.sessionStartDate ? store.sessionStartDate.getTime() : 0;
         data.gs.ia = store.integrationAttributes;
         return data;
       }
@@ -6496,12 +6510,31 @@ var mParticle = (function () {
       this.logProductActionEvent = function (productActionType, product, customAttrs, customFlags, transactionAttributes) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
 
+        var productList = Array.isArray(product) ? product : [product];
+        productList.forEach(function (product) {
+          if (product.TotalAmount) {
+            product.TotalAmount = mpInstance._Ecommerce.sanitizeAmount(product.TotalAmount, 'TotalAmount');
+          }
+
+          if (product.Position) {
+            product.Position = mpInstance._Ecommerce.sanitizeAmount(product.Position, 'Position');
+          }
+
+          if (product.Price) {
+            product.Price = mpInstance._Ecommerce.sanitizeAmount(product.Price, 'Price');
+          }
+
+          if (product.Quantity) {
+            product.Quantity = mpInstance._Ecommerce.sanitizeAmount(product.Quantity, 'Quantity');
+          }
+        });
+
         if (event) {
           event.EventCategory = mpInstance._Ecommerce.convertProductActionToEventType(productActionType);
           event.EventName += mpInstance._Ecommerce.getProductActionEventName(productActionType);
           event.ProductAction = {
             ProductActionType: productActionType,
-            ProductList: Array.isArray(product) ? product : [product]
+            ProductList: productList
           };
 
           if (mpInstance._Helpers.isObject(transactionAttributes)) {
@@ -7627,7 +7660,7 @@ var mParticle = (function () {
             Store: mpInstance._Store.serverSettings,
             SDKVersion: Constants.sdkVersion,
             SessionId: mpInstance._Store.sessionId,
-            SessionStartDate: mpInstance._Store.sessionStartDate ? mpInstance._Store.sessionStartDate.getTime() : null,
+            SessionStartDate: mpInstance._Store.sessionStartDate ? mpInstance._Store.sessionStartDate.getTime() : 0,
             Debug: mpInstance._Store.SDKConfig.isDevelopmentMode,
             Location: mpInstance._Store.currentPosition,
             OptOut: optOut,
@@ -7640,6 +7673,11 @@ var mParticle = (function () {
             CurrencyCode: mpInstance._Store.currencyCode,
             DataPlan: mpInstance._Store.SDKConfig.dataPlan ? mpInstance._Store.SDKConfig.dataPlan : {}
           };
+
+          if (eventObject.EventDataType === MessageType$1.AppStateTransition) {
+            eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
+          }
+
           eventObject.CurrencyCode = mpInstance._Store.currencyCode;
           var currentUser = user || mpInstance.Identity.getCurrentUser();
           self.appendUserInfo(currentUser, eventObject);
@@ -7659,7 +7697,7 @@ var mParticle = (function () {
         return null;
       };
 
-      this.convertEventToDTO = function (event, isFirstRun) {
+      this.convertEventToDTO = function (event) {
         var dto = {
           n: event.EventName,
           et: event.EventCategory,
@@ -7700,7 +7738,7 @@ var mParticle = (function () {
         }
 
         if (event.EventDataType === MessageType$1.AppStateTransition) {
-          dto.fr = isFirstRun;
+          dto.fr = event.IsFirstRun;
           dto.iu = false;
           dto.at = ApplicationTransitionType$1.AppInit;
           dto.lr = window.location.href || null;
@@ -10400,11 +10438,11 @@ var mParticle = (function () {
         var data = {
           m: error.message ? error.message : error,
           s: 'Error',
-          t: error.stack
+          t: error.stack || null
         };
 
         if (attrs) {
-          var sanitized = self._Helpers.sanitizeAttributes(attrs);
+          var sanitized = self._Helpers.sanitizeAttributes(attrs, data.m);
 
           for (var prop in sanitized) {
             data[prop] = sanitized[prop];
