@@ -2,6 +2,12 @@
 
 --
 
+#### 2.12.3 - 2021-01-20
+
+-   Bugfix - update is first run to booleans
+-   Bugfix - Sanitize ecommerce amounts to numbers
+-   Bugfix - Set sessionStartDate to 0 instead of null
+-   Bugfix - Error events - Set to null if stack trace is undefined; Add context to error events
 #### 2.12.2 - 2020-11-12
 
 -   Bugfix - Fix data plan options API
