@@ -4,6 +4,7 @@ import resolve from 'rollup-plugin-node-resolve';
 import babel from 'rollup-plugin-babel';
 import typescript from 'rollup-plugin-typescript';
 import commonjs from 'rollup-plugin-commonjs';
+import json from '@rollup/plugin-json';
 const extensions = ['.js', '.ts'];
 
 const defaultOutputOptions = {
@@ -51,6 +52,7 @@ const builds = {
                 include: 'node_modules/**',
             }),
             typescript(),
+            json(),
         ],
     },
     cjs: {
@@ -68,6 +70,7 @@ const builds = {
                 include: 'node_modules/**',
             }),
             typescript(),
+            json(),
         ],
     },
     esm: {
@@ -85,6 +88,7 @@ const builds = {
                 include: 'node_modules/**',
             }),
             typescript(),
+            json(),
         ],
     },
     stub: {

@@ -1,5 +1,7 @@
+import { version } from '../package.json';
+
 var Constants = {
-    sdkVersion: '2.12.2',
+    sdkVersion: version,
     sdkVendor: 'mparticle',
     platform: 'web',
     Messages: {
