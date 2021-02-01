@@ -100,7 +100,8 @@
             : 'http://jssdkcdn') +
         '.mparticle.com/js/v2/' +
         apiKey +
-        '/mparticle.js' + dbUrl;
+        '/mparticle.js' +
+        dbUrl;
     var s = document.getElementsByTagName('script')[0];
     s.parentNode.insertBefore(mp, s);
 })('REPLACE WITH API KEY');
