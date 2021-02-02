@@ -1,3 +1,12 @@
+## [2.12.4](https://github.com/mParticle/mparticle-web-sdk-public-test/compare/v2.12.3...v2.12.4) (2021-02-02)
+
+
+### Bug Fixes
+
+* remove .releaserc in favor of release.config.js ([9dffabc](https://github.com/mParticle/mparticle-web-sdk-public-test/commit/9dffabcfbdb5dcfbb4583390f1a4127f05ea872a))
+* update key1 for constants.js ([fb11b87](https://github.com/mParticle/mparticle-web-sdk-public-test/commit/fb11b87be627424e5bca6801b947faa8db0c4c90))
+* update public github test url ([045e3b9](https://github.com/mParticle/mparticle-web-sdk-public-test/commit/045e3b9c679c073e305285a68fe6aa7e136a3433))
+
 ## Releases
 
 --
