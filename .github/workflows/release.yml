@@ -63,7 +63,7 @@ jobs:
 
             - name: Merge internal/development to public/master for release
               run: |
-                  git remote add public https://${{ secrets.GH_TOKEN_INTERNAL_TO_PUBLIC_TEST }}@github.com/mparticle/mparticle-web-sdk.git
+                  git remote add public https://${{ secrets.GH_TOKEN_INTERNAL_TO_PUBLIC_TEST }}@github.com/mparticle/mparticle-web-sdk-public-test.git
                   git fetch public master
                   git checkout public/master
                   git merge origin/development

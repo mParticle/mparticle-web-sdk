@@ -26,11 +26,12 @@ module.exports = {
             {
                 npmPublish: false,
             },
-        ][
+        ],
+        [
             ('@semantic-release/exec',
             {
                 verifyReleaseCmd: 'sh ./scripts/release.sh',
-            })
+            }),
         ],
         [
             '@semantic-release/github',
