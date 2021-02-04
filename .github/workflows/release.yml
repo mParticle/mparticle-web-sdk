@@ -70,6 +70,8 @@ jobs:
 
             - name: Release --dry-run
               if: ${{ github.event.inputs.dryRun == 'true'}}
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GH_TOKEN_INTERNAL_TO_PUBLIC_TEST }}
               run: |
                   npx semantic-release --dry-run
 
