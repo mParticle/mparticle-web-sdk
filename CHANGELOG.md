@@ -1,3 +1,10 @@
+## [2.12.5](https://github.com/mParticle/mparticle-web-sdk-public-test/compare/v2.12.4...v2.12.5) (2021-02-05)
+
+
+### Bug Fixes
+
+* add abc.js ([7fce6b6](https://github.com/mParticle/mparticle-web-sdk-public-test/commit/7fce6b65ed05944b79221230d2ab2eb5d188e10c))
+
 ## [2.12.4](https://github.com/mParticle/mparticle-web-sdk-public-test/compare/v2.12.3...v2.12.4) (2021-02-02)
 
 
