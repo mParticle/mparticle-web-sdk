@@ -25,12 +25,14 @@ module.exports = {
             ('@semantic-release/exec',
             {
                 prepareCmd: 'sh ./scripts/release.sh',
+                failCmd:
+                    'npm unpublish @mparicle/web-sdk@${nextRelease.version}',
             }),
         ],
         [
             '@semantic-release/npm',
             {
-                npmPublish: false,
+                npmPublish: true,
             },
         ],
         [
