@@ -45,12 +45,16 @@ export class BatchUploader {
 
     private addEventListeners() {
         const _this = this;
-        window.onbeforeunload = () => {
+
+        document.addEventListener('visibilitychange', () => {
             _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        };
-        window.onpagehide = () => {
+        });
+        window.addEventListener('beforeunload', () => {
             _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        };
+        });
+        window.addEventListener('pagehide', () => {
+            _this.prepareAndUpload(false, _this.isBeaconAvailable());
+        });
     }
 
     private isBeaconAvailable(): boolean {
