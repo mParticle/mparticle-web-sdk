@@ -79,7 +79,7 @@ jobs:
               if: ${{ github.event.inputs.dryRun == 'false'}}
               env:
                   GITHUB_TOKEN: ${{ secrets.GH_TOKEN_INTERNAL_TO_PUBLIC_TEST }}
-                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+                  NPM_TOKEN: ${{ secrets.NPM_TOKENTEST }}
               run: |
                   semantic-release
 
