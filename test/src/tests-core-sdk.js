@@ -1026,4 +1026,18 @@ describe('core SDK', function() {
         window.mParticle.config.useCookieStorage = false;
         done();
     });
+
+    it('should queue setCurrencyCode successfully when SDK is not yet initialized, and then later initialized', function(done) {
+        mParticle._resetForTests(MPConfig);
+        // mock a non-initialized state
+        mParticle.getInstance()._Store.isInitialized = false;
+
+        // when SDK is not yet initialized, this will add to the ready queue
+        mParticle.eCommerce.setCurrencyCode('USD');
+
+        // initializing SDK will flush the ready queue and setCurrencyCode should not throw an error
+        mParticle.init(apiKey, window.mParticle.config)
+
+        done();
+    });
 });

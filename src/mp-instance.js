@@ -621,7 +621,7 @@ export default function mParticleInstance(instanceName) {
         setCurrencyCode: function(code) {
             if (!self._Store.isInitialized) {
                 self.ready(function() {
-                    self.setCurrencyCode(code);
+                    self.eCommerce.setCurrencyCode(code);
                 });
                 return;
             }
