@@ -1,3 +1,13 @@
+## [2.12.6](https://github.com/mParticle/mparticle-web-sdk-public-test/compare/v2.12.5...v2.12.6) (2021-02-09)
+
+
+### Bug Fixes
+
+* Add failCmd to ci ([315646d](https://github.com/mParticle/mparticle-web-sdk-public-test/commit/315646d947fbe3a6506f6355231cc813bec84149))
+* Add key to constants ([a9413b9](https://github.com/mParticle/mparticle-web-sdk-public-test/commit/a9413b93e6dcc835e7215b215692a6868dbf1e67))
+* Remove npx and use prepareCmd instead of verifyRelease ([89e96cc](https://github.com/mParticle/mparticle-web-sdk-public-test/commit/89e96cccc3bbec4f0d051b089d62132dbbd44691))
+* Update token name ([4fc24fe](https://github.com/mParticle/mparticle-web-sdk-public-test/commit/4fc24fe8c94560c301c942bc3a0da6ef1447665b))
+
 ## [2.12.5](https://github.com/mParticle/mparticle-web-sdk-public-test/compare/v2.12.4...v2.12.5) (2021-02-05)
 
 
