@@ -1,0 +1,40 @@
+# This Github Workflow builds v2 of the mParticle Web SDK, lints with ESLint and Prettier to find errors, and runs all tests
+
+name: Web SDK Build & Test
+
+on: [push, pull_request]
+
+jobs:
+    build-and-test:
+        name: Build and Test
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: NPM install
+              uses: actions/setup-node@v1
+              with:
+                  node-version: 12.x
+
+            - name: Run NPM CI
+              run: npm ci
+
+            - name: Lint with ESLint
+              run: npm run lint
+
+            - name: Lint with Prettier
+              run: npm run prettier
+
+            - name: Build Files
+              run: npm run build
+
+            - name: Run Core tests
+              run: npm run test
+
+            - name: Run Integration
+              run: npm run test:integrations
+
+            - name: Run Stub tests
+              run: npm run test:stub
