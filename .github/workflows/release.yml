@@ -10,22 +10,22 @@ on:
 
 jobs:
     # SDK release is done from public/master branch.
-    confirm-master-branch:
-        name: Confirm release is run on public/master branch
-        runs-on: ubuntu-latest
-        steps:
-            - name: Git checkout
-              uses: actions/checkout@v1
-            - name: Branch name
-              run: |
-                  BRANCHNAME=${GITHUB_REF##*/}
-                  echo "pulling branch name, branch name is:"
-                  echo $BRANCHNAME
-                  if [ $BRANCHNAME != "master" ]
-                  then
-                    echo "You can only run a release from the master branch, you are trying to run it from ${BRANCHNAME}"
-                    exit 1
-                  fi
+    # confirm-master-branch:
+    #     name: Confirm release is run on public/master branch
+    #     runs-on: ubuntu-latest
+    #     steps:
+    #         - name: Git checkout
+    #           uses: actions/checkout@v1
+    #         - name: Branch name
+    #           run: |
+    #               BRANCHNAME=${GITHUB_REF##*/}
+    #               echo "pulling branch name, branch name is:"
+    #               echo $BRANCHNAME
+    #               if [ $BRANCHNAME != "master" ]
+    #               then
+    #                 echo "You can only run a release from the master branch, you are trying to run it from ${BRANCHNAME}"
+    #                 exit 1
+    #               fi
 
     # All new code is stored in internal/development. Release from public/master will merge changes from internal/development into
     # public/master, then run semantic-release on public/master to update changelog and release notes. Before semantic-release publishes
@@ -34,7 +34,7 @@ jobs:
     release-and-sync-repos:
         name: Release and Sync Repos
         runs-on: ubuntu-18.04
-        needs: ['confirm-master-branch']
+        # needs: ['confirm-master-branch']
         env:
             GIT_AUTHOR_NAME: mparticle-bot
             GIT_AUTHOR_EMAIL: developers@mparticle.com
@@ -58,8 +58,8 @@ jobs:
             - name: Install dependencies
               run: npm install ci
 
-            - name: Run tests
-              run: npm run test
+            # - name: Run tests
+            #   run: npm run test
 
             - name: Merge internal/development to public/master for release
               run: |

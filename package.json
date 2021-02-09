@@ -101,6 +101,7 @@
         "rollup-plugin-commonjs": "^10.1.0",
         "rollup-plugin-node-resolve": "^5.2.0",
         "rollup-plugin-typescript": "^1.0.1",
+        "semantic-release": "^17.3.8",
         "shelljs": "^0.7.8",
         "should": "^7.1.0",
         "sinon": "^7.4.1",
