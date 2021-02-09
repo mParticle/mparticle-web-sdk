@@ -22,16 +22,16 @@ module.exports = {
             },
         ],
         [
+            ('@semantic-release/exec',
+            {
+                prepareCmd: 'sh ./scripts/release.sh',
+            }),
+        ],
+        [
             '@semantic-release/npm',
             {
                 npmPublish: false,
             },
-        ],
-        [
-            ('@semantic-release/exec',
-            {
-                verifyReleaseCmd: 'sh ./scripts/release.sh',
-            }),
         ],
         [
             '@semantic-release/github',
