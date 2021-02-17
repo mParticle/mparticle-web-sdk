@@ -719,7 +719,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.12.4";
+    var version = "2.12.5";
 
     var Constants = {
       sdkVersion: version,
@@ -2982,12 +2982,15 @@ var mParticle = (function () {
                 key: "addEventListeners",
                 value: function addEventListeners() {
                     var _this = this;
-                    window.onbeforeunload = function () {
+                    document.addEventListener('visibilitychange', function () {
                         _this.prepareAndUpload(false, _this.isBeaconAvailable());
-                    };
-                    window.onpagehide = function () {
+                    });
+                    window.addEventListener('beforeunload', function () {
                         _this.prepareAndUpload(false, _this.isBeaconAvailable());
-                    };
+                    });
+                    window.addEventListener('pagehide', function () {
+                        _this.prepareAndUpload(false, _this.isBeaconAvailable());
+                    });
                 }
             }, {
                 key: "isBeaconAvailable",
@@ -10669,7 +10672,7 @@ var mParticle = (function () {
         setCurrencyCode: function setCurrencyCode(code) {
           if (!self._Store.isInitialized) {
             self.ready(function () {
-              self.setCurrencyCode(code);
+              self.eCommerce.setCurrencyCode(code);
             });
             return;
           }
