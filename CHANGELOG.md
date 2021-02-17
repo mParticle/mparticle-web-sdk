@@ -2,10 +2,16 @@
 
 --
 
+#### 2.12.45 - 2021-02-17
+
+-   Bugfix - Use addEventListeners for life cycle events
+-   Bugfix - Set setCurrencyCode on eCommerce object
+
 #### 2.12.4 - 2021-02-09
 
 -   Refactor - Import version from package.json
 -   Format code styling
+
 #### 2.12.3 - 2021-01-20
 
 -   Bugfix - update is first run to booleans
