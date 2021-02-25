@@ -14,6 +14,9 @@
         "dist/mparticle.js",
         "src/"
     ],
+    "publishConfig": {
+        "access": "public"
+    },
     "main": "dist/mparticle.common.js",
     "module": "dist/mparticle.esm.js",
     "repository": "https://github.com/mParticle/mparticle-web-sdk",
@@ -67,6 +70,9 @@
         "@mparticle/data-planning-models": "^0.1.0",
         "@mparticle/event-models": "^1.1.2",
         "@rollup/plugin-json": "^4.1.0",
+        "@semantic-release/changelog": "^5.0.1",
+        "@semantic-release/exec": "^5.0.0",
+        "@semantic-release/git": "^9.0.0",
         "@types/chai": "^4.2.3",
         "@types/mocha": "^5.2.7",
         "@types/node": "^10.0.3",

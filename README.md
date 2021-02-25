@@ -51,11 +51,10 @@ function(t){window.mParticle=window.mParticle||{};window.mParticle.EventType={Un
 You can then log events, for example, as follows:
 
 ```javascript
-mParticle.logEvent(
-    'Play Movie',
-    mParticle.EventType.Navigation, 
-    {'movie_length':'127 minutes','rating':'PG'}
-);
+mParticle.logEvent('Play Movie', mParticle.EventType.Navigation, {
+    movie_length: '127 minutes',
+    rating: 'PG',
+});
 ```
 
 ### Option 2. Self host mParticle via NPM
@@ -72,7 +71,7 @@ npm install @mparticle/web-sdk
 
 ```javascript
 // index.js
-import mParticle from '@mparticle/web-sdk'
+import mParticle from '@mparticle/web-sdk';
 
 let mParticleConfig: {
     isDevelopmentMode: true,
@@ -84,9 +83,9 @@ let mParticleConfig: {
     },
     identityCallback: myIdentityCallback,
     dataPlan: {
-       planId: 'my_plan_id',
-       planVersion: 2
-    }
+        planId: 'my_plan_id',
+        planVersion: 2,
+    },
 };
 mParticle.init('REPLACE WITH API KEY', mParticleConfig);
 ```
@@ -94,12 +93,10 @@ mParticle.init('REPLACE WITH API KEY', mParticleConfig);
 You can then log events, for example, as follows:
 
 ```javascript
-mParticle.logEvent(
-    'Play Movie',
-    mParticle.EventType.Navigation, 
-    {'movie_length':'127 minutes','rating':'PG'}
-);
-
+mParticle.logEvent('Play Movie', mParticle.EventType.Navigation, {
+    movie_length: '127 minutes',
+    rating: 'PG',
+});
 ```
 
 ## Creating an Integration
@@ -124,15 +121,9 @@ If you would like to add your company as a new Javascript integration, reference
 -   [SimpleReach](https://github.com/mparticle-integrations/mparticle-javascript-integration-simplereach)
 -   [Twitter](https://github.com/mparticle-integrations/mparticle-javascript-integration-twitter)
 
-## Running the Tests
+## Contributing
 
-Prior to running the tests please install all dev dependencies via an `npm install`, and build the mParticle.js file as well as the test file by running `npm run build`:
-
-```bash
-$ npm install
-$ npm run build
-$ npm run testKarma
-```
+See [CONTRIBUTING.md](https://github.com/mParticle/mparticle-web-sdk/blob/master/CONTRIBUTING.md).
 
 The test script will run all tests using Karma and ChromeHeadless, and Firefox by default. To run tests using a different browser, use the command:
 
