@@ -8,7 +8,6 @@ jobs:
     build-and-test:
         name: Build and Test
         runs-on: ubuntu-latest
-
         steps:
             - name: Checkout
               uses: actions/checkout@v2
@@ -38,3 +37,14 @@ jobs:
 
             - name: Run Stub tests
               run: npm run test:stub
+
+    dependabot-automerge:
+        name: Dependabot Auto Merge
+        needs: build-and-test
+        if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request' }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: fastify/github-action-merge-dependabot@v1
+              with:
+                  github-token: ${{secrets.github_token}}
+                  merge-method: 'rebase'
