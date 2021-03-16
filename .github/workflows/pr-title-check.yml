@@ -7,6 +7,7 @@ on:
 jobs:
     pr-title-check:
         name: Check PR for semantic title
+        if: ${{ github.actor != 'dependabot[bot]' }}
         runs-on: ubuntu-latest
         steps:
             - name: Set PR title validity

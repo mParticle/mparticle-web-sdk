@@ -65,7 +65,7 @@ jobs:
                   git checkout public/master
                   git rebase origin/development
             
-              - name: Run tests
+            - name: Run tests
               run: npm run test
 
             - name: Release --dry-run
