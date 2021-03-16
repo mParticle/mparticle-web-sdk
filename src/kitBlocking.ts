@@ -1,5 +1,5 @@
 import { convertEvent } from './sdkToEventsApiConverter';
-import { SDKEvent, MParticleWebSDK, KitBlockerDataPlan } from './sdkRuntimeModels';
+import { SDKEvent, MParticleWebSDK, KitBlockerDataPlan, SDKProduct } from './sdkRuntimeModels';
 import { BaseEvent, EventTypeEnum, CommerceEvent, ScreenViewEvent, CustomEvent } from '@mparticle/event-models';
 import Types from './types'
 import { DataPlanPoint } from '@mparticle/data-planning-models';
@@ -148,8 +148,7 @@ export default class KitBlocker {
                 return [match.type as string, promoActionMatch.action, 'ProductAttributes'].join(':');
 
             case DataPlanMatchType.ProductImpression:
-                const productImpressionActionMatch = criteria;
-                return [match.type as string, productImpressionActionMatch.action, 'ProductAttributes'].join(':');
+                return [match.type as string, 'ProductAttributes'].join(':');
 
             default:
                 return null;
@@ -204,26 +203,31 @@ export default class KitBlocker {
     getProductProperties(type, validator): boolean | {[key: string]: true} | null {
         let productCustomAttributes;
         switch (type) {
+            case DataPlanMatchType.ProductImpression:
+                productCustomAttributes = validator?.definition?.properties?.data?.properties?.product_impressions?.items?.properties?.products?.items?.properties?.custom_attributes
+                //product item attributes
+                if (productCustomAttributes?.additionalProperties === false) {
+                    const properties = {};
+                    for (const property of Object.keys(productCustomAttributes?.properties)) {
+                        properties[property] = true;
+                    }
+                    return properties;
+                }
+                return true;
             case DataPlanMatchType.ProductAction:
             case DataPlanMatchType.PromotionAction:
-            case DataPlanMatchType.ProductImpression:
-                //product transaction attributes
                 productCustomAttributes = validator?.definition?.properties?.data?.properties?.product_action?.properties?.products?.items?.properties?.custom_attributes
                 //product item attributes
                 if (productCustomAttributes) {
-                    if (productCustomAttributes.additionalProperties === true || productCustomAttributes.additionalProperties === undefined) {
-                        return true;
-                    } else {
+                    if (productCustomAttributes.additionalProperties === false) {
                         const properties = {};
                         for (const property of Object.keys(productCustomAttributes?.properties)) {
                             properties[property] = true;
                         }
                         return properties;
                     }
-                } else {
-                    return true;
                 }
-
+                return true;
             default:
                 return null;
         }
@@ -379,6 +383,16 @@ export default class KitBlocker {
         const matchKey: string = this.getProductAttributeMatchKey(baseEvent);
         const matchedEvent = this.dataPlanMatchLookups[matchKey];
 
+        function removeAttribute(matchedEvent: { [key: string]: string }, productList: SDKProduct[]): void {
+            productList.forEach(product => { 
+                for (const productKey of Object.keys(product.Attributes)) {
+                    if (!matchedEvent[productKey]) {
+                        delete product.Attributes[productKey];
+                    }
+                }
+            });
+        }
+
         if (this.blockEvents) {
             /* 
                 If the event is not planned, it doesn't exist in dataPlanMatchLookups
@@ -399,13 +413,18 @@ export default class KitBlocker {
                 return clonedEvent;
             }
             if (matchedEvent) {
-                clonedEvent.ProductAction?.ProductList?.forEach(product => {
-                    for (const productKey of Object.keys(product.Attributes)) {
-                        if (!matchedEvent[productKey]) {
-                            delete product.Attributes[productKey];
-                        }
-                    }
-                });
+                switch (event.EventCategory) {
+                    case Types.CommerceEventType.ProductImpression:
+                        clonedEvent.ProductImpressions.forEach(impression=> {
+                            removeAttribute(matchedEvent, impression?.ProductList)
+                        });
+                        break;
+                    case Types.CommerceEventType.ProductPurchase:
+                        removeAttribute(matchedEvent, clonedEvent.ProductAction?.ProductList)
+                        break;
+                    default: 
+                        this.mpInstance.Logger.warning('Product Not Supported ')
+                }
                 
                 return clonedEvent;
             } else {

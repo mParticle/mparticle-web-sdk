@@ -13,6 +13,99 @@
       "version_document": {
         "data_points": [
           {
+        "description": "",
+        "match": {
+          "type": "product_impression",
+          "criteria": {}
+        },
+        "validator": {
+          "type": "json_schema",
+          "definition": {
+            "properties": {
+              "data": {
+                "additionalProperties": true,
+                "properties": {
+                  "custom_flags": {
+                    "additionalProperties": false,
+                    "description": "",
+                    "properties": {
+                      "NotSoCustomFlag": {
+                        "description": "",
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [],
+                    "type": "object"
+                  },
+                  "custom_attributes": {
+                    "additionalProperties": false,
+                    "description": "",
+                    "properties": {
+                      "thing1": {
+                        "description": "",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "thing1"
+                    ],
+                    "type": "object"
+                  },
+                  "product_impressions": {
+                    "description": "",
+                    "items": {
+                      "additionalProperties": false,
+                      "description": "",
+                      "properties": {
+                        "product_impression_list": {
+                          "description": "",
+                          "type": "string"
+                        },
+                        "products": {
+                          "description": "",
+                          "items": {
+                            "additionalProperties": true,
+                            "description": "",
+                            "properties": {
+                              "custom_attributes": {
+                                "additionalProperties": false,
+                                "description": "",
+                                "properties": {
+                                  "allowedAttr2": {
+                                    "description": "",
+                                    "type": "string"
+                                  },
+                                  "allowedAttr1": {
+                                    "description": "",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [],
+                                "type": "object"
+                              }
+                            },
+                            "required": [],
+                            "type": "object"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": [],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "custom_attributes"
+                ],
+                "type": "object"
+              }
+            }
+          }
+        }
+      },
+          {
             "description": "",
             "match": {
               "type": "screen_view",
@@ -148,28 +241,6 @@
             "validator": {
               "type": "json_schema",
               "definition": {}
-            }
-          },
-          {
-            "match": {
-              "type": "product_impression"
-            },
-            "validator": {
-              "type": "json_schema",
-              "definition": {
-                "properties": {
-                  "data": {
-                    "properties": {
-                      "custom_attributes": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "thing1": {}
-                        }
-                      }
-                    }
-                  }
-                }
-              }
             }
           },
           {

@@ -60,10 +60,10 @@ describe('kit blocking', () => {
             });
             dataPlanMatchLookups.should.have.property('promotion_action:view:ProductAttributes', true);
             dataPlanMatchLookups.should.have.property('custom_event:navigation:TestEvent', true);
-            dataPlanMatchLookups.should.have.property('product_impression:', {
-                thing1: true
+            dataPlanMatchLookups.should.have.property('product_impression:ProductAttributes', {
+                allowedAttr1: true,
+                allowedAttr2: true
             });
-            dataPlanMatchLookups.should.have.property('product_impression::ProductAttributes', true);
 
             dataPlanMatchLookups.should.have.property('screen_view::A New ScreenViewEvent', true)
             dataPlanMatchLookups.should.have.property('screen_view::my screeeen', {
@@ -125,8 +125,8 @@ describe('kit blocking', () => {
             event.EventAttributes = { keyword2: 'test' };
             event.EventDataType = Types.MessageType.PageEvent;
 
-            let transformdEvent = kitBlocker.transformEventAndEventAttributes(event);
-            (transformdEvent === null).should.equal(true);
+            let transformedEvent = kitBlocker.transformEventAndEventAttributes(event);
+            (transformedEvent === null).should.equal(true);
 
             done();
         });
@@ -137,9 +137,9 @@ describe('kit blocking', () => {
             event.EventAttributes = { unplannedAttr: 'test', foo: 'hi' };
             event.EventDataType = Types.MessageType.PageEvent;
 
-            let transformdEvent = kitBlocker.transformEventAndEventAttributes(event);
-            transformdEvent.EventAttributes.should.not.have.property('unplannedAttr');
-            transformdEvent.EventAttributes.should.have.property('foo', 'hi');
+            let transformedEvent = kitBlocker.transformEventAndEventAttributes(event);
+            transformedEvent.EventAttributes.should.not.have.property('unplannedAttr');
+            transformedEvent.EventAttributes.should.have.property('foo', 'hi');
 
             done();
         });
@@ -150,9 +150,9 @@ describe('kit blocking', () => {
             event.EventAttributes = { unplannedAttr: 'test', foo: 'hi' };
             event.EventDataType = Types.MessageType.PageView;
  
-            let transformdEvent = kitBlocker.transformEventAndEventAttributes(event);
-            transformdEvent.EventAttributes.should.not.have.property('unplannedAttr');
-            transformdEvent.EventAttributes.should.not.have.property('foo');
+            let transformedEvent = kitBlocker.transformEventAndEventAttributes(event);
+            transformedEvent.EventAttributes.should.not.have.property('unplannedAttr');
+            transformedEvent.EventAttributes.should.not.have.property('foo');
 
             done();
         });
@@ -163,9 +163,9 @@ describe('kit blocking', () => {
             event.EventAttributes = { keyword2: 'test', foo: 'hi' };
             event.EventDataType = Types.MessageType.PageEvent;
 
-            let transformdEvent = kitBlocker.transformEventAndEventAttributes(event);
-            transformdEvent.EventAttributes.should.have.property('foo', 'hi');
-            transformdEvent.EventAttributes.should.have.property('keyword2', 'test');
+            let transformedEvent = kitBlocker.transformEventAndEventAttributes(event);
+            transformedEvent.EventAttributes.should.have.property('foo', 'hi');
+            transformedEvent.EventAttributes.should.have.property('keyword2', 'test');
 
             done();
         });
@@ -176,8 +176,8 @@ describe('kit blocking', () => {
             event.EventAttributes = { keyword2: 'test', foo: 'hi' };
             event.EventDataType = Types.MessageType.PageEvent;
 
-            let transformdEvent = kitBlocker.transformEventAndEventAttributes(event);
-            Object.keys(transformdEvent.EventAttributes).length.should.equal(0);
+            let transformedEvent = kitBlocker.transformEventAndEventAttributes(event);
+            Object.keys(transformedEvent.EventAttributes).length.should.equal(0);
 
             done();
         });
@@ -196,10 +196,10 @@ describe('kit blocking', () => {
             event.EventAttributes = { keyword2: 'test', foo: 'hi' };
             event.EventDataType = Types.MessageType.PageEvent;
 
-            let transformdEvent = kitBlocker.transformEventAndEventAttributes(event);
-            Object.keys(transformdEvent.EventAttributes).length.should.equal(2);
-            transformdEvent.EventAttributes.should.have.property('foo', 'hi');
-            transformdEvent.EventAttributes.should.have.property('keyword2', 'test');
+            let transformedEvent = kitBlocker.transformEventAndEventAttributes(event);
+            Object.keys(transformedEvent.EventAttributes).length.should.equal(2);
+            transformedEvent.EventAttributes.should.have.property('foo', 'hi');
+            transformedEvent.EventAttributes.should.have.property('keyword2', 'test');
 
             socialDataPoint.validator.definition.properties.data.properties.custom_attributes.additionalProperties = false;
 
@@ -243,11 +243,11 @@ describe('kit blocking', () => {
             }
 
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
-            let transformdEvent = kitBlocker.transformUserAttributes(event);
-            transformdEvent.UserAttributes.should.have.property('my attribute', 'test1');
-            transformdEvent.UserAttributes.should.have.property('my other attribute', 'test2');
-            transformdEvent.UserAttributes.should.have.property('a third attribute', 'test3');
-            transformdEvent.UserAttributes.should.not.have.property('unplanned attribute');
+            let transformedEvent = kitBlocker.transformUserAttributes(event);
+            transformedEvent.UserAttributes.should.have.property('my attribute', 'test1');
+            transformedEvent.UserAttributes.should.have.property('my other attribute', 'test2');
+            transformedEvent.UserAttributes.should.have.property('a third attribute', 'test3');
+            transformedEvent.UserAttributes.should.not.have.property('unplanned attribute');
 
             done();
         });
@@ -268,11 +268,11 @@ describe('kit blocking', () => {
             };
 
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
-            let transformdEvent = kitBlocker.transformUserAttributes(event);
-            transformdEvent.UserAttributes.should.have.property('my attribute', 'test1');
-            transformdEvent.UserAttributes.should.have.property('my other attribute', 'test2');
-            transformdEvent.UserAttributes.should.have.property('a third attribute', 'test3');
-            transformdEvent.UserAttributes.should.have.property('unplanned attribute', 'test4');
+            let transformedEvent = kitBlocker.transformUserAttributes(event);
+            transformedEvent.UserAttributes.should.have.property('my attribute', 'test1');
+            transformedEvent.UserAttributes.should.have.property('my other attribute', 'test2');
+            transformedEvent.UserAttributes.should.have.property('a third attribute', 'test3');
+            transformedEvent.UserAttributes.should.have.property('unplanned attribute', 'test4');
             
             //reset
             window.mParticle.config.dataPlan.document.dtpn.blok.ua = true;
@@ -314,11 +314,11 @@ describe('kit blocking', () => {
             ];
 
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
-            let transformdEvent = kitBlocker.transformUserIdentities(event);
+            let transformedEvent = kitBlocker.transformUserIdentities(event);
 
-            transformdEvent.UserIdentities.filter(UI => UI.Type === 1)[0].should.have.property('Identity', 'customerid1');
-            transformdEvent.UserIdentities.filter(UI => UI.Type === 7)[0].should.have.property('Identity', 'email@gmail.com');
-            transformdEvent.UserIdentities.filter(UI => UI.Type === 4)[0].should.have.property('Identity', 'GoogleId');
+            transformedEvent.UserIdentities.filter(UI => UI.Type === 1)[0].should.have.property('Identity', 'customerid1');
+            transformedEvent.UserIdentities.filter(UI => UI.Type === 7)[0].should.have.property('Identity', 'email@gmail.com');
+            transformedEvent.UserIdentities.filter(UI => UI.Type === 4)[0].should.have.property('Identity', 'GoogleId');
 
             done();
         });
@@ -341,11 +341,11 @@ describe('kit blocking', () => {
             ];
 
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
-            let transformdEvent = kitBlocker.transformUserIdentities(event);
+            let transformedEvent = kitBlocker.transformUserIdentities(event);
 
-            transformdEvent.UserIdentities.find(UI => UI.Type === 1).should.have.property('Identity', 'customerid1');
-            transformdEvent.UserIdentities.find(UI => UI.Type === 7).should.have.property('Identity', 'email@gmail.com');
-            (transformdEvent.UserIdentities.find(UI => UI.Type === 4) === undefined).should.equal(true);
+            transformedEvent.UserIdentities.find(UI => UI.Type === 1).should.have.property('Identity', 'customerid1');
+            transformedEvent.UserIdentities.find(UI => UI.Type === 7).should.have.property('Identity', 'email@gmail.com');
+            (transformedEvent.UserIdentities.find(UI => UI.Type === 4) === undefined).should.equal(true);
 
             // reset
             userIdentityDataPoint.validator.definition.additionalProperties = true;
@@ -381,31 +381,18 @@ describe('kit blocking', () => {
     describe('kit blocking - product attributes', () => {
         let kitBlocker;
         let event: SDKEvent;
+        let products;
 
         beforeEach(() => {
              kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
-             event = {
-                DeviceId: 'test',
-                IsFirstRun: true,
-                EventName: null,
-                EventCategory: null,
-                MPID: testMPID, 
-                EventAttributes: null,
-                SDKVersion: '1.0.0',
-                SessionId: 'sessionId',
-                SessionStartDate: 1,
-                Timestamp: 1,
-                EventDataType: null,
-                Debug: true,
-                CurrencyCode: 'usd',
-                ProductAction: {
-                    ProductActionType: null,
-                    ProductList: [
+             products = [
                         {
                             Attributes: {
                                 'plannedAttr1': 'val1',
                                 'plannedAttr2': 'val2',
-                                'unplannedAttr1': 'val3'
+                                'unplannedAttr1': 'val3',
+                                'allowedAttr1': 'val4',
+                                'allowedAttr2': 'val5',
                             },
                             Name: 'iPhone',
                             Category: 'category',
@@ -421,7 +408,9 @@ describe('kit blocking', () => {
                             Attributes: {
                                 'plannedAttr1': 'val1',
                                 'plannedAttr2': 'val2',
-                                'unplannedAttr1': 'val3'
+                                'unplannedAttr1': 'val3',
+                                'allowedAttr1': 'val4',
+                                'allowedAttr2': 'val5',
                             },
                             Name: 'S10',
                             Category: 'category',
@@ -434,46 +423,104 @@ describe('kit blocking', () => {
                             Variant: '256',
                         }
                     ]
-                }
+             event = {
+                DeviceId: 'test',
+                IsFirstRun: true,
+                EventName: null,
+                EventCategory: null,
+                MPID: testMPID, 
+                EventAttributes: null,
+                SDKVersion: '1.0.0',
+                SessionId: 'sessionId',
+                SessionStartDate: 1,
+                Timestamp: 1,
+                EventDataType: null,
+                Debug: true,
+                CurrencyCode: 'usd',
             };
         });
 
         it('should transform productAttributes if an product attribute is not planned, additionalProperties = false, and blok.ea = true', function(done) {
             event.EventName = 'eCommerce - Purchase';
-            event.EventCategory = Types.CommerceEventType.Purchase;
+            event.EventCategory = Types.CommerceEventType.ProductPurchase;
             event.EventDataType = Types.MessageType.Commerce;
-            event.ProductAction.ProductActionType = SDKProductActionType.Purchase;
+            event.ProductAction = {
+                ProductActionType: SDKProductActionType.Purchase,
+                ProductList: products,
+            }
 
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
-            let transformdEvent = kitBlocker.transformProductAttributes(event);
-            
-            transformdEvent.ProductAction.ProductList[0].Attributes.should.not.have.property('unplannedAttr1');
-            transformdEvent.ProductAction.ProductList[0].Attributes.should.have.property('plannedAttr1');
-            transformdEvent.ProductAction.ProductList[0].Attributes.should.have.property('plannedAttr2');
+            debugger;
+            let transformedEvent = kitBlocker.transformProductAttributes(event);
+            transformedEvent.ProductAction.ProductList[0].Attributes.should.not.have.property('unplannedAttr1');
+            transformedEvent.ProductAction.ProductList[0].Attributes.should.have.property('plannedAttr1');
+            transformedEvent.ProductAction.ProductList[0].Attributes.should.have.property('plannedAttr2');
 
-            transformdEvent.ProductAction.ProductList[1].Attributes.should.not.have.property('unplannedAttr1');
-            transformdEvent.ProductAction.ProductList[1].Attributes.should.have.property('plannedAttr1');
-            transformdEvent.ProductAction.ProductList[1].Attributes.should.have.property('plannedAttr2');
+            transformedEvent.ProductAction.ProductList[1].Attributes.should.not.have.property('unplannedAttr1');
+            transformedEvent.ProductAction.ProductList[1].Attributes.should.have.property('plannedAttr1');
+            transformedEvent.ProductAction.ProductList[1].Attributes.should.have.property('plannedAttr2');
 
             done();
         });
 
-        it('should not transform productAttributes if an product attribute is not planned, additionalProperties = false,  and blok.ea = true', function(done) {
+        it('should not transform productAttributes if a product attribute is not planned, additionalProperties = false,  and blok.ea = true', function(done) {
             event.EventName = 'eCommerce - AddToCart';
             event.EventCategory = Types.CommerceEventType.AddToCart;
             event.EventDataType = Types.MessageType.Commerce;
-            event.ProductAction.ProductActionType = SDKProductActionType.AddToCart;
+            event.ProductAction = {
+                ProductActionType: SDKProductActionType.AddToCart,
+                ProductList: products,
+            };
 
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
-            let transformdEvent = kitBlocker.transformProductAttributes(event);
+            let transformedEvent = kitBlocker.transformProductAttributes(event);
             
-            transformdEvent.ProductAction.ProductList[0].Attributes.should.have.property('unplannedAttr1');
-            transformdEvent.ProductAction.ProductList[0].Attributes.should.have.property('plannedAttr1');
-            transformdEvent.ProductAction.ProductList[0].Attributes.should.have.property('plannedAttr2');
+            transformedEvent.ProductAction.ProductList[0].Attributes.should.have.property('unplannedAttr1');
+            transformedEvent.ProductAction.ProductList[0].Attributes.should.have.property('plannedAttr1');
+            transformedEvent.ProductAction.ProductList[0].Attributes.should.have.property('plannedAttr2');
 
-            transformdEvent.ProductAction.ProductList[1].Attributes.should.have.property('unplannedAttr1');
-            transformdEvent.ProductAction.ProductList[1].Attributes.should.have.property('plannedAttr1');
-            transformdEvent.ProductAction.ProductList[1].Attributes.should.have.property('plannedAttr2');
+            transformedEvent.ProductAction.ProductList[1].Attributes.should.have.property('unplannedAttr1');
+            transformedEvent.ProductAction.ProductList[1].Attributes.should.have.property('plannedAttr1');
+            transformedEvent.ProductAction.ProductList[1].Attributes.should.have.property('plannedAttr2');
+
+            done();
+        });
+
+        it('should transform productAttributes in product impressions if an product attribute is not planned, additionalProperties = false,  and blok.ea = true', function(done) {
+            event.EventName = 'eCommerce - Impression';
+            event.ProductImpressions = [
+                {
+                    ProductImpressionList: 'imp1',
+                    ProductList: products
+                },
+                {
+                    ProductImpressionList: 'imp2',
+                    ProductList: products
+                }
+            ]
+            event.EventCategory = Types.CommerceEventType.ProductImpression;
+            event.EventDataType = Types.MessageType.Commerce;
+
+            let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
+            let transformedEvent = kitBlocker.transformProductAttributes(event);
+
+            transformedEvent.ProductImpressions[0].ProductList[0].Attributes.should.have.property('allowedAttr1', 'val4');
+            transformedEvent.ProductImpressions[0].ProductList[0].Attributes.should.have.property('allowedAttr2', 'val5');
+            transformedEvent.ProductImpressions[0].ProductList[0].Attributes.should.not.have.property('unplannedAttr1');
+            transformedEvent.ProductImpressions[0].ProductList[0].Attributes.should.not.have.property('unplannedAttr2');
+            transformedEvent.ProductImpressions[0].ProductList[1].Attributes.should.have.property('allowedAttr1', 'val4');
+            transformedEvent.ProductImpressions[0].ProductList[1].Attributes.should.have.property('allowedAttr2', 'val5');
+            transformedEvent.ProductImpressions[0].ProductList[1].Attributes.should.not.have.property('unplannedAttr1');
+            transformedEvent.ProductImpressions[0].ProductList[1].Attributes.should.not.have.property('unplannedAttr2');
+
+            transformedEvent.ProductImpressions[1].ProductList[0].Attributes.should.have.property('allowedAttr1', 'val4');
+            transformedEvent.ProductImpressions[1].ProductList[0].Attributes.should.have.property('allowedAttr2', 'val5');
+            transformedEvent.ProductImpressions[1].ProductList[0].Attributes.should.not.have.property('unplannedAttr1');
+            transformedEvent.ProductImpressions[1].ProductList[0].Attributes.should.not.have.property('unplannedAttr2');
+            transformedEvent.ProductImpressions[1].ProductList[1].Attributes.should.have.property('allowedAttr1', 'val4');
+            transformedEvent.ProductImpressions[1].ProductList[1].Attributes.should.have.property('allowedAttr2', 'val5');
+            transformedEvent.ProductImpressions[1].ProductList[1].Attributes.should.not.have.property('unplannedAttr1');
+            transformedEvent.ProductImpressions[1].ProductList[1].Attributes.should.not.have.property('unplannedAttr2');
 
             done();
         });
