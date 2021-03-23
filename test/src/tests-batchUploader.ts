@@ -182,6 +182,56 @@ describe('batch uploader', () => {
 
             done();
         });
+
+        it('should send source_message_id with events to v3 endpoint', function(done) {
+            window.mParticle._resetForTests(MPConfig);
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            window.mParticle.logEvent('Test Event');
+
+            // Tick forward 1000 ms to hit upload interval and force an upload
+            clock.tick(1000);
+
+            const lastCall = window.fetchMock.lastCall();
+            const endpoint = lastCall[0];
+            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+
+            endpoint.should.equal(urls.eventsV3);
+            batch.events[0].data.should.have.property('source_message_id')
+
+            done();
+        });
+
+        it('should send user-defined SourceMessageId events to v3 endpoint', function(done) {
+            window.mParticle._resetForTests(MPConfig);
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            window.mParticle.logBaseEvent({
+                messageType: 4,
+                name: 'Test Event',
+                data: {key: 'value'},
+                eventType: 3,
+                customFlags: {flagKey: 'flagValue'},
+                sourceMessageId: 'abcdefg'
+            });
+
+            // Identity call is via XHR request
+            // Session start, AST, and `Test Event` are queued.
+            mockServer.requests.length.should.equal(1);
+
+            // Tick forward 1000 ms to hit upload interval and force an upload
+            clock.tick(1000);
+
+            const lastCall = window.fetchMock.lastCall();
+            const endpoint = lastCall[0];
+            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+
+            endpoint.should.equal(urls.eventsV3);
+            // event batch includes session start, ast, then last event is Test Event
+            batch.events[batch.events.length-1].data.should.have.property('source_message_id', 'abcdefg')
+
+            done();
+        });
     })
 
     describe('batching via XHR for older browsers without window.fetch', () => {
@@ -377,5 +427,5 @@ describe('batch uploader', () => {
 
             done();
         });
-    })
+    });
 }); 

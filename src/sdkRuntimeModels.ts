@@ -8,6 +8,7 @@ export interface SDKEvent {
     EventCategory: number;
     UserAttributes?: { [key: string]: string | string[] | null };
     UserIdentities?: SDKUserIdentity[];
+    SourceMessageId: string;
     MPID: string;
     EventAttributes?: { [key: string]: string };
     SDKVersion: string;
@@ -126,6 +127,7 @@ export interface MParticleWebSDK {
     upload();
     setPosition(lat: number | string, lng: number | string): void;
     logEvent(eventName: string, eventType?: number, attrs?: { [key: string]: string }): void;
+    logBaseEvent(event: any): void;
     eCommerce: any;
     logLevel: string;
     ProductActionType: SDKProductActionType;

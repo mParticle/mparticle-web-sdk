@@ -14,6 +14,7 @@ import {
 import * as EventsApi from '@mparticle/event-models';
 import Types from './types';
 
+
 export function convertEvents(
     mpid: string,
     sdkEvents: SDKEvent[],
@@ -595,6 +596,7 @@ export function convertBaseEventData(
         session_start_unixtime_ms: sdkEvent.SessionStartDate,
         custom_attributes: sdkEvent.EventAttributes,
         location: convertSDKLocation(sdkEvent.Location),
+        source_message_id: sdkEvent.SourceMessageId
     };
 
     return commonEventData;

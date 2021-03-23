@@ -450,7 +450,7 @@ describe('kit blocking', () => {
             }
 
             let kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
-            debugger;
+
             let transformedEvent = kitBlocker.transformProductAttributes(event);
             transformedEvent.ProductAction.ProductList[0].Attributes.should.not.have.property('unplannedAttr1');
             transformedEvent.ProductAction.ProductList[0].Attributes.should.have.property('plannedAttr1');

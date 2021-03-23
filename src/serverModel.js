@@ -179,6 +179,9 @@ export default function ServerModel(mpInstance) {
                         event.data,
                         event.name
                     ),
+                    SourceMessageId:
+                        event.sourceMessageId ||
+                        mpInstance._Helpers.generateUniqueId(),
                     EventDataType: event.messageType,
                     CustomFlags: event.customFlags || {},
                     UserAttributeChanges: event.userAttributeChanges,

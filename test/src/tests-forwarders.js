@@ -2416,4 +2416,51 @@ describe('forwarders', function() {
         );
         done();
     });
+
+    it('should send SourceMessageId as part of event sent to forwarders', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        window.mParticle.config.kitConfigs.push(
+            forwarderDefaultConfiguration('MockForwarder')
+        );
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.logEvent('Test Event');
+        window.MockForwarder1.instance.receivedEvent.should.have.property(
+            'SourceMessageId'
+        );
+        done();
+    });
+
+    it('should send user-defined SourceMessageId as part of event sent to forwarders via baseEvent', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        window.mParticle.config.kitConfigs.push(
+            forwarderDefaultConfiguration('MockForwarder')
+        );
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.logBaseEvent({
+            messageType: 4,
+            name: 'Test Event',
+            data: {key: 'value'},
+            eventType: mParticle.EventType.Navigation,
+            customFlags: {flagKey: 'flagValue'},
+            sourceMessageId: 'abcdefg'
+        });
+
+        window.MockForwarder1.instance.receivedEvent.should.have.property(
+            'SourceMessageId',
+            'abcdefg'
+        );
+        done();
+    });
 });
