@@ -21,7 +21,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
             mpInstance._Store.activeForwarders = mpInstance._Store.configuredForwarders.filter(
                 function(forwarder) {
                     if (
-                        !self.isEnabledForUserConsent(
+                        !mpInstance._Consent.isEnabledForUserConsent(
                             forwarder.filteringConsentRuleValues,
                             user
                         )
@@ -74,65 +74,6 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 }
             );
         }
-    };
-
-    this.isEnabledForUserConsent = function(consentRules, user) {
-        if (
-            !consentRules ||
-            !consentRules.values ||
-            !consentRules.values.length
-        ) {
-            return true;
-        }
-        if (!user) {
-            return false;
-        }
-
-        var purposeHashes = {};
-        var consentState = user.getConsentState();
-        if (consentState) {
-            // the server hashes consent purposes in the following way:
-            // GDPR - '1' + purpose name
-            // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
-            var GDPRConsentHashPrefix = '1';
-            var CCPAPurpose = 'data_sale_opt_out';
-            var CCPAHashString = '2' + CCPAPurpose;
-
-            var gdprConsentState = consentState.getGDPRConsentState();
-            if (gdprConsentState) {
-                for (var purpose in gdprConsentState) {
-                    if (gdprConsentState.hasOwnProperty(purpose)) {
-                        purposeHash = mpInstance._Helpers
-                            .generateHash(GDPRConsentHashPrefix + purpose)
-                            .toString();
-                        purposeHashes[purposeHash] =
-                            gdprConsentState[purpose].Consented;
-                    }
-                }
-            }
-            var CCPAConsentState = consentState.getCCPAConsentState();
-            if (CCPAConsentState) {
-                var purposeHash = mpInstance._Helpers
-                    .generateHash(CCPAHashString)
-                    .toString();
-                purposeHashes[purposeHash] = CCPAConsentState.Consented;
-            }
-        }
-        var isMatch = false;
-        consentRules.values.forEach(function(consentRule) {
-            if (!isMatch) {
-                var purposeHash = consentRule.consentPurpose;
-                var hasConsented = consentRule.hasConsented;
-                if (
-                    purposeHashes.hasOwnProperty(purposeHash) &&
-                    purposeHashes[purposeHash] === hasConsented
-                ) {
-                    isMatch = true;
-                }
-            }
-        });
-
-        return consentRules.includeOnMatch === isMatch;
     };
 
     this.isEnabledForUserAttributes = function(filterObject, user) {

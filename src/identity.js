@@ -1218,6 +1218,10 @@ export default function Identity(mpInstance) {
                     this.getUserIdentities().userIdentities,
                     mpInstance._APIClient.prepareForwardingStats
                 );
+                mpInstance._CookieSyncManager.attemptCookieSync(
+                    null,
+                    this.getMPID()
+                );
             },
             isLoggedIn: function() {
                 return isLoggedIn;
@@ -1422,6 +1426,7 @@ export default function Identity(mpInstance) {
     ) {
         var prevUser = mpInstance.Identity.getUser(previousMPID),
             newUser,
+            mpidIsNotInCookies,
             identityApiResult,
             indexOfMPID,
             newIdentitiesByType = {},
@@ -1459,6 +1464,13 @@ export default function Identity(mpInstance) {
                 if (prevUser) {
                     mpInstance._Persistence.setLastSeenTime(previousMPID);
                 }
+
+                if (
+                    !mpInstance._Persistence.getFirstSeenTime(
+                        identityApiResult.mpid
+                    )
+                )
+                    mpidIsNotInCookies = true;
                 mpInstance._Persistence.setFirstSeenTime(
                     identityApiResult.mpid
                 );
@@ -1536,7 +1548,8 @@ export default function Identity(mpInstance) {
 
                     mpInstance._CookieSyncManager.attemptCookieSync(
                         previousMPID,
-                        identityApiResult.mpid
+                        identityApiResult.mpid,
+                        mpidIsNotInCookies
                     );
 
                     self.checkIdentitySwap(

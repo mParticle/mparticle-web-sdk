@@ -2,6 +2,61 @@ export default function Consent(mpInstance) {
     var self = this;
     var CCPAPurpose = 'data_sale_opt_out';
 
+    // this function is called when consent is required to determine if a cookie sync should happen, or a forwarder should be initialized
+    this.isEnabledForUserConsent = function(consentRules, user) {
+        if (
+            !consentRules ||
+            !consentRules.values ||
+            !consentRules.values.length
+        ) {
+            return true;
+        }
+        if (!user) {
+            return false;
+        }
+
+        var purposeHashes = {},
+            consentState = user.getConsentState(),
+            purposeHash;
+        if (consentState) {
+            // the server hashes consent purposes in the following way:
+            // GDPR - '1' + purpose name
+            // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
+            var GDPRConsentHashPrefix = '1';
+            var CCPAPurpose = 'data_sale_opt_out';
+            var CCPAHashString = '2' + CCPAPurpose;
+
+            var gdprConsentState = consentState.getGDPRConsentState();
+            if (gdprConsentState) {
+                for (var purpose in gdprConsentState) {
+                    if (gdprConsentState.hasOwnProperty(purpose)) {
+                        purposeHash = mpInstance._Helpers
+                            .generateHash(GDPRConsentHashPrefix + purpose)
+                            .toString();
+                        purposeHashes[purposeHash] =
+                            gdprConsentState[purpose].Consented;
+                    }
+                }
+            }
+            var CCPAConsentState = consentState.getCCPAConsentState();
+            if (CCPAConsentState) {
+                purposeHash = mpInstance._Helpers
+                    .generateHash(CCPAHashString)
+                    .toString();
+                purposeHashes[purposeHash] = CCPAConsentState.Consented;
+            }
+        }
+        var isMatch = consentRules.values.some(function(consentRule) {
+            var consentPurposeHash = consentRule.consentPurpose;
+            var hasConsented = consentRule.hasConsented;
+            if (purposeHashes.hasOwnProperty(consentPurposeHash)) {
+                return purposeHashes[consentPurposeHash] === hasConsented;
+            }
+        });
+
+        return consentRules.includeOnMatch === isMatch;
+    };
+
     this.createPrivacyConsent = function(
         consented,
         timestamp,

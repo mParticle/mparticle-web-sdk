@@ -4,12 +4,29 @@ var Messages = Constants.Messages;
 
 export default function cookieSyncManager(mpInstance) {
     var self = this;
-    this.attemptCookieSync = function(previousMPID, mpid) {
-        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
+    this.attemptCookieSync = function(previousMPID, mpid, mpidIsNotInCookies) {
+        var pixelConfig,
+            lastSyncDateForModule,
+            url,
+            redirect,
+            urlWithRedirect,
+            requiresConsent;
+
         if (mpid && !mpInstance._Store.webviewBridgeEnabled) {
             mpInstance._Store.pixelConfigurations.forEach(function(
                 pixelSettings
             ) {
+                // set requiresConsent to false to start each additional pixel configuration
+                // set to true only if filteringConsenRuleValues.values.length exists
+                requiresConsent = false;
+
+                if (
+                    pixelSettings.filteringConsentRuleValues &&
+                    pixelSettings.filteringConsentRuleValues.values &&
+                    pixelSettings.filteringConsentRuleValues.values.length
+                ) {
+                    requiresConsent = true;
+                }
                 pixelConfig = {
                     moduleId: pixelSettings.moduleId,
                     frequencyCap: pixelSettings.frequencyCap,
@@ -17,6 +34,8 @@ export default function cookieSyncManager(mpInstance) {
                     redirectUrl: pixelSettings.redirectUrl
                         ? self.replaceAmp(pixelSettings.redirectUrl)
                         : null,
+                    filteringConsentRuleValues:
+                        pixelSettings.filteringConsentRuleValues,
                 };
 
                 url = self.replaceMPID(pixelConfig.pixelUrl, mpid);
@@ -35,7 +54,10 @@ export default function cookieSyncManager(mpInstance) {
                             urlWithRedirect,
                             pixelConfig.moduleId,
                             mpid,
-                            persistence[mpid].csd
+                            persistence[mpid].csd,
+                            pixelConfig.filteringConsentRuleValues,
+                            mpidIsNotInCookies,
+                            requiresConsent
                         );
                     }
                     return;
@@ -67,7 +89,10 @@ export default function cookieSyncManager(mpInstance) {
                                     urlWithRedirect,
                                     pixelConfig.moduleId,
                                     mpid,
-                                    persistence[mpid].csd
+                                    persistence[mpid].csd,
+                                    pixelConfig.filteringConsentRuleValues,
+                                    mpidIsNotInCookies,
+                                    requiresConsent
                                 );
                             }
                         } else {
@@ -75,7 +100,10 @@ export default function cookieSyncManager(mpInstance) {
                                 urlWithRedirect,
                                 pixelConfig.moduleId,
                                 mpid,
-                                persistence[mpid].csd
+                                persistence[mpid].csd,
+                                pixelConfig.filteringConsentRuleValues,
+                                mpidIsNotInCookies,
+                                requiresConsent
                             );
                         }
                     }
@@ -92,16 +120,37 @@ export default function cookieSyncManager(mpInstance) {
         return string.replace(/&amp;/g, '&');
     };
 
-    this.performCookieSync = function(url, moduleId, mpid, cookieSyncDates) {
-        var img = document.createElement('img');
+    this.performCookieSync = function(
+        url,
+        moduleId,
+        mpid,
+        cookieSyncDates,
+        filteringConsentRuleValues,
+        mpidIsNotInCookies,
+        requiresConsent
+    ) {
+        // if MPID is new to cookies, we should not try to perform the cookie sync
+        // because a cookie sync can only occur once a user either consents or doesn't
+        // we should not check if its enabled if the user has a blank consent
+        if (requiresConsent && mpidIsNotInCookies) {
+            return;
+        }
+        if (
+            mpInstance._Consent.isEnabledForUserConsent(
+                filteringConsentRuleValues,
+                mpInstance.Identity.getCurrentUser()
+            )
+        ) {
+            var img = document.createElement('img');
 
-        mpInstance.Logger.verbose(Messages.InformationMessages.CookieSync);
+            mpInstance.Logger.verbose(Messages.InformationMessages.CookieSync);
 
-        img.src = url;
-        cookieSyncDates[moduleId.toString()] = new Date().getTime();
-        mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
-            mpid,
-            cookieSyncDates
-        );
+            img.src = url;
+            cookieSyncDates[moduleId.toString()] = new Date().getTime();
+            mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
+                mpid,
+                cookieSyncDates
+            );
+        }
     };
 }

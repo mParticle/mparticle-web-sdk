@@ -104,9 +104,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 null
             );
@@ -134,9 +132,7 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config);
 
         mParticle.init(apiKey, window.mParticle.config);
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 null
             );
@@ -191,9 +187,7 @@ describe('forwarders', function() {
             );
         var user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -236,9 +230,7 @@ describe('forwarders', function() {
             );
         var user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -280,9 +272,7 @@ describe('forwarders', function() {
             );
         var user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -325,9 +315,7 @@ describe('forwarders', function() {
             );
         var user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -370,9 +358,7 @@ describe('forwarders', function() {
             );
         var user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -415,9 +401,7 @@ describe('forwarders', function() {
             );
         var user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -460,9 +444,7 @@ describe('forwarders', function() {
             );
         var user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -505,9 +487,7 @@ describe('forwarders', function() {
             );
         var user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -551,9 +531,7 @@ describe('forwarders', function() {
         var user = MockUser();
         user.setConsentState(consentState);
 
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -597,9 +575,7 @@ describe('forwarders', function() {
         var user = MockUser();
         user.setConsentState(consentState);
 
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -643,9 +619,7 @@ describe('forwarders', function() {
         var user = MockUser();
         user.setConsentState(consentState);
 
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -690,9 +664,7 @@ describe('forwarders', function() {
         var user = MockUser();
         user.setConsentState(consentState);
 
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -736,9 +708,7 @@ describe('forwarders', function() {
         var user = MockUser();
         user.setConsentState(consentState);
 
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -782,9 +752,7 @@ describe('forwarders', function() {
         var user = MockUser();
         user.setConsentState(consentState);
 
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -828,9 +796,7 @@ describe('forwarders', function() {
         var user = MockUser();
         user.setConsentState(consentState);
 
-        var enabled = mParticle
-            .getInstance()
-            ._Forwarders.isEnabledForUserConsent(
+        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 window.MockForwarder1.instance.filteringConsentRuleValues,
                 user
             );
@@ -1702,7 +1668,7 @@ describe('forwarders', function() {
     });
 
     it('should permit forwarder if no user attribute value filters configured', function(done) {
-        var enabled = mParticle
+         var enabled = mParticle
             .getInstance()
             ._Forwarders.isEnabledForUserAttributes(null, null);
         enabled.should.be.ok();
