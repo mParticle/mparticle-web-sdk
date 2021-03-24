@@ -92,7 +92,7 @@
         "karma-edge-launcher": "^0.4.1",
         "karma-firefox-launcher": "^1.0.1",
         "karma-ie-launcher": "^1.0.0",
-        "karma-junit-reporter": "^1.2.0",
+        "karma-junit-reporter": "^2.0.1",
         "karma-mocha": "^1.3.0",
         "karma-safari-launcher": "^1.0.0",
         "karma-should": "^1.0.0",
