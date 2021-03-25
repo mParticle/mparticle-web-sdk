@@ -719,7 +719,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.12.5";
+    var version = "2.12.7";
 
     var Constants = {
       sdkVersion: version,
@@ -2809,7 +2809,8 @@ var mParticle = (function () {
             session_uuid: sdkEvent.SessionId,
             session_start_unixtime_ms: sdkEvent.SessionStartDate,
             custom_attributes: sdkEvent.EventAttributes,
-            location: convertSDKLocation(sdkEvent.Location)
+            location: convertSDKLocation(sdkEvent.Location),
+            source_message_id: sdkEvent.SourceMessageId
         };
         return commonEventData;
     }
@@ -3023,6 +3024,7 @@ var mParticle = (function () {
                  */
             }, {
                 key: "prepareAndUpload",
+                value: 
                 /**
                  * This is the main loop function:
                  *  - take all pending events and turn them into batches
@@ -3031,7 +3033,7 @@ var mParticle = (function () {
                  * @param triggerFuture whether to trigger the loop again - for manual/forced uploads this should be false
                  * @param useBeacon whether to use the beacon API - used when the page is being unloaded
                  */
-                value: function () {
+                function () {
                     var _prepareAndUpload = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee(triggerFuture, useBeacon) {
                         var _this3 = this;
                         var currentUser, currentEvents, newUploads, _this$pendingUploads, currentUploads, remainingUploads, _this$pendingUploads2;
@@ -4360,16 +4362,25 @@ var mParticle = (function () {
     function cookieSyncManager(mpInstance) {
       var self = this;
 
-      this.attemptCookieSync = function (previousMPID, mpid) {
-        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect;
+      this.attemptCookieSync = function (previousMPID, mpid, mpidIsNotInCookies) {
+        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect, requiresConsent;
 
         if (mpid && !mpInstance._Store.webviewBridgeEnabled) {
           mpInstance._Store.pixelConfigurations.forEach(function (pixelSettings) {
+            // set requiresConsent to false to start each additional pixel configuration
+            // set to true only if filteringConsenRuleValues.values.length exists
+            requiresConsent = false;
+
+            if (pixelSettings.filteringConsentRuleValues && pixelSettings.filteringConsentRuleValues.values && pixelSettings.filteringConsentRuleValues.values.length) {
+              requiresConsent = true;
+            }
+
             pixelConfig = {
               moduleId: pixelSettings.moduleId,
               frequencyCap: pixelSettings.frequencyCap,
               pixelUrl: self.replaceAmp(pixelSettings.pixelUrl),
-              redirectUrl: pixelSettings.redirectUrl ? self.replaceAmp(pixelSettings.redirectUrl) : null
+              redirectUrl: pixelSettings.redirectUrl ? self.replaceAmp(pixelSettings.redirectUrl) : null,
+              filteringConsentRuleValues: pixelSettings.filteringConsentRuleValues
             };
             url = self.replaceMPID(pixelConfig.pixelUrl, mpid);
             redirect = pixelConfig.redirectUrl ? self.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
@@ -4383,7 +4394,7 @@ var mParticle = (function () {
                   persistence[mpid].csd = {};
                 }
 
-                self.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, persistence[mpid].csd);
+                self.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, persistence[mpid].csd, pixelConfig.filteringConsentRuleValues, mpidIsNotInCookies, requiresConsent);
               }
 
               return;
@@ -4398,10 +4409,10 @@ var mParticle = (function () {
                 if (lastSyncDateForModule) {
                   // Check to see if we need to refresh cookieSync
                   if (new Date().getTime() > new Date(lastSyncDateForModule).getTime() + pixelConfig.frequencyCap * 60 * 1000 * 60 * 24) {
-                    self.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, persistence[mpid].csd);
+                    self.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, persistence[mpid].csd, pixelConfig.filteringConsentRuleValues, mpidIsNotInCookies, requiresConsent);
                   }
                 } else {
-                  self.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, persistence[mpid].csd);
+                  self.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, persistence[mpid].csd, pixelConfig.filteringConsentRuleValues, mpidIsNotInCookies, requiresConsent);
                 }
               }
             }
@@ -4417,13 +4428,22 @@ var mParticle = (function () {
         return string.replace(/&amp;/g, '&');
       };
 
-      this.performCookieSync = function (url, moduleId, mpid, cookieSyncDates) {
-        var img = document.createElement('img');
-        mpInstance.Logger.verbose(Messages$2.InformationMessages.CookieSync);
-        img.src = url;
-        cookieSyncDates[moduleId.toString()] = new Date().getTime();
+      this.performCookieSync = function (url, moduleId, mpid, cookieSyncDates, filteringConsentRuleValues, mpidIsNotInCookies, requiresConsent) {
+        // if MPID is new to cookies, we should not try to perform the cookie sync
+        // because a cookie sync can only occur once a user either consents or doesn't
+        // we should not check if its enabled if the user has a blank consent
+        if (requiresConsent && mpidIsNotInCookies) {
+          return;
+        }
 
-        mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(mpid, cookieSyncDates);
+        if (mpInstance._Consent.isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
+          var img = document.createElement('img');
+          mpInstance.Logger.verbose(Messages$2.InformationMessages.CookieSync);
+          img.src = url;
+          cookieSyncDates[moduleId.toString()] = new Date().getTime();
+
+          mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(mpid, cookieSyncDates);
+        }
       };
     }
 
@@ -7028,7 +7048,7 @@ var mParticle = (function () {
           });
 
           mpInstance._Store.activeForwarders = mpInstance._Store.configuredForwarders.filter(function (forwarder) {
-            if (!self.isEnabledForUserConsent(forwarder.filteringConsentRuleValues, user)) {
+            if (!mpInstance._Consent.isEnabledForUserConsent(forwarder.filteringConsentRuleValues, user)) {
               return false;
             }
 
@@ -7052,59 +7072,6 @@ var mParticle = (function () {
             return true;
           });
         }
-      };
-
-      this.isEnabledForUserConsent = function (consentRules, user) {
-        if (!consentRules || !consentRules.values || !consentRules.values.length) {
-          return true;
-        }
-
-        if (!user) {
-          return false;
-        }
-
-        var purposeHashes = {};
-        var consentState = user.getConsentState();
-
-        if (consentState) {
-          // the server hashes consent purposes in the following way:
-          // GDPR - '1' + purpose name
-          // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
-          var GDPRConsentHashPrefix = '1';
-          var CCPAPurpose = 'data_sale_opt_out';
-          var CCPAHashString = '2' + CCPAPurpose;
-          var gdprConsentState = consentState.getGDPRConsentState();
-
-          if (gdprConsentState) {
-            for (var purpose in gdprConsentState) {
-              if (gdprConsentState.hasOwnProperty(purpose)) {
-                purposeHash = mpInstance._Helpers.generateHash(GDPRConsentHashPrefix + purpose).toString();
-                purposeHashes[purposeHash] = gdprConsentState[purpose].Consented;
-              }
-            }
-          }
-
-          var CCPAConsentState = consentState.getCCPAConsentState();
-
-          if (CCPAConsentState) {
-            var purposeHash = mpInstance._Helpers.generateHash(CCPAHashString).toString();
-
-            purposeHashes[purposeHash] = CCPAConsentState.Consented;
-          }
-        }
-
-        var isMatch = false;
-        consentRules.values.forEach(function (consentRule) {
-          if (!isMatch) {
-            var purposeHash = consentRule.consentPurpose;
-            var hasConsented = consentRule.hasConsented;
-
-            if (purposeHashes.hasOwnProperty(purposeHash) && purposeHashes[purposeHash] === hasConsented) {
-              isMatch = true;
-            }
-          }
-        });
-        return consentRules.includeOnMatch === isMatch;
       };
 
       this.isEnabledForUserAttributes = function (filterObject, user) {
@@ -7650,6 +7617,7 @@ var mParticle = (function () {
               EventName: event.name || event.messageType,
               EventCategory: event.eventType,
               EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
+              SourceMessageId: event.sourceMessageId || mpInstance._Helpers.generateUniqueId(),
               EventDataType: event.messageType,
               CustomFlags: event.customFlags || {},
               UserAttributeChanges: event.userAttributeChanges,
@@ -8750,6 +8718,8 @@ var mParticle = (function () {
             mpInstance._Persistence.saveUserConsentStateToCookies(mpid, state);
 
             mpInstance._Forwarders.initForwarders(this.getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
+
+            mpInstance._CookieSyncManager.attemptCookieSync(null, this.getMPID());
           },
           isLoggedIn: function isLoggedIn() {
             return _isLoggedIn;
@@ -8906,6 +8876,7 @@ var mParticle = (function () {
       this.parseIdentityResponse = function (xhr, previousMPID, callback, identityApiData, method) {
         var prevUser = mpInstance.Identity.getUser(previousMPID),
             newUser,
+            mpidIsNotInCookies,
             identityApiResult,
             indexOfMPID,
             newIdentitiesByType = {},
@@ -8932,6 +8903,8 @@ var mParticle = (function () {
             if (prevUser) {
               mpInstance._Persistence.setLastSeenTime(previousMPID);
             }
+
+            if (!mpInstance._Persistence.getFirstSeenTime(identityApiResult.mpid)) mpidIsNotInCookies = true;
 
             mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
           }
@@ -8967,7 +8940,7 @@ var mParticle = (function () {
                 mpInstance._Store.currentSessionMPIDs.push(identityApiResult.mpid);
               }
 
-              mpInstance._CookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid);
+              mpInstance._CookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid, mpidIsNotInCookies);
 
               self.checkIdentitySwap(previousMPID, identityApiResult.mpid, mpInstance._Store.currentSessionMPIDs); //if there is any previous migration data
 
@@ -9136,7 +9109,57 @@ var mParticle = (function () {
 
     function Consent(mpInstance) {
       var self = this;
-      var CCPAPurpose = 'data_sale_opt_out';
+      var CCPAPurpose = 'data_sale_opt_out'; // this function is called when consent is required to determine if a cookie sync should happen, or a forwarder should be initialized
+
+      this.isEnabledForUserConsent = function (consentRules, user) {
+        if (!consentRules || !consentRules.values || !consentRules.values.length) {
+          return true;
+        }
+
+        if (!user) {
+          return false;
+        }
+
+        var purposeHashes = {},
+            consentState = user.getConsentState(),
+            purposeHash;
+
+        if (consentState) {
+          // the server hashes consent purposes in the following way:
+          // GDPR - '1' + purpose name
+          // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
+          var GDPRConsentHashPrefix = '1';
+          var CCPAPurpose = 'data_sale_opt_out';
+          var CCPAHashString = '2' + CCPAPurpose;
+          var gdprConsentState = consentState.getGDPRConsentState();
+
+          if (gdprConsentState) {
+            for (var purpose in gdprConsentState) {
+              if (gdprConsentState.hasOwnProperty(purpose)) {
+                purposeHash = mpInstance._Helpers.generateHash(GDPRConsentHashPrefix + purpose).toString();
+                purposeHashes[purposeHash] = gdprConsentState[purpose].Consented;
+              }
+            }
+          }
+
+          var CCPAConsentState = consentState.getCCPAConsentState();
+
+          if (CCPAConsentState) {
+            purposeHash = mpInstance._Helpers.generateHash(CCPAHashString).toString();
+            purposeHashes[purposeHash] = CCPAConsentState.Consented;
+          }
+        }
+
+        var isMatch = consentRules.values.some(function (consentRule) {
+          var consentPurposeHash = consentRule.consentPurpose;
+          var hasConsented = consentRule.hasConsented;
+
+          if (purposeHashes.hasOwnProperty(consentPurposeHash)) {
+            return purposeHashes[consentPurposeHash] === hasConsented;
+          }
+        });
+        return consentRules.includeOnMatch === isMatch;
+      };
 
       this.createPrivacyConsent = function (consented, timestamp, consentDocument, location, hardwareId) {
         if (typeof consented !== 'boolean') {
@@ -9574,8 +9597,7 @@ var mParticle = (function () {
                             var promoActionMatch = criteria;
                             return [match.type, promoActionMatch.action, 'ProductAttributes'].join(':');
                         case DataPlanMatchType.ProductImpression:
-                            var productImpressionActionMatch = criteria;
-                            return [match.type, productImpressionActionMatch.action, 'ProductAttributes'].join(':');
+                            return [match.type, 'ProductAttributes'].join(':');
                         default:
                             return null;
                     }
@@ -9637,31 +9659,36 @@ var mParticle = (function () {
             }, {
                 key: "getProductProperties",
                 value: function getProductProperties(type, validator) {
-                    var _validator$definition9, _validator$definition10, _validator$definition11, _validator$definition12, _validator$definition13, _validator$definition14, _validator$definition15, _validator$definition16, _validator$definition17;
+                    var _validator$definition9, _validator$definition10, _validator$definition11, _validator$definition12, _validator$definition13, _validator$definition14, _validator$definition15, _validator$definition16, _validator$definition17, _validator$definition18, _productCustomAttribu, _validator$definition19, _validator$definition20, _validator$definition21, _validator$definition22, _validator$definition23, _validator$definition24, _validator$definition25, _validator$definition26, _validator$definition27;
                     var productCustomAttributes;
                     switch (type) {
+                        case DataPlanMatchType.ProductImpression:
+                            productCustomAttributes = validator === null || validator === void 0 ? void 0 : (_validator$definition9 = validator.definition) === null || _validator$definition9 === void 0 ? void 0 : (_validator$definition10 = _validator$definition9.properties) === null || _validator$definition10 === void 0 ? void 0 : (_validator$definition11 = _validator$definition10.data) === null || _validator$definition11 === void 0 ? void 0 : (_validator$definition12 = _validator$definition11.properties) === null || _validator$definition12 === void 0 ? void 0 : (_validator$definition13 = _validator$definition12.product_impressions) === null || _validator$definition13 === void 0 ? void 0 : (_validator$definition14 = _validator$definition13.items) === null || _validator$definition14 === void 0 ? void 0 : (_validator$definition15 = _validator$definition14.properties) === null || _validator$definition15 === void 0 ? void 0 : (_validator$definition16 = _validator$definition15.products) === null || _validator$definition16 === void 0 ? void 0 : (_validator$definition17 = _validator$definition16.items) === null || _validator$definition17 === void 0 ? void 0 : (_validator$definition18 = _validator$definition17.properties) === null || _validator$definition18 === void 0 ? void 0 : _validator$definition18.custom_attributes; //product item attributes
+                            if (((_productCustomAttribu = productCustomAttributes) === null || _productCustomAttribu === void 0 ? void 0 : _productCustomAttribu.additionalProperties) === false) {
+                                var properties = {};
+                                for (var _i3 = 0, _Object$keys3 = Object.keys((_productCustomAttribu2 = productCustomAttributes) === null || _productCustomAttribu2 === void 0 ? void 0 : _productCustomAttribu2.properties); _i3 < _Object$keys3.length; _i3++) {
+                                    var _productCustomAttribu2;
+                                    var property = _Object$keys3[_i3];
+                                    properties[property] = true;
+                                }
+                                return properties;
+                            }
+                            return true;
                         case DataPlanMatchType.ProductAction:
                         case DataPlanMatchType.PromotionAction:
-                        case DataPlanMatchType.ProductImpression:
-                            //product transaction attributes
-                            productCustomAttributes = validator === null || validator === void 0 ? void 0 : (_validator$definition9 = validator.definition) === null || _validator$definition9 === void 0 ? void 0 : (_validator$definition10 = _validator$definition9.properties) === null || _validator$definition10 === void 0 ? void 0 : (_validator$definition11 = _validator$definition10.data) === null || _validator$definition11 === void 0 ? void 0 : (_validator$definition12 = _validator$definition11.properties) === null || _validator$definition12 === void 0 ? void 0 : (_validator$definition13 = _validator$definition12.product_action) === null || _validator$definition13 === void 0 ? void 0 : (_validator$definition14 = _validator$definition13.properties) === null || _validator$definition14 === void 0 ? void 0 : (_validator$definition15 = _validator$definition14.products) === null || _validator$definition15 === void 0 ? void 0 : (_validator$definition16 = _validator$definition15.items) === null || _validator$definition16 === void 0 ? void 0 : (_validator$definition17 = _validator$definition16.properties) === null || _validator$definition17 === void 0 ? void 0 : _validator$definition17.custom_attributes; //product item attributes
+                            productCustomAttributes = validator === null || validator === void 0 ? void 0 : (_validator$definition19 = validator.definition) === null || _validator$definition19 === void 0 ? void 0 : (_validator$definition20 = _validator$definition19.properties) === null || _validator$definition20 === void 0 ? void 0 : (_validator$definition21 = _validator$definition20.data) === null || _validator$definition21 === void 0 ? void 0 : (_validator$definition22 = _validator$definition21.properties) === null || _validator$definition22 === void 0 ? void 0 : (_validator$definition23 = _validator$definition22.product_action) === null || _validator$definition23 === void 0 ? void 0 : (_validator$definition24 = _validator$definition23.properties) === null || _validator$definition24 === void 0 ? void 0 : (_validator$definition25 = _validator$definition24.products) === null || _validator$definition25 === void 0 ? void 0 : (_validator$definition26 = _validator$definition25.items) === null || _validator$definition26 === void 0 ? void 0 : (_validator$definition27 = _validator$definition26.properties) === null || _validator$definition27 === void 0 ? void 0 : _validator$definition27.custom_attributes; //product item attributes
                             if (productCustomAttributes) {
-                                if (productCustomAttributes.additionalProperties === true || productCustomAttributes.additionalProperties === undefined) {
-                                    return true;
-                                }
-                                else {
-                                    var properties = {};
-                                    for (var _i3 = 0, _Object$keys3 = Object.keys((_productCustomAttribu = productCustomAttributes) === null || _productCustomAttribu === void 0 ? void 0 : _productCustomAttribu.properties); _i3 < _Object$keys3.length; _i3++) {
-                                        var _productCustomAttribu;
-                                        var property = _Object$keys3[_i3];
-                                        properties[property] = true;
+                                if (productCustomAttributes.additionalProperties === false) {
+                                    var _properties2 = {};
+                                    for (var _i4 = 0, _Object$keys4 = Object.keys((_productCustomAttribu3 = productCustomAttributes) === null || _productCustomAttribu3 === void 0 ? void 0 : _productCustomAttribu3.properties); _i4 < _Object$keys4.length; _i4++) {
+                                        var _productCustomAttribu3;
+                                        var _property2 = _Object$keys4[_i4];
+                                        _properties2[_property2] = true;
                                     }
-                                    return properties;
+                                    return _properties2;
                                 }
                             }
-                            else {
-                                return true;
-                            }
+                            return true;
                         default:
                             return null;
                     }
@@ -9782,8 +9809,8 @@ var mParticle = (function () {
                             return clonedEvent;
                         }
                         if (matchedEvent) {
-                            for (var _i4 = 0, _Object$keys4 = Object.keys(clonedEvent.EventAttributes); _i4 < _Object$keys4.length; _i4++) {
-                                var _key = _Object$keys4[_i4];
+                            for (var _i5 = 0, _Object$keys5 = Object.keys(clonedEvent.EventAttributes); _i5 < _Object$keys5.length; _i5++) {
+                                var _key = _Object$keys5[_i5];
                                 if (!matchedEvent[_key]) {
                                     delete clonedEvent.EventAttributes[_key];
                                 }
@@ -9799,10 +9826,21 @@ var mParticle = (function () {
             }, {
                 key: "transformProductAttributes",
                 value: function transformProductAttributes(event) {
+                    var _clonedEvent$ProductA;
                     var clonedEvent = _objectSpread$1({}, event);
                     var baseEvent = convertEvent(clonedEvent);
                     var matchKey = this.getProductAttributeMatchKey(baseEvent);
                     var matchedEvent = this.dataPlanMatchLookups[matchKey];
+                    function removeAttribute(matchedEvent, productList) {
+                        productList.forEach(function (product) {
+                            for (var _i6 = 0, _Object$keys6 = Object.keys(product.Attributes); _i6 < _Object$keys6.length; _i6++) {
+                                var productKey = _Object$keys6[_i6];
+                                if (!matchedEvent[productKey]) {
+                                    delete product.Attributes[productKey];
+                                }
+                            }
+                        });
+                    }
                     if (this.blockEvents) {
                         /*
                             If the event is not planned, it doesn't exist in dataPlanMatchLookups
@@ -9822,15 +9860,18 @@ var mParticle = (function () {
                             return clonedEvent;
                         }
                         if (matchedEvent) {
-                            var _clonedEvent$ProductA, _clonedEvent$ProductA2;
-                            (_clonedEvent$ProductA = clonedEvent.ProductAction) === null || _clonedEvent$ProductA === void 0 ? void 0 : (_clonedEvent$ProductA2 = _clonedEvent$ProductA.ProductList) === null || _clonedEvent$ProductA2 === void 0 ? void 0 : _clonedEvent$ProductA2.forEach(function (product) {
-                                for (var _i5 = 0, _Object$keys5 = Object.keys(product.Attributes); _i5 < _Object$keys5.length; _i5++) {
-                                    var productKey = _Object$keys5[_i5];
-                                    if (!matchedEvent[productKey]) {
-                                        delete product.Attributes[productKey];
-                                    }
-                                }
-                            });
+                            switch (event.EventCategory) {
+                                case Types.CommerceEventType.ProductImpression:
+                                    clonedEvent.ProductImpressions.forEach(function (impression) {
+                                        removeAttribute(matchedEvent, impression === null || impression === void 0 ? void 0 : impression.ProductList);
+                                    });
+                                    break;
+                                case Types.CommerceEventType.ProductPurchase:
+                                    removeAttribute(matchedEvent, (_clonedEvent$ProductA = clonedEvent.ProductAction) === null || _clonedEvent$ProductA === void 0 ? void 0 : _clonedEvent$ProductA.ProductList);
+                                    break;
+                                default:
+                                    this.mpInstance.Logger.warning('Product Not Supported ');
+                            }
                             return clonedEvent;
                         }
                         else {
@@ -9850,8 +9891,8 @@ var mParticle = (function () {
                         */
                         var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
                         if (this.mpInstance._Helpers.isObject(matchedAttributes)) {
-                            for (var _i6 = 0, _Object$keys6 = Object.keys(clonedEvent.UserAttributes); _i6 < _Object$keys6.length; _i6++) {
-                                var ua = _Object$keys6[_i6];
+                            for (var _i7 = 0, _Object$keys7 = Object.keys(clonedEvent.UserAttributes); _i7 < _Object$keys7.length; _i7++) {
+                                var ua = _Object$keys7[_i7];
                                 if (!matchedAttributes[ua]) {
                                     delete clonedEvent.UserAttributes[ua];
                                 }
@@ -9915,7 +9956,7 @@ var mParticle = (function () {
                         var matchedIdentities = this.dataPlanMatchLookups['user_identities'];
                         if (this.mpInstance._Helpers.isObject(matchedIdentities)) {
                             var _clonedEvent$UserIden;
-                            if (clonedEvent === null || clonedEvent === void 0 ? void 0 : (_clonedEvent$UserIden = clonedEvent.UserIdentities) === null || _clonedEvent$UserIden === void 0 ? void 0 : _clonedEvent$UserIden.length) {
+                            if (clonedEvent !== null && clonedEvent !== void 0 && (_clonedEvent$UserIden = clonedEvent.UserIdentities) !== null && _clonedEvent$UserIden !== void 0 && _clonedEvent$UserIden.length) {
                                 clonedEvent.UserIdentities.forEach(function (uiByType, i) {
                                     var identityName = Types.IdentityType.getIdentityName(_this2.mpInstance._Helpers.parseNumber(uiByType.Type));
                                     if (!matchedIdentities[identityName]) {
