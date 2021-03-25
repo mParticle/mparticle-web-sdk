@@ -2,7 +2,13 @@
 
 --
 
-#### 2.12.45 - 2021-02-17
+#### 2.12.7 - 2021-03-25
+
+-   Bugfix - Add product impressions to kit blocking
+-   Feat - Consent-based cookie-sync
+-   Bugfix - Add source message id
+
+#### 2.12.5 - 2021-02-17
 
 -   Bugfix - Use addEventListeners for life cycle events
 -   Bugfix - Set setCurrencyCode on eCommerce object
