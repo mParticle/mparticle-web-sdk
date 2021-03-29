@@ -111,7 +111,7 @@
         "typescript": "^3.6.2",
         "uglify-js": "^3.4.9",
         "webpack": "^4.39.1",
-        "webpack-cli": "^3.3.6",
+        "webpack-cli": "^4.6.0",
         "yuidocjs": "^0.10.2"
     },
     "dependencies": {
