@@ -352,7 +352,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         filterAttributes(
                             clonedEvent,
                             mpInstance._Store.activeForwarders[i]
-                                .pageViewAttributeFilters
+                                .screenAttributeFilters
                         );
                     }
                 }
@@ -546,8 +546,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
                     newForwarder.screenNameFilters = config.screenNameFilters;
                     newForwarder.screenNameFilters = config.screenNameFilters;
-                    newForwarder.pageViewAttributeFilters =
-                        config.pageViewAttributeFilters;
+                    newForwarder.screenAttributeFilters =
+                        config.screenAttributeFilters;
 
                     newForwarder.userIdentityFilters =
                         config.userIdentityFilters;

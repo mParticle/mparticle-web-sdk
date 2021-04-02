@@ -1311,7 +1311,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('should filter page event attributes', function(done) {
+    it('should filter pageview attributes', function(done) {
         mParticle._resetForTests(MPConfig);
 
         var mockForwarder = new MockForwarder();
@@ -1323,21 +1323,22 @@ describe('forwarders', function() {
                 mParticle.EventType.Navigation + 'test event' + 'test attribute'
             ),
         ];
-        config1.pageViewAttributeFilters = [
-            mParticle.generateHash(
-                mParticle.EventType.Unknown + 'PageView' + 'hostname'
-            ),
+        config1.screenAttributeFilters = [
+            mParticle.generateHash(mParticle.EventType.Unknown + 'ScreenA' + 'filteredScreenAttribute'),
         ];
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.logPageView();
+        mParticle.logPageView('ScreenA', {
+            'filteredScreenAttribute': 'this will be filtered',
+            'unfilteredScreenAttribute': 'this will not be filtered'
+        });
 
         var event = window.MockForwarder1.instance.receivedEvent;
 
-        event.EventAttributes.should.not.have.property('hostname');
-        event.EventAttributes.should.have.property('title');
+        event.EventAttributes.should.not.have.property('filteredScreenAttribute');
+        event.EventAttributes.should.have.property('unfilteredScreenAttribute','this will not be filtered');
 
         done();
     });
