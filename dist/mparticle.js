@@ -719,7 +719,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.12.7";
+    var version = "2.12.8";
 
     var Constants = {
       sdkVersion: version,
@@ -7246,7 +7246,7 @@ var mParticle = (function () {
               if (event.EventDataType === Types.MessageType.PageEvent) {
                 filterAttributes(clonedEvent, mpInstance._Store.activeForwarders[i].attributeFilters);
               } else if (event.EventDataType === Types.MessageType.PageView) {
-                filterAttributes(clonedEvent, mpInstance._Store.activeForwarders[i].pageViewAttributeFilters);
+                filterAttributes(clonedEvent, mpInstance._Store.activeForwarders[i].screenAttributeFilters);
               }
             } // Check user identity filtering rules
 
@@ -7396,7 +7396,7 @@ var mParticle = (function () {
               newForwarder.attributeFilters = config.attributeFilters;
               newForwarder.screenNameFilters = config.screenNameFilters;
               newForwarder.screenNameFilters = config.screenNameFilters;
-              newForwarder.pageViewAttributeFilters = config.pageViewAttributeFilters;
+              newForwarder.screenAttributeFilters = config.screenAttributeFilters;
               newForwarder.userIdentityFilters = config.userIdentityFilters;
               newForwarder.userAttributeFilters = config.userAttributeFilters;
               newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
