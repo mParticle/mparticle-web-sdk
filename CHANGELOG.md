@@ -2,6 +2,11 @@
 
 --
 
+#### 2.12.8 - 2021-04-6
+
+-   Bugfix: Rename pageViewFilters to screenAttributeFilters
+    Enables screen attributes to be filtered out on downstream forwarders
+
 #### 2.12.7 - 2021-03-25
 
 -   Bugfix - Add product impressions to kit blocking
