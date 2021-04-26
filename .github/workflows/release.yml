@@ -47,7 +47,7 @@ jobs:
               with:
                   fetch-depth: 0
                   repository: mparticle/mparticle-web-sdk-internal
-                  token: ${{ secrets.GH_TOKEN_INTERNAL_TO_PUBLIC_TEST }}
+                  token: ${{ secrets.GITHUB_TOKEN }}
                   ref: development
 
             - name: Setup Node.js
