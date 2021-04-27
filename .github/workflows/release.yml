@@ -47,7 +47,7 @@ jobs:
               with:
                   fetch-depth: 0
                   repository: mparticle/mparticle-web-sdk-internal
-                  token: ${{ secrets.GITHUB_TOKEN }}
+                  token: ${{ secrets.MP_BOT }}
                   ref: development
 
             - name: Setup Node.js
@@ -60,7 +60,7 @@ jobs:
 
             - name: Rebase internal/development to public/master for release
               run: |
-                  git remote add public https://${{ secrets.GH_TOKEN_INTERNAL_TO_PUBLIC_TEST }}@github.com/mparticle/mparticle-web-sdk.git
+                  git remote add public https://${{ secrets.MP_BOT }}@github.com/mparticle/mparticle-web-sdk.git
                   git fetch public master
                   git checkout public/master
                   git rebase origin/development
@@ -71,14 +71,15 @@ jobs:
             - name: Release --dry-run
               if: ${{ github.event.inputs.dryRun == 'true'}}
               env:
-                  GITHUB_TOKEN: ${{ secrets.GH_TOKEN_INTERNAL_TO_PUBLIC_TEST }}
+                  GITHUB_TOKEN: ${{ secrets.MP_BOT }}
+                  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
               run: |
                   npx semantic-release --dry-run
 
             - name: Release
               if: ${{ github.event.inputs.dryRun == 'false'}}
               env:
-                  GITHUB_TOKEN: ${{ secrets.GH_TOKEN_INTERNAL_TO_PUBLIC_TEST }}
+                  GITHUB_TOKEN: ${{ secrets.MP_BOT }}
                   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
               run: |
                   npx semantic-release
