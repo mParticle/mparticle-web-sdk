@@ -2,7 +2,11 @@
 
 --
 
-#### 2.12.8 - 2021-04-6
+#### 2020-05-06
+
+-   Any new workspaces with JS API Keys will now batch all web events in order to save bandwidth and improve site performance. To read more about web batching see here - https://docs.mparticle.com/developers/sdk/web/getting-started#upload-interval--batching. This does not require any updates to the SDK itself. No implementation changes are required. If you have a workspace created prior to 2020-05-06 and are not yet on batching, please contact your Customer Success Manager.
+
+#### 2.12.8 - 2021-04-06
 
 -   Bugfix: Rename pageViewFilters to screenAttributeFilters
     Enables screen attributes to be filtered out on downstream forwarders
