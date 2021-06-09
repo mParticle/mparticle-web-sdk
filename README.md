@@ -73,7 +73,7 @@ npm install @mparticle/web-sdk
 // index.js
 import mParticle from '@mparticle/web-sdk';
 
-let mParticleConfig: {
+let mParticleConfig = {
     isDevelopmentMode: true,
     identifyRequest: {
         userIdentities: {
