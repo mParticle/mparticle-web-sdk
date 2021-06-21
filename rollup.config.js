@@ -62,6 +62,7 @@ const builds = {
             file: 'dist/mparticle.common.js',
             format: 'cjs',
             name: 'mParticle',
+            intro: 'globalThis.regeneratorRuntime = undefined',
         },
         plugins: [
             babelMinify,
@@ -80,6 +81,7 @@ const builds = {
             file: 'dist/mparticle.esm.js',
             format: 'esm',
             name: 'mParticle',
+            intro: 'globalThis.regeneratorRuntime = undefined',
         },
         plugins: [
             babelMinify,
