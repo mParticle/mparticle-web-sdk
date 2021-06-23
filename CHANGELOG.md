@@ -1,3 +1,10 @@
+## [2.12.9](https://github.com/mParticle/mparticle-web-sdk/compare/v2.12.8...v2.12.9) (2021-06-23)
+
+
+### Bug Fixes
+
+* Update esm/common rollup.config to prevent regenerator runtime issue ([2ff362f](https://github.com/mParticle/mparticle-web-sdk/commit/2ff362f5243659cdefd4863609c1c93d5e76fc66))
+
 ## Releases
 
 --
