@@ -159,6 +159,7 @@ export default function ServerModel(mpInstance) {
     this.createEventObject = function(event, user) {
         var uploadObject = {};
         var eventObject = {};
+
         var optOut =
             event.messageType === Types.MessageType.OptOut
                 ? !mpInstance._Store.isEnabled

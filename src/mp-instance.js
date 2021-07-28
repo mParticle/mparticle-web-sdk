@@ -285,11 +285,12 @@ export default function mParticleInstance(instanceName) {
     /**
      * Logs a Base Event to mParticle's servers
      * @param {Object} event Base Event Object
+     * @param {Object} [eventOptions] For Event-level Configuration Options
      */
-    this.logBaseEvent = function(event) {
+    this.logBaseEvent = function(event, eventOptions) {
         if (!self._Store.isInitialized) {
             self.ready(function() {
-                self.logBaseEvent(event);
+                self.logBaseEvent(event, eventOptions);
             });
             return;
         }
@@ -308,7 +309,7 @@ export default function mParticleInstance(instanceName) {
             return;
         }
 
-        self._Events.logEvent(event);
+        self._Events.logEvent(event, eventOptions);
     };
     /**
      * Logs an event to mParticle's servers
@@ -317,11 +318,24 @@ export default function mParticleInstance(instanceName) {
      * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
      * @param {Object} [eventInfo] Attributes for the event
      * @param {Object} [customFlags] Additional customFlags
+     * @param {Object} [eventOptions] For Event-level Configuration Options
      */
-    this.logEvent = function(eventName, eventType, eventInfo, customFlags) {
+    this.logEvent = function(
+        eventName,
+        eventType,
+        eventInfo,
+        customFlags,
+        eventOptions
+    ) {
         if (!self._Store.isInitialized) {
             self.ready(function() {
-                self.logEvent(eventName, eventType, eventInfo, customFlags);
+                self.logEvent(
+                    eventName,
+                    eventType,
+                    eventInfo,
+                    customFlags,
+                    eventOptions
+                );
             });
             return;
         }
@@ -350,13 +364,16 @@ export default function mParticleInstance(instanceName) {
             return;
         }
 
-        self._Events.logEvent({
-            messageType: Types.MessageType.PageEvent,
-            name: eventName,
-            data: eventInfo,
-            eventType: eventType,
-            customFlags: customFlags,
-        });
+        self._Events.logEvent(
+            {
+                messageType: Types.MessageType.PageEvent,
+                name: eventName,
+                data: eventInfo,
+                eventType: eventType,
+                customFlags: customFlags,
+            },
+            eventOptions
+        );
     };
     /**
      * Used to log custom errors
@@ -443,11 +460,12 @@ export default function mParticleInstance(instanceName) {
      * @param {String} eventName The name of the event. Defaults to 'PageView'.
      * @param {Object} [attrs] Attributes for the event
      * @param {Object} [customFlags] Custom flags for the event
+     * @param {Object} [eventOptions] For Event-level Configuration Options
      */
-    this.logPageView = function(eventName, attrs, customFlags) {
+    this.logPageView = function(eventName, attrs, customFlags, eventOptions) {
         if (!self._Store.isInitialized) {
             self.ready(function() {
-                self.logPageView(eventName, attrs, customFlags);
+                self.logPageView(eventName, attrs, customFlags, eventOptions);
             });
             return;
         }
@@ -480,13 +498,16 @@ export default function mParticleInstance(instanceName) {
             }
         }
 
-        self._Events.logEvent({
-            messageType: Types.MessageType.PageView,
-            name: eventName,
-            data: attrs,
-            eventType: Types.EventType.Unknown,
-            customFlags: customFlags,
-        });
+        self._Events.logEvent(
+            {
+                messageType: Types.MessageType.PageView,
+                name: eventName,
+                data: attrs,
+                eventType: Types.EventType.Unknown,
+                customFlags: customFlags,
+            },
+            eventOptions
+        );
     };
     /**
      * Forces an upload of the batch
@@ -765,13 +786,15 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} [attrs] attributes related to the product action
          * @param {Object} [customFlags] Custom flags for the event
          * @param {Object} [transactionAttributes] Transaction Attributes for the event
+         * @param {Object} [eventOptions] For Event-level Configuration Options
          */
         logProductAction: function(
             productActionType,
             product,
             attrs,
             customFlags,
-            transactionAttributes
+            transactionAttributes,
+            eventOptions
         ) {
             if (!self._Store.isInitialized) {
                 self.ready(function() {
@@ -780,7 +803,8 @@ export default function mParticleInstance(instanceName) {
                         product,
                         attrs,
                         customFlags,
-                        transactionAttributes
+                        transactionAttributes,
+                        eventOptions
                     );
                 });
                 return;
@@ -791,7 +815,8 @@ export default function mParticleInstance(instanceName) {
                 product,
                 attrs,
                 customFlags,
-                transactionAttributes
+                transactionAttributes,
+                eventOptions
             );
         },
         /**
@@ -847,21 +872,35 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} promotion promotion object
          * @param {Object} [attrs] boolean to clear the cart after logging or not
          * @param {Object} [customFlags] Custom flags for the event
+         * @param {Object} [eventOptions] For Event-level Configuration Options
          */
-        logPromotion: function(type, promotion, attrs, customFlags) {
+        logPromotion: function(
+            type,
+            promotion,
+            attrs,
+            customFlags,
+            eventOptions
+        ) {
             if (!self._Store.isInitialized) {
                 self.ready(function() {
                     self.eCommerce.logPromotion(
                         type,
                         promotion,
                         attrs,
-                        customFlags
+                        customFlags,
+                        eventOptions
                     );
                 });
                 return;
             }
             self._SessionManager.resetSessionTimer();
-            self._Events.logPromotionEvent(type, promotion, attrs, customFlags);
+            self._Events.logPromotionEvent(
+                type,
+                promotion,
+                attrs,
+                customFlags,
+                eventOptions
+            );
         },
         /**
          * Logs a product impression
@@ -870,20 +909,27 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} impression product impression object
          * @param {Object} attrs attributes related to the impression log
          * @param {Object} [customFlags] Custom flags for the event
+         * @param {Object} [eventOptions] For Event-level Configuration Options
          */
-        logImpression: function(impression, attrs, customFlags) {
+        logImpression: function(impression, attrs, customFlags, eventOptions) {
             if (!self._Store.isInitialized) {
                 self.ready(function() {
                     self.eCommerce.logImpression(
                         impression,
                         attrs,
-                        customFlags
+                        customFlags,
+                        eventOptions
                     );
                 });
                 return;
             }
             self._SessionManager.resetSessionTimer();
-            self._Events.logImpressionEvent(impression, attrs, customFlags);
+            self._Events.logImpressionEvent(
+                impression,
+                attrs,
+                customFlags,
+                eventOptions
+            );
         },
         /**
          * Logs a refund

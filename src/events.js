@@ -5,13 +5,13 @@ var Messages = Constants.Messages;
 
 export default function Events(mpInstance) {
     var self = this;
-    this.logEvent = function(event) {
+    this.logEvent = function(event, options) {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogEvent + ': ' + event.name
         );
         if (mpInstance._Helpers.canLog()) {
             var uploadObject = mpInstance._ServerModel.createEventObject(event);
-            mpInstance._APIClient.sendEventToServer(uploadObject);
+            mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.AbandonLogEvent
@@ -125,7 +125,8 @@ export default function Events(mpInstance) {
         product,
         customAttrs,
         customFlags,
-        transactionAttributes
+        transactionAttributes,
+        options
     ) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
@@ -179,7 +180,7 @@ export default function Events(mpInstance) {
                 );
             }
 
-            self.logCommerceEvent(event, customAttrs);
+            self.logCommerceEvent(event, customAttrs, options);
         }
     };
 
@@ -256,7 +257,8 @@ export default function Events(mpInstance) {
         promotionType,
         promotion,
         attrs,
-        customFlags
+        customFlags,
+        eventOptions
     ) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
@@ -274,11 +276,16 @@ export default function Events(mpInstance) {
                 PromotionList: [promotion],
             };
 
-            self.logCommerceEvent(event, attrs);
+            self.logCommerceEvent(event, attrs, eventOptions);
         }
     };
 
-    this.logImpressionEvent = function(impression, attrs, customFlags) {
+    this.logImpressionEvent = function(
+        impression,
+        attrs,
+        customFlags,
+        options
+    ) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -301,11 +308,11 @@ export default function Events(mpInstance) {
                 });
             });
 
-            self.logCommerceEvent(event, attrs);
+            self.logCommerceEvent(event, attrs, options);
         }
     };
 
-    this.logCommerceEvent = function(commerceEvent, attrs) {
+    this.logCommerceEvent = function(commerceEvent, attrs, options) {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogCommerceEvent
         );
@@ -325,7 +332,7 @@ export default function Events(mpInstance) {
                 commerceEvent.EventAttributes = attrs;
             }
 
-            mpInstance._APIClient.sendEventToServer(commerceEvent);
+            mpInstance._APIClient.sendEventToServer(commerceEvent, options);
             mpInstance._Persistence.update();
         } else {
             mpInstance.Logger.verbose(

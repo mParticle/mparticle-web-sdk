@@ -51,6 +51,78 @@ describe('event logging', function() {
         done();
     });
 
+    it('should allow an event to bypass server upload', function (done) {
+        window.mParticle.logEvent(
+            'Test Standard Upload',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' },
+            {},
+            {
+                shouldUploadEvent: true,
+            }
+        );
+
+        window.mParticle.logEvent(
+            'Test Upload Bypass',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' },
+            {},
+            {
+                shouldUploadEvent: false,
+            }
+        );
+        
+        var uploadedData = getEvent(mockServer.requests, 'Test Standard Upload');
+        var bypassData = getEvent(mockServer.requests, 'Test Upload Bypass');
+
+        uploadedData.should.be.ok;
+        uploadedData.should.have.property('n', 'Test Standard Upload');
+        uploadedData.should.have.property('et', mParticle.EventType.Navigation);
+        uploadedData.should.have.property('attrs');
+        uploadedData.should.have.property('mpid', testMPID);
+        uploadedData.attrs.should.have.property('mykey', 'myvalue');
+
+        Should(bypassData).not.be.ok()
+
+        done();
+    });
+
+    it('should allow an event to bypass server upload via logBaseEvent', function (done) {
+        window.mParticle.logBaseEvent({
+            name: 'Test Standard Upload',
+            messageType: MessageType.PageEvent, 
+            eventType: mParticle.EventType.Navigation,
+            data: { mykey: 'myvalue' },
+            customFlags: {},
+        }, {
+            shouldUploadEvent: true,
+        });
+
+        window.mParticle.logBaseEvent({
+            name: 'Test Upload Bypass',
+            messageType: MessageType.PageEvent, 
+            eventType: mParticle.EventType.Navigation,
+            data: { mykey: 'myvalue' },
+            customFlags: {},
+        }, {
+            shouldUploadEvent: false,
+        });
+
+        var uploadedData = getEvent(mockServer.requests, 'Test Standard Upload');
+        var bypassData = getEvent(mockServer.requests, 'Test Upload Bypass');
+
+        uploadedData.should.be.ok;
+        uploadedData.should.have.property('n', 'Test Standard Upload');
+        uploadedData.should.have.property('et', mParticle.EventType.Navigation);
+        uploadedData.should.have.property('attrs');
+        uploadedData.should.have.property('mpid', testMPID);
+        uploadedData.attrs.should.have.property('mykey', 'myvalue');
+
+        Should(bypassData).not.be.ok()
+
+        done();
+    });
+
     it('should log an error', function(done) {
         mParticle.logError('my error');
 
@@ -204,6 +276,20 @@ describe('event logging', function() {
         event.should.have.property('flags');
         event.flags.should.have.property('MyCustom.Flag', ['Test']);
 
+        done();
+    });
+
+    it('should allow a page view to bypass server upload', function (done) {
+        mParticle.logPageView(
+            'test bypass',
+            null,
+            null,
+            { shouldUploadEvent: false }
+        );
+
+        var event = getEvent(mockServer.requests, 'test bypass');
+
+        Should(event).not.be.ok();
         done();
     });
 

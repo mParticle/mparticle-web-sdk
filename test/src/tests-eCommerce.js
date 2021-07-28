@@ -322,6 +322,28 @@ describe('eCommerce', function() {
         done();
     });
 
+    it('should allow an promotions to bypass server upload', function (done) {
+        var promotion = mParticle.eCommerce.createPromotion(
+            '12345',
+            'my-creative',
+            'creative-name',
+            1
+        );
+
+        mParticle.eCommerce.logPromotion(
+            mParticle.PromotionType.PromotionClick,
+            promotion,
+            {}, {},
+            { shouldUploadEvent: false }
+        );
+
+        var event = getEvent(mockServer.requests, 'eCommerce - PromotionClick');
+
+        Should(event).not.be.ok();
+
+        done();
+    });
+
     it('should create impression', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
             impression = mParticle.eCommerce.createImpression(
@@ -353,6 +375,23 @@ describe('eCommerce', function() {
         event.pi[0].should.have.property('pil', 'impression-name');
         event.pi[0].should.have.property('pl').with.lengthOf(1);
         event.pi[0].pl[0].should.have.property('id', '12345');
+
+        done();
+    });
+
+    it('should allow an impression to bypass server upload', function (done) {
+
+        var product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
+            impression = mParticle.eCommerce.createImpression(
+                'impression-name',
+                product
+            );
+
+        mParticle.eCommerce.logImpression(impression, null, null, { shouldUploadEvent: false });
+
+        var event = getEvent(mockServer.requests, 'eCommerce - Impression');
+
+        Should(event).not.be.ok();
 
         done();
     });
@@ -486,6 +525,43 @@ describe('eCommerce', function() {
         data.pd.pl[0].ca.should.equal(data2.pd.pl[0].ca)
         data.pd.pl[0].ps.should.equal(data2.pd.pl[0].ps)
 
+        done();
+    });
+
+    it('should allow a product action to bypass server upload', function (done) {
+        var product = mParticle.eCommerce.createProduct(
+            'iPhone',
+            '12345',
+            '400',
+            2,
+            'Plus',
+            'Phones',
+            'Apple',
+            1,
+            'my-coupon-code',
+            { customkey: 'customvalue' }
+        ),
+        transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+            '12345',
+            'test-affiliation',
+            'coupon-code',
+            44334,
+            600,
+            200
+        );
+
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Purchase,
+            product,
+            null,
+            null,
+            transactionAttributes,
+            { shouldUploadEvent: false}
+        );
+
+        var event = getEvent(mockServer.requests, 'eCommerce - Purchase');
+
+        Should(event).not.be.ok();
         done();
     });
 

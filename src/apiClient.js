@@ -59,7 +59,12 @@ export default function APIClient(mpInstance, kitBlocker) {
         });
     };
 
-    this.sendEventToServer = function(event) {
+    this.sendEventToServer = function(event, _options) {
+        var defaultOptions = {
+            shouldUploadEvent: true,
+        };
+        var options = mpInstance._Helpers.extend(defaultOptions, _options);
+
         if (mpInstance._Store.webviewBridgeEnabled) {
             mpInstance._NativeSdkHelpers.sendToNative(
                 Constants.NativeSdkPaths.LogEvent,
@@ -94,16 +99,21 @@ export default function APIClient(mpInstance, kitBlocker) {
 
         this.processQueuedEvents();
 
-        if (this.shouldEnableBatching()) {
-            this.queueEventForBatchUpload(event);
-        } else {
-            this.sendSingleEventToServer(event);
+        if (event && options.shouldUploadEvent) {
+            if (this.shouldEnableBatching()) {
+                this.queueEventForBatchUpload(event);
+            } else {
+                this.sendSingleEventToServer(event);
+            }
         }
 
         if (event && event.EventName !== Types.MessageType.AppStateTransition) {
             if (kitBlocker && kitBlocker.kitBlockingEnabled) {
                 event = kitBlocker.createBlockedEvent(event);
             }
+
+            // We need to check event again, because kitblocking
+            // can nullify the event
             if (event) {
                 mpInstance._Forwarders.sendEventToForwarders(event);
             }

@@ -137,15 +137,22 @@ function mParticle() {
     this.endSession = function() {
         self.getInstance().endSession();
     };
-    this.logBaseEvent = function(event) {
-        self.getInstance().logBaseEvent(event);
+    this.logBaseEvent = function(event, eventOptions) {
+        self.getInstance().logBaseEvent(event, eventOptions);
     };
-    this.logEvent = function(eventName, eventType, eventInfo, customFlags) {
+    this.logEvent = function(
+        eventName,
+        eventType,
+        eventInfo,
+        customFlags,
+        eventOptions
+    ) {
         self.getInstance().logEvent(
             eventName,
             eventType,
             eventInfo,
-            customFlags
+            customFlags,
+            eventOptions
         );
     };
     this.logError = function(error, attrs) {
@@ -157,8 +164,13 @@ function mParticle() {
     this.logForm = function(selector, eventName, eventType, eventInfo) {
         self.getInstance().logForm(selector, eventName, eventType, eventInfo);
     };
-    this.logPageView = function(eventName, attrs, customFlags) {
-        self.getInstance().logPageView(eventName, attrs, customFlags);
+    this.logPageView = function(eventName, attrs, customFlags, eventOptions) {
+        self.getInstance().logPageView(
+            eventName,
+            attrs,
+            customFlags,
+            eventOptions
+        );
     };
     this.upload = function() {
         self.getInstance().upload();
@@ -248,14 +260,16 @@ function mParticle() {
             product,
             attrs,
             customFlags,
-            transactionAttributes
+            transactionAttributes,
+            eventOptions
         ) {
             self.getInstance().eCommerce.logProductAction(
                 productActionType,
                 product,
                 attrs,
                 customFlags,
-                transactionAttributes
+                transactionAttributes,
+                eventOptions
             );
         },
         logPurchase: function(
@@ -273,19 +287,27 @@ function mParticle() {
                 customFlags
             );
         },
-        logPromotion: function(type, promotion, attrs, customFlags) {
+        logPromotion: function(
+            type,
+            promotion,
+            attrs,
+            customFlags,
+            eventOptions
+        ) {
             self.getInstance().eCommerce.logPromotion(
                 type,
                 promotion,
                 attrs,
-                customFlags
+                customFlags,
+                eventOptions
             );
         },
-        logImpression: function(impression, attrs, customFlags) {
+        logImpression: function(impression, attrs, customFlags, eventOptions) {
             self.getInstance().eCommerce.logImpression(
                 impression,
                 attrs,
-                customFlags
+                customFlags,
+                eventOptions
             );
         },
         logRefund: function(
