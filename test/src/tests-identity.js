@@ -2593,6 +2593,34 @@ describe('identity', function() {
         done();
     });
 
+    it('Alias request should include scope if specified', function(done) {
+        mockServer.requests = [];
+        var aliasRequest = {
+            destinationMpid: 1,
+            sourceMpid: 2,
+            startTime: 3,
+            endTime: 4,
+            scope: 'mpid',
+        };
+        mockServer.respondWith(urls.alias, [
+            200,
+            {},
+            JSON.stringify({}),
+        ]);
+
+        mParticle.Identity.aliasUsers(aliasRequest);
+        mockServer.requests.length.should.equal(1);
+
+        var request = mockServer.requests[0];
+        request.url.should.equal(urls.alias);
+
+        var requestBody = JSON.parse(request.requestBody);
+        var dataBody = requestBody['data'];
+        Should(dataBody['scope']).equal('mpid');
+
+        done();
+    });
+
     it('Should reject malformed Alias Requests', function(done) {
         mParticle.config.logLevel = 'verbose';
         var warnMessage = null;
