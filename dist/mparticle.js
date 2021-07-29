@@ -719,7 +719,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.12.9";
+    var version = "2.13.0";
 
     var Constants = {
       sdkVersion: version,
@@ -3414,7 +3414,13 @@ var mParticle = (function () {
         });
       };
 
-      this.sendEventToServer = function (event) {
+      this.sendEventToServer = function (event, _options) {
+        var defaultOptions = {
+          shouldUploadEvent: true
+        };
+
+        var options = mpInstance._Helpers.extend(defaultOptions, _options);
+
         if (mpInstance._Store.webviewBridgeEnabled) {
           mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent, JSON.stringify(event));
 
@@ -3441,16 +3447,20 @@ var mParticle = (function () {
 
         this.processQueuedEvents();
 
-        if (this.shouldEnableBatching()) {
-          this.queueEventForBatchUpload(event);
-        } else {
-          this.sendSingleEventToServer(event);
+        if (event && options.shouldUploadEvent) {
+          if (this.shouldEnableBatching()) {
+            this.queueEventForBatchUpload(event);
+          } else {
+            this.sendSingleEventToServer(event);
+          }
         }
 
         if (event && event.EventName !== Types.MessageType.AppStateTransition) {
           if (kitBlocker && kitBlocker.kitBlockingEnabled) {
             event = kitBlocker.createBlockedEvent(event);
-          }
+          } // We need to check event again, because kitblocking
+          // can nullify the event
+
 
           if (event) {
             mpInstance._Forwarders.sendEventToForwarders(event);
@@ -3572,7 +3582,7 @@ var mParticle = (function () {
         module.exports['default'] = factory();
       }
     }('slugify', commonjsGlobal, function () {
-      var charMap = JSON.parse('{"$":"dollar","%":"percent","&":"and","<":"less",">":"greater","|":"or","¢":"cent","£":"pound","¤":"currency","¥":"yen","©":"(c)","ª":"a","®":"(r)","º":"o","À":"A","Á":"A","Â":"A","Ã":"A","Ä":"A","Å":"A","Æ":"AE","Ç":"C","È":"E","É":"E","Ê":"E","Ë":"E","Ì":"I","Í":"I","Î":"I","Ï":"I","Ð":"D","Ñ":"N","Ò":"O","Ó":"O","Ô":"O","Õ":"O","Ö":"O","Ø":"O","Ù":"U","Ú":"U","Û":"U","Ü":"U","Ý":"Y","Þ":"TH","ß":"ss","à":"a","á":"a","â":"a","ã":"a","ä":"a","å":"a","æ":"ae","ç":"c","è":"e","é":"e","ê":"e","ë":"e","ì":"i","í":"i","î":"i","ï":"i","ð":"d","ñ":"n","ò":"o","ó":"o","ô":"o","õ":"o","ö":"o","ø":"o","ù":"u","ú":"u","û":"u","ü":"u","ý":"y","þ":"th","ÿ":"y","Ā":"A","ā":"a","Ă":"A","ă":"a","Ą":"A","ą":"a","Ć":"C","ć":"c","Č":"C","č":"c","Ď":"D","ď":"d","Đ":"DJ","đ":"dj","Ē":"E","ē":"e","Ė":"E","ė":"e","Ę":"e","ę":"e","Ě":"E","ě":"e","Ğ":"G","ğ":"g","Ģ":"G","ģ":"g","Ĩ":"I","ĩ":"i","Ī":"i","ī":"i","Į":"I","į":"i","İ":"I","ı":"i","Ķ":"k","ķ":"k","Ļ":"L","ļ":"l","Ľ":"L","ľ":"l","Ł":"L","ł":"l","Ń":"N","ń":"n","Ņ":"N","ņ":"n","Ň":"N","ň":"n","Ō":"O","ō":"o","Ő":"O","ő":"o","Œ":"OE","œ":"oe","Ŕ":"R","ŕ":"r","Ř":"R","ř":"r","Ś":"S","ś":"s","Ş":"S","ş":"s","Š":"S","š":"s","Ţ":"T","ţ":"t","Ť":"T","ť":"t","Ũ":"U","ũ":"u","Ū":"u","ū":"u","Ů":"U","ů":"u","Ű":"U","ű":"u","Ų":"U","ų":"u","Ŵ":"W","ŵ":"w","Ŷ":"Y","ŷ":"y","Ÿ":"Y","Ź":"Z","ź":"z","Ż":"Z","ż":"z","Ž":"Z","ž":"z","Ə":"E","ƒ":"f","Ơ":"O","ơ":"o","Ư":"U","ư":"u","ǈ":"LJ","ǉ":"lj","ǋ":"NJ","ǌ":"nj","Ș":"S","ș":"s","Ț":"T","ț":"t","ə":"e","˚":"o","Ά":"A","Έ":"E","Ή":"H","Ί":"I","Ό":"O","Ύ":"Y","Ώ":"W","ΐ":"i","Α":"A","Β":"B","Γ":"G","Δ":"D","Ε":"E","Ζ":"Z","Η":"H","Θ":"8","Ι":"I","Κ":"K","Λ":"L","Μ":"M","Ν":"N","Ξ":"3","Ο":"O","Π":"P","Ρ":"R","Σ":"S","Τ":"T","Υ":"Y","Φ":"F","Χ":"X","Ψ":"PS","Ω":"W","Ϊ":"I","Ϋ":"Y","ά":"a","έ":"e","ή":"h","ί":"i","ΰ":"y","α":"a","β":"b","γ":"g","δ":"d","ε":"e","ζ":"z","η":"h","θ":"8","ι":"i","κ":"k","λ":"l","μ":"m","ν":"n","ξ":"3","ο":"o","π":"p","ρ":"r","ς":"s","σ":"s","τ":"t","υ":"y","φ":"f","χ":"x","ψ":"ps","ω":"w","ϊ":"i","ϋ":"y","ό":"o","ύ":"y","ώ":"w","Ё":"Yo","Ђ":"DJ","Є":"Ye","І":"I","Ї":"Yi","Ј":"J","Љ":"LJ","Њ":"NJ","Ћ":"C","Џ":"DZ","А":"A","Б":"B","В":"V","Г":"G","Д":"D","Е":"E","Ж":"Zh","З":"Z","И":"I","Й":"J","К":"K","Л":"L","М":"M","Н":"N","О":"O","П":"P","Р":"R","С":"S","Т":"T","У":"U","Ф":"F","Х":"H","Ц":"C","Ч":"Ch","Ш":"Sh","Щ":"Sh","Ъ":"U","Ы":"Y","Ь":"","Э":"E","Ю":"Yu","Я":"Ya","а":"a","б":"b","в":"v","г":"g","д":"d","е":"e","ж":"zh","з":"z","и":"i","й":"j","к":"k","л":"l","м":"m","н":"n","о":"o","п":"p","р":"r","с":"s","т":"t","у":"u","ф":"f","х":"h","ц":"c","ч":"ch","ш":"sh","щ":"sh","ъ":"u","ы":"y","ь":"","э":"e","ю":"yu","я":"ya","ё":"yo","ђ":"dj","є":"ye","і":"i","ї":"yi","ј":"j","љ":"lj","њ":"nj","ћ":"c","ѝ":"u","џ":"dz","Ґ":"G","ґ":"g","Ғ":"GH","ғ":"gh","Қ":"KH","қ":"kh","Ң":"NG","ң":"ng","Ү":"UE","ү":"ue","Ұ":"U","ұ":"u","Һ":"H","һ":"h","Ә":"AE","ә":"ae","Ө":"OE","ө":"oe","฿":"baht","ა":"a","ბ":"b","გ":"g","დ":"d","ე":"e","ვ":"v","ზ":"z","თ":"t","ი":"i","კ":"k","ლ":"l","მ":"m","ნ":"n","ო":"o","პ":"p","ჟ":"zh","რ":"r","ს":"s","ტ":"t","უ":"u","ფ":"f","ქ":"k","ღ":"gh","ყ":"q","შ":"sh","ჩ":"ch","ც":"ts","ძ":"dz","წ":"ts","ჭ":"ch","ხ":"kh","ჯ":"j","ჰ":"h","Ẁ":"W","ẁ":"w","Ẃ":"W","ẃ":"w","Ẅ":"W","ẅ":"w","ẞ":"SS","Ạ":"A","ạ":"a","Ả":"A","ả":"a","Ấ":"A","ấ":"a","Ầ":"A","ầ":"a","Ẩ":"A","ẩ":"a","Ẫ":"A","ẫ":"a","Ậ":"A","ậ":"a","Ắ":"A","ắ":"a","Ằ":"A","ằ":"a","Ẳ":"A","ẳ":"a","Ẵ":"A","ẵ":"a","Ặ":"A","ặ":"a","Ẹ":"E","ẹ":"e","Ẻ":"E","ẻ":"e","Ẽ":"E","ẽ":"e","Ế":"E","ế":"e","Ề":"E","ề":"e","Ể":"E","ể":"e","Ễ":"E","ễ":"e","Ệ":"E","ệ":"e","Ỉ":"I","ỉ":"i","Ị":"I","ị":"i","Ọ":"O","ọ":"o","Ỏ":"O","ỏ":"o","Ố":"O","ố":"o","Ồ":"O","ồ":"o","Ổ":"O","ổ":"o","Ỗ":"O","ỗ":"o","Ộ":"O","ộ":"o","Ớ":"O","ớ":"o","Ờ":"O","ờ":"o","Ở":"O","ở":"o","Ỡ":"O","ỡ":"o","Ợ":"O","ợ":"o","Ụ":"U","ụ":"u","Ủ":"U","ủ":"u","Ứ":"U","ứ":"u","Ừ":"U","ừ":"u","Ử":"U","ử":"u","Ữ":"U","ữ":"u","Ự":"U","ự":"u","Ỳ":"Y","ỳ":"y","Ỵ":"Y","ỵ":"y","Ỷ":"Y","ỷ":"y","Ỹ":"Y","ỹ":"y","–":"-","‘":"\'","’":"\'","“":"\\\"","”":"\\\"","„":"\\\"","†":"+","•":"*","…":"...","₠":"ecu","₢":"cruzeiro","₣":"french franc","₤":"lira","₥":"mill","₦":"naira","₧":"peseta","₨":"rupee","₩":"won","₪":"new shequel","₫":"dong","€":"euro","₭":"kip","₮":"tugrik","₯":"drachma","₰":"penny","₱":"peso","₲":"guarani","₳":"austral","₴":"hryvnia","₵":"cedi","₸":"kazakhstani tenge","₹":"indian rupee","₺":"turkish lira","₽":"russian ruble","₿":"bitcoin","℠":"sm","™":"tm","∂":"d","∆":"delta","∑":"sum","∞":"infinity","♥":"love","元":"yuan","円":"yen","﷼":"rial"}');
+      var charMap = JSON.parse('{"$":"dollar","%":"percent","&":"and","<":"less",">":"greater","|":"or","¢":"cent","£":"pound","¤":"currency","¥":"yen","©":"(c)","ª":"a","®":"(r)","º":"o","À":"A","Á":"A","Â":"A","Ã":"A","Ä":"A","Å":"A","Æ":"AE","Ç":"C","È":"E","É":"E","Ê":"E","Ë":"E","Ì":"I","Í":"I","Î":"I","Ï":"I","Ð":"D","Ñ":"N","Ò":"O","Ó":"O","Ô":"O","Õ":"O","Ö":"O","Ø":"O","Ù":"U","Ú":"U","Û":"U","Ü":"U","Ý":"Y","Þ":"TH","ß":"ss","à":"a","á":"a","â":"a","ã":"a","ä":"a","å":"a","æ":"ae","ç":"c","è":"e","é":"e","ê":"e","ë":"e","ì":"i","í":"i","î":"i","ï":"i","ð":"d","ñ":"n","ò":"o","ó":"o","ô":"o","õ":"o","ö":"o","ø":"o","ù":"u","ú":"u","û":"u","ü":"u","ý":"y","þ":"th","ÿ":"y","Ā":"A","ā":"a","Ă":"A","ă":"a","Ą":"A","ą":"a","Ć":"C","ć":"c","Č":"C","č":"c","Ď":"D","ď":"d","Đ":"DJ","đ":"dj","Ē":"E","ē":"e","Ė":"E","ė":"e","Ę":"e","ę":"e","Ě":"E","ě":"e","Ğ":"G","ğ":"g","Ģ":"G","ģ":"g","Ĩ":"I","ĩ":"i","Ī":"i","ī":"i","Į":"I","į":"i","İ":"I","ı":"i","Ķ":"k","ķ":"k","Ļ":"L","ļ":"l","Ľ":"L","ľ":"l","Ł":"L","ł":"l","Ń":"N","ń":"n","Ņ":"N","ņ":"n","Ň":"N","ň":"n","Ō":"O","ō":"o","Ő":"O","ő":"o","Œ":"OE","œ":"oe","Ŕ":"R","ŕ":"r","Ř":"R","ř":"r","Ś":"S","ś":"s","Ş":"S","ş":"s","Š":"S","š":"s","Ţ":"T","ţ":"t","Ť":"T","ť":"t","Ũ":"U","ũ":"u","Ū":"u","ū":"u","Ů":"U","ů":"u","Ű":"U","ű":"u","Ų":"U","ų":"u","Ŵ":"W","ŵ":"w","Ŷ":"Y","ŷ":"y","Ÿ":"Y","Ź":"Z","ź":"z","Ż":"Z","ż":"z","Ž":"Z","ž":"z","Ə":"E","ƒ":"f","Ơ":"O","ơ":"o","Ư":"U","ư":"u","ǈ":"LJ","ǉ":"lj","ǋ":"NJ","ǌ":"nj","Ș":"S","ș":"s","Ț":"T","ț":"t","ə":"e","˚":"o","Ά":"A","Έ":"E","Ή":"H","Ί":"I","Ό":"O","Ύ":"Y","Ώ":"W","ΐ":"i","Α":"A","Β":"B","Γ":"G","Δ":"D","Ε":"E","Ζ":"Z","Η":"H","Θ":"8","Ι":"I","Κ":"K","Λ":"L","Μ":"M","Ν":"N","Ξ":"3","Ο":"O","Π":"P","Ρ":"R","Σ":"S","Τ":"T","Υ":"Y","Φ":"F","Χ":"X","Ψ":"PS","Ω":"W","Ϊ":"I","Ϋ":"Y","ά":"a","έ":"e","ή":"h","ί":"i","ΰ":"y","α":"a","β":"b","γ":"g","δ":"d","ε":"e","ζ":"z","η":"h","θ":"8","ι":"i","κ":"k","λ":"l","μ":"m","ν":"n","ξ":"3","ο":"o","π":"p","ρ":"r","ς":"s","σ":"s","τ":"t","υ":"y","φ":"f","χ":"x","ψ":"ps","ω":"w","ϊ":"i","ϋ":"y","ό":"o","ύ":"y","ώ":"w","Ё":"Yo","Ђ":"DJ","Є":"Ye","І":"I","Ї":"Yi","Ј":"J","Љ":"LJ","Њ":"NJ","Ћ":"C","Џ":"DZ","А":"A","Б":"B","В":"V","Г":"G","Д":"D","Е":"E","Ж":"Zh","З":"Z","И":"I","Й":"J","К":"K","Л":"L","М":"M","Н":"N","О":"O","П":"P","Р":"R","С":"S","Т":"T","У":"U","Ф":"F","Х":"H","Ц":"C","Ч":"Ch","Ш":"Sh","Щ":"Sh","Ъ":"U","Ы":"Y","Ь":"","Э":"E","Ю":"Yu","Я":"Ya","а":"a","б":"b","в":"v","г":"g","д":"d","е":"e","ж":"zh","з":"z","и":"i","й":"j","к":"k","л":"l","м":"m","н":"n","о":"o","п":"p","р":"r","с":"s","т":"t","у":"u","ф":"f","х":"h","ц":"c","ч":"ch","ш":"sh","щ":"sh","ъ":"u","ы":"y","ь":"","э":"e","ю":"yu","я":"ya","ё":"yo","ђ":"dj","є":"ye","і":"i","ї":"yi","ј":"j","љ":"lj","њ":"nj","ћ":"c","ѝ":"u","џ":"dz","Ґ":"G","ґ":"g","Ғ":"GH","ғ":"gh","Қ":"KH","қ":"kh","Ң":"NG","ң":"ng","Ү":"UE","ү":"ue","Ұ":"U","ұ":"u","Һ":"H","һ":"h","Ә":"AE","ә":"ae","Ө":"OE","ө":"oe","Ա":"A","Բ":"B","Գ":"G","Դ":"D","Ե":"E","Զ":"Z","Է":"E\'","Ը":"Y\'","Թ":"T\'","Ժ":"JH","Ի":"I","Լ":"L","Խ":"X","Ծ":"C\'","Կ":"K","Հ":"H","Ձ":"D\'","Ղ":"GH","Ճ":"TW","Մ":"M","Յ":"Y","Ն":"N","Շ":"SH","Չ":"CH","Պ":"P","Ջ":"J","Ռ":"R\'","Ս":"S","Վ":"V","Տ":"T","Ր":"R","Ց":"C","Փ":"P\'","Ք":"Q\'","Օ":"O\'\'","Ֆ":"F","և":"EV","฿":"baht","ა":"a","ბ":"b","გ":"g","დ":"d","ე":"e","ვ":"v","ზ":"z","თ":"t","ი":"i","კ":"k","ლ":"l","მ":"m","ნ":"n","ო":"o","პ":"p","ჟ":"zh","რ":"r","ს":"s","ტ":"t","უ":"u","ფ":"f","ქ":"k","ღ":"gh","ყ":"q","შ":"sh","ჩ":"ch","ც":"ts","ძ":"dz","წ":"ts","ჭ":"ch","ხ":"kh","ჯ":"j","ჰ":"h","Ẁ":"W","ẁ":"w","Ẃ":"W","ẃ":"w","Ẅ":"W","ẅ":"w","ẞ":"SS","Ạ":"A","ạ":"a","Ả":"A","ả":"a","Ấ":"A","ấ":"a","Ầ":"A","ầ":"a","Ẩ":"A","ẩ":"a","Ẫ":"A","ẫ":"a","Ậ":"A","ậ":"a","Ắ":"A","ắ":"a","Ằ":"A","ằ":"a","Ẳ":"A","ẳ":"a","Ẵ":"A","ẵ":"a","Ặ":"A","ặ":"a","Ẹ":"E","ẹ":"e","Ẻ":"E","ẻ":"e","Ẽ":"E","ẽ":"e","Ế":"E","ế":"e","Ề":"E","ề":"e","Ể":"E","ể":"e","Ễ":"E","ễ":"e","Ệ":"E","ệ":"e","Ỉ":"I","ỉ":"i","Ị":"I","ị":"i","Ọ":"O","ọ":"o","Ỏ":"O","ỏ":"o","Ố":"O","ố":"o","Ồ":"O","ồ":"o","Ổ":"O","ổ":"o","Ỗ":"O","ỗ":"o","Ộ":"O","ộ":"o","Ớ":"O","ớ":"o","Ờ":"O","ờ":"o","Ở":"O","ở":"o","Ỡ":"O","ỡ":"o","Ợ":"O","ợ":"o","Ụ":"U","ụ":"u","Ủ":"U","ủ":"u","Ứ":"U","ứ":"u","Ừ":"U","ừ":"u","Ử":"U","ử":"u","Ữ":"U","ữ":"u","Ự":"U","ự":"u","Ỳ":"Y","ỳ":"y","Ỵ":"Y","ỵ":"y","Ỷ":"Y","ỷ":"y","Ỹ":"Y","ỹ":"y","–":"-","‘":"\'","’":"\'","“":"\\\"","”":"\\\"","„":"\\\"","†":"+","•":"*","…":"...","₠":"ecu","₢":"cruzeiro","₣":"french franc","₤":"lira","₥":"mill","₦":"naira","₧":"peseta","₨":"rupee","₩":"won","₪":"new shequel","₫":"dong","€":"euro","₭":"kip","₮":"tugrik","₯":"drachma","₰":"penny","₱":"peso","₲":"guarani","₳":"austral","₴":"hryvnia","₵":"cedi","₸":"kazakhstani tenge","₹":"indian rupee","₺":"turkish lira","₽":"russian ruble","₿":"bitcoin","℠":"sm","™":"tm","∂":"d","∆":"delta","∑":"sum","∞":"infinity","♥":"love","元":"yuan","円":"yen","﷼":"rial"}');
       var locales = JSON.parse('{"de":{"Ä":"AE","ä":"ae","Ö":"OE","ö":"oe","Ü":"UE","ü":"ue","%":"prozent","&":"und","|":"oder","∑":"summe","∞":"unendlich","♥":"liebe"},"es":{"%":"por ciento","&":"y","<":"menor que",">":"mayor que","|":"o","¢":"centavos","£":"libras","¤":"moneda","₣":"francos","∑":"suma","∞":"infinito","♥":"amor"},"fr":{"%":"pourcent","&":"et","<":"plus petit",">":"plus grand","|":"ou","¢":"centime","£":"livre","¤":"devise","₣":"franc","∑":"somme","∞":"infini","♥":"amour"},"pt":{"%":"porcento","&":"e","<":"menor",">":"maior","|":"ou","¢":"centavo","∑":"soma","£":"libra","∞":"infinito","♥":"amor"},"uk":{"И":"Y","и":"y","Й":"Y","й":"y","Ц":"Ts","ц":"ts","Х":"Kh","х":"kh","Щ":"Shch","щ":"shch","Г":"H","г":"h"},"vi":{"Đ":"D","đ":"d"}}');
 
       function replace (string, options) {
@@ -3588,6 +3598,8 @@ var mParticle = (function () {
 
         var replacement = options.replacement === undefined ? '-' : options.replacement;
 
+        var trim = options.trim === undefined ? true : options.trim;
+
         var slug = string.normalize().split('')
           // replace characters based on charMap
           .reduce(function (result, ch) {
@@ -3600,11 +3612,13 @@ var mParticle = (function () {
           slug = slug.replace(/[^A-Za-z0-9\s]/g, '');
         }
 
-        // Remove leading/trailing spaces, then replace all other spaces with
-        // replacement character, treating multiple consecutive spaces as a single
-        // space.
-        slug = slug.trim()
-          .replace(/\s+/g, replacement);
+        if (trim) {
+          slug = slug.trim();
+        }
+
+        // Replace spaces with replacement character, treating multiple consecutive
+        // spaces as a single space.
+        slug = slug.replace(/\s+/g, replacement);
 
         if (options.lower) {
           slug = slug.toLowerCase();
@@ -3912,8 +3926,7 @@ var mParticle = (function () {
         -1e3 + // -1000 +
         -4e3 + // -4000 +
         -8e3 + // -80000000 +
-        -1e11). // -100000000000,
-        replace( // replacing
+        -1e11).replace( // replacing
         /[018]/g, // zeroes, ones, and eights with
         self.generateUniqueId // random hex digits
         );
@@ -6425,13 +6438,13 @@ var mParticle = (function () {
     function Events(mpInstance) {
       var self = this;
 
-      this.logEvent = function (event) {
+      this.logEvent = function (event, options) {
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogEvent + ': ' + event.name);
 
         if (mpInstance._Helpers.canLog()) {
           var uploadObject = mpInstance._ServerModel.createEventObject(event);
 
-          mpInstance._APIClient.sendEventToServer(uploadObject);
+          mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
           mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent);
         }
@@ -6527,7 +6540,7 @@ var mParticle = (function () {
         }
       };
 
-      this.logProductActionEvent = function (productActionType, product, customAttrs, customFlags, transactionAttributes) {
+      this.logProductActionEvent = function (productActionType, product, customAttrs, customFlags, transactionAttributes, options) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
 
         var productList = Array.isArray(product) ? product : [product];
@@ -6561,7 +6574,7 @@ var mParticle = (function () {
             mpInstance._Ecommerce.convertTransactionAttributesToProductAction(transactionAttributes, event.ProductAction);
           }
 
-          self.logCommerceEvent(event, customAttrs);
+          self.logCommerceEvent(event, customAttrs, options);
         }
       };
 
@@ -6604,7 +6617,7 @@ var mParticle = (function () {
         }
       };
 
-      this.logPromotionEvent = function (promotionType, promotion, attrs, customFlags) {
+      this.logPromotionEvent = function (promotionType, promotion, attrs, customFlags, eventOptions) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
 
         if (event) {
@@ -6614,11 +6627,11 @@ var mParticle = (function () {
             PromotionActionType: promotionType,
             PromotionList: [promotion]
           };
-          self.logCommerceEvent(event, attrs);
+          self.logCommerceEvent(event, attrs, eventOptions);
         }
       };
 
-      this.logImpressionEvent = function (impression, attrs, customFlags) {
+      this.logImpressionEvent = function (impression, attrs, customFlags, options) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
 
         if (event) {
@@ -6636,11 +6649,11 @@ var mParticle = (function () {
               ProductList: Array.isArray(impression.Product) ? impression.Product : [impression.Product]
             });
           });
-          self.logCommerceEvent(event, attrs);
+          self.logCommerceEvent(event, attrs, options);
         }
       };
 
-      this.logCommerceEvent = function (commerceEvent, attrs) {
+      this.logCommerceEvent = function (commerceEvent, attrs, options) {
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogCommerceEvent);
         attrs = mpInstance._Helpers.sanitizeAttributes(attrs, commerceEvent.EventName);
 
@@ -6654,7 +6667,7 @@ var mParticle = (function () {
             commerceEvent.EventAttributes = attrs;
           }
 
-          mpInstance._APIClient.sendEventToServer(commerceEvent);
+          mpInstance._APIClient.sendEventToServer(commerceEvent, options);
 
           mpInstance._Persistence.update();
         } else {
@@ -10371,13 +10384,14 @@ var mParticle = (function () {
       /**
        * Logs a Base Event to mParticle's servers
        * @param {Object} event Base Event Object
+       * @param {Object} [eventOptions] For Event-level Configuration Options
        */
 
 
-      this.logBaseEvent = function (event) {
+      this.logBaseEvent = function (event, eventOptions) {
         if (!self._Store.isInitialized) {
           self.ready(function () {
-            self.logBaseEvent(event);
+            self.logBaseEvent(event, eventOptions);
           });
           return;
         }
@@ -10398,7 +10412,7 @@ var mParticle = (function () {
           return;
         }
 
-        self._Events.logEvent(event);
+        self._Events.logEvent(event, eventOptions);
       };
       /**
        * Logs an event to mParticle's servers
@@ -10407,13 +10421,14 @@ var mParticle = (function () {
        * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
        * @param {Object} [eventInfo] Attributes for the event
        * @param {Object} [customFlags] Additional customFlags
+       * @param {Object} [eventOptions] For Event-level Configuration Options
        */
 
 
-      this.logEvent = function (eventName, eventType, eventInfo, customFlags) {
+      this.logEvent = function (eventName, eventType, eventInfo, customFlags, eventOptions) {
         if (!self._Store.isInitialized) {
           self.ready(function () {
-            self.logEvent(eventName, eventType, eventInfo, customFlags);
+            self.logEvent(eventName, eventType, eventInfo, customFlags, eventOptions);
           });
           return;
         }
@@ -10445,7 +10460,7 @@ var mParticle = (function () {
           data: eventInfo,
           eventType: eventType,
           customFlags: customFlags
-        });
+        }, eventOptions);
       };
       /**
        * Used to log custom errors
@@ -10529,13 +10544,14 @@ var mParticle = (function () {
        * @param {String} eventName The name of the event. Defaults to 'PageView'.
        * @param {Object} [attrs] Attributes for the event
        * @param {Object} [customFlags] Custom flags for the event
+       * @param {Object} [eventOptions] For Event-level Configuration Options
        */
 
 
-      this.logPageView = function (eventName, attrs, customFlags) {
+      this.logPageView = function (eventName, attrs, customFlags, eventOptions) {
         if (!self._Store.isInitialized) {
           self.ready(function () {
-            self.logPageView(eventName, attrs, customFlags);
+            self.logPageView(eventName, attrs, customFlags, eventOptions);
           });
           return;
         }
@@ -10569,7 +10585,7 @@ var mParticle = (function () {
           data: attrs,
           eventType: Types.EventType.Unknown,
           customFlags: customFlags
-        });
+        }, eventOptions);
       };
       /**
        * Forces an upload of the batch
@@ -10815,18 +10831,19 @@ var mParticle = (function () {
          * @param {Object} [attrs] attributes related to the product action
          * @param {Object} [customFlags] Custom flags for the event
          * @param {Object} [transactionAttributes] Transaction Attributes for the event
+         * @param {Object} [eventOptions] For Event-level Configuration Options
          */
-        logProductAction: function logProductAction(productActionType, product, attrs, customFlags, transactionAttributes) {
+        logProductAction: function logProductAction(productActionType, product, attrs, customFlags, transactionAttributes, eventOptions) {
           if (!self._Store.isInitialized) {
             self.ready(function () {
-              self.eCommerce.logProductAction(productActionType, product, attrs, customFlags, transactionAttributes);
+              self.eCommerce.logProductAction(productActionType, product, attrs, customFlags, transactionAttributes, eventOptions);
             });
             return;
           }
 
           self._SessionManager.resetSessionTimer();
 
-          self._Events.logProductActionEvent(productActionType, product, attrs, customFlags, transactionAttributes);
+          self._Events.logProductActionEvent(productActionType, product, attrs, customFlags, transactionAttributes, eventOptions);
         },
 
         /**
@@ -10868,18 +10885,19 @@ var mParticle = (function () {
          * @param {Object} promotion promotion object
          * @param {Object} [attrs] boolean to clear the cart after logging or not
          * @param {Object} [customFlags] Custom flags for the event
+         * @param {Object} [eventOptions] For Event-level Configuration Options
          */
-        logPromotion: function logPromotion(type, promotion, attrs, customFlags) {
+        logPromotion: function logPromotion(type, promotion, attrs, customFlags, eventOptions) {
           if (!self._Store.isInitialized) {
             self.ready(function () {
-              self.eCommerce.logPromotion(type, promotion, attrs, customFlags);
+              self.eCommerce.logPromotion(type, promotion, attrs, customFlags, eventOptions);
             });
             return;
           }
 
           self._SessionManager.resetSessionTimer();
 
-          self._Events.logPromotionEvent(type, promotion, attrs, customFlags);
+          self._Events.logPromotionEvent(type, promotion, attrs, customFlags, eventOptions);
         },
 
         /**
@@ -10889,18 +10907,19 @@ var mParticle = (function () {
          * @param {Object} impression product impression object
          * @param {Object} attrs attributes related to the impression log
          * @param {Object} [customFlags] Custom flags for the event
+         * @param {Object} [eventOptions] For Event-level Configuration Options
          */
-        logImpression: function logImpression(impression, attrs, customFlags) {
+        logImpression: function logImpression(impression, attrs, customFlags, eventOptions) {
           if (!self._Store.isInitialized) {
             self.ready(function () {
-              self.eCommerce.logImpression(impression, attrs, customFlags);
+              self.eCommerce.logImpression(impression, attrs, customFlags, eventOptions);
             });
             return;
           }
 
           self._SessionManager.resetSessionTimer();
 
-          self._Events.logImpressionEvent(impression, attrs, customFlags);
+          self._Events.logImpressionEvent(impression, attrs, customFlags, eventOptions);
         },
 
         /**
@@ -11292,15 +11311,15 @@ var mParticle = (function () {
           }
         } // config.dataPlanResult returns on /config endpoint
         else if (config.dataPlanResult) {
-            if (config.dataPlanResult.error_message) {
-              kitBlockError = config.dataPlanResult.error_message;
-            } else {
-              mpInstance.Logger.verbose('Data plan found from /config');
-              dataPlanForKitBlocker = {
-                document: config.dataPlanResult
-              };
-            }
+          if (config.dataPlanResult.error_message) {
+            kitBlockError = config.dataPlanResult.error_message;
+          } else {
+            mpInstance.Logger.verbose('Data plan found from /config');
+            dataPlanForKitBlocker = {
+              document: config.dataPlanResult
+            };
           }
+        }
       }
 
       if (kitBlockError) {
@@ -11538,12 +11557,12 @@ var mParticle = (function () {
         self.getInstance().endSession();
       };
 
-      this.logBaseEvent = function (event) {
-        self.getInstance().logBaseEvent(event);
+      this.logBaseEvent = function (event, eventOptions) {
+        self.getInstance().logBaseEvent(event, eventOptions);
       };
 
-      this.logEvent = function (eventName, eventType, eventInfo, customFlags) {
-        self.getInstance().logEvent(eventName, eventType, eventInfo, customFlags);
+      this.logEvent = function (eventName, eventType, eventInfo, customFlags, eventOptions) {
+        self.getInstance().logEvent(eventName, eventType, eventInfo, customFlags, eventOptions);
       };
 
       this.logError = function (error, attrs) {
@@ -11558,8 +11577,8 @@ var mParticle = (function () {
         self.getInstance().logForm(selector, eventName, eventType, eventInfo);
       };
 
-      this.logPageView = function (eventName, attrs, customFlags) {
-        self.getInstance().logPageView(eventName, attrs, customFlags);
+      this.logPageView = function (eventName, attrs, customFlags, eventOptions) {
+        self.getInstance().logPageView(eventName, attrs, customFlags, eventOptions);
       };
 
       this.upload = function () {
@@ -11596,17 +11615,17 @@ var mParticle = (function () {
         logCheckout: function logCheckout(step, options, attrs, customFlags) {
           self.getInstance().eCommerce.logCheckout(step, options, attrs, customFlags);
         },
-        logProductAction: function logProductAction(productActionType, product, attrs, customFlags, transactionAttributes) {
-          self.getInstance().eCommerce.logProductAction(productActionType, product, attrs, customFlags, transactionAttributes);
+        logProductAction: function logProductAction(productActionType, product, attrs, customFlags, transactionAttributes, eventOptions) {
+          self.getInstance().eCommerce.logProductAction(productActionType, product, attrs, customFlags, transactionAttributes, eventOptions);
         },
         logPurchase: function logPurchase(transactionAttributes, product, clearCart, attrs, customFlags) {
           self.getInstance().eCommerce.logPurchase(transactionAttributes, product, clearCart, attrs, customFlags);
         },
-        logPromotion: function logPromotion(type, promotion, attrs, customFlags) {
-          self.getInstance().eCommerce.logPromotion(type, promotion, attrs, customFlags);
+        logPromotion: function logPromotion(type, promotion, attrs, customFlags, eventOptions) {
+          self.getInstance().eCommerce.logPromotion(type, promotion, attrs, customFlags, eventOptions);
         },
-        logImpression: function logImpression(impression, attrs, customFlags) {
-          self.getInstance().eCommerce.logImpression(impression, attrs, customFlags);
+        logImpression: function logImpression(impression, attrs, customFlags, eventOptions) {
+          self.getInstance().eCommerce.logImpression(impression, attrs, customFlags, eventOptions);
         },
         logRefund: function logRefund(transactionAttributes, product, clearCart, attrs, customFlags) {
           self.getInstance().eCommerce.logRefund(transactionAttributes, product, clearCart, attrs, customFlags);
