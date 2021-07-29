@@ -1,3 +1,10 @@
+# [2.13.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.12.9...v2.13.0) (2021-07-29)
+
+
+### Features
+
+* Bypass functionality when a specific config option is passed ([#159](https://github.com/mParticle/mparticle-web-sdk/issues/159)) ([2727a43](https://github.com/mParticle/mparticle-web-sdk/commit/2727a437a6d0a25481c9120b3c93fd23fb520f37))
+
 ## [2.12.9](https://github.com/mParticle/mparticle-web-sdk/compare/v2.12.8...v2.12.9) (2021-06-23)
 
 
