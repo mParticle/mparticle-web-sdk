@@ -3,25 +3,31 @@ on: push
 jobs:
     test:
         timeout-minutes: 15
-        runs-on: macos-11
+        runs-on: macos-10.15
         steps:
             - name: Checkout internal
               uses: actions/checkout@v2
 
             - name: Clone Android Repo
-              run: git clone https://github.com/mParticle/mparticle-android-sdk.git
+              uses: actions/checkout@v2
+              with:
+                token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                repository: mParticle/mparticle-android-sdk-internal
+                ref: development
+                path: mparticle-android-sdk
 
             - name: Build Files
               run: |
                 npm ci
                 npm run build:iife
-
+            
+            - name: Start emulator
+              working-directory: mparticle-android-sdk
+              run: ./scripts/install-start-emulator.sh
+            
             - name: Run Instrumented Tests
-              uses: reactivecircus/android-emulator-runner@v2.18.0
-              with:
-                  api-level: 29
-                  working-directory: mparticle-android-sdk
-                  script: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=../dist/mparticle.js
+              working-directory: mparticle-android-sdk
+              run: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=../dist/mparticle.js
 
             - name: Archive Test Results
               if: ${{ always() }}
