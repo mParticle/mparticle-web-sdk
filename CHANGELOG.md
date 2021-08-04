@@ -1,3 +1,16 @@
+# [2.14.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.13.0...v2.14.0) (2021-08-04)
+
+
+### Bug Fixes
+
+* globalThis is not defined ([3a849c6](https://github.com/mParticle/mparticle-web-sdk/commit/3a849c68a284fa21eb370836accca7fb584e30dd))
+* Update semantic release secret name ([0824ef5](https://github.com/mParticle/mparticle-web-sdk/commit/0824ef57e6ea795702d631051fc02d52d2b8fb6a))
+
+
+### Features
+
+* Allow scope param on user alias requests ([a864aef](https://github.com/mParticle/mparticle-web-sdk/commit/a864aefc2db11d63d57174e92b6c5965a93471a8))
+
 # [2.13.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.12.9...v2.13.0) (2021-07-29)
 
 
