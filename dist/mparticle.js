@@ -719,7 +719,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.13.0";
+    var version = "2.14.0";
 
     var Constants = {
       sdkVersion: version,
@@ -7964,6 +7964,7 @@ var mParticle = (function () {
               source_mpid: aliasRequest.sourceMpid,
               start_unixtime_ms: aliasRequest.startTime,
               end_unixtime_ms: aliasRequest.endTime,
+              scope: aliasRequest.scope,
               device_application_stamp: mpInstance._Store.deviceId
             }
           };
