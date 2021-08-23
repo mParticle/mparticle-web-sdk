@@ -84,7 +84,7 @@
         "cross-env": "^7.0.3",
         "eslint": "^7.25.0",
         "eslint-config-prettier": "8.3.0",
-        "eslint-plugin-prettier": "3.4.0",
+        "eslint-plugin-prettier": "3.4.1",
         "fetch-mock": "^7.5.1",
         "gts": "^3.1.0",
         "karma": "^6.3.2",
