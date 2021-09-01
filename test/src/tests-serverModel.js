@@ -321,4 +321,40 @@ describe('Server Model', function() {
         sdkEvent.MPID.should.equal('98765');
         done();
     });
+
+    it('convertEventToDTO should maintain launch referral', function(done) {
+        var event = {
+            "EventName": 10,
+            "EventAttributes": null,
+            "SourceMessageId": "7efa0811-c716-4a1d-b8bf-dae90242849c",
+            "EventDataType": 10,
+            "CustomFlags": {},
+            "IsFirstRun": false,
+            "LaunchReferral": "http://foo.bar/this/is/a/test",
+            "CurrencyCode": null,
+            "MPID": "testMPID",
+            "ConsentState": null,
+            "UserAttributes": {},
+            "UserIdentities": [],
+            "Store": {},
+            "SDKVersion": "2.14.0",
+            "SessionId": "43E9CB7B-A533-48A0-9D34-A9D51A4986F1",
+            "SessionStartDate": 1630528189521,
+            "Debug": false,
+            "Location": null,
+            "OptOut": null,
+            "ExpandedEventCount": 0,
+            "ClientGeneratedId": "abbaac60-6356-4cdb-88ab-ac63ffdc7b11",
+            "DeviceId": "f0164e59-ffe2-4c01-bd82-b1267096f8a1",
+            "IntegrationAttributes": {},
+            "DataPlan": {},
+            "Timestamp": 1630528218899
+        }
+
+        var upload = mParticle.getInstance()._ServerModel.convertEventToDTO(event);
+
+        upload.lr.should.startWith('http://foo.bar/this/is/a/test');
+
+        done();
+    });
 });

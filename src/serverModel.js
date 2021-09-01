@@ -218,6 +218,7 @@ export default function ServerModel(mpInstance) {
 
             if (eventObject.EventDataType === MessageType.AppStateTransition) {
                 eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
+                eventObject.LaunchReferral = window.location.href || null;
             }
 
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
@@ -287,7 +288,7 @@ export default function ServerModel(mpInstance) {
             dto.fr = event.IsFirstRun;
             dto.iu = false;
             dto.at = ApplicationTransitionType.AppInit;
-            dto.lr = window.location.href || null;
+            dto.lr = event.LaunchReferral;
             dto.attrs = null;
         }
 

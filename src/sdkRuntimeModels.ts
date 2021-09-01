@@ -34,6 +34,7 @@ export interface SDKEvent {
     UserAttributeChanges?: SDKUserAttributeChangeData;
     CurrencyCode: string;
     DataPlan?: SDKDataPlan;
+    LaunchReferral?: string;
 }
 
 export interface SDKGeoLocation {

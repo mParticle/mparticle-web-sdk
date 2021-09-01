@@ -742,6 +742,29 @@ describe('event logging', function() {
         done();
     });
 
+    it('should log AST with launch_referral with a url', function (done) {
+        mParticle._resetForTests(MPConfig);
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+
+        mParticle.init(apiKey, mParticle.config);
+
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        batch.events[0].data.should.have.property('launch_referral');
+        batch.events[0].data.launch_referral.should.startWith('http://localhost')
+
+        delete window.mParticle.config.flags
+        
+        done();
+    });
+
     it('should log appName in the payload on v3 endpoint when set on config prior to init', function (done) {
         mParticle.config.flags = {
             eventsV3: '100',

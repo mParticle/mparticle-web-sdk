@@ -14,7 +14,6 @@ import {
 import * as EventsApi from '@mparticle/event-models';
 import Types from './types';
 
-
 export function convertEvents(
     mpid: string,
     sdkEvents: SDKEvent[],
@@ -436,6 +435,7 @@ export function convertAST(
                 .applicationInitialized,
         is_first_run: sdkEvent.IsFirstRun,
         is_upgrade: false,
+        launch_referral: sdkEvent.LaunchReferral,
     };
     astEventData = Object.assign(astEventData, commonEventData);
     return {
