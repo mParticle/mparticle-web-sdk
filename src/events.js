@@ -273,7 +273,9 @@ export default function Events(mpInstance) {
             );
             event.PromotionAction = {
                 PromotionActionType: promotionType,
-                PromotionList: [promotion],
+                PromotionList: Array.isArray(promotion)
+                    ? promotion
+                    : [promotion],
             };
 
             self.logCommerceEvent(event, attrs, eventOptions);

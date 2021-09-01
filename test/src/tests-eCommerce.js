@@ -322,6 +322,46 @@ describe('eCommerce', function() {
         done();
     });
 
+    it('should allow multiple promotions to be logged at once', function(done) {
+        var promotion1 = mParticle.eCommerce.createPromotion(
+            '12345',
+            'my-creative1',
+            'creative-name1',
+            1
+        );
+
+        var promotion2 = mParticle.eCommerce.createPromotion(
+            '67890',
+            'my-creative2',
+            'creative-name2',
+            2
+        );
+
+        mParticle.eCommerce.logPromotion(
+            mParticle.PromotionType.PromotionClick,
+            [promotion1, promotion2]
+        );
+
+        var event = getEvent(mockServer.requests, 'eCommerce - PromotionClick');
+
+        Should(event).be.ok();
+
+        event.should.have.property('et', CommerceEventType.PromotionClick);
+        event.should.have.property('pm');
+        event.pm.should.have.property('an', PromotionActionType.PromotionClick);
+        event.pm.should.have.property('pl');
+        event.pm.pl[0].should.have.property('id', '12345');
+        event.pm.pl[0].should.have.property('nm', 'creative-name1');
+        event.pm.pl[0].should.have.property('cr', 'my-creative1');
+        event.pm.pl[0].should.have.property('ps', 1);
+        event.pm.pl[1].should.have.property('id', '67890');
+        event.pm.pl[1].should.have.property('nm', 'creative-name2');
+        event.pm.pl[1].should.have.property('cr', 'my-creative2');
+        event.pm.pl[1].should.have.property('ps', 2);
+
+        done();
+    });
+
     it('should allow an promotions to bypass server upload', function (done) {
         var promotion = mParticle.eCommerce.createPromotion(
             '12345',
