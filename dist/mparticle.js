@@ -719,7 +719,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.14.0";
+    var version = "2.14.1";
 
     var Constants = {
       sdkVersion: version,
@@ -2691,7 +2691,8 @@ var mParticle = (function () {
         var astEventData = {
             application_transition_type: dist_3.applicationInitialized,
             is_first_run: sdkEvent.IsFirstRun,
-            is_upgrade: false
+            is_upgrade: false,
+            launch_referral: sdkEvent.LaunchReferral
         };
         astEventData = Object.assign(astEventData, commonEventData);
         return {
@@ -6625,7 +6626,7 @@ var mParticle = (function () {
           event.EventCategory = mpInstance._Ecommerce.convertPromotionActionToEventType(promotionType);
           event.PromotionAction = {
             PromotionActionType: promotionType,
-            PromotionList: [promotion]
+            PromotionList: Array.isArray(promotion) ? promotion : [promotion]
           };
           self.logCommerceEvent(event, attrs, eventOptions);
         }
@@ -7657,6 +7658,7 @@ var mParticle = (function () {
 
           if (eventObject.EventDataType === MessageType$1.AppStateTransition) {
             eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
+            eventObject.LaunchReferral = window.location.href || null;
           }
 
           eventObject.CurrencyCode = mpInstance._Store.currencyCode;
@@ -7722,7 +7724,7 @@ var mParticle = (function () {
           dto.fr = event.IsFirstRun;
           dto.iu = false;
           dto.at = ApplicationTransitionType$1.AppInit;
-          dto.lr = window.location.href || null;
+          dto.lr = event.LaunchReferral;
           dto.attrs = null;
         }
 
