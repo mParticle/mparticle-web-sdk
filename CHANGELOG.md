@@ -1,3 +1,11 @@
+## [2.14.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.14.0...v2.14.1) (2021-09-02)
+
+
+### Bug Fixes
+
+* Add launch_referrer to event data ([cd7dc62](https://github.com/mParticle/mparticle-web-sdk/commit/cd7dc622016ebba0fd190a0d029de4c45afdbc38))
+* Allow multiple promotions to be logged when calling logPromotion ([9e0dd5b](https://github.com/mParticle/mparticle-web-sdk/commit/9e0dd5b22da657d5a4274d80c38eaab64f57182d))
+
 # [2.14.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.13.0...v2.14.0) (2021-08-04)
 
 
