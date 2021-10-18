@@ -1,0 +1,11 @@
+name: Reusable Workflows
+
+on:
+  pull_request:
+
+jobs:
+  reusable-pr-branch-check:
+    uses: mParticle/mparticle-apple-sdk/.github/workflows/pr-branch-check.yml@293c9870a8f3c4cf56f147821bc0b98b0fccfda3
+
+  reusable-pr-branch-confirmation:
+    uses: mParticle/mparticle-apple-sdk/.github/workflows/pr-branch-confirmation.yml@293c9870a8f3c4cf56f147821bc0b98b0fccfda3
