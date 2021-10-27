@@ -9,24 +9,10 @@ on:
         default: 'true'
 
 jobs:
-    # SDK release is done from public/master branch.
-    confirm-master-branch:
-        name: Confirm release is run on public/master branch
-        runs-on: ubuntu-18.04
-        steps:
-          - name: Git checkout
-            uses: actions/checkout@v2
-
-          - name: Branch name
-            run: |
-              BRANCHNAME=${GITHUB_REF##*/}
-              echo "confirming branch name, branch name is:"
-              echo $BRANCHNAME
-              if [ $BRANCHNAME != "master" ]
-              then
-                echo "You can only run a release from the master branch, you are trying to run it from ${BRANCHNAME}"
-                exit 1
-              fi
+  # SDK release is done from public master branch.
+  confirm-public-repo-master-branch:
+    name: "Confirm release is run from public/master branch"
+    uses: mParticle/mparticle-workflows/.github/workflows/sdk-release-repo-branch-check.yml@stable
   
     # All new code is stored in internal/development. Release from public/master will first create an internal/release branch
     # based on the changes from internal/development and push it back to the internal repo, then run semantic-release on 
