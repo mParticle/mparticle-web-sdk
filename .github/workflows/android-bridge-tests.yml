@@ -1,35 +1,35 @@
-name: Android Bridge Tests
+name: "Android Bridge Tests"
 on: push
 jobs:
     test:
         timeout-minutes: 15
-        runs-on: macos-10.15
+        runs-on: macos-11
         steps:
-            - name: Checkout internal
+            - name: "Checkout internal"
               uses: actions/checkout@v2
 
-            - name: Clone Android Repo
+            - name: "Clone Android Repo"
               uses: actions/checkout@v2
               with:
-                token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
-                repository: mParticle/mparticle-android-sdk-internal
+                repository: mParticle/mparticle-android-sdk
                 ref: development
                 path: mparticle-android-sdk
-
-            - name: Build Files
+            - name: "Install JDK 11"
+              uses: actions/setup-java@v2
+              with:
+                distribution: "zulu"
+                java-version: "11"    
+            - name: "Build Files"
               run: |
                 npm ci
                 npm run build:iife
-            
-            - name: Start emulator
-              working-directory: mparticle-android-sdk
-              run: ./scripts/install-start-emulator.sh
-            
-            - name: Run Instrumented Tests
-              working-directory: mparticle-android-sdk
-              run: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=../dist/mparticle.js
-
-            - name: Archive Test Results
+            - name: "Run Instrumented Tests"
+              uses: reactivecircus/android-emulator-runner@v2.20.0
+              with:
+                working-directory: mparticle-android-sdk
+                api-level: 29
+                script: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=../dist/mparticle.js
+            - name: "Archive Test Results"
               if: ${{ always() }}
               uses: actions/upload-artifact@v2
               with:
