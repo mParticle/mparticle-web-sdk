@@ -242,26 +242,31 @@ var pluses = /\+/g,
     forwarderDefaultConfiguration = function(
         forwarderName,
         forwarderId,
-        filteringEventAttributeRule
     ) {
         var config = {
             name: forwarderName || 'MockForwarder',
+            moduleId: forwarderId || 1,
+            isDebug: false,
+            isVisible: true,
+            isDebugString: 'false',
+            hasDebugString: 'false',
             settings: {},
-            eventNameFilters: [],
-            eventTypeFilters: [],
-            attributeFilters: [],
             screenNameFilters: [],
             screenAttributeFilters: [],
             userIdentityFilters: [],
             userAttributeFilters: [],
-            filteringEventAttributeValue: {},
-            filteringUserAttributeValue: {},
-            moduleId: forwarderId || 1,
+            eventNameFilters: [],
+            eventTypeFilters: [],
+            attributeFilters: [],
+            githubPath: null,
+            filteringEventAttributeValue: null,
+            filteringUserAttributeValue: null,
+            filteringConsentRuleValues: null,
+            consentRegulationFilters: [],
+            consentRegulationPurposeFilters: [],
+            messageTypeFilters: [],
+            messageTypeStateFilters: [],
             eventSubscriptionId: 1234567890,
-            isDebug: false,
-            HasDebugString: 'false',
-            isVisible: true,
-            filteringEventAttributeRule: filteringEventAttributeRule,
         };
 
         return config;
@@ -269,9 +274,7 @@ var pluses = /\+/g,
     MockForwarder = function(forwarderName, forwarderId) {
         var constructor = function() {
             var self = this;
-
             this.id = forwarderId || 1;
-            this.isDebug = false;
             this.initCalled = false;
             this.processCalled = false;
             this.setUserIdentityCalled = false;
@@ -317,6 +320,8 @@ var pluses = /\+/g,
                 self.userIdentities = userIdentities;
                 self.appVersion = appVersion;
                 self.appName = appName;
+                self.settings = settings;
+                self.testMode = testMode;
             };
 
             this.process = function(event) {
