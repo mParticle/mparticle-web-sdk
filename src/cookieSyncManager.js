@@ -144,13 +144,14 @@ export default function cookieSyncManager(mpInstance) {
             var img = document.createElement('img');
 
             mpInstance.Logger.verbose(Messages.InformationMessages.CookieSync);
-
+            img.onload = function() {
+                cookieSyncDates[moduleId.toString()] = new Date().getTime();
+                mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
+                    mpid,
+                    cookieSyncDates
+                );
+            };
             img.src = url;
-            cookieSyncDates[moduleId.toString()] = new Date().getTime();
-            mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
-                mpid,
-                cookieSyncDates
-            );
         }
     };
 }

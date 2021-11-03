@@ -7,6 +7,9 @@ var setLocalStorage = Utils.setLocalStorage,
     getLocalStorage = Utils.getLocalStorage,
     mockServer;
 
+// single pixel to load
+var pixelUrl = 'https://i.imgur.com/fvfcfpZ_d.webp';
+
 describe('cookie syncing', function() {
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
@@ -40,18 +43,20 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
 
         window.mParticle.config.pixelConfigs = [pixelSettings];
         mParticle.init(apiKey, window.mParticle.config);
+        setTimeout(function() {
+            Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(1);
+            var data = mParticle.getInstance()._Persistence.getLocalStorage();
+            data[testMPID].csd.should.have.property('5');
 
-        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(1);
-        var data = mParticle.getInstance()._Persistence.getLocalStorage();
-        data[testMPID].csd.should.have.property('5');
-
-        done();        
+            done();        
+        }, 200);
+        
     });
 
     it('should sync cookies when current date is beyond the frequency cap and the MPID has not changed', function(done) {
@@ -64,7 +69,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
         window.mParticle.config.pixelConfigs = [pixelSettings];
@@ -78,14 +83,16 @@ describe('cookie syncing', function() {
         });
         mParticle.init(apiKey, window.mParticle.config);
 
-        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(1);
-
-        var data = mParticle.getInstance()._Persistence.getLocalStorage();
-        var updated = data[testMPID].csd['5'] > 500;
-
-        Should(updated).be.ok();
-
-        done();
+        setTimeout(function() {
+            Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(1);
+    
+            var data = mParticle.getInstance()._Persistence.getLocalStorage();
+            var updated = data[testMPID].csd['5'] > 500;
+    
+            Should(updated).be.ok();
+    
+            done();
+        }, 200);
     });
 
     it('should not sync cookies when last date is within frequencyCap', function(done) {
@@ -98,28 +105,31 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         setLocalStorage();
         mParticle.init(apiKey, window.mParticle.config);
-        mockServer.requests = [];
-
-        var data = mParticle.getInstance()._Persistence.getLocalStorage();
-
-        data[testMPID].csd.should.have.property(
-            5,
-            mParticle.getInstance()._Persistence.getLocalStorage().testMPID.csd[
-                '5'
-            ]
-        );
-        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
-            1
-        );
-
-        done();
+        setTimeout(function() {
+            mockServer.requests = [];
+    
+            var data = mParticle.getInstance()._Persistence.getLocalStorage();
+    
+            
+            data[testMPID].csd.should.have.property(
+                5,
+                mParticle.getInstance()._Persistence.getLocalStorage().testMPID.csd[
+                    '5'
+                ]
+            );
+            Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+                1
+            );
+    
+            done();
+        }, 200);
     });
 
     it('should sync cookies when mpid changes', function(done) {
@@ -131,30 +141,34 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
-        var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
+        setTimeout(function() {
+            var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
-        ]);
+            mockServer.respondWith(urls.login, [
+                200,
+                {},
+                JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
+            ]);
 
-        mParticle.Identity.login();
-        var data2 = mParticle.getInstance()._Persistence.getLocalStorage();
-        data1[testMPID].csd[5].should.be.ok();
-        data2['otherMPID'].csd[5].should.be.ok();
-        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
-            1
-        );
-
-        done();
+            mParticle.Identity.login();
+            setTimeout(function() {
+                var data2 = mParticle.getInstance()._Persistence.getLocalStorage();
+                data1[testMPID].csd[5].should.be.ok();
+                data2['otherMPID'].csd[5].should.be.ok();
+                Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+                    1
+                );
+        
+                done();
+            }, 200);
+        }, 200);
     });
 
     it('should not sync cookies when pixelSettings.isDebug is false, pixelSettings.isProduction is true, and mParticle.config.isDevelopmentMode is true', function(done) {
@@ -166,7 +180,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
         mParticle._resetForTests(MPConfig);
@@ -175,14 +189,16 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
+        setTimeout(function() {
+            var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
 
-        Object.keys(data1[testMPID]).should.not.have.property('csd');
-        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
-            0
-        );
+            Object.keys(data1[testMPID]).should.not.have.property('csd');
+            Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+                0
+            );
 
-        done();
+            done();
+        },500 )
     });
 
     it('should not sync cookies when pixelSettings.isDebug is true, pixelSettings.isProduction is false, and mParticle.config.isDevelopmentMode is false', function(done) {
@@ -194,7 +210,7 @@ describe('cookie syncing', function() {
             isProduction: false,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
         mParticle._resetForTests(MPConfig);
@@ -203,13 +219,15 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
-        data1[testMPID].should.not.have.property('csd');
-        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
-            0
-        );
+        setTimeout(function() {
+            var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
+            data1[testMPID].should.not.have.property('csd');
+            Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
+                0
+            );
 
-        done();
+            done();
+        }, 200);
     });
 
     it('should replace mpID properly', function(done) {
@@ -259,7 +277,7 @@ describe('cookie syncing', function() {
                     isProduction: true,
                     settings: {},
                     frequencyCap: 14,
-                    pixelUrl: 'http://www.yahoo.com',
+                    pixelUrl: pixelUrl,
                     redirectUrl: '',
                 },
             ],
@@ -275,7 +293,8 @@ describe('cookie syncing', function() {
         // add pixels to preInitConfig
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle
+        setTimeout(function() {
+            mParticle
             .getInstance()
             ._Store.pixelConfigurations.length.should.equal(1);
 
@@ -285,13 +304,17 @@ describe('cookie syncing', function() {
                 JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
             ]);
 
-        // force the preInit cookie configurations to fire
-        mParticle.Identity.login({ userIdentities: { customerid: 'abc' } });
+            // force the preInit cookie configurations to fire
+            mParticle.Identity.login({ userIdentities: { customerid: 'abc' } });
+            
+            setTimeout(function() {
+                var cookies = getLocalStorage();
+                Object.keys(cookies['MPID1'].csd).length.should.equal(1);
 
-        var cookies = getLocalStorage();
-        Object.keys(cookies['MPID1'].csd).length.should.equal(1);
+                done();
 
-        done();
+            }, 200);
+        }, 200);
     });
 
     var MockUser = function() {
@@ -317,7 +340,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
 
@@ -326,11 +349,13 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(1);
-        var data = mParticle.getInstance()._Persistence.getLocalStorage();
-        data[testMPID].csd.should.have.property('5');
+        setTimeout(function() {
+            Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(1);
+            var data = mParticle.getInstance()._Persistence.getLocalStorage();
+            data[testMPID].csd.should.have.property('5');
 
-        done();
+            done();
+        }, 200);
     });
 
     it('should return false for isEnabledForUserConsent when consent is configured but no user is passed', function(done) {
@@ -923,7 +948,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
 
@@ -941,37 +966,44 @@ describe('cookie syncing', function() {
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
-        var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        localStorage.testMPID.should.not.have.property('csd')
 
-        var falseConsentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(false)
-            );
+        setTimeout(function() {
+            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            localStorage.testMPID.should.not.have.property('csd')
     
-        mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
-
-        var noCookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
-        noCookieSyncLS.testMPID.should.not.have.property('csd');
-
-        var trueConsentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(true)
-            );
+            var falseConsentState = mParticle
+                .getInstance()
+                .Consent.createConsentState()
+                .addGDPRConsentState(
+                    'foo purpose 1',
+                    mParticle.getInstance().Consent.createGDPRConsent(false)
+                );
+        
+            mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
+            setTimeout(function() {
+                var noCookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
+                noCookieSyncLS.testMPID.should.not.have.property('csd');
+        
+                var trueConsentState = mParticle
+                    .getInstance()
+                    .Consent.createConsentState()
+                    .addGDPRConsentState(
+                        'foo purpose 1',
+                        mParticle.getInstance().Consent.createGDPRConsent(true)
+                    );
+            
+                mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
+        
+                setTimeout(function() {
+                    var cookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
+                    cookieSyncLS.testMPID.should.have.property('csd');
+                    cookieSyncLS.testMPID.csd.should.have.property(5);
+            
+                    done();
+                }, 200);
+            }, 200);
     
-        mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
-
-        var cookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
-        cookieSyncLS.testMPID.should.have.property('csd');
-        cookieSyncLS.testMPID.csd.should.have.property(5);
-
-        done();
+        }, 200);
     });
 
     it('should perform a cookie sync only after GDPR consent is given when consent is required - perform a cookie sync when consent is rejected', function(done) {
@@ -988,7 +1020,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
 
@@ -1006,9 +1038,11 @@ describe('cookie syncing', function() {
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
-        var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        localStorage.testMPID.should.not.have.property('csd')
-        var falseConsentState = mParticle
+
+        setTimeout(function() {
+            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            localStorage.testMPID.should.not.have.property('csd')
+            var falseConsentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
@@ -1016,26 +1050,29 @@ describe('cookie syncing', function() {
                 mParticle.getInstance().Consent.createGDPRConsent(false)
             );
     
-        mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
+            mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
 
-        var newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        newLocalStorage.testMPID.should.not.have.property('csd')
+            setTimeout(function() {
+                var newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+                newLocalStorage.testMPID.should.not.have.property('csd')
 
-        var trueConsentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .addGDPRConsentState(
-                'foo purpose 1',
-                mParticle.getInstance().Consent.createGDPRConsent(true)
-            );
-    
-        mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
-        
-        newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        newLocalStorage.testMPID.should.have.property('csd')
-        newLocalStorage.testMPID.csd.should.have.property(5)
-
-        done();
+                var trueConsentState = mParticle
+                    .getInstance()
+                    .Consent.createConsentState()
+                    .addGDPRConsentState(
+                        'foo purpose 1',
+                        mParticle.getInstance().Consent.createGDPRConsent(true)
+                    );
+            
+                mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
+                setTimeout(function() {
+                    newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+                    newLocalStorage.testMPID.should.have.property('csd')
+                    newLocalStorage.testMPID.csd.should.have.property(5)
+                    done();
+                }, 200);
+            }, 200);
+        }, 200);
     });
 
     it('should perform a cookie sync only after CCPA consent is given when consent is required - perform a cookie sync when accepting consent is required', function(done) {
@@ -1052,7 +1089,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
 
@@ -1070,36 +1107,43 @@ describe('cookie syncing', function() {
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
-        var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        localStorage.testMPID.should.not.have.property('csd')
-        var falseConsentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .setCCPAConsentState(
-                // false to show that it doesn't perform a cookie sync
-                mParticle.getInstance().Consent.createCCPAConsent(false)
-        );
+
+        setTimeout(function() {
+            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            localStorage.testMPID.should.not.have.property('csd')
+            var falseConsentState = mParticle
+                .getInstance()
+                .Consent.createConsentState()
+                .setCCPAConsentState(
+                    // false to show that it doesn't perform a cookie sync
+                    mParticle.getInstance().Consent.createCCPAConsent(false)
+            );
+        
+            mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
+
+            setTimeout(function() {
+                var noCookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
+                noCookieSyncLS.testMPID.should.not.have.property('csd');
     
-        mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
+                var trueConsentState = mParticle
+                    .getInstance()
+                    .Consent.createConsentState()
+                    .setCCPAConsentState(
+                        // false to show that it doesn't perform a cookie sync
+                        mParticle.getInstance().Consent.createCCPAConsent(true)
+                );
+            
+                mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
 
-        var noCookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
-        noCookieSyncLS.testMPID.should.not.have.property('csd');
-
-        var trueConsentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .setCCPAConsentState(
-                // false to show that it doesn't perform a cookie sync
-                mParticle.getInstance().Consent.createCCPAConsent(true)
-        );
-    
-        mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
-
-        var cookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
-        cookieSyncLS.testMPID.should.have.property('csd');
-        cookieSyncLS.testMPID.csd.should.have.property(5);
-
-        done();
+                setTimeout(function() {
+                    var cookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
+                    cookieSyncLS.testMPID.should.have.property('csd');
+                    cookieSyncLS.testMPID.csd.should.have.property(5);
+        
+                    done();
+                }, 200);
+            }, 200);
+        }, 200);
     });
 
     it('should perform a cookie sync only after CCPA consent is given when consent is required - perform a cookie sync when consent is rejected', function(done) {
@@ -1116,7 +1160,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
 
@@ -1134,34 +1178,40 @@ describe('cookie syncing', function() {
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
-        var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        localStorage.testMPID.should.not.have.property('csd')
-        var falseConsentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle.getInstance().Consent.createCCPAConsent(false)
-        );
-    
-        mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
-
-        var newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        newLocalStorage.testMPID.should.not.have.property('csd')
-
-        var trueConsentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle.getInstance().Consent.createCCPAConsent(true)
-        );
-    
-        mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
+        setTimeout(function() {
+            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            localStorage.testMPID.should.not.have.property('csd')
+            var falseConsentState = mParticle
+                .getInstance()
+                .Consent.createConsentState()
+                .setCCPAConsentState(
+                    mParticle.getInstance().Consent.createCCPAConsent(false)
+            );
         
-        newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        newLocalStorage.testMPID.should.have.property('csd')
-        newLocalStorage.testMPID.csd.should.have.property(5)
+            mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
 
-        done();
+            setTimeout(function() {
+                var newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+                newLocalStorage.testMPID.should.not.have.property('csd')
+                
+                var trueConsentState = mParticle
+                .getInstance()
+                .Consent.createConsentState()
+                    .setCCPAConsentState(
+                        mParticle.getInstance().Consent.createCCPAConsent(true)
+                );
+            
+                mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
+
+                setTimeout(function() {
+                    newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+                    newLocalStorage.testMPID.should.have.property('csd')
+                    newLocalStorage.testMPID.csd.should.have.property(5)
+            
+                    done();
+                }, 200);
+            }, 200);
+        }, 200);
     });
 
     it('should allow some cookie syncs to occur and others to not occur if there are multiple pixels with varying consent levels', function(done) {
@@ -1182,7 +1232,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.yahoo.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
 
@@ -1207,35 +1257,39 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: 'http://www.google.com',
+            pixelUrl: pixelUrl,
             redirectUrl: '',
         };
 
         window.mParticle.config.pixelConfigs = [pixelSettings1, pixelSettings2];
 
         mParticle.init(apiKey, window.mParticle.config);
-        var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        localStorage.testMPID.should.have.property('csd')
 
-        // Performs a cookie sync for 2 but not 1
-        localStorage.testMPID.csd.should.not.have.property(1);
-        localStorage.testMPID.csd.should.have.property(2);
-
-        var trueConsentState = mParticle
-            .getInstance()
-            .Consent.createConsentState()
-            .setCCPAConsentState(
-                mParticle.getInstance().Consent.createCCPAConsent(true)
-        );
+        setTimeout(function() {
+            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            localStorage.testMPID.should.have.property('csd')
     
-        mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
+            // Performs a cookie sync for 2 but not 1
+            localStorage.testMPID.csd.should.not.have.property(1);
+            localStorage.testMPID.csd.should.have.property(2);
+    
+            var trueConsentState = mParticle
+                .getInstance()
+                .Consent.createConsentState()
+                .setCCPAConsentState(
+                    mParticle.getInstance().Consent.createCCPAConsent(true)
+            );
         
-        var newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
-        newLocalStorage.testMPID.should.have.property('csd')
-        // Now has both cookie syncs because the appropriate consent was added
-        newLocalStorage.testMPID.csd.should.have.property(2)
-        newLocalStorage.testMPID.csd.should.have.property(1)
-
-        done();
+            mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
+            setTimeout(function() {
+                var newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+                newLocalStorage.testMPID.should.have.property('csd')
+                // Now has both cookie syncs because the appropriate consent was added
+                newLocalStorage.testMPID.csd.should.have.property(2)
+                newLocalStorage.testMPID.csd.should.have.property(1)
+        
+                done();
+            }, 200);
+        }, 200);
     });
 });

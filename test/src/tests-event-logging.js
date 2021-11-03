@@ -32,6 +32,7 @@ describe('event logging', function() {
 
     afterEach(function() {
         mockServer.restore();
+        mParticle._resetForTests(MPConfig);
     });
 
     it('should log an event', function(done) {
