@@ -143,9 +143,13 @@ export default function mParticleInstance(instanceName) {
      * @method reset
      */
     this.reset = function(instance) {
-        instance._Persistence.resetPersistence();
-        if (instance._Store) {
-            delete instance._Store;
+        try {
+            instance._Persistence.resetPersistence();
+            if (instance._Store) {
+                delete instance._Store;
+            }
+        } catch (error) {
+            console.error('Cannot reset mParticle', error);
         }
     };
 
@@ -177,7 +181,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Function} function A function to be called after mParticle is initialized
      */
     this.ready = function(f) {
-        if (self._Store.isInitialized && typeof f === 'function') {
+        if (self.isInitialized() && typeof f === 'function') {
             f();
         } else {
             self._preInit.readyQueue.push(f);
@@ -197,6 +201,12 @@ export default function mParticleInstance(instanceName) {
      * @param {String} version version number
      */
     this.setAppVersion = function(version) {
+        var queued = queueIfNotInitialized(function() {
+            self.setAppVersion(version);
+        }, self);
+
+        if (queued) return;
+
         self._Store.SDKConfig.appVersion = version;
         self._Persistence.update();
     };
@@ -214,6 +224,12 @@ export default function mParticleInstance(instanceName) {
      * @param {String} name App Name
      */
     this.setAppName = function(name) {
+        var queued = queueIfNotInitialized(function() {
+            self.setAppName(name);
+        }, self);
+
+        if (queued) return;
+
         self._Store.SDKConfig.appName = name;
     };
     /**
@@ -254,6 +270,12 @@ export default function mParticleInstance(instanceName) {
      * @param {Number} longitude longitude digit
      */
     this.setPosition = function(lat, lng) {
+        var queued = queueIfNotInitialized(function() {
+            self.setPosition(lat, lng);
+        }, self);
+
+        if (queued) return;
+
         self._SessionManager.resetSessionTimer();
         if (typeof lat === 'number' && typeof lng === 'number') {
             self._Store.currentPosition = {
@@ -288,12 +310,12 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [eventOptions] For Event-level Configuration Options
      */
     this.logBaseEvent = function(event, eventOptions) {
-        if (!self._Store.isInitialized) {
-            self.ready(function() {
-                self.logBaseEvent(event, eventOptions);
-            });
-            return;
-        }
+        var queued = queueIfNotInitialized(function() {
+            self.logBaseEvent(event, eventOptions);
+        }, self);
+
+        if (queued) return;
+
         self._SessionManager.resetSessionTimer();
         if (typeof event.name !== 'string') {
             self.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
@@ -327,18 +349,18 @@ export default function mParticleInstance(instanceName) {
         customFlags,
         eventOptions
     ) {
-        if (!self._Store.isInitialized) {
-            self.ready(function() {
-                self.logEvent(
-                    eventName,
-                    eventType,
-                    eventInfo,
-                    customFlags,
-                    eventOptions
-                );
-            });
-            return;
-        }
+        var queued = queueIfNotInitialized(function() {
+            self.logEvent(
+                eventName,
+                eventType,
+                eventInfo,
+                customFlags,
+                eventOptions
+            );
+        }, self);
+
+        if (queued) return;
+
         self._SessionManager.resetSessionTimer();
         if (typeof eventName !== 'string') {
             self.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
@@ -383,12 +405,12 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
      */
     this.logError = function(error, attrs) {
-        if (!self._Store.isInitialized) {
-            self.ready(function() {
-                self.logError(error, attrs);
-            });
-            return;
-        }
+        var queued = queueIfNotInitialized(function() {
+            self.logError(error, attrs);
+        }, self);
+
+        if (queued) return;
+
         self._SessionManager.resetSessionTimer();
         if (!error) {
             return;
@@ -463,12 +485,12 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [eventOptions] For Event-level Configuration Options
      */
     this.logPageView = function(eventName, attrs, customFlags, eventOptions) {
-        if (!self._Store.isInitialized) {
-            self.ready(function() {
-                self.logPageView(eventName, attrs, customFlags, eventOptions);
-            });
-            return;
-        }
+        var queued = queueIfNotInitialized(function() {
+            self.logPageView(eventName, attrs, customFlags, eventOptions);
+        }, self);
+
+        if (queued) return;
+
         self._SessionManager.resetSessionTimer();
 
         if (self._Helpers.canLog()) {
@@ -640,12 +662,11 @@ export default function mParticleInstance(instanceName) {
          * @param {String} code The currency code
          */
         setCurrencyCode: function(code) {
-            if (!self._Store.isInitialized) {
-                self.ready(function() {
-                    self.eCommerce.setCurrencyCode(code);
-                });
-                return;
-            }
+            var queued = queueIfNotInitialized(function() {
+                self.eCommerce.setCurrencyCode(code);
+            }, self);
+
+            if (queued) return;
 
             if (typeof code !== 'string') {
                 self.Logger.error('Code must be a string');
@@ -763,6 +784,7 @@ export default function mParticleInstance(instanceName) {
             self.Logger.warning(
                 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
             );
+
             if (!self._Store.isInitialized) {
                 self.ready(function() {
                     self.eCommerce.logCheckout(
@@ -772,8 +794,10 @@ export default function mParticleInstance(instanceName) {
                         customFlags
                     );
                 });
+
                 return;
             }
+
             self._SessionManager.resetSessionTimer();
             self._Events.logCheckoutEvent(step, option, attrs, customFlags);
         },
@@ -796,19 +820,19 @@ export default function mParticleInstance(instanceName) {
             transactionAttributes,
             eventOptions
         ) {
-            if (!self._Store.isInitialized) {
-                self.ready(function() {
-                    self.eCommerce.logProductAction(
-                        productActionType,
-                        product,
-                        attrs,
-                        customFlags,
-                        transactionAttributes,
-                        eventOptions
-                    );
-                });
-                return;
-            }
+            var queued = queueIfNotInitialized(function() {
+                self.eCommerce.logProductAction(
+                    productActionType,
+                    product,
+                    attrs,
+                    customFlags,
+                    transactionAttributes,
+                    eventOptions
+                );
+            }, self);
+
+            if (queued) return;
+
             self._SessionManager.resetSessionTimer();
             self._Events.logProductActionEvent(
                 productActionType,
@@ -881,18 +905,18 @@ export default function mParticleInstance(instanceName) {
             customFlags,
             eventOptions
         ) {
-            if (!self._Store.isInitialized) {
-                self.ready(function() {
-                    self.eCommerce.logPromotion(
-                        type,
-                        promotion,
-                        attrs,
-                        customFlags,
-                        eventOptions
-                    );
-                });
-                return;
-            }
+            var queued = queueIfNotInitialized(function() {
+                self.eCommerce.logPromotion(
+                    type,
+                    promotion,
+                    attrs,
+                    customFlags,
+                    eventOptions
+                );
+            }, self);
+
+            if (queued) return;
+
             self._SessionManager.resetSessionTimer();
             self._Events.logPromotionEvent(
                 type,
@@ -912,17 +936,17 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} [eventOptions] For Event-level Configuration Options
          */
         logImpression: function(impression, attrs, customFlags, eventOptions) {
-            if (!self._Store.isInitialized) {
-                self.ready(function() {
-                    self.eCommerce.logImpression(
-                        impression,
-                        attrs,
-                        customFlags,
-                        eventOptions
-                    );
-                });
-                return;
-            }
+            var queued = queueIfNotInitialized(function() {
+                self.eCommerce.logImpression(
+                    impression,
+                    attrs,
+                    customFlags,
+                    eventOptions
+                );
+            }, self);
+
+            if (queued) return;
+
             self._SessionManager.resetSessionTimer();
             self._Events.logImpressionEvent(
                 impression,
@@ -983,12 +1007,12 @@ export default function mParticleInstance(instanceName) {
      * @param {String or Number} value value for session attribute
      */
     this.setSessionAttribute = function(key, value) {
-        if (!self._Store.isInitialized) {
-            self.ready(function() {
-                self.setSessionAttribute(key, value);
-            });
-            return;
-        }
+        var queued = queueIfNotInitialized(function() {
+            self.setSessionAttribute(key, value);
+        }, self);
+
+        if (queued) return;
+
         // Logs to cookie
         // And logs to in-memory object
         // Example: mParticle.setSessionAttribute('location', '33431');
@@ -1034,12 +1058,12 @@ export default function mParticleInstance(instanceName) {
      * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
      */
     this.setOptOut = function(isOptingOut) {
-        if (!self._Store.isInitialized) {
-            self.ready(function() {
-                self.setOptOut(isOptingOut);
-            });
-            return;
-        }
+        var queued = queueIfNotInitialized(function() {
+            self.setOptOut(isOptingOut);
+        }, self);
+
+        if (queued) return;
+
         self._SessionManager.resetSessionTimer();
         self._Store.isEnabled = !isOptingOut;
 
@@ -1072,12 +1096,11 @@ export default function mParticleInstance(instanceName) {
      * also pass a null or empty map here to remove all of the attributes.
      */
     this.setIntegrationAttribute = function(integrationId, attrs) {
-        if (!self._Store.isInitialized) {
-            self.ready(function() {
-                self.setIntegrationAttribute(integrationId, attrs);
-            });
-            return;
-        }
+        var queued = queueIfNotInitialized(function() {
+            self.setIntegrationAttribute(integrationId, attrs);
+        }, self);
+
+        if (queued) return;
 
         if (typeof integrationId !== 'number') {
             self.Logger.error('integrationId must be a number');
@@ -1162,6 +1185,9 @@ export default function mParticleInstance(instanceName) {
     };
     this._setIntegrationDelay = function(module, boolean) {
         self._preInit.integrationDelays[module] = boolean;
+    };
+    this.isInitialized = function() {
+        return self._Store ? self._Store.isInitialized : false;
     };
 }
 
@@ -1463,4 +1489,14 @@ function processPreloadedItem(readyQueueItem, mpInstance) {
             );
         }
     }
+}
+
+function queueIfNotInitialized(func, self) {
+    if (!self.isInitialized()) {
+        self.ready(function() {
+            func();
+        });
+        return true;
+    }
+    return false;
 }

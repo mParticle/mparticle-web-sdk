@@ -50,3 +50,4 @@ import './tests-self-hosting-specific';
 import './tests-runtimeToBatchEventsDTO';
 import './tests-apiClient';
 import './tests-mparticle-instance-manager';
+import './tests-queue-public-methods';
