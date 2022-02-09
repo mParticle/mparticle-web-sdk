@@ -719,7 +719,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.14.1";
+    var version = "2.14.2";
 
     var Constants = {
       sdkVersion: version,
@@ -4448,10 +4448,14 @@ var mParticle = (function () {
         if (mpInstance._Consent.isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
           var img = document.createElement('img');
           mpInstance.Logger.verbose(Messages$2.InformationMessages.CookieSync);
-          img.src = url;
-          cookieSyncDates[moduleId.toString()] = new Date().getTime();
 
-          mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(mpid, cookieSyncDates);
+          img.onload = function () {
+            cookieSyncDates[moduleId.toString()] = new Date().getTime();
+
+            mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(mpid, cookieSyncDates);
+          };
+
+          img.src = url;
         }
       };
     }
@@ -10221,10 +10225,14 @@ var mParticle = (function () {
 
 
       this.reset = function (instance) {
-        instance._Persistence.resetPersistence();
+        try {
+          instance._Persistence.resetPersistence();
 
-        if (instance._Store) {
-          delete instance._Store;
+          if (instance._Store) {
+            delete instance._Store;
+          }
+        } catch (error) {
+          console.error('Cannot reset mParticle', error);
         }
       };
 
@@ -10260,7 +10268,7 @@ var mParticle = (function () {
 
 
       this.ready = function (f) {
-        if (self._Store.isInitialized && typeof f === 'function') {
+        if (self.isInitialized() && typeof f === 'function') {
           f();
         } else {
           self._preInit.readyQueue.push(f);
@@ -10284,6 +10292,10 @@ var mParticle = (function () {
 
 
       this.setAppVersion = function (version) {
+        var queued = queueIfNotInitialized(function () {
+          self.setAppVersion(version);
+        }, self);
+        if (queued) return;
         self._Store.SDKConfig.appVersion = version;
 
         self._Persistence.update();
@@ -10306,6 +10318,10 @@ var mParticle = (function () {
 
 
       this.setAppName = function (name) {
+        var queued = queueIfNotInitialized(function () {
+          self.setAppName(name);
+        }, self);
+        if (queued) return;
         self._Store.SDKConfig.appName = name;
       };
       /**
@@ -10354,6 +10370,11 @@ var mParticle = (function () {
 
 
       this.setPosition = function (lat, lng) {
+        var queued = queueIfNotInitialized(function () {
+          self.setPosition(lat, lng);
+        }, self);
+        if (queued) return;
+
         self._SessionManager.resetSessionTimer();
 
         if (typeof lat === 'number' && typeof lng === 'number') {
@@ -10392,12 +10413,10 @@ var mParticle = (function () {
 
 
       this.logBaseEvent = function (event, eventOptions) {
-        if (!self._Store.isInitialized) {
-          self.ready(function () {
-            self.logBaseEvent(event, eventOptions);
-          });
-          return;
-        }
+        var queued = queueIfNotInitialized(function () {
+          self.logBaseEvent(event, eventOptions);
+        }, self);
+        if (queued) return;
 
         self._SessionManager.resetSessionTimer();
 
@@ -10429,12 +10448,10 @@ var mParticle = (function () {
 
 
       this.logEvent = function (eventName, eventType, eventInfo, customFlags, eventOptions) {
-        if (!self._Store.isInitialized) {
-          self.ready(function () {
-            self.logEvent(eventName, eventType, eventInfo, customFlags, eventOptions);
-          });
-          return;
-        }
+        var queued = queueIfNotInitialized(function () {
+          self.logEvent(eventName, eventType, eventInfo, customFlags, eventOptions);
+        }, self);
+        if (queued) return;
 
         self._SessionManager.resetSessionTimer();
 
@@ -10475,12 +10492,10 @@ var mParticle = (function () {
 
 
       this.logError = function (error, attrs) {
-        if (!self._Store.isInitialized) {
-          self.ready(function () {
-            self.logError(error, attrs);
-          });
-          return;
-        }
+        var queued = queueIfNotInitialized(function () {
+          self.logError(error, attrs);
+        }, self);
+        if (queued) return;
 
         self._SessionManager.resetSessionTimer();
 
@@ -10552,12 +10567,10 @@ var mParticle = (function () {
 
 
       this.logPageView = function (eventName, attrs, customFlags, eventOptions) {
-        if (!self._Store.isInitialized) {
-          self.ready(function () {
-            self.logPageView(eventName, attrs, customFlags, eventOptions);
-          });
-          return;
-        }
+        var queued = queueIfNotInitialized(function () {
+          self.logPageView(eventName, attrs, customFlags, eventOptions);
+        }, self);
+        if (queued) return;
 
         self._SessionManager.resetSessionTimer();
 
@@ -10725,12 +10738,10 @@ var mParticle = (function () {
          * @param {String} code The currency code
          */
         setCurrencyCode: function setCurrencyCode(code) {
-          if (!self._Store.isInitialized) {
-            self.ready(function () {
-              self.eCommerce.setCurrencyCode(code);
-            });
-            return;
-          }
+          var queued = queueIfNotInitialized(function () {
+            self.eCommerce.setCurrencyCode(code);
+          }, self);
+          if (queued) return;
 
           if (typeof code !== 'string') {
             self.Logger.error('Code must be a string');
@@ -10837,12 +10848,10 @@ var mParticle = (function () {
          * @param {Object} [eventOptions] For Event-level Configuration Options
          */
         logProductAction: function logProductAction(productActionType, product, attrs, customFlags, transactionAttributes, eventOptions) {
-          if (!self._Store.isInitialized) {
-            self.ready(function () {
-              self.eCommerce.logProductAction(productActionType, product, attrs, customFlags, transactionAttributes, eventOptions);
-            });
-            return;
-          }
+          var queued = queueIfNotInitialized(function () {
+            self.eCommerce.logProductAction(productActionType, product, attrs, customFlags, transactionAttributes, eventOptions);
+          }, self);
+          if (queued) return;
 
           self._SessionManager.resetSessionTimer();
 
@@ -10891,12 +10900,10 @@ var mParticle = (function () {
          * @param {Object} [eventOptions] For Event-level Configuration Options
          */
         logPromotion: function logPromotion(type, promotion, attrs, customFlags, eventOptions) {
-          if (!self._Store.isInitialized) {
-            self.ready(function () {
-              self.eCommerce.logPromotion(type, promotion, attrs, customFlags, eventOptions);
-            });
-            return;
-          }
+          var queued = queueIfNotInitialized(function () {
+            self.eCommerce.logPromotion(type, promotion, attrs, customFlags, eventOptions);
+          }, self);
+          if (queued) return;
 
           self._SessionManager.resetSessionTimer();
 
@@ -10913,12 +10920,10 @@ var mParticle = (function () {
          * @param {Object} [eventOptions] For Event-level Configuration Options
          */
         logImpression: function logImpression(impression, attrs, customFlags, eventOptions) {
-          if (!self._Store.isInitialized) {
-            self.ready(function () {
-              self.eCommerce.logImpression(impression, attrs, customFlags, eventOptions);
-            });
-            return;
-          }
+          var queued = queueIfNotInitialized(function () {
+            self.eCommerce.logImpression(impression, attrs, customFlags, eventOptions);
+          }, self);
+          if (queued) return;
 
           self._SessionManager.resetSessionTimer();
 
@@ -10962,15 +10967,12 @@ var mParticle = (function () {
        */
 
       this.setSessionAttribute = function (key, value) {
-        if (!self._Store.isInitialized) {
-          self.ready(function () {
-            self.setSessionAttribute(key, value);
-          });
-          return;
-        } // Logs to cookie
+        var queued = queueIfNotInitialized(function () {
+          self.setSessionAttribute(key, value);
+        }, self);
+        if (queued) return; // Logs to cookie
         // And logs to in-memory object
         // Example: mParticle.setSessionAttribute('location', '33431');
-
 
         if (self._Helpers.canLog()) {
           if (!self._Helpers.Validators.isValidAttributeValue(value)) {
@@ -11011,12 +11013,10 @@ var mParticle = (function () {
 
 
       this.setOptOut = function (isOptingOut) {
-        if (!self._Store.isInitialized) {
-          self.ready(function () {
-            self.setOptOut(isOptingOut);
-          });
-          return;
-        }
+        var queued = queueIfNotInitialized(function () {
+          self.setOptOut(isOptingOut);
+        }, self);
+        if (queued) return;
 
         self._SessionManager.resetSessionTimer();
 
@@ -11054,12 +11054,10 @@ var mParticle = (function () {
 
 
       this.setIntegrationAttribute = function (integrationId, attrs) {
-        if (!self._Store.isInitialized) {
-          self.ready(function () {
-            self.setIntegrationAttribute(integrationId, attrs);
-          });
-          return;
-        }
+        var queued = queueIfNotInitialized(function () {
+          self.setIntegrationAttribute(integrationId, attrs);
+        }, self);
+        if (queued) return;
 
         if (typeof integrationId !== 'number') {
           self.Logger.error('integrationId must be a number');
@@ -11133,6 +11131,10 @@ var mParticle = (function () {
 
       this._setIntegrationDelay = function (module, _boolean) {
         self._preInit.integrationDelays[module] = _boolean;
+      };
+
+      this.isInitialized = function () {
+        return self._Store ? self._Store.isInitialized : false;
       };
     } // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 
@@ -11373,6 +11375,17 @@ var mParticle = (function () {
           mpInstance.Logger.verbose('Unable to compute proper mParticle function ' + e);
         }
       }
+    }
+
+    function queueIfNotInitialized(func, self) {
+      if (!self.isInitialized()) {
+        self.ready(function () {
+          func();
+        });
+        return true;
+      }
+
+      return false;
     }
 
     var _BatchValidator = /*#__PURE__*/ function () {
