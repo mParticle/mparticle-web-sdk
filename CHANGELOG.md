@@ -1,3 +1,12 @@
+## [2.14.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.14.1...v2.14.2) (2022-02-09)
+
+
+### Bug Fixes
+
+* Refactor Public methods to queue if Store is not initialized ([#311](https://github.com/mParticle/mparticle-web-sdk/issues/311)) ([27d506c](https://github.com/mParticle/mparticle-web-sdk/commit/27d506cb06d0cb4f5e50b9a7175c1113d5f42b0c))
+* Update cookie sync date only upon successful cookie sync ([48d6fe1](https://github.com/mParticle/mparticle-web-sdk/commit/48d6fe179c3b9952a89661c785fb4af6ce4f8b23))
+* update reusable workflow urls ([#265](https://github.com/mParticle/mparticle-web-sdk/issues/265)) ([1c334d3](https://github.com/mParticle/mparticle-web-sdk/commit/1c334d3eeccb481aa100f232146269018da2323e))
+
 ## [2.14.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.14.0...v2.14.1) (2021-09-02)
 
 
