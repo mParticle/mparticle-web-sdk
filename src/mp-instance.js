@@ -223,6 +223,14 @@ export default function mParticleInstance(instanceName) {
         if (queued) return;
         this._Persistence.setDeviceId(guid);
     };
+    /**
+     * Returns a boolean for whether or not the SDKhas been fully initialized
+     * @method isInitialized
+     * @return {Boolean} a boolean for whether or not the SDK has been fully initialized
+     */
+    this.isInitialized = function() {
+        return self._Store ? self._Store.isInitialized : false;
+    };
 
     /**
      * Gets the app name
@@ -1199,9 +1207,6 @@ export default function mParticleInstance(instanceName) {
     };
     this._setIntegrationDelay = function(module, boolean) {
         self._preInit.integrationDelays[module] = boolean;
-    };
-    this.isInitialized = function() {
-        return self._Store ? self._Store.isInitialized : false;
     };
 }
 

@@ -100,6 +100,9 @@ function mParticle() {
     this.setDeviceId = function(guid) {
         return self.getInstance().setDeviceId(guid);
     };
+    this.isInitialized = function() {
+        return self.getInstance().isInitialized();
+    };
     this.startNewSession = function() {
         self.getInstance().startNewSession();
     };

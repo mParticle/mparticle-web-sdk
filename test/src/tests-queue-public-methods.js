@@ -29,6 +29,23 @@ describe('Queue Public Methods', function () {
 
     describe('mParticle Core', function () {
 
+        describe.only('#isInitialized', function () {
+            it('should be a valid method on both mParticle and mParticle.getInstance() objects', function () {
+                mParticle.should.have.property('isInitialized');
+                mParticle.getInstance().should.have.property('isInitialized');
+            });
+
+            it('should return false if not yet initialized, and true after initialization', function () {
+                mParticle.isInitialized().should.equal(false);
+                mParticle.getInstance().isInitialized().should.equal(false);
+
+                window.mParticle.init(apiKey, window.mParticle.config);
+
+                mParticle.isInitialized().should.equal(true);
+                mParticle.getInstance().isInitialized().should.equal(true);
+            });
+        });	
+
         describe('#setAppVersion', function () {
             it('should queue if not initialized', function () {
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
