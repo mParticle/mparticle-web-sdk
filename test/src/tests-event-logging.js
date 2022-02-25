@@ -52,6 +52,40 @@ describe('event logging', function() {
         done();
     });
 
+    it('should log an event with new device id when set on setDeviceId', function(done) {
+        window.mParticle.logEvent(
+            'Test Event',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' }
+        );
+        var data = getEvent(mockServer.requests, 'Test Event');
+        // this das should be the SDK auto generated one, which is 36 characters long
+        data.das.should.have.length(36)
+
+        mParticle.setDeviceId('foo-guid');
+        
+        window.mParticle.logEvent('Test Event2',);
+        var data2 = getEvent(mockServer.requests, 'Test Event2');
+        // das should be the one passed to setDeviceId()
+        data2.should.have.property('das', 'foo-guid');
+
+        done();
+    });
+
+    it('should log an event with new device id when set via mParticle.config', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        window.mParticle.config.deviceId = 'foo-guid';
+        mParticle.init(apiKey, window.mParticle.config);
+
+        window.mParticle.logEvent('Test Event',);
+        var data = getEvent(mockServer.requests, 'Test Event');
+        // this das should be the SDK auto generated one
+        data.should.have.property('das', 'foo-guid');
+
+        done();
+    });
+
     it('should allow an event to bypass server upload', function (done) {
         window.mParticle.logEvent(
             'Test Standard Upload',

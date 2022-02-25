@@ -87,6 +87,7 @@ export default function mParticleInstance(instanceName) {
     this.Identity = this._Identity.IdentityAPI;
     this.generateHash = this._Helpers.generateHash;
     this.getDeviceId = this._Persistence.getDeviceId;
+
     if (typeof window !== 'undefined') {
         if (window.mParticle && window.mParticle.config) {
             if (window.mParticle.config.hasOwnProperty('rq')) {
@@ -210,6 +211,19 @@ export default function mParticleInstance(instanceName) {
         self._Store.SDKConfig.appVersion = version;
         self._Persistence.update();
     };
+    /**
+     * Sets the device id
+     * @method setDeviceId
+     * @param {String} name device ID (UUIDv4-formatted string)
+     */
+    this.setDeviceId = function(guid) {
+        var queued = queueIfNotInitialized(function() {
+            self.setDeviceId(guid);
+        }, self);
+        if (queued) return;
+        this._Persistence.setDeviceId(guid);
+    };
+
     /**
      * Gets the app name
      * @method getAppName

@@ -74,6 +74,9 @@ export default function Store(config, mpInstance) {
     this.SDKConfig = createSDKConfig(config);
     // Set configuration to default settings
     if (config) {
+        if (config.deviceId) {
+            this.deviceId = config.deviceId;
+        }
         if (config.hasOwnProperty('isDevelopmentMode')) {
             this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
                 config.isDevelopmentMode

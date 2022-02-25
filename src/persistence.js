@@ -1148,6 +1148,11 @@ export default function _Persistence(mpInstance) {
         return mpInstance._Store.deviceId;
     };
 
+    this.setDeviceId = function(guid) {
+        mpInstance._Store.deviceId = guid;
+        self.update();
+    };
+
     this.resetPersistence = function() {
         removeLocalStorage(StorageNames.localStorageName);
         removeLocalStorage(StorageNames.localStorageNameV3);

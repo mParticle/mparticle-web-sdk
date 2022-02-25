@@ -1040,4 +1040,28 @@ describe('core SDK', function() {
 
         done();
     });
+
+    it('should set a device id when calling setDeviceId', function(done) {
+        mParticle._resetForTests(MPConfig);
+        
+        mParticle.init(apiKey, window.mParticle.config);
+        // this das should be the SDK auto generated one, which is 36 characters long
+        mParticle.getDeviceId().length.should.equal(36);
+
+        mParticle.setDeviceId('foo-guid');
+        
+        mParticle.getDeviceId().should.equal('foo-guid');
+
+        done();
+    });
+
+    it('should set a device id when set on mParticle.config', function(done) {
+        mParticle._resetForTests(MPConfig);
+        window.mParticle.config.deviceId = 'foo-guid';
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.getDeviceId().should.equal('foo-guid');
+
+        done();
+    });
 });

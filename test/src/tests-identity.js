@@ -3039,6 +3039,48 @@ describe('identity', function() {
         done();
     });
 
+    it('should use the custom device id in known_identities when passed via setDeviceId', function(done) {
+        mParticle._resetForTests(MPConfig);
+        mockServer.requests = [];
+
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ body: null}),
+        ]);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        var data = getIdentityEvent(mockServer.requests, 'identify');
+        data.known_identities.device_application_stamp.length.should.equal(36);
+        
+        mParticle.setDeviceId('foo-guid');
+        mParticle.Identity.login({userIdentities: {customerid: 'test'}});
+        var data2 = getIdentityEvent(mockServer.requests, 'login');
+
+        data2.known_identities.device_application_stamp.should.equal('foo-guid');
+
+        done();
+    });
+
+    it('should use the custom device id in known_identities when set via mParticle.config', function(done) {
+        mParticle._resetForTests(MPConfig);
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ body: null}),
+        ]);
+        mockServer.requests = [];
+        window.mParticle.config.deviceId = 'foo-guid';
+        mParticle.init(apiKey, window.mParticle.config);
+
+
+        var data = getIdentityEvent(mockServer.requests, 'identify');
+        data.known_identities.device_application_stamp.should.equal('foo-guid');
+
+        done();
+    });
+
     describe('Deprecate Cart', function() {
         afterEach(function() {
             sinon.restore();

@@ -1886,4 +1886,26 @@ describe('migrations and persistence-related', function() {
 
         done();
     });
+
+    it('should save to persistance a device id set with setDeviceId', function(done) {
+        mParticle._resetForTests(MPConfig);
+        
+        // window.mParticle.config.deviceId = 'foo-guid';
+        mParticle.init(apiKey, window.mParticle.config);
+        mParticle.setDeviceId('foo-guid');
+
+        mParticle.getInstance()._Persistence.getLocalStorage().gs.das.should.equal('foo-guid');
+
+        done();
+    });
+
+    it('should save to persistance a device id set via mParticle.config', function(done) {
+        mParticle._resetForTests(MPConfig);
+        window.mParticle.config.deviceId = 'foo-guid';
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.getInstance()._Persistence.getLocalStorage().gs.das.should.equal('foo-guid');
+
+        done();
+    });
 });
