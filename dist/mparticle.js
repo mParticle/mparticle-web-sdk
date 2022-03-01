@@ -719,7 +719,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.14.2";
+    var version = "2.15.0";
 
     var Constants = {
       sdkVersion: version,
@@ -5206,6 +5206,10 @@ var mParticle = (function () {
       this.SDKConfig = createSDKConfig(config); // Set configuration to default settings
 
       if (config) {
+        if (config.deviceId) {
+          this.deviceId = config.deviceId;
+        }
+
         if (config.hasOwnProperty('isDevelopmentMode')) {
           this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(config.isDevelopmentMode);
         } else {
@@ -6410,6 +6414,11 @@ var mParticle = (function () {
         return mpInstance._Store.deviceId;
       };
 
+      this.setDeviceId = function (guid) {
+        mpInstance._Store.deviceId = guid;
+        self.update();
+      };
+
       this.resetPersistence = function () {
         removeLocalStorage(StorageNames$1.localStorageName);
         removeLocalStorage(StorageNames$1.localStorageNameV3);
@@ -7267,9 +7276,10 @@ var mParticle = (function () {
             filterUserIdentities(clonedEvent, mpInstance._Store.activeForwarders[i].userIdentityFilters); // Check user attribute filtering rules
 
             clonedEvent.UserAttributes = mpInstance._Helpers.filterUserAttributes(clonedEvent.UserAttributes, mpInstance._Store.activeForwarders[i].userAttributeFilters);
-            mpInstance.Logger.verbose('Sending message to forwarder: ' + mpInstance._Store.activeForwarders[i].name);
 
             if (mpInstance._Store.activeForwarders[i].process) {
+              mpInstance.Logger.verbose('Sending message to forwarder: ' + mpInstance._Store.activeForwarders[i].name);
+
               var result = mpInstance._Store.activeForwarders[i].process(clonedEvent);
 
               if (result) {
@@ -10301,6 +10311,31 @@ var mParticle = (function () {
         self._Persistence.update();
       };
       /**
+       * Sets the device id
+       * @method setDeviceId
+       * @param {String} name device ID (UUIDv4-formatted string)
+       */
+
+
+      this.setDeviceId = function (guid) {
+        var queued = queueIfNotInitialized(function () {
+          self.setDeviceId(guid);
+        }, self);
+        if (queued) return;
+
+        this._Persistence.setDeviceId(guid);
+      };
+      /**
+       * Returns a boolean for whether or not the SDKhas been fully initialized
+       * @method isInitialized
+       * @return {Boolean} a boolean for whether or not the SDK has been fully initialized
+       */
+
+
+      this.isInitialized = function () {
+        return self._Store ? self._Store.isInitialized : false;
+      };
+      /**
        * Gets the app name
        * @method getAppName
        * @return {String} App name
@@ -11132,10 +11167,6 @@ var mParticle = (function () {
       this._setIntegrationDelay = function (module, _boolean) {
         self._preInit.integrationDelays[module] = _boolean;
       };
-
-      this.isInitialized = function () {
-        return self._Store ? self._Store.isInitialized : false;
-      };
     } // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 
     function completeSDKInitialization(apiKey, config, mpInstance) {
@@ -11519,6 +11550,14 @@ var mParticle = (function () {
 
       this.getDeviceId = function () {
         return self.getInstance().getDeviceId();
+      };
+
+      this.setDeviceId = function (guid) {
+        return self.getInstance().setDeviceId(guid);
+      };
+
+      this.isInitialized = function () {
+        return self.getInstance().isInitialized();
       };
 
       this.startNewSession = function () {
