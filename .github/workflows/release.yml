@@ -14,16 +14,16 @@ jobs:
     name: "Confirm release is run from public/master branch"
     uses: mParticle/mparticle-workflows/.github/workflows/sdk-release-repo-branch-check.yml@stable
   
-    # All new code is stored in internal/development. Release from public/master will first create an internal/release branch
-    # based on the changes from internal/development and push it back to the internal repo, then run semantic-release on 
-    # the internal/release branch to update changelog and release notes. Before semantic-release publishes to npm, it builds 
-    # the dist/ folder. Finally, the internal/release branch is merged back into public/master and syned back to internal/master
-    # and internal/development before deleting the temporary internal/release branch.
+  # All new code is stored in internal/development. Release from public/master will first create an internal/release branch
+  # based on the changes from internal/development and push it back to the internal repo, then run semantic-release on 
+  # the internal/release branch to update changelog and release notes. Before semantic-release publishes to npm, it builds 
+  # the dist/ folder. Finally, the internal/release branch is merged back into public/master and syned back to internal/master
+  # and internal/development before deleting the temporary internal/release branch.
 
   create-release-branch:
       name: Create release branch
       runs-on: ubuntu-18.04
-      needs: confirm-master-branch
+      needs: confirm-public-repo-master-branch
       steps:
         - name: Checkout internal development branch
           uses: actions/checkout@v2
