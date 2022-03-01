@@ -369,12 +369,11 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     mpInstance._Store.activeForwarders[i].userAttributeFilters
                 );
 
-                mpInstance.Logger.verbose(
-                    'Sending message to forwarder: ' +
-                        mpInstance._Store.activeForwarders[i].name
-                );
-
                 if (mpInstance._Store.activeForwarders[i].process) {
+                    mpInstance.Logger.verbose(
+                        'Sending message to forwarder: ' +
+                            mpInstance._Store.activeForwarders[i].name
+                    );
                     var result = mpInstance._Store.activeForwarders[i].process(
                         clonedEvent
                     );
