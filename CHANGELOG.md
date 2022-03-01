@@ -1,3 +1,16 @@
+# [2.15.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.14.2...v2.15.0) (2022-03-01)
+
+
+### Bug Fixes
+
+* prevent erroneous event logging to kits when an event is not sent ([dfc0f4f](https://github.com/mParticle/mparticle-web-sdk/commit/dfc0f4f260e5e608d86d75e2f426889b8864c581))
+
+
+### Features
+
+* add API to set device id ([#341](https://github.com/mParticle/mparticle-web-sdk/issues/341)) ([b81e4d3](https://github.com/mParticle/mparticle-web-sdk/commit/b81e4d30fd502ad6d76cfc4d1f95c91602975738))
+* add isInitialized to mParticle object ([5fbc9df](https://github.com/mParticle/mparticle-web-sdk/commit/5fbc9dffecaf187a08eab464428a5e75048f89d3))
+
 ## [2.14.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.14.1...v2.14.2) (2022-02-09)
 
 
