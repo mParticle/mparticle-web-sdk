@@ -38,6 +38,13 @@ jobs:
 
             - name: Run Stub tests
               run: npm run test:stub
+              
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v2
+              if: failure()
+              with:
+                name: npm-logs
+                path: ~/.npm/_logs
 
     dependabot-automerge:
         name: Rebase dependabot PRs
