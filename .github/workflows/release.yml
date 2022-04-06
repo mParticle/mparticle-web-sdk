@@ -87,6 +87,13 @@ jobs:
             NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           run: |
             npx semantic-release
+            
+        - name: Archive npm failure logs
+          uses: actions/upload-artifact@v2
+          if: failure()
+          with:
+            name: npm-logs
+            path: ~/.npm/_logs
 
         - name: Push automated release commits to internal release branch
           if: ${{ github.event.inputs.dryRun == 'false' }}
