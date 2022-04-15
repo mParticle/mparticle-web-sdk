@@ -3,6 +3,7 @@ import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
 import { BatchUploader } from  '../../src/batchUploader';
 import { MParticleWebSDK, SDKEvent, SDKProductActionType } from  '../../src/sdkRuntimeModels';
+import Utils from './utils';
 
 declare global {
     interface Window {
@@ -35,7 +36,7 @@ describe('batch uploader', () => {
         beforeEach(function() {
             window.fetchMock.post(urls.eventsV3, 200);
             window.fetchMock.config.overwriteRoutes = true;
-            clock = sinon.useFakeTimers();
+            clock = sinon.useFakeTimers({now: new Date().getTime()});
 
             window.mParticle.config.flags = {
                 eventsV3: '100',
@@ -231,6 +232,97 @@ describe('batch uploader', () => {
             batch.events[batch.events.length-1].data.should.have.property('source_message_id', 'abcdefg')
 
             done();
+        });
+    
+        it('should call the identity callback after a session ends if user is returning to the page after a long period of time', function(done) {
+            // Background of bug that this test fixes:
+            // User navigates away from page and returns after some time
+            // and the session should end.  There is a UAC firing inside of
+            // config.identityCallback, which would send to our servers with
+            // the previous session ID because the identity call back fired
+            // before the session logic that determines if a new session should
+            // start.
+
+            window.mParticle._resetForTests(MPConfig);
+            
+            window.mParticle.config.identityCallback = function(result) {
+                let currentUser = result.getUser()
+                if (currentUser) {
+                    currentUser.setUserAttribute("number", Math.floor((Math.random() * 1000) + 1))
+                }
+            }
+            
+            var endSessionFunction = window.mParticle.getInstance()._SessionManager.endSession;
+            
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            // Mock end session so that the SDK doesn't actually send it. We do this
+            // to mimic a return to page behavior, below:
+            window.mParticle.getInstance()._SessionManager.endSession = function() {
+            }
+
+            // Force 35 minutes to pass, so that when we return to the page, when
+            // the SDK initializes it will know to end the session.
+            clock.tick(35*60000);
+
+            // Undo mock of end session so that when we initializes, it will end
+            // the session for real.
+            window.mParticle.getInstance()._SessionManager.endSession = endSessionFunction;
+            
+            // Initialize imitates returning to the page
+            window.mParticle.init(apiKey, window.mParticle.config);
+            
+            // Force an upload of events
+            window.mParticle.upload();
+            
+            // We have to restore the clock in order to use setTimeout below
+            clock.restore();
+
+            // This timeout is required for all batches to be sent due to there being
+            // an async/await inside of a foor loop in the batch uploader
+            setTimeout(function() {
+                var batch1 = JSON.parse(window.fetchMock._calls[0][1].body);
+
+                var batch1SessionStart = Utils.findEventFromBatch(batch1, 'session_start')
+                var batch1AST = Utils.findEventFromBatch(batch1, 'application_state_transition')
+                var batch1UAC = Utils.findEventFromBatch(batch1, 'user_attribute_change')
+
+                batch1SessionStart.should.be.ok();
+                batch1AST.should.be.ok();
+                batch1UAC.should.be.ok();
+                
+                var batch2 = JSON.parse(window.fetchMock._calls[1][1].body);
+
+                batch2.events.length.should.equal(1);
+                var batch2SessionEnd = Utils.findEventFromBatch(batch2, 'session_end')
+                batch2SessionEnd.should.be.ok();
+
+                var batch3 = JSON.parse(window.fetchMock._calls[2][1].body);
+
+                batch3.events.length.should.equal(3);
+                var batch3SessionStart = Utils.findEventFromBatch(batch3, 'session_start')
+                var batch3AST = Utils.findEventFromBatch(batch3, 'application_state_transition')
+                var batch3UAC = Utils.findEventFromBatch(batch3, 'user_attribute_change')
+
+                batch3SessionStart.should.be.ok();
+                batch3AST.should.be.ok();
+                batch3UAC.should.be.ok();
+
+                (typeof batch1.source_request_id).should.equal('string');
+                (typeof batch2.source_request_id).should.equal('string');
+                (typeof batch3.source_request_id).should.equal('string');
+
+                batch1.source_request_id.should.not.equal(batch2.source_request_id);
+                batch2.source_request_id.should.not.equal(batch3.source_request_id);
+                batch3.source_request_id.should.not.equal(batch1.source_request_id);
+
+                batch1SessionStart.data.session_uuid.should.equal(batch2SessionEnd.data.session_uuid);
+                batch1UAC.data.session_uuid.should.not.equal(batch3UAC.data.session_uuid);
+                batch1UAC.data.session_start_unixtime_ms.should.not.equal(batch3UAC.data.session_start_unixtime_ms);
+    
+                done();
+                // wait for more than 1000 milliseconds to force the final upload
+            }, 1200);
         });
     })
 

@@ -156,6 +156,7 @@ export interface SDKConfig {
     minWebviewBridgeVersion: number;
     isIOS?: boolean;
     identifyRequest: { [key: string]: {[key: string]: string} };
+    identityCallback: (result) => void;
     requestConfig: boolean;
     dataPlanOptions: KitBlockerOptions // when the user provides their own data plan
     dataPlanResult?: DataPlanResult  // when the data plan comes from the server via /config

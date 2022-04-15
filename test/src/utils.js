@@ -187,6 +187,14 @@ var pluses = /\+/g,
             return events[0]
         }
     },
+    findEventFromBatch = function(batch, eventName) {
+        if (batch.events.length) {
+            return batch.events.find(function(event) {
+                return event.event_type === eventName
+            })
+        }
+        return null;
+    },
     getForwarderEvent = function(requests, eventName) {
         var url = `https://jssdks.mparticle.com/v2/JS/${apiKey}/Forwarding`
         var returnedReqs = [];
@@ -522,6 +530,7 @@ var TestsCore = {
     setLocalStorage: setLocalStorage,
     getLocalStorage: getLocalStorage,
     getEvent: getEvent,
+    findEventFromBatch: findEventFromBatch,
     getForwarderEvent: getForwarderEvent,
     findRequest: findRequest,
     getIdentityEvent: getIdentityEvent,

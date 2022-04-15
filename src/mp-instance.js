@@ -1340,6 +1340,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._APIClient.prepareForwardingStats
         );
 
+        mpInstance._SessionManager.initialize();
+        mpInstance._Events.logAST();
+
         // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
         if (
             !mpInstance._Store.identifyCalled &&
@@ -1376,9 +1379,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 },
             });
         }
-
-        mpInstance._SessionManager.initialize();
-        mpInstance._Events.logAST();
     }
 
     mpInstance._Store.isInitialized = true;
