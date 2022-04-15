@@ -124,6 +124,25 @@ describe('eCommerce', function() {
         done();
     });
 
+    it('should not log a ecommerce event if there is a typo in the product action type', function(done) {
+        var product = mParticle.eCommerce.createProduct(
+                'iPhone',
+                '12345',
+                '400');
+
+        // At this point, mockServer.requests contains 3 requests - an identity,
+        // session start, and AST event. 
+        // We empty it in order to prove the following event does not send an event
+        mockServer.requests = [];
+        mParticle.eCommerce.logProductAction(
+            mParticle.ProductActionType.Typo, // <------ will result in a null when converting the product action type as this is not a real value
+            [product]
+        );
+        mockServer.requests.length.should.equal(0);
+
+        done();
+    });
+
     it('should log badly formed ecommerce event', function(done) {
         var product = mParticle.eCommerce.createProduct(
                 'iPhone',
@@ -1403,7 +1422,7 @@ describe('eCommerce', function() {
     it('should add customFlags to logProductAction events', function(done) {
         var product = mParticle.eCommerce.createProduct('iPhone', 'sku1', 499);
         mParticle.eCommerce.logProductAction(
-            0,
+            mParticle.ProductActionType.Unknown,
             product,
             { price: 5 },
             { interactionEvent: true }
@@ -1443,12 +1462,14 @@ describe('eCommerce', function() {
             'creative',
             'name'
         );
+
         mParticle.eCommerce.logPromotion(
-            0,
+            mParticle.PromotionType.Unknown,
             promotion,
             { shipping: 5 },
             { interactionEvent: true }
         );
+
         var event = getEvent(mockServer.requests, 'eCommerce - Unknown');
         Array.isArray(event.flags.interactionEvent).should.equal(true);
         event.flags.interactionEvent[0].should.equal('true');

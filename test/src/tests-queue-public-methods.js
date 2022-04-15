@@ -29,7 +29,7 @@ describe('Queue Public Methods', function () {
 
     describe('mParticle Core', function () {
 
-        describe.only('#isInitialized', function () {
+        describe('#isInitialized', function () {
             it('should be a valid method on both mParticle and mParticle.getInstance() objects', function () {
                 mParticle.should.have.property('isInitialized');
                 mParticle.getInstance().should.have.property('isInitialized');

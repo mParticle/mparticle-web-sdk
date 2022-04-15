@@ -319,6 +319,20 @@ export default function Events(mpInstance) {
             Messages.InformationMessages.StartingLogCommerceEvent
         );
 
+        // If a developer typos the ProductActionType, the event category will be
+        // null, resulting in kit forwarding errors on the server.
+        // The check for `ProductAction` is required to denote that these are
+        // ProductAction events, and not impression or promotions
+        if (
+            commerceEvent.ProductAction &&
+            commerceEvent.EventCategory === null
+        ) {
+            mpInstance.Logger.error(
+                'Commerce event not sent.  The mParticle.ProductActionType you passed was invalid. Re-check your code.'
+            );
+            return;
+        }
+
         attrs = mpInstance._Helpers.sanitizeAttributes(
             attrs,
             commerceEvent.EventName
