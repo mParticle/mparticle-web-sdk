@@ -11,6 +11,7 @@ var setLocalStorage = Utils.setLocalStorage,
 var pixelUrl = 'https://i.imgur.com/fvfcfpZ_d.webp';
 
 describe('cookie syncing', function() {
+    var timeout = 500;
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
@@ -55,7 +56,7 @@ describe('cookie syncing', function() {
             data[testMPID].csd.should.have.property('5');
 
             done();        
-        }, 200);
+        }, timeout);
         
     });
 
@@ -92,7 +93,7 @@ describe('cookie syncing', function() {
             Should(updated).be.ok();
     
             done();
-        }, 200);
+        }, timeout);
     });
 
     it('should not sync cookies when last date is within frequencyCap', function(done) {
@@ -129,7 +130,7 @@ describe('cookie syncing', function() {
             );
     
             done();
-        }, 200);
+        }, timeout);
     });
 
     it('should sync cookies when mpid changes', function(done) {
@@ -167,8 +168,8 @@ describe('cookie syncing', function() {
                 );
         
                 done();
-            }, 200);
-        }, 200);
+            }, timeout);
+        }, timeout);
     });
 
     it('should not sync cookies when pixelSettings.isDebug is false, pixelSettings.isProduction is true, and mParticle.config.isDevelopmentMode is true', function(done) {
@@ -227,7 +228,7 @@ describe('cookie syncing', function() {
             );
 
             done();
-        }, 200);
+        }, timeout);
     });
 
     it('should replace mpID properly', function(done) {
@@ -313,8 +314,8 @@ describe('cookie syncing', function() {
 
                 done();
 
-            }, 200);
-        }, 200);
+            }, timeout);
+        }, timeout);
     });
 
     var MockUser = function() {
@@ -355,7 +356,7 @@ describe('cookie syncing', function() {
             data[testMPID].csd.should.have.property('5');
 
             done();
-        }, 200);
+        }, timeout);
     });
 
     it('should return false for isEnabledForUserConsent when consent is configured but no user is passed', function(done) {
@@ -1000,10 +1001,10 @@ describe('cookie syncing', function() {
                     cookieSyncLS.testMPID.csd.should.have.property(5);
             
                     done();
-                }, 200);
-            }, 200);
+                }, timeout);
+            }, timeout);
     
-        }, 200);
+        }, timeout);
     });
 
     it('should perform a cookie sync only after GDPR consent is given when consent is required - perform a cookie sync when consent is rejected', function(done) {
@@ -1070,9 +1071,9 @@ describe('cookie syncing', function() {
                     newLocalStorage.testMPID.should.have.property('csd')
                     newLocalStorage.testMPID.csd.should.have.property(5)
                     done();
-                }, 200);
-            }, 200);
-        }, 200);
+                }, timeout);
+            }, timeout);
+        }, timeout);
     });
 
     it('should perform a cookie sync only after CCPA consent is given when consent is required - perform a cookie sync when accepting consent is required', function(done) {
@@ -1141,9 +1142,9 @@ describe('cookie syncing', function() {
                     cookieSyncLS.testMPID.csd.should.have.property(5);
         
                     done();
-                }, 200);
-            }, 200);
-        }, 200);
+                }, timeout);
+            }, timeout);
+        }, timeout);
     });
 
     it('should perform a cookie sync only after CCPA consent is given when consent is required - perform a cookie sync when consent is rejected', function(done) {
@@ -1209,9 +1210,9 @@ describe('cookie syncing', function() {
                     newLocalStorage.testMPID.csd.should.have.property(5)
             
                     done();
-                }, 200);
-            }, 200);
-        }, 200);
+                }, timeout);
+            }, timeout);
+        }, timeout);
     });
 
     it('should allow some cookie syncs to occur and others to not occur if there are multiple pixels with varying consent levels', function(done) {
@@ -1289,7 +1290,7 @@ describe('cookie syncing', function() {
                 newLocalStorage.testMPID.csd.should.have.property(1)
         
                 done();
-            }, 200);
-        }, 200);
+            }, timeout);
+        }, timeout);
     });
 });
