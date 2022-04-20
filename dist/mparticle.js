@@ -719,7 +719,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.15.0";
+    var version = "2.15.1";
 
     var Constants = {
       sdkVersion: version,
@@ -5834,8 +5834,8 @@ var mParticle = (function () {
         for (i = 0, l = cookies.length; i < l; i++) {
           try {
             parts = cookies[i].split('=');
-            name = mpInstance._Helpers.decoded(parts.shift());
-            cookie = mpInstance._Helpers.decoded(parts.join('='));
+            name = parts.shift();
+            cookie = parts.join('=');
           } catch (e) {
             mpInstance.Logger.verbose('Unable to parse cookie: ' + name + '. Skipping.');
           }
@@ -6668,7 +6668,16 @@ var mParticle = (function () {
       };
 
       this.logCommerceEvent = function (commerceEvent, attrs, options) {
-        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogCommerceEvent);
+        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogCommerceEvent); // If a developer typos the ProductActionType, the event category will be
+        // null, resulting in kit forwarding errors on the server.
+        // The check for `ProductAction` is required to denote that these are
+        // ProductAction events, and not impression or promotions
+
+        if (commerceEvent.ProductAction && commerceEvent.EventCategory === null) {
+          mpInstance.Logger.error('Commerce event not sent.  The mParticle.ProductActionType you passed was invalid. Re-check your code.');
+          return;
+        }
+
         attrs = mpInstance._Helpers.sanitizeAttributes(attrs, commerceEvent.EventName);
 
         if (mpInstance._Helpers.canLog()) {
@@ -11256,7 +11265,11 @@ var mParticle = (function () {
           mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
 
-        mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats); // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
+        mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
+
+        mpInstance._SessionManager.initialize();
+
+        mpInstance._Events.logAST(); // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
 
 
         if (!mpInstance._Store.identifyCalled && mpInstance._Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
@@ -11284,10 +11297,6 @@ var mParticle = (function () {
             }
           });
         }
-
-        mpInstance._SessionManager.initialize();
-
-        mpInstance._Events.logAST();
       }
 
       mpInstance._Store.isInitialized = true; // Call any functions that are waiting for the library to be initialized
