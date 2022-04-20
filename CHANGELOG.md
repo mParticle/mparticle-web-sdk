@@ -1,3 +1,12 @@
+## [2.15.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.0...v2.15.1) (2022-04-20)
+
+
+### Bug Fixes
+
+* add validation to prevent null event category from sending ([#358](https://github.com/mParticle/mparticle-web-sdk/issues/358)) ([cc93497](https://github.com/mParticle/mparticle-web-sdk/commit/cc934975a196e0f5c20ab834e9f9026fbb7f53db))
+* decode cookie error on special character attributes ([#365](https://github.com/mParticle/mparticle-web-sdk/issues/365)) ([9237a44](https://github.com/mParticle/mparticle-web-sdk/commit/9237a449d7eb5b7e8910ff3cd584e60929efaf9d))
+* ensure sessions/AST initialize before identity callback ([#360](https://github.com/mParticle/mparticle-web-sdk/issues/360)) ([2663a57](https://github.com/mParticle/mparticle-web-sdk/commit/2663a57a23d0b478cc149d1b7361f72a3e1c68f0))
+
 # [2.15.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.14.2...v2.15.0) (2022-03-01)
 
 
