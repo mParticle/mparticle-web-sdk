@@ -1907,4 +1907,48 @@ describe('migrations and persistence-related', function() {
 
         done();
     });
+
+    // this test confirms a bug has been fixed where setting a user attribute, then user attribute list
+    // with a special character in it results in a cookie decode error, which only happened
+    // when config.useCookieStorage was true
+    it('should save special characters to persistence when on cookies or local storage', function(done) {
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
+        // first test local storage
+        window.mParticle.config.useCookieStorage = false;
+
+        mParticle._resetForTests(MPConfig);
+        mParticle.init(apiKey, window.mParticle.config);
+
+        var user = mParticle.Identity.getCurrentUser();
+
+        user.setUserAttribute("ua-1","a")
+        user.setUserAttributeList("ua-list", ["a\\","<b>"]);
+
+        user.getAllUserAttributes()['ua-list'][0].should.equal('a\\');
+        user.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
+        user.getAllUserAttributes()['ua-1'].should.equal('a');
+
+        mParticle._resetForTests(MPConfig);
+
+        // then test cookie storage
+        window.mParticle.config.useCookieStorage = true;
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        var user2 = mParticle.Identity.getCurrentUser();
+
+        user2.setUserAttribute("ua-1","a")
+        user2.setUserAttributeList("ua-list", ["a\\","<b>"]);
+
+        user2.getAllUserAttributes()['ua-list'][0].should.equal('a\\');
+        user2.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
+        user2.getAllUserAttributes()['ua-1'].should.equal('a');
+
+        done();
+    });
 });

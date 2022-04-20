@@ -457,8 +457,8 @@ export default function _Persistence(mpInstance) {
         for (i = 0, l = cookies.length; i < l; i++) {
             try {
                 parts = cookies[i].split('=');
-                name = mpInstance._Helpers.decoded(parts.shift());
-                cookie = mpInstance._Helpers.decoded(parts.join('='));
+                name = parts.shift();
+                cookie = parts.join('=');
             } catch (e) {
                 mpInstance.Logger.verbose(
                     'Unable to parse cookie: ' + name + '. Skipping.'
