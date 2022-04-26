@@ -1,6 +1,5 @@
 import Types from './types';
 import Constants from './constants';
-import Slugify from 'slugify';
 
 var StorageNames = Constants.StorageNames,
     pluses = /\+/g;
@@ -721,7 +720,18 @@ export default function Helpers(mpInstance) {
         }
     };
 
-    this.isSlug = function(str) {
-        return str === Slugify(str);
+    this.isDataPlanSlug = function(str) {
+        // This verifies that `str` matches how our backend defines data plan slug names.
+        // i.e. under_score_slug instead kabob-case-slug
+        // We also want to reject any non-string values
+
+        return (
+            typeof str === 'string' &&
+            str ===
+                str
+                    .trim()
+                    .replaceAll(/[^0-9a-zA-Z]+/g, '_')
+                    .toLowerCase()
+        );
     };
 }

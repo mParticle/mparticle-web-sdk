@@ -831,7 +831,7 @@ describe('event logging', function() {
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
-            planId: 'plan-slug',
+            planId: 'plan_slug',
             planVersion: 10,
         };
 
@@ -849,7 +849,7 @@ describe('event logging', function() {
         batch.should.have.property('context');
         batch.context.should.have.property('data_plan');
         batch.context.data_plan.should.have.property('plan_version', 10);
-        batch.context.data_plan.should.have.property('plan_id', 'plan-slug');
+        batch.context.data_plan.should.have.property('plan_id', 'plan_slug');
 
         delete window.mParticle.config.flags
 
@@ -862,7 +862,7 @@ describe('event logging', function() {
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
-            planId: 'plan-slug'
+            planId: 'plan_slug'
         };
 
         mParticle.init(apiKey, mParticle.config);
@@ -880,7 +880,7 @@ describe('event logging', function() {
         batch.should.have.property('context');
         batch.context.should.have.property('data_plan');
         batch.context.data_plan.should.not.have.property('plan_version');
-        batch.context.data_plan.should.have.property('plan_id', 'plan-slug');
+        batch.context.data_plan.should.have.property('plan_id', 'plan_slug');
 
         delete window.mParticle.config.flags
 
@@ -942,7 +942,7 @@ describe('event logging', function() {
             
         window.mParticle.logEvent('Test Event');
 
-        errorMessage.should.equal('Your data plan id must be in a slug format')
+        errorMessage.should.equal('Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)')
         var batch = JSON.parse(window.fetchMock.lastOptions().body);
         batch.should.not.have.property('context');
         delete window.mParticle.config.flags
