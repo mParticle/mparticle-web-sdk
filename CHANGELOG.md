@@ -1,3 +1,10 @@
+## [2.15.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.2...v2.15.3) (2022-04-28)
+
+
+### Bug Fixes
+
+* revert slugify removal ([15c6af5](https://github.com/mParticle/mparticle-web-sdk/commit/15c6af591cd6d9f1ef9d665e9d0565ccc080b18d))
+
 ## [2.15.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.1...v2.15.2) (2022-04-27)
 
 ## [2.15.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.0...v2.15.1) (2022-04-20)
