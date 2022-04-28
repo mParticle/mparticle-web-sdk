@@ -430,41 +430,4 @@ describe('helpers', function() {
 
         done();
     });
-
-    describe('#isDataPlanSlug', function () {
-        it('returns false for numbers', function () {
-            mParticle
-            .getInstance()._Helpers.isDataPlanSlug(35).should.equal(false);
-        });
-        
-        it('returns false for spaces', function () {
-            mParticle
-            .getInstance()._Helpers.isDataPlanSlug('Slug with spaces in').should.equal(false);
-        });
-
-        it('returns false for PascalCase', function () {
-            mParticle
-            .getInstance()._Helpers.isDataPlanSlug('PascalSlug').should.equal(false);
-        });
-
-        it('returns false for kabob-case-slug', function () {
-            mParticle
-            .getInstance()._Helpers.isDataPlanSlug('kabob-case-slug').should.equal(false);
-        });
-
-        it('returns true for simple string', function () {
-            mParticle
-            .getInstance()._Helpers.isDataPlanSlug('slug').should.equal(true);
-        });
-
-        it('returns true for under_score_slug', function () {
-            mParticle
-            .getInstance()._Helpers.isDataPlanSlug('under_score_slug').should.equal(true);
-        });
-
-        it('returns true for numerical strings', function () {
-            mParticle
-            .getInstance()._Helpers.isDataPlanSlug('42').should.equal(true);
-        });
-    });
 });

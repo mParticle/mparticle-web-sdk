@@ -197,13 +197,17 @@ export default function Store(config, mpInstance) {
                 PlanId: null,
             };
             if (config.dataPlan.hasOwnProperty('planId')) {
-                if (
-                    mpInstance._Helpers.isDataPlanSlug(config.dataPlan.planId)
-                ) {
-                    this.SDKConfig.dataPlan.PlanId = config.dataPlan.planId;
+                if (typeof config.dataPlan.planId === 'string') {
+                    if (mpInstance._Helpers.isSlug(config.dataPlan.planId)) {
+                        this.SDKConfig.dataPlan.PlanId = config.dataPlan.planId;
+                    } else {
+                        mpInstance.Logger.error(
+                            'Your data plan id must be in a slug format'
+                        );
+                    }
                 } else {
                     mpInstance.Logger.error(
-                        'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
+                        'Your data plan id must be a string'
                     );
                 }
             }
