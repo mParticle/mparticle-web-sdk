@@ -1,3 +1,10 @@
+## [2.15.4](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.3...v2.15.4) (2022-05-02)
+
+
+### Bug Fixes
+
+* add UAC and UIC as upload triggers ([7576509](https://github.com/mParticle/mparticle-web-sdk/commit/75765092840fbf80752fbafd26dae7cceed03e6c))
+
 ## [2.15.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.2...v2.15.3) (2022-04-28)
 
 
