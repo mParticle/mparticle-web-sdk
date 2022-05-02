@@ -13,8 +13,12 @@ var MessageType = {
     UserIdentityChange: 18,
 };
 
+// Dictionary that contains MessageTypes that will
+// trigger an immediate upload.
 var TriggerUploadType = {
     [MessageType.Commerce]: 1,
+    [MessageType.UserAttributeChange]: 1,
+    [MessageType.UserIdentityChange]: 1,
 };
 
 var EventType = {

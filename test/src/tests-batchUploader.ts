@@ -279,47 +279,96 @@ describe('batch uploader', () => {
             clock.restore();
 
             // This timeout is required for all batches to be sent due to there being
-            // an async/await inside of a foor loop in the batch uploader
+            // an async/await inside of a for loop in the batch uploader
             setTimeout(function() {
                 var batch1 = JSON.parse(window.fetchMock._calls[0][1].body);
-
-                var batch1SessionStart = Utils.findEventFromBatch(batch1, 'session_start')
-                var batch1AST = Utils.findEventFromBatch(batch1, 'application_state_transition')
-                var batch1UAC = Utils.findEventFromBatch(batch1, 'user_attribute_change')
-
-                batch1SessionStart.should.be.ok();
-                batch1AST.should.be.ok();
-                batch1UAC.should.be.ok();
-                
                 var batch2 = JSON.parse(window.fetchMock._calls[1][1].body);
-
-                batch2.events.length.should.equal(1);
-                var batch2SessionEnd = Utils.findEventFromBatch(batch2, 'session_end')
-                batch2SessionEnd.should.be.ok();
-
                 var batch3 = JSON.parse(window.fetchMock._calls[2][1].body);
+                var batch4 = JSON.parse(window.fetchMock._calls[3][1].body);
+                var batch5 = JSON.parse(window.fetchMock._calls[4][1].body);
 
-                batch3.events.length.should.equal(3);
-                var batch3SessionStart = Utils.findEventFromBatch(batch3, 'session_start')
-                var batch3AST = Utils.findEventFromBatch(batch3, 'application_state_transition')
-                var batch3UAC = Utils.findEventFromBatch(batch3, 'user_attribute_change')
+                // UAC event
+                batch1.events.length.should.equal(1);
 
-                batch3SessionStart.should.be.ok();
-                batch3AST.should.be.ok();
-                batch3UAC.should.be.ok();
+                // session start, AST
+                batch2.events.length.should.equal(2);
+
+                // session end
+                batch3.events.length.should.equal(1);
+
+                // session start, AST
+                batch4.events.length.should.equal(2);
+
+                // UAC event
+                batch5.events.length.should.equal(1);
+
+                var batch1UAC = Utils.findEventFromBatch(batch1, 'user_attribute_change');
+                batch1UAC.should.be.ok();
+
+                var batch2SessionStart = Utils.findEventFromBatch(batch2, 'session_start');
+                var batch2AST = Utils.findEventFromBatch(batch2, 'application_state_transition');
+
+                batch2SessionStart.should.be.ok();
+                batch2AST.should.be.ok();
+
+                var batch3SessionEnd = Utils.findEventFromBatch(batch3, 'session_end');
+                batch3SessionEnd.should.be.ok();
+
+                var batch4SessionStart = Utils.findEventFromBatch(batch4, 'session_start');
+                var batch4AST = Utils.findEventFromBatch(batch4, 'application_state_transition');
+
+                batch4SessionStart.should.be.ok();
+                batch4AST.should.be.ok();
+                
+                var batch5UAC = Utils.findEventFromBatch(batch5, 'user_attribute_change');
+                batch5UAC.should.be.ok();
 
                 (typeof batch1.source_request_id).should.equal('string');
                 (typeof batch2.source_request_id).should.equal('string');
                 (typeof batch3.source_request_id).should.equal('string');
+                (typeof batch4.source_request_id).should.equal('string');
+                (typeof batch5.source_request_id).should.equal('string');
 
                 batch1.source_request_id.should.not.equal(batch2.source_request_id);
+                batch1.source_request_id.should.not.equal(batch3.source_request_id);
+                batch1.source_request_id.should.not.equal(batch4.source_request_id);
+                batch1.source_request_id.should.not.equal(batch5.source_request_id);
                 batch2.source_request_id.should.not.equal(batch3.source_request_id);
-                batch3.source_request_id.should.not.equal(batch1.source_request_id);
+                batch2.source_request_id.should.not.equal(batch4.source_request_id);
+                batch2.source_request_id.should.not.equal(batch5.source_request_id);
 
-                batch1SessionStart.data.session_uuid.should.equal(batch2SessionEnd.data.session_uuid);
-                batch1UAC.data.session_uuid.should.not.equal(batch3UAC.data.session_uuid);
-                batch1UAC.data.session_start_unixtime_ms.should.not.equal(batch3UAC.data.session_start_unixtime_ms);
-    
+                batch3.source_request_id.should.not.equal(batch4.source_request_id);
+                batch3.source_request_id.should.not.equal(batch5.source_request_id);
+                batch4.source_request_id.should.not.equal(batch5.source_request_id);
+
+                batch1UAC.data.session_uuid.should.equal(batch2AST.data.session_uuid);
+                batch1UAC.data.session_uuid.should.equal(batch2SessionStart.data.session_uuid);
+                batch1UAC.data.session_uuid.should.not.equal(batch4SessionStart.data.session_uuid);
+                batch1UAC.data.session_uuid.should.not.equal(batch4AST.data.session_uuid);
+                batch1UAC.data.session_uuid.should.not.equal(batch5UAC.data.session_uuid);
+                
+                batch1UAC.data.session_start_unixtime_ms.should.equal(batch2AST.data.session_start_unixtime_ms);
+                batch1UAC.data.session_start_unixtime_ms.should.equal(batch2SessionStart.data.session_start_unixtime_ms);
+                batch1UAC.data.session_start_unixtime_ms.should.not.equal(batch4SessionStart.data.session_start_unixtime_ms);
+                batch1UAC.data.session_start_unixtime_ms.should.not.equal(batch4AST.data.session_start_unixtime_ms);
+                batch1UAC.data.session_start_unixtime_ms.should.not.equal(batch5UAC.data.session_start_unixtime_ms);
+
+                batch2SessionStart.data.session_uuid.should.equal(batch2AST.data.session_uuid);
+                batch2SessionStart.data.session_uuid.should.equal(batch3SessionEnd.data.session_uuid);
+                batch2AST.data.session_uuid.should.equal(batch3SessionEnd.data.session_uuid);
+
+                batch2SessionStart.data.session_start_unixtime_ms.should.equal(batch2AST.data.session_start_unixtime_ms);
+                batch2SessionStart.data.session_start_unixtime_ms.should.equal(batch3SessionEnd.data.session_start_unixtime_ms);
+                batch2AST.data.session_start_unixtime_ms.should.equal(batch3SessionEnd.data.session_start_unixtime_ms);
+
+                batch4SessionStart.data.session_uuid.should.equal(batch4AST.data.session_uuid);
+                batch4SessionStart.data.session_uuid.should.equal(batch5UAC.data.session_uuid);
+                batch4AST.data.session_uuid.should.equal(batch5UAC.data.session_uuid);
+
+                batch4SessionStart.data.session_start_unixtime_ms.should.equal(batch4AST.data.session_start_unixtime_ms);
+                batch4SessionStart.data.session_start_unixtime_ms.should.equal(batch5UAC.data.session_start_unixtime_ms);
+                batch4AST.data.session_start_unixtime_ms.should.equal(batch5UAC.data.session_start_unixtime_ms);
+                
                 done();
                 // wait for more than 1000 milliseconds to force the final upload
             }, 1200);
@@ -399,7 +448,7 @@ describe('batch uploader', () => {
             done();
         });
 
-        it('should force uploads when a commerce event is called', function(done) {
+        it('should trigger an upload of batch when a commerce event is called', function(done) {
             window.mParticle._resetForTests(MPConfig);
 
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -420,6 +469,58 @@ describe('batch uploader', () => {
             batch.events[2].data.event_name.should.equal('Test Event');
             batch.events[3].event_type.should.equal('commerce_event');
             batch.events[3].data.product_action.action.should.equal('add_to_cart');
+
+            done();
+        });
+
+        it('should trigger an upload of batch when a UIC occurs', function(done) {
+            window.mParticle._resetForTests(MPConfig);
+            // include an identify request so that it creates a UIC
+            window.mParticle.config.identifyRequest = {
+                userIdentities: {
+                    customerid: 'foo-customer-id'
+                }
+            };
+
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            // Requests sent should be identify call, then UIC event
+            // Session start, AST, and Test Event are queued, and don't appear
+            // in the mockServer.requests
+            mockServer.requests.length.should.equal(2);
+
+            // 1st request is /Identity call, 2nd request is UIC call
+            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            
+            batch.events[0].event_type.should.equal('user_identity_change');
+
+            // force upload of other events
+            window.mParticle.upload()
+            var batch2 = JSON.parse(mockServer.thirdRequest.requestBody);
+
+            batch2.events[0].event_type.should.equal('session_start');
+            batch2.events[1].event_type.should.equal('application_state_transition');
+
+            done();
+        });
+
+        it('should trigger an upload of batch when a UAC occurs', function(done) {
+            window.mParticle._resetForTests(MPConfig);
+
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            // Set a user attribute to trigger a UAC event
+            window.mParticle.Identity.getCurrentUser().setUserAttribute('age', 25);
+
+            // Requests sent should be identify call, then
+            // a request for session start, AST, and UAC
+            mockServer.requests.length.should.equal(2);
+            // 1st request is /Identity call, 2nd request is UIC call
+            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            
+            batch.events[0].event_type.should.equal('session_start');
+            batch.events[1].event_type.should.equal('application_state_transition');
+            batch.events[2].event_type.should.equal('user_attribute_change');
 
             done();
         });
