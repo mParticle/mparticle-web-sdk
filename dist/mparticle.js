@@ -259,6 +259,8 @@ var mParticle = (function () {
 
     var defineProperty = _defineProperty;
 
+    var _TriggerUploadType;
+
     var MessageType = {
       SessionStart: 1,
       SessionEnd: 2,
@@ -272,10 +274,10 @@ var mParticle = (function () {
       Media: 20,
       UserAttributeChange: 17,
       UserIdentityChange: 18
-    };
+    }; // Dictionary that contains MessageTypes that will
+    // trigger an immediate upload.
 
-    var TriggerUploadType = defineProperty({}, MessageType.Commerce, 1);
-
+    var TriggerUploadType = (_TriggerUploadType = {}, defineProperty(_TriggerUploadType, MessageType.Commerce, 1), defineProperty(_TriggerUploadType, MessageType.UserAttributeChange, 1), defineProperty(_TriggerUploadType, MessageType.UserIdentityChange, 1), _TriggerUploadType);
     var EventType = {
       Unknown: 0,
       Navigation: 1,
@@ -719,7 +721,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.15.3";
+    var version = "2.15.4";
 
     var Constants = {
       sdkVersion: version,
