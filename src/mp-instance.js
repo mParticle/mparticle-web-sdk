@@ -1218,6 +1218,14 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
     if (config.flags) {
         if (config.flags.hasOwnProperty(Constants.FeatureFlags.EventsV3)) {
+            // TODO: Remove this after 8/12/2022
+            if (config.flags[Constants.FeatureFlags.EventsV3] !== '100') {
+                var message =
+                    'mParticle will be enabling Event Batching for all customers on July 12, 2022. ' +
+                    'For more details, please see our docs: https://docs.mparticle.com/developers/sdk/web/getting-started/';
+                mpInstance.Logger.warning(message);
+            }
+
             mpInstance._Store.SDKConfig.flags[Constants.FeatureFlags.EventsV3] =
                 config.flags[Constants.FeatureFlags.EventsV3];
         }
