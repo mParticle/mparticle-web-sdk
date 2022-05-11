@@ -1,3 +1,10 @@
+## [2.15.5](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.4...v2.15.5) (2022-05-11)
+
+
+### Bug Fixes
+
+* add warning of upcoming upgrade for V2 Users ([#237](https://github.com/mParticle/mparticle-web-sdk/issues/237)) ([93d1ad4](https://github.com/mParticle/mparticle-web-sdk/commit/93d1ad47f9d38c22312049913450409a1de1a7a8))
+
 ## [2.15.4](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.3...v2.15.4) (2022-05-02)
 
 
