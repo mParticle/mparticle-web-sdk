@@ -35,6 +35,10 @@ export interface SDKEvent {
     CurrencyCode: string;
     DataPlan?: SDKDataPlan;
     LaunchReferral?: string;
+    // TODO: Should we really be passing this in?
+    Store?;
+    ExpandedEventCount?;
+    ClientGeneratedId?;
 }
 
 export interface SDKGeoLocation {
@@ -127,7 +131,11 @@ export interface MParticleWebSDK {
     ServerModel();
     upload();
     setPosition(lat: number | string, lng: number | string): void;
-    logEvent(eventName: string, eventType?: number, attrs?: { [key: string]: string }): void;
+    logEvent(
+        eventName: string,
+        eventType?: number,
+        attrs?: { [key: string]: string }
+    ): void;
     logBaseEvent(event: any): void;
     eCommerce: any;
     logLevel: string;
@@ -139,8 +147,8 @@ export interface SDKConfig {
     isDevelopmentMode?: boolean;
     logger: {
         error?(msg);
-        warning?(msg) 
-        verbose?(msg) 
+        warning?(msg);
+        verbose?(msg);
     };
     dataPlan: DataPlanConfig;
     appVersion?: string;
@@ -155,17 +163,17 @@ export interface SDKConfig {
     requiredWebviewBridgeName: string;
     minWebviewBridgeVersion: number;
     isIOS?: boolean;
-    identifyRequest: { [key: string]: {[key: string]: string} };
+    identifyRequest: { [key: string]: { [key: string]: string } };
     identityCallback: (result) => void;
     requestConfig: boolean;
-    dataPlanOptions: KitBlockerOptions // when the user provides their own data plan
-    dataPlanResult?: DataPlanResult  // when the data plan comes from the server via /config
+    dataPlanOptions: KitBlockerOptions; // when the user provides their own data plan
+    dataPlanResult?: DataPlanResult; // when the data plan comes from the server via /config
 }
 
 export interface DataPlanConfig {
     planId?: string;
     planVersion?: number;
-    document?: DataPlanResult  // when the data plan comes from the server via /mparticle.js
+    document?: DataPlanResult; // when the data plan comes from the server via /mparticle.js
 }
 
 export interface SDKIdentityApi {
@@ -179,9 +187,9 @@ export interface SDKIdentityApi {
 
 export interface SDKHelpersApi {
     createServiceUrl(arg0: string, arg1: string): void;
-    parseNumber(value: number)
+    parseNumber(value: number);
     generateUniqueId();
-    isObject(item: any)
+    isObject(item: any);
 }
 
 export interface SDKLoggerApi {
@@ -205,6 +213,9 @@ export interface SDKConfigApi {
 }
 export interface MParticleUser {
     getMPID(): string;
+    getConsentState();
+    getAllUserAttributes();
+    getUserIdentities();
 }
 
 export interface SDKConsentState {
@@ -252,6 +263,14 @@ export interface BaseEvent {
     eventType?: number;
     data?: { [key: string]: string };
     customFlags?: { [key: string]: string };
+
+    // TODO: Might need to have a real type here
+    toEventAPIObject(): SDKEvent;
+
+    // TODO: Should this be on all events or just a specific kind?
+    sourceMessageId?: string;
+    userAttributeChanges?;
+    userIdentityChanges?;
 }
 
 export interface KitBlockerOptions {
@@ -263,7 +282,7 @@ export interface KitBlockerOptions {
 }
 
 export interface KitBlockerDataPlan {
-    document: DataPlanResult
+    document: DataPlanResult;
 }
 
 export interface DataPlanResult {
@@ -276,30 +295,30 @@ export interface DataPlanResult {
             id: boolean;
         };
     };
-    error_message?: string
+    error_message?: string;
 }
 
 export enum SDKIdentityTypeEnum {
-    other = "other",
-    customerId = "customerid",
-    facebook = "facebook",
-    twitter = "twitter",
-    google = "google",
-    microsoft = "microsoft",
-    yahoo = "yahoo",
-    email = "email",
-    alias = "alias",
-    facebookCustomAudienceId = "facebookcustomaudienceid",
-    otherId2 = "other2",
-    otherId3 = "other3",
-    otherId4 = "other4",
-    otherId5 = "other5",
-    otherId6 = "other6",
-    otherId7 = "other7",
-    otherId8 = "other8",
-    otherId9 = "other9",
-    otherId10 = "other10",
-    mobileNumber = "mobile_number",
-    phoneNumber2 = "phone_number_2",
-    phoneNumber3 = "phone_number_3"
+    other = 'other',
+    customerId = 'customerid',
+    facebook = 'facebook',
+    twitter = 'twitter',
+    google = 'google',
+    microsoft = 'microsoft',
+    yahoo = 'yahoo',
+    email = 'email',
+    alias = 'alias',
+    facebookCustomAudienceId = 'facebookcustomaudienceid',
+    otherId2 = 'other2',
+    otherId3 = 'other3',
+    otherId4 = 'other4',
+    otherId5 = 'other5',
+    otherId6 = 'other6',
+    otherId7 = 'other7',
+    otherId8 = 'other8',
+    otherId9 = 'other9',
+    otherId10 = 'other10',
+    mobileNumber = 'mobile_number',
+    phoneNumber2 = 'phone_number_2',
+    phoneNumber3 = 'phone_number_3',
 }

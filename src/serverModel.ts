@@ -1,8 +1,164 @@
 import Types from './types';
 import Constants from './constants';
+// TODO: Base Events in js models is not the same as RuntimeModels
+// import { BaseEvent } from '@mparticle/event-models';
+import {
+    BaseEvent,
+    MParticleUser,
+    SDKEvent,
+    SDKUserIdentity,
+} from './sdkRuntimeModels';
+import types from './types';
+import { isObject, parseNumber } from './utils';
 
 var MessageType = Types.MessageType,
     ApplicationTransitionType = Types.ApplicationTransitionType;
+
+class BetterServerModel {
+    public mpInstance: any;
+    constructor(mpInstance) {
+        this.mpInstance = mpInstance;
+    }
+
+    public static appendUserInfo(user: MParticleUser, event: SDKEvent): void {
+        if (!event) {
+            return;
+        }
+
+        if (!user) {
+            event.MPID = null;
+            event.ConsentState = null;
+            event.UserAttributes = null;
+            event.UserIdentities = null;
+            return;
+        }
+
+        if (event.MPID && event.MPID === user.getMPID()) {
+            return;
+        }
+
+        event.MPID = user.getMPID();
+        event.ConsentState = user.getConsentState();
+        event.UserAttributes = user.getAllUserAttributes();
+
+        var userIdentities = user.getUserIdentities().userIdentities;
+        var dtoUserIdentities = {};
+        for (var identityKey in userIdentities) {
+            var identityType = Types.IdentityType.getIdentityType(identityKey);
+            if (identityType !== false) {
+                dtoUserIdentities[identityType] = userIdentities[identityKey];
+            }
+        }
+
+        const validUserIdentities: SDKUserIdentity[] = [];
+        if (isObject(dtoUserIdentities)) {
+            if (Object.keys(dtoUserIdentities).length) {
+                for (var key in dtoUserIdentities) {
+                    validUserIdentities.push({
+                        Identity: dtoUserIdentities[key],
+                        Type: parseNumber(key),
+                    });
+                }
+            }
+        }
+        event.UserIdentities = validUserIdentities;
+    }
+
+    createEventObject(event: BaseEvent, user: MParticleUser): SDKEvent | null {
+        let uploadObject: SDKEvent = {} as SDKEvent;
+        let eventObject: SDKEvent = {} as SDKEvent;
+
+        const optOut =
+            event.messageType === Types.MessageType.OptOut
+                ? !this.mpInstance._Store.isEnabled
+                : null;
+
+        if (
+            this.mpInstance.Store.sessionId ||
+            event.messageType === types.MessageType.OptOut ||
+            this.mpInstance._Store.webviewBridgeEnabled
+        ) {
+            if (event.hasOwnProperty('toEventAPIObject')) {
+                eventObject = event.toEventAPIObject();
+            } else {
+                eventObject = {
+                    EventName: event.name || event.messageType + '',
+                    EventCategory: event.eventType,
+                    EventAttributes: this.mpInstance._Helpers.sanitizeAttributes(
+                        event.data,
+                        event.name
+                    ),
+                    SourceMessageId:
+                        event.sourceMessageId ||
+                        this.mpInstance._Helpers.generateUniqueId(),
+                    EventDataType: event.messageType,
+                    CustomFlags: event.customFlags || {},
+                    UserAttributeChanges: event.userAttributeChanges,
+                    UserIdentityChanges: event.userIdentityChanges,
+                } as SDKEvent;
+            }
+
+            if (event.messageType !== Types.MessageType.SessionEnd) {
+                this.mpInstance._Store.dateLastEventSent = new Date();
+            }
+
+            uploadObject = {
+                Store: this.mpInstance._Store.serverSettings,
+                SDKVersion: Constants.sdkVersion,
+                SessionId: this.mpInstance._Store.sessionId,
+                SessionStartDate: this.mpInstance._Store.sessionStartDate
+                    ? this.mpInstance._Store.sessionStartDate.getTime()
+                    : 0,
+                Debug: this.mpInstance._Store.SDKConfig.isDevelopmentMode,
+                Location: this.mpInstance._Store.currentPosition,
+                OptOut: optOut,
+                ExpandedEventCount: 0,
+                AppVersion: this.mpInstance.getAppVersion(),
+                AppName: this.mpInstance.getAppName(),
+                ClientGeneratedId: this.mpInstance._Store.clientId,
+                DeviceId: this.mpInstance._Store.deviceId,
+                IntegrationAttributes: this.mpInstance._Store
+                    .integrationAttributes,
+                CurrencyCode: this.mpInstance._Store.currencyCode,
+                DataPlan: this.mpInstance._Store.SDKConfig.dataPlan
+                    ? this.mpInstance._Store.SDKConfig.dataPlan
+                    : {},
+            } as SDKEvent;
+
+            if (eventObject.EventDataType === MessageType.AppStateTransition) {
+                eventObject.IsFirstRun = this.mpInstance._Store.isFirstRun;
+                eventObject.LaunchReferral = window.location.href || null;
+            }
+
+            eventObject.CurrencyCode = this.mpInstance._Store.currencyCode;
+            var currentUser = user || this.mpInstance.Identity.getCurrentUser();
+
+            // TODO: Refactor to not mutate data
+            BetterServerModel.appendUserInfo(currentUser, eventObject);
+
+            if (event.messageType === Types.MessageType.SessionEnd) {
+                eventObject.SessionLength =
+                    this.mpInstance._Store.dateLastEventSent.getTime() -
+                    this.mpInstance._Store.sessionStartDate.getTime();
+                eventObject.currentSessionMPIDs = this.mpInstance._Store.currentSessionMPIDs;
+                eventObject.EventAttributes = this.mpInstance._Store.sessionAttributes;
+
+                this.mpInstance._Store.currentSessionMPIDs = [];
+                this.mpInstance._Store.sessionStartDate = null;
+            }
+
+            uploadObject.Timestamp = this.mpInstance._Store.dateLastEventSent.getTime();
+
+            return this.mpInstance._Helpers.extend(
+                {},
+                eventObject,
+                uploadObject
+            );
+        }
+
+        return null;
+    }
+}
 
 export default function ServerModel(mpInstance) {
     var self = this;
@@ -41,46 +197,7 @@ export default function ServerModel(mpInstance) {
         }
     }
 
-    this.appendUserInfo = function(user, event) {
-        if (!event) {
-            return;
-        }
-        if (!user) {
-            event.MPID = null;
-            event.ConsentState = null;
-            event.UserAttributes = null;
-            event.UserIdentities = null;
-            return;
-        }
-        if (event.MPID && event.MPID === user.getMPID()) {
-            return;
-        }
-        event.MPID = user.getMPID();
-        event.ConsentState = user.getConsentState();
-        event.UserAttributes = user.getAllUserAttributes();
-
-        var userIdentities = user.getUserIdentities().userIdentities;
-        var dtoUserIdentities = {};
-        for (var identityKey in userIdentities) {
-            var identityType = Types.IdentityType.getIdentityType(identityKey);
-            if (identityType !== false) {
-                dtoUserIdentities[identityType] = userIdentities[identityKey];
-            }
-        }
-
-        var validUserIdentities = [];
-        if (mpInstance._Helpers.isObject(dtoUserIdentities)) {
-            if (Object.keys(dtoUserIdentities).length) {
-                for (var key in dtoUserIdentities) {
-                    var userIdentity = {};
-                    userIdentity.Identity = dtoUserIdentities[key];
-                    userIdentity.Type = mpInstance._Helpers.parseNumber(key);
-                    validUserIdentities.push(userIdentity);
-                }
-            }
-        }
-        event.UserIdentities = validUserIdentities;
-    };
+    self.appendUserInfo = BetterServerModel.appendUserInfo;
 
     function convertProductListToDTO(productList) {
         if (!productList) {

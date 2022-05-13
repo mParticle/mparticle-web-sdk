@@ -1,6 +1,7 @@
 import Types from './types';
 import Constants from './constants';
 import Slugify from 'slugify';
+import * as utils from './utils';
 
 var StorageNames = Constants.StorageNames,
     pluses = /\+/g;
@@ -250,11 +251,7 @@ export default function Helpers(mpInstance) {
         return target;
     };
 
-    this.isObject = function(value) {
-        var objType = Object.prototype.toString.call(value);
-
-        return objType === '[object Object]' || objType === '[object Error]';
-    };
+    this.isObject = utils.isObject;
 
     this.inArray = function(items, name) {
         var i = 0;
@@ -456,13 +453,7 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.parseNumber = function(value) {
-        if (isNaN(value) || !isFinite(value)) {
-            return 0;
-        }
-        var floatValue = parseFloat(value);
-        return isNaN(floatValue) ? 0 : floatValue;
-    };
+    this.parseNumber = utils.parseNumber;
 
     this.parseStringOrNumber = function(value) {
         if (self.Validators.isStringOrNumber(value)) {

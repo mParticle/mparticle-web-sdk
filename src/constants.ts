@@ -1,6 +1,6 @@
 import { version } from '../package.json';
 
-var Constants = {
+const Constants = {
     sdkVersion: version,
     sdkVendor: 'mparticle',
     platform: 'web',
@@ -164,6 +164,6 @@ var Constants = {
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
     },
     DefaultInstance: 'default_instance',
-};
+} as const;
 
 export default Constants;
