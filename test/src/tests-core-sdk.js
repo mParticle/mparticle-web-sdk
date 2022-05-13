@@ -215,6 +215,30 @@ describe('core SDK', function() {
         done();
     });
 
+    it('should set Package Name on Batch Payload', function (done) {
+        mParticle.config.packageName = 'my-web-package';
+
+        mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
+
+        mParticle.init(apiKey, mParticle.config);
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.logEvent('Test Event');
+        
+        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        
+        batch.should.have.property('application_info');
+        batch.application_info.should.have.property('package', 'my-web-package');
+        done();
+    });
+
     it('should sanitize event attributes', function(done) {
         mParticle.logEvent('sanitized event', 1, {
             key1: 'value1',
