@@ -131,9 +131,16 @@ export class BatchUploader {
                 eventsBySession.set(sdkEvent.SessionId, events);
             }
             for (const entry of Array.from(eventsBySession.entries())) {
-                const upload = convertEvents(mpid, entry[1], mpInstance);
-                if (upload) {
-                    newUploads.push(upload);
+                let uploadBatchObject = convertEvents(mpid, entry[1], mpInstance);
+                const onCreateBatchCallback = mpInstance._Store.SDKConfig.onCreateBatch;
+
+                if (onCreateBatchCallback) {
+                    uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
+                    uploadBatchObject.mutated = true;
+                }
+
+                if (uploadBatchObject) {
+                    newUploads.push(uploadBatchObject);
                 }
             }
         }

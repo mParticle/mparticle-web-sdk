@@ -264,6 +264,18 @@ export default function Store(config, mpInstance) {
             }
         }
 
+        if (config.hasOwnProperty('onCreateBatch')) {
+            if (typeof config.onCreateBatch === 'function') {
+                this.SDKConfig.onCreateBatch = config.onCreateBatch;
+            } else {
+                mpInstance.Logger.error(
+                    'config.onCreateBatch must be a function'
+                );
+                // set to undefined because all items are set on createSDKConfig
+                this.SDKConfig.onCreateBatch = undefined;
+            }
+        }
+
         if (!config.hasOwnProperty('flags')) {
             this.SDKConfig.flags = {};
         }

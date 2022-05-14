@@ -3,6 +3,7 @@ import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
 import { BatchUploader } from  '../../src/batchUploader';
 import { MParticleWebSDK, SDKEvent, SDKProductActionType } from  '../../src/sdkRuntimeModels';
+import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './utils';
 
 declare global {
@@ -555,6 +556,51 @@ describe('batch uploader', () => {
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
             batch.events[2].data.event_name.should.equal('Test Event');
+            done();
+        });
+
+        it('should add a mutated boolean of true to a batch that has been mutated via a config.onCreateBatch call', function(done) {
+            window.mParticle._resetForTests(MPConfig);
+            var clock = sinon.useFakeTimers();
+
+            window.mParticle.config.onCreateBatch = function (batch: Batch) {
+                return batch
+            };
+
+            window.mParticle.init(apiKey, window.mParticle.config);
+            window.mParticle.logEvent('Test Event');
+            
+            clock.tick(1000);
+            
+            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            batch.mutated.should.equal(true);
+            done();
+        });
+
+        it('should respect rules for the batch mutation', function(done) {
+            window.mParticle._resetForTests(MPConfig);
+            var clock = sinon.useFakeTimers();
+
+            window.mParticle.config.onCreateBatch = function (batch) {
+                batch.events.map(event => {
+                    if (event.event_type === "custom_event") {
+                        (event.data as CustomEventData).event_name = 'Mutated!'
+                    }
+                });
+                return batch;
+            };
+
+            window.mParticle.init(apiKey, window.mParticle.config);
+            window.mParticle.logEvent('Test Event');
+            
+            clock.tick(1000);
+
+            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            batch.events.length.should.equal(3);
+            batch.events[0].event_type.should.equal('session_start');
+            batch.events[1].event_type.should.equal('application_state_transition');
+            batch.events[2].event_type.should.equal('custom_event');
+            batch.events[2].data.event_name.should.equal('Mutated!');
             done();
         });
     })

@@ -910,6 +910,25 @@ describe('core SDK', function() {
             done();
         });
     });
+    
+    it('should add onCreateBatch to _Store.SDKConfig if onCreateBatch is provide on mParticle.config object', function(done) {
+        window.mParticle._resetForTests();
+        mParticle.config.onCreateBatch = function(batch) { return batch};
+        mParticle.init(apiKey, mParticle.config);
+        (typeof mParticle.getInstance()._Store.SDKConfig.onCreateBatch).should.equal('function');
+
+        done();
+    });
+
+    it('should not add onCreateBatch to _Store.SDKConfig if it is not a function', function(done) {
+        window.mParticle._resetForTests();
+        mParticle.config.onCreateBatch = 'not a function';
+        mParticle.init(apiKey, mParticle.config);
+
+        (typeof mParticle.getInstance()._Store.SDKConfig.onCreateBatch).should.equal('undefined');
+
+        done();
+    });
 
     it('should hit url with query parameter of env=1 for debug mode for forwarders', function(done) {
         mParticle._resetForTests(MPConfig);

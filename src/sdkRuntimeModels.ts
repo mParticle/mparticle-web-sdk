@@ -142,6 +142,7 @@ export interface SDKConfig {
         warning?(msg) 
         verbose?(msg) 
     };
+    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
     dataPlan: DataPlanConfig;
     appVersion?: string;
     flags?: { [key: string]: string | number };
@@ -202,6 +203,7 @@ export interface SDKConfigApi {
     v3SecureServiceUrl?: string;
     isDevelopmentMode: boolean;
     appVersion?: string;
+    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch
 }
 export interface MParticleUser {
     getMPID(): string;
