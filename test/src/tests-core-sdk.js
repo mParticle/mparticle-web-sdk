@@ -216,7 +216,7 @@ describe('core SDK', function() {
     });
 
     it('should set Package Name on Batch Payload', function (done) {
-        mParticle.config.packageName = 'my-web-package';
+        mParticle.config.package = 'my-web-package';
 
         mParticle.config.flags = {
             eventsV3: '100',

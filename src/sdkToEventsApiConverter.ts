@@ -55,7 +55,7 @@ export function convertEvents(
         application_info: {
             application_version: lastEvent.AppVersion,
             application_name: lastEvent.AppName,
-            package: lastEvent.PackageName,
+            package: lastEvent.Package,
         },
         device_info: {
             platform: EventsApi.DeviceInformationPlatformEnum.web,
