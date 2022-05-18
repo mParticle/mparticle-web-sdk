@@ -154,6 +154,10 @@ export default function Store(config, mpInstance) {
             this.SDKConfig.appName = config.appName;
         }
 
+        if (config.hasOwnProperty('package')) {
+            this.SDKConfig.package = config.package;
+        }
+
         if (config.hasOwnProperty('integrationDelayTimeout')) {
             this.SDKConfig.integrationDelayTimeout =
                 config.integrationDelayTimeout;

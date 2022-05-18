@@ -24,6 +24,7 @@ export interface SDKEvent {
     CustomFlags?: { [key: string]: string };
     AppVersion?: string;
     AppName?: string;
+    Package?: string;
     ConsentState?: SDKConsentState;
     IntegrationAttributes?: { [key: string]: { [key: string]: string } };
     ProductAction?: SDKProductAction;
@@ -144,6 +145,7 @@ export interface SDKConfig {
     };
     dataPlan: DataPlanConfig;
     appVersion?: string;
+    package?: string;
     flags?: { [key: string]: string | number };
     kitConfigs: any;
     appName?: string;

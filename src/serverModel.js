@@ -207,6 +207,7 @@ export default function ServerModel(mpInstance) {
                 ExpandedEventCount: 0,
                 AppVersion: mpInstance.getAppVersion(),
                 AppName: mpInstance.getAppName(),
+                Package: mpInstance._Store.SDKConfig.package,
                 ClientGeneratedId: mpInstance._Store.clientId,
                 DeviceId: mpInstance._Store.deviceId,
                 IntegrationAttributes: mpInstance._Store.integrationAttributes,
