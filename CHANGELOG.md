@@ -1,3 +1,11 @@
+# [2.16.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.5...v2.16.0) (2022-05-18)
+
+
+### Features
+
+* add package to batch application info ([#238](https://github.com/mParticle/mparticle-web-sdk/issues/238)) ([5e6e773](https://github.com/mParticle/mparticle-web-sdk/commit/5e6e773aaa6e4b476a7aa029db04e1b9facdb372))
+* add support for client side rules ([#241](https://github.com/mParticle/mparticle-web-sdk/issues/241)) ([dc40f14](https://github.com/mParticle/mparticle-web-sdk/commit/dc40f14a0ed1cebba5ce4169fa823991be1d3202))
+
 ## [2.15.5](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.4...v2.15.5) (2022-05-11)
 
 
