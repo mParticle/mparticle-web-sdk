@@ -1,9 +1,10 @@
 import Types from './types';
 import Constants from './constants';
 import Slugify from 'slugify';
+import * as utils from './utils';
+import Validators from './validators';
 
-var StorageNames = Constants.StorageNames,
-    pluses = /\+/g;
+var StorageNames = Constants.StorageNames;
 
 export default function Helpers(mpInstance) {
     var self = this;
@@ -17,14 +18,6 @@ export default function Helpers(mpInstance) {
         }
 
         return false;
-    };
-
-    this.returnConvertedBoolean = function(data) {
-        if (data === 'false' || data === '0') {
-            return false;
-        } else {
-            return Boolean(data);
-        }
     };
 
     this.getFeatureFlag = function(feature) {
@@ -250,26 +243,6 @@ export default function Helpers(mpInstance) {
         return target;
     };
 
-    this.isObject = function(value) {
-        var objType = Object.prototype.toString.call(value);
-
-        return objType === '[object Object]' || objType === '[object Error]';
-    };
-
-    this.inArray = function(items, name) {
-        var i = 0;
-
-        if (Array.prototype.indexOf) {
-            return items.indexOf(name, 0) >= 0;
-        } else {
-            for (var n = items.length; i < n; i++) {
-                if (i in items && items[i] === name) {
-                    return true;
-                }
-            }
-        }
-    };
-
     this.createServiceUrl = function(secureServiceUrl, devToken) {
         var serviceScheme =
             window.mParticle && mpInstance._Store.SDKConfig.forceHttps
@@ -415,36 +388,6 @@ export default function Helpers(mpInstance) {
         return filteredUserAttributes;
     };
 
-    this.findKeyInObject = function(obj, key) {
-        if (key && obj) {
-            for (var prop in obj) {
-                if (
-                    obj.hasOwnProperty(prop) &&
-                    prop.toLowerCase() === key.toLowerCase()
-                ) {
-                    return prop;
-                }
-            }
-        }
-
-        return null;
-    };
-
-    this.decoded = function(s) {
-        return decodeURIComponent(s.replace(pluses, ' '));
-    };
-
-    this.converted = function(s) {
-        if (s.indexOf('"') === 0) {
-            s = s
-                .slice(1, -1)
-                .replace(/\\"/g, '"')
-                .replace(/\\\\/g, '\\');
-        }
-
-        return s;
-    };
-
     this.isEventType = function(type) {
         for (var prop in Types.EventType) {
             if (Types.EventType.hasOwnProperty(prop)) {
@@ -456,16 +399,8 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.parseNumber = function(value) {
-        if (isNaN(value) || !isFinite(value)) {
-            return 0;
-        }
-        var floatValue = parseFloat(value);
-        return isNaN(floatValue) ? 0 : floatValue;
-    };
-
     this.parseStringOrNumber = function(value) {
-        if (self.Validators.isStringOrNumber(value)) {
+        if (Validators.isStringOrNumber(value)) {
             return value;
         } else {
             return null;
@@ -531,157 +466,6 @@ export default function Helpers(mpInstance) {
         return sanitizedAttrs;
     };
 
-    this.Validators = {
-        isValidAttributeValue: function(value) {
-            return (
-                value !== undefined &&
-                !self.isObject(value) &&
-                !Array.isArray(value)
-            );
-        },
-
-        // Neither null nor undefined can be a valid Key
-        isValidKeyValue: function(key) {
-            return Boolean(key && !self.isObject(key) && !Array.isArray(key));
-        },
-
-        isStringOrNumber: function(value) {
-            return typeof value === 'string' || typeof value === 'number';
-        },
-
-        isNumber: function(value) {
-            return typeof value === 'number';
-        },
-
-        isFunction: function(fn) {
-            return typeof fn === 'function';
-        },
-
-        validateIdentities: function(identityApiData, method) {
-            var validIdentityRequestKeys = {
-                userIdentities: 1,
-                onUserAlias: 1,
-                copyUserAttributes: 1,
-            };
-            if (identityApiData) {
-                if (method === 'modify') {
-                    if (
-                        (self.isObject(identityApiData.userIdentities) &&
-                            !Object.keys(identityApiData.userIdentities)
-                                .length) ||
-                        !self.isObject(identityApiData.userIdentities)
-                    ) {
-                        return {
-                            valid: false,
-                            error:
-                                Constants.Messages.ValidationMessages
-                                    .ModifyIdentityRequestUserIdentitiesPresent,
-                        };
-                    }
-                }
-                for (var key in identityApiData) {
-                    if (identityApiData.hasOwnProperty(key)) {
-                        if (!validIdentityRequestKeys[key]) {
-                            return {
-                                valid: false,
-                                error:
-                                    Constants.Messages.ValidationMessages
-                                        .IdentityRequesetInvalidKey,
-                            };
-                        }
-                        if (
-                            key === 'onUserAlias' &&
-                            !mpInstance._Helpers.Validators.isFunction(
-                                identityApiData[key]
-                            )
-                        ) {
-                            return {
-                                valid: false,
-                                error:
-                                    Constants.Messages.ValidationMessages
-                                        .OnUserAliasType +
-                                    typeof identityApiData[key],
-                            };
-                        }
-                    }
-                }
-                if (Object.keys(identityApiData).length === 0) {
-                    return {
-                        valid: true,
-                    };
-                } else {
-                    // identityApiData.userIdentities can't be undefined
-                    if (identityApiData.userIdentities === undefined) {
-                        return {
-                            valid: false,
-                            error:
-                                Constants.Messages.ValidationMessages
-                                    .UserIdentities,
-                        };
-                        // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
-                    } else if (
-                        identityApiData.userIdentities !== null &&
-                        !self.isObject(identityApiData.userIdentities)
-                    ) {
-                        return {
-                            valid: false,
-                            error:
-                                Constants.Messages.ValidationMessages
-                                    .UserIdentities,
-                        };
-                    }
-                    if (
-                        self.isObject(identityApiData.userIdentities) &&
-                        Object.keys(identityApiData.userIdentities).length
-                    ) {
-                        for (var identityType in identityApiData.userIdentities) {
-                            if (
-                                identityApiData.userIdentities.hasOwnProperty(
-                                    identityType
-                                )
-                            ) {
-                                if (
-                                    Types.IdentityType.getIdentityType(
-                                        identityType
-                                    ) === false
-                                ) {
-                                    return {
-                                        valid: false,
-                                        error:
-                                            Constants.Messages
-                                                .ValidationMessages
-                                                .UserIdentitiesInvalidKey,
-                                    };
-                                }
-                                if (
-                                    !(
-                                        typeof identityApiData.userIdentities[
-                                            identityType
-                                        ] === 'string' ||
-                                        identityApiData.userIdentities[
-                                            identityType
-                                        ] === null
-                                    )
-                                ) {
-                                    return {
-                                        valid: false,
-                                        error:
-                                            Constants.Messages
-                                                .ValidationMessages
-                                                .UserIdentitiesInvalidValues,
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return {
-                valid: true,
-            };
-        },
-    };
-
     this.isDelayedByIntegration = function(
         delayedIntegrations,
         timeoutStart,
@@ -724,4 +508,16 @@ export default function Helpers(mpInstance) {
     this.isSlug = function(str) {
         return str === Slugify(str);
     };
+
+    // Utility Functions
+    this.converted = utils.converted;
+    this.findKeyInObject = utils.findKeyInObject;
+    this.parseNumber = utils.parseNumber;
+    this.inArray = utils.inArray;
+    this.isObject = utils.isObject;
+    this.decoded = utils.decoded;
+    this.returnConvertedBoolean = utils.returnConvertedBoolean;
+
+    // Imported Validators
+    this.Validators = Validators;
 }
