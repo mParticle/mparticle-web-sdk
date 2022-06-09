@@ -14,11 +14,15 @@ describe('Utils', () => {
         it('returns false if object is not an object', () => {
             expect(isObject('not an object')).to.eq(false);
             expect(isObject(42)).to.eq(false);
+            expect(isObject(null)).to.eq(false);
+            expect(isObject(undefined)).to.eq(false);
+            expect(isObject(false)).to.eq(false);
+            expect(isObject(true)).to.eq(false);
         });
 
     });
 
-	describe('#parseNumber', () => {
+    describe('#parseNumber', () => {
         it('should parse a number into a number', () => {
             expect(parseNumber('42')).to.eq(42);
             expect(parseNumber('-42')).to.eq(-42);
@@ -28,7 +32,7 @@ describe('Utils', () => {
             expect(parseNumber('not an number')).to.eq(0);
             expect(parseNumber('3.50')).to.eq(3.5);
         });
-	});
+    });
 
     describe('#returnConvertedBoolean', () => {
         it ('returns expected boolean value when strings are passed', () => {

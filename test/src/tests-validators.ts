@@ -2,7 +2,7 @@ import Validators from '../../src/validators';
 import { expect } from 'chai';
 
 describe('Validators', () => {
-    it('should correctly validate an attribute value', ()=> {
+    it('#isValidAttributeValue should correctly validate an attribute value', ()=> {
         var validatedString = Validators.isValidAttributeValue('testValue1');
         var validatedNumber = Validators.isValidAttributeValue(1);
         var validatedNull = Validators.isValidAttributeValue(null);
@@ -18,7 +18,7 @@ describe('Validators', () => {
         expect(validatedUndefined).to.eq(false);
     });
 
-    it('should properly validate identityApiRequest values', ()=> {
+    it('#validateIdentities should properly validate identityApiRequest values', ()=> {
         const badUserIdentitiesArray = {
             userIdentities: {
                 customerid: [],
@@ -66,19 +66,67 @@ describe('Validators', () => {
         const badUserIdentitiesArrayResult = Validators.validateIdentities(badUserIdentitiesArray as unknown as any);
         const badUserIdentitiesObjectResult = Validators.validateIdentities(badUserIdentitiesObject as unknown as any);
         const badUserIdentitiesBooleanResult = Validators.validateIdentities(badUserIdentitiesBoolean as unknown as any);
-
         const badUserIdentitiesUndefinedResult = Validators.validateIdentities(badUserIdentitiesUndefined);
+
         const validUserIdentitiesNullResult = Validators.validateIdentities(validUserIdentitiesNull);
         const validUserIdentitiesStringResult = Validators.validateIdentities(validUserIdentitiesString);
+
         const invalidUserIdentitiesComboResult = Validators.validateIdentities(invalidUserIdentitiesCombo);
 
         expect(badUserIdentitiesArrayResult.valid).to.eq(false);
         expect(badUserIdentitiesObjectResult.valid).to.eq(false);
         expect(badUserIdentitiesBooleanResult.valid).to.eq(false);
         expect(badUserIdentitiesUndefinedResult.valid).to.eq(false);
+
         expect(validUserIdentitiesNullResult.valid).to.eq(true);
         expect(validUserIdentitiesStringResult.valid).to.eq(true);
+
         expect(invalidUserIdentitiesComboResult.valid).to.eq(false);
 
+    });
+
+    it('#isValidKeyValue should correctly validate a key value', () => {
+        expect(Validators.isValidKeyValue(42)).to.eq(true);
+        expect(Validators.isValidKeyValue('42')).to.eq(true);
+
+        expect(Validators.isValidKeyValue(null)).to.eq(false);
+        expect(Validators.isValidKeyValue(undefined)).to.eq(false);
+        expect(Validators.isValidKeyValue([])).to.eq(false);
+        expect(Validators.isValidKeyValue({})).to.eq(false);
+        expect(Validators.isValidKeyValue(function (){})).to.eq(false);
+    });
+
+    it('#isStringOrNumber should correctly validate a string or number', ()=> {
+        expect(Validators.isStringOrNumber(42)).to.eq(true);
+        expect(Validators.isStringOrNumber('42')).to.eq(true);
+
+        expect(Validators.isStringOrNumber(null)).to.eq(false);
+        expect(Validators.isStringOrNumber(undefined)).to.eq(false);
+        expect(Validators.isStringOrNumber([])).to.eq(false);
+        expect(Validators.isStringOrNumber({})).to.eq(false);
+        expect(Validators.isStringOrNumber(function (){})).to.eq(false);
+    });
+
+    it('#isNumber should correctly validate a number', () => {
+        expect(Validators.isNumber(42)).to.eq(true);
+
+        expect(Validators.isNumber('42')).to.eq(false);
+        expect(Validators.isNumber(null)).to.eq(false);
+        expect(Validators.isNumber(undefined)).to.eq(false);
+        expect(Validators.isNumber([])).to.eq(false);
+        expect(Validators.isNumber({})).to.eq(false);
+        expect(Validators.isNumber(function (){})).to.eq(false);
+    });
+
+    it('#isFunction should correctly validate a function', () => {
+        expect(Validators.isFunction(42)).to.eq(false);
+        expect(Validators.isFunction('42')).to.eq(false);
+        expect(Validators.isFunction(null)).to.eq(false);
+        expect(Validators.isFunction(undefined)).to.eq(false);
+        expect(Validators.isFunction([])).to.eq(false);
+        expect(Validators.isFunction({})).to.eq(false);
+
+        expect(Validators.isFunction(function (){})).to.eq(true);
+        expect(Validators.isFunction(() => {})).to.eq(true);
     });
 });

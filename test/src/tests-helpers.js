@@ -115,66 +115,6 @@ describe('helpers', function() {
         done();
     });
 
-    it('should correctly validate a key value', function(done) {
-        var validatedString = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidKeyValue('testValue1');
-        var validatedNumber = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidKeyValue(1);
-        var validatedNull = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidKeyValue(null);
-        var validatedObject = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidKeyValue({});
-        var validatedArray = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidKeyValue([]);
-        var validatedUndefined = mParticle
-            .getInstance()
-            ._Helpers.Validators.isValidKeyValue(undefined);
-
-        validatedString.should.be.ok();
-        validatedNumber.should.be.ok();
-        validatedNull.should.not.be.ok();
-        validatedObject.should.not.be.ok();
-        validatedArray.should.not.be.ok();
-        validatedUndefined.should.not.be.ok();
-
-        done();
-    });
-
-    it('should correctly validate a string or number', function(done) {
-        var validatedString = mParticle
-            .getInstance()
-            ._Helpers.Validators.isStringOrNumber('testValue1');
-        var validatedNumber = mParticle
-            .getInstance()
-            ._Helpers.Validators.isStringOrNumber(1);
-        var validatedNull = mParticle
-            .getInstance()
-            ._Helpers.Validators.isStringOrNumber(null);
-        var validatedObject = mParticle
-            .getInstance()
-            ._Helpers.Validators.isStringOrNumber({});
-        var validatedArray = mParticle
-            .getInstance()
-            ._Helpers.Validators.isStringOrNumber([]);
-        var validatedUndefined = mParticle
-            .getInstance()
-            ._Helpers.Validators.isStringOrNumber(undefined);
-
-        validatedString.should.be.ok();
-        validatedNumber.should.be.ok();
-        validatedNull.should.not.be.ok();
-        validatedObject.should.not.be.ok();
-        validatedArray.should.not.be.ok();
-        validatedUndefined.should.not.be.ok();
-
-        done();
-    });
-
     it('should correctly validate an identity request with copyUserAttribute as a key using any identify method', function(done) {
         var identityApiData = {
             userIdentities: {

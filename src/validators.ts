@@ -18,7 +18,12 @@ const Validators = {
 
     // Neither null nor undefined can be a valid Key
     isValidKeyValue: function(key: any): boolean {
-        return Boolean(key && !isObject(key) && !Array.isArray(key));
+        return Boolean(
+            key &&
+                !isObject(key) &&
+                !Array.isArray(key) &&
+                !this.isFunction(key)
+        );
     },
 
     isStringOrNumber: function(value: any): boolean {
@@ -73,6 +78,7 @@ const Validators = {
                     ) {
                         return {
                             valid: false,
+                            // FIXME: Validates type safety
                             error:
                                 Constants.Messages.ValidationMessages
                                     .OnUserAliasType +

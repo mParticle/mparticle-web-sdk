@@ -44,6 +44,10 @@ const parseNumber = (value: string | number): number => {
     return isNaN(floatValue) ? 0 : floatValue;
 };
 
+// FIXME: REFACTOR for V3
+// only used in store.js to sanitize server-side formatting of
+// booleans when checking for `isDevelopmentMode`
+// Should be removed in v3
 const returnConvertedBoolean = (data: string | boolean | number) => {
     if (data === 'false' || data === '0') {
         return false;
