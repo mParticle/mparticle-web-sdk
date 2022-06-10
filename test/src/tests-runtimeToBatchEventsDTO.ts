@@ -268,14 +268,14 @@ describe('Old model to batch model conversion', () => {
     });
 
     const baseEventConversion: { [key: number]: EventsApi.EventType } = {
-        1: 'session_start',
-        2: 'session_end',
-        3: 'screen_view',
-        4: 'custom_event',
-        5: 'crash_report',
-        6: 'opt_out',
-        10: 'application_state_transition',
-        16: 'commerce_event',
+        1: EventsApi.EventTypeEnum.sessionStart,
+        2:  EventsApi.EventTypeEnum.sessionEnd,
+        3:  EventsApi.EventTypeEnum.screenView,
+        4:  EventsApi.EventTypeEnum.customEvent,
+        5:  EventsApi.EventTypeEnum.crashReport,
+        6:  EventsApi.EventTypeEnum.optOut,
+        10: EventsApi.EventTypeEnum.applicationStateTransition,
+        16: EventsApi.EventTypeEnum.commerceEvent,
     };
 
     Object.keys(baseEventConversion).forEach(key => {
@@ -322,6 +322,7 @@ describe('Old model to batch model conversion', () => {
             EventCategory: 16,
             EventAttributes: null,
             SDKVersion: '2.9.10',
+            SourceMessageId: 'testSMID',
             SessionId: '391D4CCE-E7F9-473E-B5CD-8566DEB17425',
             SessionStartDate: 1569453582333,
             EventDataType: 16,
@@ -439,6 +440,7 @@ describe('Old model to batch model conversion', () => {
             MPID: "-8433569646818451201",
             OptOut: null,
             SDKVersion: "2.11.15",
+            SourceMessageId: 'testSMID',
             SessionId: "64102C03-592F-440D-8BCC-1D27AAA6B188",
             SessionStartDate: 1603211322698,
             Timestamp: 1603212299414,
