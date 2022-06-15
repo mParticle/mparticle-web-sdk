@@ -1,0 +1,8 @@
+{
+    "opts": {
+        "destination": "dist/docs"
+    },
+    "source": {
+        "include": "src/"
+    }
+}

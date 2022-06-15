@@ -423,7 +423,7 @@ export default function mParticleInstance(instanceName) {
      * Used to log custom errors
      *
      * @method logError
-     * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
+     * @param {String | Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
      * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
      */
     this.logError = function(error, attrs) {
@@ -768,7 +768,7 @@ export default function mParticleInstance(instanceName) {
          * Creates a transaction attributes object to be used with a checkout
          * @for mParticle.eCommerce
          * @method createTransactionAttributes
-         * @param {String or Number} id a unique transaction id
+         * @param {String | Number} id a unique transaction id
          * @param {String} [affiliation] affilliation
          * @param {String} [couponCode] the coupon code for which you are creating transaction attributes
          * @param {Number} [revenue] total revenue for the product being purchased
@@ -1026,7 +1026,7 @@ export default function mParticleInstance(instanceName) {
      * Sets a session attribute
      * @method setSessionAttribute
      * @param {String} key key for session attribute
-     * @param {String or Number} value value for session attribute
+     * @param {String | Number} value value for session attribute
      */
     this.setSessionAttribute = function(key, value) {
         var queued = queueIfNotInitialized(function() {
