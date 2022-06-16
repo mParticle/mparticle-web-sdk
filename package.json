@@ -70,7 +70,7 @@
         "@mparticle/event-models": "^1.1.4",
         "@rollup/plugin-json": "^4.1.0",
         "@semantic-release/changelog": "^5.0.1",
-        "@semantic-release/exec": "^5.0.0",
+        "@semantic-release/exec": "^6.0.3",
         "@semantic-release/git": "^9.0.0",
         "@types/chai": "^4.2.3",
         "@types/mocha": "^9.0.0",
