@@ -721,7 +721,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.16.0";
+    var version = "2.16.1";
 
     var Constants = {
         sdkVersion: version,
@@ -3643,8 +3643,163 @@ var mParticle = (function () {
     }));
     });
 
-    var StorageNames = Constants.StorageNames,
-        pluses = /\+/g;
+    function _readOnlyError(name) {
+      throw new Error("\"" + name + "\" is read-only");
+    }
+
+    var readOnlyError = _readOnlyError;
+
+    var inArray = function inArray(items, name) {
+        var i = 0;
+        if (Array.prototype.indexOf) {
+            return items.indexOf(name, 0) >= 0;
+        }
+        else {
+            for (var n = items.length; i < n; readOnlyError("i")) {
+                if (i in items && items[i] === name) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
+    var findKeyInObject = function findKeyInObject(obj, key) {
+        if (key && obj) {
+            for (var prop in obj) {
+                if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
+                    return prop;
+                }
+            }
+        }
+        return null;
+    };
+    var isObject = function isObject(value) {
+        var objType = Object.prototype.toString.call(value);
+        return objType === '[object Object]' || objType === '[object Error]';
+    };
+    var parseNumber = function parseNumber(value) {
+        if (isNaN(value) || !isFinite(value)) {
+            return 0;
+        }
+        var floatValue = parseFloat(value);
+        return isNaN(floatValue) ? 0 : floatValue;
+    }; // FIXME: REFACTOR for V3
+    // only used in store.js to sanitize server-side formatting of
+    // booleans when checking for `isDevelopmentMode`
+    // Should be removed in v3
+    var returnConvertedBoolean = function returnConvertedBoolean(data) {
+        if (data === 'false' || data === '0') {
+            return false;
+        }
+        else {
+            return Boolean(data);
+        }
+    };
+    var decoded = function decoded(s) {
+        return decodeURIComponent(s.replace(/\+/g, ' '));
+    };
+    var converted = function converted(s) {
+        if (s.indexOf('"') === 0) {
+            s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        }
+        return s;
+    };
+
+    var Validators = {
+        isValidAttributeValue: function isValidAttributeValue(value) {
+            return value !== undefined && !isObject(value) && !Array.isArray(value);
+        },
+        // Neither null nor undefined can be a valid Key
+        isValidKeyValue: function isValidKeyValue(key) {
+            return Boolean(key && !isObject(key) && !Array.isArray(key) && !this.isFunction(key));
+        },
+        isStringOrNumber: function isStringOrNumber(value) {
+            return typeof value === 'string' || typeof value === 'number';
+        },
+        isNumber: function isNumber(value) {
+            return typeof value === 'number';
+        },
+        isFunction: function isFunction(fn) {
+            return typeof fn === 'function';
+        },
+        validateIdentities: function validateIdentities(identityApiData, method) {
+            var validIdentityRequestKeys = {
+                userIdentities: 1,
+                onUserAlias: 1,
+                copyUserAttributes: 1
+            };
+            if (identityApiData) {
+                if (method === 'modify') {
+                    if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
+                        return {
+                            valid: false,
+                            error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
+                        };
+                    }
+                }
+                for (var key in identityApiData) {
+                    if (identityApiData.hasOwnProperty(key)) {
+                        if (!validIdentityRequestKeys[key]) {
+                            return {
+                                valid: false,
+                                error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
+                            };
+                        }
+                        if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
+                            return {
+                                valid: false,
+                                // FIXME: Validates type safety
+                                error: Constants.Messages.ValidationMessages.OnUserAliasType + _typeof_1(identityApiData[key])
+                            };
+                        }
+                    }
+                }
+                if (Object.keys(identityApiData).length === 0) {
+                    return {
+                        valid: true
+                    };
+                }
+                else {
+                    // identityApiData.userIdentities can't be undefined
+                    if (identityApiData.userIdentities === undefined) {
+                        return {
+                            valid: false,
+                            error: Constants.Messages.ValidationMessages.UserIdentities
+                        }; // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
+                    }
+                    else if (identityApiData.userIdentities !== null && !isObject(identityApiData.userIdentities)) {
+                        return {
+                            valid: false,
+                            error: Constants.Messages.ValidationMessages.UserIdentities
+                        };
+                    }
+                    if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
+                        for (var identityType in identityApiData.userIdentities) {
+                            if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
+                                if (Types.IdentityType.getIdentityType(identityType) === false) {
+                                    return {
+                                        valid: false,
+                                        error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
+                                    };
+                                }
+                                if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
+                                    return {
+                                        valid: false,
+                                        error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return {
+                valid: true
+            };
+        }
+    };
+
+    var StorageNames = Constants.StorageNames;
     function Helpers(mpInstance) {
       var self = this;
 
@@ -3654,14 +3809,6 @@ var mParticle = (function () {
         }
 
         return false;
-      };
-
-      this.returnConvertedBoolean = function (data) {
-        if (data === 'false' || data === '0') {
-          return false;
-        } else {
-          return Boolean(data);
-        }
       };
 
       this.getFeatureFlag = function (feature) {
@@ -3849,25 +3996,6 @@ var mParticle = (function () {
         return target;
       };
 
-      this.isObject = function (value) {
-        var objType = Object.prototype.toString.call(value);
-        return objType === '[object Object]' || objType === '[object Error]';
-      };
-
-      this.inArray = function (items, name) {
-        var i = 0;
-
-        if (Array.prototype.indexOf) {
-          return items.indexOf(name, 0) >= 0;
-        } else {
-          for (var n = items.length; i < n; i++) {
-            if (i in items && items[i] === name) {
-              return true;
-            }
-          }
-        }
-      };
-
       this.createServiceUrl = function (secureServiceUrl, devToken) {
         var serviceScheme = window.mParticle && mpInstance._Store.SDKConfig.forceHttps ? 'https://' : window.location.protocol + '//';
         var baseUrl;
@@ -4003,30 +4131,6 @@ var mParticle = (function () {
         return filteredUserAttributes;
       };
 
-      this.findKeyInObject = function (obj, key) {
-        if (key && obj) {
-          for (var prop in obj) {
-            if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
-              return prop;
-            }
-          }
-        }
-
-        return null;
-      };
-
-      this.decoded = function (s) {
-        return decodeURIComponent(s.replace(pluses, ' '));
-      };
-
-      this.converted = function (s) {
-        if (s.indexOf('"') === 0) {
-          s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-        }
-
-        return s;
-      };
-
       this.isEventType = function (type) {
         for (var prop in Types.EventType) {
           if (Types.EventType.hasOwnProperty(prop)) {
@@ -4039,17 +4143,8 @@ var mParticle = (function () {
         return false;
       };
 
-      this.parseNumber = function (value) {
-        if (isNaN(value) || !isFinite(value)) {
-          return 0;
-        }
-
-        var floatValue = parseFloat(value);
-        return isNaN(floatValue) ? 0 : floatValue;
-      };
-
       this.parseStringOrNumber = function (value) {
-        if (self.Validators.isStringOrNumber(value)) {
+        if (Validators.isStringOrNumber(value)) {
           return value;
         } else {
           return null;
@@ -4106,104 +4201,6 @@ var mParticle = (function () {
         return sanitizedAttrs;
       };
 
-      this.Validators = {
-        isValidAttributeValue: function isValidAttributeValue(value) {
-          return value !== undefined && !self.isObject(value) && !Array.isArray(value);
-        },
-        // Neither null nor undefined can be a valid Key
-        isValidKeyValue: function isValidKeyValue(key) {
-          return Boolean(key && !self.isObject(key) && !Array.isArray(key));
-        },
-        isStringOrNumber: function isStringOrNumber(value) {
-          return typeof value === 'string' || typeof value === 'number';
-        },
-        isNumber: function isNumber(value) {
-          return typeof value === 'number';
-        },
-        isFunction: function isFunction(fn) {
-          return typeof fn === 'function';
-        },
-        validateIdentities: function validateIdentities(identityApiData, method) {
-          var validIdentityRequestKeys = {
-            userIdentities: 1,
-            onUserAlias: 1,
-            copyUserAttributes: 1
-          };
-
-          if (identityApiData) {
-            if (method === 'modify') {
-              if (self.isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !self.isObject(identityApiData.userIdentities)) {
-                return {
-                  valid: false,
-                  error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
-                };
-              }
-            }
-
-            for (var key in identityApiData) {
-              if (identityApiData.hasOwnProperty(key)) {
-                if (!validIdentityRequestKeys[key]) {
-                  return {
-                    valid: false,
-                    error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
-                  };
-                }
-
-                if (key === 'onUserAlias' && !mpInstance._Helpers.Validators.isFunction(identityApiData[key])) {
-                  return {
-                    valid: false,
-                    error: Constants.Messages.ValidationMessages.OnUserAliasType + _typeof_1(identityApiData[key])
-                  };
-                }
-              }
-            }
-
-            if (Object.keys(identityApiData).length === 0) {
-              return {
-                valid: true
-              };
-            } else {
-              // identityApiData.userIdentities can't be undefined
-              if (identityApiData.userIdentities === undefined) {
-                return {
-                  valid: false,
-                  error: Constants.Messages.ValidationMessages.UserIdentities
-                }; // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
-              } else if (identityApiData.userIdentities !== null && !self.isObject(identityApiData.userIdentities)) {
-                return {
-                  valid: false,
-                  error: Constants.Messages.ValidationMessages.UserIdentities
-                };
-              }
-
-              if (self.isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
-                for (var identityType in identityApiData.userIdentities) {
-                  if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
-                    if (Types.IdentityType.getIdentityType(identityType) === false) {
-                      return {
-                        valid: false,
-                        error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
-                      };
-                    }
-
-                    if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
-                      return {
-                        valid: false,
-                        error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
-                      };
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          return {
-            valid: true
-          };
-        }
-      };
-
       this.isDelayedByIntegration = function (delayedIntegrations, timeoutStart, now) {
         if (now - timeoutStart > mpInstance._Store.SDKConfig.integrationDelayTimeout) {
           return false;
@@ -4238,7 +4235,18 @@ var mParticle = (function () {
 
       this.isSlug = function (str) {
         return str === slugify(str);
-      };
+      }; // Utility Functions
+
+
+      this.converted = converted;
+      this.findKeyInObject = findKeyInObject;
+      this.parseNumber = parseNumber;
+      this.inArray = inArray;
+      this.isObject = isObject;
+      this.decoded = decoded;
+      this.returnConvertedBoolean = returnConvertedBoolean; // Imported Validators
+
+      this.Validators = Validators;
     }
 
     var Messages$1 = Constants.Messages;
