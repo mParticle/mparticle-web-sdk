@@ -27,7 +27,6 @@
         "build:npm": "cross-env ENVIRONMENT=prod BUILD=cjs rollup --config rollup.config.js",
         "build:esm": "cross-env ENVIRONMENT=prod BUILD=esm rollup --config rollup.config.js",
         "build:stub": "cross-env ENVIRONMENT=prod BUILD=stub rollup --config rollup.config.js",
-        "build:docs": "yuidoc src/",
         "build:snippet": "uglifyjs snippet.js -nm -o snippet.min.js",
         "build:browserify:cjs": "browserify test/integrations/cjs/browserify/index.js -o test/integrations/cjs/dist/browserify-output.js  && npm run test:karma:browserify:cjs",
         "build:rollup:cjs": "rollup --config test/integrations/cjs/rollup/rollup.config.js  && npm run test:karma:rollup:cjs",
@@ -83,7 +82,7 @@
         "chai": "^4.2.0",
         "cross-env": "^7.0.3",
         "eslint": "^7.25.0",
-        "eslint-config-prettier": "8.3.0",
+        "eslint-config-prettier": "8.5.0",
         "eslint-plugin-prettier": "3.4.1",
         "fetch-mock": "^7.5.1",
         "gts": "^3.1.0",
@@ -112,8 +111,7 @@
         "typescript": "^4.2.4",
         "uglify-js": "^3.4.9",
         "webpack": "^5.36.2",
-        "webpack-cli": "^4.6.0",
-        "yuidocjs": "^0.10.2"
+        "webpack-cli": "^4.6.0"
     },
     "dependencies": {
         "@babel/runtime": "^7.6.0",
