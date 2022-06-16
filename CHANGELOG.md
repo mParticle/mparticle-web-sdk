@@ -1,3 +1,11 @@
+## [2.16.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.16.0...v2.16.1) (2022-06-16)
+
+
+### Bug Fixes
+
+* Rebuild package-lock.json ([#276](https://github.com/mParticle/mparticle-web-sdk/issues/276)) ([a9c8990](https://github.com/mParticle/mparticle-web-sdk/commit/a9c899040a8b49856743a06f8b73cfa10611e232))
+* Remove YUI from package.json ([#266](https://github.com/mParticle/mparticle-web-sdk/issues/266)) ([129e1d1](https://github.com/mParticle/mparticle-web-sdk/commit/129e1d1854c5d4f3ee842308340ab19634e8d71c))
+
 # [2.16.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.15.5...v2.16.0) (2022-05-18)
 
 
