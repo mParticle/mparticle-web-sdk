@@ -26,7 +26,7 @@ const builds = {
             babel({
                 extensions,
                 include: ['src/**/*'],
-                runtimeHelpers: true,
+                babelHelpers: 'runtime',
             }),
             typescript(),
             json(),
