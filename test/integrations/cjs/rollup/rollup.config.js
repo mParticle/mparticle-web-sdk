@@ -1,5 +1,5 @@
-import resolve from 'rollup-plugin-node-resolve';
-import commonjs from 'rollup-plugin-commonjs';
+import resolve from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
 
 const iifeBuild = {
     input: './test/integrations/cjs/rollup/index.js',
