@@ -136,7 +136,7 @@ export class BatchUploader {
 
                 if (onCreateBatchCallback) {
                     uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
-                    uploadBatchObject.mutated = true;
+                    uploadBatchObject.modified = true;
                 }
 
                 if (uploadBatchObject) {
