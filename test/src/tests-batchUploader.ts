@@ -559,7 +559,7 @@ describe('batch uploader', () => {
             done();
         });
 
-        it('should add a mutated boolean of true to a batch that has been mutated via a config.onCreateBatch call', function(done) {
+        it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', function(done) {
             window.mParticle._resetForTests(MPConfig);
             var clock = sinon.useFakeTimers();
 
@@ -573,7 +573,7 @@ describe('batch uploader', () => {
             clock.tick(1000);
             
             var batch = JSON.parse(mockServer.secondRequest.requestBody);
-            batch.mutated.should.equal(true);
+            batch.modified.should.equal(true);
             done();
         });
 

@@ -10,7 +10,7 @@ const extensions = ['.js', '.ts'];
 const defaultOutputOptions = {
     name: 'mParticle',
     strict: false,
-    sourceMap: ENVIRONMENT !== 'prod' ? 'inline' : false,
+    sourcemap: ENVIRONMENT !== 'prod' ? 'inline' : false,
 };
 
 const defaultBabel = babel({
