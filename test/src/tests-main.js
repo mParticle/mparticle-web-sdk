@@ -53,3 +53,4 @@ import './tests-mparticle-instance-manager';
 import './tests-queue-public-methods';
 import './tests-validators';
 import './tests-utils';
+import './tests-store';

@@ -136,6 +136,10 @@ export interface MParticleWebSDK {
     generateHash(value: string);
 }
 
+// TODO: Export this to a better location
+// FIXME: SDK Config should be split into two differnt interfaces
+// .      - Input/Init interface to pass props
+// .      - Actual Interface that exists with actual config params
 export interface SDKConfig {
     isDevelopmentMode?: boolean;
     logger: {
@@ -164,6 +168,9 @@ export interface SDKConfig {
     dataPlanOptions: KitBlockerOptions // when the user provides their own data plan
     dataPlanResult?: DataPlanResult  // when the data plan comes from the server via /config
 }
+
+// FIXME: Monkey patched SDK Config Interface
+export type SDKInitConfig = SDKConfig;
 
 export interface DataPlanConfig {
     planId?: string;

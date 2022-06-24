@@ -1,7 +1,16 @@
 import Constants from './constants';
+import {
+    MParticleWebSDK,
+    SDKConfig,
+    SDKConsentState,
+    SDKEvent,
+    SDKInitConfig,
+    SDKProduct,
+} from './sdkRuntimeModels';
 
-function createSDKConfig(config) {
-    var sdkConfig = {};
+function createSDKConfig(config: SDKInitConfig): SDKConfig {
+    // FIXME: Refactor to create a default config object
+    const sdkConfig = {} as SDKConfig;
     for (var prop in Constants.DefaultConfig) {
         if (Constants.DefaultConfig.hasOwnProperty(prop)) {
             sdkConfig[prop] = Constants.DefaultConfig[prop];
@@ -23,8 +32,55 @@ function createSDKConfig(config) {
     return sdkConfig;
 }
 
-export default function Store(config, mpInstance) {
-    var defaultStore = {
+// FIXME: TEMP interface for Store until we can refactor as class
+export interface IStore {
+    isEnabled: boolean;
+    sessionAttributes: Record<string, any>;
+    currentSessionMPIDs: string[];
+    consentState: SDKConsentState | null;
+    sessionId: string | null,
+    isFirstRun: boolean,
+    clientId: string,
+    deviceId: string,
+    devToken: string | null,
+    migrationData: {},
+    serverSettings: {},
+    dateLastEventSent: null,
+    sessionStartDate: null,
+    currentPosition: null,
+    isTracking: boolean,
+    watchPositionId: null,
+    cartProducts: SDKProduct[],
+    eventQueue: SDKEvent[],
+    currencyCode: null,
+    globalTimer: null,
+    context: string,
+    configurationLoaded: boolean,
+    identityCallInFlight: boolean,
+    SDKConfig: {} as SDKConfig,
+    migratingToIDSyncCookies: boolean,
+    nonCurrentUserMPIDs: {},
+    identifyCalled: boolean,
+    isLoggedIn: boolean,
+    cookieSyncDates: {},
+    integrationAttributes: {},
+    requireDelay: true,
+    isLocalStorageAvailable: null,
+    storageName: null,
+    prodStorageName: null,
+    activeForwarders: [],
+    kits: {},
+    configuredForwarders: [],
+    pixelConfigurations: [],
+    integrationDelayTimeoutStart: number;
+}
+
+export default function Store(
+    this: IStore,
+    config: SDKInitConfig,
+    mpInstance: MParticleWebSDK
+) {
+    var defaultStore: Partial<IStore> = {
         isEnabled: true,
         sessionAttributes: {},
         currentSessionMPIDs: [],
@@ -48,7 +104,7 @@ export default function Store(config, mpInstance) {
         context: '',
         configurationLoaded: false,
         identityCallInFlight: false,
-        SDKConfig: {},
+        SDKConfig: {} as SDKConfig,
         migratingToIDSyncCookies: false,
         nonCurrentUserMPIDs: {},
         identifyCalled: false,
