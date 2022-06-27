@@ -136,7 +136,11 @@ export class BatchUploader {
 
                 if (onCreateBatchCallback) {
                     uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
-                    uploadBatchObject.modified = true;
+                    if (uploadBatchObject) {
+                        uploadBatchObject.modified = true;
+                    } else {
+                        mpInstance.Logger.warning('Skiping batch upload because no batch was returned from onCreateBatch callback');
+                    }
                 }
 
                 if (uploadBatchObject) {
