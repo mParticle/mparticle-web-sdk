@@ -103,6 +103,7 @@ describe('kit blocking', () => {
         beforeEach(() => {
              kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
              event = {
+                SourceMessageId: 'fooSourceMessageID',
                 DeviceId: 'test',
                 IsFirstRun: true,
                 EventName: null,
@@ -215,6 +216,7 @@ describe('kit blocking', () => {
         beforeEach(() => {
              kitBlocker = new KitBlocker(kitBlockerDataPlan, window.mParticle.getInstance());
              event = {
+                SourceMessageId: 'fooSourceMessageID',
                 DeviceId: 'test',
                 IsFirstRun: true,
                 EventName: null,
@@ -426,6 +428,7 @@ describe('kit blocking', () => {
                         }
                     ]
              event = {
+                SourceMessageId: 'fooSourceMessageID',
                 DeviceId: 'test',
                 IsFirstRun: true,
                 EventName: null,
