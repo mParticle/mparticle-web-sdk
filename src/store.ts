@@ -1,3 +1,4 @@
+import { Context } from '@mparticle/event-models';
 import Constants from './constants';
 import {
     MParticleWebSDK,
@@ -38,40 +39,40 @@ export interface IStore {
     sessionAttributes: Record<string, any>;
     currentSessionMPIDs: string[];
     consentState: SDKConsentState | null;
-    sessionId: string | null,
-    isFirstRun: boolean,
-    clientId: string,
-    deviceId: string,
-    devToken: string | null,
-    migrationData: {},
-    serverSettings: {},
-    dateLastEventSent: null,
-    sessionStartDate: null,
-    currentPosition: null,
-    isTracking: boolean,
-    watchPositionId: null,
-    cartProducts: SDKProduct[],
-    eventQueue: SDKEvent[],
-    currencyCode: null,
-    globalTimer: null,
-    context: string,
-    configurationLoaded: boolean,
-    identityCallInFlight: boolean,
-    SDKConfig: {} as SDKConfig,
-    migratingToIDSyncCookies: boolean,
-    nonCurrentUserMPIDs: {},
-    identifyCalled: boolean,
-    isLoggedIn: boolean,
-    cookieSyncDates: {},
-    integrationAttributes: {},
-    requireDelay: true,
-    isLocalStorageAvailable: null,
-    storageName: null,
-    prodStorageName: null,
-    activeForwarders: [],
-    kits: {},
-    configuredForwarders: [],
-    pixelConfigurations: [],
+    sessionId: string | null;
+    isFirstRun: boolean;
+    clientId: string;
+    deviceId: string;
+    devToken: string | null;
+    migrationData: Record<string, any>; // FIXME: Need union of User Attributes and Identities
+    serverSettings: Record<string, any>; // FIXME: Need a valid type
+    dateLastEventSent: number | null;
+    sessionStartDate: number | null;
+    currentPosition: number | null;
+    isTracking: boolean;
+    watchPositionId: number | null;
+    cartProducts: SDKProduct[];
+    eventQueue: SDKEvent[];
+    currencyCode: string | null;
+    globalTimer: number | null;
+    context: Context | null;
+    configurationLoaded: boolean;
+    identityCallInFlight: boolean;
+    SDKConfig: Partial<SDKConfig>; // FIXME: Should be {} as SDKConfig?
+    migratingToIDSyncCookies: boolean;
+    nonCurrentUserMPIDs: Record<string, any>; // FIXME: Need a better shape of this data
+    identifyCalled: boolean;
+    isLoggedIn: boolean;
+    cookieSyncDates: Record<string, number>;
+    integrationAttributes: Record<string, Record<string, string>>; // FIXME: Can we come up with a better type?
+    requireDelay: boolean;
+    isLocalStorageAvailable: boolean | null;
+    storageName: string | null;
+    prodStorageName: string | null;
+    activeForwarders: Record<string, any>[]; // FIXME: Create forwarder Type
+    kits: Record<string, any>; // FIXME: Create Kits Type;
+    configuredForwarders: Record<string, any>[]; // FIXME: Create forwarder Type
+    pixelConfigurations: Record<string, any>[]; // FIXME: Create a type
     integrationDelayTimeoutStart: number;
 }
 
@@ -101,7 +102,7 @@ export default function Store(
         eventQueue: [],
         currencyCode: null,
         globalTimer: null,
-        context: '',
+        context: null, // TODO: Why was this an empty string when it should be of type Context?
         configurationLoaded: false,
         identityCallInFlight: false,
         SDKConfig: {} as SDKConfig,
