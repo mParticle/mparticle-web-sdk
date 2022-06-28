@@ -78,11 +78,6 @@ const Validators = {
                     ) {
                         return {
                             valid: false,
-                            // FIXME: Validates type safety
-                            // error:
-                            //     Constants.Messages.ValidationMessages
-                            //         .OnUserAliasType +
-                            //     typeof identityApiData[key],
                             error:
                                 Constants.Messages.ValidationMessages
                                     .OnUserAliasType,
