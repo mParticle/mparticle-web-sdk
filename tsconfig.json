@@ -1,7 +1,7 @@
 {
     "extends": "./node_modules/gts/tsconfig-google.json",
     "compilerOptions": {
-        "lib": ["es5", "dom", "esnext"],
+        "lib": ["es5", "es6", "dom"],
         "rootDir": ".",
         "outDir": "build",
         "sourceMap": true,
