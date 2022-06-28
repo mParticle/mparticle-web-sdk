@@ -30,10 +30,52 @@ jobs:
             git checkout -b release/${{ github.run_number }}
             git push origin release/${{ github.run_number }}
 
+  build-and-test:
+      name: Build and Test
+      runs-on: ubuntu-latest
+      steps:
+          - name: Checkout
+            uses: actions/checkout@v2
+
+          - name: NPM install
+            uses: actions/setup-node@v1
+            with:
+                node-version: 16.x
+
+          - name: Run NPM CI
+            run: npm ci
+
+          - name: Lint with ESLint
+            run: npm run lint
+
+          - name: Lint with Prettier
+            run: npm run prettier
+
+          - name: Build Files
+            run: npm run build
+
+          - name: Run Core tests
+            run: npm run test
+
+          - name: Run Integration
+            run: npm run test:integrations
+
+          - name: Run Stub tests
+            run: npm run test:stub
+
+          - name: Archive npm failure logs
+            uses: actions/upload-artifact@v2
+            if: failure()
+            with:
+              name: npm-logs
+              path: ~/.npm/_logs
+
   release:
       name: Perform Release
       runs-on: ubuntu-18.04
-      needs: create-release-branch
+      needs: 
+        - build-and-test
+        - create-release-branch
       env:
         GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
         GIT_AUTHOR_NAME: mparticle-automation
@@ -68,9 +110,6 @@ jobs:
 
         - name: Install dependencies
           run: npm ci
-
-        - name: Run tests
-          run: npm run test
 
         - name: Release --dry-run
           if: ${{ github.event.inputs.dryRun == 'true'}}
