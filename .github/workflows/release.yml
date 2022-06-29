@@ -13,26 +13,11 @@ jobs:
   confirm-public-repo-master-branch:
     name: "Confirm release is run from public/master branch"
     uses: mParticle/mparticle-workflows/.github/workflows/sdk-release-repo-branch-check.yml@stable
-  
-  create-release-branch:
-      name: Create release branch
-      runs-on: ubuntu-18.04
-      needs: confirm-public-repo-master-branch
-      steps:
-        - name: Checkout development branch
-          uses: actions/checkout@v2
-          with:
-            repository: mparticle/mparticle-web-sdk
-            ref: development
-
-        - name: Create and push release branch
-          run: |
-            git checkout -b release/${{ github.run_number }}
-            git push origin release/${{ github.run_number }}
 
   build-and-test:
       name: Build and Test
       runs-on: ubuntu-latest
+      needs: confirm-public-repo-master-branch
       steps:
           - name: Checkout
             uses: actions/checkout@v2
@@ -70,12 +55,31 @@ jobs:
               name: npm-logs
               path: ~/.npm/_logs
 
+  create-release-branch:
+      name: Create release branch
+      runs-on: ubuntu-18.04
+      needs:
+        - build-and-test
+        - confirm-public-repo-master-branch
+      steps:
+        - name: Checkout development branch
+          uses: actions/checkout@v2
+          with:
+            repository: mparticle/mparticle-web-sdk
+            ref: development
+
+        - name: Create and push release branch
+          run: |
+            git checkout -b release/${{ github.run_number }}
+            git push origin release/${{ github.run_number }}
+
   release:
       name: Perform Release
       runs-on: ubuntu-18.04
       needs: 
         - build-and-test
         - create-release-branch
+        - confirm-public-repo-master-branch
       env:
         GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
         GIT_AUTHOR_NAME: mparticle-automation
