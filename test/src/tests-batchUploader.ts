@@ -577,14 +577,14 @@ describe('batch uploader', () => {
             done();
         });
 
-        it('should respect rules for the batch mutation', function(done) {
+        it('should respect rules for the batch modification', function(done) {
             window.mParticle._resetForTests(MPConfig);
             var clock = sinon.useFakeTimers();
 
             window.mParticle.config.onCreateBatch = function (batch) {
                 batch.events.map(event => {
                     if (event.event_type === "custom_event") {
-                        (event.data as CustomEventData).event_name = 'Mutated!'
+                        (event.data as CustomEventData).event_name = 'Modified!'
                     }
                 });
                 return batch;
@@ -600,7 +600,24 @@ describe('batch uploader', () => {
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
-            batch.events[2].data.event_name.should.equal('Mutated!');
+            batch.events[2].data.event_name.should.equal('Modified!');
+            done();
+        });
+
+        it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', function(done) {
+            window.mParticle._resetForTests(MPConfig);
+            var clock = sinon.useFakeTimers();
+
+            window.mParticle.config.onCreateBatch = function (batch: Batch) {
+                return undefined;
+            };
+
+            window.mParticle.init(apiKey, window.mParticle.config);
+            window.mParticle.logEvent('Test Event');
+            
+            clock.tick(1000);
+            
+            (mockServer.secondRequest === null).should.equal(true);
             done();
         });
     })
