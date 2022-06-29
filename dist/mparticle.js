@@ -1,6 +1,7 @@
 var mParticle = (function () {
+
     // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
-    var Base64 = {
+    var Base64$2 = {
       _keyStr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
       // Input must be a string
       encode: function encode(input) {
@@ -35,7 +36,7 @@ var mParticle = (function () {
             enc4 = 64;
           }
 
-          output = output + Base64._keyStr.charAt(enc1) + Base64._keyStr.charAt(enc2) + Base64._keyStr.charAt(enc3) + Base64._keyStr.charAt(enc4);
+          output = output + Base64$2._keyStr.charAt(enc1) + Base64$2._keyStr.charAt(enc2) + Base64$2._keyStr.charAt(enc3) + Base64$2._keyStr.charAt(enc4);
         }
 
         return output;
@@ -48,7 +49,7 @@ var mParticle = (function () {
         } catch (e) {//log(e);
         }
 
-        return Base64._decode(input);
+        return Base64$2._decode(input);
       },
       _decode: function _decode(input) {
         var output = '';
@@ -58,10 +59,10 @@ var mParticle = (function () {
         input = input.replace(/[^A-Za-z0-9\+\/\=]/g, '');
 
         while (i < input.length) {
-          enc1 = Base64._keyStr.indexOf(input.charAt(i++));
-          enc2 = Base64._keyStr.indexOf(input.charAt(i++));
-          enc3 = Base64._keyStr.indexOf(input.charAt(i++));
-          enc4 = Base64._keyStr.indexOf(input.charAt(i++));
+          enc1 = Base64$2._keyStr.indexOf(input.charAt(i++));
+          enc2 = Base64$2._keyStr.indexOf(input.charAt(i++));
+          enc3 = Base64$2._keyStr.indexOf(input.charAt(i++));
+          enc4 = Base64$2._keyStr.indexOf(input.charAt(i++));
           chr1 = enc1 << 2 | enc2 >> 4;
           chr2 = (enc2 & 15) << 4 | enc3 >> 2;
           chr3 = (enc3 & 3) << 6 | enc4;
@@ -239,7 +240,7 @@ var mParticle = (function () {
       isArray: function isArray(arg) {
         return Object.prototype.toString.call(arg) === '[object Array]';
       },
-      Base64: Base64
+      Base64: Base64$2
     };
 
     function _defineProperty(obj, key, value) {
@@ -257,11 +258,9 @@ var mParticle = (function () {
       return obj;
     }
 
-    var defineProperty = _defineProperty;
-
     var _TriggerUploadType;
 
-    var MessageType = {
+    var MessageType$1 = {
       SessionStart: 1,
       SessionEnd: 2,
       PageView: 3,
@@ -277,7 +276,7 @@ var mParticle = (function () {
     }; // Dictionary that contains MessageTypes that will
     // trigger an immediate upload.
 
-    var TriggerUploadType = (_TriggerUploadType = {}, defineProperty(_TriggerUploadType, MessageType.Commerce, 1), defineProperty(_TriggerUploadType, MessageType.UserAttributeChange, 1), defineProperty(_TriggerUploadType, MessageType.UserIdentityChange, 1), _TriggerUploadType);
+    var TriggerUploadType = (_TriggerUploadType = {}, _defineProperty(_TriggerUploadType, MessageType$1.Commerce, 1), _defineProperty(_TriggerUploadType, MessageType$1.UserAttributeChange, 1), _defineProperty(_TriggerUploadType, MessageType$1.UserIdentityChange, 1), _TriggerUploadType);
     var EventType = {
       Unknown: 0,
       Navigation: 1,
@@ -706,2668 +705,1634 @@ var mParticle = (function () {
     var ProfileMessageType = {
       Logout: 3
     };
-    var ApplicationTransitionType = {
+    var ApplicationTransitionType$1 = {
       AppInit: 1
     };
     var Types = {
-      MessageType: MessageType,
+      MessageType: MessageType$1,
       EventType: EventType,
       CommerceEventType: CommerceEventType,
       IdentityType: IdentityType,
       ProfileMessageType: ProfileMessageType,
-      ApplicationTransitionType: ApplicationTransitionType,
+      ApplicationTransitionType: ApplicationTransitionType$1,
       ProductActionType: ProductActionType,
       PromotionActionType: PromotionActionType,
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.16.1";
+    var version = "2.16.2";
 
     var Constants = {
-        sdkVersion: version,
-        sdkVendor: 'mparticle',
-        platform: 'web',
-        Messages: {
-            ErrorMessages: {
-                NoToken: 'A token must be specified.',
-                EventNameInvalidType: 'Event name must be a valid string value.',
-                EventDataInvalidType: 'Event data must be a valid object hash.',
-                LoggingDisabled: 'Event logging is currently disabled.',
-                CookieParseError: 'Could not parse cookie',
-                EventEmpty: 'Event object is null or undefined, cancelling send',
-                APIRequestEmpty: 'APIRequest is null or undefined, cancelling send',
-                NoEventType: 'Event type must be specified.',
-                TransactionIdRequired: 'Transaction ID is required',
-                TransactionRequired: 'A transaction attributes object is required',
-                PromotionIdRequired: 'Promotion ID is required',
-                BadAttribute: 'Attribute value cannot be object or array',
-                BadKey: 'Key value cannot be object or array',
-                BadLogPurchase: 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions'
-            },
-            InformationMessages: {
-                CookieSearch: 'Searching for cookie',
-                CookieFound: 'Cookie found, parsing values',
-                CookieNotFound: 'Cookies not found',
-                CookieSet: 'Setting cookie',
-                CookieSync: 'Performing cookie sync',
-                SendBegin: 'Starting to send event',
-                SendIdentityBegin: 'Starting to send event to identity server',
-                SendWindowsPhone: 'Sending event to Windows Phone container',
-                SendIOS: 'Calling iOS path: ',
-                SendAndroid: 'Calling Android JS interface method: ',
-                SendHttp: 'Sending event to mParticle HTTP service',
-                SendAliasHttp: 'Sending alias request to mParticle HTTP service',
-                SendIdentityHttp: 'Sending event to mParticle HTTP service',
-                StartingNewSession: 'Starting new Session',
-                StartingLogEvent: 'Starting to log event',
-                StartingLogOptOut: 'Starting to log user opt in/out',
-                StartingEndSession: 'Starting to end session',
-                StartingInitialization: 'Starting to initialize',
-                StartingLogCommerceEvent: 'Starting to log commerce event',
-                StartingAliasRequest: 'Starting to Alias MPIDs',
-                LoadingConfig: 'Loading configuration options',
-                AbandonLogEvent: 'Cannot log event, logging disabled or developer token not set',
-                AbandonAliasUsers: 'Cannot Alias Users, logging disabled or developer token not set',
-                AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
-                AbandonEndSession: 'Cannot end session, logging disabled or developer token not set',
-                NoSessionToEnd: 'Cannot end session, no active session found'
-            },
-            ValidationMessages: {
-                ModifyIdentityRequestUserIdentitiesPresent: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again',
-                IdentityRequesetInvalidKey: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.',
-                OnUserAliasType: 'The onUserAlias value must be a function. The onUserAlias provided is of type',
-                UserIdentities: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.',
-                UserIdentitiesInvalidKey: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
-                UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.',
-                AliasMissingMpid: 'Alias Request must contain both a destinationMpid and a sourceMpid',
-                AliasNonUniqueMpid: "Alias Request's destinationMpid and sourceMpid must be unique",
-                AliasMissingTime: 'Alias Request must have both a startTime and an endTime',
-                AliasStartBeforeEndTime: "Alias Request's endTime must be later than its startTime"
-            }
+      sdkVersion: version,
+      sdkVendor: 'mparticle',
+      platform: 'web',
+      Messages: {
+        ErrorMessages: {
+          NoToken: 'A token must be specified.',
+          EventNameInvalidType: 'Event name must be a valid string value.',
+          EventDataInvalidType: 'Event data must be a valid object hash.',
+          LoggingDisabled: 'Event logging is currently disabled.',
+          CookieParseError: 'Could not parse cookie',
+          EventEmpty: 'Event object is null or undefined, cancelling send',
+          APIRequestEmpty: 'APIRequest is null or undefined, cancelling send',
+          NoEventType: 'Event type must be specified.',
+          TransactionIdRequired: 'Transaction ID is required',
+          TransactionRequired: 'A transaction attributes object is required',
+          PromotionIdRequired: 'Promotion ID is required',
+          BadAttribute: 'Attribute value cannot be object or array',
+          BadKey: 'Key value cannot be object or array',
+          BadLogPurchase: 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions'
         },
-        NativeSdkPaths: {
-            LogEvent: 'logEvent',
-            SetUserTag: 'setUserTag',
-            RemoveUserTag: 'removeUserTag',
-            SetUserAttribute: 'setUserAttribute',
-            RemoveUserAttribute: 'removeUserAttribute',
-            SetSessionAttribute: 'setSessionAttribute',
-            AddToCart: 'addToCart',
-            RemoveFromCart: 'removeFromCart',
-            ClearCart: 'clearCart',
-            LogOut: 'logOut',
-            SetUserAttributeList: 'setUserAttributeList',
-            RemoveAllUserAttributes: 'removeAllUserAttributes',
-            GetUserAttributesLists: 'getUserAttributesLists',
-            GetAllUserAttributes: 'getAllUserAttributes',
-            Identify: 'identify',
-            Logout: 'logout',
-            Login: 'login',
-            Modify: 'modify',
-            Alias: 'aliasUsers',
-            Upload: 'upload'
+        InformationMessages: {
+          CookieSearch: 'Searching for cookie',
+          CookieFound: 'Cookie found, parsing values',
+          CookieNotFound: 'Cookies not found',
+          CookieSet: 'Setting cookie',
+          CookieSync: 'Performing cookie sync',
+          SendBegin: 'Starting to send event',
+          SendIdentityBegin: 'Starting to send event to identity server',
+          SendWindowsPhone: 'Sending event to Windows Phone container',
+          SendIOS: 'Calling iOS path: ',
+          SendAndroid: 'Calling Android JS interface method: ',
+          SendHttp: 'Sending event to mParticle HTTP service',
+          SendAliasHttp: 'Sending alias request to mParticle HTTP service',
+          SendIdentityHttp: 'Sending event to mParticle HTTP service',
+          StartingNewSession: 'Starting new Session',
+          StartingLogEvent: 'Starting to log event',
+          StartingLogOptOut: 'Starting to log user opt in/out',
+          StartingEndSession: 'Starting to end session',
+          StartingInitialization: 'Starting to initialize',
+          StartingLogCommerceEvent: 'Starting to log commerce event',
+          StartingAliasRequest: 'Starting to Alias MPIDs',
+          LoadingConfig: 'Loading configuration options',
+          AbandonLogEvent: 'Cannot log event, logging disabled or developer token not set',
+          AbandonAliasUsers: 'Cannot Alias Users, logging disabled or developer token not set',
+          AbandonStartSession: 'Cannot start session, logging disabled or developer token not set',
+          AbandonEndSession: 'Cannot end session, logging disabled or developer token not set',
+          NoSessionToEnd: 'Cannot end session, no active session found'
         },
-        StorageNames: {
-            localStorageName: 'mprtcl-api',
-            // Name of the mP localstorage, had cp and pb even if cookies were used, skipped v2
-            localStorageNameV3: 'mprtcl-v3',
-            // v3 Name of the mP localstorage, final version on SDKv1
-            cookieName: 'mprtcl-api',
-            // v1 Name of the cookie stored on the user's machine
-            cookieNameV2: 'mprtcl-v2',
-            // v2 Name of the cookie stored on the user's machine. Removed keys with no values, moved cartProducts and productBags to localStorage.
-            cookieNameV3: 'mprtcl-v3',
-            // v3 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, final version on SDKv1
-            localStorageNameV4: 'mprtcl-v4',
-            // v4 Name of the mP localstorage, Current Version
-            localStorageProductsV4: 'mprtcl-prodv4',
-            // The name for mP localstorage that contains products for cartProducs and productBags
-            cookieNameV4: 'mprtcl-v4',
-            // v4 Name of the cookie stored on the user's machine. Base64 encoded keys in Base64CookieKeys object, current version on SDK v2
-            currentStorageName: 'mprtcl-v4',
-            currentStorageProductsName: 'mprtcl-prodv4'
-        },
-        DefaultConfig: {
-            cookieDomain: null,
-            // If null, defaults to current location.host
-            cookieExpiration: 365,
-            // Cookie expiration time in days
-            logLevel: null,
-            // What logging will be provided in the console
-            timeout: 300,
-            // timeout in milliseconds for logging functions
-            sessionTimeout: 30,
-            // Session timeout in minutes
-            maxProducts: 20,
-            // Number of products persisted in cartProducts and productBags
-            forwarderStatsTimeout: 5000,
-            // Milliseconds for forwarderStats timeout
-            integrationDelayTimeout: 5000,
-            // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
-            maxCookieSize: 3000,
-            // Number of bytes for cookie size to not exceed
-            aliasMaxWindow: 90,
-            // Max age of Alias request startTime, in days
-            uploadInterval: 0 // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload
-        },
-        DefaultUrls: {
-            v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
-            v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
-            v3SecureServiceUrl: 'jssdks.mparticle.com/v3/JS/',
-            configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
-            identityUrl: 'identity.mparticle.com/v1/',
-            aliasUrl: 'jssdks.mparticle.com/v1/identity/'
-        },
-        Base64CookieKeys: {
-            csm: 1,
-            sa: 1,
-            ss: 1,
-            ua: 1,
-            ui: 1,
-            csd: 1,
-            ia: 1,
-            con: 1
-        },
-        SDKv2NonMPIDCookieKeys: {
-            gs: 1,
-            cu: 1,
-            l: 1,
-            globalSettings: 1,
-            currentUserMPID: 1
-        },
-        HTTPCodes: {
-            noHttpCoverage: -1,
-            activeIdentityRequest: -2,
-            activeSession: -3,
-            validationIssue: -4,
-            nativeIdentityRequest: -5,
-            loggingDisabledOrMissingAPIKey: -6,
-            tooManyRequests: 429
-        },
-        FeatureFlags: {
-            ReportBatching: 'reportBatching',
-            EventsV3: 'eventsV3',
-            EventBatchingIntervalMillis: 'eventBatchingIntervalMillis'
-        },
-        DefaultInstance: 'default_instance'
+        ValidationMessages: {
+          ModifyIdentityRequestUserIdentitiesPresent: 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again',
+          IdentityRequesetInvalidKey: 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.',
+          OnUserAliasType: 'The onUserAlias value must be a function.',
+          UserIdentities: 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.',
+          UserIdentitiesInvalidKey: 'There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.',
+          UserIdentitiesInvalidValues: 'All user identity values must be strings or null. Request not sent to server. Please fix and try again.',
+          AliasMissingMpid: 'Alias Request must contain both a destinationMpid and a sourceMpid',
+          AliasNonUniqueMpid: "Alias Request's destinationMpid and sourceMpid must be unique",
+          AliasMissingTime: 'Alias Request must have both a startTime and an endTime',
+          AliasStartBeforeEndTime: "Alias Request's endTime must be later than its startTime"
+        }
+      },
+      NativeSdkPaths: {
+        LogEvent: 'logEvent',
+        SetUserTag: 'setUserTag',
+        RemoveUserTag: 'removeUserTag',
+        SetUserAttribute: 'setUserAttribute',
+        RemoveUserAttribute: 'removeUserAttribute',
+        SetSessionAttribute: 'setSessionAttribute',
+        AddToCart: 'addToCart',
+        RemoveFromCart: 'removeFromCart',
+        ClearCart: 'clearCart',
+        LogOut: 'logOut',
+        SetUserAttributeList: 'setUserAttributeList',
+        RemoveAllUserAttributes: 'removeAllUserAttributes',
+        GetUserAttributesLists: 'getUserAttributesLists',
+        GetAllUserAttributes: 'getAllUserAttributes',
+        Identify: 'identify',
+        Logout: 'logout',
+        Login: 'login',
+        Modify: 'modify',
+        Alias: 'aliasUsers',
+        Upload: 'upload'
+      },
+      StorageNames: {
+        localStorageName: 'mprtcl-api',
+        localStorageNameV3: 'mprtcl-v3',
+        cookieName: 'mprtcl-api',
+        cookieNameV2: 'mprtcl-v2',
+        cookieNameV3: 'mprtcl-v3',
+        localStorageNameV4: 'mprtcl-v4',
+        localStorageProductsV4: 'mprtcl-prodv4',
+        cookieNameV4: 'mprtcl-v4',
+        currentStorageName: 'mprtcl-v4',
+        currentStorageProductsName: 'mprtcl-prodv4'
+      },
+      DefaultConfig: {
+        cookieDomain: null,
+        cookieExpiration: 365,
+        logLevel: null,
+        timeout: 300,
+        sessionTimeout: 30,
+        maxProducts: 20,
+        forwarderStatsTimeout: 5000,
+        integrationDelayTimeout: 5000,
+        maxCookieSize: 3000,
+        aliasMaxWindow: 90,
+        uploadInterval: 0 // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload
+
+      },
+      DefaultUrls: {
+        v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
+        v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
+        v3SecureServiceUrl: 'jssdks.mparticle.com/v3/JS/',
+        configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
+        identityUrl: 'identity.mparticle.com/v1/',
+        aliasUrl: 'jssdks.mparticle.com/v1/identity/'
+      },
+      Base64CookieKeys: {
+        csm: 1,
+        sa: 1,
+        ss: 1,
+        ua: 1,
+        ui: 1,
+        csd: 1,
+        ia: 1,
+        con: 1
+      },
+      SDKv2NonMPIDCookieKeys: {
+        gs: 1,
+        cu: 1,
+        l: 1,
+        globalSettings: 1,
+        currentUserMPID: 1
+      },
+      HTTPCodes: {
+        noHttpCoverage: -1,
+        activeIdentityRequest: -2,
+        activeSession: -3,
+        validationIssue: -4,
+        nativeIdentityRequest: -5,
+        loggingDisabledOrMissingAPIKey: -6,
+        tooManyRequests: 429
+      },
+      FeatureFlags: {
+        ReportBatching: 'reportBatching',
+        EventsV3: 'eventsV3',
+        EventBatchingIntervalMillis: 'eventBatchingIntervalMillis'
+      },
+      DefaultInstance: 'default_instance'
     };
 
-    var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
-
-    function unwrapExports (x) {
-    	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
-    }
-
-    function createCommonjsModule(fn, module) {
-    	return module = { exports: {} }, fn(module, module.exports), module.exports;
-    }
-
-    var _typeof_1 = createCommonjsModule(function (module) {
     function _typeof(obj) {
       "@babel/helpers - typeof";
 
-      if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
-        module.exports = _typeof = function _typeof(obj) {
-          return typeof obj;
+      return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
+        return typeof obj;
+      } : function (obj) {
+        return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+      }, _typeof(obj);
+    }
+
+    /******************************************************************************
+    Copyright (c) Microsoft Corporation.
+
+    Permission to use, copy, modify, and/or distribute this software for any
+    purpose with or without fee is hereby granted.
+
+    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+    REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+    AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+    INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+    LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+    OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+    PERFORMANCE OF THIS SOFTWARE.
+    ***************************************************************************** */
+    /* global Reflect, Promise */
+
+    var extendStatics = function(d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+
+    function __extends(d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    }
+
+    var __assign = function() {
+        __assign = Object.assign || function __assign(t) {
+            for (var s, i = 1, n = arguments.length; i < n; i++) {
+                s = arguments[i];
+                for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
+            }
+            return t;
         };
-      } else {
-        module.exports = _typeof = function _typeof(obj) {
-          return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
-        };
-      }
+        return __assign.apply(this, arguments);
+    };
 
-      return _typeof(obj);
-    }
-
-    module.exports = _typeof;
-    });
-
-    var setPrototypeOf = createCommonjsModule(function (module) {
-    function _setPrototypeOf(o, p) {
-      module.exports = _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) {
-        o.__proto__ = p;
-        return o;
-      };
-
-      return _setPrototypeOf(o, p);
-    }
-
-    module.exports = _setPrototypeOf;
-    });
-
-    function _inherits(subClass, superClass) {
-      if (typeof superClass !== "function" && superClass !== null) {
-        throw new TypeError("Super expression must either be null or a function");
-      }
-
-      subClass.prototype = Object.create(superClass && superClass.prototype, {
-        constructor: {
-          value: subClass,
-          writable: true,
-          configurable: true
-        }
-      });
-      if (superClass) setPrototypeOf(subClass, superClass);
-    }
-
-    var inherits = _inherits;
-
-    function _assertThisInitialized(self) {
-      if (self === void 0) {
-        throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
-      }
-
-      return self;
-    }
-
-    var assertThisInitialized = _assertThisInitialized;
-
-    function _possibleConstructorReturn(self, call) {
-      if (call && (_typeof_1(call) === "object" || typeof call === "function")) {
-        return call;
-      }
-
-      return assertThisInitialized(self);
-    }
-
-    var possibleConstructorReturn = _possibleConstructorReturn;
-
-    var getPrototypeOf = createCommonjsModule(function (module) {
-    function _getPrototypeOf(o) {
-      module.exports = _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
-        return o.__proto__ || Object.getPrototypeOf(o);
-      };
-      return _getPrototypeOf(o);
-    }
-
-    module.exports = _getPrototypeOf;
-    });
-
-    function _arrayLikeToArray(arr, len) {
-      if (len == null || len > arr.length) len = arr.length;
-
-      for (var i = 0, arr2 = new Array(len); i < len; i++) {
-        arr2[i] = arr[i];
-      }
-
-      return arr2;
-    }
-
-    var arrayLikeToArray = _arrayLikeToArray;
-
-    function _arrayWithoutHoles(arr) {
-      if (Array.isArray(arr)) return arrayLikeToArray(arr);
-    }
-
-    var arrayWithoutHoles = _arrayWithoutHoles;
-
-    function _iterableToArray(iter) {
-      if (typeof Symbol !== "undefined" && Symbol.iterator in Object(iter)) return Array.from(iter);
-    }
-
-    var iterableToArray = _iterableToArray;
-
-    function _unsupportedIterableToArray(o, minLen) {
-      if (!o) return;
-      if (typeof o === "string") return arrayLikeToArray(o, minLen);
-      var n = Object.prototype.toString.call(o).slice(8, -1);
-      if (n === "Object" && o.constructor) n = o.constructor.name;
-      if (n === "Map" || n === "Set") return Array.from(o);
-      if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return arrayLikeToArray(o, minLen);
-    }
-
-    var unsupportedIterableToArray = _unsupportedIterableToArray;
-
-    function _nonIterableSpread() {
-      throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-    }
-
-    var nonIterableSpread = _nonIterableSpread;
-
-    function _toConsumableArray(arr) {
-      return arrayWithoutHoles(arr) || iterableToArray(arr) || unsupportedIterableToArray(arr) || nonIterableSpread();
-    }
-
-    var toConsumableArray = _toConsumableArray;
-
-    function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) {
-      try {
-        var info = gen[key](arg);
-        var value = info.value;
-      } catch (error) {
-        reject(error);
-        return;
-      }
-
-      if (info.done) {
-        resolve(value);
-      } else {
-        Promise.resolve(value).then(_next, _throw);
-      }
-    }
-
-    function _asyncToGenerator(fn) {
-      return function () {
-        var self = this,
-            args = arguments;
-        return new Promise(function (resolve, reject) {
-          var gen = fn.apply(self, args);
-
-          function _next(value) {
-            asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value);
-          }
-
-          function _throw(err) {
-            asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err);
-          }
-
-          _next(undefined);
+    function __awaiter(thisArg, _arguments, P, generator) {
+        function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+        return new (P || (P = Promise))(function (resolve, reject) {
+            function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+            function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+            function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+            step((generator = generator.apply(thisArg, _arguments || [])).next());
         });
-      };
     }
 
-    var asyncToGenerator = _asyncToGenerator;
-
-    function _classCallCheck(instance, Constructor) {
-      if (!(instance instanceof Constructor)) {
-        throw new TypeError("Cannot call a class as a function");
-      }
-    }
-
-    var classCallCheck = _classCallCheck;
-
-    function _defineProperties(target, props) {
-      for (var i = 0; i < props.length; i++) {
-        var descriptor = props[i];
-        descriptor.enumerable = descriptor.enumerable || false;
-        descriptor.configurable = true;
-        if ("value" in descriptor) descriptor.writable = true;
-        Object.defineProperty(target, descriptor.key, descriptor);
-      }
-    }
-
-    function _createClass(Constructor, protoProps, staticProps) {
-      if (protoProps) _defineProperties(Constructor.prototype, protoProps);
-      if (staticProps) _defineProperties(Constructor, staticProps);
-      return Constructor;
-    }
-
-    var createClass = _createClass;
-
-    var runtime_1 = createCommonjsModule(function (module) {
-    /**
-     * Copyright (c) 2014-present, Facebook, Inc.
-     *
-     * This source code is licensed under the MIT license found in the
-     * LICENSE file in the root directory of this source tree.
-     */
-
-    var runtime = (function (exports) {
-
-      var Op = Object.prototype;
-      var hasOwn = Op.hasOwnProperty;
-      var undefined$1; // More compressible than void 0.
-      var $Symbol = typeof Symbol === "function" ? Symbol : {};
-      var iteratorSymbol = $Symbol.iterator || "@@iterator";
-      var asyncIteratorSymbol = $Symbol.asyncIterator || "@@asyncIterator";
-      var toStringTagSymbol = $Symbol.toStringTag || "@@toStringTag";
-
-      function wrap(innerFn, outerFn, self, tryLocsList) {
-        // If outerFn provided and outerFn.prototype is a Generator, then outerFn.prototype instanceof Generator.
-        var protoGenerator = outerFn && outerFn.prototype instanceof Generator ? outerFn : Generator;
-        var generator = Object.create(protoGenerator.prototype);
-        var context = new Context(tryLocsList || []);
-
-        // The ._invoke method unifies the implementations of the .next,
-        // .throw, and .return methods.
-        generator._invoke = makeInvokeMethod(innerFn, self, context);
-
-        return generator;
-      }
-      exports.wrap = wrap;
-
-      // Try/catch helper to minimize deoptimizations. Returns a completion
-      // record like context.tryEntries[i].completion. This interface could
-      // have been (and was previously) designed to take a closure to be
-      // invoked without arguments, but in all the cases we care about we
-      // already have an existing method we want to call, so there's no need
-      // to create a new function object. We can even get away with assuming
-      // the method takes exactly one argument, since that happens to be true
-      // in every case, so we don't have to touch the arguments object. The
-      // only additional allocation required is the completion record, which
-      // has a stable shape and so hopefully should be cheap to allocate.
-      function tryCatch(fn, obj, arg) {
-        try {
-          return { type: "normal", arg: fn.call(obj, arg) };
-        } catch (err) {
-          return { type: "throw", arg: err };
-        }
-      }
-
-      var GenStateSuspendedStart = "suspendedStart";
-      var GenStateSuspendedYield = "suspendedYield";
-      var GenStateExecuting = "executing";
-      var GenStateCompleted = "completed";
-
-      // Returning this object from the innerFn has the same effect as
-      // breaking out of the dispatch switch statement.
-      var ContinueSentinel = {};
-
-      // Dummy constructor functions that we use as the .constructor and
-      // .constructor.prototype properties for functions that return Generator
-      // objects. For full spec compliance, you may wish to configure your
-      // minifier not to mangle the names of these two functions.
-      function Generator() {}
-      function GeneratorFunction() {}
-      function GeneratorFunctionPrototype() {}
-
-      // This is a polyfill for %IteratorPrototype% for environments that
-      // don't natively support it.
-      var IteratorPrototype = {};
-      IteratorPrototype[iteratorSymbol] = function () {
-        return this;
-      };
-
-      var getProto = Object.getPrototypeOf;
-      var NativeIteratorPrototype = getProto && getProto(getProto(values([])));
-      if (NativeIteratorPrototype &&
-          NativeIteratorPrototype !== Op &&
-          hasOwn.call(NativeIteratorPrototype, iteratorSymbol)) {
-        // This environment has a native %IteratorPrototype%; use it instead
-        // of the polyfill.
-        IteratorPrototype = NativeIteratorPrototype;
-      }
-
-      var Gp = GeneratorFunctionPrototype.prototype =
-        Generator.prototype = Object.create(IteratorPrototype);
-      GeneratorFunction.prototype = Gp.constructor = GeneratorFunctionPrototype;
-      GeneratorFunctionPrototype.constructor = GeneratorFunction;
-      GeneratorFunctionPrototype[toStringTagSymbol] =
-        GeneratorFunction.displayName = "GeneratorFunction";
-
-      // Helper for defining the .next, .throw, and .return methods of the
-      // Iterator interface in terms of a single ._invoke method.
-      function defineIteratorMethods(prototype) {
-        ["next", "throw", "return"].forEach(function(method) {
-          prototype[method] = function(arg) {
-            return this._invoke(method, arg);
-          };
-        });
-      }
-
-      exports.isGeneratorFunction = function(genFun) {
-        var ctor = typeof genFun === "function" && genFun.constructor;
-        return ctor
-          ? ctor === GeneratorFunction ||
-            // For the native GeneratorFunction constructor, the best we can
-            // do is to check its .name property.
-            (ctor.displayName || ctor.name) === "GeneratorFunction"
-          : false;
-      };
-
-      exports.mark = function(genFun) {
-        if (Object.setPrototypeOf) {
-          Object.setPrototypeOf(genFun, GeneratorFunctionPrototype);
-        } else {
-          genFun.__proto__ = GeneratorFunctionPrototype;
-          if (!(toStringTagSymbol in genFun)) {
-            genFun[toStringTagSymbol] = "GeneratorFunction";
-          }
-        }
-        genFun.prototype = Object.create(Gp);
-        return genFun;
-      };
-
-      // Within the body of any async function, `await x` is transformed to
-      // `yield regeneratorRuntime.awrap(x)`, so that the runtime can test
-      // `hasOwn.call(value, "__await")` to determine if the yielded value is
-      // meant to be awaited.
-      exports.awrap = function(arg) {
-        return { __await: arg };
-      };
-
-      function AsyncIterator(generator, PromiseImpl) {
-        function invoke(method, arg, resolve, reject) {
-          var record = tryCatch(generator[method], generator, arg);
-          if (record.type === "throw") {
-            reject(record.arg);
-          } else {
-            var result = record.arg;
-            var value = result.value;
-            if (value &&
-                typeof value === "object" &&
-                hasOwn.call(value, "__await")) {
-              return PromiseImpl.resolve(value.__await).then(function(value) {
-                invoke("next", value, resolve, reject);
-              }, function(err) {
-                invoke("throw", err, resolve, reject);
-              });
-            }
-
-            return PromiseImpl.resolve(value).then(function(unwrapped) {
-              // When a yielded Promise is resolved, its final value becomes
-              // the .value of the Promise<{value,done}> result for the
-              // current iteration.
-              result.value = unwrapped;
-              resolve(result);
-            }, function(error) {
-              // If a rejected Promise was yielded, throw the rejection back
-              // into the async generator function so it can be handled there.
-              return invoke("throw", error, resolve, reject);
-            });
-          }
-        }
-
-        var previousPromise;
-
-        function enqueue(method, arg) {
-          function callInvokeWithMethodAndArg() {
-            return new PromiseImpl(function(resolve, reject) {
-              invoke(method, arg, resolve, reject);
-            });
-          }
-
-          return previousPromise =
-            // If enqueue has been called before, then we want to wait until
-            // all previous Promises have been resolved before calling invoke,
-            // so that results are always delivered in the correct order. If
-            // enqueue has not been called before, then it is important to
-            // call invoke immediately, without waiting on a callback to fire,
-            // so that the async generator function has the opportunity to do
-            // any necessary setup in a predictable way. This predictability
-            // is why the Promise constructor synchronously invokes its
-            // executor callback, and why async functions synchronously
-            // execute code before the first await. Since we implement simple
-            // async functions in terms of async generators, it is especially
-            // important to get this right, even though it requires care.
-            previousPromise ? previousPromise.then(
-              callInvokeWithMethodAndArg,
-              // Avoid propagating failures to Promises returned by later
-              // invocations of the iterator.
-              callInvokeWithMethodAndArg
-            ) : callInvokeWithMethodAndArg();
-        }
-
-        // Define the unified helper method that is used to implement .next,
-        // .throw, and .return (see defineIteratorMethods).
-        this._invoke = enqueue;
-      }
-
-      defineIteratorMethods(AsyncIterator.prototype);
-      AsyncIterator.prototype[asyncIteratorSymbol] = function () {
-        return this;
-      };
-      exports.AsyncIterator = AsyncIterator;
-
-      // Note that simple async functions are implemented on top of
-      // AsyncIterator objects; they just return a Promise for the value of
-      // the final result produced by the iterator.
-      exports.async = function(innerFn, outerFn, self, tryLocsList, PromiseImpl) {
-        if (PromiseImpl === void 0) PromiseImpl = Promise;
-
-        var iter = new AsyncIterator(
-          wrap(innerFn, outerFn, self, tryLocsList),
-          PromiseImpl
-        );
-
-        return exports.isGeneratorFunction(outerFn)
-          ? iter // If outerFn is a generator, return the full iterator.
-          : iter.next().then(function(result) {
-              return result.done ? result.value : iter.next();
-            });
-      };
-
-      function makeInvokeMethod(innerFn, self, context) {
-        var state = GenStateSuspendedStart;
-
-        return function invoke(method, arg) {
-          if (state === GenStateExecuting) {
-            throw new Error("Generator is already running");
-          }
-
-          if (state === GenStateCompleted) {
-            if (method === "throw") {
-              throw arg;
-            }
-
-            // Be forgiving, per 25.3.3.3.3 of the spec:
-            // https://people.mozilla.org/~jorendorff/es6-draft.html#sec-generatorresume
-            return doneResult();
-          }
-
-          context.method = method;
-          context.arg = arg;
-
-          while (true) {
-            var delegate = context.delegate;
-            if (delegate) {
-              var delegateResult = maybeInvokeDelegate(delegate, context);
-              if (delegateResult) {
-                if (delegateResult === ContinueSentinel) continue;
-                return delegateResult;
-              }
-            }
-
-            if (context.method === "next") {
-              // Setting context._sent for legacy support of Babel's
-              // function.sent implementation.
-              context.sent = context._sent = context.arg;
-
-            } else if (context.method === "throw") {
-              if (state === GenStateSuspendedStart) {
-                state = GenStateCompleted;
-                throw context.arg;
-              }
-
-              context.dispatchException(context.arg);
-
-            } else if (context.method === "return") {
-              context.abrupt("return", context.arg);
-            }
-
-            state = GenStateExecuting;
-
-            var record = tryCatch(innerFn, self, context);
-            if (record.type === "normal") {
-              // If an exception is thrown from innerFn, we leave state ===
-              // GenStateExecuting and loop back for another invocation.
-              state = context.done
-                ? GenStateCompleted
-                : GenStateSuspendedYield;
-
-              if (record.arg === ContinueSentinel) {
-                continue;
-              }
-
-              return {
-                value: record.arg,
-                done: context.done
-              };
-
-            } else if (record.type === "throw") {
-              state = GenStateCompleted;
-              // Dispatch the exception by looping back around to the
-              // context.dispatchException(context.arg) call above.
-              context.method = "throw";
-              context.arg = record.arg;
-            }
-          }
-        };
-      }
-
-      // Call delegate.iterator[context.method](context.arg) and handle the
-      // result, either by returning a { value, done } result from the
-      // delegate iterator, or by modifying context.method and context.arg,
-      // setting context.delegate to null, and returning the ContinueSentinel.
-      function maybeInvokeDelegate(delegate, context) {
-        var method = delegate.iterator[context.method];
-        if (method === undefined$1) {
-          // A .throw or .return when the delegate iterator has no .throw
-          // method always terminates the yield* loop.
-          context.delegate = null;
-
-          if (context.method === "throw") {
-            // Note: ["return"] must be used for ES3 parsing compatibility.
-            if (delegate.iterator["return"]) {
-              // If the delegate iterator has a return method, give it a
-              // chance to clean up.
-              context.method = "return";
-              context.arg = undefined$1;
-              maybeInvokeDelegate(delegate, context);
-
-              if (context.method === "throw") {
-                // If maybeInvokeDelegate(context) changed context.method from
-                // "return" to "throw", let that override the TypeError below.
-                return ContinueSentinel;
-              }
-            }
-
-            context.method = "throw";
-            context.arg = new TypeError(
-              "The iterator does not provide a 'throw' method");
-          }
-
-          return ContinueSentinel;
-        }
-
-        var record = tryCatch(method, delegate.iterator, context.arg);
-
-        if (record.type === "throw") {
-          context.method = "throw";
-          context.arg = record.arg;
-          context.delegate = null;
-          return ContinueSentinel;
-        }
-
-        var info = record.arg;
-
-        if (! info) {
-          context.method = "throw";
-          context.arg = new TypeError("iterator result is not an object");
-          context.delegate = null;
-          return ContinueSentinel;
-        }
-
-        if (info.done) {
-          // Assign the result of the finished delegate to the temporary
-          // variable specified by delegate.resultName (see delegateYield).
-          context[delegate.resultName] = info.value;
-
-          // Resume execution at the desired location (see delegateYield).
-          context.next = delegate.nextLoc;
-
-          // If context.method was "throw" but the delegate handled the
-          // exception, let the outer generator proceed normally. If
-          // context.method was "next", forget context.arg since it has been
-          // "consumed" by the delegate iterator. If context.method was
-          // "return", allow the original .return call to continue in the
-          // outer generator.
-          if (context.method !== "return") {
-            context.method = "next";
-            context.arg = undefined$1;
-          }
-
-        } else {
-          // Re-yield the result returned by the delegate method.
-          return info;
-        }
-
-        // The delegate iterator is finished, so forget it and continue with
-        // the outer generator.
-        context.delegate = null;
-        return ContinueSentinel;
-      }
-
-      // Define Generator.prototype.{next,throw,return} in terms of the
-      // unified ._invoke helper method.
-      defineIteratorMethods(Gp);
-
-      Gp[toStringTagSymbol] = "Generator";
-
-      // A Generator should always return itself as the iterator object when the
-      // @@iterator function is called on it. Some browsers' implementations of the
-      // iterator prototype chain incorrectly implement this, causing the Generator
-      // object to not be returned from this call. This ensures that doesn't happen.
-      // See https://github.com/facebook/regenerator/issues/274 for more details.
-      Gp[iteratorSymbol] = function() {
-        return this;
-      };
-
-      Gp.toString = function() {
-        return "[object Generator]";
-      };
-
-      function pushTryEntry(locs) {
-        var entry = { tryLoc: locs[0] };
-
-        if (1 in locs) {
-          entry.catchLoc = locs[1];
-        }
-
-        if (2 in locs) {
-          entry.finallyLoc = locs[2];
-          entry.afterLoc = locs[3];
-        }
-
-        this.tryEntries.push(entry);
-      }
-
-      function resetTryEntry(entry) {
-        var record = entry.completion || {};
-        record.type = "normal";
-        delete record.arg;
-        entry.completion = record;
-      }
-
-      function Context(tryLocsList) {
-        // The root entry object (effectively a try statement without a catch
-        // or a finally block) gives us a place to store values thrown from
-        // locations where there is no enclosing try statement.
-        this.tryEntries = [{ tryLoc: "root" }];
-        tryLocsList.forEach(pushTryEntry, this);
-        this.reset(true);
-      }
-
-      exports.keys = function(object) {
-        var keys = [];
-        for (var key in object) {
-          keys.push(key);
-        }
-        keys.reverse();
-
-        // Rather than returning an object with a next method, we keep
-        // things simple and return the next function itself.
-        return function next() {
-          while (keys.length) {
-            var key = keys.pop();
-            if (key in object) {
-              next.value = key;
-              next.done = false;
-              return next;
-            }
-          }
-
-          // To avoid creating an additional object, we just hang the .value
-          // and .done properties off the next function object itself. This
-          // also ensures that the minifier will not anonymize the function.
-          next.done = true;
-          return next;
-        };
-      };
-
-      function values(iterable) {
-        if (iterable) {
-          var iteratorMethod = iterable[iteratorSymbol];
-          if (iteratorMethod) {
-            return iteratorMethod.call(iterable);
-          }
-
-          if (typeof iterable.next === "function") {
-            return iterable;
-          }
-
-          if (!isNaN(iterable.length)) {
-            var i = -1, next = function next() {
-              while (++i < iterable.length) {
-                if (hasOwn.call(iterable, i)) {
-                  next.value = iterable[i];
-                  next.done = false;
-                  return next;
+    function __generator(thisArg, body) {
+        var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+        return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+        function verb(n) { return function (v) { return step([n, v]); }; }
+        function step(op) {
+            if (f) throw new TypeError("Generator is already executing.");
+            while (_) try {
+                if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+                if (y = 0, t) op = [op[0] & 2, t.value];
+                switch (op[0]) {
+                    case 0: case 1: t = op; break;
+                    case 4: _.label++; return { value: op[1], done: false };
+                    case 5: _.label++; y = op[1]; op = [0]; continue;
+                    case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                    default:
+                        if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                        if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                        if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                        if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                        if (t[2]) _.ops.pop();
+                        _.trys.pop(); continue;
                 }
-              }
-
-              next.value = undefined$1;
-              next.done = true;
-
-              return next;
-            };
-
-            return next.next = next;
-          }
+                op = body.call(thisArg, _);
+            } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+            if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
         }
-
-        // Return an iterator with no values.
-        return { next: doneResult };
-      }
-      exports.values = values;
-
-      function doneResult() {
-        return { value: undefined$1, done: true };
-      }
-
-      Context.prototype = {
-        constructor: Context,
-
-        reset: function(skipTempReset) {
-          this.prev = 0;
-          this.next = 0;
-          // Resetting context._sent for legacy support of Babel's
-          // function.sent implementation.
-          this.sent = this._sent = undefined$1;
-          this.done = false;
-          this.delegate = null;
-
-          this.method = "next";
-          this.arg = undefined$1;
-
-          this.tryEntries.forEach(resetTryEntry);
-
-          if (!skipTempReset) {
-            for (var name in this) {
-              // Not sure about the optimal order of these conditions:
-              if (name.charAt(0) === "t" &&
-                  hasOwn.call(this, name) &&
-                  !isNaN(+name.slice(1))) {
-                this[name] = undefined$1;
-              }
-            }
-          }
-        },
-
-        stop: function() {
-          this.done = true;
-
-          var rootEntry = this.tryEntries[0];
-          var rootRecord = rootEntry.completion;
-          if (rootRecord.type === "throw") {
-            throw rootRecord.arg;
-          }
-
-          return this.rval;
-        },
-
-        dispatchException: function(exception) {
-          if (this.done) {
-            throw exception;
-          }
-
-          var context = this;
-          function handle(loc, caught) {
-            record.type = "throw";
-            record.arg = exception;
-            context.next = loc;
-
-            if (caught) {
-              // If the dispatched exception was caught by a catch block,
-              // then let that catch block handle the exception normally.
-              context.method = "next";
-              context.arg = undefined$1;
-            }
-
-            return !! caught;
-          }
-
-          for (var i = this.tryEntries.length - 1; i >= 0; --i) {
-            var entry = this.tryEntries[i];
-            var record = entry.completion;
-
-            if (entry.tryLoc === "root") {
-              // Exception thrown outside of any try block that could handle
-              // it, so set the completion value of the entire function to
-              // throw the exception.
-              return handle("end");
-            }
-
-            if (entry.tryLoc <= this.prev) {
-              var hasCatch = hasOwn.call(entry, "catchLoc");
-              var hasFinally = hasOwn.call(entry, "finallyLoc");
-
-              if (hasCatch && hasFinally) {
-                if (this.prev < entry.catchLoc) {
-                  return handle(entry.catchLoc, true);
-                } else if (this.prev < entry.finallyLoc) {
-                  return handle(entry.finallyLoc);
-                }
-
-              } else if (hasCatch) {
-                if (this.prev < entry.catchLoc) {
-                  return handle(entry.catchLoc, true);
-                }
-
-              } else if (hasFinally) {
-                if (this.prev < entry.finallyLoc) {
-                  return handle(entry.finallyLoc);
-                }
-
-              } else {
-                throw new Error("try statement without catch or finally");
-              }
-            }
-          }
-        },
-
-        abrupt: function(type, arg) {
-          for (var i = this.tryEntries.length - 1; i >= 0; --i) {
-            var entry = this.tryEntries[i];
-            if (entry.tryLoc <= this.prev &&
-                hasOwn.call(entry, "finallyLoc") &&
-                this.prev < entry.finallyLoc) {
-              var finallyEntry = entry;
-              break;
-            }
-          }
-
-          if (finallyEntry &&
-              (type === "break" ||
-               type === "continue") &&
-              finallyEntry.tryLoc <= arg &&
-              arg <= finallyEntry.finallyLoc) {
-            // Ignore the finally entry if control is not jumping to a
-            // location outside the try/catch block.
-            finallyEntry = null;
-          }
-
-          var record = finallyEntry ? finallyEntry.completion : {};
-          record.type = type;
-          record.arg = arg;
-
-          if (finallyEntry) {
-            this.method = "next";
-            this.next = finallyEntry.finallyLoc;
-            return ContinueSentinel;
-          }
-
-          return this.complete(record);
-        },
-
-        complete: function(record, afterLoc) {
-          if (record.type === "throw") {
-            throw record.arg;
-          }
-
-          if (record.type === "break" ||
-              record.type === "continue") {
-            this.next = record.arg;
-          } else if (record.type === "return") {
-            this.rval = this.arg = record.arg;
-            this.method = "return";
-            this.next = "end";
-          } else if (record.type === "normal" && afterLoc) {
-            this.next = afterLoc;
-          }
-
-          return ContinueSentinel;
-        },
-
-        finish: function(finallyLoc) {
-          for (var i = this.tryEntries.length - 1; i >= 0; --i) {
-            var entry = this.tryEntries[i];
-            if (entry.finallyLoc === finallyLoc) {
-              this.complete(entry.completion, entry.afterLoc);
-              resetTryEntry(entry);
-              return ContinueSentinel;
-            }
-          }
-        },
-
-        "catch": function(tryLoc) {
-          for (var i = this.tryEntries.length - 1; i >= 0; --i) {
-            var entry = this.tryEntries[i];
-            if (entry.tryLoc === tryLoc) {
-              var record = entry.completion;
-              if (record.type === "throw") {
-                var thrown = record.arg;
-                resetTryEntry(entry);
-              }
-              return thrown;
-            }
-          }
-
-          // The context.catch method must only be called with a location
-          // argument that corresponds to a known catch block.
-          throw new Error("illegal catch attempt");
-        },
-
-        delegateYield: function(iterable, resultName, nextLoc) {
-          this.delegate = {
-            iterator: values(iterable),
-            resultName: resultName,
-            nextLoc: nextLoc
-          };
-
-          if (this.method === "next") {
-            // Deliberately forget the last sent value so that we don't
-            // accidentally pass it on to the delegate.
-            this.arg = undefined$1;
-          }
-
-          return ContinueSentinel;
-        }
-      };
-
-      // Regardless of whether this script is executing as a CommonJS module
-      // or not, return the runtime object so that we can declare the variable
-      // regeneratorRuntime in the outer scope, which allows this module to be
-      // injected easily by `bin/regenerator --include-runtime script.js`.
-      return exports;
-
-    }(
-      // If this script is executing as a CommonJS module, use module.exports
-      // as the regeneratorRuntime namespace. Otherwise create a new empty
-      // object. Either way, the resulting object will be used to initialize
-      // the regeneratorRuntime variable at the top of this file.
-       module.exports 
-    ));
-
-    try {
-      regeneratorRuntime = runtime;
-    } catch (accidentalStrictMode) {
-      // This module should not be running in strict mode, so the above
-      // assignment should always work unless something is misconfigured. Just
-      // in case runtime.js accidentally runs in strict mode, we can escape
-      // strict mode using a global Function call. This could conceivably fail
-      // if a Content Security Policy forbids using Function, but in that case
-      // the proper solution is to fix the accidental strict mode problem. If
-      // you've misconfigured your bundler to force strict mode and applied a
-      // CSP to forbid Function, and you're not willing to fix either of those
-      // problems, please detail your unique predicament in a GitHub issue.
-      Function("r", "regeneratorRuntime = r")(runtime);
     }
-    });
-
-    var regenerator = runtime_1;
 
     var SDKProductActionType;
+
     (function (SDKProductActionType) {
-        SDKProductActionType[SDKProductActionType["Unknown"] = 0] = "Unknown";
-        SDKProductActionType[SDKProductActionType["AddToCart"] = 1] = "AddToCart";
-        SDKProductActionType[SDKProductActionType["RemoveFromCart"] = 2] = "RemoveFromCart";
-        SDKProductActionType[SDKProductActionType["Checkout"] = 3] = "Checkout";
-        SDKProductActionType[SDKProductActionType["CheckoutOption"] = 4] = "CheckoutOption";
-        SDKProductActionType[SDKProductActionType["Click"] = 5] = "Click";
-        SDKProductActionType[SDKProductActionType["ViewDetail"] = 6] = "ViewDetail";
-        SDKProductActionType[SDKProductActionType["Purchase"] = 7] = "Purchase";
-        SDKProductActionType[SDKProductActionType["Refund"] = 8] = "Refund";
-        SDKProductActionType[SDKProductActionType["AddToWishlist"] = 9] = "AddToWishlist";
-        SDKProductActionType[SDKProductActionType["RemoveFromWishlist"] = 10] = "RemoveFromWishlist";
+      SDKProductActionType[SDKProductActionType["Unknown"] = 0] = "Unknown";
+      SDKProductActionType[SDKProductActionType["AddToCart"] = 1] = "AddToCart";
+      SDKProductActionType[SDKProductActionType["RemoveFromCart"] = 2] = "RemoveFromCart";
+      SDKProductActionType[SDKProductActionType["Checkout"] = 3] = "Checkout";
+      SDKProductActionType[SDKProductActionType["CheckoutOption"] = 4] = "CheckoutOption";
+      SDKProductActionType[SDKProductActionType["Click"] = 5] = "Click";
+      SDKProductActionType[SDKProductActionType["ViewDetail"] = 6] = "ViewDetail";
+      SDKProductActionType[SDKProductActionType["Purchase"] = 7] = "Purchase";
+      SDKProductActionType[SDKProductActionType["Refund"] = 8] = "Refund";
+      SDKProductActionType[SDKProductActionType["AddToWishlist"] = 9] = "AddToWishlist";
+      SDKProductActionType[SDKProductActionType["RemoveFromWishlist"] = 10] = "RemoveFromWishlist";
     })(SDKProductActionType || (SDKProductActionType = {}));
+
     var SDKIdentityTypeEnum;
+
     (function (SDKIdentityTypeEnum) {
-        SDKIdentityTypeEnum["other"] = "other";
-        SDKIdentityTypeEnum["customerId"] = "customerid";
-        SDKIdentityTypeEnum["facebook"] = "facebook";
-        SDKIdentityTypeEnum["twitter"] = "twitter";
-        SDKIdentityTypeEnum["google"] = "google";
-        SDKIdentityTypeEnum["microsoft"] = "microsoft";
-        SDKIdentityTypeEnum["yahoo"] = "yahoo";
-        SDKIdentityTypeEnum["email"] = "email";
-        SDKIdentityTypeEnum["alias"] = "alias";
-        SDKIdentityTypeEnum["facebookCustomAudienceId"] = "facebookcustomaudienceid";
-        SDKIdentityTypeEnum["otherId2"] = "other2";
-        SDKIdentityTypeEnum["otherId3"] = "other3";
-        SDKIdentityTypeEnum["otherId4"] = "other4";
-        SDKIdentityTypeEnum["otherId5"] = "other5";
-        SDKIdentityTypeEnum["otherId6"] = "other6";
-        SDKIdentityTypeEnum["otherId7"] = "other7";
-        SDKIdentityTypeEnum["otherId8"] = "other8";
-        SDKIdentityTypeEnum["otherId9"] = "other9";
-        SDKIdentityTypeEnum["otherId10"] = "other10";
-        SDKIdentityTypeEnum["mobileNumber"] = "mobile_number";
-        SDKIdentityTypeEnum["phoneNumber2"] = "phone_number_2";
-        SDKIdentityTypeEnum["phoneNumber3"] = "phone_number_3";
+      SDKIdentityTypeEnum["other"] = "other";
+      SDKIdentityTypeEnum["customerId"] = "customerid";
+      SDKIdentityTypeEnum["facebook"] = "facebook";
+      SDKIdentityTypeEnum["twitter"] = "twitter";
+      SDKIdentityTypeEnum["google"] = "google";
+      SDKIdentityTypeEnum["microsoft"] = "microsoft";
+      SDKIdentityTypeEnum["yahoo"] = "yahoo";
+      SDKIdentityTypeEnum["email"] = "email";
+      SDKIdentityTypeEnum["alias"] = "alias";
+      SDKIdentityTypeEnum["facebookCustomAudienceId"] = "facebookcustomaudienceid";
+      SDKIdentityTypeEnum["otherId2"] = "other2";
+      SDKIdentityTypeEnum["otherId3"] = "other3";
+      SDKIdentityTypeEnum["otherId4"] = "other4";
+      SDKIdentityTypeEnum["otherId5"] = "other5";
+      SDKIdentityTypeEnum["otherId6"] = "other6";
+      SDKIdentityTypeEnum["otherId7"] = "other7";
+      SDKIdentityTypeEnum["otherId8"] = "other8";
+      SDKIdentityTypeEnum["otherId9"] = "other9";
+      SDKIdentityTypeEnum["otherId10"] = "other10";
+      SDKIdentityTypeEnum["mobileNumber"] = "mobile_number";
+      SDKIdentityTypeEnum["phoneNumber2"] = "phone_number_2";
+      SDKIdentityTypeEnum["phoneNumber3"] = "phone_number_3";
     })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
-    var dist = createCommonjsModule(function (module, exports) {
-    Object.defineProperty(exports, "__esModule", { value: true });
-    /**
-     * Enum for the os property.
-     */
-    var ApplicationInformationOsEnum;
-    (function (ApplicationInformationOsEnum) {
-        ApplicationInformationOsEnum["unknown"] = "Unknown";
-        ApplicationInformationOsEnum["iOS"] = "IOS";
-        ApplicationInformationOsEnum["android"] = "Android";
-        ApplicationInformationOsEnum["windowsPhone"] = "WindowsPhone";
-        ApplicationInformationOsEnum["mobileWeb"] = "MobileWeb";
-        ApplicationInformationOsEnum["unityIOS"] = "UnityIOS";
-        ApplicationInformationOsEnum["unityAndroid"] = "UnityAndroid";
-        ApplicationInformationOsEnum["desktop"] = "Desktop";
-        ApplicationInformationOsEnum["tvOS"] = "TVOS";
-        ApplicationInformationOsEnum["roku"] = "Roku";
-        ApplicationInformationOsEnum["outOfBand"] = "OutOfBand";
-        ApplicationInformationOsEnum["alexa"] = "Alexa";
-        ApplicationInformationOsEnum["smartTV"] = "SmartTV";
-        ApplicationInformationOsEnum["fireTV"] = "FireTV";
-        ApplicationInformationOsEnum["xbox"] = "Xbox";
-    })(ApplicationInformationOsEnum = exports.ApplicationInformationOsEnum || (exports.ApplicationInformationOsEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var ApplicationStateTransitionEventEventTypeEnum;
-    (function (ApplicationStateTransitionEventEventTypeEnum) {
-        ApplicationStateTransitionEventEventTypeEnum["applicationStateTransition"] = "application_state_transition";
-    })(ApplicationStateTransitionEventEventTypeEnum = exports.ApplicationStateTransitionEventEventTypeEnum || (exports.ApplicationStateTransitionEventEventTypeEnum = {}));
-    /**
-     * Enum for the application_transition_type property.
-     */
-    var ApplicationStateTransitionEventDataApplicationTransitionTypeEnum;
-    (function (ApplicationStateTransitionEventDataApplicationTransitionTypeEnum) {
-        ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationInitialized"] = "application_initialized";
-        ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationExit"] = "application_exit";
-        ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationBackground"] = "application_background";
-        ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationForeground"] = "application_foreground";
-    })(ApplicationStateTransitionEventDataApplicationTransitionTypeEnum = exports.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum || (exports.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum = {}));
-    /**
-     * Enum for the environment property.
-     */
-    var BatchEnvironmentEnum;
-    (function (BatchEnvironmentEnum) {
-        BatchEnvironmentEnum["unknown"] = "unknown";
-        BatchEnvironmentEnum["development"] = "development";
-        BatchEnvironmentEnum["production"] = "production";
-    })(BatchEnvironmentEnum = exports.BatchEnvironmentEnum || (exports.BatchEnvironmentEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var BreadcrumbEventEventTypeEnum;
-    (function (BreadcrumbEventEventTypeEnum) {
-        BreadcrumbEventEventTypeEnum["breadcrumb"] = "breadcrumb";
-    })(BreadcrumbEventEventTypeEnum = exports.BreadcrumbEventEventTypeEnum || (exports.BreadcrumbEventEventTypeEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var CommerceEventEventTypeEnum;
-    (function (CommerceEventEventTypeEnum) {
-        CommerceEventEventTypeEnum["commerceEvent"] = "commerce_event";
-    })(CommerceEventEventTypeEnum = exports.CommerceEventEventTypeEnum || (exports.CommerceEventEventTypeEnum = {}));
-    /**
-     * Enum for the custom_event_type property.
-     */
-    var CommerceEventDataCustomEventTypeEnum;
-    (function (CommerceEventDataCustomEventTypeEnum) {
-        CommerceEventDataCustomEventTypeEnum["addToCart"] = "add_to_cart";
-        CommerceEventDataCustomEventTypeEnum["removeFromCart"] = "remove_from_cart";
-        CommerceEventDataCustomEventTypeEnum["checkout"] = "checkout";
-        CommerceEventDataCustomEventTypeEnum["checkoutOption"] = "checkout_option";
-        CommerceEventDataCustomEventTypeEnum["click"] = "click";
-        CommerceEventDataCustomEventTypeEnum["viewDetail"] = "view_detail";
-        CommerceEventDataCustomEventTypeEnum["purchase"] = "purchase";
-        CommerceEventDataCustomEventTypeEnum["refund"] = "refund";
-        CommerceEventDataCustomEventTypeEnum["promotionView"] = "promotion_view";
-        CommerceEventDataCustomEventTypeEnum["promotionClick"] = "promotion_click";
-        CommerceEventDataCustomEventTypeEnum["addToWishlist"] = "add_to_wishlist";
-        CommerceEventDataCustomEventTypeEnum["removeFromWishlist"] = "remove_from_wishlist";
-        CommerceEventDataCustomEventTypeEnum["impression"] = "impression";
-    })(CommerceEventDataCustomEventTypeEnum = exports.CommerceEventDataCustomEventTypeEnum || (exports.CommerceEventDataCustomEventTypeEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var CrashReportEventEventTypeEnum;
-    (function (CrashReportEventEventTypeEnum) {
-        CrashReportEventEventTypeEnum["crashReport"] = "crash_report";
-    })(CrashReportEventEventTypeEnum = exports.CrashReportEventEventTypeEnum || (exports.CrashReportEventEventTypeEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var CustomEventEventTypeEnum;
-    (function (CustomEventEventTypeEnum) {
-        CustomEventEventTypeEnum["customEvent"] = "custom_event";
-    })(CustomEventEventTypeEnum = exports.CustomEventEventTypeEnum || (exports.CustomEventEventTypeEnum = {}));
-    /**
-     * Enum for the custom_event_type property.
-     */
-    var CustomEventDataCustomEventTypeEnum;
-    (function (CustomEventDataCustomEventTypeEnum) {
-        CustomEventDataCustomEventTypeEnum["navigation"] = "navigation";
-        CustomEventDataCustomEventTypeEnum["location"] = "location";
-        CustomEventDataCustomEventTypeEnum["search"] = "search";
-        CustomEventDataCustomEventTypeEnum["transaction"] = "transaction";
-        CustomEventDataCustomEventTypeEnum["userContent"] = "user_content";
-        CustomEventDataCustomEventTypeEnum["userPreference"] = "user_preference";
-        CustomEventDataCustomEventTypeEnum["social"] = "social";
-        CustomEventDataCustomEventTypeEnum["media"] = "media";
-        CustomEventDataCustomEventTypeEnum["other"] = "other";
-        CustomEventDataCustomEventTypeEnum["unknown"] = "unknown";
-    })(CustomEventDataCustomEventTypeEnum = exports.CustomEventDataCustomEventTypeEnum || (exports.CustomEventDataCustomEventTypeEnum = {}));
-    /**
-     * Enum for the device_orientation property.
-     */
-    var DeviceCurrentStateDeviceOrientationEnum;
-    (function (DeviceCurrentStateDeviceOrientationEnum) {
-        DeviceCurrentStateDeviceOrientationEnum["portrait"] = "portrait";
-        DeviceCurrentStateDeviceOrientationEnum["portraitUpsideDown"] = "portrait_upside_down";
-        DeviceCurrentStateDeviceOrientationEnum["landscape"] = "landscape";
-        DeviceCurrentStateDeviceOrientationEnum["landscapeLeft"] = "LandscapeLeft";
-        DeviceCurrentStateDeviceOrientationEnum["landscapeRight"] = "LandscapeRight";
-        DeviceCurrentStateDeviceOrientationEnum["faceUp"] = "FaceUp";
-        DeviceCurrentStateDeviceOrientationEnum["faceDown"] = "FaceDown";
-        DeviceCurrentStateDeviceOrientationEnum["square"] = "Square";
-    })(DeviceCurrentStateDeviceOrientationEnum = exports.DeviceCurrentStateDeviceOrientationEnum || (exports.DeviceCurrentStateDeviceOrientationEnum = {}));
-    /**
-     * Enum for the status_bar_orientation property.
-     */
-    var DeviceCurrentStateStatusBarOrientationEnum;
-    (function (DeviceCurrentStateStatusBarOrientationEnum) {
-        DeviceCurrentStateStatusBarOrientationEnum["portrait"] = "portrait";
-        DeviceCurrentStateStatusBarOrientationEnum["portraitUpsideDown"] = "portrait_upside_down";
-        DeviceCurrentStateStatusBarOrientationEnum["landscape"] = "landscape";
-        DeviceCurrentStateStatusBarOrientationEnum["landscapeLeft"] = "LandscapeLeft";
-        DeviceCurrentStateStatusBarOrientationEnum["landscapeRight"] = "LandscapeRight";
-        DeviceCurrentStateStatusBarOrientationEnum["faceUp"] = "FaceUp";
-        DeviceCurrentStateStatusBarOrientationEnum["faceDown"] = "FaceDown";
-        DeviceCurrentStateStatusBarOrientationEnum["square"] = "Square";
-    })(DeviceCurrentStateStatusBarOrientationEnum = exports.DeviceCurrentStateStatusBarOrientationEnum || (exports.DeviceCurrentStateStatusBarOrientationEnum = {}));
-    /**
-     * Enum for the platform property.
-     */
-    var DeviceInformationPlatformEnum;
-    (function (DeviceInformationPlatformEnum) {
-        DeviceInformationPlatformEnum["iOS"] = "iOS";
-        DeviceInformationPlatformEnum["android"] = "Android";
-        DeviceInformationPlatformEnum["web"] = "web";
-        DeviceInformationPlatformEnum["desktop"] = "desktop";
-        DeviceInformationPlatformEnum["tvOS"] = "tvOS";
-        DeviceInformationPlatformEnum["roku"] = "roku";
-        DeviceInformationPlatformEnum["outOfBand"] = "out_of_band";
-        DeviceInformationPlatformEnum["smartTV"] = "smart_tv";
-        DeviceInformationPlatformEnum["xbox"] = "xbox";
-    })(DeviceInformationPlatformEnum = exports.DeviceInformationPlatformEnum || (exports.DeviceInformationPlatformEnum = {}));
-    var EventTypeEnum;
-    (function (EventTypeEnum) {
-        EventTypeEnum["unknown"] = "unknown";
-        EventTypeEnum["sessionStart"] = "session_start";
-        EventTypeEnum["sessionEnd"] = "session_end";
-        EventTypeEnum["screenView"] = "screen_view";
-        EventTypeEnum["customEvent"] = "custom_event";
-        EventTypeEnum["crashReport"] = "crash_report";
-        EventTypeEnum["optOut"] = "opt_out";
-        EventTypeEnum["firstRun"] = "first_run";
-        EventTypeEnum["preAttribution"] = "pre_attribution";
-        EventTypeEnum["pushRegistration"] = "push_registration";
-        EventTypeEnum["applicationStateTransition"] = "application_state_transition";
-        EventTypeEnum["pushMessage"] = "push_message";
-        EventTypeEnum["networkPerformance"] = "network_performance";
-        EventTypeEnum["breadcrumb"] = "breadcrumb";
-        EventTypeEnum["profile"] = "profile";
-        EventTypeEnum["pushReaction"] = "push_reaction";
-        EventTypeEnum["commerceEvent"] = "commerce_event";
-        EventTypeEnum["userAttributeChange"] = "user_attribute_change";
-        EventTypeEnum["userIdentityChange"] = "user_identity_change";
-        EventTypeEnum["uninstall"] = "uninstall";
-        EventTypeEnum["validationResult"] = "validation_result";
-    })(EventTypeEnum = exports.EventTypeEnum || (exports.EventTypeEnum = {}));
-    var IdentityTypeEnum;
-    (function (IdentityTypeEnum) {
-        IdentityTypeEnum["other"] = "other";
-        IdentityTypeEnum["customerId"] = "customer_id";
-        IdentityTypeEnum["facebook"] = "facebook";
-        IdentityTypeEnum["twitter"] = "twitter";
-        IdentityTypeEnum["google"] = "google";
-        IdentityTypeEnum["microsoft"] = "microsoft";
-        IdentityTypeEnum["yahoo"] = "yahoo";
-        IdentityTypeEnum["email"] = "email";
-        IdentityTypeEnum["alias"] = "alias";
-        IdentityTypeEnum["facebookCustomAudienceId"] = "facebook_custom_audience_id";
-        IdentityTypeEnum["otherId2"] = "other_id_2";
-        IdentityTypeEnum["otherId3"] = "other_id_3";
-        IdentityTypeEnum["otherId4"] = "other_id_4";
-        IdentityTypeEnum["otherId5"] = "other_id_5";
-        IdentityTypeEnum["otherId6"] = "other_id_6";
-        IdentityTypeEnum["otherId7"] = "other_id_7";
-        IdentityTypeEnum["otherId8"] = "other_id_8";
-        IdentityTypeEnum["otherId9"] = "other_id_9";
-        IdentityTypeEnum["otherId10"] = "other_id_10";
-        IdentityTypeEnum["mobileNumber"] = "mobile_number";
-        IdentityTypeEnum["phoneNumber2"] = "phone_number_2";
-        IdentityTypeEnum["phoneNumber3"] = "phone_number_3";
-    })(IdentityTypeEnum = exports.IdentityTypeEnum || (exports.IdentityTypeEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var NetworkPerformanceEventEventTypeEnum;
-    (function (NetworkPerformanceEventEventTypeEnum) {
-        NetworkPerformanceEventEventTypeEnum["networkPerformance"] = "network_performance";
-    })(NetworkPerformanceEventEventTypeEnum = exports.NetworkPerformanceEventEventTypeEnum || (exports.NetworkPerformanceEventEventTypeEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var OptOutEventEnum;
-    (function (OptOutEventEnum) {
-        OptOutEventEnum["optOut"] = "opt_out";
-    })(OptOutEventEnum = exports.OptOutEventEnum || (exports.OptOutEventEnum = {}));
-    /**
-     * Enum for the action property.
-     */
-    var ProductActionActionEnum;
-    (function (ProductActionActionEnum) {
-        ProductActionActionEnum["unknown"] = "unknown";
-        ProductActionActionEnum["addToCart"] = "add_to_cart";
-        ProductActionActionEnum["removeFromCart"] = "remove_from_cart";
-        ProductActionActionEnum["checkout"] = "checkout";
-        ProductActionActionEnum["checkoutOption"] = "checkout_option";
-        ProductActionActionEnum["click"] = "click";
-        ProductActionActionEnum["viewDetail"] = "view_detail";
-        ProductActionActionEnum["purchase"] = "purchase";
-        ProductActionActionEnum["refund"] = "refund";
-        ProductActionActionEnum["addToWishlist"] = "add_to_wishlist";
-        ProductActionActionEnum["removeFromWishlist"] = "remove_from_wish_list";
-    })(ProductActionActionEnum = exports.ProductActionActionEnum || (exports.ProductActionActionEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var ProfileEventEventTypeEnum;
-    (function (ProfileEventEventTypeEnum) {
-        ProfileEventEventTypeEnum["profile"] = "profile";
-    })(ProfileEventEventTypeEnum = exports.ProfileEventEventTypeEnum || (exports.ProfileEventEventTypeEnum = {}));
-    /**
-     * Enum for the profile_event_type property.
-     */
-    var ProfileEventDataProfileEventTypeEnum;
-    (function (ProfileEventDataProfileEventTypeEnum) {
-        ProfileEventDataProfileEventTypeEnum["signup"] = "signup";
-        ProfileEventDataProfileEventTypeEnum["login"] = "login";
-        ProfileEventDataProfileEventTypeEnum["logout"] = "logout";
-        ProfileEventDataProfileEventTypeEnum["update"] = "update";
-        ProfileEventDataProfileEventTypeEnum["delete"] = "delete";
-    })(ProfileEventDataProfileEventTypeEnum = exports.ProfileEventDataProfileEventTypeEnum || (exports.ProfileEventDataProfileEventTypeEnum = {}));
-    /**
-     * Enum for the action property.
-     */
-    var PromotionActionActionEnum;
-    (function (PromotionActionActionEnum) {
-        PromotionActionActionEnum["view"] = "view";
-        PromotionActionActionEnum["click"] = "click";
-    })(PromotionActionActionEnum = exports.PromotionActionActionEnum || (exports.PromotionActionActionEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var PushMessageEventEventTypeEnum;
-    (function (PushMessageEventEventTypeEnum) {
-        PushMessageEventEventTypeEnum["pushMessage"] = "push_message";
-    })(PushMessageEventEventTypeEnum = exports.PushMessageEventEventTypeEnum || (exports.PushMessageEventEventTypeEnum = {}));
-    /**
-     * Enum for the push_message_type property.
-     */
-    var PushMessageEventDataPushMessageTypeEnum;
-    (function (PushMessageEventDataPushMessageTypeEnum) {
-        PushMessageEventDataPushMessageTypeEnum["sent"] = "sent";
-        PushMessageEventDataPushMessageTypeEnum["received"] = "received";
-        PushMessageEventDataPushMessageTypeEnum["action"] = "action";
-    })(PushMessageEventDataPushMessageTypeEnum = exports.PushMessageEventDataPushMessageTypeEnum || (exports.PushMessageEventDataPushMessageTypeEnum = {}));
-    /**
-     * Enum for the application_state property.
-     */
-    var PushMessageEventDataApplicationStateEnum;
-    (function (PushMessageEventDataApplicationStateEnum) {
-        PushMessageEventDataApplicationStateEnum["notRunning"] = "not_running";
-        PushMessageEventDataApplicationStateEnum["background"] = "background";
-        PushMessageEventDataApplicationStateEnum["foreground"] = "foreground";
-    })(PushMessageEventDataApplicationStateEnum = exports.PushMessageEventDataApplicationStateEnum || (exports.PushMessageEventDataApplicationStateEnum = {}));
-    /**
-     * Enum for the push_message_behavior property.
-     */
-    var PushMessageEventDataPushMessageBehaviorEnum;
-    (function (PushMessageEventDataPushMessageBehaviorEnum) {
-        PushMessageEventDataPushMessageBehaviorEnum["received"] = "Received";
-        PushMessageEventDataPushMessageBehaviorEnum["directOpen"] = "DirectOpen";
-        PushMessageEventDataPushMessageBehaviorEnum["read"] = "Read";
-        PushMessageEventDataPushMessageBehaviorEnum["influencedOpen"] = "InfluencedOpen";
-        PushMessageEventDataPushMessageBehaviorEnum["displayed"] = "Displayed";
-    })(PushMessageEventDataPushMessageBehaviorEnum = exports.PushMessageEventDataPushMessageBehaviorEnum || (exports.PushMessageEventDataPushMessageBehaviorEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var PushRegistrationEventEventTypeEnum;
-    (function (PushRegistrationEventEventTypeEnum) {
-        PushRegistrationEventEventTypeEnum["pushRegistration"] = "push_registration";
-    })(PushRegistrationEventEventTypeEnum = exports.PushRegistrationEventEventTypeEnum || (exports.PushRegistrationEventEventTypeEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var SessionEndEventEventTypeEnum;
-    (function (SessionEndEventEventTypeEnum) {
-        SessionEndEventEventTypeEnum["sessionEnd"] = "session_end";
-    })(SessionEndEventEventTypeEnum = exports.SessionEndEventEventTypeEnum || (exports.SessionEndEventEventTypeEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var SessionStartEventEventTypeEnum;
-    (function (SessionStartEventEventTypeEnum) {
-        SessionStartEventEventTypeEnum["sessionStart"] = "session_start";
-    })(SessionStartEventEventTypeEnum = exports.SessionStartEventEventTypeEnum || (exports.SessionStartEventEventTypeEnum = {}));
-    /**
-     * Enum for the channel property.
-     */
-    var SourceInformationChannelEnum;
-    (function (SourceInformationChannelEnum) {
-        SourceInformationChannelEnum["native"] = "native";
-        SourceInformationChannelEnum["javascript"] = "javascript";
-        SourceInformationChannelEnum["pixel"] = "pixel";
-        SourceInformationChannelEnum["desktop"] = "desktop";
-        SourceInformationChannelEnum["partner"] = "partner";
-        SourceInformationChannelEnum["serverToServer"] = "server_to_server";
-    })(SourceInformationChannelEnum = exports.SourceInformationChannelEnum || (exports.SourceInformationChannelEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var UserAttributeChangeEventEventTypeEnum;
-    (function (UserAttributeChangeEventEventTypeEnum) {
-        UserAttributeChangeEventEventTypeEnum["userAttributeChange"] = "user_attribute_change";
-    })(UserAttributeChangeEventEventTypeEnum = exports.UserAttributeChangeEventEventTypeEnum || (exports.UserAttributeChangeEventEventTypeEnum = {}));
-    /**
-     * Enum for the event_type property.
-     */
-    var UserIdentityChangeEventEventTypeEnum;
-    (function (UserIdentityChangeEventEventTypeEnum) {
-        UserIdentityChangeEventEventTypeEnum["userIdentityChange"] = "user_identity_change";
-    })(UserIdentityChangeEventEventTypeEnum = exports.UserIdentityChangeEventEventTypeEnum || (exports.UserIdentityChangeEventEventTypeEnum = {}));
-    });
+    var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
-    unwrapExports(dist);
-    var dist_1 = dist.ApplicationInformationOsEnum;
-    var dist_2 = dist.ApplicationStateTransitionEventEventTypeEnum;
-    var dist_3 = dist.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum;
-    var dist_4 = dist.BatchEnvironmentEnum;
-    var dist_5 = dist.BreadcrumbEventEventTypeEnum;
-    var dist_6 = dist.CommerceEventEventTypeEnum;
-    var dist_7 = dist.CommerceEventDataCustomEventTypeEnum;
-    var dist_8 = dist.CrashReportEventEventTypeEnum;
-    var dist_9 = dist.CustomEventEventTypeEnum;
-    var dist_10 = dist.CustomEventDataCustomEventTypeEnum;
-    var dist_11 = dist.DeviceCurrentStateDeviceOrientationEnum;
-    var dist_12 = dist.DeviceCurrentStateStatusBarOrientationEnum;
-    var dist_13 = dist.DeviceInformationPlatformEnum;
-    var dist_14 = dist.EventTypeEnum;
-    var dist_15 = dist.IdentityTypeEnum;
-    var dist_16 = dist.NetworkPerformanceEventEventTypeEnum;
-    var dist_17 = dist.OptOutEventEnum;
-    var dist_18 = dist.ProductActionActionEnum;
-    var dist_19 = dist.ProfileEventEventTypeEnum;
-    var dist_20 = dist.ProfileEventDataProfileEventTypeEnum;
-    var dist_21 = dist.PromotionActionActionEnum;
-    var dist_22 = dist.PushMessageEventEventTypeEnum;
-    var dist_23 = dist.PushMessageEventDataPushMessageTypeEnum;
-    var dist_24 = dist.PushMessageEventDataApplicationStateEnum;
-    var dist_25 = dist.PushMessageEventDataPushMessageBehaviorEnum;
-    var dist_26 = dist.PushRegistrationEventEventTypeEnum;
-    var dist_27 = dist.SessionEndEventEventTypeEnum;
-    var dist_28 = dist.SessionStartEventEventTypeEnum;
-    var dist_29 = dist.SourceInformationChannelEnum;
-    var dist_30 = dist.UserAttributeChangeEventEventTypeEnum;
-    var dist_31 = dist.UserIdentityChangeEventEventTypeEnum;
+    var dist = {};
 
-    function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) {
-        var symbols = Object.getOwnPropertySymbols(object);
-        if (enumerableOnly) {
-            symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; });
-        }
-        keys.push.apply(keys, symbols);
-    } return keys; }
-    function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) {
-        var source = arguments[i] != null ? arguments[i] : {};
-        if (i % 2) {
-            ownKeys(Object(source), true).forEach(function (key) { defineProperty(target, key, source[key]); });
-        }
-        else if (Object.getOwnPropertyDescriptors) {
-            Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
-        }
-        else {
-            ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); });
-        }
-    } return target; }
-    function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) {
-        if (Array.isArray(o) || (it = _unsupportedIterableToArray$1(o)) || allowArrayLike && o && typeof o.length === "number") {
-            if (it)
-                o = it;
-            var i = 0;
-            var F = function F() { };
-            return { s: F, n: function n() { if (i >= o.length)
-                    return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F };
-        }
-        throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-    } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try {
-            if (!normalCompletion && it["return"] != null)
-                it["return"]();
-        }
-        finally {
-            if (didErr)
-                throw err;
-        } } }; }
-    function _unsupportedIterableToArray$1(o, minLen) { if (!o)
-        return; if (typeof o === "string")
-        return _arrayLikeToArray$1(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor)
-        n = o.constructor.name; if (n === "Map" || n === "Set")
-        return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-        return _arrayLikeToArray$1(o, minLen); }
-    function _arrayLikeToArray$1(arr, len) { if (len == null || len > arr.length)
-        len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) {
-        arr2[i] = arr[i];
-    } return arr2; }
+    (function (exports) {
+    	Object.defineProperty(exports, "__esModule", { value: true });
+    	(function (ApplicationInformationOsEnum) {
+    	    ApplicationInformationOsEnum["unknown"] = "Unknown";
+    	    ApplicationInformationOsEnum["iOS"] = "IOS";
+    	    ApplicationInformationOsEnum["android"] = "Android";
+    	    ApplicationInformationOsEnum["windowsPhone"] = "WindowsPhone";
+    	    ApplicationInformationOsEnum["mobileWeb"] = "MobileWeb";
+    	    ApplicationInformationOsEnum["unityIOS"] = "UnityIOS";
+    	    ApplicationInformationOsEnum["unityAndroid"] = "UnityAndroid";
+    	    ApplicationInformationOsEnum["desktop"] = "Desktop";
+    	    ApplicationInformationOsEnum["tvOS"] = "TVOS";
+    	    ApplicationInformationOsEnum["roku"] = "Roku";
+    	    ApplicationInformationOsEnum["outOfBand"] = "OutOfBand";
+    	    ApplicationInformationOsEnum["alexa"] = "Alexa";
+    	    ApplicationInformationOsEnum["smartTV"] = "SmartTV";
+    	    ApplicationInformationOsEnum["fireTV"] = "FireTV";
+    	    ApplicationInformationOsEnum["xbox"] = "Xbox";
+    	})(exports.ApplicationInformationOsEnum || (exports.ApplicationInformationOsEnum = {}));
+    	(function (ApplicationStateTransitionEventEventTypeEnum) {
+    	    ApplicationStateTransitionEventEventTypeEnum["applicationStateTransition"] = "application_state_transition";
+    	})(exports.ApplicationStateTransitionEventEventTypeEnum || (exports.ApplicationStateTransitionEventEventTypeEnum = {}));
+    	(function (ApplicationStateTransitionEventDataApplicationTransitionTypeEnum) {
+    	    ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationInitialized"] = "application_initialized";
+    	    ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationExit"] = "application_exit";
+    	    ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationBackground"] = "application_background";
+    	    ApplicationStateTransitionEventDataApplicationTransitionTypeEnum["applicationForeground"] = "application_foreground";
+    	})(exports.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum || (exports.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum = {}));
+    	(function (BatchEnvironmentEnum) {
+    	    BatchEnvironmentEnum["unknown"] = "unknown";
+    	    BatchEnvironmentEnum["development"] = "development";
+    	    BatchEnvironmentEnum["production"] = "production";
+    	})(exports.BatchEnvironmentEnum || (exports.BatchEnvironmentEnum = {}));
+    	(function (BreadcrumbEventEventTypeEnum) {
+    	    BreadcrumbEventEventTypeEnum["breadcrumb"] = "breadcrumb";
+    	})(exports.BreadcrumbEventEventTypeEnum || (exports.BreadcrumbEventEventTypeEnum = {}));
+    	(function (CommerceEventEventTypeEnum) {
+    	    CommerceEventEventTypeEnum["commerceEvent"] = "commerce_event";
+    	})(exports.CommerceEventEventTypeEnum || (exports.CommerceEventEventTypeEnum = {}));
+    	(function (CommerceEventDataCustomEventTypeEnum) {
+    	    CommerceEventDataCustomEventTypeEnum["addToCart"] = "add_to_cart";
+    	    CommerceEventDataCustomEventTypeEnum["removeFromCart"] = "remove_from_cart";
+    	    CommerceEventDataCustomEventTypeEnum["checkout"] = "checkout";
+    	    CommerceEventDataCustomEventTypeEnum["checkoutOption"] = "checkout_option";
+    	    CommerceEventDataCustomEventTypeEnum["click"] = "click";
+    	    CommerceEventDataCustomEventTypeEnum["viewDetail"] = "view_detail";
+    	    CommerceEventDataCustomEventTypeEnum["purchase"] = "purchase";
+    	    CommerceEventDataCustomEventTypeEnum["refund"] = "refund";
+    	    CommerceEventDataCustomEventTypeEnum["promotionView"] = "promotion_view";
+    	    CommerceEventDataCustomEventTypeEnum["promotionClick"] = "promotion_click";
+    	    CommerceEventDataCustomEventTypeEnum["addToWishlist"] = "add_to_wishlist";
+    	    CommerceEventDataCustomEventTypeEnum["removeFromWishlist"] = "remove_from_wishlist";
+    	    CommerceEventDataCustomEventTypeEnum["impression"] = "impression";
+    	})(exports.CommerceEventDataCustomEventTypeEnum || (exports.CommerceEventDataCustomEventTypeEnum = {}));
+    	(function (CrashReportEventEventTypeEnum) {
+    	    CrashReportEventEventTypeEnum["crashReport"] = "crash_report";
+    	})(exports.CrashReportEventEventTypeEnum || (exports.CrashReportEventEventTypeEnum = {}));
+    	(function (CustomEventEventTypeEnum) {
+    	    CustomEventEventTypeEnum["customEvent"] = "custom_event";
+    	})(exports.CustomEventEventTypeEnum || (exports.CustomEventEventTypeEnum = {}));
+    	(function (CustomEventDataCustomEventTypeEnum) {
+    	    CustomEventDataCustomEventTypeEnum["navigation"] = "navigation";
+    	    CustomEventDataCustomEventTypeEnum["location"] = "location";
+    	    CustomEventDataCustomEventTypeEnum["search"] = "search";
+    	    CustomEventDataCustomEventTypeEnum["transaction"] = "transaction";
+    	    CustomEventDataCustomEventTypeEnum["userContent"] = "user_content";
+    	    CustomEventDataCustomEventTypeEnum["userPreference"] = "user_preference";
+    	    CustomEventDataCustomEventTypeEnum["social"] = "social";
+    	    CustomEventDataCustomEventTypeEnum["media"] = "media";
+    	    CustomEventDataCustomEventTypeEnum["other"] = "other";
+    	    CustomEventDataCustomEventTypeEnum["unknown"] = "unknown";
+    	})(exports.CustomEventDataCustomEventTypeEnum || (exports.CustomEventDataCustomEventTypeEnum = {}));
+    	(function (DeviceCurrentStateDeviceOrientationEnum) {
+    	    DeviceCurrentStateDeviceOrientationEnum["portrait"] = "portrait";
+    	    DeviceCurrentStateDeviceOrientationEnum["portraitUpsideDown"] = "portrait_upside_down";
+    	    DeviceCurrentStateDeviceOrientationEnum["landscape"] = "landscape";
+    	    DeviceCurrentStateDeviceOrientationEnum["landscapeLeft"] = "LandscapeLeft";
+    	    DeviceCurrentStateDeviceOrientationEnum["landscapeRight"] = "LandscapeRight";
+    	    DeviceCurrentStateDeviceOrientationEnum["faceUp"] = "FaceUp";
+    	    DeviceCurrentStateDeviceOrientationEnum["faceDown"] = "FaceDown";
+    	    DeviceCurrentStateDeviceOrientationEnum["square"] = "Square";
+    	})(exports.DeviceCurrentStateDeviceOrientationEnum || (exports.DeviceCurrentStateDeviceOrientationEnum = {}));
+    	(function (DeviceCurrentStateStatusBarOrientationEnum) {
+    	    DeviceCurrentStateStatusBarOrientationEnum["portrait"] = "portrait";
+    	    DeviceCurrentStateStatusBarOrientationEnum["portraitUpsideDown"] = "portrait_upside_down";
+    	    DeviceCurrentStateStatusBarOrientationEnum["landscape"] = "landscape";
+    	    DeviceCurrentStateStatusBarOrientationEnum["landscapeLeft"] = "LandscapeLeft";
+    	    DeviceCurrentStateStatusBarOrientationEnum["landscapeRight"] = "LandscapeRight";
+    	    DeviceCurrentStateStatusBarOrientationEnum["faceUp"] = "FaceUp";
+    	    DeviceCurrentStateStatusBarOrientationEnum["faceDown"] = "FaceDown";
+    	    DeviceCurrentStateStatusBarOrientationEnum["square"] = "Square";
+    	})(exports.DeviceCurrentStateStatusBarOrientationEnum || (exports.DeviceCurrentStateStatusBarOrientationEnum = {}));
+    	(function (DeviceInformationPlatformEnum) {
+    	    DeviceInformationPlatformEnum["iOS"] = "iOS";
+    	    DeviceInformationPlatformEnum["android"] = "Android";
+    	    DeviceInformationPlatformEnum["web"] = "web";
+    	    DeviceInformationPlatformEnum["desktop"] = "desktop";
+    	    DeviceInformationPlatformEnum["tvOS"] = "tvOS";
+    	    DeviceInformationPlatformEnum["roku"] = "roku";
+    	    DeviceInformationPlatformEnum["outOfBand"] = "out_of_band";
+    	    DeviceInformationPlatformEnum["smartTV"] = "smart_tv";
+    	    DeviceInformationPlatformEnum["xbox"] = "xbox";
+    	})(exports.DeviceInformationPlatformEnum || (exports.DeviceInformationPlatformEnum = {}));
+    	(function (EventTypeEnum) {
+    	    EventTypeEnum["unknown"] = "unknown";
+    	    EventTypeEnum["sessionStart"] = "session_start";
+    	    EventTypeEnum["sessionEnd"] = "session_end";
+    	    EventTypeEnum["screenView"] = "screen_view";
+    	    EventTypeEnum["customEvent"] = "custom_event";
+    	    EventTypeEnum["crashReport"] = "crash_report";
+    	    EventTypeEnum["optOut"] = "opt_out";
+    	    EventTypeEnum["firstRun"] = "first_run";
+    	    EventTypeEnum["preAttribution"] = "pre_attribution";
+    	    EventTypeEnum["pushRegistration"] = "push_registration";
+    	    EventTypeEnum["applicationStateTransition"] = "application_state_transition";
+    	    EventTypeEnum["pushMessage"] = "push_message";
+    	    EventTypeEnum["networkPerformance"] = "network_performance";
+    	    EventTypeEnum["breadcrumb"] = "breadcrumb";
+    	    EventTypeEnum["profile"] = "profile";
+    	    EventTypeEnum["pushReaction"] = "push_reaction";
+    	    EventTypeEnum["commerceEvent"] = "commerce_event";
+    	    EventTypeEnum["userAttributeChange"] = "user_attribute_change";
+    	    EventTypeEnum["userIdentityChange"] = "user_identity_change";
+    	    EventTypeEnum["uninstall"] = "uninstall";
+    	    EventTypeEnum["validationResult"] = "validation_result";
+    	})(exports.EventTypeEnum || (exports.EventTypeEnum = {}));
+    	(function (IdentityTypeEnum) {
+    	    IdentityTypeEnum["other"] = "other";
+    	    IdentityTypeEnum["customerId"] = "customer_id";
+    	    IdentityTypeEnum["facebook"] = "facebook";
+    	    IdentityTypeEnum["twitter"] = "twitter";
+    	    IdentityTypeEnum["google"] = "google";
+    	    IdentityTypeEnum["microsoft"] = "microsoft";
+    	    IdentityTypeEnum["yahoo"] = "yahoo";
+    	    IdentityTypeEnum["email"] = "email";
+    	    IdentityTypeEnum["alias"] = "alias";
+    	    IdentityTypeEnum["facebookCustomAudienceId"] = "facebook_custom_audience_id";
+    	    IdentityTypeEnum["otherId2"] = "other_id_2";
+    	    IdentityTypeEnum["otherId3"] = "other_id_3";
+    	    IdentityTypeEnum["otherId4"] = "other_id_4";
+    	    IdentityTypeEnum["otherId5"] = "other_id_5";
+    	    IdentityTypeEnum["otherId6"] = "other_id_6";
+    	    IdentityTypeEnum["otherId7"] = "other_id_7";
+    	    IdentityTypeEnum["otherId8"] = "other_id_8";
+    	    IdentityTypeEnum["otherId9"] = "other_id_9";
+    	    IdentityTypeEnum["otherId10"] = "other_id_10";
+    	    IdentityTypeEnum["mobileNumber"] = "mobile_number";
+    	    IdentityTypeEnum["phoneNumber2"] = "phone_number_2";
+    	    IdentityTypeEnum["phoneNumber3"] = "phone_number_3";
+    	})(exports.IdentityTypeEnum || (exports.IdentityTypeEnum = {}));
+    	(function (NetworkPerformanceEventEventTypeEnum) {
+    	    NetworkPerformanceEventEventTypeEnum["networkPerformance"] = "network_performance";
+    	})(exports.NetworkPerformanceEventEventTypeEnum || (exports.NetworkPerformanceEventEventTypeEnum = {}));
+    	(function (OptOutEventEnum) {
+    	    OptOutEventEnum["optOut"] = "opt_out";
+    	})(exports.OptOutEventEnum || (exports.OptOutEventEnum = {}));
+    	(function (ProductActionActionEnum) {
+    	    ProductActionActionEnum["unknown"] = "unknown";
+    	    ProductActionActionEnum["addToCart"] = "add_to_cart";
+    	    ProductActionActionEnum["removeFromCart"] = "remove_from_cart";
+    	    ProductActionActionEnum["checkout"] = "checkout";
+    	    ProductActionActionEnum["checkoutOption"] = "checkout_option";
+    	    ProductActionActionEnum["click"] = "click";
+    	    ProductActionActionEnum["viewDetail"] = "view_detail";
+    	    ProductActionActionEnum["purchase"] = "purchase";
+    	    ProductActionActionEnum["refund"] = "refund";
+    	    ProductActionActionEnum["addToWishlist"] = "add_to_wishlist";
+    	    ProductActionActionEnum["removeFromWishlist"] = "remove_from_wish_list";
+    	})(exports.ProductActionActionEnum || (exports.ProductActionActionEnum = {}));
+    	(function (ProfileEventEventTypeEnum) {
+    	    ProfileEventEventTypeEnum["profile"] = "profile";
+    	})(exports.ProfileEventEventTypeEnum || (exports.ProfileEventEventTypeEnum = {}));
+    	(function (ProfileEventDataProfileEventTypeEnum) {
+    	    ProfileEventDataProfileEventTypeEnum["signup"] = "signup";
+    	    ProfileEventDataProfileEventTypeEnum["login"] = "login";
+    	    ProfileEventDataProfileEventTypeEnum["logout"] = "logout";
+    	    ProfileEventDataProfileEventTypeEnum["update"] = "update";
+    	    ProfileEventDataProfileEventTypeEnum["delete"] = "delete";
+    	})(exports.ProfileEventDataProfileEventTypeEnum || (exports.ProfileEventDataProfileEventTypeEnum = {}));
+    	(function (PromotionActionActionEnum) {
+    	    PromotionActionActionEnum["view"] = "view";
+    	    PromotionActionActionEnum["click"] = "click";
+    	})(exports.PromotionActionActionEnum || (exports.PromotionActionActionEnum = {}));
+    	(function (PushMessageEventEventTypeEnum) {
+    	    PushMessageEventEventTypeEnum["pushMessage"] = "push_message";
+    	})(exports.PushMessageEventEventTypeEnum || (exports.PushMessageEventEventTypeEnum = {}));
+    	(function (PushMessageEventDataPushMessageTypeEnum) {
+    	    PushMessageEventDataPushMessageTypeEnum["sent"] = "sent";
+    	    PushMessageEventDataPushMessageTypeEnum["received"] = "received";
+    	    PushMessageEventDataPushMessageTypeEnum["action"] = "action";
+    	})(exports.PushMessageEventDataPushMessageTypeEnum || (exports.PushMessageEventDataPushMessageTypeEnum = {}));
+    	(function (PushMessageEventDataApplicationStateEnum) {
+    	    PushMessageEventDataApplicationStateEnum["notRunning"] = "not_running";
+    	    PushMessageEventDataApplicationStateEnum["background"] = "background";
+    	    PushMessageEventDataApplicationStateEnum["foreground"] = "foreground";
+    	})(exports.PushMessageEventDataApplicationStateEnum || (exports.PushMessageEventDataApplicationStateEnum = {}));
+    	(function (PushMessageEventDataPushMessageBehaviorEnum) {
+    	    PushMessageEventDataPushMessageBehaviorEnum["received"] = "Received";
+    	    PushMessageEventDataPushMessageBehaviorEnum["directOpen"] = "DirectOpen";
+    	    PushMessageEventDataPushMessageBehaviorEnum["read"] = "Read";
+    	    PushMessageEventDataPushMessageBehaviorEnum["influencedOpen"] = "InfluencedOpen";
+    	    PushMessageEventDataPushMessageBehaviorEnum["displayed"] = "Displayed";
+    	})(exports.PushMessageEventDataPushMessageBehaviorEnum || (exports.PushMessageEventDataPushMessageBehaviorEnum = {}));
+    	(function (PushRegistrationEventEventTypeEnum) {
+    	    PushRegistrationEventEventTypeEnum["pushRegistration"] = "push_registration";
+    	})(exports.PushRegistrationEventEventTypeEnum || (exports.PushRegistrationEventEventTypeEnum = {}));
+    	(function (SessionEndEventEventTypeEnum) {
+    	    SessionEndEventEventTypeEnum["sessionEnd"] = "session_end";
+    	})(exports.SessionEndEventEventTypeEnum || (exports.SessionEndEventEventTypeEnum = {}));
+    	(function (SessionStartEventEventTypeEnum) {
+    	    SessionStartEventEventTypeEnum["sessionStart"] = "session_start";
+    	})(exports.SessionStartEventEventTypeEnum || (exports.SessionStartEventEventTypeEnum = {}));
+    	(function (SourceInformationChannelEnum) {
+    	    SourceInformationChannelEnum["native"] = "native";
+    	    SourceInformationChannelEnum["javascript"] = "javascript";
+    	    SourceInformationChannelEnum["pixel"] = "pixel";
+    	    SourceInformationChannelEnum["desktop"] = "desktop";
+    	    SourceInformationChannelEnum["partner"] = "partner";
+    	    SourceInformationChannelEnum["serverToServer"] = "server_to_server";
+    	})(exports.SourceInformationChannelEnum || (exports.SourceInformationChannelEnum = {}));
+    	(function (UserAttributeChangeEventEventTypeEnum) {
+    	    UserAttributeChangeEventEventTypeEnum["userAttributeChange"] = "user_attribute_change";
+    	})(exports.UserAttributeChangeEventEventTypeEnum || (exports.UserAttributeChangeEventEventTypeEnum = {}));
+    	(function (UserIdentityChangeEventEventTypeEnum) {
+    	    UserIdentityChangeEventEventTypeEnum["userIdentityChange"] = "user_identity_change";
+    	})(exports.UserIdentityChangeEventEventTypeEnum || (exports.UserIdentityChangeEventEventTypeEnum = {}));
+    } (dist));
+
     function convertEvents(mpid, sdkEvents, mpInstance) {
-        if (!mpid) {
-            return null;
+      if (!mpid) {
+        return null;
+      }
+
+      if (!sdkEvents || sdkEvents.length < 1) {
+        return null;
+      }
+
+      var uploadEvents = [];
+      var lastEvent = null;
+
+      for (var _i = 0, sdkEvents_1 = sdkEvents; _i < sdkEvents_1.length; _i++) {
+        var sdkEvent = sdkEvents_1[_i];
+
+        if (sdkEvent) {
+          lastEvent = sdkEvent;
+          var baseEvent = convertEvent(sdkEvent);
+
+          if (baseEvent) {
+            uploadEvents.push(baseEvent);
+          }
         }
-        if (!sdkEvents || sdkEvents.length < 1) {
-            return null;
-        }
-        var uploadEvents = [];
-        var lastEvent = null;
-        var _iterator = _createForOfIteratorHelper(sdkEvents), _step;
-        try {
-            for (_iterator.s(); !(_step = _iterator.n()).done;) {
-                var sdkEvent = _step.value;
-                if (sdkEvent) {
-                    lastEvent = sdkEvent;
-                    var baseEvent = convertEvent(sdkEvent);
-                    if (baseEvent) {
-                        uploadEvents.push(baseEvent);
-                    }
-                }
-            }
-        }
-        catch (err) {
-            _iterator.e(err);
-        }
-        finally {
-            _iterator.f();
-        }
-        if (!lastEvent) {
-            return null;
-        }
-        var upload = {
-            source_request_id: mpInstance._Helpers.generateUniqueId(),
-            mpid: mpid,
-            timestamp_unixtime_ms: new Date().getTime(),
-            environment: lastEvent.Debug ? dist_4.development : dist_4.production,
-            events: uploadEvents,
-            mp_deviceid: lastEvent.DeviceId,
-            sdk_version: lastEvent.SDKVersion,
-            application_info: {
-                application_version: lastEvent.AppVersion,
-                application_name: lastEvent.AppName,
-                "package": lastEvent.Package
-            },
-            device_info: {
-                platform: dist_13.web,
-                screen_width: window.screen.width,
-                screen_height: window.screen.height
-            },
-            user_attributes: lastEvent.UserAttributes,
-            user_identities: convertUserIdentities(lastEvent.UserIdentities),
-            consent_state: convertConsentState(lastEvent.ConsentState),
-            integration_attributes: lastEvent.IntegrationAttributes
+      }
+
+      if (!lastEvent) {
+        return null;
+      }
+
+      var upload = {
+        source_request_id: mpInstance._Helpers.generateUniqueId(),
+        mpid: mpid,
+        timestamp_unixtime_ms: new Date().getTime(),
+        environment: lastEvent.Debug ? dist.BatchEnvironmentEnum.development : dist.BatchEnvironmentEnum.production,
+        events: uploadEvents,
+        mp_deviceid: lastEvent.DeviceId,
+        sdk_version: lastEvent.SDKVersion,
+        application_info: {
+          application_version: lastEvent.AppVersion,
+          application_name: lastEvent.AppName,
+          "package": lastEvent.Package
+        },
+        device_info: {
+          platform: dist.DeviceInformationPlatformEnum.web,
+          screen_width: window.screen.width,
+          screen_height: window.screen.height
+        },
+        user_attributes: lastEvent.UserAttributes,
+        user_identities: convertUserIdentities(lastEvent.UserIdentities),
+        consent_state: convertConsentState(lastEvent.ConsentState),
+        integration_attributes: lastEvent.IntegrationAttributes
+      };
+
+      if (lastEvent.DataPlan && lastEvent.DataPlan.PlanId) {
+        upload.context = {
+          data_plan: {
+            plan_id: lastEvent.DataPlan.PlanId,
+            plan_version: lastEvent.DataPlan.PlanVersion || undefined
+          }
         };
-        if (lastEvent.DataPlan && lastEvent.DataPlan.PlanId) {
-            upload.context = {
-                data_plan: {
-                    plan_id: lastEvent.DataPlan.PlanId,
-                    plan_version: lastEvent.DataPlan.PlanVersion || undefined
-                }
-            };
-        }
-        return upload;
+      }
+
+      return upload;
     }
     function convertConsentState(sdkConsentState) {
-        if (!sdkConsentState) {
-            return null;
-        }
-        var consentState = {
-            gdpr: convertGdprConsentState(sdkConsentState.getGDPRConsentState()),
-            ccpa: convertCcpaConsentState(sdkConsentState.getCCPAConsentState())
-        };
-        return consentState;
+      if (!sdkConsentState) {
+        return null;
+      }
+
+      var consentState = {
+        gdpr: convertGdprConsentState(sdkConsentState.getGDPRConsentState()),
+        ccpa: convertCcpaConsentState(sdkConsentState.getCCPAConsentState())
+      };
+      return consentState;
     }
     function convertGdprConsentState(sdkGdprConsentState) {
-        if (!sdkGdprConsentState) {
-            return null;
+      if (!sdkGdprConsentState) {
+        return null;
+      }
+
+      var state = {};
+
+      for (var purpose in sdkGdprConsentState) {
+        if (sdkGdprConsentState.hasOwnProperty(purpose)) {
+          state[purpose] = {
+            consented: sdkGdprConsentState[purpose].Consented,
+            hardware_id: sdkGdprConsentState[purpose].HardwareId,
+            document: sdkGdprConsentState[purpose].ConsentDocument,
+            timestamp_unixtime_ms: sdkGdprConsentState[purpose].Timestamp,
+            location: sdkGdprConsentState[purpose].Location
+          };
         }
-        var state = {};
-        for (var purpose in sdkGdprConsentState) {
-            if (sdkGdprConsentState.hasOwnProperty(purpose)) {
-                state[purpose] = {
-                    consented: sdkGdprConsentState[purpose].Consented,
-                    hardware_id: sdkGdprConsentState[purpose].HardwareId,
-                    document: sdkGdprConsentState[purpose].ConsentDocument,
-                    timestamp_unixtime_ms: sdkGdprConsentState[purpose].Timestamp,
-                    location: sdkGdprConsentState[purpose].Location
-                };
-            }
-        }
-        return state;
+      }
+
+      return state;
     }
     function convertCcpaConsentState(sdkCcpaConsentState) {
-        if (!sdkCcpaConsentState) {
-            return null;
+      if (!sdkCcpaConsentState) {
+        return null;
+      }
+
+      var state = {
+        data_sale_opt_out: {
+          consented: sdkCcpaConsentState.Consented,
+          hardware_id: sdkCcpaConsentState.HardwareId,
+          document: sdkCcpaConsentState.ConsentDocument,
+          timestamp_unixtime_ms: sdkCcpaConsentState.Timestamp,
+          location: sdkCcpaConsentState.Location
         }
-        var state = {
-            data_sale_opt_out: {
-                consented: sdkCcpaConsentState.Consented,
-                hardware_id: sdkCcpaConsentState.HardwareId,
-                document: sdkCcpaConsentState.ConsentDocument,
-                timestamp_unixtime_ms: sdkCcpaConsentState.Timestamp,
-                location: sdkCcpaConsentState.Location
-            }
-        };
-        return state;
+      };
+      return state;
     }
     function convertUserIdentities(sdkUserIdentities) {
-        if (!sdkUserIdentities || !sdkUserIdentities.length) {
-            return null;
+      if (!sdkUserIdentities || !sdkUserIdentities.length) {
+        return null;
+      }
+
+      var batchIdentities = {};
+
+      for (var _i = 0, sdkUserIdentities_1 = sdkUserIdentities; _i < sdkUserIdentities_1.length; _i++) {
+        var identity = sdkUserIdentities_1[_i];
+
+        switch (identity.Type) {
+          case Types.IdentityType.CustomerId:
+            batchIdentities.customer_id = identity.Identity;
+            break;
+
+          case Types.IdentityType.Email:
+            batchIdentities.email = identity.Identity;
+            break;
+
+          case Types.IdentityType.Facebook:
+            batchIdentities.facebook = identity.Identity;
+            break;
+
+          case Types.IdentityType.FacebookCustomAudienceId:
+            batchIdentities.facebook_custom_audience_id = identity.Identity;
+            break;
+
+          case Types.IdentityType.Google:
+            batchIdentities.google = identity.Identity;
+            break;
+
+          case Types.IdentityType.Microsoft:
+            batchIdentities.microsoft = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other:
+            batchIdentities.other = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other2:
+            batchIdentities.other_id_2 = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other3:
+            batchIdentities.other_id_3 = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other4:
+            batchIdentities.other_id_4 = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other5:
+            batchIdentities.other_id_5 = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other6:
+            batchIdentities.other_id_6 = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other7:
+            batchIdentities.other_id_7 = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other8:
+            batchIdentities.other_id_8 = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other9:
+            batchIdentities.other_id_9 = identity.Identity;
+            break;
+
+          case Types.IdentityType.Other10:
+            batchIdentities.other_id_10 = identity.Identity;
+            break;
+
+          case Types.IdentityType.MobileNumber:
+            batchIdentities.mobile_number = identity.Identity;
+            break;
+
+          case Types.IdentityType.PhoneNumber2:
+            batchIdentities.phone_number_2 = identity.Identity;
+            break;
+
+          case Types.IdentityType.PhoneNumber3:
+            batchIdentities.phone_number_3 = identity.Identity;
+            break;
         }
-        var batchIdentities = {};
-        var _iterator2 = _createForOfIteratorHelper(sdkUserIdentities), _step2;
-        try {
-            for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
-                var identity = _step2.value;
-                switch (identity.Type) {
-                    case Types.IdentityType.CustomerId:
-                        batchIdentities.customer_id = identity.Identity;
-                        break;
-                    case Types.IdentityType.Email:
-                        batchIdentities.email = identity.Identity;
-                        break;
-                    case Types.IdentityType.Facebook:
-                        batchIdentities.facebook = identity.Identity;
-                        break;
-                    case Types.IdentityType.FacebookCustomAudienceId:
-                        batchIdentities.facebook_custom_audience_id = identity.Identity;
-                        break;
-                    case Types.IdentityType.Google:
-                        batchIdentities.google = identity.Identity;
-                        break;
-                    case Types.IdentityType.Microsoft:
-                        batchIdentities.microsoft = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other:
-                        batchIdentities.other = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other2:
-                        batchIdentities.other_id_2 = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other3:
-                        batchIdentities.other_id_3 = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other4:
-                        batchIdentities.other_id_4 = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other5:
-                        batchIdentities.other_id_5 = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other6:
-                        batchIdentities.other_id_6 = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other7:
-                        batchIdentities.other_id_7 = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other8:
-                        batchIdentities.other_id_8 = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other9:
-                        batchIdentities.other_id_9 = identity.Identity;
-                        break;
-                    case Types.IdentityType.Other10:
-                        batchIdentities.other_id_10 = identity.Identity;
-                        break;
-                    case Types.IdentityType.MobileNumber:
-                        batchIdentities.mobile_number = identity.Identity;
-                        break;
-                    case Types.IdentityType.PhoneNumber2:
-                        batchIdentities.phone_number_2 = identity.Identity;
-                        break;
-                    case Types.IdentityType.PhoneNumber3:
-                        batchIdentities.phone_number_3 = identity.Identity;
-                        break;
-                    default:
-                        break;
-                }
-            }
-        }
-        catch (err) {
-            _iterator2.e(err);
-        }
-        finally {
-            _iterator2.f();
-        }
-        return batchIdentities;
+      }
+
+      return batchIdentities;
     }
     function convertEvent(sdkEvent) {
-        if (!sdkEvent) {
-            return null;
-        }
-        switch (sdkEvent.EventDataType) {
-            case Types.MessageType.AppStateTransition:
-                return convertAST(sdkEvent);
-            case Types.MessageType.Commerce:
-                return convertCommerceEvent(sdkEvent);
-            case Types.MessageType.CrashReport:
-                return convertCrashReportEvent(sdkEvent);
-            case Types.MessageType.OptOut:
-                return convertOptOutEvent(sdkEvent);
-            case Types.MessageType.PageEvent:
-                // Note: Media Events are also sent as PageEvents/CustomEvents
-                return convertCustomEvent(sdkEvent);
-            case Types.MessageType.PageView:
-                return convertPageViewEvent(sdkEvent);
-            case Types.MessageType.Profile:
-                //deprecated and not supported by the web SDK
-                return null;
-            case Types.MessageType.SessionEnd:
-                return convertSessionEndEvent(sdkEvent);
-            case Types.MessageType.SessionStart:
-                return convertSessionStartEvent(sdkEvent);
-            case Types.MessageType.UserAttributeChange:
-                return convertUserAttributeChangeEvent(sdkEvent);
-            case Types.MessageType.UserIdentityChange:
-                return convertUserIdentityChangeEvent(sdkEvent);
-        }
+      if (!sdkEvent) {
         return null;
+      }
+
+      switch (sdkEvent.EventDataType) {
+        case Types.MessageType.AppStateTransition:
+          return convertAST(sdkEvent);
+
+        case Types.MessageType.Commerce:
+          return convertCommerceEvent(sdkEvent);
+
+        case Types.MessageType.CrashReport:
+          return convertCrashReportEvent(sdkEvent);
+
+        case Types.MessageType.OptOut:
+          return convertOptOutEvent(sdkEvent);
+
+        case Types.MessageType.PageEvent:
+          // Note: Media Events are also sent as PageEvents/CustomEvents
+          return convertCustomEvent(sdkEvent);
+
+        case Types.MessageType.PageView:
+          return convertPageViewEvent(sdkEvent);
+
+        case Types.MessageType.Profile:
+          //deprecated and not supported by the web SDK
+          return null;
+
+        case Types.MessageType.SessionEnd:
+          return convertSessionEndEvent(sdkEvent);
+
+        case Types.MessageType.SessionStart:
+          return convertSessionStartEvent(sdkEvent);
+
+        case Types.MessageType.UserAttributeChange:
+          return convertUserAttributeChangeEvent(sdkEvent);
+
+        case Types.MessageType.UserIdentityChange:
+          return convertUserIdentityChangeEvent(sdkEvent);
+      }
+
+      return null;
     }
     function convertProductActionType(actionType) {
-        if (!actionType) {
-            return dist_18.unknown;
-        }
-        switch (actionType) {
-            case SDKProductActionType.AddToCart:
-                return dist_18.addToCart;
-            case SDKProductActionType.AddToWishlist:
-                return dist_18.addToWishlist;
-            case SDKProductActionType.Checkout:
-                return dist_18.checkout;
-            case SDKProductActionType.CheckoutOption:
-                return dist_18.checkoutOption;
-            case SDKProductActionType.Click:
-                return dist_18.click;
-            case SDKProductActionType.Purchase:
-                return dist_18.purchase;
-            case SDKProductActionType.Refund:
-                return dist_18.refund;
-            case SDKProductActionType.RemoveFromCart:
-                return dist_18.removeFromCart;
-            case SDKProductActionType.RemoveFromWishlist:
-                return dist_18.removeFromWishlist;
-            case SDKProductActionType.ViewDetail:
-                return dist_18.viewDetail;
-            default:
-                return dist_18.unknown;
-        }
+      if (!actionType) {
+        return dist.ProductActionActionEnum.unknown;
+      }
+
+      switch (actionType) {
+        case SDKProductActionType.AddToCart:
+          return dist.ProductActionActionEnum.addToCart;
+
+        case SDKProductActionType.AddToWishlist:
+          return dist.ProductActionActionEnum.addToWishlist;
+
+        case SDKProductActionType.Checkout:
+          return dist.ProductActionActionEnum.checkout;
+
+        case SDKProductActionType.CheckoutOption:
+          return dist.ProductActionActionEnum.checkoutOption;
+
+        case SDKProductActionType.Click:
+          return dist.ProductActionActionEnum.click;
+
+        case SDKProductActionType.Purchase:
+          return dist.ProductActionActionEnum.purchase;
+
+        case SDKProductActionType.Refund:
+          return dist.ProductActionActionEnum.refund;
+
+        case SDKProductActionType.RemoveFromCart:
+          return dist.ProductActionActionEnum.removeFromCart;
+
+        case SDKProductActionType.RemoveFromWishlist:
+          return dist.ProductActionActionEnum.removeFromWishlist;
+
+        case SDKProductActionType.ViewDetail:
+          return dist.ProductActionActionEnum.viewDetail;
+
+        default:
+          return dist.ProductActionActionEnum.unknown;
+      }
     }
     function convertProductAction(sdkEvent) {
-        if (!sdkEvent.ProductAction) {
-            return null;
-        }
-        var productAction = {
-            action: convertProductActionType(sdkEvent.ProductAction.ProductActionType),
-            checkout_step: sdkEvent.ProductAction.CheckoutStep,
-            checkout_options: sdkEvent.ProductAction.CheckoutOptions,
-            transaction_id: sdkEvent.ProductAction.TransactionId,
-            affiliation: sdkEvent.ProductAction.Affiliation,
-            total_amount: sdkEvent.ProductAction.TotalAmount,
-            tax_amount: sdkEvent.ProductAction.TaxAmount,
-            shipping_amount: sdkEvent.ProductAction.ShippingAmount,
-            coupon_code: sdkEvent.ProductAction.CouponCode,
-            products: convertProducts(sdkEvent.ProductAction.ProductList)
-        };
-        return productAction;
+      if (!sdkEvent.ProductAction) {
+        return null;
+      }
+
+      var productAction = {
+        action: convertProductActionType(sdkEvent.ProductAction.ProductActionType),
+        checkout_step: sdkEvent.ProductAction.CheckoutStep,
+        checkout_options: sdkEvent.ProductAction.CheckoutOptions,
+        transaction_id: sdkEvent.ProductAction.TransactionId,
+        affiliation: sdkEvent.ProductAction.Affiliation,
+        total_amount: sdkEvent.ProductAction.TotalAmount,
+        tax_amount: sdkEvent.ProductAction.TaxAmount,
+        shipping_amount: sdkEvent.ProductAction.ShippingAmount,
+        coupon_code: sdkEvent.ProductAction.CouponCode,
+        products: convertProducts(sdkEvent.ProductAction.ProductList)
+      };
+      return productAction;
     }
     function convertProducts(sdkProducts) {
-        if (!sdkProducts || !sdkProducts.length) {
-            return null;
-        }
-        var products = [];
-        var _iterator3 = _createForOfIteratorHelper(sdkProducts), _step3;
-        try {
-            for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
-                var sdkProduct = _step3.value;
-                var product = {
-                    id: sdkProduct.Sku,
-                    name: sdkProduct.Name,
-                    brand: sdkProduct.Brand,
-                    category: sdkProduct.Category,
-                    variant: sdkProduct.Variant,
-                    total_product_amount: sdkProduct.TotalAmount,
-                    position: sdkProduct.Position,
-                    price: sdkProduct.Price,
-                    quantity: sdkProduct.Quantity,
-                    coupon_code: sdkProduct.CouponCode,
-                    custom_attributes: sdkProduct.Attributes
-                };
-                products.push(product);
-            }
-        }
-        catch (err) {
-            _iterator3.e(err);
-        }
-        finally {
-            _iterator3.f();
-        }
-        return products;
+      if (!sdkProducts || !sdkProducts.length) {
+        return null;
+      }
+
+      var products = [];
+
+      for (var _i = 0, sdkProducts_1 = sdkProducts; _i < sdkProducts_1.length; _i++) {
+        var sdkProduct = sdkProducts_1[_i];
+        var product = {
+          id: sdkProduct.Sku,
+          name: sdkProduct.Name,
+          brand: sdkProduct.Brand,
+          category: sdkProduct.Category,
+          variant: sdkProduct.Variant,
+          total_product_amount: sdkProduct.TotalAmount,
+          position: sdkProduct.Position,
+          price: sdkProduct.Price,
+          quantity: sdkProduct.Quantity,
+          coupon_code: sdkProduct.CouponCode,
+          custom_attributes: sdkProduct.Attributes
+        };
+        products.push(product);
+      }
+
+      return products;
     }
     function convertPromotionAction(sdkEvent) {
-        if (!sdkEvent.PromotionAction) {
-            return null;
-        }
-        var promotionAction = {
-            action: sdkEvent.PromotionAction.PromotionActionType,
-            promotions: convertPromotions(sdkEvent.PromotionAction.PromotionList)
-        };
-        return promotionAction;
+      if (!sdkEvent.PromotionAction) {
+        return null;
+      }
+
+      var promotionAction = {
+        action: sdkEvent.PromotionAction.PromotionActionType,
+        promotions: convertPromotions(sdkEvent.PromotionAction.PromotionList)
+      };
+      return promotionAction;
     }
     function convertPromotions(sdkPromotions) {
-        if (!sdkPromotions || !sdkPromotions.length) {
-            return null;
-        }
-        var promotions = [];
-        var _iterator4 = _createForOfIteratorHelper(sdkPromotions), _step4;
-        try {
-            for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
-                var sdkPromotion = _step4.value;
-                var promotion = {
-                    id: sdkPromotion.Id,
-                    name: sdkPromotion.Name,
-                    creative: sdkPromotion.Creative,
-                    position: sdkPromotion.Position
-                };
-                promotions.push(promotion);
-            }
-        }
-        catch (err) {
-            _iterator4.e(err);
-        }
-        finally {
-            _iterator4.f();
-        }
-        return promotions;
+      if (!sdkPromotions || !sdkPromotions.length) {
+        return null;
+      }
+
+      var promotions = [];
+
+      for (var _i = 0, sdkPromotions_1 = sdkPromotions; _i < sdkPromotions_1.length; _i++) {
+        var sdkPromotion = sdkPromotions_1[_i];
+        var promotion = {
+          id: sdkPromotion.Id,
+          name: sdkPromotion.Name,
+          creative: sdkPromotion.Creative,
+          position: sdkPromotion.Position
+        };
+        promotions.push(promotion);
+      }
+
+      return promotions;
     }
     function convertImpressions(sdkEvent) {
-        if (!sdkEvent.ProductImpressions) {
-            return null;
-        }
-        var impressions = [];
-        var _iterator5 = _createForOfIteratorHelper(sdkEvent.ProductImpressions), _step5;
-        try {
-            for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
-                var sdkImpression = _step5.value;
-                var impression = {
-                    product_impression_list: sdkImpression.ProductImpressionList,
-                    products: convertProducts(sdkImpression.ProductList)
-                };
-                impressions.push(impression);
-            }
-        }
-        catch (err) {
-            _iterator5.e(err);
-        }
-        finally {
-            _iterator5.f();
-        }
-        return impressions;
+      if (!sdkEvent.ProductImpressions) {
+        return null;
+      }
+
+      var impressions = [];
+
+      for (var _i = 0, _a = sdkEvent.ProductImpressions; _i < _a.length; _i++) {
+        var sdkImpression = _a[_i];
+        var impression = {
+          product_impression_list: sdkImpression.ProductImpressionList,
+          products: convertProducts(sdkImpression.ProductList)
+        };
+        impressions.push(impression);
+      }
+
+      return impressions;
     }
     function convertShoppingCart(sdkEvent) {
-        if (!sdkEvent.ShoppingCart || !sdkEvent.ShoppingCart.ProductList || !sdkEvent.ShoppingCart.ProductList.length) {
-            return null;
-        }
-        var shoppingCart = {
-            products: convertProducts(sdkEvent.ShoppingCart.ProductList)
-        };
-        return shoppingCart;
+      if (!sdkEvent.ShoppingCart || !sdkEvent.ShoppingCart.ProductList || !sdkEvent.ShoppingCart.ProductList.length) {
+        return null;
+      }
+
+      var shoppingCart = {
+        products: convertProducts(sdkEvent.ShoppingCart.ProductList)
+      };
+      return shoppingCart;
     }
     function convertCommerceEvent(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var commerceEventData = {
-            custom_flags: sdkEvent.CustomFlags,
-            product_action: convertProductAction(sdkEvent),
-            promotion_action: convertPromotionAction(sdkEvent),
-            product_impressions: convertImpressions(sdkEvent),
-            shopping_cart: convertShoppingCart(sdkEvent),
-            currency_code: sdkEvent.CurrencyCode
-        };
-        commerceEventData = Object.assign(commerceEventData, commonEventData);
-        return {
-            event_type: dist_14.commerceEvent,
-            data: commerceEventData
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var commerceEventData = {
+        custom_flags: sdkEvent.CustomFlags,
+        product_action: convertProductAction(sdkEvent),
+        promotion_action: convertPromotionAction(sdkEvent),
+        product_impressions: convertImpressions(sdkEvent),
+        shopping_cart: convertShoppingCart(sdkEvent),
+        currency_code: sdkEvent.CurrencyCode
+      };
+      commerceEventData = Object.assign(commerceEventData, commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.commerceEvent,
+        data: commerceEventData
+      };
     }
     function convertCrashReportEvent(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var crashReportEventData = {
-            message: sdkEvent.EventName
-        };
-        crashReportEventData = Object.assign(crashReportEventData, commonEventData);
-        return {
-            event_type: dist_14.crashReport,
-            data: crashReportEventData
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var crashReportEventData = {
+        message: sdkEvent.EventName
+      };
+      crashReportEventData = Object.assign(crashReportEventData, commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.crashReport,
+        data: crashReportEventData
+      };
     }
     function convertAST(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var astEventData = {
-            application_transition_type: dist_3.applicationInitialized,
-            is_first_run: sdkEvent.IsFirstRun,
-            is_upgrade: false,
-            launch_referral: sdkEvent.LaunchReferral
-        };
-        astEventData = Object.assign(astEventData, commonEventData);
-        return {
-            event_type: dist_14.applicationStateTransition,
-            data: astEventData
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var astEventData = {
+        application_transition_type: dist.ApplicationStateTransitionEventDataApplicationTransitionTypeEnum.applicationInitialized,
+        is_first_run: sdkEvent.IsFirstRun,
+        is_upgrade: false,
+        launch_referral: sdkEvent.LaunchReferral
+      };
+      astEventData = Object.assign(astEventData, commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.applicationStateTransition,
+        data: astEventData
+      };
     }
     function convertSessionEndEvent(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var sessionEndEventData = {
-            session_duration_ms: sdkEvent.SessionLength //note: External Events DTO does not support the session mpids array as of this time.
-            //spanning_mpids: sdkEvent.SessionMpids
-        };
-        sessionEndEventData = Object.assign(sessionEndEventData, commonEventData);
-        return {
-            event_type: dist_14.sessionEnd,
-            data: sessionEndEventData
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var sessionEndEventData = {
+        session_duration_ms: sdkEvent.SessionLength //note: External Events DTO does not support the session mpids array as of this time.
+        //spanning_mpids: sdkEvent.SessionMpids
+
+      };
+      sessionEndEventData = Object.assign(sessionEndEventData, commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.sessionEnd,
+        data: sessionEndEventData
+      };
     }
     function convertSessionStartEvent(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var sessionStartEventData = {};
-        sessionStartEventData = Object.assign(sessionStartEventData, commonEventData);
-        return {
-            event_type: dist_14.sessionStart,
-            data: sessionStartEventData
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var sessionStartEventData = {};
+      sessionStartEventData = Object.assign(sessionStartEventData, commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.sessionStart,
+        data: sessionStartEventData
+      };
     }
     function convertPageViewEvent(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var screenViewEventData = {
-            custom_flags: sdkEvent.CustomFlags,
-            screen_name: sdkEvent.EventName
-        };
-        screenViewEventData = Object.assign(screenViewEventData, commonEventData);
-        return {
-            event_type: dist_14.screenView,
-            data: screenViewEventData
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var screenViewEventData = {
+        custom_flags: sdkEvent.CustomFlags,
+        screen_name: sdkEvent.EventName
+      };
+      screenViewEventData = Object.assign(screenViewEventData, commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.screenView,
+        data: screenViewEventData
+      };
     }
     function convertOptOutEvent(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var optOutEventData = {
-            is_opted_out: sdkEvent.OptOut
-        };
-        optOutEventData = Object.assign(optOutEventData, commonEventData);
-        return {
-            event_type: dist_14.optOut,
-            data: optOutEventData
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var optOutEventData = {
+        is_opted_out: sdkEvent.OptOut
+      };
+      optOutEventData = Object.assign(optOutEventData, commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.optOut,
+        data: optOutEventData
+      };
     }
     function convertCustomEvent(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var customEventData = {
-            custom_event_type: convertSdkEventType(sdkEvent.EventCategory),
-            custom_flags: sdkEvent.CustomFlags,
-            event_name: sdkEvent.EventName
-        };
-        customEventData = Object.assign(customEventData, commonEventData);
-        return {
-            event_type: dist_14.customEvent,
-            data: customEventData
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var customEventData = {
+        custom_event_type: convertSdkEventType(sdkEvent.EventCategory),
+        custom_flags: sdkEvent.CustomFlags,
+        event_name: sdkEvent.EventName
+      };
+      customEventData = Object.assign(customEventData, commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.customEvent,
+        data: customEventData
+      };
     }
     function convertSdkEventType(sdkEventType) {
-        switch (sdkEventType) {
-            case Types.EventType.Other:
-                return dist_10.other;
-            case Types.EventType.Location:
-                return dist_10.location;
-            case Types.EventType.Navigation:
-                return dist_10.navigation;
-            case Types.EventType.Search:
-                return dist_10.search;
-            case Types.EventType.Social:
-                return dist_10.social;
-            case Types.EventType.Transaction:
-                return dist_10.transaction;
-            case Types.EventType.UserContent:
-                return dist_10.userContent;
-            case Types.EventType.UserPreference:
-                return dist_10.userPreference;
-            case Types.EventType.Media:
-                return dist_10.media;
-            case Types.CommerceEventType.ProductAddToCart:
-                return dist_7.addToCart;
-            case Types.CommerceEventType.ProductAddToWishlist:
-                return dist_7.addToWishlist;
-            case Types.CommerceEventType.ProductCheckout:
-                return dist_7.checkout;
-            case Types.CommerceEventType.ProductCheckoutOption:
-                return dist_7.checkoutOption;
-            case Types.CommerceEventType.ProductClick:
-                return dist_7.click;
-            case Types.CommerceEventType.ProductImpression:
-                return dist_7.impression;
-            case Types.CommerceEventType.ProductPurchase:
-                return dist_7.purchase;
-            case Types.CommerceEventType.ProductRefund:
-                return dist_7.refund;
-            case Types.CommerceEventType.ProductRemoveFromCart:
-                return dist_7.removeFromCart;
-            case Types.CommerceEventType.ProductRemoveFromWishlist:
-                return dist_7.removeFromWishlist;
-            case Types.CommerceEventType.ProductViewDetail:
-                return dist_7.viewDetail;
-            case Types.CommerceEventType.PromotionClick:
-                return dist_7.promotionClick;
-            case Types.CommerceEventType.PromotionView:
-                return dist_7.promotionView;
-            default:
-                return dist_10.unknown;
-        }
+      switch (sdkEventType) {
+        case Types.EventType.Other:
+          return dist.CustomEventDataCustomEventTypeEnum.other;
+
+        case Types.EventType.Location:
+          return dist.CustomEventDataCustomEventTypeEnum.location;
+
+        case Types.EventType.Navigation:
+          return dist.CustomEventDataCustomEventTypeEnum.navigation;
+
+        case Types.EventType.Search:
+          return dist.CustomEventDataCustomEventTypeEnum.search;
+
+        case Types.EventType.Social:
+          return dist.CustomEventDataCustomEventTypeEnum.social;
+
+        case Types.EventType.Transaction:
+          return dist.CustomEventDataCustomEventTypeEnum.transaction;
+
+        case Types.EventType.UserContent:
+          return dist.CustomEventDataCustomEventTypeEnum.userContent;
+
+        case Types.EventType.UserPreference:
+          return dist.CustomEventDataCustomEventTypeEnum.userPreference;
+
+        case Types.EventType.Media:
+          return dist.CustomEventDataCustomEventTypeEnum.media;
+
+        case Types.CommerceEventType.ProductAddToCart:
+          return dist.CommerceEventDataCustomEventTypeEnum.addToCart;
+
+        case Types.CommerceEventType.ProductAddToWishlist:
+          return dist.CommerceEventDataCustomEventTypeEnum.addToWishlist;
+
+        case Types.CommerceEventType.ProductCheckout:
+          return dist.CommerceEventDataCustomEventTypeEnum.checkout;
+
+        case Types.CommerceEventType.ProductCheckoutOption:
+          return dist.CommerceEventDataCustomEventTypeEnum.checkoutOption;
+
+        case Types.CommerceEventType.ProductClick:
+          return dist.CommerceEventDataCustomEventTypeEnum.click;
+
+        case Types.CommerceEventType.ProductImpression:
+          return dist.CommerceEventDataCustomEventTypeEnum.impression;
+
+        case Types.CommerceEventType.ProductPurchase:
+          return dist.CommerceEventDataCustomEventTypeEnum.purchase;
+
+        case Types.CommerceEventType.ProductRefund:
+          return dist.CommerceEventDataCustomEventTypeEnum.refund;
+
+        case Types.CommerceEventType.ProductRemoveFromCart:
+          return dist.CommerceEventDataCustomEventTypeEnum.removeFromCart;
+
+        case Types.CommerceEventType.ProductRemoveFromWishlist:
+          return dist.CommerceEventDataCustomEventTypeEnum.removeFromWishlist;
+
+        case Types.CommerceEventType.ProductViewDetail:
+          return dist.CommerceEventDataCustomEventTypeEnum.viewDetail;
+
+        case Types.CommerceEventType.PromotionClick:
+          return dist.CommerceEventDataCustomEventTypeEnum.promotionClick;
+
+        case Types.CommerceEventType.PromotionView:
+          return dist.CommerceEventDataCustomEventTypeEnum.promotionView;
+
+        default:
+          return dist.CustomEventDataCustomEventTypeEnum.unknown;
+      }
     }
     function convertBaseEventData(sdkEvent) {
-        var commonEventData = {
-            timestamp_unixtime_ms: sdkEvent.Timestamp,
-            session_uuid: sdkEvent.SessionId,
-            session_start_unixtime_ms: sdkEvent.SessionStartDate,
-            custom_attributes: sdkEvent.EventAttributes,
-            location: convertSDKLocation(sdkEvent.Location),
-            source_message_id: sdkEvent.SourceMessageId
-        };
-        return commonEventData;
+      var commonEventData = {
+        timestamp_unixtime_ms: sdkEvent.Timestamp,
+        session_uuid: sdkEvent.SessionId,
+        session_start_unixtime_ms: sdkEvent.SessionStartDate,
+        custom_attributes: sdkEvent.EventAttributes,
+        location: convertSDKLocation(sdkEvent.Location),
+        source_message_id: sdkEvent.SourceMessageId
+      };
+      return commonEventData;
     }
     function convertSDKLocation(sdkEventLocation) {
-        if (sdkEventLocation && Object.keys(sdkEventLocation).length) {
-            return {
-                latitude: sdkEventLocation.lat,
-                longitude: sdkEventLocation.lng
-            };
-        }
-        return null;
+      if (sdkEventLocation && Object.keys(sdkEventLocation).length) {
+        return {
+          latitude: sdkEventLocation.lat,
+          longitude: sdkEventLocation.lng
+        };
+      }
+
+      return null;
     }
     function convertUserAttributeChangeEvent(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var userAttributeChangeEvent = {
-            user_attribute_name: sdkEvent.UserAttributeChanges.UserAttributeName,
-            "new": sdkEvent.UserAttributeChanges.New,
-            old: sdkEvent.UserAttributeChanges.Old,
-            deleted: sdkEvent.UserAttributeChanges.Deleted,
-            is_new_attribute: sdkEvent.UserAttributeChanges.IsNewAttribute
-        };
-        userAttributeChangeEvent = _objectSpread(_objectSpread({}, userAttributeChangeEvent), commonEventData);
-        return {
-            event_type: dist_14.userAttributeChange,
-            data: userAttributeChangeEvent
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var userAttributeChangeEvent = {
+        user_attribute_name: sdkEvent.UserAttributeChanges.UserAttributeName,
+        "new": sdkEvent.UserAttributeChanges.New,
+        old: sdkEvent.UserAttributeChanges.Old,
+        deleted: sdkEvent.UserAttributeChanges.Deleted,
+        is_new_attribute: sdkEvent.UserAttributeChanges.IsNewAttribute
+      };
+      userAttributeChangeEvent = __assign(__assign({}, userAttributeChangeEvent), commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.userAttributeChange,
+        data: userAttributeChangeEvent
+      };
     }
     function convertUserIdentityChangeEvent(sdkEvent) {
-        var commonEventData = convertBaseEventData(sdkEvent);
-        var userIdentityChangeEvent = {
-            "new": {
-                identity_type: convertUserIdentityTypeToServerIdentityType(sdkEvent.UserIdentityChanges.New.IdentityType),
-                identity: sdkEvent.UserIdentityChanges.New.Identity || null,
-                timestamp_unixtime_ms: sdkEvent.Timestamp,
-                created_this_batch: sdkEvent.UserIdentityChanges.New.CreatedThisBatch
-            },
-            old: {
-                identity_type: convertUserIdentityTypeToServerIdentityType(sdkEvent.UserIdentityChanges.Old.IdentityType),
-                identity: sdkEvent.UserIdentityChanges.Old.Identity || null,
-                timestamp_unixtime_ms: sdkEvent.Timestamp,
-                created_this_batch: sdkEvent.UserIdentityChanges.Old.CreatedThisBatch
-            }
-        };
-        userIdentityChangeEvent = Object.assign(userIdentityChangeEvent, commonEventData);
-        return {
-            event_type: dist_14.userIdentityChange,
-            data: userIdentityChangeEvent
-        };
+      var commonEventData = convertBaseEventData(sdkEvent);
+      var userIdentityChangeEvent = {
+        "new": {
+          identity_type: convertUserIdentityTypeToServerIdentityType(sdkEvent.UserIdentityChanges.New.IdentityType),
+          identity: sdkEvent.UserIdentityChanges.New.Identity || null,
+          timestamp_unixtime_ms: sdkEvent.Timestamp,
+          created_this_batch: sdkEvent.UserIdentityChanges.New.CreatedThisBatch
+        },
+        old: {
+          identity_type: convertUserIdentityTypeToServerIdentityType(sdkEvent.UserIdentityChanges.Old.IdentityType),
+          identity: sdkEvent.UserIdentityChanges.Old.Identity || null,
+          timestamp_unixtime_ms: sdkEvent.Timestamp,
+          created_this_batch: sdkEvent.UserIdentityChanges.Old.CreatedThisBatch
+        }
+      };
+      userIdentityChangeEvent = Object.assign(userIdentityChangeEvent, commonEventData);
+      return {
+        event_type: dist.EventTypeEnum.userIdentityChange,
+        data: userIdentityChangeEvent
+      };
     }
     function convertUserIdentityTypeToServerIdentityType(identityType) {
-        switch (identityType) {
-            case SDKIdentityTypeEnum.other:
-                return dist_15.other;
-            case SDKIdentityTypeEnum.customerId:
-                return dist_15.customerId;
-            case SDKIdentityTypeEnum.facebook:
-                return dist_15.facebook;
-            case SDKIdentityTypeEnum.twitter:
-                return dist_15.twitter;
-            case SDKIdentityTypeEnum.google:
-                return dist_15.google;
-            case SDKIdentityTypeEnum.microsoft:
-                return dist_15.microsoft;
-            case SDKIdentityTypeEnum.yahoo:
-                return dist_15.yahoo;
-            case SDKIdentityTypeEnum.email:
-                return dist_15.email;
-            case SDKIdentityTypeEnum.alias:
-                return dist_15.alias;
-            case SDKIdentityTypeEnum.facebookCustomAudienceId:
-                return dist_15.facebookCustomAudienceId;
-            case SDKIdentityTypeEnum.otherId2:
-                return dist_15.otherId2;
-            case SDKIdentityTypeEnum.otherId3:
-                return dist_15.otherId3;
-            case SDKIdentityTypeEnum.otherId4:
-                return dist_15.otherId4;
-            case SDKIdentityTypeEnum.otherId5:
-                return dist_15.otherId5;
-            case SDKIdentityTypeEnum.otherId6:
-                return dist_15.otherId6;
-            case SDKIdentityTypeEnum.otherId7:
-                return dist_15.otherId7;
-            case SDKIdentityTypeEnum.otherId8:
-                return dist_15.otherId8;
-            case SDKIdentityTypeEnum.otherId9:
-                return dist_15.otherId9;
-            case SDKIdentityTypeEnum.otherId10:
-                return dist_15.otherId10;
-            case SDKIdentityTypeEnum.mobileNumber:
-                return dist_15.mobileNumber;
-            case SDKIdentityTypeEnum.phoneNumber2:
-                return dist_15.phoneNumber2;
-            case SDKIdentityTypeEnum.phoneNumber3:
-                return dist_15.phoneNumber3;
-        }
+      switch (identityType) {
+        case SDKIdentityTypeEnum.other:
+          return dist.IdentityTypeEnum.other;
+
+        case SDKIdentityTypeEnum.customerId:
+          return dist.IdentityTypeEnum.customerId;
+
+        case SDKIdentityTypeEnum.facebook:
+          return dist.IdentityTypeEnum.facebook;
+
+        case SDKIdentityTypeEnum.twitter:
+          return dist.IdentityTypeEnum.twitter;
+
+        case SDKIdentityTypeEnum.google:
+          return dist.IdentityTypeEnum.google;
+
+        case SDKIdentityTypeEnum.microsoft:
+          return dist.IdentityTypeEnum.microsoft;
+
+        case SDKIdentityTypeEnum.yahoo:
+          return dist.IdentityTypeEnum.yahoo;
+
+        case SDKIdentityTypeEnum.email:
+          return dist.IdentityTypeEnum.email;
+
+        case SDKIdentityTypeEnum.alias:
+          return dist.IdentityTypeEnum.alias;
+
+        case SDKIdentityTypeEnum.facebookCustomAudienceId:
+          return dist.IdentityTypeEnum.facebookCustomAudienceId;
+
+        case SDKIdentityTypeEnum.otherId2:
+          return dist.IdentityTypeEnum.otherId2;
+
+        case SDKIdentityTypeEnum.otherId3:
+          return dist.IdentityTypeEnum.otherId3;
+
+        case SDKIdentityTypeEnum.otherId4:
+          return dist.IdentityTypeEnum.otherId4;
+
+        case SDKIdentityTypeEnum.otherId5:
+          return dist.IdentityTypeEnum.otherId5;
+
+        case SDKIdentityTypeEnum.otherId6:
+          return dist.IdentityTypeEnum.otherId6;
+
+        case SDKIdentityTypeEnum.otherId7:
+          return dist.IdentityTypeEnum.otherId7;
+
+        case SDKIdentityTypeEnum.otherId8:
+          return dist.IdentityTypeEnum.otherId8;
+
+        case SDKIdentityTypeEnum.otherId9:
+          return dist.IdentityTypeEnum.otherId9;
+
+        case SDKIdentityTypeEnum.otherId10:
+          return dist.IdentityTypeEnum.otherId10;
+
+        case SDKIdentityTypeEnum.mobileNumber:
+          return dist.IdentityTypeEnum.mobileNumber;
+
+        case SDKIdentityTypeEnum.phoneNumber2:
+          return dist.IdentityTypeEnum.phoneNumber2;
+
+        case SDKIdentityTypeEnum.phoneNumber3:
+          return dist.IdentityTypeEnum.phoneNumber3;
+      }
     }
 
-    function _createSuper(Derived) { var hasNativeReflectConstruct = _isNativeReflectConstruct(); return function _createSuperInternal() { var Super = getPrototypeOf(Derived), result; if (hasNativeReflectConstruct) {
-        var NewTarget = getPrototypeOf(this).constructor;
-        result = Reflect.construct(Super, arguments, NewTarget);
-    }
-    else {
-        result = Super.apply(this, arguments);
-    } return possibleConstructorReturn(this, result); }; }
-    function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Reflect.construct)
-        return false; if (Reflect.construct.sham)
-        return false; if (typeof Proxy === "function")
-        return true; try {
-        Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () { }));
-        return true;
-    }
-    catch (e) {
+    var BatchUploader =
+    /** @class */
+    function () {
+      function BatchUploader(mpInstance, uploadInterval) {
+        var _this_1 = this;
+
+        this.mpInstance = mpInstance;
+        this.uploadIntervalMillis = uploadInterval;
+        this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
+
+        if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
+          this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
+        }
+
+        this.pendingEvents = [];
+        this.pendingUploads = [];
+        var _a = this.mpInstance._Store,
+            SDKConfig = _a.SDKConfig,
+            devToken = _a.devToken;
+
+        var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
+
+        this.uploadUrl = "".concat(baseUrl, "/events");
+        setTimeout(function () {
+          _this_1.prepareAndUpload(true, false);
+        }, this.uploadIntervalMillis);
+        this.addEventListeners();
+      }
+
+      BatchUploader.prototype.addEventListeners = function () {
+        var _this = this;
+
+        document.addEventListener('visibilitychange', function () {
+          _this.prepareAndUpload(false, _this.isBeaconAvailable());
+        });
+        window.addEventListener('beforeunload', function () {
+          _this.prepareAndUpload(false, _this.isBeaconAvailable());
+        });
+        window.addEventListener('pagehide', function () {
+          _this.prepareAndUpload(false, _this.isBeaconAvailable());
+        });
+      };
+
+      BatchUploader.prototype.isBeaconAvailable = function () {
+        if (navigator.sendBeacon) {
+          return true;
+        }
+
         return false;
-    } }
-    function _createForOfIteratorHelper$1(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) {
-        if (Array.isArray(o) || (it = _unsupportedIterableToArray$2(o)) || allowArrayLike && o && typeof o.length === "number") {
-            if (it)
-                o = it;
-            var i = 0;
-            var F = function F() { };
-            return { s: F, n: function n() { if (i >= o.length)
-                    return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F };
+      };
+
+      BatchUploader.prototype.queueEvent = function (event) {
+        if (event) {
+          this.pendingEvents.push(event);
+          this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
+          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.pendingEvents.length));
+
+          if (!this.batchingEnabled || Types.TriggerUploadType[event.EventDataType]) {
+            this.prepareAndUpload(false, false);
+          }
         }
-        throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-    } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try {
-            if (!normalCompletion && it["return"] != null)
-                it["return"]();
+      };
+      /**
+       * This implements crucial logic to:
+       * - bucket pending events by MPID, and then by Session, and upload individual batches for each bucket.
+       *
+       * In the future this should enforce other requirements such as maximum batch size.
+       *
+       * @param sdkEvents current pending events
+       * @param defaultUser the user to reference for events that are missing data
+       */
+
+
+      BatchUploader.createNewUploads = function (sdkEvents, defaultUser, mpInstance) {
+        if (!defaultUser || !sdkEvents || !sdkEvents.length) {
+          return null;
+        } //bucket by MPID, and then by session, ordered by timestamp
+
+
+        var newUploads = [];
+        var eventsByUser = new Map();
+
+        for (var _i = 0, sdkEvents_1 = sdkEvents; _i < sdkEvents_1.length; _i++) {
+          var sdkEvent = sdkEvents_1[_i]; //on initial startup, there may be events logged without an mpid.
+
+          if (!sdkEvent.MPID) {
+            var mpid = defaultUser.getMPID();
+            sdkEvent.MPID = mpid;
+          }
+
+          var events = eventsByUser.get(sdkEvent.MPID);
+
+          if (!events) {
+            events = [];
+          }
+
+          events.push(sdkEvent);
+          eventsByUser.set(sdkEvent.MPID, events);
         }
-        finally {
-            if (didErr)
-                throw err;
-        } } }; }
-    function _unsupportedIterableToArray$2(o, minLen) { if (!o)
-        return; if (typeof o === "string")
-        return _arrayLikeToArray$2(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor)
-        n = o.constructor.name; if (n === "Map" || n === "Set")
-        return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n))
-        return _arrayLikeToArray$2(o, minLen); }
-    function _arrayLikeToArray$2(arr, len) { if (len == null || len > arr.length)
-        len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) {
-        arr2[i] = arr[i];
-    } return arr2; }
-    var BatchUploader = /*#__PURE__*/ function () {
-        //we upload JSON, but this content type is required to avoid a CORS preflight request
-        function BatchUploader(mpInstance, uploadInterval) {
-            var _this2 = this;
-            classCallCheck(this, BatchUploader);
-            this.mpInstance = mpInstance;
-            this.uploadIntervalMillis = uploadInterval;
-            this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
-            if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
-                this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
+
+        for (var _a = 0, _b = Array.from(eventsByUser.entries()); _a < _b.length; _a++) {
+          var entry = _b[_a];
+          var mpid = entry[0];
+          var userEvents = entry[1];
+          var eventsBySession = new Map();
+
+          for (var _c = 0, userEvents_1 = userEvents; _c < userEvents_1.length; _c++) {
+            var sdkEvent = userEvents_1[_c];
+            var events = eventsBySession.get(sdkEvent.SessionId);
+
+            if (!events) {
+              events = [];
             }
-            this.pendingEvents = [];
-            this.pendingUploads = [];
-            var _this$mpInstance$_Sto = this.mpInstance._Store, SDKConfig = _this$mpInstance$_Sto.SDKConfig, devToken = _this$mpInstance$_Sto.devToken;
-            var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
-            this.uploadUrl = "".concat(baseUrl, "/events");
-            setTimeout(function () {
-                _this2.prepareAndUpload(true, false);
-            }, this.uploadIntervalMillis);
-            this.addEventListeners();
+
+            events.push(sdkEvent);
+            eventsBySession.set(sdkEvent.SessionId, events);
+          }
+
+          for (var _d = 0, _e = Array.from(eventsBySession.entries()); _d < _e.length; _d++) {
+            var entry_1 = _e[_d];
+            var uploadBatchObject = convertEvents(mpid, entry_1[1], mpInstance);
+            var onCreateBatchCallback = mpInstance._Store.SDKConfig.onCreateBatch;
+
+            if (onCreateBatchCallback) {
+              uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
+              uploadBatchObject.modified = true;
+            }
+
+            if (uploadBatchObject) {
+              newUploads.push(uploadBatchObject);
+            }
+          }
         }
-        createClass(BatchUploader, [{
-                key: "addEventListeners",
-                value: function addEventListeners() {
-                    var _this = this;
-                    document.addEventListener('visibilitychange', function () {
-                        _this.prepareAndUpload(false, _this.isBeaconAvailable());
-                    });
-                    window.addEventListener('beforeunload', function () {
-                        _this.prepareAndUpload(false, _this.isBeaconAvailable());
-                    });
-                    window.addEventListener('pagehide', function () {
-                        _this.prepareAndUpload(false, _this.isBeaconAvailable());
-                    });
+
+        return newUploads;
+      };
+      /**
+       * This is the main loop function:
+       *  - take all pending events and turn them into batches
+       *  - attempt to upload each batch
+       *
+       * @param triggerFuture whether to trigger the loop again - for manual/forced uploads this should be false
+       * @param useBeacon whether to use the beacon API - used when the page is being unloaded
+       */
+
+
+      BatchUploader.prototype.prepareAndUpload = function (triggerFuture, useBeacon) {
+        return __awaiter(this, void 0, void 0, function () {
+          var currentUser, currentEvents, newUploads, currentUploads, remainingUploads;
+
+          var _a, _b;
+
+          var _this_1 = this;
+
+          return __generator(this, function (_c) {
+            switch (_c.label) {
+              case 0:
+                currentUser = this.mpInstance.Identity.getCurrentUser();
+                currentEvents = this.pendingEvents;
+                this.pendingEvents = [];
+                newUploads = BatchUploader.createNewUploads(currentEvents, currentUser, this.mpInstance);
+
+                if (newUploads && newUploads.length) {
+                  (_a = this.pendingUploads).push.apply(_a, newUploads);
                 }
-            }, {
-                key: "isBeaconAvailable",
-                value: function isBeaconAvailable() {
-                    if (navigator.sendBeacon) {
-                        return true;
-                    }
-                    return false;
+
+                currentUploads = this.pendingUploads;
+                this.pendingUploads = [];
+                return [4
+                /*yield*/
+                , this.upload(this.mpInstance.Logger, currentUploads, useBeacon)];
+
+              case 1:
+                remainingUploads = _c.sent();
+
+                if (remainingUploads && remainingUploads.length) {
+                  (_b = this.pendingUploads).unshift.apply(_b, remainingUploads);
                 }
-            }, {
-                key: "queueEvent",
-                value: function queueEvent(event) {
-                    if (event) {
-                        this.pendingEvents.push(event);
-                        this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
-                        this.mpInstance.Logger.verbose("Queued event count: ".concat(this.pendingEvents.length));
-                        if (!this.batchingEnabled || Types.TriggerUploadType[event.EventDataType]) {
-                            this.prepareAndUpload(false, false);
-                        }
-                    }
+
+                if (triggerFuture) {
+                  setTimeout(function () {
+                    _this_1.prepareAndUpload(true, false);
+                  }, this.uploadIntervalMillis);
                 }
-                /**
-                 * This implements crucial logic to:
-                 * - bucket pending events by MPID, and then by Session, and upload individual batches for each bucket.
-                 *
-                 * In the future this should enforce other requirements such as maximum batch size.
-                 *
-                 * @param sdkEvents current pending events
-                 * @param defaultUser the user to reference for events that are missing data
-                 */
-            }, {
-                key: "prepareAndUpload",
-                value: 
-                /**
-                 * This is the main loop function:
-                 *  - take all pending events and turn them into batches
-                 *  - attempt to upload each batch
-                 *
-                 * @param triggerFuture whether to trigger the loop again - for manual/forced uploads this should be false
-                 * @param useBeacon whether to use the beacon API - used when the page is being unloaded
-                 */
-                function () {
-                    var _prepareAndUpload = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee(triggerFuture, useBeacon) {
-                        var _this3 = this;
-                        var currentUser, currentEvents, newUploads, _this$pendingUploads, currentUploads, remainingUploads, _this$pendingUploads2;
-                        return regenerator.wrap(function _callee$(_context) {
-                            while (1) {
-                                switch (_context.prev = _context.next) {
-                                    case 0:
-                                        currentUser = this.mpInstance.Identity.getCurrentUser();
-                                        currentEvents = this.pendingEvents;
-                                        this.pendingEvents = [];
-                                        newUploads = BatchUploader.createNewUploads(currentEvents, currentUser, this.mpInstance);
-                                        if (newUploads && newUploads.length) {
-                                            (_this$pendingUploads = this.pendingUploads).push.apply(_this$pendingUploads, toConsumableArray(newUploads));
-                                        }
-                                        currentUploads = this.pendingUploads;
-                                        this.pendingUploads = [];
-                                        _context.next = 9;
-                                        return this.upload(this.mpInstance.Logger, currentUploads, useBeacon);
-                                    case 9:
-                                        remainingUploads = _context.sent;
-                                        if (remainingUploads && remainingUploads.length) {
-                                            (_this$pendingUploads2 = this.pendingUploads).unshift.apply(_this$pendingUploads2, toConsumableArray(remainingUploads));
-                                        }
-                                        if (triggerFuture) {
-                                            setTimeout(function () {
-                                                _this3.prepareAndUpload(true, false);
-                                            }, this.uploadIntervalMillis);
-                                        }
-                                    case 12:
-                                    case "end":
-                                        return _context.stop();
-                                }
-                            }
-                        }, _callee, this);
-                    }));
-                    function prepareAndUpload(_x, _x2) {
-                        return _prepareAndUpload.apply(this, arguments);
-                    }
-                    return prepareAndUpload;
-                }()
-            }, {
-                key: "upload",
-                value: function () {
-                    var _upload = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee2(logger, uploads, useBeacon) {
-                        var uploader, i, _fetchPayload, blob, response;
-                        return regenerator.wrap(function _callee2$(_context2) {
-                            while (1) {
-                                switch (_context2.prev = _context2.next) {
-                                    case 0:
-                                        if (!(!uploads || uploads.length < 1)) {
-                                            _context2.next = 2;
-                                            break;
-                                        }
-                                        return _context2.abrupt("return", null);
-                                    case 2:
-                                        logger.verbose("Uploading batches: ".concat(JSON.stringify(uploads)));
-                                        logger.verbose("Batch count: ".concat(uploads.length));
-                                        i = 0;
-                                    case 5:
-                                        if (!(i < uploads.length)) {
-                                            _context2.next = 38;
-                                            break;
-                                        }
-                                        _fetchPayload = {
-                                            method: 'POST',
-                                            headers: {
-                                                Accept: BatchUploader.CONTENT_TYPE,
-                                                'Content-Type': 'text/plain;charset=UTF-8'
-                                            },
-                                            body: JSON.stringify(uploads[i])
-                                        }; // beacon is only used on onbeforeunload onpagehide events
-                                        if (!(useBeacon && this.isBeaconAvailable())) {
-                                            _context2.next = 12;
-                                            break;
-                                        }
-                                        blob = new Blob([_fetchPayload.body], {
-                                            type: 'text/plain;charset=UTF-8'
-                                        });
-                                        navigator.sendBeacon(this.uploadUrl, blob);
-                                        _context2.next = 35;
-                                        break;
-                                    case 12:
-                                        if (!uploader) {
-                                            if (window.fetch) {
-                                                uploader = new FetchUploader(this.uploadUrl, logger);
-                                            }
-                                            else {
-                                                uploader = new XHRUploader(this.uploadUrl, logger);
-                                            }
-                                        }
-                                        _context2.prev = 13;
-                                        _context2.next = 16;
-                                        return uploader.upload(_fetchPayload, uploads, i);
-                                    case 16:
-                                        response = _context2.sent;
-                                        if (!(response.status >= 200 && response.status < 300)) {
-                                            _context2.next = 21;
-                                            break;
-                                        }
-                                        logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
-                                        _context2.next = 29;
-                                        break;
-                                    case 21:
-                                        if (!(response.status >= 500 || response.status === 429)) {
-                                            _context2.next = 26;
-                                            break;
-                                        }
-                                        logger.error("HTTP error status ".concat(response.status, " received")); //server error, add back current events and try again later
-                                        return _context2.abrupt("return", uploads.slice(i, uploads.length));
-                                    case 26:
-                                        if (!(response.status >= 401)) {
-                                            _context2.next = 29;
-                                            break;
-                                        }
-                                        logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key.")); //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
-                                        return _context2.abrupt("return", null);
-                                    case 29:
-                                        _context2.next = 35;
-                                        break;
-                                    case 31:
-                                        _context2.prev = 31;
-                                        _context2.t0 = _context2["catch"](13);
-                                        logger.error("Error sending event to mParticle servers. ".concat(_context2.t0));
-                                        return _context2.abrupt("return", uploads.slice(i, uploads.length));
-                                    case 35:
-                                        i++;
-                                        _context2.next = 5;
-                                        break;
-                                    case 38:
-                                        return _context2.abrupt("return", null);
-                                    case 39:
-                                    case "end":
-                                        return _context2.stop();
-                                }
-                            }
-                        }, _callee2, this, [[13, 31]]);
-                    }));
-                    function upload(_x3, _x4, _x5) {
-                        return _upload.apply(this, arguments);
-                    }
-                    return upload;
-                }()
-            }], [{
-                key: "createNewUploads",
-                value: function createNewUploads(sdkEvents, defaultUser, mpInstance) {
-                    if (!defaultUser || !sdkEvents || !sdkEvents.length) {
-                        return null;
-                    } //bucket by MPID, and then by session, ordered by timestamp
-                    var newUploads = [];
-                    var eventsByUser = new Map();
-                    var _iterator = _createForOfIteratorHelper$1(sdkEvents), _step;
-                    try {
-                        for (_iterator.s(); !(_step = _iterator.n()).done;) {
-                            var _sdkEvent = _step.value;
-                            //on initial startup, there may be events logged without an mpid.
-                            if (!_sdkEvent.MPID) {
-                                var _mpid = defaultUser.getMPID();
-                                _sdkEvent.MPID = _mpid;
-                            }
-                            var _events = eventsByUser.get(_sdkEvent.MPID);
-                            if (!_events) {
-                                _events = [];
-                            }
-                            _events.push(_sdkEvent);
-                            eventsByUser.set(_sdkEvent.MPID, _events);
-                        }
-                    }
-                    catch (err) {
-                        _iterator.e(err);
-                    }
-                    finally {
-                        _iterator.f();
-                    }
-                    for (var _i = 0, _Array$from = Array.from(eventsByUser.entries()); _i < _Array$from.length; _i++) {
-                        var entry = _Array$from[_i];
-                        var mpid = entry[0];
-                        var userEvents = entry[1];
-                        var eventsBySession = new Map();
-                        var _iterator2 = _createForOfIteratorHelper$1(userEvents), _step2;
-                        try {
-                            for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
-                                var sdkEvent = _step2.value;
-                                var events = eventsBySession.get(sdkEvent.SessionId);
-                                if (!events) {
-                                    events = [];
-                                }
-                                events.push(sdkEvent);
-                                eventsBySession.set(sdkEvent.SessionId, events);
-                            }
-                        }
-                        catch (err) {
-                            _iterator2.e(err);
-                        }
-                        finally {
-                            _iterator2.f();
-                        }
-                        for (var _i2 = 0, _Array$from2 = Array.from(eventsBySession.entries()); _i2 < _Array$from2.length; _i2++) {
-                            var _entry = _Array$from2[_i2];
-                            var uploadBatchObject = convertEvents(mpid, _entry[1], mpInstance);
-                            var onCreateBatchCallback = mpInstance._Store.SDKConfig.onCreateBatch;
-                            if (onCreateBatchCallback) {
-                                uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
-                                uploadBatchObject.mutated = true;
-                            }
-                            if (uploadBatchObject) {
-                                newUploads.push(uploadBatchObject);
-                            }
-                        }
-                    }
-                    return newUploads;
+
+                return [2
+                /*return*/
+                ];
+            }
+          });
+        });
+      };
+
+      BatchUploader.prototype.upload = function (logger, uploads, useBeacon) {
+        return __awaiter(this, void 0, void 0, function () {
+          var uploader, i, fetchPayload, blob, response, e_1;
+          return __generator(this, function (_a) {
+            switch (_a.label) {
+              case 0:
+                if (!uploads || uploads.length < 1) {
+                  return [2
+                  /*return*/
+                  , null];
                 }
-            }]);
-        return BatchUploader;
+
+                logger.verbose("Uploading batches: ".concat(JSON.stringify(uploads)));
+                logger.verbose("Batch count: ".concat(uploads.length));
+                i = 0;
+                _a.label = 1;
+
+              case 1:
+                if (!(i < uploads.length)) return [3
+                /*break*/
+                , 7];
+                fetchPayload = {
+                  method: 'POST',
+                  headers: {
+                    Accept: BatchUploader.CONTENT_TYPE,
+                    'Content-Type': 'text/plain;charset=UTF-8'
+                  },
+                  body: JSON.stringify(uploads[i])
+                };
+                if (!(useBeacon && this.isBeaconAvailable())) return [3
+                /*break*/
+                , 2];
+                blob = new Blob([fetchPayload.body], {
+                  type: 'text/plain;charset=UTF-8'
+                });
+                navigator.sendBeacon(this.uploadUrl, blob);
+                return [3
+                /*break*/
+                , 6];
+
+              case 2:
+                if (!uploader) {
+                  if (window.fetch) {
+                    uploader = new FetchUploader(this.uploadUrl, logger);
+                  } else {
+                    uploader = new XHRUploader(this.uploadUrl, logger);
+                  }
+                }
+
+                _a.label = 3;
+
+              case 3:
+                _a.trys.push([3, 5,, 6]);
+
+                return [4
+                /*yield*/
+                , uploader.upload(fetchPayload, uploads, i)];
+
+              case 4:
+                response = _a.sent();
+
+                if (response.status >= 200 && response.status < 300) {
+                  logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
+                } else if (response.status >= 500 || response.status === 429) {
+                  logger.error("HTTP error status ".concat(response.status, " received")); //server error, add back current events and try again later
+
+                  return [2
+                  /*return*/
+                  , uploads.slice(i, uploads.length)];
+                } else if (response.status >= 401) {
+                  logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key.")); //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
+
+                  return [2
+                  /*return*/
+                  , null];
+                }
+
+                return [3
+                /*break*/
+                , 6];
+
+              case 5:
+                e_1 = _a.sent();
+                logger.error("Error sending event to mParticle servers. ".concat(e_1));
+                return [2
+                /*return*/
+                , uploads.slice(i, uploads.length)];
+
+              case 6:
+                i++;
+                return [3
+                /*break*/
+                , 1];
+
+              case 7:
+                return [2
+                /*return*/
+                , null];
+            }
+          });
+        });
+      }; //we upload JSON, but this content type is required to avoid a CORS preflight request
+
+
+      BatchUploader.CONTENT_TYPE = 'text/plain;charset=UTF-8';
+      BatchUploader.MINIMUM_INTERVAL_MILLIS = 500;
+      return BatchUploader;
     }();
-    defineProperty(BatchUploader, "CONTENT_TYPE", 'text/plain;charset=UTF-8');
-    defineProperty(BatchUploader, "MINIMUM_INTERVAL_MILLIS", 500);
-    var AsyncUploader = function AsyncUploader(url, logger) {
-        classCallCheck(this, AsyncUploader);
+
+    var AsyncUploader =
+    /** @class */
+    function () {
+      function AsyncUploader(url, logger) {
         this.url = url;
         this.logger = logger;
-    };
-    var FetchUploader = /*#__PURE__*/ function (_AsyncUploader) {
-        inherits(FetchUploader, _AsyncUploader);
-        var _super = _createSuper(FetchUploader);
-        function FetchUploader() {
-            classCallCheck(this, FetchUploader);
-            return _super.apply(this, arguments);
-        }
-        createClass(FetchUploader, [{
-                key: "upload",
-                value: function () {
-                    var _upload2 = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee3(fetchPayload, uploads, i) {
-                        var response;
-                        return regenerator.wrap(function _callee3$(_context3) {
-                            while (1) {
-                                switch (_context3.prev = _context3.next) {
-                                    case 0:
-                                        _context3.next = 2;
-                                        return fetch(this.url, fetchPayload);
-                                    case 2:
-                                        response = _context3.sent;
-                                        return _context3.abrupt("return", response);
-                                    case 4:
-                                    case "end":
-                                        return _context3.stop();
-                                }
-                            }
-                        }, _callee3, this);
-                    }));
-                    function upload(_x6, _x7, _x8) {
-                        return _upload2.apply(this, arguments);
-                    }
-                    return upload;
-                }()
-            }]);
-        return FetchUploader;
-    }(AsyncUploader);
-    var XHRUploader = /*#__PURE__*/ function (_AsyncUploader2) {
-        inherits(XHRUploader, _AsyncUploader2);
-        var _super2 = _createSuper(XHRUploader);
-        function XHRUploader() {
-            classCallCheck(this, XHRUploader);
-            return _super2.apply(this, arguments);
-        }
-        createClass(XHRUploader, [{
-                key: "upload",
-                value: function () {
-                    var _upload3 = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee4(fetchPayload, uploads, i) {
-                        var response;
-                        return regenerator.wrap(function _callee4$(_context4) {
-                            while (1) {
-                                switch (_context4.prev = _context4.next) {
-                                    case 0:
-                                        _context4.next = 2;
-                                        return this.makeRequest(this.url, this.logger, fetchPayload.body);
-                                    case 2:
-                                        response = _context4.sent;
-                                        return _context4.abrupt("return", response);
-                                    case 4:
-                                    case "end":
-                                        return _context4.stop();
-                                }
-                            }
-                        }, _callee4, this);
-                    }));
-                    function upload(_x9, _x10, _x11) {
-                        return _upload3.apply(this, arguments);
-                    }
-                    return upload;
-                }()
-            }, {
-                key: "makeRequest",
-                value: function () {
-                    var _makeRequest = asyncToGenerator(/*#__PURE__*/ regenerator.mark(function _callee5(url, logger, data) {
-                        var xhr;
-                        return regenerator.wrap(function _callee5$(_context5) {
-                            while (1) {
-                                switch (_context5.prev = _context5.next) {
-                                    case 0:
-                                        xhr = new XMLHttpRequest();
-                                        return _context5.abrupt("return", new Promise(function (resolve, reject) {
-                                            xhr.onreadystatechange = function () {
-                                                if (xhr.readyState !== 4)
-                                                    return; // Process the response
-                                                // Process the response
-                                                if (xhr.status >= 200 && xhr.status < 300) {
-                                                    resolve(xhr);
-                                                }
-                                                else {
-                                                    reject(xhr);
-                                                }
-                                            };
-                                            xhr.open('post', url);
-                                            xhr.send(data);
-                                        }));
-                                    case 2:
-                                    case "end":
-                                        return _context5.stop();
-                                }
-                            }
-                        }, _callee5);
-                    }));
-                    function makeRequest(_x12, _x13, _x14) {
-                        return _makeRequest.apply(this, arguments);
-                    }
-                    return makeRequest;
-                }()
-            }]);
-        return XHRUploader;
+      }
+
+      return AsyncUploader;
+    }();
+
+    var FetchUploader =
+    /** @class */
+    function (_super) {
+      __extends(FetchUploader, _super);
+
+      function FetchUploader() {
+        return _super !== null && _super.apply(this, arguments) || this;
+      }
+
+      FetchUploader.prototype.upload = function (fetchPayload, uploads, i) {
+        return __awaiter(this, void 0, void 0, function () {
+          var response;
+          return __generator(this, function (_a) {
+            switch (_a.label) {
+              case 0:
+                return [4
+                /*yield*/
+                , fetch(this.url, fetchPayload)];
+
+              case 1:
+                response = _a.sent();
+                return [2
+                /*return*/
+                , response];
+            }
+          });
+        });
+      };
+
+      return FetchUploader;
     }(AsyncUploader);
 
-    var Messages = Constants.Messages;
+    var XHRUploader =
+    /** @class */
+    function (_super) {
+      __extends(XHRUploader, _super);
+
+      function XHRUploader() {
+        return _super !== null && _super.apply(this, arguments) || this;
+      }
+
+      XHRUploader.prototype.upload = function (fetchPayload, uploads, i) {
+        return __awaiter(this, void 0, void 0, function () {
+          var response;
+          return __generator(this, function (_a) {
+            switch (_a.label) {
+              case 0:
+                return [4
+                /*yield*/
+                , this.makeRequest(this.url, this.logger, fetchPayload.body)];
+
+              case 1:
+                response = _a.sent();
+                return [2
+                /*return*/
+                , response];
+            }
+          });
+        });
+      };
+
+      XHRUploader.prototype.makeRequest = function (url, logger, data) {
+        return __awaiter(this, void 0, void 0, function () {
+          var xhr;
+          return __generator(this, function (_a) {
+            xhr = new XMLHttpRequest();
+            return [2
+            /*return*/
+            , new Promise(function (resolve, reject) {
+              xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) return; // Process the response
+
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  resolve(xhr);
+                } else {
+                  reject(xhr);
+                }
+              };
+
+              xhr.open('post', url);
+              xhr.send(data);
+            })];
+          });
+        });
+      };
+
+      return XHRUploader;
+    }(AsyncUploader);
+
+    var Messages$9 = Constants.Messages;
     function APIClient(mpInstance, kitBlocker) {
       this.uploader = null;
       var self = this;
@@ -3491,11 +2456,11 @@ var mParticle = (function () {
         };
 
         if (!event) {
-          mpInstance.Logger.error(Messages.ErrorMessages.EventEmpty);
+          mpInstance.Logger.error(Messages$9.ErrorMessages.EventEmpty);
           return;
         }
 
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendHttp);
+        mpInstance.Logger.verbose(Messages$9.InformationMessages.SendHttp);
         xhr = mpInstance._Helpers.createXHR(xhrCallback);
 
         if (xhr) {
@@ -3583,223 +2548,239 @@ var mParticle = (function () {
       };
     }
 
-    var slugify = createCommonjsModule(function (module, exports) {
+    var slugify = {exports: {}};
+
+    (function (module, exports) {
     (function (name, root, factory) {
-      {
-        module.exports = factory();
-        module.exports['default'] = factory();
-      }
-    }('slugify', commonjsGlobal, function () {
-      var charMap = JSON.parse('{"$":"dollar","%":"percent","&":"and","<":"less",">":"greater","|":"or","¢":"cent","£":"pound","¤":"currency","¥":"yen","©":"(c)","ª":"a","®":"(r)","º":"o","À":"A","Á":"A","Â":"A","Ã":"A","Ä":"A","Å":"A","Æ":"AE","Ç":"C","È":"E","É":"E","Ê":"E","Ë":"E","Ì":"I","Í":"I","Î":"I","Ï":"I","Ð":"D","Ñ":"N","Ò":"O","Ó":"O","Ô":"O","Õ":"O","Ö":"O","Ø":"O","Ù":"U","Ú":"U","Û":"U","Ü":"U","Ý":"Y","Þ":"TH","ß":"ss","à":"a","á":"a","â":"a","ã":"a","ä":"a","å":"a","æ":"ae","ç":"c","è":"e","é":"e","ê":"e","ë":"e","ì":"i","í":"i","î":"i","ï":"i","ð":"d","ñ":"n","ò":"o","ó":"o","ô":"o","õ":"o","ö":"o","ø":"o","ù":"u","ú":"u","û":"u","ü":"u","ý":"y","þ":"th","ÿ":"y","Ā":"A","ā":"a","Ă":"A","ă":"a","Ą":"A","ą":"a","Ć":"C","ć":"c","Č":"C","č":"c","Ď":"D","ď":"d","Đ":"DJ","đ":"dj","Ē":"E","ē":"e","Ė":"E","ė":"e","Ę":"e","ę":"e","Ě":"E","ě":"e","Ğ":"G","ğ":"g","Ģ":"G","ģ":"g","Ĩ":"I","ĩ":"i","Ī":"i","ī":"i","Į":"I","į":"i","İ":"I","ı":"i","Ķ":"k","ķ":"k","Ļ":"L","ļ":"l","Ľ":"L","ľ":"l","Ł":"L","ł":"l","Ń":"N","ń":"n","Ņ":"N","ņ":"n","Ň":"N","ň":"n","Ō":"O","ō":"o","Ő":"O","ő":"o","Œ":"OE","œ":"oe","Ŕ":"R","ŕ":"r","Ř":"R","ř":"r","Ś":"S","ś":"s","Ş":"S","ş":"s","Š":"S","š":"s","Ţ":"T","ţ":"t","Ť":"T","ť":"t","Ũ":"U","ũ":"u","Ū":"u","ū":"u","Ů":"U","ů":"u","Ű":"U","ű":"u","Ų":"U","ų":"u","Ŵ":"W","ŵ":"w","Ŷ":"Y","ŷ":"y","Ÿ":"Y","Ź":"Z","ź":"z","Ż":"Z","ż":"z","Ž":"Z","ž":"z","Ə":"E","ƒ":"f","Ơ":"O","ơ":"o","Ư":"U","ư":"u","ǈ":"LJ","ǉ":"lj","ǋ":"NJ","ǌ":"nj","Ș":"S","ș":"s","Ț":"T","ț":"t","ə":"e","˚":"o","Ά":"A","Έ":"E","Ή":"H","Ί":"I","Ό":"O","Ύ":"Y","Ώ":"W","ΐ":"i","Α":"A","Β":"B","Γ":"G","Δ":"D","Ε":"E","Ζ":"Z","Η":"H","Θ":"8","Ι":"I","Κ":"K","Λ":"L","Μ":"M","Ν":"N","Ξ":"3","Ο":"O","Π":"P","Ρ":"R","Σ":"S","Τ":"T","Υ":"Y","Φ":"F","Χ":"X","Ψ":"PS","Ω":"W","Ϊ":"I","Ϋ":"Y","ά":"a","έ":"e","ή":"h","ί":"i","ΰ":"y","α":"a","β":"b","γ":"g","δ":"d","ε":"e","ζ":"z","η":"h","θ":"8","ι":"i","κ":"k","λ":"l","μ":"m","ν":"n","ξ":"3","ο":"o","π":"p","ρ":"r","ς":"s","σ":"s","τ":"t","υ":"y","φ":"f","χ":"x","ψ":"ps","ω":"w","ϊ":"i","ϋ":"y","ό":"o","ύ":"y","ώ":"w","Ё":"Yo","Ђ":"DJ","Є":"Ye","І":"I","Ї":"Yi","Ј":"J","Љ":"LJ","Њ":"NJ","Ћ":"C","Џ":"DZ","А":"A","Б":"B","В":"V","Г":"G","Д":"D","Е":"E","Ж":"Zh","З":"Z","И":"I","Й":"J","К":"K","Л":"L","М":"M","Н":"N","О":"O","П":"P","Р":"R","С":"S","Т":"T","У":"U","Ф":"F","Х":"H","Ц":"C","Ч":"Ch","Ш":"Sh","Щ":"Sh","Ъ":"U","Ы":"Y","Ь":"","Э":"E","Ю":"Yu","Я":"Ya","а":"a","б":"b","в":"v","г":"g","д":"d","е":"e","ж":"zh","з":"z","и":"i","й":"j","к":"k","л":"l","м":"m","н":"n","о":"o","п":"p","р":"r","с":"s","т":"t","у":"u","ф":"f","х":"h","ц":"c","ч":"ch","ш":"sh","щ":"sh","ъ":"u","ы":"y","ь":"","э":"e","ю":"yu","я":"ya","ё":"yo","ђ":"dj","є":"ye","і":"i","ї":"yi","ј":"j","љ":"lj","њ":"nj","ћ":"c","ѝ":"u","џ":"dz","Ґ":"G","ґ":"g","Ғ":"GH","ғ":"gh","Қ":"KH","қ":"kh","Ң":"NG","ң":"ng","Ү":"UE","ү":"ue","Ұ":"U","ұ":"u","Һ":"H","һ":"h","Ә":"AE","ә":"ae","Ө":"OE","ө":"oe","Ա":"A","Բ":"B","Գ":"G","Դ":"D","Ե":"E","Զ":"Z","Է":"E\'","Ը":"Y\'","Թ":"T\'","Ժ":"JH","Ի":"I","Լ":"L","Խ":"X","Ծ":"C\'","Կ":"K","Հ":"H","Ձ":"D\'","Ղ":"GH","Ճ":"TW","Մ":"M","Յ":"Y","Ն":"N","Շ":"SH","Չ":"CH","Պ":"P","Ջ":"J","Ռ":"R\'","Ս":"S","Վ":"V","Տ":"T","Ր":"R","Ց":"C","Փ":"P\'","Ք":"Q\'","Օ":"O\'\'","Ֆ":"F","և":"EV","฿":"baht","ა":"a","ბ":"b","გ":"g","დ":"d","ე":"e","ვ":"v","ზ":"z","თ":"t","ი":"i","კ":"k","ლ":"l","მ":"m","ნ":"n","ო":"o","პ":"p","ჟ":"zh","რ":"r","ს":"s","ტ":"t","უ":"u","ფ":"f","ქ":"k","ღ":"gh","ყ":"q","შ":"sh","ჩ":"ch","ც":"ts","ძ":"dz","წ":"ts","ჭ":"ch","ხ":"kh","ჯ":"j","ჰ":"h","Ẁ":"W","ẁ":"w","Ẃ":"W","ẃ":"w","Ẅ":"W","ẅ":"w","ẞ":"SS","Ạ":"A","ạ":"a","Ả":"A","ả":"a","Ấ":"A","ấ":"a","Ầ":"A","ầ":"a","Ẩ":"A","ẩ":"a","Ẫ":"A","ẫ":"a","Ậ":"A","ậ":"a","Ắ":"A","ắ":"a","Ằ":"A","ằ":"a","Ẳ":"A","ẳ":"a","Ẵ":"A","ẵ":"a","Ặ":"A","ặ":"a","Ẹ":"E","ẹ":"e","Ẻ":"E","ẻ":"e","Ẽ":"E","ẽ":"e","Ế":"E","ế":"e","Ề":"E","ề":"e","Ể":"E","ể":"e","Ễ":"E","ễ":"e","Ệ":"E","ệ":"e","Ỉ":"I","ỉ":"i","Ị":"I","ị":"i","Ọ":"O","ọ":"o","Ỏ":"O","ỏ":"o","Ố":"O","ố":"o","Ồ":"O","ồ":"o","Ổ":"O","ổ":"o","Ỗ":"O","ỗ":"o","Ộ":"O","ộ":"o","Ớ":"O","ớ":"o","Ờ":"O","ờ":"o","Ở":"O","ở":"o","Ỡ":"O","ỡ":"o","Ợ":"O","ợ":"o","Ụ":"U","ụ":"u","Ủ":"U","ủ":"u","Ứ":"U","ứ":"u","Ừ":"U","ừ":"u","Ử":"U","ử":"u","Ữ":"U","ữ":"u","Ự":"U","ự":"u","Ỳ":"Y","ỳ":"y","Ỵ":"Y","ỵ":"y","Ỷ":"Y","ỷ":"y","Ỹ":"Y","ỹ":"y","–":"-","‘":"\'","’":"\'","“":"\\\"","”":"\\\"","„":"\\\"","†":"+","•":"*","…":"...","₠":"ecu","₢":"cruzeiro","₣":"french franc","₤":"lira","₥":"mill","₦":"naira","₧":"peseta","₨":"rupee","₩":"won","₪":"new shequel","₫":"dong","€":"euro","₭":"kip","₮":"tugrik","₯":"drachma","₰":"penny","₱":"peso","₲":"guarani","₳":"austral","₴":"hryvnia","₵":"cedi","₸":"kazakhstani tenge","₹":"indian rupee","₺":"turkish lira","₽":"russian ruble","₿":"bitcoin","℠":"sm","™":"tm","∂":"d","∆":"delta","∑":"sum","∞":"infinity","♥":"love","元":"yuan","円":"yen","﷼":"rial"}');
-      var locales = JSON.parse('{"de":{"Ä":"AE","ä":"ae","Ö":"OE","ö":"oe","Ü":"UE","ü":"ue","%":"prozent","&":"und","|":"oder","∑":"summe","∞":"unendlich","♥":"liebe"},"es":{"%":"por ciento","&":"y","<":"menor que",">":"mayor que","|":"o","¢":"centavos","£":"libras","¤":"moneda","₣":"francos","∑":"suma","∞":"infinito","♥":"amor"},"fr":{"%":"pourcent","&":"et","<":"plus petit",">":"plus grand","|":"ou","¢":"centime","£":"livre","¤":"devise","₣":"franc","∑":"somme","∞":"infini","♥":"amour"},"pt":{"%":"porcento","&":"e","<":"menor",">":"maior","|":"ou","¢":"centavo","∑":"soma","£":"libra","∞":"infinito","♥":"amor"},"uk":{"И":"Y","и":"y","Й":"Y","й":"y","Ц":"Ts","ц":"ts","Х":"Kh","х":"kh","Щ":"Shch","щ":"shch","Г":"H","г":"h"},"vi":{"Đ":"D","đ":"d"}}');
+    	  {
+    	    module.exports = factory();
+    	    module.exports['default'] = factory();
+    	  }
+    	}('slugify', commonjsGlobal, function () {
+    	  var charMap = JSON.parse('{"$":"dollar","%":"percent","&":"and","<":"less",">":"greater","|":"or","¢":"cent","£":"pound","¤":"currency","¥":"yen","©":"(c)","ª":"a","®":"(r)","º":"o","À":"A","Á":"A","Â":"A","Ã":"A","Ä":"A","Å":"A","Æ":"AE","Ç":"C","È":"E","É":"E","Ê":"E","Ë":"E","Ì":"I","Í":"I","Î":"I","Ï":"I","Ð":"D","Ñ":"N","Ò":"O","Ó":"O","Ô":"O","Õ":"O","Ö":"O","Ø":"O","Ù":"U","Ú":"U","Û":"U","Ü":"U","Ý":"Y","Þ":"TH","ß":"ss","à":"a","á":"a","â":"a","ã":"a","ä":"a","å":"a","æ":"ae","ç":"c","è":"e","é":"e","ê":"e","ë":"e","ì":"i","í":"i","î":"i","ï":"i","ð":"d","ñ":"n","ò":"o","ó":"o","ô":"o","õ":"o","ö":"o","ø":"o","ù":"u","ú":"u","û":"u","ü":"u","ý":"y","þ":"th","ÿ":"y","Ā":"A","ā":"a","Ă":"A","ă":"a","Ą":"A","ą":"a","Ć":"C","ć":"c","Č":"C","č":"c","Ď":"D","ď":"d","Đ":"DJ","đ":"dj","Ē":"E","ē":"e","Ė":"E","ė":"e","Ę":"e","ę":"e","Ě":"E","ě":"e","Ğ":"G","ğ":"g","Ģ":"G","ģ":"g","Ĩ":"I","ĩ":"i","Ī":"i","ī":"i","Į":"I","į":"i","İ":"I","ı":"i","Ķ":"k","ķ":"k","Ļ":"L","ļ":"l","Ľ":"L","ľ":"l","Ł":"L","ł":"l","Ń":"N","ń":"n","Ņ":"N","ņ":"n","Ň":"N","ň":"n","Ō":"O","ō":"o","Ő":"O","ő":"o","Œ":"OE","œ":"oe","Ŕ":"R","ŕ":"r","Ř":"R","ř":"r","Ś":"S","ś":"s","Ş":"S","ş":"s","Š":"S","š":"s","Ţ":"T","ţ":"t","Ť":"T","ť":"t","Ũ":"U","ũ":"u","Ū":"u","ū":"u","Ů":"U","ů":"u","Ű":"U","ű":"u","Ų":"U","ų":"u","Ŵ":"W","ŵ":"w","Ŷ":"Y","ŷ":"y","Ÿ":"Y","Ź":"Z","ź":"z","Ż":"Z","ż":"z","Ž":"Z","ž":"z","Ə":"E","ƒ":"f","Ơ":"O","ơ":"o","Ư":"U","ư":"u","ǈ":"LJ","ǉ":"lj","ǋ":"NJ","ǌ":"nj","Ș":"S","ș":"s","Ț":"T","ț":"t","ə":"e","˚":"o","Ά":"A","Έ":"E","Ή":"H","Ί":"I","Ό":"O","Ύ":"Y","Ώ":"W","ΐ":"i","Α":"A","Β":"B","Γ":"G","Δ":"D","Ε":"E","Ζ":"Z","Η":"H","Θ":"8","Ι":"I","Κ":"K","Λ":"L","Μ":"M","Ν":"N","Ξ":"3","Ο":"O","Π":"P","Ρ":"R","Σ":"S","Τ":"T","Υ":"Y","Φ":"F","Χ":"X","Ψ":"PS","Ω":"W","Ϊ":"I","Ϋ":"Y","ά":"a","έ":"e","ή":"h","ί":"i","ΰ":"y","α":"a","β":"b","γ":"g","δ":"d","ε":"e","ζ":"z","η":"h","θ":"8","ι":"i","κ":"k","λ":"l","μ":"m","ν":"n","ξ":"3","ο":"o","π":"p","ρ":"r","ς":"s","σ":"s","τ":"t","υ":"y","φ":"f","χ":"x","ψ":"ps","ω":"w","ϊ":"i","ϋ":"y","ό":"o","ύ":"y","ώ":"w","Ё":"Yo","Ђ":"DJ","Є":"Ye","І":"I","Ї":"Yi","Ј":"J","Љ":"LJ","Њ":"NJ","Ћ":"C","Џ":"DZ","А":"A","Б":"B","В":"V","Г":"G","Д":"D","Е":"E","Ж":"Zh","З":"Z","И":"I","Й":"J","К":"K","Л":"L","М":"M","Н":"N","О":"O","П":"P","Р":"R","С":"S","Т":"T","У":"U","Ф":"F","Х":"H","Ц":"C","Ч":"Ch","Ш":"Sh","Щ":"Sh","Ъ":"U","Ы":"Y","Ь":"","Э":"E","Ю":"Yu","Я":"Ya","а":"a","б":"b","в":"v","г":"g","д":"d","е":"e","ж":"zh","з":"z","и":"i","й":"j","к":"k","л":"l","м":"m","н":"n","о":"o","п":"p","р":"r","с":"s","т":"t","у":"u","ф":"f","х":"h","ц":"c","ч":"ch","ш":"sh","щ":"sh","ъ":"u","ы":"y","ь":"","э":"e","ю":"yu","я":"ya","ё":"yo","ђ":"dj","є":"ye","і":"i","ї":"yi","ј":"j","љ":"lj","њ":"nj","ћ":"c","ѝ":"u","џ":"dz","Ґ":"G","ґ":"g","Ғ":"GH","ғ":"gh","Қ":"KH","қ":"kh","Ң":"NG","ң":"ng","Ү":"UE","ү":"ue","Ұ":"U","ұ":"u","Һ":"H","һ":"h","Ә":"AE","ә":"ae","Ө":"OE","ө":"oe","Ա":"A","Բ":"B","Գ":"G","Դ":"D","Ե":"E","Զ":"Z","Է":"E\'","Ը":"Y\'","Թ":"T\'","Ժ":"JH","Ի":"I","Լ":"L","Խ":"X","Ծ":"C\'","Կ":"K","Հ":"H","Ձ":"D\'","Ղ":"GH","Ճ":"TW","Մ":"M","Յ":"Y","Ն":"N","Շ":"SH","Չ":"CH","Պ":"P","Ջ":"J","Ռ":"R\'","Ս":"S","Վ":"V","Տ":"T","Ր":"R","Ց":"C","Փ":"P\'","Ք":"Q\'","Օ":"O\'\'","Ֆ":"F","և":"EV","ء":"a","آ":"aa","أ":"a","ؤ":"u","إ":"i","ئ":"e","ا":"a","ب":"b","ة":"h","ت":"t","ث":"th","ج":"j","ح":"h","خ":"kh","د":"d","ذ":"th","ر":"r","ز":"z","س":"s","ش":"sh","ص":"s","ض":"dh","ط":"t","ظ":"z","ع":"a","غ":"gh","ف":"f","ق":"q","ك":"k","ل":"l","م":"m","ن":"n","ه":"h","و":"w","ى":"a","ي":"y","ً":"an","ٌ":"on","ٍ":"en","َ":"a","ُ":"u","ِ":"e","ْ":"","٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9","پ":"p","چ":"ch","ژ":"zh","ک":"k","گ":"g","ی":"y","۰":"0","۱":"1","۲":"2","۳":"3","۴":"4","۵":"5","۶":"6","۷":"7","۸":"8","۹":"9","฿":"baht","ა":"a","ბ":"b","გ":"g","დ":"d","ე":"e","ვ":"v","ზ":"z","თ":"t","ი":"i","კ":"k","ლ":"l","მ":"m","ნ":"n","ო":"o","პ":"p","ჟ":"zh","რ":"r","ს":"s","ტ":"t","უ":"u","ფ":"f","ქ":"k","ღ":"gh","ყ":"q","შ":"sh","ჩ":"ch","ც":"ts","ძ":"dz","წ":"ts","ჭ":"ch","ხ":"kh","ჯ":"j","ჰ":"h","Ṣ":"S","ṣ":"s","Ẁ":"W","ẁ":"w","Ẃ":"W","ẃ":"w","Ẅ":"W","ẅ":"w","ẞ":"SS","Ạ":"A","ạ":"a","Ả":"A","ả":"a","Ấ":"A","ấ":"a","Ầ":"A","ầ":"a","Ẩ":"A","ẩ":"a","Ẫ":"A","ẫ":"a","Ậ":"A","ậ":"a","Ắ":"A","ắ":"a","Ằ":"A","ằ":"a","Ẳ":"A","ẳ":"a","Ẵ":"A","ẵ":"a","Ặ":"A","ặ":"a","Ẹ":"E","ẹ":"e","Ẻ":"E","ẻ":"e","Ẽ":"E","ẽ":"e","Ế":"E","ế":"e","Ề":"E","ề":"e","Ể":"E","ể":"e","Ễ":"E","ễ":"e","Ệ":"E","ệ":"e","Ỉ":"I","ỉ":"i","Ị":"I","ị":"i","Ọ":"O","ọ":"o","Ỏ":"O","ỏ":"o","Ố":"O","ố":"o","Ồ":"O","ồ":"o","Ổ":"O","ổ":"o","Ỗ":"O","ỗ":"o","Ộ":"O","ộ":"o","Ớ":"O","ớ":"o","Ờ":"O","ờ":"o","Ở":"O","ở":"o","Ỡ":"O","ỡ":"o","Ợ":"O","ợ":"o","Ụ":"U","ụ":"u","Ủ":"U","ủ":"u","Ứ":"U","ứ":"u","Ừ":"U","ừ":"u","Ử":"U","ử":"u","Ữ":"U","ữ":"u","Ự":"U","ự":"u","Ỳ":"Y","ỳ":"y","Ỵ":"Y","ỵ":"y","Ỷ":"Y","ỷ":"y","Ỹ":"Y","ỹ":"y","–":"-","‘":"\'","’":"\'","“":"\\\"","”":"\\\"","„":"\\\"","†":"+","•":"*","…":"...","₠":"ecu","₢":"cruzeiro","₣":"french franc","₤":"lira","₥":"mill","₦":"naira","₧":"peseta","₨":"rupee","₩":"won","₪":"new shequel","₫":"dong","€":"euro","₭":"kip","₮":"tugrik","₯":"drachma","₰":"penny","₱":"peso","₲":"guarani","₳":"austral","₴":"hryvnia","₵":"cedi","₸":"kazakhstani tenge","₹":"indian rupee","₺":"turkish lira","₽":"russian ruble","₿":"bitcoin","℠":"sm","™":"tm","∂":"d","∆":"delta","∑":"sum","∞":"infinity","♥":"love","元":"yuan","円":"yen","﷼":"rial","ﻵ":"laa","ﻷ":"laa","ﻹ":"lai","ﻻ":"la"}');
+    	  var locales = JSON.parse('{"bg":{"Й":"Y","Ц":"Ts","Щ":"Sht","Ъ":"A","Ь":"Y","й":"y","ц":"ts","щ":"sht","ъ":"a","ь":"y"},"de":{"Ä":"AE","ä":"ae","Ö":"OE","ö":"oe","Ü":"UE","ü":"ue","ß":"ss","%":"prozent","&":"und","|":"oder","∑":"summe","∞":"unendlich","♥":"liebe"},"es":{"%":"por ciento","&":"y","<":"menor que",">":"mayor que","|":"o","¢":"centavos","£":"libras","¤":"moneda","₣":"francos","∑":"suma","∞":"infinito","♥":"amor"},"fr":{"%":"pourcent","&":"et","<":"plus petit",">":"plus grand","|":"ou","¢":"centime","£":"livre","¤":"devise","₣":"franc","∑":"somme","∞":"infini","♥":"amour"},"pt":{"%":"porcento","&":"e","<":"menor",">":"maior","|":"ou","¢":"centavo","∑":"soma","£":"libra","∞":"infinito","♥":"amor"},"uk":{"И":"Y","и":"y","Й":"Y","й":"y","Ц":"Ts","ц":"ts","Х":"Kh","х":"kh","Щ":"Shch","щ":"shch","Г":"H","г":"h"},"vi":{"Đ":"D","đ":"d"},"da":{"Ø":"OE","ø":"oe","Å":"AA","å":"aa","%":"procent","&":"og","|":"eller","$":"dollar","<":"mindre end",">":"større end"},"nb":{"&":"og","Å":"AA","Æ":"AE","Ø":"OE","å":"aa","æ":"ae","ø":"oe"},"it":{"&":"e"},"nl":{"&":"en"},"sv":{"&":"och","Å":"AA","Ä":"AE","Ö":"OE","å":"aa","ä":"ae","ö":"oe"}}');
 
-      function replace (string, options) {
-        if (typeof string !== 'string') {
-          throw new Error('slugify: string argument expected')
-        }
+    	  function replace (string, options) {
+    	    if (typeof string !== 'string') {
+    	      throw new Error('slugify: string argument expected')
+    	    }
 
-        options = (typeof options === 'string')
-          ? {replacement: options}
-          : options || {};
+    	    options = (typeof options === 'string')
+    	      ? {replacement: options}
+    	      : options || {};
 
-        var locale = locales[options.locale] || {};
+    	    var locale = locales[options.locale] || {};
 
-        var replacement = options.replacement === undefined ? '-' : options.replacement;
+    	    var replacement = options.replacement === undefined ? '-' : options.replacement;
 
-        var trim = options.trim === undefined ? true : options.trim;
+    	    var trim = options.trim === undefined ? true : options.trim;
 
-        var slug = string.normalize().split('')
-          // replace characters based on charMap
-          .reduce(function (result, ch) {
-            return result + (locale[ch] || charMap[ch] ||  (ch === replacement ? ' ' : ch))
-              // remove not allowed characters
-              .replace(options.remove || /[^\w\s$*_+~.()'"!\-:@]+/g, '')
-          }, '');
+    	    var slug = string.normalize().split('')
+    	      // replace characters based on charMap
+    	      .reduce(function (result, ch) {
+    	        var appendChar = locale[ch] || charMap[ch] || ch;
+    	        if (appendChar === replacement) {
+    	          appendChar = ' ';
+    	        }
+    	        return result + appendChar
+    	          // remove not allowed characters
+    	          .replace(options.remove || /[^\w\s$*_+~.()'"!\-:@]+/g, '')
+    	      }, '');
 
-        if (options.strict) {
-          slug = slug.replace(/[^A-Za-z0-9\s]/g, '');
-        }
+    	    if (options.strict) {
+    	      slug = slug.replace(/[^A-Za-z0-9\s]/g, '');
+    	    }
 
-        if (trim) {
-          slug = slug.trim();
-        }
+    	    if (trim) {
+    	      slug = slug.trim();
+    	    }
 
-        // Replace spaces with replacement character, treating multiple consecutive
-        // spaces as a single space.
-        slug = slug.replace(/\s+/g, replacement);
+    	    // Replace spaces with replacement character, treating multiple consecutive
+    	    // spaces as a single space.
+    	    slug = slug.replace(/\s+/g, replacement);
 
-        if (options.lower) {
-          slug = slug.toLowerCase();
-        }
+    	    if (options.lower) {
+    	      slug = slug.toLowerCase();
+    	    }
 
-        return slug
-      }
+    	    return slug
+    	  }
 
-      replace.extend = function (customMap) {
-        Object.assign(charMap, customMap);
-      };
+    	  replace.extend = function (customMap) {
+    	    Object.assign(charMap, customMap);
+    	  };
 
-      return replace
-    }));
-    });
+    	  return replace
+    	}));
+    } (slugify));
 
-    function _readOnlyError(name) {
-      throw new Error("\"" + name + "\" is read-only");
-    }
-
-    var readOnlyError = _readOnlyError;
+    var Slugify = slugify.exports;
 
     var inArray = function inArray(items, name) {
-        var i = 0;
-        if (Array.prototype.indexOf) {
-            return items.indexOf(name, 0) >= 0;
+      var i = 0;
+
+      if (Array.prototype.indexOf) {
+        return items.indexOf(name, 0) >= 0;
+      } else {
+        for (var n = items.length; i < n; i++) {
+          if (i in items && items[i] === name) {
+            return true;
+          }
         }
-        else {
-            for (var n = items.length; i < n; readOnlyError("i")) {
-                if (i in items && items[i] === name) {
-                    return true;
-                }
-            }
-        }
-        return false;
+      }
+
+      return false;
     };
+
     var findKeyInObject = function findKeyInObject(obj, key) {
-        if (key && obj) {
-            for (var prop in obj) {
-                if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
-                    return prop;
-                }
-            }
+      if (key && obj) {
+        for (var prop in obj) {
+          if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
+            return prop;
+          }
         }
-        return null;
+      }
+
+      return null;
     };
+
     var isObject = function isObject(value) {
-        var objType = Object.prototype.toString.call(value);
-        return objType === '[object Object]' || objType === '[object Error]';
+      var objType = Object.prototype.toString.call(value);
+      return objType === '[object Object]' || objType === '[object Error]';
     };
+
     var parseNumber = function parseNumber(value) {
-        if (isNaN(value) || !isFinite(value)) {
-            return 0;
-        }
-        var floatValue = parseFloat(value);
-        return isNaN(floatValue) ? 0 : floatValue;
+      if (isNaN(value) || !isFinite(value)) {
+        return 0;
+      }
+
+      var floatValue = parseFloat(value);
+      return isNaN(floatValue) ? 0 : floatValue;
     }; // FIXME: REFACTOR for V3
     // only used in store.js to sanitize server-side formatting of
     // booleans when checking for `isDevelopmentMode`
     // Should be removed in v3
+
+
     var returnConvertedBoolean = function returnConvertedBoolean(data) {
-        if (data === 'false' || data === '0') {
-            return false;
-        }
-        else {
-            return Boolean(data);
-        }
+      if (data === 'false' || data === '0') {
+        return false;
+      } else {
+        return Boolean(data);
+      }
     };
+
     var decoded = function decoded(s) {
-        return decodeURIComponent(s.replace(/\+/g, ' '));
+      return decodeURIComponent(s.replace(/\+/g, ' '));
     };
+
     var converted = function converted(s) {
-        if (s.indexOf('"') === 0) {
-            s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-        }
-        return s;
+      if (s.indexOf('"') === 0) {
+        s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+      }
+
+      return s;
     };
 
     var Validators = {
-        isValidAttributeValue: function isValidAttributeValue(value) {
-            return value !== undefined && !isObject(value) && !Array.isArray(value);
-        },
-        // Neither null nor undefined can be a valid Key
-        isValidKeyValue: function isValidKeyValue(key) {
-            return Boolean(key && !isObject(key) && !Array.isArray(key) && !this.isFunction(key));
-        },
-        isStringOrNumber: function isStringOrNumber(value) {
-            return typeof value === 'string' || typeof value === 'number';
-        },
-        isNumber: function isNumber(value) {
-            return typeof value === 'number';
-        },
-        isFunction: function isFunction(fn) {
-            return typeof fn === 'function';
-        },
-        validateIdentities: function validateIdentities(identityApiData, method) {
-            var validIdentityRequestKeys = {
-                userIdentities: 1,
-                onUserAlias: 1,
-                copyUserAttributes: 1
-            };
-            if (identityApiData) {
-                if (method === 'modify') {
-                    if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
-                        return {
-                            valid: false,
-                            error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
-                        };
-                    }
-                }
-                for (var key in identityApiData) {
-                    if (identityApiData.hasOwnProperty(key)) {
-                        if (!validIdentityRequestKeys[key]) {
-                            return {
-                                valid: false,
-                                error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
-                            };
-                        }
-                        if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
-                            return {
-                                valid: false,
-                                // FIXME: Validates type safety
-                                error: Constants.Messages.ValidationMessages.OnUserAliasType + _typeof_1(identityApiData[key])
-                            };
-                        }
-                    }
-                }
-                if (Object.keys(identityApiData).length === 0) {
-                    return {
-                        valid: true
-                    };
-                }
-                else {
-                    // identityApiData.userIdentities can't be undefined
-                    if (identityApiData.userIdentities === undefined) {
-                        return {
-                            valid: false,
-                            error: Constants.Messages.ValidationMessages.UserIdentities
-                        }; // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
-                    }
-                    else if (identityApiData.userIdentities !== null && !isObject(identityApiData.userIdentities)) {
-                        return {
-                            valid: false,
-                            error: Constants.Messages.ValidationMessages.UserIdentities
-                        };
-                    }
-                    if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
-                        for (var identityType in identityApiData.userIdentities) {
-                            if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
-                                if (Types.IdentityType.getIdentityType(identityType) === false) {
-                                    return {
-                                        valid: false,
-                                        error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
-                                    };
-                                }
-                                if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
-                                    return {
-                                        valid: false,
-                                        error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
-                                    };
-                                }
-                            }
-                        }
-                    }
-                }
+      isValidAttributeValue: function isValidAttributeValue(value) {
+        return value !== undefined && !isObject(value) && !Array.isArray(value);
+      },
+      // Neither null nor undefined can be a valid Key
+      isValidKeyValue: function isValidKeyValue(key) {
+        return Boolean(key && !isObject(key) && !Array.isArray(key) && !this.isFunction(key));
+      },
+      isStringOrNumber: function isStringOrNumber(value) {
+        return typeof value === 'string' || typeof value === 'number';
+      },
+      isNumber: function isNumber(value) {
+        return typeof value === 'number';
+      },
+      isFunction: function isFunction(fn) {
+        return typeof fn === 'function';
+      },
+      validateIdentities: function validateIdentities(identityApiData, method) {
+        var validIdentityRequestKeys = {
+          userIdentities: 1,
+          onUserAlias: 1,
+          copyUserAttributes: 1
+        };
+
+        if (identityApiData) {
+          if (method === 'modify') {
+            if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
+              return {
+                valid: false,
+                error: Constants.Messages.ValidationMessages.ModifyIdentityRequestUserIdentitiesPresent
+              };
             }
+          }
+
+          for (var key in identityApiData) {
+            if (identityApiData.hasOwnProperty(key)) {
+              if (!validIdentityRequestKeys[key]) {
+                return {
+                  valid: false,
+                  error: Constants.Messages.ValidationMessages.IdentityRequesetInvalidKey
+                };
+              }
+
+              if (key === 'onUserAlias' && !Validators.isFunction(identityApiData[key])) {
+                return {
+                  valid: false,
+                  error: Constants.Messages.ValidationMessages.OnUserAliasType
+                };
+              }
+            }
+          }
+
+          if (Object.keys(identityApiData).length === 0) {
             return {
-                valid: true
+              valid: true
             };
+          } else {
+            // identityApiData.userIdentities can't be undefined
+            if (identityApiData.userIdentities === undefined) {
+              return {
+                valid: false,
+                error: Constants.Messages.ValidationMessages.UserIdentities
+              }; // identityApiData.userIdentities can be null, but if it isn't null or undefined (above conditional), it must be an object
+            } else if (identityApiData.userIdentities !== null && !isObject(identityApiData.userIdentities)) {
+              return {
+                valid: false,
+                error: Constants.Messages.ValidationMessages.UserIdentities
+              };
+            }
+
+            if (isObject(identityApiData.userIdentities) && Object.keys(identityApiData.userIdentities).length) {
+              for (var identityType in identityApiData.userIdentities) {
+                if (identityApiData.userIdentities.hasOwnProperty(identityType)) {
+                  if (Types.IdentityType.getIdentityType(identityType) === false) {
+                    return {
+                      valid: false,
+                      error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidKey
+                    };
+                  }
+
+                  if (!(typeof identityApiData.userIdentities[identityType] === 'string' || identityApiData.userIdentities[identityType] === null)) {
+                    return {
+                      valid: false,
+                      error: Constants.Messages.ValidationMessages.UserIdentitiesInvalidValues
+                    };
+                  }
+                }
+              }
+            }
+          }
         }
+
+        return {
+          valid: true
+        };
+      }
     };
 
-    var StorageNames = Constants.StorageNames;
+    var StorageNames$2 = Constants.StorageNames;
     function Helpers(mpInstance) {
       var self = this;
 
@@ -3952,7 +2933,7 @@ var mParticle = (function () {
         } // Handle case when target is a string or something (possible in deep copy)
 
 
-        if (_typeof_1(target) !== 'object' && !objectHelper.isFunction(target)) {
+        if (_typeof(target) !== 'object' && !objectHelper.isFunction(target)) {
           target = {};
         } // If no second argument is used then this can extend an object that is using this method
 
@@ -4062,7 +3043,8 @@ var mParticle = (function () {
         -1e3 + // -1000 +
         -4e3 + // -4000 +
         -8e3 + // -80000000 +
-        -1e11).replace( // replacing
+        -1e11 // -100000000000,
+        ).replace( // replacing
         /[018]/g, // zeroes, ones, and eights with
         self.generateUniqueId // random hex digits
         );
@@ -4219,22 +3201,22 @@ var mParticle = (function () {
 
       this.createMainStorageName = function (workspaceToken) {
         if (workspaceToken) {
-          return StorageNames.currentStorageName + '_' + workspaceToken;
+          return StorageNames$2.currentStorageName + '_' + workspaceToken;
         } else {
-          return StorageNames.currentStorageName;
+          return StorageNames$2.currentStorageName;
         }
       };
 
       this.createProductStorageName = function (workspaceToken) {
         if (workspaceToken) {
-          return StorageNames.currentStorageProductsName + '_' + workspaceToken;
+          return StorageNames$2.currentStorageProductsName + '_' + workspaceToken;
         } else {
-          return StorageNames.currentStorageProductsName;
+          return StorageNames$2.currentStorageProductsName;
         }
       };
 
       this.isSlug = function (str) {
-        return str === slugify(str);
+        return str === Slugify(str);
       }; // Utility Functions
 
 
@@ -4249,7 +3231,7 @@ var mParticle = (function () {
       this.Validators = Validators;
     }
 
-    var Messages$1 = Constants.Messages;
+    var Messages$8 = Constants.Messages;
     var androidBridgeNameBase = 'mParticleAndroid';
     var iosBridgeNameBase = 'mParticle';
     function NativeSdkHelpers(mpInstance) {
@@ -4331,10 +3313,10 @@ var mParticle = (function () {
 
       this.sendViaBridgeV1 = function (path, value) {
         if (window.mParticleAndroid && window.mParticleAndroid.hasOwnProperty(path)) {
-          mpInstance.Logger.verbose(Messages$1.InformationMessages.SendAndroid + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendAndroid + path);
           window.mParticleAndroid[path](value);
         } else if (mpInstance._Store.SDKConfig.isIOS) {
-          mpInstance.Logger.verbose(Messages$1.InformationMessages.SendIOS + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIOS + path);
           self.sendViaIframeToIOS(path, value);
         }
       };
@@ -4366,23 +3348,23 @@ var mParticle = (function () {
         }
 
         if (androidBridge && androidBridge.hasOwnProperty(path)) {
-          mpInstance.Logger.verbose(Messages$1.InformationMessages.SendAndroid + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendAndroid + path);
           androidBridge[path](value);
           return;
         } else if (iOSBridgeMessageHandler) {
-          mpInstance.Logger.verbose(Messages$1.InformationMessages.SendIOS + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIOS + path);
           iOSBridgeMessageHandler.postMessage(JSON.stringify({
             path: path,
             value: value ? JSON.parse(value) : null
           }));
         } else if (iOSBridgeNonMessageHandler) {
-          mpInstance.Logger.verbose(Messages$1.InformationMessages.SendIOS + path);
+          mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIOS + path);
           self.sendViaIframeToIOS(path, value);
         }
       };
     }
 
-    var Messages$2 = Constants.Messages;
+    var Messages$7 = Constants.Messages;
     function cookieSyncManager(mpInstance) {
       var self = this;
 
@@ -4462,7 +3444,7 @@ var mParticle = (function () {
 
         if (mpInstance._Consent.isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
           var img = document.createElement('img');
-          mpInstance.Logger.verbose(Messages$2.InformationMessages.CookieSync);
+          mpInstance.Logger.verbose(Messages$7.InformationMessages.CookieSync);
 
           img.onload = function () {
             cookieSyncDates[moduleId.toString()] = new Date().getTime();
@@ -4475,7 +3457,7 @@ var mParticle = (function () {
       };
     }
 
-    var Messages$3 = Constants.Messages;
+    var Messages$6 = Constants.Messages;
 
     function SessionManager(mpInstance) {
       var self = this;
@@ -4506,7 +3488,7 @@ var mParticle = (function () {
       };
 
       this.startNewSession = function () {
-        mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingNewSession);
+        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingNewSession);
 
         if (mpInstance._Helpers.canLog()) {
           mpInstance._Store.sessionId = mpInstance._Helpers.generateUniqueId().toUpperCase();
@@ -4535,12 +3517,12 @@ var mParticle = (function () {
             messageType: Types.MessageType.SessionStart
           });
         } else {
-          mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonStartSession);
+          mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonStartSession);
         }
       };
 
       this.endSession = function (override) {
-        mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingEndSession);
+        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingEndSession);
 
         if (override) {
           mpInstance._Events.logEvent({
@@ -4561,7 +3543,7 @@ var mParticle = (function () {
           }
 
           if (cookies.gs && !cookies.gs.sid) {
-            mpInstance.Logger.verbose(Messages$3.InformationMessages.NoSessionToEnd);
+            mpInstance.Logger.verbose(Messages$6.InformationMessages.NoSessionToEnd);
             return;
           } // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
 
@@ -4591,7 +3573,7 @@ var mParticle = (function () {
             }
           }
         } else {
-          mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonEndSession);
+          mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonEndSession);
         }
       };
 
@@ -4634,7 +3616,7 @@ var mParticle = (function () {
       };
     }
 
-    var Messages$4 = Constants.Messages;
+    var Messages$5 = Constants.Messages;
     function Ecommerce(mpInstance) {
       var self = this;
 
@@ -4938,7 +3920,7 @@ var mParticle = (function () {
 
       this.createPromotion = function (id, creative, name, position) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
-          mpInstance.Logger.error(Messages$4.ErrorMessages.PromotionIdRequired);
+          mpInstance.Logger.error(Messages$5.ErrorMessages.PromotionIdRequired);
           return null;
         }
 
@@ -4969,7 +3951,7 @@ var mParticle = (function () {
 
       this.createTransactionAttributes = function (id, affiliation, couponCode, revenue, shipping, tax) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(id)) {
-          mpInstance.Logger.error(Messages$4.ErrorMessages.TransactionIdRequired);
+          mpInstance.Logger.error(Messages$5.ErrorMessages.TransactionIdRequired);
           return null;
         }
 
@@ -5116,7 +4098,7 @@ var mParticle = (function () {
 
       this.createCommerceEventObject = function (customFlags) {
         var baseEvent;
-        mpInstance.Logger.verbose(Messages$4.InformationMessages.StartingLogCommerceEvent);
+        mpInstance.Logger.verbose(Messages$5.InformationMessages.StartingLogCommerceEvent);
 
         if (mpInstance._Helpers.canLog()) {
           baseEvent = mpInstance._ServerModel.createEventObject({
@@ -5128,7 +4110,7 @@ var mParticle = (function () {
           baseEvent.CustomFlags = customFlags;
           return baseEvent;
         } else {
-          mpInstance.Logger.verbose(Messages$4.InformationMessages.AbandonLogEvent);
+          mpInstance.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent);
         }
 
         return null;
@@ -5137,7 +4119,7 @@ var mParticle = (function () {
 
       this.sanitizeAmount = function (amount, category) {
         if (!mpInstance._Helpers.Validators.isStringOrNumber(amount)) {
-          var message = [category, 'must be of type number. A', _typeof_1(amount), 'was passed. Converting to 0'].join(' ');
+          var message = [category, 'must be of type number. A', _typeof(amount), 'was passed. Converting to 0'].join(' ');
           mpInstance.Logger.warning(message);
           return 0;
         } // if amount is a string, it will be parsed into a number if possible, or set to 0
@@ -5317,7 +4299,7 @@ var mParticle = (function () {
           if (mpInstance._Helpers.Validators.isFunction(callback)) {
             this.SDKConfig.identityCallback = config.identityCallback;
           } else {
-            mpInstance.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + _typeof_1(callback), ' . Callback not set. Please set your callback again.');
+            mpInstance.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + _typeof(callback), ' . Callback not set. Please set your callback again.');
           }
         }
 
@@ -5479,7 +4461,7 @@ var mParticle = (function () {
     }
 
     var Base64$1 = Polyfill.Base64,
-        Messages$5 = Constants.Messages,
+        Messages$4 = Constants.Messages,
         Base64CookieKeys = Constants.Base64CookieKeys,
         SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
         StorageNames$1 = Constants.StorageNames;
@@ -5603,7 +4585,7 @@ var mParticle = (function () {
           try {
             mpInstance._Store.cartProducts = products[mpid] && products[mpid].cp ? products[mpid].cp : [];
           } catch (e) {
-            mpInstance.Logger.error(Messages$5.ErrorMessages.CookieParseError);
+            mpInstance.Logger.error(Messages$4.ErrorMessages.CookieParseError);
           }
         }
       };
@@ -5611,7 +4593,7 @@ var mParticle = (function () {
       this.storeDataInMemory = function (obj, currentMPID) {
         try {
           if (!obj) {
-            mpInstance.Logger.verbose(Messages$5.InformationMessages.CookieNotFound);
+            mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieNotFound);
             mpInstance._Store.clientId = mpInstance._Store.clientId || mpInstance._Helpers.generateUniqueId();
             mpInstance._Store.deviceId = mpInstance._Store.deviceId || mpInstance._Helpers.generateUniqueId();
           } else {
@@ -5653,7 +4635,7 @@ var mParticle = (function () {
             }
           }
         } catch (e) {
-          mpInstance.Logger.error(Messages$5.ErrorMessages.CookieParseError);
+          mpInstance.Logger.error(Messages$4.ErrorMessages.CookieParseError);
         }
       };
 
@@ -5858,7 +4840,7 @@ var mParticle = (function () {
             name,
             cookie,
             result = key ? undefined : {};
-        mpInstance.Logger.verbose(Messages$5.InformationMessages.CookieSearch);
+        mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSearch);
 
         for (i = 0, l = cookies.length; i < l; i++) {
           try {
@@ -5880,7 +4862,7 @@ var mParticle = (function () {
         }
 
         if (result) {
-          mpInstance.Logger.verbose(Messages$5.InformationMessages.CookieFound);
+          mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieFound);
           return JSON.parse(self.decodePersistence(result));
         } else {
           return null;
@@ -5930,7 +4912,7 @@ var mParticle = (function () {
         }
 
         encodedCookiesWithExpirationAndPath = self.reduceAndEncodePersistence(cookies, expires, domain, mpInstance._Store.SDKConfig.maxCookieSize);
-        mpInstance.Logger.verbose(Messages$5.InformationMessages.CookieSet);
+        mpInstance.Logger.verbose(Messages$4.InformationMessages.CookieSet);
         window.document.cookie = encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
       };
       /*  This function determines if a cookie is greater than the configured maxCookieSize.
@@ -6477,19 +5459,19 @@ var mParticle = (function () {
       };
     }
 
-    var Messages$6 = Constants.Messages;
+    var Messages$3 = Constants.Messages;
     function Events(mpInstance) {
       var self = this;
 
       this.logEvent = function (event, options) {
-        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogEvent + ': ' + event.name);
+        mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogEvent + ': ' + event.name);
 
         if (mpInstance._Helpers.canLog()) {
           var uploadObject = mpInstance._ServerModel.createEventObject(event);
 
           mpInstance._APIClient.sendEventToServer(uploadObject, options);
         } else {
-          mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent);
+          mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
         }
       };
 
@@ -6551,7 +5533,7 @@ var mParticle = (function () {
       };
 
       this.logOptOut = function () {
-        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogOptOut);
+        mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogOptOut);
 
         var event = mpInstance._ServerModel.createEventObject({
           messageType: Types.MessageType.OptOut,
@@ -6640,7 +5622,7 @@ var mParticle = (function () {
 
       this.logRefundEvent = function (transactionAttributes, product, attrs, customFlags) {
         if (!transactionAttributes) {
-          mpInstance.Logger.error(Messages$6.ErrorMessages.TransactionRequired);
+          mpInstance.Logger.error(Messages$3.ErrorMessages.TransactionRequired);
           return;
         }
 
@@ -6697,7 +5679,7 @@ var mParticle = (function () {
       };
 
       this.logCommerceEvent = function (commerceEvent, attrs, options) {
-        mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingLogCommerceEvent); // If a developer typos the ProductActionType, the event category will be
+        mpInstance.Logger.verbose(Messages$3.InformationMessages.StartingLogCommerceEvent); // If a developer typos the ProductActionType, the event category will be
         // null, resulting in kit forwarding errors on the server.
         // The check for `ProductAction` is required to denote that these are
         // ProductAction events, and not impression or promotions
@@ -6723,7 +5705,7 @@ var mParticle = (function () {
 
           mpInstance._Persistence.update();
         } else {
-          mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonLogEvent);
+          mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
         }
       };
 
@@ -6792,8 +5774,8 @@ var mParticle = (function () {
       };
     }
 
-    var StorageNames$2 = Constants.StorageNames,
-        Base64$2 = Polyfill.Base64,
+    var StorageNames = Constants.StorageNames,
+        Base64 = Polyfill.Base64,
         CookiesGlobalSettingsKeys = {
       das: 1
     },
@@ -6810,9 +5792,9 @@ var mParticle = (function () {
         try {
           migrateCookies();
         } catch (e) {
-          mpInstance._Persistence.expireCookies(StorageNames$2.cookieNameV3);
+          mpInstance._Persistence.expireCookies(StorageNames.cookieNameV3);
 
-          mpInstance._Persistence.expireCookies(StorageNames$2.cookieNameV4);
+          mpInstance._Persistence.expireCookies(StorageNames.cookieNameV4);
 
           mpInstance.Logger.error('Error migrating cookie: ' + e);
         }
@@ -6821,8 +5803,8 @@ var mParticle = (function () {
           try {
             migrateLocalStorage();
           } catch (e) {
-            localStorage.removeItem(StorageNames$2.localStorageNameV3);
-            localStorage.removeItem(StorageNames$2.localStorageNameV4);
+            localStorage.removeItem(StorageNames.localStorageNameV3);
+            localStorage.removeItem(StorageNames.localStorageNameV4);
             mpInstance.Logger.error('Error migrating localStorage: ' + e);
           }
         }
@@ -6852,9 +5834,9 @@ var mParticle = (function () {
             return;
           }
 
-          if (name === StorageNames$2.cookieNameV4) {
+          if (name === StorageNames.cookieNameV4) {
             // adds cookies to new namespace, removes previous cookie
-            finishCookieMigration(cookie, StorageNames$2.cookieNameV4);
+            finishCookieMigration(cookie, StorageNames.cookieNameV4);
 
             if (mpInstance._Store.isLocalStorageAvailable) {
               migrateProductsToNameSpace();
@@ -6863,9 +5845,9 @@ var mParticle = (function () {
             return; // migration path for SDKv1CookiesV3, doesn't need to be encoded
           }
 
-          if (name === StorageNames$2.cookieNameV3) {
+          if (name === StorageNames.cookieNameV3) {
             foundCookie = self.convertSDKv1CookiesV3ToSDKv2CookiesV4(cookie);
-            finishCookieMigration(foundCookie, StorageNames$2.cookieNameV3);
+            finishCookieMigration(foundCookie, StorageNames.cookieNameV3);
             break;
           }
         }
@@ -6877,7 +5859,7 @@ var mParticle = (function () {
             expires,
             domain;
 
-        expires = new Date(date.getTime() + StorageNames$2.CookieExpiration * 24 * 60 * 60 * 1000).toGMTString();
+        expires = new Date(date.getTime() + StorageNames.CookieExpiration * 24 * 60 * 60 * 1000).toGMTString();
 
         if (cookieDomain === '') {
           domain = '';
@@ -6901,7 +5883,7 @@ var mParticle = (function () {
         if (parsedSDKv1CookiesV3.mpid) {
           parsedCookiesV4.gs.csm.push(parsedSDKv1CookiesV3.mpid); // all other values are already encoded, so we have to encode any new values
 
-          parsedCookiesV4.gs.csm = Base64$2.encode(JSON.stringify(parsedCookiesV4.gs.csm));
+          parsedCookiesV4.gs.csm = Base64.encode(JSON.stringify(parsedCookiesV4.gs.csm));
           migrateProductsFromSDKv1ToSDKv2CookiesV4(parsedSDKv1CookiesV3, parsedSDKv1CookiesV3.mpid);
         }
 
@@ -6940,8 +5922,8 @@ var mParticle = (function () {
       }
 
       function migrateProductsToNameSpace() {
-        var lsProdV4Name = StorageNames$2.localStorageProductsV4;
-        var products = localStorage.getItem(StorageNames$2.localStorageProductsV4);
+        var lsProdV4Name = StorageNames.localStorageProductsV4;
+        var products = localStorage.getItem(StorageNames.localStorageProductsV4);
         localStorage.setItem(mpInstance._Store.prodStorageName, products);
         localStorage.removeItem(lsProdV4Name);
       }
@@ -6956,7 +5938,7 @@ var mParticle = (function () {
 
         if (cookies.cp) {
           try {
-            localStorageProducts[mpid].cp = JSON.parse(Base64$2.decode(cookies.cp));
+            localStorageProducts[mpid].cp = JSON.parse(Base64.decode(cookies.cp));
           } catch (e) {
             localStorageProducts[mpid].cp = cookies.cp;
           }
@@ -6966,13 +5948,13 @@ var mParticle = (function () {
           }
         }
 
-        localStorage.setItem(mpInstance._Store.prodStorageName, Base64$2.encode(JSON.stringify(localStorageProducts)));
+        localStorage.setItem(mpInstance._Store.prodStorageName, Base64.encode(JSON.stringify(localStorageProducts)));
       }
 
       function migrateLocalStorage() {
         var cookies,
-            v3LSName = StorageNames$2.localStorageNameV3,
-            v4LSName = StorageNames$2.localStorageNameV4,
+            v3LSName = StorageNames.localStorageNameV3,
+            v4LSName = StorageNames.localStorageNameV4,
             currentVersionLSData = window.localStorage.getItem(mpInstance._Store.storageName),
             v4LSData,
             v3LSData,
@@ -7007,10 +5989,10 @@ var mParticle = (function () {
 
             if (cookies) {
               migrateProductsFromSDKv1ToSDKv2CookiesV4(v3LSData, cookies.cu);
-              localStorage.removeItem(StorageNames$2.localStorageNameV3);
+              localStorage.removeItem(StorageNames.localStorageNameV3);
               return;
             } else {
-              localStorage.removeItem(StorageNames$2.localStorageNameV3);
+              localStorage.removeItem(StorageNames.localStorageNameV3);
               return;
             }
           }
@@ -7505,8 +6487,8 @@ var mParticle = (function () {
       };
     }
 
-    var MessageType$1 = Types.MessageType,
-        ApplicationTransitionType$1 = Types.ApplicationTransitionType;
+    var MessageType = Types.MessageType,
+        ApplicationTransitionType = Types.ApplicationTransitionType;
     function ServerModel(mpInstance) {
       var self = this;
 
@@ -7709,7 +6691,7 @@ var mParticle = (function () {
             DataPlan: mpInstance._Store.SDKConfig.dataPlan ? mpInstance._Store.SDKConfig.dataPlan : {}
           };
 
-          if (eventObject.EventDataType === MessageType$1.AppStateTransition) {
+          if (eventObject.EventDataType === MessageType.AppStateTransition) {
             eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
             eventObject.LaunchReferral = window.location.href || null;
           }
@@ -7773,10 +6755,10 @@ var mParticle = (function () {
           dto.con = consent;
         }
 
-        if (event.EventDataType === MessageType$1.AppStateTransition) {
+        if (event.EventDataType === MessageType.AppStateTransition) {
           dto.fr = event.IsFirstRun;
           dto.iu = false;
-          dto.at = ApplicationTransitionType$1.AppInit;
+          dto.at = ApplicationTransitionType.AppInit;
           dto.lr = event.LaunchReferral;
           dto.attrs = null;
         }
@@ -7785,7 +6767,7 @@ var mParticle = (function () {
           convertCustomFlags(event, dto);
         }
 
-        if (event.EventDataType === MessageType$1.Commerce) {
+        if (event.EventDataType === MessageType.Commerce) {
           dto.cu = event.CurrencyCode;
 
           if (event.ShoppingCart) {
@@ -7827,7 +6809,7 @@ var mParticle = (function () {
               };
             });
           }
-        } else if (event.EventDataType === MessageType$1.Profile) {
+        } else if (event.EventDataType === MessageType.Profile) {
           dto.pet = event.ProfileMessageType;
         }
 
@@ -7888,8 +6870,8 @@ var mParticle = (function () {
       }
     }
 
-    var Messages$7 = Constants.Messages,
-        HTTPCodes = Constants.HTTPCodes;
+    var Messages$2 = Constants.Messages,
+        HTTPCodes$2 = Constants.HTTPCodes;
     function Identity(mpInstance) {
       var self = this;
 
@@ -7920,7 +6902,7 @@ var mParticle = (function () {
           return identitiesResult;
         },
         preProcessIdentityRequest: function preProcessIdentityRequest(identityApiData, callback, method) {
-          mpInstance.Logger.verbose(Messages$7.InformationMessages.StartingLogEvent + ': ' + method);
+          mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
 
           var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(identityApiData, method);
 
@@ -7933,7 +6915,7 @@ var mParticle = (function () {
           }
 
           if (callback && !mpInstance._Helpers.Validators.isFunction(callback)) {
-            var error = 'The optional callback must be a function. You tried entering a(n) ' + _typeof_1(callback);
+            var error = 'The optional callback must be a function. You tried entering a(n) ' + _typeof(callback);
 
             mpInstance.Logger.error(error);
             return {
@@ -8058,7 +7040,7 @@ var mParticle = (function () {
        */
 
       this.IdentityAPI = {
-        HTTPCodes: HTTPCodes,
+        HTTPCodes: HTTPCodes$2,
 
         /**
          * Initiate a logout request to the mParticle server
@@ -8082,17 +7064,17 @@ var mParticle = (function () {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
 
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Identify request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Identify request sent to native sdk');
               } else {
                 mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, self.parseIdentityResponse, mpid);
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
 
-              mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.validationIssue, preProcessResult.error);
 
             mpInstance.Logger.verbose(preProcessResult);
           }
@@ -8121,7 +7103,7 @@ var mParticle = (function () {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
 
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Logout request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Logout request sent to native sdk');
               } else {
                 mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, self.parseIdentityResponse, mpid);
 
@@ -8139,12 +7121,12 @@ var mParticle = (function () {
                 }
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
 
-              mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.validationIssue, preProcessResult.error);
 
             mpInstance.Logger.verbose(preProcessResult);
           }
@@ -8172,17 +7154,17 @@ var mParticle = (function () {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
 
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Login request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Login request sent to native sdk');
               } else {
                 mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, self.parseIdentityResponse, mpid);
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
 
-              mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.validationIssue, preProcessResult.error);
 
             mpInstance.Logger.verbose(preProcessResult);
           }
@@ -8212,17 +7194,17 @@ var mParticle = (function () {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
 
-                mpInstance._Helpers.invokeCallback(callback, HTTPCodes.nativeIdentityRequest, 'Modify request sent to native sdk');
+                mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Modify request sent to native sdk');
               } else {
                 mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, self.parseIdentityResponse, mpid);
               }
             } else {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
 
-              mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonLogEvent);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonLogEvent);
             }
           } else {
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes.validationIssue, preProcessResult.error);
+            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.validationIssue, preProcessResult.error);
 
             mpInstance.Logger.verbose(preProcessResult);
           }
@@ -8314,25 +7296,25 @@ var mParticle = (function () {
           var message;
 
           if (!aliasRequest.destinationMpid || !aliasRequest.sourceMpid) {
-            message = Messages$7.ValidationMessages.AliasMissingMpid;
+            message = Messages$2.ValidationMessages.AliasMissingMpid;
           }
 
           if (aliasRequest.destinationMpid === aliasRequest.sourceMpid) {
-            message = Messages$7.ValidationMessages.AliasNonUniqueMpid;
+            message = Messages$2.ValidationMessages.AliasNonUniqueMpid;
           }
 
           if (!aliasRequest.startTime || !aliasRequest.endTime) {
-            message = Messages$7.ValidationMessages.AliasMissingTime;
+            message = Messages$2.ValidationMessages.AliasMissingTime;
           }
 
           if (aliasRequest.startTime > aliasRequest.endTime) {
-            message = Messages$7.ValidationMessages.AliasStartBeforeEndTime;
+            message = Messages$2.ValidationMessages.AliasStartBeforeEndTime;
           }
 
           if (message) {
             mpInstance.Logger.warning(message);
 
-            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes.validationIssue, message);
+            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$2.validationIssue, message);
 
             return;
           }
@@ -8341,18 +7323,18 @@ var mParticle = (function () {
             if (mpInstance._Store.webviewBridgeEnabled) {
               mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Alias, JSON.stringify(mpInstance._Identity.IdentityRequest.convertAliasToNative(aliasRequest)));
 
-              mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes.nativeIdentityRequest, 'Alias request sent to native sdk');
+              mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Alias request sent to native sdk');
             } else {
-              mpInstance.Logger.verbose(Messages$7.InformationMessages.StartingAliasRequest + ': ' + aliasRequest.sourceMpid + ' -> ' + aliasRequest.destinationMpid);
+              mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingAliasRequest + ': ' + aliasRequest.sourceMpid + ' -> ' + aliasRequest.destinationMpid);
 
               var aliasRequestMessage = mpInstance._Identity.IdentityRequest.createAliasNetworkRequest(aliasRequest);
 
               mpInstance._IdentityAPIClient.sendAliasRequest(aliasRequestMessage, callback);
             }
           } else {
-            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes.loggingDisabledOrMissingAPIKey, Messages$7.InformationMessages.AbandonAliasUsers);
+            mpInstance._Helpers.invokeAliasCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonAliasUsers);
 
-            mpInstance.Logger.verbose(Messages$7.InformationMessages.AbandonAliasUsers);
+            mpInstance.Logger.verbose(Messages$2.InformationMessages.AbandonAliasUsers);
           }
         },
 
@@ -8457,7 +7439,7 @@ var mParticle = (function () {
            */
           setUserTag: function setUserTag(tagName) {
             if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
-              mpInstance.Logger.error(Messages$7.ErrorMessages.BadKey);
+              mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
 
@@ -8471,7 +7453,7 @@ var mParticle = (function () {
            */
           removeUserTag: function removeUserTag(tagName) {
             if (!mpInstance._Helpers.Validators.isValidKeyValue(tagName)) {
-              mpInstance.Logger.error(Messages$7.ErrorMessages.BadKey);
+              mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
 
@@ -8491,12 +7473,12 @@ var mParticle = (function () {
 
             if (mpInstance._Helpers.canLog()) {
               if (!mpInstance._Helpers.Validators.isValidAttributeValue(newValue)) {
-                mpInstance.Logger.error(Messages$7.ErrorMessages.BadAttribute);
+                mpInstance.Logger.error(Messages$2.ErrorMessages.BadAttribute);
                 return;
               }
 
               if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-                mpInstance.Logger.error(Messages$7.ErrorMessages.BadKey);
+                mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
                 return;
               }
 
@@ -8553,7 +7535,7 @@ var mParticle = (function () {
                 }
               }
             } else {
-              mpInstance.Logger.error('Must pass an object into setUserAttributes. You passed a ' + _typeof_1(userAttributes));
+              mpInstance.Logger.error('Must pass an object into setUserAttributes. You passed a ' + _typeof(userAttributes));
             }
           },
 
@@ -8568,7 +7550,7 @@ var mParticle = (function () {
             mpInstance._SessionManager.resetSessionTimer();
 
             if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-              mpInstance.Logger.error(Messages$7.ErrorMessages.BadKey);
+              mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
 
@@ -8616,12 +7598,12 @@ var mParticle = (function () {
             mpInstance._SessionManager.resetSessionTimer();
 
             if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
-              mpInstance.Logger.error(Messages$7.ErrorMessages.BadKey);
+              mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
               return;
             }
 
             if (!Array.isArray(newValue)) {
-              mpInstance.Logger.error('The value you passed in to setUserAttributeList must be an array. You passed in a ' + (typeof value === "undefined" ? "undefined" : _typeof_1(value)));
+              mpInstance.Logger.error('The value you passed in to setUserAttributeList must be an array. You passed in a ' + (typeof value === "undefined" ? "undefined" : _typeof(value)));
               return;
             }
 
@@ -9066,7 +8048,7 @@ var mParticle = (function () {
 
           if (callback) {
             if (xhr.status === 0) {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes.noHttpCoverage, identityApiResult || null, newUser);
+              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.noHttpCoverage, identityApiResult || null, newUser);
             } else {
               mpInstance._Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
             }
@@ -9521,38 +8503,20 @@ var mParticle = (function () {
       };
     }
 
-    function ownKeys$1(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) {
-        var symbols = Object.getOwnPropertySymbols(object);
-        if (enumerableOnly) {
-            symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; });
-        }
-        keys.push.apply(keys, symbols);
-    } return keys; }
-    function _objectSpread$1(target) { for (var i = 1; i < arguments.length; i++) {
-        var source = arguments[i] != null ? arguments[i] : {};
-        if (i % 2) {
-            ownKeys$1(Object(source), true).forEach(function (key) { defineProperty(target, key, source[key]); });
-        }
-        else if (Object.getOwnPropertyDescriptors) {
-            Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
-        }
-        else {
-            ownKeys$1(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); });
-        }
-    } return target; }
     /*
         TODO: Including this as a workaround because attempting to import it from
         @mparticle/data-planning-models directly creates a build error.
      */
+
     var DataPlanMatchType = {
-        ScreenView: "screen_view",
-        CustomEvent: "custom_event",
-        Commerce: "commerce",
-        UserAttributes: "user_attributes",
-        UserIdentities: "user_identities",
-        ProductAction: "product_action",
-        PromotionAction: "promotion_action",
-        ProductImpression: "product_impression"
+      ScreenView: "screen_view",
+      CustomEvent: "custom_event",
+      Commerce: "commerce",
+      UserAttributes: "user_attributes",
+      UserIdentities: "user_identities",
+      ProductAction: "product_action",
+      PromotionAction: "promotion_action",
+      ProductImpression: "product_impression"
     };
     /*
         inspiration from https://github.com/mParticle/data-planning-node/blob/master/src/data_planning/data_plan_event_validator.ts
@@ -9569,471 +8533,544 @@ var mParticle = (function () {
         When an event is logged in mParticle, it is sent to our server and then calls `KitBlocker.createBlockedEvent` before passing the event to each forwarder.
         If the event is blocked, it will not send to the forwarder. If the event is not blocked, event/user/product attributes and user identities will be removed from the returned event if blocked.
     */
-    var KitBlocker = /*#__PURE__*/ function () {
-        function KitBlocker(dataPlan, mpInstance) {
-            var _dataPlan$document, _dataPlan$document$dt, _dataPlan$document$dt2, _dataPlan$document2, _dataPlan$document2$d, _dataPlan$document2$d2, _dataPlan$document3, _dataPlan$document3$d, _dataPlan$document3$d2, _dataPlan$document4, _dataPlan$document4$d, _dataPlan$document4$d2, _dataPlan$document5, _dataPlan$document5$d, _dataPlan$document5$d2, _this = this;
-            classCallCheck(this, KitBlocker);
-            defineProperty(this, "dataPlanMatchLookups", {});
-            defineProperty(this, "blockEvents", false);
-            defineProperty(this, "blockEventAttributes", false);
-            defineProperty(this, "blockUserAttributes", false);
-            defineProperty(this, "blockUserIdentities", false);
-            defineProperty(this, "kitBlockingEnabled", false);
-            // if data plan is not requested, the data plan is {document: null}
-            if (dataPlan && !dataPlan.document) {
-                this.kitBlockingEnabled = false;
-                return;
-            }
-            this.kitBlockingEnabled = true;
-            this.mpInstance = mpInstance;
-            this.blockEvents = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document = dataPlan.document) === null || _dataPlan$document === void 0 ? void 0 : (_dataPlan$document$dt = _dataPlan$document.dtpn) === null || _dataPlan$document$dt === void 0 ? void 0 : (_dataPlan$document$dt2 = _dataPlan$document$dt.blok) === null || _dataPlan$document$dt2 === void 0 ? void 0 : _dataPlan$document$dt2.ev;
-            this.blockEventAttributes = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document2 = dataPlan.document) === null || _dataPlan$document2 === void 0 ? void 0 : (_dataPlan$document2$d = _dataPlan$document2.dtpn) === null || _dataPlan$document2$d === void 0 ? void 0 : (_dataPlan$document2$d2 = _dataPlan$document2$d.blok) === null || _dataPlan$document2$d2 === void 0 ? void 0 : _dataPlan$document2$d2.ea;
-            this.blockUserAttributes = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document3 = dataPlan.document) === null || _dataPlan$document3 === void 0 ? void 0 : (_dataPlan$document3$d = _dataPlan$document3.dtpn) === null || _dataPlan$document3$d === void 0 ? void 0 : (_dataPlan$document3$d2 = _dataPlan$document3$d.blok) === null || _dataPlan$document3$d2 === void 0 ? void 0 : _dataPlan$document3$d2.ua;
-            this.blockUserIdentities = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document4 = dataPlan.document) === null || _dataPlan$document4 === void 0 ? void 0 : (_dataPlan$document4$d = _dataPlan$document4.dtpn) === null || _dataPlan$document4$d === void 0 ? void 0 : (_dataPlan$document4$d2 = _dataPlan$document4$d.blok) === null || _dataPlan$document4$d2 === void 0 ? void 0 : _dataPlan$document4$d2.id;
-            var versionDocument = dataPlan === null || dataPlan === void 0 ? void 0 : (_dataPlan$document5 = dataPlan.document) === null || _dataPlan$document5 === void 0 ? void 0 : (_dataPlan$document5$d = _dataPlan$document5.dtpn) === null || _dataPlan$document5$d === void 0 ? void 0 : (_dataPlan$document5$d2 = _dataPlan$document5$d.vers) === null || _dataPlan$document5$d2 === void 0 ? void 0 : _dataPlan$document5$d2.version_document;
-            var dataPoints = versionDocument === null || versionDocument === void 0 ? void 0 : versionDocument.data_points;
-            if (versionDocument) {
-                try {
-                    if ((dataPoints === null || dataPoints === void 0 ? void 0 : dataPoints.length) > 0) {
-                        dataPoints.forEach(function (point) {
-                            return _this.addToMatchLookups(point);
-                        });
-                    }
-                }
-                catch (e) {
-                    this.mpInstance.Logger.error('There was an issue with the data plan: ' + e);
-                }
-            }
+
+    var KitBlocker =
+    /** @class */
+    function () {
+      function KitBlocker(dataPlan, mpInstance) {
+        var _this = this;
+
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q;
+
+        this.dataPlanMatchLookups = {};
+        this.blockEvents = false;
+        this.blockEventAttributes = false;
+        this.blockUserAttributes = false;
+        this.blockUserIdentities = false;
+        this.kitBlockingEnabled = false; // if data plan is not requested, the data plan is {document: null}
+
+        if (dataPlan && !dataPlan.document) {
+          this.kitBlockingEnabled = false;
+          return;
         }
-        createClass(KitBlocker, [{
-                key: "addToMatchLookups",
-                value: function addToMatchLookups(point) {
-                    var _point$match, _point$match2, _point$match3;
-                    if (!point.match || !point.validator) {
-                        this.mpInstance.Logger.warning("Data Plan Point is not valid' + ".concat(point));
-                        return;
-                    } // match keys for non product custom attribute related data points
-                    var matchKey = this.generateMatchKey(point.match);
-                    var properties = this.getPlannedProperties(point.match.type, point.validator);
-                    this.dataPlanMatchLookups[matchKey] = properties; // match keys for product custom attribute related data points
-                    if ((point === null || point === void 0 ? void 0 : (_point$match = point.match) === null || _point$match === void 0 ? void 0 : _point$match.type) === DataPlanMatchType.ProductImpression || (point === null || point === void 0 ? void 0 : (_point$match2 = point.match) === null || _point$match2 === void 0 ? void 0 : _point$match2.type) === DataPlanMatchType.ProductAction || (point === null || point === void 0 ? void 0 : (_point$match3 = point.match) === null || _point$match3 === void 0 ? void 0 : _point$match3.type) === DataPlanMatchType.PromotionAction) {
-                        matchKey = this.generateProductAttributeMatchKey(point.match);
-                        properties = this.getProductProperties(point.match.type, point.validator);
-                        this.dataPlanMatchLookups[matchKey] = properties;
-                    }
+
+        this.kitBlockingEnabled = true;
+        this.mpInstance = mpInstance;
+        this.blockEvents = (_c = (_b = (_a = dataPlan === null || dataPlan === void 0 ? void 0 : dataPlan.document) === null || _a === void 0 ? void 0 : _a.dtpn) === null || _b === void 0 ? void 0 : _b.blok) === null || _c === void 0 ? void 0 : _c.ev;
+        this.blockEventAttributes = (_f = (_e = (_d = dataPlan === null || dataPlan === void 0 ? void 0 : dataPlan.document) === null || _d === void 0 ? void 0 : _d.dtpn) === null || _e === void 0 ? void 0 : _e.blok) === null || _f === void 0 ? void 0 : _f.ea;
+        this.blockUserAttributes = (_j = (_h = (_g = dataPlan === null || dataPlan === void 0 ? void 0 : dataPlan.document) === null || _g === void 0 ? void 0 : _g.dtpn) === null || _h === void 0 ? void 0 : _h.blok) === null || _j === void 0 ? void 0 : _j.ua;
+        this.blockUserIdentities = (_m = (_l = (_k = dataPlan === null || dataPlan === void 0 ? void 0 : dataPlan.document) === null || _k === void 0 ? void 0 : _k.dtpn) === null || _l === void 0 ? void 0 : _l.blok) === null || _m === void 0 ? void 0 : _m.id;
+        var versionDocument = (_q = (_p = (_o = dataPlan === null || dataPlan === void 0 ? void 0 : dataPlan.document) === null || _o === void 0 ? void 0 : _o.dtpn) === null || _p === void 0 ? void 0 : _p.vers) === null || _q === void 0 ? void 0 : _q.version_document;
+        var dataPoints = versionDocument === null || versionDocument === void 0 ? void 0 : versionDocument.data_points;
+
+        if (versionDocument) {
+          try {
+            if ((dataPoints === null || dataPoints === void 0 ? void 0 : dataPoints.length) > 0) {
+              dataPoints.forEach(function (point) {
+                return _this.addToMatchLookups(point);
+              });
+            }
+          } catch (e) {
+            this.mpInstance.Logger.error('There was an issue with the data plan: ' + e);
+          }
+        }
+      }
+
+      KitBlocker.prototype.addToMatchLookups = function (point) {
+        var _a, _b, _c;
+
+        if (!point.match || !point.validator) {
+          this.mpInstance.Logger.warning("Data Plan Point is not valid' + ".concat(point));
+          return;
+        } // match keys for non product custom attribute related data points
+
+
+        var matchKey = this.generateMatchKey(point.match);
+        var properties = this.getPlannedProperties(point.match.type, point.validator);
+        this.dataPlanMatchLookups[matchKey] = properties; // match keys for product custom attribute related data points
+
+        if (((_a = point === null || point === void 0 ? void 0 : point.match) === null || _a === void 0 ? void 0 : _a.type) === DataPlanMatchType.ProductImpression || ((_b = point === null || point === void 0 ? void 0 : point.match) === null || _b === void 0 ? void 0 : _b.type) === DataPlanMatchType.ProductAction || ((_c = point === null || point === void 0 ? void 0 : point.match) === null || _c === void 0 ? void 0 : _c.type) === DataPlanMatchType.PromotionAction) {
+          matchKey = this.generateProductAttributeMatchKey(point.match);
+          properties = this.getProductProperties(point.match.type, point.validator);
+          this.dataPlanMatchLookups[matchKey] = properties;
+        }
+      };
+
+      KitBlocker.prototype.generateMatchKey = function (match) {
+        var criteria = match.criteria || '';
+
+        switch (match.type) {
+          case DataPlanMatchType.CustomEvent:
+            var customEventCriteria = criteria;
+            return [DataPlanMatchType.CustomEvent, customEventCriteria.custom_event_type, customEventCriteria.event_name].join(':');
+
+          case DataPlanMatchType.ScreenView:
+            var screenViewCriteria = criteria;
+            return [DataPlanMatchType.ScreenView, '', screenViewCriteria.screen_name].join(':');
+
+          case DataPlanMatchType.ProductAction:
+            var productActionMatch = criteria;
+            return [match.type, productActionMatch.action].join(':');
+
+          case DataPlanMatchType.PromotionAction:
+            var promoActionMatch = criteria;
+            return [match.type, promoActionMatch.action].join(':');
+
+          case DataPlanMatchType.ProductImpression:
+            var productImpressionActionMatch = criteria;
+            return [match.type, productImpressionActionMatch.action].join(':');
+
+          case DataPlanMatchType.UserIdentities:
+          case DataPlanMatchType.UserAttributes:
+            return [match.type].join(':');
+
+          default:
+            return null;
+        }
+      };
+
+      KitBlocker.prototype.generateProductAttributeMatchKey = function (match) {
+        var criteria = match.criteria || '';
+
+        switch (match.type) {
+          case DataPlanMatchType.ProductAction:
+            var productActionMatch = criteria;
+            return [match.type, productActionMatch.action, 'ProductAttributes'].join(':');
+
+          case DataPlanMatchType.PromotionAction:
+            var promoActionMatch = criteria;
+            return [match.type, promoActionMatch.action, 'ProductAttributes'].join(':');
+
+          case DataPlanMatchType.ProductImpression:
+            return [match.type, 'ProductAttributes'].join(':');
+
+          default:
+            return null;
+        }
+      };
+
+      KitBlocker.prototype.getPlannedProperties = function (type, validator) {
+        var _a, _b, _c, _d, _e, _f, _g, _h;
+
+        var customAttributes;
+        var userAdditionalProperties;
+
+        switch (type) {
+          case DataPlanMatchType.CustomEvent:
+          case DataPlanMatchType.ScreenView:
+          case DataPlanMatchType.ProductAction:
+          case DataPlanMatchType.PromotionAction:
+          case DataPlanMatchType.ProductImpression:
+            customAttributes = (_d = (_c = (_b = (_a = validator === null || validator === void 0 ? void 0 : validator.definition) === null || _a === void 0 ? void 0 : _a.properties) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.properties) === null || _d === void 0 ? void 0 : _d.custom_attributes;
+
+            if (customAttributes) {
+              if (customAttributes.additionalProperties === true || customAttributes.additionalProperties === undefined) {
+                return true;
+              } else {
+                var properties = {};
+
+                for (var _i = 0, _j = Object.keys(customAttributes.properties); _i < _j.length; _i++) {
+                  var property = _j[_i];
+                  properties[property] = true;
                 }
-            }, {
-                key: "generateMatchKey",
-                value: function generateMatchKey(match) {
-                    var criteria = match.criteria || '';
-                    switch (match.type) {
-                        case DataPlanMatchType.CustomEvent:
-                            var customEventCriteria = criteria;
-                            return [DataPlanMatchType.CustomEvent, customEventCriteria.custom_event_type, customEventCriteria.event_name].join(':');
-                        case DataPlanMatchType.ScreenView:
-                            var screenViewCriteria = criteria;
-                            return [DataPlanMatchType.ScreenView, '', screenViewCriteria.screen_name].join(':');
-                        case DataPlanMatchType.ProductAction:
-                            var productActionMatch = criteria;
-                            return [match.type, productActionMatch.action].join(':');
-                        case DataPlanMatchType.PromotionAction:
-                            var promoActionMatch = criteria;
-                            return [match.type, promoActionMatch.action].join(':');
-                        case DataPlanMatchType.ProductImpression:
-                            var productImpressionActionMatch = criteria;
-                            return [match.type, productImpressionActionMatch.action].join(':');
-                        case DataPlanMatchType.UserIdentities:
-                        case DataPlanMatchType.UserAttributes:
-                            return [match.type].join(':');
-                        default:
-                            return null;
-                    }
+
+                return properties;
+              }
+            } else {
+              if (((_g = (_f = (_e = validator === null || validator === void 0 ? void 0 : validator.definition) === null || _e === void 0 ? void 0 : _e.properties) === null || _f === void 0 ? void 0 : _f.data) === null || _g === void 0 ? void 0 : _g.additionalProperties) === false) {
+                return {};
+              } else {
+                return true;
+              }
+            }
+
+          case DataPlanMatchType.UserAttributes:
+          case DataPlanMatchType.UserIdentities:
+            userAdditionalProperties = (_h = validator === null || validator === void 0 ? void 0 : validator.definition) === null || _h === void 0 ? void 0 : _h.additionalProperties;
+
+            if (userAdditionalProperties === true || userAdditionalProperties === undefined) {
+              return true;
+            } else {
+              var properties = {};
+              var userProperties = validator.definition.properties;
+
+              for (var _k = 0, _l = Object.keys(userProperties); _k < _l.length; _k++) {
+                var property = _l[_k];
+                properties[property] = true;
+              }
+
+              return properties;
+            }
+
+          default:
+            return null;
+        }
+      };
+
+      KitBlocker.prototype.getProductProperties = function (type, validator) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u;
+
+        var productCustomAttributes;
+
+        switch (type) {
+          case DataPlanMatchType.ProductImpression:
+            productCustomAttributes = (_k = (_j = (_h = (_g = (_f = (_e = (_d = (_c = (_b = (_a = validator === null || validator === void 0 ? void 0 : validator.definition) === null || _a === void 0 ? void 0 : _a.properties) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.properties) === null || _d === void 0 ? void 0 : _d.product_impressions) === null || _e === void 0 ? void 0 : _e.items) === null || _f === void 0 ? void 0 : _f.properties) === null || _g === void 0 ? void 0 : _g.products) === null || _h === void 0 ? void 0 : _h.items) === null || _j === void 0 ? void 0 : _j.properties) === null || _k === void 0 ? void 0 : _k.custom_attributes; //product item attributes
+
+            if ((productCustomAttributes === null || productCustomAttributes === void 0 ? void 0 : productCustomAttributes.additionalProperties) === false) {
+              var properties = {};
+
+              for (var _i = 0, _v = Object.keys(productCustomAttributes === null || productCustomAttributes === void 0 ? void 0 : productCustomAttributes.properties); _i < _v.length; _i++) {
+                var property = _v[_i];
+                properties[property] = true;
+              }
+
+              return properties;
+            }
+
+            return true;
+
+          case DataPlanMatchType.ProductAction:
+          case DataPlanMatchType.PromotionAction:
+            productCustomAttributes = (_u = (_t = (_s = (_r = (_q = (_p = (_o = (_m = (_l = validator === null || validator === void 0 ? void 0 : validator.definition) === null || _l === void 0 ? void 0 : _l.properties) === null || _m === void 0 ? void 0 : _m.data) === null || _o === void 0 ? void 0 : _o.properties) === null || _p === void 0 ? void 0 : _p.product_action) === null || _q === void 0 ? void 0 : _q.properties) === null || _r === void 0 ? void 0 : _r.products) === null || _s === void 0 ? void 0 : _s.items) === null || _t === void 0 ? void 0 : _t.properties) === null || _u === void 0 ? void 0 : _u.custom_attributes; //product item attributes
+
+            if (productCustomAttributes) {
+              if (productCustomAttributes.additionalProperties === false) {
+                var properties = {};
+
+                for (var _w = 0, _x = Object.keys(productCustomAttributes === null || productCustomAttributes === void 0 ? void 0 : productCustomAttributes.properties); _w < _x.length; _w++) {
+                  var property = _x[_w];
+                  properties[property] = true;
                 }
-            }, {
-                key: "generateProductAttributeMatchKey",
-                value: function generateProductAttributeMatchKey(match) {
-                    var criteria = match.criteria || '';
-                    switch (match.type) {
-                        case DataPlanMatchType.ProductAction:
-                            var productActionMatch = criteria;
-                            return [match.type, productActionMatch.action, 'ProductAttributes'].join(':');
-                        case DataPlanMatchType.PromotionAction:
-                            var promoActionMatch = criteria;
-                            return [match.type, promoActionMatch.action, 'ProductAttributes'].join(':');
-                        case DataPlanMatchType.ProductImpression:
-                            return [match.type, 'ProductAttributes'].join(':');
-                        default:
-                            return null;
-                    }
+
+                return properties;
+              }
+            }
+
+            return true;
+
+          default:
+            return null;
+        }
+      };
+
+      KitBlocker.prototype.getMatchKey = function (eventToMatch) {
+        switch (eventToMatch.event_type) {
+          case dist.EventTypeEnum.screenView:
+            var screenViewEvent = eventToMatch;
+
+            if (screenViewEvent.data) {
+              return ['screen_view', '', screenViewEvent.data.screen_name].join(':');
+            }
+
+            return null;
+
+          case dist.EventTypeEnum.commerceEvent:
+            var commerceEvent = eventToMatch;
+            var matchKey = [];
+
+            if (commerceEvent && commerceEvent.data) {
+              var _a = commerceEvent.data,
+                  product_action = _a.product_action,
+                  product_impressions = _a.product_impressions,
+                  promotion_action = _a.promotion_action;
+
+              if (product_action) {
+                matchKey.push(DataPlanMatchType.ProductAction);
+                matchKey.push(product_action.action);
+              } else if (promotion_action) {
+                matchKey.push(DataPlanMatchType.PromotionAction);
+                matchKey.push(promotion_action.action);
+              } else if (product_impressions) {
+                matchKey.push(DataPlanMatchType.ProductImpression);
+              }
+            }
+
+            return matchKey.join(':');
+
+          case dist.EventTypeEnum.customEvent:
+            var customEvent = eventToMatch;
+
+            if (customEvent.data) {
+              return ['custom_event', customEvent.data.custom_event_type, customEvent.data.event_name].join(':');
+            }
+
+            return null;
+
+          default:
+            return null;
+        }
+      };
+
+      KitBlocker.prototype.getProductAttributeMatchKey = function (eventToMatch) {
+        switch (eventToMatch.event_type) {
+          case dist.EventTypeEnum.commerceEvent:
+            var commerceEvent = eventToMatch;
+            var matchKey = [];
+            var _a = commerceEvent.data,
+                product_action = _a.product_action,
+                product_impressions = _a.product_impressions,
+                promotion_action = _a.promotion_action;
+
+            if (product_action) {
+              matchKey.push(DataPlanMatchType.ProductAction);
+              matchKey.push(product_action.action);
+              matchKey.push('ProductAttributes');
+            } else if (promotion_action) {
+              matchKey.push(DataPlanMatchType.PromotionAction);
+              matchKey.push(promotion_action.action);
+              matchKey.push('ProductAttributes');
+            } else if (product_impressions) {
+              matchKey.push(DataPlanMatchType.ProductImpression);
+              matchKey.push('ProductAttributes');
+            }
+
+            return matchKey.join(':');
+
+          default:
+            return null;
+        }
+      };
+
+      KitBlocker.prototype.createBlockedEvent = function (event) {
+        /*
+            return a transformed event based on event/event attributes,
+            then product attributes if applicable, then user attributes,
+            then the user identities
+        */
+        try {
+          if (event) {
+            event = this.transformEventAndEventAttributes(event);
+          }
+
+          if (event && event.EventDataType === Types.MessageType.Commerce) {
+            event = this.transformProductAttributes(event);
+          }
+
+          if (event) {
+            event = this.transformUserAttributes(event);
+            event = this.transformUserIdentities(event);
+          }
+
+          return event;
+        } catch (e) {
+          return event;
+        }
+      };
+
+      KitBlocker.prototype.transformEventAndEventAttributes = function (event) {
+        var clonedEvent = __assign({}, event);
+
+        var baseEvent = convertEvent(clonedEvent);
+        var matchKey = this.getMatchKey(baseEvent);
+        var matchedEvent = this.dataPlanMatchLookups[matchKey];
+
+        if (this.blockEvents) {
+          /*
+              If the event is not planned, it doesn't exist in dataPlanMatchLookups
+              and should be blocked (return null to not send anything to forwarders)
+          */
+          if (!matchedEvent) {
+            return null;
+          }
+        }
+
+        if (this.blockEventAttributes) {
+          /*
+              matchedEvent is set to `true` if additionalProperties is `true`
+              otherwise, delete attributes that exist on event.EventAttributes
+              that aren't on
+          */
+          if (matchedEvent === true) {
+            return clonedEvent;
+          }
+
+          if (matchedEvent) {
+            for (var _i = 0, _a = Object.keys(clonedEvent.EventAttributes); _i < _a.length; _i++) {
+              var key = _a[_i];
+
+              if (!matchedEvent[key]) {
+                delete clonedEvent.EventAttributes[key];
+              }
+            }
+
+            return clonedEvent;
+          } else {
+            return clonedEvent;
+          }
+        }
+
+        return clonedEvent;
+      };
+
+      KitBlocker.prototype.transformProductAttributes = function (event) {
+        var _a;
+
+        var clonedEvent = __assign({}, event);
+
+        var baseEvent = convertEvent(clonedEvent);
+        var matchKey = this.getProductAttributeMatchKey(baseEvent);
+        var matchedEvent = this.dataPlanMatchLookups[matchKey];
+
+        function removeAttribute(matchedEvent, productList) {
+          productList.forEach(function (product) {
+            for (var _i = 0, _a = Object.keys(product.Attributes); _i < _a.length; _i++) {
+              var productKey = _a[_i];
+
+              if (!matchedEvent[productKey]) {
+                delete product.Attributes[productKey];
+              }
+            }
+          });
+        }
+
+        if (this.blockEvents) {
+          /*
+              If the event is not planned, it doesn't exist in dataPlanMatchLookups
+              and should be blocked (return null to not send anything to forwarders)
+          */
+          if (!matchedEvent) {
+            return null;
+          }
+        }
+
+        if (this.blockEventAttributes) {
+          /*
+              matchedEvent is set to `true` if additionalProperties is `true`
+              otherwise, delete attributes that exist on event.EventAttributes
+              that aren't on
+          */
+          if (matchedEvent === true) {
+            return clonedEvent;
+          }
+
+          if (matchedEvent) {
+            switch (event.EventCategory) {
+              case Types.CommerceEventType.ProductImpression:
+                clonedEvent.ProductImpressions.forEach(function (impression) {
+                  removeAttribute(matchedEvent, impression === null || impression === void 0 ? void 0 : impression.ProductList);
+                });
+                break;
+
+              case Types.CommerceEventType.ProductPurchase:
+                removeAttribute(matchedEvent, (_a = clonedEvent.ProductAction) === null || _a === void 0 ? void 0 : _a.ProductList);
+                break;
+
+              default:
+                this.mpInstance.Logger.warning('Product Not Supported ');
+            }
+
+            return clonedEvent;
+          } else {
+            return clonedEvent;
+          }
+        }
+
+        return clonedEvent;
+      };
+
+      KitBlocker.prototype.transformUserAttributes = function (event) {
+        var clonedEvent = __assign({}, event);
+
+        if (this.blockUserAttributes) {
+          /*
+              If the user attribute is not found in the matchedAttributes
+              then remove it from event.UserAttributes as it is blocked
+          */
+          var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
+
+          if (this.mpInstance._Helpers.isObject(matchedAttributes)) {
+            for (var _i = 0, _a = Object.keys(clonedEvent.UserAttributes); _i < _a.length; _i++) {
+              var ua = _a[_i];
+
+              if (!matchedAttributes[ua]) {
+                delete clonedEvent.UserAttributes[ua];
+              }
+            }
+          }
+        }
+
+        return clonedEvent;
+      };
+
+      KitBlocker.prototype.isAttributeKeyBlocked = function (key) {
+        /* used when an attribute is added to the user */
+        if (!this.blockUserAttributes) {
+          return false;
+        }
+
+        if (this.blockUserAttributes) {
+          var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
+
+          if (matchedAttributes === true) {
+            return false;
+          }
+
+          if (!matchedAttributes[key]) {
+            return true;
+          }
+        }
+
+        return false;
+      };
+
+      KitBlocker.prototype.isIdentityBlocked = function (key) {
+        /* used when an attribute is added to the user */
+        if (!this.blockUserIdentities) {
+          return false;
+        }
+
+        if (this.blockUserIdentities) {
+          var matchedIdentities = this.dataPlanMatchLookups['user_identities'];
+
+          if (matchedIdentities === true) {
+            return false;
+          }
+
+          if (!matchedIdentities[key]) {
+            return true;
+          }
+        } else {
+          return false;
+        }
+
+        return false;
+      };
+
+      KitBlocker.prototype.transformUserIdentities = function (event) {
+        var _this = this;
+
+        var _a;
+        /*
+            If the user identity is not found in matchedIdentities
+            then remove it from event.UserIdentities as it is blocked.
+            event.UserIdentities is of type [{Identity: 'id1', Type: 7}, ...]
+            and so to compare properly in matchedIdentities, each Type needs
+            to be converted to an identityName
+        */
+
+
+        var clonedEvent = __assign({}, event);
+
+        if (this.blockUserIdentities) {
+          var matchedIdentities_1 = this.dataPlanMatchLookups['user_identities'];
+
+          if (this.mpInstance._Helpers.isObject(matchedIdentities_1)) {
+            if ((_a = clonedEvent === null || clonedEvent === void 0 ? void 0 : clonedEvent.UserIdentities) === null || _a === void 0 ? void 0 : _a.length) {
+              clonedEvent.UserIdentities.forEach(function (uiByType, i) {
+                var identityName = Types.IdentityType.getIdentityName(_this.mpInstance._Helpers.parseNumber(uiByType.Type));
+
+                if (!matchedIdentities_1[identityName]) {
+                  clonedEvent.UserIdentities.splice(i, 1);
                 }
-            }, {
-                key: "getPlannedProperties",
-                value: function getPlannedProperties(type, validator) {
-                    var _validator$definition, _validator$definition2, _validator$definition3, _validator$definition4, _validator$definition8;
-                    var customAttributes;
-                    var userAdditionalProperties;
-                    switch (type) {
-                        case DataPlanMatchType.CustomEvent:
-                        case DataPlanMatchType.ScreenView:
-                        case DataPlanMatchType.ProductAction:
-                        case DataPlanMatchType.PromotionAction:
-                        case DataPlanMatchType.ProductImpression:
-                            customAttributes = validator === null || validator === void 0 ? void 0 : (_validator$definition = validator.definition) === null || _validator$definition === void 0 ? void 0 : (_validator$definition2 = _validator$definition.properties) === null || _validator$definition2 === void 0 ? void 0 : (_validator$definition3 = _validator$definition2.data) === null || _validator$definition3 === void 0 ? void 0 : (_validator$definition4 = _validator$definition3.properties) === null || _validator$definition4 === void 0 ? void 0 : _validator$definition4.custom_attributes;
-                            if (customAttributes) {
-                                if (customAttributes.additionalProperties === true || customAttributes.additionalProperties === undefined) {
-                                    return true;
-                                }
-                                else {
-                                    var properties = {};
-                                    for (var _i = 0, _Object$keys = Object.keys(customAttributes.properties); _i < _Object$keys.length; _i++) {
-                                        var property = _Object$keys[_i];
-                                        properties[property] = true;
-                                    }
-                                    return properties;
-                                }
-                            }
-                            else {
-                                var _validator$definition5, _validator$definition6, _validator$definition7;
-                                if ((validator === null || validator === void 0 ? void 0 : (_validator$definition5 = validator.definition) === null || _validator$definition5 === void 0 ? void 0 : (_validator$definition6 = _validator$definition5.properties) === null || _validator$definition6 === void 0 ? void 0 : (_validator$definition7 = _validator$definition6.data) === null || _validator$definition7 === void 0 ? void 0 : _validator$definition7.additionalProperties) === false) {
-                                    return {};
-                                }
-                                else {
-                                    return true;
-                                }
-                            }
-                        case DataPlanMatchType.UserAttributes:
-                        case DataPlanMatchType.UserIdentities:
-                            userAdditionalProperties = validator === null || validator === void 0 ? void 0 : (_validator$definition8 = validator.definition) === null || _validator$definition8 === void 0 ? void 0 : _validator$definition8.additionalProperties;
-                            if (userAdditionalProperties === true || userAdditionalProperties === undefined) {
-                                return true;
-                            }
-                            else {
-                                var _properties = {};
-                                var userProperties = validator.definition.properties;
-                                for (var _i2 = 0, _Object$keys2 = Object.keys(userProperties); _i2 < _Object$keys2.length; _i2++) {
-                                    var _property = _Object$keys2[_i2];
-                                    _properties[_property] = true;
-                                }
-                                return _properties;
-                            }
-                        default:
-                            return null;
-                    }
-                }
-            }, {
-                key: "getProductProperties",
-                value: function getProductProperties(type, validator) {
-                    var _validator$definition9, _validator$definition10, _validator$definition11, _validator$definition12, _validator$definition13, _validator$definition14, _validator$definition15, _validator$definition16, _validator$definition17, _validator$definition18, _productCustomAttribu, _validator$definition19, _validator$definition20, _validator$definition21, _validator$definition22, _validator$definition23, _validator$definition24, _validator$definition25, _validator$definition26, _validator$definition27;
-                    var productCustomAttributes;
-                    switch (type) {
-                        case DataPlanMatchType.ProductImpression:
-                            productCustomAttributes = validator === null || validator === void 0 ? void 0 : (_validator$definition9 = validator.definition) === null || _validator$definition9 === void 0 ? void 0 : (_validator$definition10 = _validator$definition9.properties) === null || _validator$definition10 === void 0 ? void 0 : (_validator$definition11 = _validator$definition10.data) === null || _validator$definition11 === void 0 ? void 0 : (_validator$definition12 = _validator$definition11.properties) === null || _validator$definition12 === void 0 ? void 0 : (_validator$definition13 = _validator$definition12.product_impressions) === null || _validator$definition13 === void 0 ? void 0 : (_validator$definition14 = _validator$definition13.items) === null || _validator$definition14 === void 0 ? void 0 : (_validator$definition15 = _validator$definition14.properties) === null || _validator$definition15 === void 0 ? void 0 : (_validator$definition16 = _validator$definition15.products) === null || _validator$definition16 === void 0 ? void 0 : (_validator$definition17 = _validator$definition16.items) === null || _validator$definition17 === void 0 ? void 0 : (_validator$definition18 = _validator$definition17.properties) === null || _validator$definition18 === void 0 ? void 0 : _validator$definition18.custom_attributes; //product item attributes
-                            if (((_productCustomAttribu = productCustomAttributes) === null || _productCustomAttribu === void 0 ? void 0 : _productCustomAttribu.additionalProperties) === false) {
-                                var properties = {};
-                                for (var _i3 = 0, _Object$keys3 = Object.keys((_productCustomAttribu2 = productCustomAttributes) === null || _productCustomAttribu2 === void 0 ? void 0 : _productCustomAttribu2.properties); _i3 < _Object$keys3.length; _i3++) {
-                                    var _productCustomAttribu2;
-                                    var property = _Object$keys3[_i3];
-                                    properties[property] = true;
-                                }
-                                return properties;
-                            }
-                            return true;
-                        case DataPlanMatchType.ProductAction:
-                        case DataPlanMatchType.PromotionAction:
-                            productCustomAttributes = validator === null || validator === void 0 ? void 0 : (_validator$definition19 = validator.definition) === null || _validator$definition19 === void 0 ? void 0 : (_validator$definition20 = _validator$definition19.properties) === null || _validator$definition20 === void 0 ? void 0 : (_validator$definition21 = _validator$definition20.data) === null || _validator$definition21 === void 0 ? void 0 : (_validator$definition22 = _validator$definition21.properties) === null || _validator$definition22 === void 0 ? void 0 : (_validator$definition23 = _validator$definition22.product_action) === null || _validator$definition23 === void 0 ? void 0 : (_validator$definition24 = _validator$definition23.properties) === null || _validator$definition24 === void 0 ? void 0 : (_validator$definition25 = _validator$definition24.products) === null || _validator$definition25 === void 0 ? void 0 : (_validator$definition26 = _validator$definition25.items) === null || _validator$definition26 === void 0 ? void 0 : (_validator$definition27 = _validator$definition26.properties) === null || _validator$definition27 === void 0 ? void 0 : _validator$definition27.custom_attributes; //product item attributes
-                            if (productCustomAttributes) {
-                                if (productCustomAttributes.additionalProperties === false) {
-                                    var _properties2 = {};
-                                    for (var _i4 = 0, _Object$keys4 = Object.keys((_productCustomAttribu3 = productCustomAttributes) === null || _productCustomAttribu3 === void 0 ? void 0 : _productCustomAttribu3.properties); _i4 < _Object$keys4.length; _i4++) {
-                                        var _productCustomAttribu3;
-                                        var _property2 = _Object$keys4[_i4];
-                                        _properties2[_property2] = true;
-                                    }
-                                    return _properties2;
-                                }
-                            }
-                            return true;
-                        default:
-                            return null;
-                    }
-                }
-            }, {
-                key: "getMatchKey",
-                value: function getMatchKey(eventToMatch) {
-                    switch (eventToMatch.event_type) {
-                        case dist_14.screenView:
-                            var screenViewEvent = eventToMatch;
-                            if (screenViewEvent.data) {
-                                return ['screen_view', '', screenViewEvent.data.screen_name].join(':');
-                            }
-                            return null;
-                        case dist_14.commerceEvent:
-                            var commerceEvent = eventToMatch;
-                            var matchKey = [];
-                            if (commerceEvent && commerceEvent.data) {
-                                var _commerceEvent$data = commerceEvent.data, product_action = _commerceEvent$data.product_action, product_impressions = _commerceEvent$data.product_impressions, promotion_action = _commerceEvent$data.promotion_action;
-                                if (product_action) {
-                                    matchKey.push(DataPlanMatchType.ProductAction);
-                                    matchKey.push(product_action.action);
-                                }
-                                else if (promotion_action) {
-                                    matchKey.push(DataPlanMatchType.PromotionAction);
-                                    matchKey.push(promotion_action.action);
-                                }
-                                else if (product_impressions) {
-                                    matchKey.push(DataPlanMatchType.ProductImpression);
-                                }
-                            }
-                            return matchKey.join(':');
-                        case dist_14.customEvent:
-                            var customEvent = eventToMatch;
-                            if (customEvent.data) {
-                                return ['custom_event', customEvent.data.custom_event_type, customEvent.data.event_name].join(':');
-                            }
-                            return null;
-                        default:
-                            return null;
-                    }
-                }
-            }, {
-                key: "getProductAttributeMatchKey",
-                value: function getProductAttributeMatchKey(eventToMatch) {
-                    switch (eventToMatch.event_type) {
-                        case dist_14.commerceEvent:
-                            var commerceEvent = eventToMatch;
-                            var matchKey = [];
-                            var _commerceEvent$data2 = commerceEvent.data, product_action = _commerceEvent$data2.product_action, product_impressions = _commerceEvent$data2.product_impressions, promotion_action = _commerceEvent$data2.promotion_action;
-                            if (product_action) {
-                                matchKey.push(DataPlanMatchType.ProductAction);
-                                matchKey.push(product_action.action);
-                                matchKey.push('ProductAttributes');
-                            }
-                            else if (promotion_action) {
-                                matchKey.push(DataPlanMatchType.PromotionAction);
-                                matchKey.push(promotion_action.action);
-                                matchKey.push('ProductAttributes');
-                            }
-                            else if (product_impressions) {
-                                matchKey.push(DataPlanMatchType.ProductImpression);
-                                matchKey.push('ProductAttributes');
-                            }
-                            return matchKey.join(':');
-                        default:
-                            return null;
-                    }
-                }
-            }, {
-                key: "createBlockedEvent",
-                value: function createBlockedEvent(event) {
-                    /*
-                        return a transformed event based on event/event attributes,
-                        then product attributes if applicable, then user attributes,
-                        then the user identities
-                    */
-                    try {
-                        if (event) {
-                            event = this.transformEventAndEventAttributes(event);
-                        }
-                        if (event && event.EventDataType === Types.MessageType.Commerce) {
-                            event = this.transformProductAttributes(event);
-                        }
-                        if (event) {
-                            event = this.transformUserAttributes(event);
-                            event = this.transformUserIdentities(event);
-                        }
-                        return event;
-                    }
-                    catch (e) {
-                        return event;
-                    }
-                }
-            }, {
-                key: "transformEventAndEventAttributes",
-                value: function transformEventAndEventAttributes(event) {
-                    var clonedEvent = _objectSpread$1({}, event);
-                    var baseEvent = convertEvent(clonedEvent);
-                    var matchKey = this.getMatchKey(baseEvent);
-                    var matchedEvent = this.dataPlanMatchLookups[matchKey];
-                    if (this.blockEvents) {
-                        /*
-                            If the event is not planned, it doesn't exist in dataPlanMatchLookups
-                            and should be blocked (return null to not send anything to forwarders)
-                        */
-                        if (!matchedEvent) {
-                            return null;
-                        }
-                    }
-                    if (this.blockEventAttributes) {
-                        /*
-                            matchedEvent is set to `true` if additionalProperties is `true`
-                            otherwise, delete attributes that exist on event.EventAttributes
-                            that aren't on
-                        */
-                        if (matchedEvent === true) {
-                            return clonedEvent;
-                        }
-                        if (matchedEvent) {
-                            for (var _i5 = 0, _Object$keys5 = Object.keys(clonedEvent.EventAttributes); _i5 < _Object$keys5.length; _i5++) {
-                                var _key = _Object$keys5[_i5];
-                                if (!matchedEvent[_key]) {
-                                    delete clonedEvent.EventAttributes[_key];
-                                }
-                            }
-                            return clonedEvent;
-                        }
-                        else {
-                            return clonedEvent;
-                        }
-                    }
-                    return clonedEvent;
-                }
-            }, {
-                key: "transformProductAttributes",
-                value: function transformProductAttributes(event) {
-                    var _clonedEvent$ProductA;
-                    var clonedEvent = _objectSpread$1({}, event);
-                    var baseEvent = convertEvent(clonedEvent);
-                    var matchKey = this.getProductAttributeMatchKey(baseEvent);
-                    var matchedEvent = this.dataPlanMatchLookups[matchKey];
-                    function removeAttribute(matchedEvent, productList) {
-                        productList.forEach(function (product) {
-                            for (var _i6 = 0, _Object$keys6 = Object.keys(product.Attributes); _i6 < _Object$keys6.length; _i6++) {
-                                var productKey = _Object$keys6[_i6];
-                                if (!matchedEvent[productKey]) {
-                                    delete product.Attributes[productKey];
-                                }
-                            }
-                        });
-                    }
-                    if (this.blockEvents) {
-                        /*
-                            If the event is not planned, it doesn't exist in dataPlanMatchLookups
-                            and should be blocked (return null to not send anything to forwarders)
-                        */
-                        if (!matchedEvent) {
-                            return null;
-                        }
-                    }
-                    if (this.blockEventAttributes) {
-                        /*
-                            matchedEvent is set to `true` if additionalProperties is `true`
-                            otherwise, delete attributes that exist on event.EventAttributes
-                            that aren't on
-                        */
-                        if (matchedEvent === true) {
-                            return clonedEvent;
-                        }
-                        if (matchedEvent) {
-                            switch (event.EventCategory) {
-                                case Types.CommerceEventType.ProductImpression:
-                                    clonedEvent.ProductImpressions.forEach(function (impression) {
-                                        removeAttribute(matchedEvent, impression === null || impression === void 0 ? void 0 : impression.ProductList);
-                                    });
-                                    break;
-                                case Types.CommerceEventType.ProductPurchase:
-                                    removeAttribute(matchedEvent, (_clonedEvent$ProductA = clonedEvent.ProductAction) === null || _clonedEvent$ProductA === void 0 ? void 0 : _clonedEvent$ProductA.ProductList);
-                                    break;
-                                default:
-                                    this.mpInstance.Logger.warning('Product Not Supported ');
-                            }
-                            return clonedEvent;
-                        }
-                        else {
-                            return clonedEvent;
-                        }
-                    }
-                    return clonedEvent;
-                }
-            }, {
-                key: "transformUserAttributes",
-                value: function transformUserAttributes(event) {
-                    var clonedEvent = _objectSpread$1({}, event);
-                    if (this.blockUserAttributes) {
-                        /*
-                            If the user attribute is not found in the matchedAttributes
-                            then remove it from event.UserAttributes as it is blocked
-                        */
-                        var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-                        if (this.mpInstance._Helpers.isObject(matchedAttributes)) {
-                            for (var _i7 = 0, _Object$keys7 = Object.keys(clonedEvent.UserAttributes); _i7 < _Object$keys7.length; _i7++) {
-                                var ua = _Object$keys7[_i7];
-                                if (!matchedAttributes[ua]) {
-                                    delete clonedEvent.UserAttributes[ua];
-                                }
-                            }
-                        }
-                    }
-                    return clonedEvent;
-                }
-            }, {
-                key: "isAttributeKeyBlocked",
-                value: function isAttributeKeyBlocked(key) {
-                    /* used when an attribute is added to the user */
-                    if (!this.blockUserAttributes) {
-                        return false;
-                    }
-                    if (this.blockUserAttributes) {
-                        var matchedAttributes = this.dataPlanMatchLookups['user_attributes'];
-                        if (matchedAttributes === true) {
-                            return false;
-                        }
-                        if (!matchedAttributes[key]) {
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-            }, {
-                key: "isIdentityBlocked",
-                value: function isIdentityBlocked(key) {
-                    /* used when an attribute is added to the user */
-                    if (!this.blockUserIdentities) {
-                        return false;
-                    }
-                    if (this.blockUserIdentities) {
-                        var matchedIdentities = this.dataPlanMatchLookups['user_identities'];
-                        if (matchedIdentities === true) {
-                            return false;
-                        }
-                        if (!matchedIdentities[key]) {
-                            return true;
-                        }
-                    }
-                    else {
-                        return false;
-                    }
-                    return false;
-                }
-            }, {
-                key: "transformUserIdentities",
-                value: function transformUserIdentities(event) {
-                    var _this2 = this;
-                    /*
-                        If the user identity is not found in matchedIdentities
-                        then remove it from event.UserIdentities as it is blocked.
-                        event.UserIdentities is of type [{Identity: 'id1', Type: 7}, ...]
-                        and so to compare properly in matchedIdentities, each Type needs
-                        to be converted to an identityName
-                    */
-                    var clonedEvent = _objectSpread$1({}, event);
-                    if (this.blockUserIdentities) {
-                        var matchedIdentities = this.dataPlanMatchLookups['user_identities'];
-                        if (this.mpInstance._Helpers.isObject(matchedIdentities)) {
-                            var _clonedEvent$UserIden;
-                            if (clonedEvent !== null && clonedEvent !== void 0 && (_clonedEvent$UserIden = clonedEvent.UserIdentities) !== null && _clonedEvent$UserIden !== void 0 && _clonedEvent$UserIden.length) {
-                                clonedEvent.UserIdentities.forEach(function (uiByType, i) {
-                                    var identityName = Types.IdentityType.getIdentityName(_this2.mpInstance._Helpers.parseNumber(uiByType.Type));
-                                    if (!matchedIdentities[identityName]) {
-                                        clonedEvent.UserIdentities.splice(i, 1);
-                                    }
-                                });
-                            }
-                        }
-                    }
-                    return clonedEvent;
-                }
-            }]);
-        return KitBlocker;
+              });
+            }
+          }
+        }
+
+        return clonedEvent;
+      };
+
+      return KitBlocker;
     }();
 
     function ConfigAPIClient() {
@@ -10090,7 +9127,7 @@ var mParticle = (function () {
     }
 
     var HTTPCodes$1 = Constants.HTTPCodes,
-        Messages$8 = Constants.Messages;
+        Messages$1 = Constants.Messages;
     function IdentityAPIClient(mpInstance) {
       this.sendAliasRequest = function (aliasRequest, callback) {
         var xhr,
@@ -10116,7 +9153,7 @@ var mParticle = (function () {
           }
         };
 
-        mpInstance.Logger.verbose(Messages$8.InformationMessages.SendAliasHttp);
+        mpInstance.Logger.verbose(Messages$1.InformationMessages.SendAliasHttp);
         xhr = mpInstance._Helpers.createXHR(xhrCallback);
 
         if (xhr) {
@@ -10141,14 +9178,14 @@ var mParticle = (function () {
           }
         };
 
-        mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIdentityBegin);
+        mpInstance.Logger.verbose(Messages$1.InformationMessages.SendIdentityBegin);
 
         if (!identityApiRequest) {
-          mpInstance.Logger.error(Messages$8.ErrorMessages.APIRequestEmpty);
+          mpInstance.Logger.error(Messages$1.ErrorMessages.APIRequestEmpty);
           return;
         }
 
-        mpInstance.Logger.verbose(Messages$8.InformationMessages.SendIdentityHttp);
+        mpInstance.Logger.verbose(Messages$1.InformationMessages.SendIdentityHttp);
         xhr = mpInstance._Helpers.createXHR(xhrCallback);
 
         if (xhr) {
@@ -10180,8 +9217,8 @@ var mParticle = (function () {
       };
     }
 
-    var Messages$9 = Constants.Messages,
-        HTTPCodes$2 = Constants.HTTPCodes;
+    var Messages = Constants.Messages,
+        HTTPCodes = Constants.HTTPCodes;
     /**
      * <p>All of the following methods can be called on the primary mParticle class. In version 2.10.0, we introduced <a href="https://docs.mparticle.com/developers/sdk/web/multiple-instances/">multiple instances</a>. If you are using multiple instances (self hosted environments only), you should call these methods on each instance.</p>
      * <p>In current versions of mParticle, if your site has one instance, that instance name is 'default_instance'. Any methods called on mParticle on a site with one instance will be mapped to the `default_instance`.</p>
@@ -10495,7 +9532,7 @@ var mParticle = (function () {
         self._SessionManager.resetSessionTimer();
 
         if (typeof event.name !== 'string') {
-          self.Logger.error(Messages$9.ErrorMessages.EventNameInvalidType);
+          self.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
           return;
         }
 
@@ -10504,7 +9541,7 @@ var mParticle = (function () {
         }
 
         if (!self._Helpers.canLog()) {
-          self.Logger.error(Messages$9.ErrorMessages.LoggingDisabled);
+          self.Logger.error(Messages.ErrorMessages.LoggingDisabled);
           return;
         }
 
@@ -10530,7 +9567,7 @@ var mParticle = (function () {
         self._SessionManager.resetSessionTimer();
 
         if (typeof eventName !== 'string') {
-          self.Logger.error(Messages$9.ErrorMessages.EventNameInvalidType);
+          self.Logger.error(Messages.ErrorMessages.EventNameInvalidType);
           return;
         }
 
@@ -10544,7 +9581,7 @@ var mParticle = (function () {
         }
 
         if (!self._Helpers.canLog()) {
-          self.Logger.error(Messages$9.ErrorMessages.LoggingDisabled);
+          self.Logger.error(Messages.ErrorMessages.LoggingDisabled);
           return;
         }
 
@@ -10659,12 +9696,12 @@ var mParticle = (function () {
               title: window.document.title
             };
           } else if (!self._Helpers.isObject(attrs)) {
-            self.Logger.error('The attributes argument must be an object. A ' + _typeof_1(attrs) + ' was entered. Please correct and retry.');
+            self.Logger.error('The attributes argument must be an object. A ' + _typeof(attrs) + ' was entered. Please correct and retry.');
             return;
           }
 
           if (customFlags && !self._Helpers.isObject(customFlags)) {
-            self.Logger.error('The customFlags argument must be an object. A ' + _typeof_1(customFlags) + ' was entered. Please correct and retry.');
+            self.Logger.error('The customFlags argument must be an object. A ' + _typeof(customFlags) + ' was entered. Please correct and retry.');
             return;
           }
         }
@@ -10954,7 +9991,7 @@ var mParticle = (function () {
           }
 
           if (!transactionAttributes || !product) {
-            self.Logger.error(Messages$9.ErrorMessages.BadLogPurchase);
+            self.Logger.error(Messages.ErrorMessages.BadLogPurchase);
             return;
           }
 
@@ -11050,12 +10087,12 @@ var mParticle = (function () {
 
         if (self._Helpers.canLog()) {
           if (!self._Helpers.Validators.isValidAttributeValue(value)) {
-            self.Logger.error(Messages$9.ErrorMessages.BadAttribute);
+            self.Logger.error(Messages.ErrorMessages.BadAttribute);
             return;
           }
 
           if (!self._Helpers.Validators.isValidKeyValue(key)) {
-            self.Logger.error(Messages$9.ErrorMessages.BadKey);
+            self.Logger.error(Messages.ErrorMessages.BadKey);
             return;
           }
 
@@ -11154,17 +10191,17 @@ var mParticle = (function () {
                     self._Store.integrationAttributes[integrationId][key] = attrs[key];
                   }
                 } else {
-                  self.Logger.error('Values for integration attributes must be strings. You entered a ' + _typeof_1(attrs[key]));
+                  self.Logger.error('Values for integration attributes must be strings. You entered a ' + _typeof(attrs[key]));
                   continue;
                 }
               } else {
-                self.Logger.error('Keys must be strings, you entered a ' + _typeof_1(key));
+                self.Logger.error('Keys must be strings, you entered a ' + _typeof(key));
                 continue;
               }
             }
           }
         } else {
-          self.Logger.error('Attrs must be an object with keys and values. You entered a ' + _typeof_1(attrs));
+          self.Logger.error('Attrs must be an object with keys and values. You entered a ' + _typeof(attrs));
           return;
         }
 
@@ -11310,7 +10347,7 @@ var mParticle = (function () {
 
         if (!mpInstance._Store.identifyCalled && mpInstance._Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
           mpInstance._Store.SDKConfig.identityCallback({
-            httpCode: HTTPCodes$2.activeSession,
+            httpCode: HTTPCodes.activeSession,
             getUser: function getUser() {
               return mpInstance._Identity.mParticleUser(currentUser.getMPID());
             },
@@ -11419,7 +10456,7 @@ var mParticle = (function () {
       mpInstance._Store = new Store(config, mpInstance);
       window.mParticle.Store = mpInstance._Store;
       mpInstance._Store.devToken = apiKey || null;
-      mpInstance.Logger.verbose(Messages$9.InformationMessages.StartingInitialization); //check to see if localStorage is available for migrating purposes
+      mpInstance.Logger.verbose(Messages.InformationMessages.StartingInitialization); //check to see if localStorage is available for migrating purposes
 
       try {
         mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(window.localStorage);
@@ -11464,49 +10501,49 @@ var mParticle = (function () {
       return false;
     }
 
-    var _BatchValidator = /*#__PURE__*/ function () {
-        function _BatchValidator() {
-            classCallCheck(this, _BatchValidator);
-        }
-        createClass(_BatchValidator, [{
-                key: "getMPInstance",
-                value: function getMPInstance() {
-                    return {
-                        // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
-                        _Helpers: {
-                            sanitizeAttributes: window.mParticle.getInstance()._Helpers.sanitizeAttributes,
-                            generateUniqueId: function generateUniqueId() {
-                                return 'mockId';
-                            },
-                            extend: window.mParticle.getInstance()._Helpers.extend
-                        },
-                        _Store: {
-                            sessionId: 'mockSessionId',
-                            SDKConfig: {}
-                        },
-                        Identity: {
-                            getCurrentUser: function getCurrentUser() {
-                                return null;
-                            }
-                        },
-                        getAppVersion: function getAppVersion() {
-                            return null;
-                        },
-                        getAppName: function getAppName() {
-                            return null;
-                        }
-                    };
-                }
-            }, {
-                key: "returnBatch",
-                value: function returnBatch(event) {
-                    var mpInstance = this.getMPInstance();
-                    var sdkEvent = new ServerModel(mpInstance).createEventObject(event);
-                    var batch = convertEvents('0', [sdkEvent], mpInstance);
-                    return batch;
-                }
-            }]);
-        return _BatchValidator;
+    // This file is used ONLY for the mParticle ESLint plugin. It should NOT be used otherwise!
+
+    var _BatchValidator =
+    /** @class */
+    function () {
+      function _BatchValidator() {}
+
+      _BatchValidator.prototype.getMPInstance = function () {
+        return {
+          // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
+          _Helpers: {
+            sanitizeAttributes: window.mParticle.getInstance()._Helpers.sanitizeAttributes,
+            generateUniqueId: function generateUniqueId() {
+              return 'mockId';
+            },
+            extend: window.mParticle.getInstance()._Helpers.extend
+          },
+          _Store: {
+            sessionId: 'mockSessionId',
+            SDKConfig: {}
+          },
+          Identity: {
+            getCurrentUser: function getCurrentUser() {
+              return null;
+            }
+          },
+          getAppVersion: function getAppVersion() {
+            return null;
+          },
+          getAppName: function getAppName() {
+            return null;
+          }
+        };
+      };
+
+      _BatchValidator.prototype.returnBatch = function (event) {
+        var mpInstance = this.getMPInstance();
+        var sdkEvent = new ServerModel(mpInstance).createEventObject(event);
+        var batch = convertEvents('0', [sdkEvent], mpInstance);
+        return batch;
+      };
+
+      return _BatchValidator;
     }();
 
     if (!Array.prototype.forEach) {
@@ -11561,7 +10598,7 @@ var mParticle = (function () {
         var client = self._instances[instanceName];
 
         if (client === undefined) {
-          client = new mParticleInstance(apiKey, config, instanceName);
+          client = new mParticleInstance(apiKey);
           self._instances[instanceName] = client;
         }
 
@@ -11848,4 +10885,4 @@ var mParticle = (function () {
 
     return mparticleInstance;
 
-}());
+})();

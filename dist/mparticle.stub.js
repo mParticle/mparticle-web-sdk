@@ -1,4 +1,5 @@
 var mParticle = (function () {
+
     let mParticle = {
         endSession: voidFunction,
         getAppName: returnString,
@@ -180,4 +181,4 @@ var mParticle = (function () {
 
     return mParticle;
 
-}());
+})();
