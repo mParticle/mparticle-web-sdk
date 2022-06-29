@@ -1,28 +1,28 @@
 const { BUILD, ENVIRONMENT, BUILDALL } = process.env;
 
-import resolve from 'rollup-plugin-node-resolve';
-import babel from 'rollup-plugin-babel';
-import typescript from 'rollup-plugin-typescript';
-import commonjs from 'rollup-plugin-commonjs';
+import resolve from '@rollup/plugin-node-resolve';
+import babel from '@rollup/plugin-babel';
+import typescript from '@rollup/plugin-typescript';
+import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 const extensions = ['.js', '.ts'];
 
 const defaultOutputOptions = {
     name: 'mParticle',
     strict: false,
-    sourceMap: ENVIRONMENT !== 'prod' ? 'inline' : false,
+    sourcemap: ENVIRONMENT !== 'prod' ? 'inline' : false,
 };
 
 const defaultBabel = babel({
     extensions,
     include: ['src/**/*'],
-    runtimeHelpers: true,
+    babelHelpers: 'runtime',
 });
 
 const babelMinify = babel({
     extensions,
     include: ['src/**/*'],
-    runtimeHelpers: true,
+    babelHelpers: 'runtime',
     babelrc: false,
     presets: [
         '@babel/preset-typescript',
@@ -51,7 +51,7 @@ const builds = {
             commonjs({
                 include: 'node_modules/**',
             }),
-            typescript(),
+            typescript({ tsconfig: './tsconfig.json' }),
             json(),
         ],
     },
@@ -71,7 +71,7 @@ const builds = {
             commonjs({
                 include: 'node_modules/**',
             }),
-            typescript(),
+            typescript({ tsconfig: './tsconfig.json' }),
             json(),
         ],
     },
@@ -91,7 +91,7 @@ const builds = {
             commonjs({
                 include: 'node_modules/**',
             }),
-            typescript(),
+            typescript({ tsconfig: './tsconfig.json' }),
             json(),
         ],
     },

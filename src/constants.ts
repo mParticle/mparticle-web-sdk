@@ -59,8 +59,7 @@ const Constants = {
                 'identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again',
             IdentityRequesetInvalidKey:
                 'There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.',
-            OnUserAliasType:
-                'The onUserAlias value must be a function. The onUserAlias provided is of type',
+            OnUserAliasType: 'The onUserAlias value must be a function.',
             UserIdentities:
                 'The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.',
             UserIdentitiesInvalidKey:

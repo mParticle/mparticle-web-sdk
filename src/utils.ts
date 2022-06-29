@@ -1,7 +1,7 @@
 type valueof<T> = T[keyof T];
 
 const inArray = (items: any[], name: string): boolean => {
-    const i = 0;
+    let i = 0;
 
     if (Array.prototype.indexOf) {
         return items.indexOf(name, 0) >= 0;
