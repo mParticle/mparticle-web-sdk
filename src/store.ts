@@ -1,10 +1,12 @@
 import { Context } from '@mparticle/event-models';
+import { MPID } from '@mparticle/web-sdk';
 import Constants from './constants';
 import {
     MParticleWebSDK,
     SDKConfig,
     SDKConsentState,
     SDKEvent,
+    SDKGeoLocation,
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
@@ -33,22 +35,26 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
     return sdkConfig;
 }
 
-// FIXME: TEMP interface for Store until we can refactor as class
+// TODO: Create Types for the following:
+export type MPForwarder = Record<string, any>;
+export type PixelConfiguration = Record<string, any>;
+
+// TODO: TEMP interface for Store until we can refactor as class
 export interface IStore {
     isEnabled: boolean;
-    sessionAttributes: Record<string, any>;
-    currentSessionMPIDs: string[];
+    sessionAttributes: Record<string, any>; // TODO: Can we make this a type?
+    currentSessionMPIDs: MPID[];
     consentState: SDKConsentState | null;
     sessionId: string | null;
     isFirstRun: boolean;
     clientId: string;
     deviceId: string;
     devToken: string | null;
-    migrationData: Record<string, any>; // FIXME: Need union of User Attributes and Identities
-    serverSettings: Record<string, any>; // FIXME: Need a valid type
+    migrationData: Record<string, any>; // TODO: Remove when we archive Web SDK v1
+    serverSettings: Record<string, any>; // TODO: Need a valid type
     dateLastEventSent: number | null;
     sessionStartDate: number | null;
-    currentPosition: number | null;
+    currentPosition: SDKGeoLocation | null;
     isTracking: boolean;
     watchPositionId: number | null;
     cartProducts: SDKProduct[];
@@ -59,21 +65,21 @@ export interface IStore {
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
     SDKConfig: Partial<SDKConfig>; // FIXME: Should be {} as SDKConfig?
-    migratingToIDSyncCookies: boolean;
-    nonCurrentUserMPIDs: Record<string, any>; // FIXME: Need a better shape of this data
+    migratingToIDSyncCookies: boolean; // TODO: Remove when we archive Web SDK v1
+    nonCurrentUserMPIDs: Record<MPID, Record<string, any>>; // TODO: Need a better shape of this data
     identifyCalled: boolean;
     isLoggedIn: boolean;
     cookieSyncDates: Record<string, number>;
-    integrationAttributes: Record<string, Record<string, string>>; // FIXME: Can we come up with a better type?
+    integrationAttributes: Record<string, Record<string, string>>; // TODO: Can we come up with a better type?
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
     prodStorageName: string | null;
-    activeForwarders: Record<string, any>[]; // FIXME: Create forwarder Type
-    kits: Record<string, any>; // FIXME: Create Kits Type;
-    configuredForwarders: Record<string, any>[]; // FIXME: Create forwarder Type
-    pixelConfigurations: Record<string, any>[]; // FIXME: Create a type
-    integrationDelayTimeoutStart: number;
+    activeForwarders: MPForwarder[];
+    kits: Record<string, MPForwarder>;
+    configuredForwarders: MPForwarder[];
+    pixelConfigurations: PixelConfiguration[];
+    integrationDelayTimeoutStart: number; // UNIX Timestamp
 }
 
 export default function Store(
@@ -102,7 +108,7 @@ export default function Store(
         eventQueue: [],
         currencyCode: null,
         globalTimer: null,
-        context: null, // TODO: Why was this an empty string when it should be of type Context?
+        context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
         SDKConfig: {} as SDKConfig,

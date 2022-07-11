@@ -1,5 +1,6 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
+import { IdentifyRequest, IdentityCallback, SDKEventCustomFlags } from '@mparticle/web-sdk';
 import Validators from './validators';
 
 export interface SDKEvent {
@@ -129,7 +130,11 @@ export interface MParticleWebSDK {
     ServerModel();
     upload();
     setPosition(lat: number | string, lng: number | string): void;
-    logEvent(eventName: string, eventType?: number, attrs?: { [key: string]: string }): void;
+    logEvent(
+        eventName: string,
+        eventType?: number,
+        attrs?: { [key: string]: string }
+    ): void;
     logBaseEvent(event: any): void;
     eCommerce: any;
     logLevel: string;
@@ -143,15 +148,15 @@ export interface SDKConfig {
     isDevelopmentMode?: boolean;
     logger: {
         error?(msg);
-        warning?(msg) 
-        verbose?(msg) 
+        warning?(msg);
+        verbose?(msg);
     };
     onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
     customFlags?: Record<string, string>;
     dataPlan: SDKDataPlan;
     appVersion?: string;
     package?: string;
-    flags?: { [key: string]: string | number | false };
+    flags?: { [key: string]: string | number | boolean }; // Feature Flags
     forceHttps?: boolean;
     kitConfigs: any; // FIXME: What type is this?
     kits?: Record<string, any>; // FIXME: Create a Kits Type
@@ -165,10 +170,10 @@ export interface SDKConfig {
     cookieDomain?: string;
     workspaceToken: string;
     requiredWebviewBridgeName: string;
-    minWebviewBridgeVersion: number;
+    minWebviewBridgeVersion: 1 | 2 | undefined;
     isIOS?: boolean;
-    identifyRequest: { [key: string]: { [key: string]: string } }; // FIXME: Should this be a function or record?
-    identityCallback: (result) => void;
+    identifyRequest: IdentifyRequest;
+    identityCallback: IdentityCallback;
     integrationDelayTimeout: number;
     requestConfig: boolean;
     dataPlanOptions: KitBlockerOptions; // when the user provides their own data plan
@@ -184,11 +189,12 @@ export interface SDKConfig {
 
 export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
 
+// TODO: merge this with MPConfiguration
 export interface SDKInitConfig {
     aliasMaxWindow: number;
     appName?: string;
     appVersion?: string;
-    customFlags?: Record<string, string>;
+    customFlags?: SDKEventCustomFlags;
     dataPlan?: DataPlanConfig;
     dataPlanOptions?: KitBlockerOptions;
     deviceId?: string;
@@ -196,8 +202,8 @@ export interface SDKInitConfig {
     isDevelopmentMode?: boolean;
     aliasUrl?: string;
     configUrl?: string;
-    identifyRequest: { [key: string]: { [key: string]: string } }; // FIXME: Should this be a function or record?
-    identityCallback: (result) => void;
+    identifyRequest: IdentifyRequest;
+    identityCallback: IdentityCallback;
     identityUrl?: string;
     integrationDelayTimeout: number;
     isIOS?: boolean;
@@ -205,7 +211,7 @@ export interface SDKInitConfig {
     logLevel?: LogLevelType;
     maxCookieSize: number;
     maxProducts: number;
-    minWebviewBridgeVersion: number;
+    minWebviewBridgeVersion: 1 | 2 | undefined;
     package?: string;
     sessionTimeout?: number;
     useNativeSdk?: boolean;
@@ -220,7 +226,7 @@ export interface SDKInitConfig {
 export interface DataPlanConfig {
     planId?: string;
     planVersion?: number;
-    document?: DataPlanResult  // when the data plan comes from the server via /mparticle.js
+    document?: DataPlanResult; // when the data plan comes from the server via /mparticle.js
 }
 
 export interface SDKIdentityApi {
@@ -261,7 +267,7 @@ export interface SDKConfigApi {
     v3SecureServiceUrl?: string;
     isDevelopmentMode: boolean;
     appVersion?: string;
-    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch
+    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
 }
 export interface MParticleUser {
     getMPID(): string;
@@ -324,7 +330,7 @@ export interface KitBlockerOptions {
 }
 
 export interface KitBlockerDataPlan {
-    document: DataPlanResult
+    document: DataPlanResult;
 }
 
 export interface DataPlanResult {
@@ -337,30 +343,30 @@ export interface DataPlanResult {
             id: boolean;
         };
     };
-    error_message?: string
+    error_message?: string;
 }
 
 export enum SDKIdentityTypeEnum {
-    other = "other",
-    customerId = "customerid",
-    facebook = "facebook",
-    twitter = "twitter",
-    google = "google",
-    microsoft = "microsoft",
-    yahoo = "yahoo",
-    email = "email",
-    alias = "alias",
-    facebookCustomAudienceId = "facebookcustomaudienceid",
-    otherId2 = "other2",
-    otherId3 = "other3",
-    otherId4 = "other4",
-    otherId5 = "other5",
-    otherId6 = "other6",
-    otherId7 = "other7",
-    otherId8 = "other8",
-    otherId9 = "other9",
-    otherId10 = "other10",
-    mobileNumber = "mobile_number",
-    phoneNumber2 = "phone_number_2",
-    phoneNumber3 = "phone_number_3"
+    other = 'other',
+    customerId = 'customerid',
+    facebook = 'facebook',
+    twitter = 'twitter',
+    google = 'google',
+    microsoft = 'microsoft',
+    yahoo = 'yahoo',
+    email = 'email',
+    alias = 'alias',
+    facebookCustomAudienceId = 'facebookcustomaudienceid',
+    otherId2 = 'other2',
+    otherId3 = 'other3',
+    otherId4 = 'other4',
+    otherId5 = 'other5',
+    otherId6 = 'other6',
+    otherId7 = 'other7',
+    otherId8 = 'other8',
+    otherId9 = 'other9',
+    otherId10 = 'other10',
+    mobileNumber = 'mobile_number',
+    phoneNumber2 = 'phone_number_2',
+    phoneNumber3 = 'phone_number_3',
 }
