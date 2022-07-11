@@ -184,8 +184,6 @@ export interface SDKConfig {
 
 export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
 
-// FIXME: Monkey patched SDK Config Interface
-// export type SDKInitConfig = SDKConfig;
 export interface SDKInitConfig {
     aliasMaxWindow: number;
     appName?: string;
