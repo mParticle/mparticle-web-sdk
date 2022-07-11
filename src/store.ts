@@ -234,8 +234,8 @@ export default function Store(
             } else {
                 mpInstance.Logger.warning(
                     'The optional callback must be a function. You tried entering a(n) ' +
-                        typeof callback,
-                    ' . Callback not set. Please set your callback again.'
+                        typeof callback +
+                        ' . Callback not set. Please set your callback again.'
                 );
             }
         }

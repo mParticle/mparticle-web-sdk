@@ -1,5 +1,6 @@
 import * as EventsApi from '@mparticle/event-models';
-import { DataPlanVersion, DataPlan } from '@mparticle/data-planning-models';
+import { DataPlanVersion } from '@mparticle/data-planning-models';
+import Validators from './validators';
 
 export interface SDKEvent {
     DeviceId: string;
@@ -134,12 +135,10 @@ export interface MParticleWebSDK {
     logLevel: string;
     ProductActionType: SDKProductActionType;
     generateHash(value: string);
+    isIOS?: boolean;
 }
 
 // TODO: Export this to a better location
-// FIXME: SDK Config should be split into two differnt interfaces
-// .      - Input/Init interface to pass props
-// .      - Actual Interface that exists with actual config params
 export interface SDKConfig {
     isDevelopmentMode?: boolean;
     logger: {
@@ -148,13 +147,19 @@ export interface SDKConfig {
         verbose?(msg) 
     };
     onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
-    dataPlan: DataPlanConfig;
+    customFlags?: Record<string, string>;
+    dataPlan: SDKDataPlan;
     appVersion?: string;
     package?: string;
-    flags?: { [key: string]: string | number };
-    kitConfigs: any;
+    flags?: { [key: string]: string | number | false };
+    forceHttps?: boolean;
+    kitConfigs: any; // FIXME: What type is this?
+    kits?: Record<string, any>; // FIXME: Create a Kits Type
     appName?: string;
-    logLevel?: string;
+    aliasMaxWindow: number;
+    logLevel?: LogLevelType;
+    maxCookieSize: number;
+    maxProducts: number;
     sessionTimeout?: number;
     useCookieStorage?: boolean;
     cookieDomain?: string;
@@ -162,15 +167,57 @@ export interface SDKConfig {
     requiredWebviewBridgeName: string;
     minWebviewBridgeVersion: number;
     isIOS?: boolean;
-    identifyRequest: { [key: string]: {[key: string]: string} };
+    identifyRequest: { [key: string]: { [key: string]: string } }; // FIXME: Should this be a function or record?
     identityCallback: (result) => void;
+    integrationDelayTimeout: number;
     requestConfig: boolean;
-    dataPlanOptions: KitBlockerOptions // when the user provides their own data plan
-    dataPlanResult?: DataPlanResult  // when the data plan comes from the server via /config
+    dataPlanOptions: KitBlockerOptions; // when the user provides their own data plan
+    dataPlanResult?: DataPlanResult; // when the data plan comes from the server via /config
+    aliasUrl?: string;
+    configUrl?: string;
+    identityUrl?: string;
+    useNativeSdk?: boolean;
+    v1SecureServiceUrl?: string;
+    v2SecureServiceUrl?: string;
+    v3SecureServiceUrl?: string;
 }
 
+export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
+
 // FIXME: Monkey patched SDK Config Interface
-export type SDKInitConfig = SDKConfig;
+// export type SDKInitConfig = SDKConfig;
+export interface SDKInitConfig {
+    aliasMaxWindow: number;
+    appName?: string;
+    appVersion?: string;
+    customFlags?: Record<string, string>;
+    dataPlan?: DataPlanConfig;
+    dataPlanOptions?: KitBlockerOptions;
+    deviceId?: string;
+    forceHttps?: boolean;
+    isDevelopmentMode?: boolean;
+    aliasUrl?: string;
+    configUrl?: string;
+    identifyRequest: { [key: string]: { [key: string]: string } }; // FIXME: Should this be a function or record?
+    identityCallback: (result) => void;
+    identityUrl?: string;
+    integrationDelayTimeout: number;
+    isIOS?: boolean;
+    kits?: Record<string, any>; // FIXME: Create a Kits Type
+    logLevel?: LogLevelType;
+    maxCookieSize: number;
+    maxProducts: number;
+    minWebviewBridgeVersion: number;
+    package?: string;
+    sessionTimeout?: number;
+    useNativeSdk?: boolean;
+    useCookieStorage?: boolean;
+    v1SecureServiceUrl?: string;
+    v2SecureServiceUrl?: string;
+    v3SecureServiceUrl?: string;
+
+    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
+}
 
 export interface DataPlanConfig {
     planId?: string;
@@ -189,9 +236,13 @@ export interface SDKIdentityApi {
 
 export interface SDKHelpersApi {
     createServiceUrl(arg0: string, arg1: string): void;
-    parseNumber(value: number)
+    parseNumber(value: number);
     generateUniqueId();
-    isObject(item: any)
+    isFunction(fn: any): boolean;
+    isObject(item: any): boolean;
+    isSlug(str: string): string;
+    returnConvertedBoolean(data: string | boolean | number): boolean;
+    Validators: typeof Validators;
 }
 
 export interface SDKLoggerApi {
@@ -265,6 +316,7 @@ export interface BaseEvent {
     customFlags?: { [key: string]: string };
 }
 
+// TODO: Should this be renamed to DataPlanOptions?
 export interface KitBlockerOptions {
     dataPlanVersion: DataPlanVersion;
     blockUserAttributes: boolean;

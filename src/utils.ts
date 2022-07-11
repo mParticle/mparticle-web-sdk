@@ -48,7 +48,7 @@ const parseNumber = (value: string | number): number => {
 // only used in store.js to sanitize server-side formatting of
 // booleans when checking for `isDevelopmentMode`
 // Should be removed in v3
-const returnConvertedBoolean = (data: string | boolean | number) => {
+const returnConvertedBoolean = (data: string | boolean | number): boolean => {
     if (data === 'false' || data === '0') {
         return false;
     } else {
