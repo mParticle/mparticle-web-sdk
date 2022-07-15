@@ -256,7 +256,9 @@ describe('kit blocking', () => {
 
         it('should not block any unplanned user attributes if blok.ua = false', function(done) {
             //TODO - what if this additional properties is false? shoudl we validate that?
-            window.mParticle.config.dataPlan.document.dtpn.blok.ua = false;
+            // FIXME: Resolve the differences between all different data plan types
+            const dataPlan = window.mParticle.config.dataPlan as KitBlockerDataPlan;
+            dataPlan.document.dtpn.blok.ua = false;
 
             event.EventName = 'something something something',
             event.EventCategory = Types.EventType.Navigation,
@@ -277,7 +279,7 @@ describe('kit blocking', () => {
             transformedEvent.UserAttributes.should.have.property('unplanned attribute', 'test4');
             
             //reset
-            window.mParticle.config.dataPlan.document.dtpn.blok.ua = true;
+            dataPlan.document.dtpn.blok.ua = true;
 
             done();
         });
@@ -584,7 +586,9 @@ describe('kit blocking', () => {
 
         it('integration test - should allow unplanned custom events through to forwarder if blok.ev=false', function(done) {
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
-            window.mParticle.config.dataPlan.document.dtpn.blok.ev = false;
+            const dataPlan = window.mParticle.config.dataPlan as KitBlockerDataPlan;
+            dataPlan.document.dtpn.blok.ev = false;
+
             window.mParticle.init(apiKey, window.mParticle.config);
             
             window.mParticle.logEvent('Unplanned Event');
@@ -593,7 +597,7 @@ describe('kit blocking', () => {
             event.should.have.property('EventName', 'Unplanned Event');
             
             // reset
-            window.mParticle.config.dataPlan.document.dtpn.blok.ev = true;
+            dataPlan.document.dtpn.blok.ev = true;
             
             done();
         });
@@ -633,7 +637,8 @@ describe('kit blocking', () => {
         });
 
         it('integration test - should allow an unplanned user attribute to be set on the forwarder if blok=false', function(done) {
-            window.mParticle.config.dataPlan.document.dtpn.blok.ua = false
+            const dataPlan = window.mParticle.config.dataPlan as KitBlockerDataPlan;
+            dataPlan.document.dtpn.blok.ua = false
 
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -643,7 +648,7 @@ describe('kit blocking', () => {
                 true
             );
 
-            window.mParticle.config.dataPlan.document.dtpn.blok.ua = true
+            dataPlan.document.dtpn.blok.ua = true
 
             done();
         });
@@ -683,7 +688,8 @@ describe('kit blocking', () => {
         });
 
         it('integration test - should allow an unplanned user attribute set via setUserTag to be set on the forwarder if blok=false', function(done) {
-            window.mParticle.config.dataPlan.document.dtpn.blok.ua = false
+            const dataPlan = window.mParticle.config.dataPlan as KitBlockerDataPlan;
+            dataPlan.document.dtpn.blok.ua = false
             window.mParticle.config.kitConfigs.push(forwarderDefaultConfiguration('MockForwarder'));
             window.mParticle.init(apiKey, window.mParticle.config);
             window.mParticle.Identity.getCurrentUser().setUserTag('unplanned but not blocked', true);
@@ -692,7 +698,7 @@ describe('kit blocking', () => {
                 true
             );
 
-            window.mParticle.config.dataPlan.document.dtpn.blok.ua = true
+            dataPlan.document.dtpn.blok.ua = true
 
             done();
         });

@@ -35,14 +35,17 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
     return sdkConfig;
 }
 
-// TODO: Create Types for the following:
-export type MPForwarder = Record<string, any>;
-export type PixelConfiguration = Record<string, any>;
+// TODO: Make these not generic dictionaries
+export type Dictionary<V = any> = Record<string, V>;
+export type MPForwarder = Dictionary;
+export type PixelConfiguration = Dictionary;
+export type MigrationData = Dictionary;
+export type ServerSettings = Dictionary;
 
 // TODO: TEMP interface for Store until we can refactor as class
 export interface IStore {
     isEnabled: boolean;
-    sessionAttributes: Record<string, any>; // TODO: Can we make this a type?
+    sessionAttributes: Dictionary;
     currentSessionMPIDs: MPID[];
     consentState: SDKConsentState | null;
     sessionId: string | null;
@@ -50,8 +53,8 @@ export interface IStore {
     clientId: string;
     deviceId: string;
     devToken: string | null;
-    migrationData: Record<string, any>; // TODO: Remove when we archive Web SDK v1
-    serverSettings: Record<string, any>; // TODO: Need a valid type
+    migrationData: MigrationData;
+    serverSettings: ServerSettings;
     dateLastEventSent: number | null;
     sessionStartDate: number | null;
     currentPosition: SDKGeoLocation | null;
@@ -64,19 +67,19 @@ export interface IStore {
     context: Context | null;
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
-    SDKConfig: Partial<SDKConfig>; // FIXME: Should be {} as SDKConfig?
+    SDKConfig: Partial<SDKConfig>;
     migratingToIDSyncCookies: boolean; // TODO: Remove when we archive Web SDK v1
-    nonCurrentUserMPIDs: Record<MPID, Record<string, any>>; // TODO: Need a better shape of this data
+    nonCurrentUserMPIDs: Record<MPID, Dictionary>;
     identifyCalled: boolean;
     isLoggedIn: boolean;
-    cookieSyncDates: Record<string, number>;
-    integrationAttributes: Record<string, Record<string, string>>; // TODO: Can we come up with a better type?
+    cookieSyncDates: Dictionary<number>;
+    integrationAttributes: Dictionary<Dictionary<string>>;
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
     prodStorageName: string | null;
     activeForwarders: MPForwarder[];
-    kits: Record<string, MPForwarder>;
+    kits: Dictionary<MPForwarder>;
     configuredForwarders: MPForwarder[];
     pixelConfigurations: PixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp

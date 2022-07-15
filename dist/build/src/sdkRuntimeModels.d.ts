@@ -1,5 +1,7 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
+import { IdentifyRequest, IdentityCallback, SDKEventCustomFlags } from '@mparticle/web-sdk';
+import Validators from './validators';
 export interface SDKEvent {
     DeviceId: string;
     IsFirstRun: boolean;
@@ -136,6 +138,7 @@ export interface MParticleWebSDK {
     logLevel: string;
     ProductActionType: SDKProductActionType;
     generateHash(value: string): any;
+    isIOS?: boolean;
 }
 export interface SDKConfig {
     isDevelopmentMode?: boolean;
@@ -145,31 +148,73 @@ export interface SDKConfig {
         verbose?(msg: any): any;
     };
     onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
-    dataPlan: DataPlanConfig;
+    customFlags?: SDKEventCustomFlags;
+    dataPlan: DataPlanConfig | SDKDataPlan;
     appVersion?: string;
     package?: string;
     flags?: {
-        [key: string]: string | number;
+        [key: string]: string | number | boolean;
     };
+    forceHttps?: boolean;
     kitConfigs: any;
+    kits?: Record<string, any>;
     appName?: string;
-    logLevel?: string;
+    aliasMaxWindow: number;
+    logLevel?: LogLevelType;
+    maxCookieSize: number;
+    maxProducts: number;
     sessionTimeout?: number;
     useCookieStorage?: boolean;
     cookieDomain?: string;
     workspaceToken: string;
     requiredWebviewBridgeName: string;
-    minWebviewBridgeVersion: number;
+    minWebviewBridgeVersion: 1 | 2 | undefined;
     isIOS?: boolean;
-    identifyRequest: {
-        [key: string]: {
-            [key: string]: string;
-        };
-    };
-    identityCallback: (result: any) => void;
+    identifyRequest: IdentifyRequest;
+    identityCallback: IdentityCallback;
+    integrationDelayTimeout: number;
     requestConfig: boolean;
     dataPlanOptions: KitBlockerOptions;
     dataPlanResult?: DataPlanResult;
+    aliasUrl?: string;
+    configUrl?: string;
+    identityUrl?: string;
+    useNativeSdk?: boolean;
+    v1SecureServiceUrl?: string;
+    v2SecureServiceUrl?: string;
+    v3SecureServiceUrl?: string;
+}
+export declare type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
+export interface SDKInitConfig {
+    aliasMaxWindow: number;
+    appName?: string;
+    appVersion?: string;
+    customFlags?: SDKEventCustomFlags;
+    dataPlan?: DataPlanConfig;
+    dataPlanOptions?: KitBlockerOptions;
+    deviceId?: string;
+    forceHttps?: boolean;
+    isDevelopmentMode?: boolean;
+    aliasUrl?: string;
+    configUrl?: string;
+    identifyRequest: IdentifyRequest;
+    identityCallback: IdentityCallback;
+    identityUrl?: string;
+    integrationDelayTimeout: number;
+    isIOS?: boolean;
+    kits?: Record<string, any>;
+    logLevel?: LogLevelType;
+    maxCookieSize: number;
+    maxProducts: number;
+    minWebviewBridgeVersion: 1 | 2 | undefined;
+    package?: string;
+    sessionTimeout?: number;
+    useNativeSdk?: boolean;
+    useCookieStorage?: boolean;
+    v1SecureServiceUrl?: string;
+    v2SecureServiceUrl?: string;
+    v3SecureServiceUrl?: string;
+    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
 }
 export interface DataPlanConfig {
     planId?: string;
@@ -188,7 +233,11 @@ export interface SDKHelpersApi {
     createServiceUrl(arg0: string, arg1: string): void;
     parseNumber(value: number): any;
     generateUniqueId(): any;
-    isObject(item: any): any;
+    isFunction(fn: any): boolean;
+    isObject(item: any): boolean;
+    isSlug(str: string): string;
+    returnConvertedBoolean(data: string | boolean | number): boolean;
+    Validators: typeof Validators;
 }
 export interface SDKLoggerApi {
     error(arg0: string): void;

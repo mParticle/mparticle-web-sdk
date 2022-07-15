@@ -1,7 +1,12 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import { IdentifyRequest, IdentityCallback, SDKEventCustomFlags } from '@mparticle/web-sdk';
+import {
+    IdentifyRequest,
+    IdentityCallback,
+    SDKEventCustomFlags,
+} from '@mparticle/web-sdk';
 import Validators from './validators';
+import { Dictionary } from './store';
 
 export interface SDKEvent {
     DeviceId: string;
@@ -152,8 +157,8 @@ export interface SDKConfig {
         verbose?(msg);
     };
     onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
-    customFlags?: Record<string, string>;
-    dataPlan: SDKDataPlan;
+    customFlags?: SDKEventCustomFlags;
+    dataPlan: DataPlanConfig | SDKDataPlan; // FIXME: Resolve kit blocker data plan confusion
     appVersion?: string;
     package?: string;
     flags?: { [key: string]: string | number | boolean }; // Feature Flags

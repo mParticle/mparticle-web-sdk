@@ -249,7 +249,7 @@ describe('batch uploader', () => {
             window.mParticle.config.identityCallback = function(result) {
                 let currentUser = result.getUser()
                 if (currentUser) {
-                    currentUser.setUserAttribute("number", Math.floor((Math.random() * 1000) + 1))
+                    currentUser.setUserAttribute("number", `${Math.floor((Math.random() * 1000) + 1)}`)
                 }
             }
             
