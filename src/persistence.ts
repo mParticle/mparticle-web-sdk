@@ -1,5 +1,14 @@
+import {
+    AllUserAttributes,
+    ConsentState,
+    IdentityApiData,
+    MPID,
+    Product,
+    UserIdentities,
+} from '@mparticle/web-sdk';
 import Constants from './constants';
 import Polyfill from './polyfill';
+import { MParticleWebSDK } from './sdkRuntimeModels';
 
 var Base64 = Polyfill.Base64,
     Messages = Constants.Messages,
@@ -7,16 +16,89 @@ var Base64 = Polyfill.Base64,
     SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
     StorageNames = Constants.StorageNames;
 
-export default function _Persistence(mpInstance) {
+export type PersistenceObject = any; // TODO: Placeholder Type
+export interface IPersistence {
+    useLocalStorage: () => boolean;
+    initializeStorage: () => void;
+    getLocalStorage();
+    getCookie();
+    storeDataInMemory(allData: any);
+    expireCookies(storageName: string);
+    storeProductsInMemory(decodedProducts: any, mpid: number);
+    update();
+    setCookie();
+    setLocalStorage();
+    determineLocalStorageAvailability: (storage: Storage) => boolean;
+    getUserProductsFromLS: (mpid: string) => Product[];
+    getAllUserProductsFromLS: () => Record<string, Product>;
+    encodePersistence(arg0: string): string;
+    decodePersistence(arg0: string);
+    getCookieDomain(): any;
+    reduceAndEncodePersistence(
+        cookies: any,
+        expires: any,
+        domain: any,
+        maxCookieSize: (
+            cookies: any,
+            expires: any,
+            domain: any,
+            maxCookieSize: any
+        ) => any
+    ): any;
+    findPrevCookiesBasedOnUI: (identityApiData: IdentityApiData) => void;
+    createCookieString(arg0: string): string;
+    revertCookieString(persistence: any): string;
+    replaceCommasWithPipes: (string: string) => string;
+    replacePipesWithCommas: (string: string) => string;
+    replaceApostrophesWithQuotes: (string: string) => string;
+    replaceQuotesWithApostrophes: (string: string) => string;
+    replaceQuotesWithApostrophe(string: string): any;
+    getDomain(document: Document, hostname: string);
+    getUserIdentities: (mpid: string) => UserIdentities;
+    getPersistence();
+    getAllUserAttributes: (mpid: string) => AllUserAttributes;
+    getCartProducts: (mpid: string) => Product[];
+    setCartProducts: (allProducts: Product[]) => void;
+    saveUserIdentitiesToPersistence: (
+        mpid: string,
+        userIdentities: UserIdentities
+    ) => void;
+    savePersistence(persistence: any);
+    saveUserAttributesToPersistence: (
+        mpid: string,
+        userAttributes: AllUserAttributes
+    ) => void;
+    saveUserCookieSyncDatesToPersistence: (mpid: string, csd: number) => void;
+    saveUserConsentStateToCookies: (
+        mpid: string,
+        consentState: ConsentState
+    ) => void;
+    getConsentState: (mpid: string) => ConsentState;
+    getFirstSeenTime: (mpid: string) => number;
+    setFirstSeenTime: (mpid: string, time: number) => void;
+    getLastSeenTime: (mpid: string) => number;
+    setLastSeenTime: (mpid: string, time: number) => void;
+    getDeviceId: () => string;
+    setDeviceId: (guid: string) => void;
+    resetPersistence: () => void;
+    forwardingStatsBatches: {
+        uploadsTable: {};
+        forwardingStatsEventQueue: any[];
+    };
+}
+export default function _Persistence(
+    this: IPersistence,
+    mpInstance: MParticleWebSDK
+) {
     var self = this;
-    this.useLocalStorage = function() {
+    this.useLocalStorage = function(): boolean {
         return (
             !mpInstance._Store.SDKConfig.useCookieStorage &&
             mpInstance._Store.isLocalStorageAvailable
         );
     };
 
-    this.initializeStorage = function() {
+    this.initializeStorage = function(): void {
         try {
             var storage,
                 localStorageData = self.getLocalStorage(),
@@ -128,7 +210,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.update = function() {
+    this.update = function(): void {
         if (!mpInstance._Store.webviewBridgeEnabled) {
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
                 self.setCookie();
@@ -138,7 +220,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.storeProductsInMemory = function(products, mpid) {
+    this.storeProductsInMemory = function(
+        products: Product[],
+        mpid: MPID
+    ): void {
         if (products) {
             try {
                 mpInstance._Store.cartProducts =
@@ -153,7 +238,8 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.storeDataInMemory = function(obj, currentMPID) {
+    // FIXME: Make OBJ an actual type
+    this.storeDataInMemory = function(obj, currentMPID: MPID): void {
         try {
             if (!obj) {
                 mpInstance.Logger.verbose(
@@ -226,7 +312,9 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.determineLocalStorageAvailability = function(storage) {
+    this.determineLocalStorageAvailability = function(
+        storage: Storage
+    ): boolean {
         var result;
 
         if (window.mParticle && window.mParticle._forceNoLocalStorage) {
@@ -237,13 +325,13 @@ export default function _Persistence(mpInstance) {
             storage.setItem('mparticle', 'test');
             result = storage.getItem('mparticle') === 'test';
             storage.removeItem('mparticle');
-            return result && storage;
+            return result && !!storage;
         } catch (e) {
             return false;
         }
     };
 
-    this.getUserProductsFromLS = function(mpid) {
+    this.getUserProductsFromLS = function(mpid: MPID): Product[] {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return [];
         }
@@ -282,12 +370,12 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getAllUserProductsFromLS = function() {
+    this.getAllUserProductsFromLS = function(): Record<MPID, Product> {
         var decodedProducts,
             encodedProducts = localStorage.getItem(
                 mpInstance._Store.prodStorageName
             ),
-            parsedDecodedProducts;
+            parsedDecodedProducts: Record<MPID, Product>;
         if (encodedProducts) {
             decodedProducts = Base64.decode(encodedProducts);
         }
@@ -301,7 +389,7 @@ export default function _Persistence(mpInstance) {
         return parsedDecodedProducts;
     };
 
-    this.setLocalStorage = function() {
+    this.setLocalStorage = function(): void {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
         }
@@ -370,6 +458,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // FIXME: Make data make sense
     function setGlobalStorageAttributes(data) {
         var store = mpInstance._Store;
         data.gs.sid = store.sessionId;
@@ -392,6 +481,7 @@ export default function _Persistence(mpInstance) {
         return data;
     }
 
+    // FIXME: Should be a mapped type of storage
     this.getLocalStorage = function() {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return null;
@@ -419,11 +509,11 @@ export default function _Persistence(mpInstance) {
         return null;
     };
 
-    function removeLocalStorage(localStorageName) {
+    function removeLocalStorage(localStorageName): void {
         localStorage.removeItem(localStorageName);
     }
 
-    this.expireCookies = function(cookieName) {
+    this.expireCookies = function(cookieName: string): void {
         var date = new Date(),
             expires,
             domain,
@@ -442,6 +532,7 @@ export default function _Persistence(mpInstance) {
         document.cookie = cookieName + '=' + '' + expires + '; path=/' + domain;
     };
 
+    // FIXME: Create an object here for returning
     this.getCookie = function() {
         var cookies = window.document.cookie.split('; '),
             key = mpInstance._Store.storageName,
@@ -484,7 +575,7 @@ export default function _Persistence(mpInstance) {
     };
 
     // only used in persistence
-    this.setCookie = function() {
+    this.setCookie = function(): void {
         var mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
@@ -562,11 +653,11 @@ export default function _Persistence(mpInstance) {
         stores MPIDs based on earliest login.
 */
     this.reduceAndEncodePersistence = function(
-        persistence,
-        expires,
-        domain,
-        maxCookieSize
-    ) {
+        persistence: PersistenceObject,
+        expires: number,
+        domain: string,
+        maxCookieSize: number
+    ): string {
         var encodedCookiesWithExpirationAndPath,
             currentSessionMPIDs = persistence.gs.csm ? persistence.gs.csm : [];
         // Comment 1 above
@@ -659,7 +750,11 @@ export default function _Persistence(mpInstance) {
         return encodedCookiesWithExpirationAndPath;
     };
 
-    function createFullEncodedCookie(persistence, expires, domain) {
+    function createFullEncodedCookie(
+        persistence: PersistenceObject,
+        expires: number,
+        domain: string
+    ): string {
         return (
             self.encodePersistence(JSON.stringify(persistence)) +
             ';expires=' +
@@ -669,9 +764,11 @@ export default function _Persistence(mpInstance) {
         );
     }
 
-    this.findPrevCookiesBasedOnUI = function(identityApiData) {
+    this.findPrevCookiesBasedOnUI = function(
+        identityApiData: IdentityApiData
+    ): void {
         var persistence = mpInstance._Persistence.getPersistence();
-        var matchedUser;
+        var matchedUser: MPID;
 
         if (identityApiData) {
             for (var requestedIdentityType in identityApiData.userIdentities) {
@@ -680,7 +777,7 @@ export default function _Persistence(mpInstance) {
                         // any value in persistence that has an MPID key will be an MPID to search through
                         // other keys on the cookie are currentSessionMPIDs and currentMPID which should not be searched
                         if (persistence[key].mpid) {
-                            var cookieUIs = persistence[key].ui;
+                            var cookieUIs: UserIdentities = persistence[key].ui;
                             for (var cookieUIType in cookieUIs) {
                                 if (
                                     requestedIdentityType === cookieUIType &&
@@ -703,7 +800,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.encodePersistence = function(persistence) {
+    this.encodePersistence = function(persistence: PersistenceObject): string {
         persistence = JSON.parse(persistence);
         for (var key in persistence.gs) {
             if (persistence.gs.hasOwnProperty(key)) {
@@ -763,7 +860,7 @@ export default function _Persistence(mpInstance) {
         return self.createCookieString(JSON.stringify(persistence));
     };
 
-    this.decodePersistence = function(persistence) {
+    this.decodePersistence = function(persistence: PersistenceObject): string {
         try {
             if (persistence) {
                 persistence = JSON.parse(self.revertCookieString(persistence));
@@ -815,37 +912,38 @@ export default function _Persistence(mpInstance) {
         } catch (e) {
             mpInstance.Logger.error('Problem with decoding cookie', e);
         }
+        return '';
     };
 
-    this.replaceCommasWithPipes = function(string) {
+    this.replaceCommasWithPipes = function(string: string): string {
         return string.replace(/,/g, '|');
     };
 
-    this.replacePipesWithCommas = function(string) {
+    this.replacePipesWithCommas = function(string: string): string {
         return string.replace(/\|/g, ',');
     };
 
-    this.replaceApostrophesWithQuotes = function(string) {
+    this.replaceApostrophesWithQuotes = function(string: string): string {
         return string.replace(/\'/g, '"');
     };
 
-    this.replaceQuotesWithApostrophes = function(string) {
+    this.replaceQuotesWithApostrophes = function(string: string): string {
         return string.replace(/\"/g, "'");
     };
 
-    this.createCookieString = function(string) {
+    this.createCookieString = function(string: string): string {
         return self.replaceCommasWithPipes(
-            self.replaceQuotesWithApostrophes(string)
+            self.replaceQuotesWithApostrophe(string)
         );
     };
 
-    this.revertCookieString = function(string) {
+    this.revertCookieString = function(string: string): string {
         return self.replacePipesWithCommas(
             self.replaceApostrophesWithQuotes(string)
         );
     };
 
-    this.getCookieDomain = function() {
+    this.getCookieDomain = function(): string {
         if (mpInstance._Store.SDKConfig.cookieDomain) {
             return mpInstance._Store.SDKConfig.cookieDomain;
         } else {
@@ -863,7 +961,7 @@ export default function _Persistence(mpInstance) {
     // "co.uk" -> fail
     // "domain.co.uk" -> success, return
     // "subdomain.domain.co.uk" -> skipped, because already found
-    this.getDomain = function(doc, locationHostname) {
+    this.getDomain = function(doc: Document, locationHostname: string) {
         var i,
             testParts,
             mpTest = 'mptest=cookie',
@@ -883,7 +981,7 @@ export default function _Persistence(mpInstance) {
         return '';
     };
 
-    this.getUserIdentities = function(mpid) {
+    this.getUserIdentities = function(mpid: MPID): UserIdentities {
         var persistence = self.getPersistence();
 
         if (persistence && persistence[mpid] && persistence[mpid].ui) {
@@ -893,7 +991,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getAllUserAttributes = function(mpid) {
+    this.getAllUserAttributes = function(mpid: MPID): AllUserAttributes {
         var persistence = self.getPersistence();
 
         if (persistence && persistence[mpid] && persistence[mpid].ua) {
@@ -903,7 +1001,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getCartProducts = function(mpid) {
+    this.getCartProducts = function(mpid: MPID): Product[] {
         var allCartProducts,
             cartProductsString = localStorage.getItem(
                 mpInstance._Store.prodStorageName
@@ -922,7 +1020,7 @@ export default function _Persistence(mpInstance) {
         return [];
     };
 
-    this.setCartProducts = function(allProducts) {
+    this.setCartProducts = function(allProducts: Product[]): void {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
         }
@@ -938,7 +1036,10 @@ export default function _Persistence(mpInstance) {
             );
         }
     };
-    this.saveUserIdentitiesToPersistence = function(mpid, userIdentities) {
+    this.saveUserIdentitiesToPersistence = function(
+        mpid: MPID,
+        userIdentities: UserIdentities
+    ): void {
         if (userIdentities) {
             var persistence = self.getPersistence();
             if (persistence) {
@@ -954,7 +1055,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.saveUserAttributesToPersistence = function(mpid, userAttributes) {
+    this.saveUserAttributesToPersistence = function(
+        mpid: MPID,
+        userAttributes: AllUserAttributes
+    ): void {
         var persistence = self.getPersistence();
         if (userAttributes) {
             if (persistence) {
@@ -970,7 +1074,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.saveUserCookieSyncDatesToPersistence = function(mpid, csd) {
+    this.saveUserCookieSyncDatesToPersistence = function(
+        mpid: MPID,
+        csd: number
+    ): void {
         if (csd) {
             var persistence = self.getPersistence();
             if (persistence) {
@@ -986,7 +1093,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.saveUserConsentStateToCookies = function(mpid, consentState) {
+    this.saveUserConsentStateToCookies = function(
+        mpid: MPID,
+        consentState: ConsentState
+    ): void {
         //it's currently not supported to set persistence
         //for any MPID that's not the current one.
         if (consentState || consentState === null) {
@@ -1010,7 +1120,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.savePersistence = function(persistence) {
+    this.savePersistence = function(persistence: PersistenceObject): void {
         var encodedPersistence = self.encodePersistence(
                 JSON.stringify(persistence)
             ),
@@ -1054,7 +1164,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getPersistence = function() {
+    this.getPersistence = function(): PersistenceObject {
         var persistence = this.useLocalStorage()
             ? this.getLocalStorage()
             : this.getCookie();
@@ -1062,7 +1172,7 @@ export default function _Persistence(mpInstance) {
         return persistence;
     };
 
-    this.getConsentState = function(mpid) {
+    this.getConsentState = function(mpid: MPID): ConsentState | null {
         var persistence = self.getPersistence();
 
         if (persistence && persistence[mpid] && persistence[mpid].con) {
@@ -1074,7 +1184,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getFirstSeenTime = function(mpid) {
+    this.getFirstSeenTime = function(mpid: MPID): number {
         if (!mpid) {
             return null;
         }
@@ -1090,7 +1200,7 @@ export default function _Persistence(mpInstance) {
      * set the "first seen" time for a user. the time will only be set once for a given
      * mpid after which subsequent calls will be ignored
      */
-    this.setFirstSeenTime = function(mpid, time) {
+    this.setFirstSeenTime = function(mpid: MPID, time: number): void {
         if (!mpid) {
             return;
         }
@@ -1114,7 +1224,7 @@ export default function _Persistence(mpInstance) {
      * return value will always be the current time, otherwise it will be to stored "last seen"
      * time
      */
-    this.getLastSeenTime = function(mpid) {
+    this.getLastSeenTime = function(mpid: MPID): number | null {
         if (!mpid) {
             return null;
         }
@@ -1130,7 +1240,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.setLastSeenTime = function(mpid, time) {
+    this.setLastSeenTime = function(mpid: MPID, time: number): void {
         if (!mpid) {
             return;
         }
@@ -1144,16 +1254,16 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getDeviceId = function() {
+    this.getDeviceId = function(): string {
         return mpInstance._Store.deviceId;
     };
 
-    this.setDeviceId = function(guid) {
+    this.setDeviceId = function(guid: string): void {
         mpInstance._Store.deviceId = guid;
         self.update();
     };
 
-    this.resetPersistence = function() {
+    this.resetPersistence = function(): void {
         removeLocalStorage(StorageNames.localStorageName);
         removeLocalStorage(StorageNames.localStorageNameV3);
         removeLocalStorage(StorageNames.localStorageNameV4);

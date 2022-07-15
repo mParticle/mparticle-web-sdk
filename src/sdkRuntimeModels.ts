@@ -3,10 +3,14 @@ import { DataPlanVersion } from '@mparticle/data-planning-models';
 import {
     IdentifyRequest,
     IdentityCallback,
+    MPID,
+    Product,
     SDKEventCustomFlags,
 } from '@mparticle/web-sdk';
 import Validators from './validators';
-import { Dictionary } from './store';
+import { Dictionary, IStore } from './store';
+import { IPersistence } from './persistence';
+import { Context } from 'mocha';
 
 export interface SDKEvent {
     DeviceId: string;
@@ -123,6 +127,8 @@ export interface SDKProduct {
 }
 
 export interface MParticleWebSDK {
+    // _Persistence: IPersistence;
+    // _Consent: any;
     addForwarder(mockForwarder: any);
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
@@ -244,6 +250,10 @@ export interface SDKIdentityApi {
 }
 
 export interface SDKHelpersApi {
+    // extend(arg0: boolean, localStorageData: any, cookies: any): any;
+    // converted(cookie: any): {};
+    // createMainStorageName(testWorkspaceToken: string): any;
+    // createProductStorageName(testWorkspaceToken: string): any;
     createServiceUrl(arg0: string, arg1: string): void;
     parseNumber(value: number);
     generateUniqueId();
@@ -261,6 +271,23 @@ export interface SDKLoggerApi {
 }
 
 export interface SDKStoreApi {
+    isLocalStorageAvailable: boolean;
+    mpid: MPID;
+    storageName: string;
+    prodStorageName: string;
+    cartProducts: Product[];
+    // nonCurrentUserMPIDs: any;
+    // webviewBridgeEnabled: any;
+    // clientId: any;
+    // isEnabled: any;
+    // sessionAttributes: any;
+    // serverSettings: any;
+    // integrationAttributes: any;
+    // context: Context;
+    // currentSessionMPIDs: any;
+    // isLoggedIn: boolean;
+    // dateLastEventSent: Date;
+    // sessionStartDate: Date;
     isFirstRun: boolean;
     devToken: string;
     SDKConfig: SDKConfigApi;
@@ -269,6 +296,15 @@ export interface SDKStoreApi {
 }
 
 export interface SDKConfigApi {
+    useCookieStorage: boolean;
+    // cookieExpiration: number;
+    // maxCookieSize(
+    //     cookies: any,
+    //     expires: any,
+    //     domain: any,
+    //     maxCookieSize: any
+    // ): any;
+    // cookieDomain: any;
     v3SecureServiceUrl?: string;
     isDevelopmentMode: boolean;
     appVersion?: string;
