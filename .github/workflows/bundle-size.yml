@@ -25,12 +25,20 @@ jobs:
               run: npm run build
 
             - name: Create Bundle
-              run: npm run bundle
+              # TODO: Make this a real script
+              # run: npm run bundle
+              run: |
+                  npx uglify-js dist/mparticle.js --output dist/mparticle.min.js
+                  gzip -c dist/mparticle.min.js > dist/mparticle.min.js.gz
 
             - name: Report Size
+              # TODO: Enable this for real
+              # run: |
+              #     npm run report:unbundled
+              #     npm run report:bundled
               run: |
-                  npm run report:unbundled
-                  npm run report:bundled
+                  ls -lh dist/mparticle.js | awk '{print $5}'
+                  ls -lh dist/mparticle.min.js.gz | awk '{print $5}'
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v2
