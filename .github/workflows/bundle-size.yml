@@ -3,8 +3,44 @@ name: Calculate Bundle Size Difference
 on: workflow_dispatch
 
 jobs:
-    build:
-        name: Do the thing
+    build-master:
+        name: Get Bundle Size from Master
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout Master
+              uses: actions/checkout@v2
+              with:
+                  ref: master
+
+            - name: NPM install
+              uses: actions/setup-node@v1
+              with:
+                  # TODO: Make this 16x
+                  node-version: 12.x
+
+            - name: Run NPM CI
+              run: npm ci
+
+            - name: Build Files
+              run: npm run build
+
+            - name: Create Bundle
+              run: npm run bundle
+
+            - name: Report Size
+              run: |
+                  npm run report:unbundled
+                  npm run report:bundled
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v2
+              if: failure()
+              with:
+                  name: npm-logs
+                  path: ~/.npm/_logs
+
+    build-local:
+        name: Get Bundle Size from Current Branch
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
