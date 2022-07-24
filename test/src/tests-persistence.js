@@ -8,7 +8,7 @@ var findCookie = Utils.findCookie,
     getLocalStorageProducts = Utils.getLocalStorageProducts,
     setCookie = Utils.setCookie,
     setLocalStorage = Utils.setLocalStorage,
-    getEvent = Utils.getEvent,
+    findBatch = Utils.findBatch,
     mockServer;
 
 describe('migrations and persistence-related', function() {
@@ -16,16 +16,16 @@ describe('migrations and persistence-related', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ])
         mockServer.respondWith(urls.identify, [
             200,
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
         mParticle.init(apiKey, window.mParticle.config);
     });
 
@@ -413,9 +413,9 @@ describe('migrations and persistence-related', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.logEvent('Test Event');
-        var data = getEvent(mockServer.requests, 'Test Event');
-        data.ia.should.have.property('128');
-        data.ia['128'].should.have.property('MCID', 'abcedfg');
+        var testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        testEvent.integration_attributes.should.have.property('128');
+        testEvent.integration_attributes['128'].should.have.property('MCID', 'abcedfg');
 
         done();
     });
@@ -1615,10 +1615,10 @@ describe('migrations and persistence-related', function() {
 
         var sessionId = mParticle.sessionManager.getSession();
         var das = mParticle.getDeviceId();
-        var cgid = mParticle.getInstance()._Persistence.getCookie().gs.cgid;
+
+
         sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
         das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
-        cgid.should.not.equal('4ebad5b4-8ed1-4275-8455-838a2e3aa5c0');
 
         done();
     });
