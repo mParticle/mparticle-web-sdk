@@ -35,7 +35,6 @@ describe('batch uploader', () => {
     
     describe('batching via window.fetch', () => {
         beforeEach(function() {
-            window.fetchMock.post(urls.eventsV3, 200);
             window.fetchMock.config.overwriteRoutes = true;
             clock = sinon.useFakeTimers({now: new Date().getTime()});
 
@@ -168,8 +167,6 @@ describe('batch uploader', () => {
             pendingEvents[1].EventName.should.equal(10);
             pendingEvents[2].EventName.should.equal('Test Event');
 
-            window.fetchMock.post(urls.eventsV3, 200);
-            
             (window.fetchMock.lastCall() === undefined).should.equal(true);
             clock.tick(1000);
 
@@ -385,11 +382,6 @@ describe('batch uploader', () => {
                 eventsV3: '100',
                 eventBatchingIntervalMillis: 1000,
             }
-            mockServer.respondWith(urls.eventsV3, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, Store: {}})
-            ]);
             clock = sinon.useFakeTimers();
         });
     

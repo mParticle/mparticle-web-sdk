@@ -3,7 +3,7 @@ import sinon from 'sinon';
 import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
 
-var getEvent = Utils.getEvent,
+var findBatch = Utils.findBatch,
     mockServer;
 
 describe('Consent', function() {
@@ -11,11 +11,6 @@ describe('Consent', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ]);
         mockServer.respondWith(urls.identify, [
             200,
             {},
@@ -554,17 +549,17 @@ describe('Consent', function() {
         var user = mParticle.Identity.getCurrentUser()
         user.setConsentState(consentState)
 
-        mParticle.logEvent('test');
-        var event = getEvent(mockServer.requests, 'test')
+        mParticle.logEvent('Test Event');
+        var testEvent = findBatch(window.fetchMock._calls, 'Test Event');
 
-        event.should.have.property('con');
-        event.con.should.have.property('ccpa');
-        event.con.ccpa.should.have.property('data_sale_opt_out');
-        event.con.ccpa.data_sale_opt_out.should.have.property('c', true);
-        event.con.ccpa.data_sale_opt_out.should.have.property('ts', timestamp);
-        event.con.ccpa.data_sale_opt_out.should.have.property('d', 'consentDoc');
-        event.con.ccpa.data_sale_opt_out.should.have.property('l', 'location');
-        event.con.ccpa.data_sale_opt_out.should.have.property('h', 'hardware');
+        testEvent.should.have.property('consent_state');
+        testEvent.consent_state.should.have.property('ccpa');
+        testEvent.consent_state.ccpa.should.have.property('data_sale_opt_out');
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('consented', true);
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('timestamp_unixtime_ms', timestamp);
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('document', 'consentDoc');
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('location', 'location');
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('hardware_id', 'hardware');
 
         done();
     })
@@ -579,25 +574,26 @@ describe('Consent', function() {
         var user = mParticle.Identity.getCurrentUser()
         user.setConsentState(consentState)
 
-        mParticle.logEvent('test');
-        var event = getEvent(mockServer.requests, 'test')
+        mParticle.logEvent('Test Event');
 
-        event.should.have.property('con');
-        event.con.should.have.property('ccpa');
-        event.con.ccpa.should.have.property('data_sale_opt_out');
-        event.con.ccpa.data_sale_opt_out.should.have.property('c', true);
-        event.con.ccpa.data_sale_opt_out.should.have.property('ts', timestamp);
-        event.con.ccpa.data_sale_opt_out.should.have.property('d', 'consentDoc');
-        event.con.ccpa.data_sale_opt_out.should.have.property('l', 'location');
-        event.con.ccpa.data_sale_opt_out.should.have.property('h', 'hardware');
+        var testEvent = findBatch(window.fetchMock._calls, 'Test Event');
 
-        event.con.should.have.property('gdpr');
-        event.con.gdpr.should.have.property('test purpose');
-        event.con.gdpr['test purpose'].should.have.property('c', false);
-        event.con.gdpr['test purpose'].should.have.property('ts', timestamp);
-        event.con.gdpr['test purpose'].should.have.property('d', 'consentDoc');
-        event.con.gdpr['test purpose'].should.have.property('l', 'location');
-        event.con.gdpr['test purpose'].should.have.property('h', 'hardware');
+        testEvent.should.have.property('consent_state');
+        testEvent.consent_state.should.have.property('ccpa');
+        testEvent.consent_state.ccpa.should.have.property('data_sale_opt_out');
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('consented', true);
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('timestamp_unixtime_ms', timestamp);
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('document', 'consentDoc');
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('location', 'location');
+        testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('hardware_id', 'hardware');
+
+        testEvent.consent_state.should.have.property('gdpr');
+        testEvent.consent_state.gdpr.should.have.property('test purpose');
+        testEvent.consent_state.gdpr['test purpose'].should.have.property('consented', false);
+        testEvent.consent_state.gdpr['test purpose'].should.have.property('timestamp_unixtime_ms', timestamp);
+        testEvent.consent_state.gdpr['test purpose'].should.have.property('document', 'consentDoc');
+        testEvent.consent_state.gdpr['test purpose'].should.have.property('location', 'location');
+        testEvent.consent_state.gdpr['test purpose'].should.have.property('hardware_id', 'hardware');
 
         done();
     });

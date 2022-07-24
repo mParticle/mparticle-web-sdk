@@ -1,5 +1,4 @@
 import Types from '../../src/types';
-import Constants from '../../src/constants';
 import { apiKey, MPConfig } from './config';
 
 describe('Api Client', function() {
@@ -9,45 +8,6 @@ describe('Api Client', function() {
 
     afterEach(function() {
         mParticle._resetForTests(MPConfig);
-    });
-
-    it('Should enable batching for ramp percentages', function(done) {
-        mParticle.getInstance()._Store.SDKConfig.flags[
-            Constants.FeatureFlags.EventsV3
-        ] = 0;
-        let result1 = mParticle.getInstance()._APIClient.shouldEnableBatching();
-        result1.should.be.not.ok();
-
-        mParticle.getInstance()._Store.SDKConfig.flags[
-            Constants.FeatureFlags.EventsV3
-        ] = null;
-        let nullResult = mParticle
-            .getInstance()
-            ._APIClient.shouldEnableBatching();
-        nullResult.should.be.not.ok();
-
-        mParticle.getInstance()._Store.SDKConfig.flags[
-            Constants.FeatureFlags.EventsV3
-        ] = '100';
-        let result2 = mParticle.getInstance()._APIClient.shouldEnableBatching();
-        result2.should.be.ok();
-
-        var fakeDeviceId = '946cdc15-3179-41fe-b777-4f3bf1ac0ddc';
-        mParticle.getInstance()._Store.deviceId = fakeDeviceId; //this will hash/ramp to 28
-        mParticle.getInstance()._Store.SDKConfig.flags[
-            Constants.FeatureFlags.EventsV3
-        ] = '28';
-
-        let result3 = mParticle.getInstance()._APIClient.shouldEnableBatching();
-        result3.should.be.ok();
-
-        mParticle.getInstance()._Store.SDKConfig.flags[
-            Constants.FeatureFlags.EventsV3
-        ] = '27';
-        let result4 = mParticle.getInstance()._APIClient.shouldEnableBatching();
-        result4.should.not.be.ok();
-
-        done();
     });
 
     it('Should update queued events with latest user info', function(done) {
@@ -139,18 +99,6 @@ describe('Api Client', function() {
         Object.keys(sdkEvent2.UserAttributes).length.should.equal(2);
         sdkEvent2.MPID.should.equal('98765');
         sdkEvent2.ConsentState.should.not.equal(null);
-
-        done();
-    });
-
-    it('should return true when events v3 endpoint is "100"', function(done) {
-        mParticle.getInstance()._Store.SDKConfig.flags = {
-            eventBatchingIntervalMillis: '0',
-            eventsV3: '100',
-        };
-        var batchingEnabled = mParticle.getInstance()._APIClient.shouldEnableBatching();
-
-        batchingEnabled.should.equal(true);
 
         done();
     });
