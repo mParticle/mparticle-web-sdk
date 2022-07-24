@@ -124,7 +124,6 @@ const Constants = {
         uploadInterval: 0, // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload
     },
     DefaultUrls: {
-        v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
         v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
         v3SecureServiceUrl: 'jssdks.mparticle.com/v3/JS/',
         configUrl: 'jssdkcdns.mparticle.com/JS/v2/',

@@ -2,8 +2,6 @@ import Constants from './constants';
 import Types from './types';
 import { BatchUploader } from './batchUploader';
 
-var Messages = Constants.Messages;
-
 export default function APIClient(mpInstance, kitBlocker) {
     this.uploader = null;
     var self = this;
@@ -15,24 +13,6 @@ export default function APIClient(mpInstance, kitBlocker) {
             this.uploader = new BatchUploader(mpInstance, millis);
         }
         this.uploader.queueEvent(event);
-    };
-
-    this.shouldEnableBatching = function() {
-        // Returns a string of a number that must be parsed
-        // Invalid strings will be parsed to NaN which is falsey
-        var eventsV3Percentage = parseInt(
-            mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3),
-            10
-        );
-
-        if (!eventsV3Percentage) {
-            return false;
-        }
-
-        var rampNumber = mpInstance._Helpers.getRampNumber(
-            mpInstance._Store.deviceId
-        );
-        return eventsV3Percentage >= rampNumber;
     };
 
     this.processQueuedEvents = function() {
@@ -100,11 +80,7 @@ export default function APIClient(mpInstance, kitBlocker) {
         this.processQueuedEvents();
 
         if (event && options.shouldUploadEvent) {
-            if (this.shouldEnableBatching()) {
-                this.queueEventForBatchUpload(event);
-            } else {
-                this.sendSingleEventToServer(event);
-            }
+            this.queueEventForBatchUpload(event);
         }
 
         if (event && event.EventName !== Types.MessageType.AppStateTransition) {
@@ -116,48 +92,6 @@ export default function APIClient(mpInstance, kitBlocker) {
             // can nullify the event
             if (event) {
                 mpInstance._Forwarders.sendEventToForwarders(event);
-            }
-        }
-    };
-
-    this.sendSingleEventToServer = function(event) {
-        if (event.EventDataType === Types.MessageType.Media) {
-            return;
-        }
-        var xhr,
-            xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    mpInstance.Logger.verbose(
-                        'Received ' + xhr.statusText + ' from server'
-                    );
-                    mpInstance._Persistence.update();
-                }
-            };
-
-        if (!event) {
-            mpInstance.Logger.error(Messages.ErrorMessages.EventEmpty);
-            return;
-        }
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendHttp);
-        xhr = mpInstance._Helpers.createXHR(xhrCallback);
-        if (xhr) {
-            try {
-                xhr.open(
-                    'post',
-                    mpInstance._Helpers.createServiceUrl(
-                        mpInstance._Store.SDKConfig.v2SecureServiceUrl,
-                        mpInstance._Store.devToken
-                    ) + '/Events'
-                );
-                xhr.send(
-                    JSON.stringify(
-                        mpInstance._ServerModel.convertEventToDTO(event)
-                    )
-                );
-            } catch (e) {
-                mpInstance.Logger.error(
-                    'Error sending event to mParticle servers. ' + e
-                );
             }
         }
     };
