@@ -1,4 +1,4 @@
-import { MPConfig, workspaceToken} from './config';
+import { MPConfig, workspaceToken, urls} from './config';
 
 var userApi = null;
 
@@ -19,7 +19,12 @@ beforeEach(function() {
         kitConfigs: [],
         requestConfig: false,
         isDevelopmentMode: false,
+        flags: {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 0,
+        }
     };
+    window.fetchMock.post(urls.eventsV3, 200);
     
     mParticle._resetForTests(MPConfig);
     delete mParticle._instances['default_instance'];
@@ -29,8 +34,10 @@ afterEach(function() {
     window.fetchMock.restore();
 });
 
-import './tests-core-sdk';
+// TODO: When test-batchUploader is below tests-core-sdk, a test fails due to
+// a mock not being cleared.  We should come back to determine how to clear it.
 import './tests-batchUploader';
+import './tests-core-sdk';
 import './tests-kit-blocking';
 import './tests-migrations';
 import './tests-persistence';
