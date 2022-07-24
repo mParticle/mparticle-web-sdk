@@ -8,7 +8,8 @@ import { urls, apiKey, testMPID, MPConfig, v3CookieKey, workspaceCookieName, v3L
 var getLocalStorageProducts = Utils.getLocalStorageProducts,
     setCookie = Utils.setCookie,
     setLocalStorage = Utils.setLocalStorage,
-    getEvent = Utils.getEvent,
+    findBatch = Utils.findBatch,
+    findEventFromRequest = Utils.findEventFromRequest,
     findCookie = Utils.findCookie,
     v4CookieKey = Utils.v4CookieKey,
     deleteAllCookies = Utils.deleteAllCookies,
@@ -19,11 +20,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ]);
         mockServer.respondWith(urls.identify, [
             200,
             {},
@@ -126,14 +122,13 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         localStorage.setItem(v3LSKey, lsProductsRaw);
         mParticle.init(apiKey, window.mParticle.config);
 
-        mockServer.requests = [];
+        // mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        event.ui[0].should.have.property('Identity', 'customerid1');
-        event.ui[0].should.have.property('Type', 1);
-        event.ui[1].should.have.property('Identity', 'test@email.com');
-        event.ui[1].should.have.property('Type', 7);
+        var checkoutEvent = findBatch(window.fetchMock._calls, 'checkout');
+
+        checkoutEvent.user_identities.should.have.property('customer_id', 'customerid1');
+        checkoutEvent.user_identities.should.have.property('email', 'test@email.com');
 
         done();
     });
@@ -148,9 +143,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        event.ui[0].should.have.property('Identity', 'test@email.com');
-        event.ui[0].should.have.property('Type', 7);
+
+        var checkoutEvent = findBatch(window.fetchMock._calls, 'checkout');
+
+        checkoutEvent.user_identities.should.have.property('email', 'test@email.com');
 
         done();
     });
@@ -204,14 +200,12 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        event.ui[0].should.have.property('Identity', 'customerid1');
-        event.ui[0].should.have.property('Type', 1);
-        event.ui[1].should.have.property('Identity', 'test@email.com');
-        event.ui[1].should.have.property('Type', 7);
+        var checkoutEventBatch = findBatch(window.fetchMock._calls, 'checkout');
+
+        checkoutEventBatch.user_identities.should.have.property('customer_id', 'customerid1');
+        checkoutEventBatch.user_identities.should.have.property('email', 'test@email.com');
 
         done();
     });
@@ -226,11 +220,10 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        event.ui[0].should.have.property('Identity', 'customerid1');
-        event.ui[0].should.have.property('Type', 1);
-        event.ui[1].should.have.property('Identity', 'test@email.com');
-        event.ui[1].should.have.property('Type', 7);
+        var checkoutEventBatch = findBatch(window.fetchMock._calls, 'checkout');
+
+        checkoutEventBatch.user_identities.should.have.property('customer_id', 'customerid1');
+        checkoutEventBatch.user_identities.should.have.property('email', 'test@email.com');
 
         done();
     });
@@ -331,10 +324,11 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.eCommerce.Cart.add(
             mParticle.eCommerce.createProduct(testName, 'sku123', 1)
         );
-        mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        event.sc.pl.length.should.equal(0);
+        mParticle.eCommerce.logCheckout(1);
+        var checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+
+        checkoutEvent.data.product_action.should.have.property('products', null);
 
         done();
     });
@@ -378,8 +372,9 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         );
         mParticle.eCommerce.logCheckout(1);
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        event.sc.pl.length.should.equal(0);
+        var checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+
+        checkoutEvent.data.product_action.should.have.property('products', null)
 
         done();
     });
