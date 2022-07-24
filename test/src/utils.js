@@ -171,26 +171,32 @@ var pluses = /\+/g,
             return mParticle.getInstance()._Persistence.getLocalStorage();
         }
     },
-    getEvent = function(requests, eventName) {
-        if (requests.length) {
-            var events = requests.filter(function(request) {
-                if (request.requestBody) {
-                    return JSON.parse(request.requestBody).n === eventName
-                } else {
-                    return null;
-                }
-            })
-            .map(function(request) {
-                return JSON.parse(request.requestBody)
-            });
-    
-            return events[0]
-        }
-    },
     findEventFromBatch = function(batch, eventName) {
         if (batch.events.length) {
             return batch.events.find(function(event) {
-                return event.event_type === eventName
+                switch (event.event_type) {
+                    case 'commerce_event':
+                        if (event.data.product_action) {
+                            return event.data.product_action.action === eventName;
+                        }
+                        else if (event.data.promotion_action) {
+                            // return the promotion action
+                            return true;
+                        } else {
+                            // all commerce_events that do not have product_action
+                            // or promotion_action are impression actions
+                            return true;
+                        }
+                    case 'custom_event':
+                        // debugger;
+                        return event.data.event_name === eventName;
+                    case 'crash_report':
+                        // debugger;
+                        return true;
+                    default:
+                        // all other events are lifecycle events (session start, end, AST)
+                        return event.event_type === eventName
+                }
             })
         }
         return null;
@@ -216,11 +222,40 @@ var pluses = /\+/g,
         }
     },
     findRequest = function(requests, eventName) {
-        var reqs = requests.filter(function(request) {
-            return JSON.parse(request.requestBody).n === eventName
+        var matchingRequest;
+        requests.forEach(function(request) {
+            var batch = JSON.parse(request[1].body);
+            for (var i = 0; i<batch.events.length; i++) {
+                var foundEventFromBatch = findEventFromBatch(batch, eventName);
+                if (foundEventFromBatch) {
+                    matchingRequest = request;
+                    break;
+                }
+            }
         })
 
-        return reqs[0]
+        return matchingRequest;
+    },
+    findRequestURL = function(requests, eventName) {
+        return findRequest(requests, eventName)[0]
+    },
+    findBatch = function(requests, eventName) {
+        var request = findRequest(requests, eventName);
+        if (request) {
+            return JSON.parse(findRequest(requests, eventName)[1].body);
+        } else {
+            return null;
+        }
+
+    },
+    findEventFromRequest= function(requests, eventName) {
+        var batch = findBatch(requests, eventName);
+        if (batch) {
+            return findEventFromBatch(batch, eventName);
+        } else {
+            return null;
+        }
+
     },
     getIdentityRequests = function(requests, path) {
         var returnedRequests = [],
@@ -529,7 +564,9 @@ var TestsCore = {
     setCookie: setCookie,
     setLocalStorage: setLocalStorage,
     getLocalStorage: getLocalStorage,
-    getEvent: getEvent,
+    findRequestURL: findRequestURL,
+    findBatch: findBatch,
+    findEventFromRequest: findEventFromRequest,
     findEventFromBatch: findEventFromBatch,
     getForwarderEvent: getForwarderEvent,
     findRequest: findRequest,
