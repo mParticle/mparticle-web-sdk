@@ -122,7 +122,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         localStorage.setItem(v3LSKey, lsProductsRaw);
         mParticle.init(apiKey, window.mParticle.config);
 
-        // mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
         var checkoutEvent = findBatch(window.fetchMock._calls, 'checkout');
@@ -324,7 +323,6 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mParticle.eCommerce.Cart.add(
             mParticle.eCommerce.createProduct(testName, 'sku123', 1)
         );
-
         mParticle.eCommerce.logCheckout(1);
         var checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
 

@@ -188,8 +188,6 @@ describe('mParticle instance manager', function() {
             mockServer = sinon.createFakeServer();
             mockServer.respondImmediately = true;
 
-
-
             //config default instance
             mockServer.respondWith(
                 'https://jssdkcdns.mparticle.com/JS/v2/apiKey1/config?env=0',
@@ -219,23 +217,6 @@ describe('mParticle instance manager', function() {
                 'https://jssdks.mparticle.com/v3/JS/apiKey3/events',
                 200
             );
-
-            // mockServer.respondWith(
-            //     'https://jssdkcdns.mparticle.com/JS/v2/apiKey1/Events',
-            //     [200, {}, JSON.stringify({ store: {} })]
-            // );
-            // instance1 event mock
-
-            
-            // mockServer.respondWith(
-            //     'https://jssdkcdns.mparticle.com/JS/v2/apiKey2/Events',
-            //     [200, {}, JSON.stringify({ store: {} })]
-            // );
-            // instance2 event mock
-            // mockServer.respondWith(
-            //     'https://jssdkcdns.mparticle.com/JS/v2/apiKey3/Events',
-            //     [200, {}, JSON.stringify({ store: {} })]
-            // );
 
             // identity mock
             mockServer.respondWith(

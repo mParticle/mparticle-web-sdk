@@ -116,7 +116,7 @@ describe('event logging', function() {
 
         var bypassedEvent = findEventFromRequest(window.fetchMock._calls, 'Test Upload Bypass');
 
-        uploadEvent.should.be.ok;
+        uploadEvent.should.be.ok();
         uploadEvent.data.should.have.property('event_name', 'Test Standard Upload');
         uploadEvent.data.should.have.property('custom_event_type', 'navigation');
         uploadEvent.data.should.have.property('custom_attributes');
@@ -190,7 +190,7 @@ describe('event logging', function() {
         var errorEvent = findEventFromRequest(window.fetchMock._calls, 'my error');
 
         Should(errorEvent).be.ok();
-        console.log(errorEvent);
+
         errorEvent.data.should.have.property('message', 'Error');
         errorEvent.data.should.have.property('custom_attributes');
         errorEvent.data.custom_attributes.should.have.property('m', 'my error');
@@ -269,7 +269,7 @@ describe('event logging', function() {
 
         // log second AST
         mParticle.init(apiKey, window.mParticle.config);
-        
+
         var astEvent = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
         astEvent.data.should.have.property('is_first_run', false);
 
@@ -302,7 +302,7 @@ describe('event logging', function() {
         var pageViewEvent = findEventFromRequest(window.fetchMock._calls, 'screen_view');
 
         Should(pageViewEvent).be.ok();
-            console.log(pageViewEvent);
+
         pageViewEvent.data.should.have.property('custom_attributes');
         pageViewEvent.data.should.have.property('screen_name', 'My Page View');
         pageViewEvent.data.custom_attributes.should.have.property('testattr', 1);

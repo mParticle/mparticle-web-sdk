@@ -30,7 +30,6 @@ describe('identity', function() {
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
-
         mParticle.init(apiKey, window.mParticle.config);
     });
 
@@ -1026,7 +1025,7 @@ describe('identity', function() {
             {},
             JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
         ]);
-        
+
         mParticle.logEvent('Test Event2');
         mParticle.Identity.login();
         // server requests will have AST, sessionStart, Test1, Test2, and login
@@ -2126,8 +2125,9 @@ describe('identity', function() {
 
     it('identityCallback responses should all have a getUser function on their result objects', function(done) {
         var result, loginResult, logoutResult, modifyResult;
+
         mParticle._resetForTests(MPConfig);
-        
+
         mParticle.config.identityCallback = function(resp) {
             resp.getUser().setUserAttribute('attr', 'value');
             result = resp;
@@ -2138,7 +2138,7 @@ describe('identity', function() {
             {},
             JSON.stringify({ mpid: 'MPID1', is_logged_in: false, status: 200 }),
         ]);
-        
+
         mParticle.init(apiKey, window.mParticle.config);
 
         var identityRequest = { userIdentities: { customerid: 'test123' } };

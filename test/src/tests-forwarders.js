@@ -28,7 +28,6 @@ describe('forwarders', function() {
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
-        
         mParticle.init(apiKey, window.mParticle.config);
     });
 

@@ -1615,8 +1615,6 @@ describe('migrations and persistence-related', function() {
 
         var sessionId = mParticle.sessionManager.getSession();
         var das = mParticle.getDeviceId();
-
-
         sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
         das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');
 

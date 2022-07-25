@@ -122,7 +122,7 @@ describe('eCommerce', function() {
     });
 
     it('should not log a ecommerce event if there is a typo in the product action type', function(done) {
-        // fetchMock calls will have session start and AST events, we want to reset so that we can prove the lo product action type will not go through
+        // fetchMock calls will have session start and AST events, we want to reset so that we can prove the product action type does not go through (length remains 0 after logging)
         window.fetchMock._calls = [];
         var product = mParticle.eCommerce.createProduct(
                 'iPhone',

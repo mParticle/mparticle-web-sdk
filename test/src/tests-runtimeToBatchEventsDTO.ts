@@ -80,7 +80,7 @@ describe('Old model to batch model conversion', () => {
             const sdkEvent = window.mParticle.getInstance()._ServerModel.createEventObject(
                 publicEvent
                 ) as SDKEvent;
-                console.log(sdkEvent);
+
                 expect(sdkEvent).to.be.ok;
             batch = Converter.convertEvents(
                 '123',
