@@ -24,8 +24,8 @@ jobs:
         name: Calculate Bundle Size Difference
         runs-on: ubuntu-latest
         outputs:
-            diff: ${{ steps.get-diff.outputs.diff }}
-            diff_percent: ${{ steps.get-diff.outputs.diff_percent }}
+            diff: ${{ steps.report-diff.outputs.diff }}
+            diff_percent: ${{ steps.report-diff.outputs.diff_percent }}
         steps:
             - name: NPM install
               uses: actions/setup-node@v1
@@ -38,7 +38,7 @@ jobs:
                   echo Updated Size: ${{ inputs.updated_bundle_size }}
 
             - name: Report Diff
-              id: get-diff
+              id: report-diff
               run: |
                   div=$(npx mathjs `echo ${{ inputs.updated_bundle_size }}` / `echo ${{ inputs.initial_bundle_size }}` )
                   diff=$(npx mathjs `echo $div` -1)
@@ -48,4 +48,4 @@ jobs:
                   echo "::set-output name=diff_percent::$result_percent"
 
             - name: Output Percent Change
-              run: echo ${{ steps.get-diff.outputs.diff_percent }} % Difference
+              run: echo ${{ steps.report-diff.outputs.diff_percent }} % Difference
