@@ -25,7 +25,7 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             diff: ${{ steps.get-diff.outputs.diff }}
-            diff_percent: ${{ steps.get-diff.outputs.diff }}
+            diff_percent: ${{ steps.get-diff.outputs.diff_percent }}
         steps:
             - name: NPM install
               uses: actions/setup-node@v1
