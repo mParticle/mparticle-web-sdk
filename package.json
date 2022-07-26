@@ -54,7 +54,12 @@
         "lint": "eslint src/ test/src/",
         "gts:check": "gts check",
         "gts:fix": "gts fix",
-        "prettier": "node_modules/.bin/prettier --check \"**/*.js\""
+        "prettier": "node_modules/.bin/prettier --check \"**/*.js\"",
+        "uglify": "npx uglify-js dist/mparticle.js --output dist/mparticle.min.js",
+        "gzip": "gzip -c dist/mparticle.min.js > dist/mparticle.min.js.gz",
+        "bundle": "npm run uglify && npm run gzip",
+        "report:bundled": "ls -l dist/mparticle.min.js.gz | awk '{print $5}'",
+        "report:bundled:human": "ls -lh dist/mparticle.min.js.gz | awk '{print $5}'"
     },
     "pre-commit": [
         "lint"
