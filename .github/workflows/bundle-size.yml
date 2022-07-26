@@ -16,8 +16,6 @@ jobs:
         outputs:
             bundledMaster: ${{ steps.set-bundled-master.outputs.bundledMaster }}
             bundledMasterHuman: ${{ steps.set-bundled-master.outputs.bundledMasterHuman }}
-            unbundledMaster: ${{ steps.set-unbundled-master.outputs.unbundledMaster }}
-            unbundledMasterHuman: ${{ steps.set-unbundled-master.outputs.unbundledMasterHuman }}
 
         steps:
             - name: Checkout Master
@@ -41,16 +39,8 @@ jobs:
 
             - name: Report Size
               run: |
-                  echo "UNBUNDLED_MASTER=$(npm run report:unbundled)" >> $GITHUB_ENV
-                  echo "UNBUNDLED_MASTER_HUMAN=$(npm run report:unbundled:human)" >> $GITHUB_ENV
                   echo "BUNDLED_MASTER=$(npm run report:bundled)" >> $GITHUB_ENV
                   echo "BUNDLED_MASTER_HUMAN=$(npm run report:bundled:human)" >> $GITHUB_ENV
-
-            - name: Set Master Unbundled Size
-              id: set-unbundled-master
-              run: |
-                echo "::set-output name=unbundledMaster::${{ env.UNBUNDLED_MASTER }}"
-                echo "::set-output name=unbundledMasterHuman::${{ env.UNBUNDLED_MASTER_HUMAN }}"
 
             - name: Set Master Bundled Size
               id: set-bundled-master
@@ -72,8 +62,6 @@ jobs:
         outputs:
             bundledLocal: ${{ steps.set-bundled-local.outputs.bundledLocal }}
             bundledLocalHuman: ${{ steps.set-bundled-local.outputs.bundledLocalHuman }}
-            unbundledLocal: ${{ steps.set-unbundled-local.outputs.unbundledLocal }}
-            unbundledLocalHuman: ${{ steps.set-unbundled-local.outputs.unbundledLocalHuman }}
 
         steps:
             - name: Checkout
@@ -95,20 +83,8 @@ jobs:
 
             - name: Report Size
               run: |
-                  npm run report:unbundled
-                  npm run report:bundled
-            - name: Report Size
-              run: |
-                  echo "UNBUNDLED_LOCAL=$(npm run report:unbundled)" >> $GITHUB_ENV
-                  echo "UNBUNDLED_LOCAL_HUMAN=$(npm run report:unbundled:human)" >> $GITHUB_ENV
                   echo "BUNDLED_LOCAL=$(npm run report:bundled)" >> $GITHUB_ENV
                   echo "BUNDLED_LOCAL_HUMAN=$(npm run report:bundled:human)" >> $GITHUB_ENV
-
-            - name: Set Local Unbundled Size
-              id: set-unbundled-local
-              run: |
-                echo "::set-output name=unbundledLocal::${{ env.UNBUNDLED_LOCAL }}"
-                echo "::set-output name=unbundledLocalHuman::${{ env.UNBUNDLED_LOCAL_HUMAN }}"
 
             - name: Set Local Bundled Size
               id: set-bundled-local
@@ -122,17 +98,6 @@ jobs:
               with:
                   name: npm-logs
                   path: ~/.npm/_logs
-
-    calculate-unbundled:
-        name: Calculate Unbundled Diff
-        uses: ./.github/workflows/calculate-difference.yml
-        needs:
-            - build-master
-            - build-local
-
-        with:
-            initial_bundle_size: ${{ needs.build-master.outputs.unbundledMaster }}
-            updated_bundle_size: ${{ needs.build-local.outputs.unbundledLocal }}
 
     calculate-bundled:
         name: Calculate Bundled Diff
@@ -151,12 +116,10 @@ jobs:
           - build-master
           - build-local
           - calculate-bundled
-          - calculate-unbundled
         steps:
           - name: Adding Markdown
             run: |
                 echo '### Calculate Bundle Size Difference' >> $GITHUB_STEP_SUMMARY
                 echo "|  | master | ${GITHUB_REF#refs/heads/} | % changed |" >> $GITHUB_STEP_SUMMARY
                 echo "|--|--|--|--|" >> $GITHUB_STEP_SUMMARY
-                echo "| unbundled | ${{ needs.build-master.outputs.unbundledMasterHuman }} | ${{ needs.build-local.outputs.unbundledLocalHuman }} | ${{ needs.calculate-unbundled.outputs.diff_percent }} |" >> $GITHUB_STEP_SUMMARY
-                echo "| bundled | ${{ needs.build-master.outputs.bundledMasterHuman }} | ${{ needs.build-local.outputs.bundledLocalHuman }} | ${{ needs.calculate-bundled.outputs.diff_percent }} |" >> $GITHUB_STEP_SUMMARY
+                echo "| mparticle.min.js.gz | ${{ needs.build-master.outputs.bundledMasterHuman }} | ${{ needs.build-local.outputs.bundledLocalHuman }} | ${{ needs.calculate-bundled.outputs.diff_percent }} |" >> $GITHUB_STEP_SUMMARY
