@@ -1,0 +1,51 @@
+name: Calculate Percent Difference
+
+on:
+    workflow_call:
+        inputs:
+            initial_bundle_size:
+                description: Initial Bundle Size
+                type: string
+                required: true
+            updated_bundle_size:
+                description: Updated Bundle Size
+                type: string
+                required: true
+        outputs:
+            diff:
+                description: Difference as a number
+                value: ${{ jobs.calculate-diff.outputs.diff }}
+            diff_percent:
+                description: Difference as a percentage
+                value: ${{ jobs.calculate-diff.outputs.diff_percent }}
+
+jobs:
+    calculate-diff:
+        name: Calculate Bundle Size Difference
+        runs-on: ubuntu-latest
+        outputs:
+            diff: ${{ steps.get-diff.outputs.diff }}
+            diff_percent: ${{ steps.get-diff.outputs.diff }}
+        steps:
+            - name: NPM install
+              uses: actions/setup-node@v1
+              with:
+                  node-version: 16.x
+
+            - name: Output Sizes
+              run: |
+                  echo Initial Size: ${{ inputs.initial_bundle_size }}
+                  echo Updated Size: ${{ inputs.updated_bundle_size }}
+
+            - name: Report Diff
+              id: get-diff
+              run: |
+                  div=$(npx mathjs `echo ${{ inputs.updated_bundle_size }}` / `echo ${{ inputs.initial_bundle_size }}` )
+                  diff=$(npx mathjs `echo $div` -1)
+                  result=$(npx mathjs `echo $diff` / .01)
+                  result_percent=$(npx mathjs "floor($result, 2)")
+                  echo "::set-output name=diff::$result"
+                  echo "::set-output name=diff_percent::$result_percent"
+
+            - name: Output Percent Change
+              run: echo ${{ steps.get-diff.outputs.diff_percent }} % Difference
