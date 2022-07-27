@@ -30,10 +30,10 @@ module.exports = function(config) {
         debug: true,
         logLevel: config.LOG_INFO,
         browserConsoleLogOptions: {
-            terminal: false,
+            terminal: true,
         },
         client: {
-            captureConsole: false,
+            captureConsole: true,
         },
         customLaunchers: {
             FirefoxHeadless: {

@@ -188,10 +188,8 @@ var pluses = /\+/g,
                             return true;
                         }
                     case 'custom_event':
-                        // debugger;
                         return event.data.event_name === eventName;
                     case 'crash_report':
-                        // debugger;
                         return true;
                     default:
                         // all other events are lifecycle events (session start, end, AST)
