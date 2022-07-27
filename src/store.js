@@ -281,13 +281,6 @@ export default function Store(config, mpInstance) {
         }
         if (
             !this.SDKConfig.flags.hasOwnProperty(
-                Constants.FeatureFlags.EventsV3
-            )
-        ) {
-            this.SDKConfig.flags[Constants.FeatureFlags.EventsV3] = 0;
-        }
-        if (
-            !this.SDKConfig.flags.hasOwnProperty(
                 Constants.FeatureFlags.EventBatchingIntervalMillis
             )
         ) {

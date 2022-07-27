@@ -182,29 +182,6 @@ describe('core SDK', function() {
         done();
     });
     
-    // TODO: Remove after 8/11/2022
-    it('should warn if user is not on v3', function (done) {
-        var errorMessage;
-        mParticle.config.logLevel = 'verbose';
-        mParticle.config.logger = {
-            warning: function (msg) {
-                if (!errorMessage) {
-                    errorMessage = msg;
-                }
-            }
-        }
-        mParticle.config.flags = {
-            eventsV3: '0',
-            eventBatchingIntervalMillis: 0,
-        }
-
-        mParticle.init(apiKey, mParticle.config);
-
-        errorMessage.should.startWith('mParticle will be enabling Event Batching for all customers on July 12, 2022. For more details, please see our docs: ');
-
-        done();
-    });
-
     it('should allow app name to be changed via setAppName', function (done) {
         mParticle._resetForTests(MPConfig);
 
