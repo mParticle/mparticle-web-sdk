@@ -720,7 +720,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.16.2";
+    var version = "2.16.3";
 
     var Constants = {
       sdkVersion: version,
@@ -2055,7 +2055,12 @@ var mParticle = (function () {
 
             if (onCreateBatchCallback) {
               uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
-              uploadBatchObject.modified = true;
+
+              if (uploadBatchObject) {
+                uploadBatchObject.modified = true;
+              } else {
+                mpInstance.Logger.warning('Skiping batch upload because no batch was returned from onCreateBatch callback');
+              }
             }
 
             if (uploadBatchObject) {
