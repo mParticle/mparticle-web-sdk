@@ -1,3 +1,10 @@
+## [2.16.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.16.2...v2.16.3) (2022-07-28)
+
+
+### Bug Fixes
+
+* prevent errors when onCreateBatch does not return a batch ([#299](https://github.com/mParticle/mparticle-web-sdk/issues/299)) ([c8f085d](https://github.com/mParticle/mparticle-web-sdk/commit/c8f085d8eaac5e8fa6cc1a01eaf70c92dc07b773))
+
 ## [2.16.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.16.1...v2.16.2) (2022-06-29)
 
 ## [2.16.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.16.0...v2.16.1) (2022-06-16)
