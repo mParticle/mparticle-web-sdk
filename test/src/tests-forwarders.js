@@ -2464,4 +2464,31 @@ describe('forwarders', function() {
         );
         done();
     });
+
+    it('should add a logger to forwarders', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        var mockForwarder = new MockForwarder();
+        mParticle.addForwarder(mockForwarder);
+
+        window.mParticle.config.kitConfigs.push(
+            forwarderDefaultConfiguration('MockForwarder')
+        );
+
+        window.mParticle.config.logLevel = 'verbose';
+        var infoMessage;
+
+        window.mParticle.config.logger = {
+            verbose: function(msg) {
+                infoMessage = msg;
+            },
+        };
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.logEvent('Test Event');
+
+        infoMessage.should.equal('Test Event sent');
+
+        done();
+    });
 });

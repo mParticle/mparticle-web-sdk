@@ -336,6 +336,7 @@ var pluses = /\+/g,
                 self.processCalled = true;
                 this.receivedEvent = event;
                 self.reportingService(self, event);
+                self.logger.verbose(event.EventName + ' sent');
             };
 
             this.setUserIdentity = function(a, b) {
