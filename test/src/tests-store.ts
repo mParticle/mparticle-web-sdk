@@ -4,7 +4,7 @@ import { SDKInitConfig } from "../../src/sdkRuntimeModels";
 import Store, { IStore } from "../../src/store";
 import { MPConfig, apiKey } from './config';
 
-describe.only('Store', ()=> {
+describe('Store', ()=> {
     const now = new Date();
     let sandbox;
     let clock;

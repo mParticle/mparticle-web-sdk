@@ -9,6 +9,7 @@ import {
 import Constants from './constants';
 import Polyfill from './polyfill';
 import { MParticleWebSDK } from './sdkRuntimeModels';
+import { Dictionary } from './store';
 
 var Base64 = Polyfill.Base64,
     Messages = Constants.Messages,
@@ -17,33 +18,36 @@ var Base64 = Polyfill.Base64,
     StorageNames = Constants.StorageNames;
 
 export type PersistenceObject = any; // TODO: Placeholder Type
+export type UserProducts = Record<MPID, { cp: Product[] }>;
+export type LocalStorageObject = {
+    // TODO: Placeholder Type
+    gs?: any;
+    l?: any;
+    cu?: any;
+};
+export type MPCookie = LocalStorageObject; // TODO: Placeholder Type
 export interface IPersistence {
     useLocalStorage: () => boolean;
     initializeStorage: () => void;
-    getLocalStorage();
-    getCookie();
-    storeDataInMemory(allData: any);
+    getLocalStorage: () => LocalStorageObject;
+    getCookie: () => MPCookie | null;
+    storeDataInMemory: (obj: PersistenceObject, currentMPID?: MPID) => void;
     expireCookies(storageName: string);
-    storeProductsInMemory(decodedProducts: any, mpid: number);
-    update();
-    setCookie();
-    setLocalStorage();
+    storeProductsInMemory(decodedProducts: any, mpid: string);
+    update: () => void;
+    setCookie: () => void;
+    setLocalStorage: () => void;
     determineLocalStorageAvailability: (storage: Storage) => boolean;
     getUserProductsFromLS: (mpid: string) => Product[];
-    getAllUserProductsFromLS: () => Record<string, Product>;
-    encodePersistence(arg0: string): string;
-    decodePersistence(arg0: string);
+    getAllUserProductsFromLS: () => UserProducts;
+    encodePersistence: (arg0: string) => string;
+    decodePersistence: (arg0: string) => string;
     getCookieDomain(): any;
     reduceAndEncodePersistence(
-        cookies: any,
-        expires: any,
-        domain: any,
-        maxCookieSize: (
-            cookies: any,
-            expires: any,
-            domain: any,
-            maxCookieSize: any
-        ) => any
+        persistance: PersistenceObject,
+        expires: string,
+        domain: string,
+        maxCookieSize: number
     ): any;
     findPrevCookiesBasedOnUI: (identityApiData: IdentityApiData) => void;
     createCookieString(arg0: string): string;
@@ -108,7 +112,7 @@ export default function _Persistence(
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
             if (!localStorageData && !cookies) {
                 mpInstance._Store.isFirstRun = true;
-                mpInstance._Store.mpid = 0;
+                mpInstance._Store.mpid = '';
             } else {
                 mpInstance._Store.isFirstRun = false;
             }
@@ -370,12 +374,12 @@ export default function _Persistence(
         }
     };
 
-    this.getAllUserProductsFromLS = function(): Record<MPID, Product> {
+    this.getAllUserProductsFromLS = function(): UserProducts {
         var decodedProducts,
             encodedProducts = localStorage.getItem(
                 mpInstance._Store.prodStorageName
             ),
-            parsedDecodedProducts: Record<MPID, Product>;
+            parsedDecodedProducts: UserProducts;
         if (encodedProducts) {
             decodedProducts = Base64.decode(encodedProducts);
         }
@@ -494,10 +498,10 @@ export default function _Persistence(
             obj = {},
             j;
         if (localStorageData) {
-            localStorageData = JSON.parse(localStorageData);
-            for (j in localStorageData) {
-                if (localStorageData.hasOwnProperty(j)) {
-                    obj[j] = localStorageData[j];
+            var tempLocalStorageData = JSON.parse(localStorageData);
+            for (j in tempLocalStorageData) {
+                if (tempLocalStorageData.hasOwnProperty(j)) {
+                    obj[j] = tempLocalStorageData[j];
                 }
             }
         }
@@ -568,7 +572,9 @@ export default function _Persistence(
 
         if (result) {
             mpInstance.Logger.verbose(Messages.InformationMessages.CookieFound);
-            return JSON.parse(self.decodePersistence(result));
+            return JSON.parse(
+                self.decodePersistence(result as PersistenceObject)
+            );
         } else {
             return null;
         }
@@ -591,7 +597,7 @@ export default function _Persistence(
                         60 *
                         60 *
                         1000
-            ).toGMTString(),
+            ).toUTCString(),
             cookieDomain,
             domain,
             encodedCookiesWithExpirationAndPath;
@@ -654,7 +660,7 @@ export default function _Persistence(
 */
     this.reduceAndEncodePersistence = function(
         persistence: PersistenceObject,
-        expires: number,
+        expires: string,
         domain: string,
         maxCookieSize: number
     ): string {
@@ -731,7 +737,11 @@ export default function _Persistence(
                             'Size of new encoded cookie is larger than maxCookieSize setting of ' +
                                 maxCookieSize +
                                 '. Removing from cookie the earliest logged in MPID containing: ' +
-                                JSON.stringify(persistence[MPIDtoRemove], 0, 2)
+                                JSON.stringify(
+                                    persistence[MPIDtoRemove],
+                                    null,
+                                    2
+                                )
                         );
                         delete persistence[MPIDtoRemove];
                     } else {
@@ -752,7 +762,7 @@ export default function _Persistence(
 
     function createFullEncodedCookie(
         persistence: PersistenceObject,
-        expires: number,
+        expires: string,
         domain: string
     ): string {
         return (
@@ -910,7 +920,7 @@ export default function _Persistence(
                 return JSON.stringify(persistence);
             }
         } catch (e) {
-            mpInstance.Logger.error('Problem with decoding cookie', e);
+            mpInstance.Logger.error('Problem with decoding cookie:' + e);
         }
         return '';
     };
@@ -1133,7 +1143,7 @@ export default function _Persistence(
                         60 *
                         60 *
                         1000
-            ).toGMTString(),
+            ).toUTCString(),
             cookieDomain = self.getCookieDomain(),
             domain;
 
@@ -1278,7 +1288,7 @@ export default function _Persistence(
         self.expireCookies(mpInstance._Store.prodStorageName);
         self.expireCookies(mpInstance._Store.storageName);
 
-        if (mParticle._isTestEnv) {
+        if (window.mParticle._isTestEnv) {
             var testWorkspaceToken = 'abcdef';
             removeLocalStorage(
                 mpInstance._Helpers.createMainStorageName(testWorkspaceToken)

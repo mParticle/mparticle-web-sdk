@@ -127,15 +127,17 @@ export interface SDKProduct {
 }
 
 export interface MParticleWebSDK {
-    // _Persistence: IPersistence;
-    // _Consent: any;
+    _Consent: SDKConsentAPI;
     addForwarder(mockForwarder: any);
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     _Store: SDKStoreApi;
     _Helpers: SDKHelpersApi;
+    _Persistence: IPersistence;
     config: SDKConfig;
-    _resetForTests(MPConfig: SDKConfig): void;
+    _isTestEnv: boolean;
+    _resetForTests(MPConfig: SDKConfig, keepPersistence?: boolean): void;
+    _forceNoLocalStorage: boolean;
     init(apiKey: string, config: SDKConfig): void;
     getInstance();
     ServerModel();
@@ -152,6 +154,7 @@ export interface MParticleWebSDK {
     ProductActionType: SDKProductActionType;
     generateHash(value: string);
     isIOS?: boolean;
+    useCookieStorage?: boolean;
 }
 
 // TODO: Export this to a better location
@@ -165,6 +168,7 @@ export interface SDKConfig {
     onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
     customFlags?: SDKEventCustomFlags;
     dataPlan: DataPlanConfig | SDKDataPlan; // FIXME: Resolve kit blocker data plan confusion
+    deviceId: string;
     appVersion?: string;
     package?: string;
     flags?: { [key: string]: string | number | boolean }; // Feature Flags
@@ -250,11 +254,11 @@ export interface SDKIdentityApi {
 }
 
 export interface SDKHelpersApi {
-    // extend(arg0: boolean, localStorageData: any, cookies: any): any;
-    // converted(cookie: any): {};
-    // createMainStorageName(testWorkspaceToken: string): any;
-    // createProductStorageName(testWorkspaceToken: string): any;
+    converted: (cookie: string) => string;
+    createMainStorageName(testWorkspaceToken: string): any;
+    createProductStorageName(testWorkspaceToken: string): any;
     createServiceUrl(arg0: string, arg1: string): void;
+    extend(...args: any);
     parseNumber(value: number);
     generateUniqueId();
     isFunction(fn: any): boolean;
@@ -270,24 +274,30 @@ export interface SDKLoggerApi {
     warning(arg0: string): void;
 }
 
+// TODO: Fill in Consent API
+export interface SDKConsentAPI {
+    ConsentSerialization: any;
+    createGDPRConsent: (...args: any) => any;
+}
+
 export interface SDKStoreApi {
     isLocalStorageAvailable: boolean;
     mpid: MPID;
     storageName: string;
     prodStorageName: string;
     cartProducts: Product[];
-    // nonCurrentUserMPIDs: any;
-    // webviewBridgeEnabled: any;
-    // clientId: any;
-    // isEnabled: any;
-    // sessionAttributes: any;
-    // serverSettings: any;
-    // integrationAttributes: any;
-    // context: Context;
-    // currentSessionMPIDs: any;
-    // isLoggedIn: boolean;
-    // dateLastEventSent: Date;
-    // sessionStartDate: Date;
+    nonCurrentUserMPIDs: Record<MPID, Dictionary>;
+    webviewBridgeEnabled: boolean;
+    clientId: string;
+    isEnabled: boolean;
+    sessionAttributes: Dictionary<string>;
+    serverSettings: Dictionary<string>;
+    integrationAttributes: Dictionary<string>;
+    context: Context;
+    currentSessionMPIDs: MPID[];
+    isLoggedIn: boolean;
+    dateLastEventSent: Date;
+    sessionStartDate: Date;
     isFirstRun: boolean;
     devToken: string;
     SDKConfig: SDKConfigApi;
@@ -296,15 +306,11 @@ export interface SDKStoreApi {
 }
 
 export interface SDKConfigApi {
+    deviceId: string;
     useCookieStorage: boolean;
-    // cookieExpiration: number;
-    // maxCookieSize(
-    //     cookies: any,
-    //     expires: any,
-    //     domain: any,
-    //     maxCookieSize: any
-    // ): any;
-    // cookieDomain: any;
+    cookieExpiration: number;
+    maxCookieSize: number;
+    cookieDomain: string;
     v3SecureServiceUrl?: string;
     isDevelopmentMode: boolean;
     appVersion?: string;
