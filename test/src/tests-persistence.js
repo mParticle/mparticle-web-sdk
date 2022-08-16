@@ -11,6 +11,78 @@ var findCookie = Utils.findCookie,
     getEvent = Utils.getEvent,
     mockServer;
 
+describe('Persistence', function () {
+    describe('#useLocalStorage', function () {
+        it.skip('returns true if Local Storage is available', function () {
+            mParticle._resetForTests(MPConfig);
+            // FIXME: Returns an object instead of boolean for some reason
+            mParticle.getInstance()._Persistence.useLocalStorage().should.eq(true);
+        });
+    });
+    describe('#initializeStorage', function () {});
+    describe('#update', function () {});
+    describe('#storeProductsInMemory', function () {});
+    describe('#storeDataInMemory', function () {});
+
+    describe.only('#determineLocalStorageAvailability', function () {
+        it('returns true if Local Storage is available', function (){
+            mParticle._resetForTests(MPConfig);
+            mParticle.getInstance()._Persistence.determineLocalStorageAvailability(window.localStorage).should.equal(true);
+        });
+
+        it('returns false if Local Storage is not available', function (){
+            mParticle._resetForTests(MPConfig);
+            // FIXME: this method should not take storage as a param
+            mParticle.getInstance()._Persistence.determineLocalStorageAvailability(null).should.equal(false);
+        });
+
+        it('returns false if Local Storage disabled via _forceNoLocalStorage', function (){
+            mParticle._resetForTests(MPConfig);
+            mParticle._forceNoLocalStorage = true;
+            mParticle.getInstance()._Persistence.determineLocalStorageAvailability(window.localStorage).should.equal(false);
+        });
+    });
+
+    describe('#getUserProductsFromLS', function () {});
+    describe('#getAllUserProductsFromLS', function () {});
+    describe('#setLocalStorage', function () {});
+    describe('#getLocalStorage', function () {});
+    describe('#expireCookies', function () {});
+    describe('#getCookie', function () {});
+    describe('#setCookie', function () {});
+    describe('#reduceAndEncodePersistence', function () {});
+    describe('#findPrevCookiesBasedOnUI', function () {});
+    describe('#encodePersistence', function () {});
+    describe('#decodePersistence', function () {});
+    describe('#replaceCommasWithPipes', function () {});
+    describe('#replacePipesWithCommas', function () {});
+    describe('#replaceApostrophesWithQuotes', function () {});
+    describe('#replaceQuotesWithApostrophes', function () {});
+    describe('#createCookieString', function () {});
+    describe('#revertCookieString', function () {});
+    describe('#getCookieDomain', function () {});
+    describe('#getDomain', function () {});
+    describe('#getUserIdentities', function () {});
+    describe('#getAllUserAttributes', function () {});
+    describe('#getCartProducts', function () {});
+    describe('#setCartProducts', function () {});
+    describe('#saveUserIdentitiesToPersistence', function () {});
+    describe('#saveUserAttributesToPersistence', function () {});
+    describe('#saveUserCookieSyncDatesToPersistence', function () {});
+    describe('#saveUserConsentStateToCookies', function () {});
+    describe('#savePersistence', function () {});
+    describe('#getPersistence', function () {});
+    describe('#getConsentState', function () {});
+    describe('#getFirstSeenTime', function () {});
+    describe('#setFirstSeenTime', function () {});
+    describe('#getLastSeenTime', function () {});
+    describe('#setLastSeenTime', function () {});
+    describe('#getDeviceId', function () {});
+    describe('#setDeviceId', function () {});
+    describe('#resetPersistence', function () {});
+
+});
+
 describe('migrations and persistence-related', function() {
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
