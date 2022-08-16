@@ -4,6 +4,7 @@ import { urls, apiKey, testMPID, MPConfig,localStorageProductsV4, LocalStoragePr
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 
+// TODO: Move this to a globals.d.ts file
 declare global {
     interface Window {
         mParticle: MParticleWebSDK;
@@ -63,10 +64,10 @@ describe('migrations and persistence-related', () => {
             .getInstance()
             .Identity.getCurrentUser()
             .setUserAttribute('gender', 'male');
-        var localStorageData = window.mParticle
+        const localStorageData = window.mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
-        var afterInitCookieData = findCookie();
+        const afterInitCookieData = findCookie();
         beforeInitCookieData[testMPID].ui.should.have.property('1', '123');
         localStorageData[testMPID].ua.should.have.property('gender', 'male');
         localStorageData[testMPID].ui.should.have.property('1', '123');
@@ -272,7 +273,9 @@ describe('migrations and persistence-related', () => {
             .getInstance()
             ._Persistence.getLocalStorage();
 
-        localStorageData.should.have.properties(['gs', 'cu', testMPID]);
+        expect(localStorageData).to.have.property('gs');
+        expect(localStorageData).to.have.property('cu');
+        expect(localStorageData).to.have.property(testMPID);
 
         var props = [
             'ie',
@@ -563,11 +566,13 @@ describe('migrations and persistence-related', () => {
         done();
     });
 
-    it('should transfer user attributes and revert to user identities properly', done => { 
-        mParticle._resetForTests(MPConfig);
-        var user1 = { userIdentities: { customerid: 'customerid1' } };
+    it.only('should transfer user attributes and revert to user identities properly', done => { 
+        debugger;
 
-        var user2 = { userIdentities: { customerid: 'customerid2' } };
+        mParticle._resetForTests(MPConfig);
+        const user1 = { userIdentities: { customerid: 'customerid1' } };
+
+        const user2 = { userIdentities: { customerid: 'customerid2' } };
 
         mParticle.init(apiKey, mParticle.config);
 
@@ -576,7 +581,7 @@ describe('migrations and persistence-related', () => {
             .Identity.getCurrentUser()
             .setUserAttribute('test1', 'test1');
 
-        var data = getLocalStorage();
+        const data = getLocalStorage();
 
         data.cu.should.equal(testMPID);
         data.testMPID.ua.should.have.property('test1', 'test1');
@@ -603,7 +608,7 @@ describe('migrations and persistence-related', () => {
             .getInstance()
             .Identity.getCurrentUser()
             .setUserAttribute('test2', 'test2');
-        var user1Data = mParticle.getInstance()._Persistence.getLocalStorage();
+        const user1Data = mParticle.getInstance()._Persistence.getLocalStorage();
         user1Data.cu.should.equal('mpid1');
         user1Data.mpid1.ua.should.have.property('test2', 'test2');
         user1Data.mpid1.ui.should.have.property('7', 'email@test.com');
@@ -620,7 +625,7 @@ describe('migrations and persistence-related', () => {
             .getInstance()
             .Identity.getCurrentUser()
             .setUserAttribute('test3', 'test3');
-        var user2Data = mParticle.getInstance()._Persistence.getLocalStorage();
+        const user2Data = mParticle.getInstance()._Persistence.getLocalStorage();
 
         user2Data.cu.should.equal('mpid2');
         user2Data.mpid2.ui.should.have.property('1', 'customerid2');
@@ -633,7 +638,7 @@ describe('migrations and persistence-related', () => {
         ]);
 
         mParticle.Identity.login(user1);
-        var user1RelogInData = mParticle
+        const user1RelogInData = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
 

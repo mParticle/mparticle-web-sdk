@@ -19,12 +19,15 @@ var Base64 = Polyfill.Base64,
 
 export type PersistenceObject = any; // TODO: Placeholder Type
 export type UserProducts = Record<MPID, { cp: Product[] }>;
-export type LocalStorageObject = {
-    // TODO: Placeholder Type
-    gs?: any;
-    l?: any;
-    cu?: any;
-};
+export type LocalStorageObject = Dictionary<any>;
+// export type LocalStorageObject = {
+//     // TODO: Placeholder Type
+//     gs?: any;
+//     l?: any;
+//     cu?: any;
+//     testMPID?: any;
+//     mpid1
+// };
 export type MPCookie = LocalStorageObject; // TODO: Placeholder Type
 export interface IPersistence {
     useLocalStorage: () => boolean;
@@ -498,7 +501,7 @@ export default function _Persistence(
             obj = {},
             j;
         if (localStorageData) {
-            var tempLocalStorageData = JSON.parse(localStorageData);
+            const tempLocalStorageData = JSON.parse(localStorageData);
             for (j in tempLocalStorageData) {
                 if (tempLocalStorageData.hasOwnProperty(j)) {
                     obj[j] = tempLocalStorageData[j];

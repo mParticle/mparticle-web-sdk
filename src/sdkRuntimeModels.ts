@@ -128,6 +128,9 @@ export interface SDKProduct {
 
 export interface MParticleWebSDK {
     _Consent: SDKConsentAPI;
+    _APIClient: any; // TODO: Create an API Client Def
+    _SessionManager: any; // TODO: Create an Session Manager Def
+    _ServerModel: any;
     addForwarder(mockForwarder: any);
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
@@ -139,7 +142,7 @@ export interface MParticleWebSDK {
     _resetForTests(MPConfig: SDKConfig, keepPersistence?: boolean): void;
     _forceNoLocalStorage: boolean;
     init(apiKey: string, config: SDKConfig): void;
-    getInstance();
+    getInstance: () => MParticleWebSDK;
     ServerModel();
     upload();
     setPosition(lat: number | string, lng: number | string): void;
@@ -266,6 +269,7 @@ export interface SDKHelpersApi {
     isSlug(str: string): string;
     returnConvertedBoolean(data: string | boolean | number): boolean;
     Validators: typeof Validators;
+    sanitizeAttributes: (attrs: any, name: string) => Dictionary<string>;
 }
 
 export interface SDKLoggerApi {
