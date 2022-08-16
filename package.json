@@ -86,7 +86,7 @@
         "@types/chai": "^4.2.3",
         "@types/mocha": "^9.0.0",
         "@types/mparticle__web-sdk": "^2.16.1",
-        "@types/node": "^16.0.0",
+        "@types/node": "^18.7.6",
         "babel-preset-minify": "^0.5.1",
         "browser-sync": "^2.26.3",
         "browserify": "^17.0.0",
