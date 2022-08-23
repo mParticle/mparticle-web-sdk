@@ -1,3 +1,10 @@
+# [2.17.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.16.3...v2.17.0) (2022-08-23)
+
+
+### Features
+
+* Add custom logger to kits ([#341](https://github.com/mParticle/mparticle-web-sdk/issues/341)) ([76ad737](https://github.com/mParticle/mparticle-web-sdk/commit/76ad73765942cef4ba7a355512283e097b292813))
+
 ## [2.16.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.16.2...v2.16.3) (2022-07-28)
 
 
