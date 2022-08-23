@@ -55,6 +55,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     );
 
                     if (!forwarder.initialized) {
+                        forwarder.logger = mpInstance.Logger;
                         forwarder.init(
                             forwarder.settings,
                             forwardingStatsCallback,
