@@ -159,7 +159,7 @@ export interface MParticleWebSDK {
     eCommerce: any;
     logLevel: string;
     ProductActionType: SDKProductActionType;
-    generateHash(value: string);
+    generateHash(value: string): string;
     isIOS?: boolean;
 }
 
@@ -271,7 +271,7 @@ export interface SDKConfigApi {
 //        https://go.mparticle.com/work/SQDSDKS-5033
 export interface MParticleUser {
     getMPID(): string;
-    getConsentState(): any; // FIXME:
+    getConsentState(): SDKConsentState;
     getAllUserAttributes(): any; // FIXME;
     getUserIdentities(): IdentityApiData; // FIXME: Is this correct?
 }

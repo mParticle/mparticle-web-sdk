@@ -1,9 +1,63 @@
-export default function Consent(mpInstance) {
-    var self = this;
-    var CCPAPurpose = 'data_sale_opt_out';
+import {
+    CCPAConsentState,
+    ConsentState,
+    GDPRConsentState,
+    PrivacyConsentState,
+} from '@mparticle/web-sdk';
+import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
 
-    // this function is called when consent is required to determine if a cookie sync should happen, or a forwarder should be initialized
-    this.isEnabledForUserConsent = function(consentRules, user) {
+interface GDPRConsentObject {
+    purpose: string;
+}
+
+interface CCPAConsentObject {
+    purpose: string;
+}
+
+interface ConsentJSONObject {
+    gdpr?: Partial<GDPRConsentObject>;
+    ccpa?: Partial<CCPAConsentObject>;
+}
+
+export interface ConsentRuleValues {
+    consentPurpose: string;
+    hasConsented: boolean;
+}
+export interface ConsentRules {
+    includeOnMatch: boolean;
+    values: ConsentRuleValues[];
+}
+
+export interface IConsentSerialization {
+    toMinifiedJsonObject: (state: ConsentState) => ConsentJSONObject;
+    fromMinifiedJsonObject: (json: ConsentJSONObject) => ConsentState;
+}
+
+export interface IConsent {
+    mPinstance;
+    isEnabledForUserConsent: (consentRules: any, user: any) => boolean;
+    createPrivacyConsent: (
+        consented: boolean,
+        timestamp: number,
+        consentDocument: string,
+        location: string,
+        hardwareId: string
+    ) => PrivacyConsentState;
+    createConsentState: (consentState?: ConsentState) => ConsentState;
+    ConsentSerialization: IConsentSerialization;
+}
+
+export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
+    var self = this;
+    var CCPAPurpose: string = 'data_sale_opt_out';
+
+    // this function is called when consent is required to
+    // determine if a cookie sync should happen, or a
+    // forwarder should be initialized
+    this.isEnabledForUserConsent = function(
+        consentRules: ConsentRules,
+        user: MParticleUser
+    ) {
         if (
             !consentRules ||
             !consentRules.values ||
@@ -23,7 +77,7 @@ export default function Consent(mpInstance) {
             // GDPR - '1' + purpose name
             // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
             var GDPRConsentHashPrefix = '1';
-            var CCPAPurpose = 'data_sale_opt_out';
+            var CCPAPurpose = 'data_sale_opt_out'; // FIXME: is this redundant?
             var CCPAHashString = '2' + CCPAPurpose;
 
             var gdprConsentState = consentState.getGDPRConsentState();
@@ -52,6 +106,7 @@ export default function Consent(mpInstance) {
             if (purposeHashes.hasOwnProperty(consentPurposeHash)) {
                 return purposeHashes[consentPurposeHash] === hasConsented;
             }
+            return false;
         });
 
         return consentRules.includeOnMatch === isMatch;
@@ -104,8 +159,8 @@ export default function Consent(mpInstance) {
     };
 
     this.ConsentSerialization = {
-        toMinifiedJsonObject: function(state) {
-            var jsonObject = {};
+        toMinifiedJsonObject(state: ConsentState): ConsentJSONObject {
+            var jsonObject: Partial<ConsentJSONObject> = {};
             if (state) {
                 var gdprConsentState = state.getGDPRConsentState();
                 if (gdprConsentState) {
@@ -170,7 +225,7 @@ export default function Consent(mpInstance) {
             return jsonObject;
         },
 
-        fromMinifiedJsonObject: function(json) {
+        fromMinifiedJsonObject(json): ConsentState {
             var state = self.createConsentState();
             if (json.gdpr) {
                 for (var purpose in json.gdpr) {
@@ -203,16 +258,14 @@ export default function Consent(mpInstance) {
         },
     };
 
-    this.createConsentState = function(consentState) {
+    this.createConsentState = function(
+        this: ConsentState,
+        consentState?: ConsentState
+    ): ConsentState {
         var gdpr = {};
         var ccpa = {};
 
-        if (consentState) {
-            setGDPRConsentState(consentState.getGDPRConsentState());
-            setCCPAConsentState(consentState.getCCPAConsentState());
-        }
-
-        function canonicalizeForDeduplication(purpose) {
+        function canonicalizeForDeduplication(purpose: string): string {
             if (typeof purpose !== 'string') {
                 return null;
             }
@@ -241,12 +294,17 @@ export default function Consent(mpInstance) {
          * @param gdprConsent [Object] A GDPR consent object created via mParticle.Consent.createGDPRConsent(...)
          */
 
-        function addGDPRConsentState(purpose, gdprConsent) {
+        // FIXME: Chaining is broken
+        const addGDPRConsentState = (
+            purpose: string,
+            gdprConsent: GDPRConsentState
+        ): ConsentState => {
             var normalizedPurpose = canonicalizeForDeduplication(purpose);
             if (!normalizedPurpose) {
                 mpInstance.Logger.error('Purpose must be a string.');
                 return this;
             }
+
             if (!mpInstance._Helpers.isObject(gdprConsent)) {
                 mpInstance.Logger.error(
                     'Invoked with a bad or empty consent object.'
@@ -264,9 +322,11 @@ export default function Consent(mpInstance) {
                 gdpr[normalizedPurpose] = gdprConsentCopy;
             }
             return this;
-        }
+        };
 
-        function setGDPRConsentState(gdprConsentState) {
+        const setGDPRConsentState = (
+            gdprConsentState: GDPRConsentState
+        ): ConsentState => {
             if (!gdprConsentState) {
                 gdpr = {};
             } else if (mpInstance._Helpers.isObject(gdprConsentState)) {
@@ -278,7 +338,7 @@ export default function Consent(mpInstance) {
                 }
             }
             return this;
-        }
+        };
 
         /**
          * Remove a GDPR Consent State to the consent state object
@@ -287,14 +347,14 @@ export default function Consent(mpInstance) {
          * @param purpose [String] Data processing purpose that describes the type of processing done on the data subject’s data
          */
 
-        function removeGDPRConsentState(purpose) {
+        const removeGDPRConsentState = purpose => {
             var normalizedPurpose = canonicalizeForDeduplication(purpose);
             if (!normalizedPurpose) {
                 return this;
             }
             delete gdpr[normalizedPurpose];
             return this;
-        }
+        };
 
         /**
          * Gets the GDPR Consent State
@@ -303,9 +363,9 @@ export default function Consent(mpInstance) {
          * @return {Object} A GDPR Consent State
          */
 
-        function getGDPRConsentState() {
+        const getGDPRConsentState = (): GDPRConsentState => {
             return mpInstance._Helpers.extend({}, gdpr);
-        }
+        };
 
         /**
          * Sets a CCPA Consent state (has a single purpose of 'data_sale_opt_out')
@@ -313,7 +373,9 @@ export default function Consent(mpInstance) {
          * @method setCCPAConsentState
          * @param {Object} ccpaConsent CCPA Consent State
          */
-        function setCCPAConsentState(ccpaConsent) {
+        const setCCPAConsentState = (
+            ccpaConsent: CCPAConsentState
+        ): ConsentState => {
             if (!mpInstance._Helpers.isObject(ccpaConsent)) {
                 mpInstance.Logger.error(
                     'Invoked with a bad or empty CCPA consent object.'
@@ -331,7 +393,7 @@ export default function Consent(mpInstance) {
                 ccpa[CCPAPurpose] = ccpaConsentCopy;
             }
             return this;
-        }
+        };
 
         /**
          * Gets the CCPA Consent State
@@ -339,36 +401,33 @@ export default function Consent(mpInstance) {
          * @method getCCPAConsentStatensent
          * @return {Object} A CCPA Consent State
          */
-        function getCCPAConsentState() {
+        const getCCPAConsentState = (): CCPAConsentState => {
             return ccpa[CCPAPurpose];
-        }
+        };
 
         /**
          * Removes CCPA from the consent state object
          *
          * @method removeCCPAConsentState
          */
-        function removeCCPAConsentState() {
+        const removeCCPAConsentState = (): ConsentState => {
             delete ccpa[CCPAPurpose];
             return this;
-        }
+        };
 
-        function removeCCPAState() {
-            mpInstance.Logger.warning(
-                'removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead'
-            );
-            return removeCCPAConsentState();
+        if (consentState) {
+            setGDPRConsentState(consentState.getGDPRConsentState());
+            setCCPAConsentState(consentState.getCCPAConsentState());
         }
 
         return {
-            setGDPRConsentState: setGDPRConsentState,
-            addGDPRConsentState: addGDPRConsentState,
-            setCCPAConsentState: setCCPAConsentState,
-            getCCPAConsentState: getCCPAConsentState,
-            getGDPRConsentState: getGDPRConsentState,
-            removeGDPRConsentState: removeGDPRConsentState,
-            removeCCPAState: removeCCPAState,
-            removeCCPAConsentState: removeCCPAConsentState,
+            setGDPRConsentState,
+            addGDPRConsentState,
+            setCCPAConsentState,
+            getCCPAConsentState,
+            getGDPRConsentState,
+            removeGDPRConsentState,
+            removeCCPAConsentState,
         };
     };
 }

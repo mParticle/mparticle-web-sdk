@@ -15,6 +15,9 @@ export default class _BatchValidator {
             _Helpers: {
                 sanitizeAttributes:
                     window.mParticle.getInstance()._Helpers.sanitizeAttributes,
+                generateHash: function () {
+                    return 'mockHash';
+                },
                 generateUniqueId: function () {
                     return 'mockId';
                 },
