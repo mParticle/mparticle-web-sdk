@@ -720,7 +720,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.16.3";
+    var version = "2.17.0";
 
     var Constants = {
       sdkVersion: version,
@@ -6112,6 +6112,7 @@ var mParticle = (function () {
             var filteredUserAttributes = mpInstance._Helpers.filterUserAttributes(user ? user.getAllUserAttributes() : {}, forwarder.userAttributeFilters);
 
             if (!forwarder.initialized) {
+              forwarder.logger = mpInstance.Logger;
               forwarder.init(forwarder.settings, forwardingStatsCallback, false, null, filteredUserAttributes, filteredUserIdentities, mpInstance._Store.SDKConfig.appVersion, mpInstance._Store.SDKConfig.appName, mpInstance._Store.SDKConfig.customFlags, mpInstance._Store.clientId);
               forwarder.initialized = true;
             }
