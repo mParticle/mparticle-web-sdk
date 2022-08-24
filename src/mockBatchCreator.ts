@@ -4,6 +4,10 @@ import ServerModel from './serverModel';
 import { SDKEvent, BaseEvent, MParticleWebSDK } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import * as EventsApi from '@mparticle/event-models';
+
+const mockFunction = function () {
+    return null;
+}
 export default class _BatchValidator {
     private getMPInstance() {
         return {
@@ -15,22 +19,50 @@ export default class _BatchValidator {
                     return 'mockId';
                 },
                 extend: window.mParticle.getInstance()._Helpers.extend,
+                createServiceUrl: mockFunction,
+                parseNumber: mockFunction,
+                isObject: mockFunction,
+                returnConvertedBoolean: mockFunction,
+                Validators: null,
             },
+            _resetForTests: mockFunction,
             _Store: {
                 sessionId: 'mockSessionId',
-                SDKConfig: {},
-            },
-            Identity: {
-                getCurrentUser: function() {
-                    return null;
+                devToken: 'test_dev_token',
+                isFirstRun: true,
+                SDKConfig: {
+                    isDevelopmentMode: true,
+                    onCreateBatch: mockFunction,
                 },
             },
-            getAppVersion: function() {
-                return null;
+            config: null,
+            eCommerce: null,
+            Identity: {
+                getCurrentUser: mockFunction,
+                IdentityAPI: {},
+                identify: mockFunction,
+                login: mockFunction,
+                logout: mockFunction,
+                modify: mockFunction,
             },
-            getAppName: function() {
-                return null;
+            Logger: {
+                verbose: mockFunction,
+                error: mockFunction,
+                warning: mockFunction,
             },
+            ProductActionType: null,
+            ServerModel: null,
+            addForwarder: mockFunction,
+            generateHash: mockFunction,
+            getAppVersion: mockFunction,
+            getAppName: mockFunction,
+            getInstance: mockFunction,
+            init: mockFunction,
+            logBaseEvent: mockFunction,
+            logEvent: mockFunction,
+            logLevel: 'none',
+            setPosition: mockFunction,
+            upload: mockFunction,
         };
     }
 

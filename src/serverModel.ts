@@ -1,47 +1,138 @@
 import Types from './types';
 import Constants from './constants';
+import {
+    BaseEvent,
+    MParticleUser,
+    MParticleWebSDK,
+    SDKConsentState,
+    SDKEvent,
+    SDKProduct,
+    SDKUserIdentity,
+} from './sdkRuntimeModels';
+import { parseNumber, parseStringOrNumber } from './utils';
+import Validators from './validators';
 
-var MessageType = Types.MessageType,
-    ApplicationTransitionType = Types.ApplicationTransitionType;
+const MessageType = Types.MessageType;
+const ApplicationTransitionType = Types.ApplicationTransitionType;
 
-export default function ServerModel(mpInstance) {
-    var self = this;
-    function convertCustomFlags(event, dto) {
-        var valueArray = [];
-        dto.flags = {};
+// FIXME: What's the diff between this an a Server DTO?
+export interface DTO {
+    flags: Record<string, string[]>;
+}
 
-        for (var prop in event.CustomFlags) {
-            valueArray = [];
+// TODO: Move to Consent Module
+export interface PrivacyDTO {
+    c: boolean; // Consented
+    ts: number; // Timestamp
+    d: string; // Document
+    l: string; // Location
+    h: string; // HardwareID
+}
 
-            if (event.CustomFlags.hasOwnProperty(prop)) {
-                if (Array.isArray(event.CustomFlags[prop])) {
-                    event.CustomFlags[prop].forEach(function(
-                        customFlagProperty
+// TODO: Move to Consent Module
+export interface GDPRConsentStateDTO {
+    [key: string]: PrivacyDTO;
+}
+
+// TODO: Move to Consent Module
+export interface CCPAConsentStateDTO {
+    data_sale_opt_out: PrivacyDTO;
+}
+
+// TODO: Break this up into GDPR and CCPA interfaces
+export interface ConsentStateDTO {
+    gdpr?: GDPRConsentStateDTO;
+    ccpa?: CCPAConsentStateDTO;
+}
+
+export interface ServerDTO {
+    id: string | number;
+    nm: string | number;
+    pr: number;
+    qt: number;
+    br: string | number;
+    va: string | number;
+    ca: string | number;
+    ps: number;
+    cc: string | number;
+    tpa: number;
+    attrs: Record<string, string>;
+}
+
+export interface IServerModel {
+    convertEventToDTO: (event: SDKEvent) => ServerDTO;
+    createEventObject: (event: BaseEvent, user: MParticleUser) => SDKEvent;
+    convertToConsentStateDTO: (state: SDKConsentState) => ConsentStateDTO;
+    appendUserInfo: (user: MParticleUser, event: SDKEvent) => void;
+}
+
+// TODO: Make this a pure function that returns a new object
+function convertCustomFlags(event: SDKEvent, dto: DTO) {
+    var valueArray = [];
+    dto.flags = {};
+
+    for (var prop in event.CustomFlags) {
+        valueArray = [];
+
+        if (event.CustomFlags.hasOwnProperty(prop)) {
+            if (Array.isArray(event.CustomFlags[prop])) {
+                event.CustomFlags[prop].forEach(function(customFlagProperty) {
+                    if (
+                        typeof customFlagProperty === 'number' ||
+                        typeof customFlagProperty === 'string' ||
+                        typeof customFlagProperty === 'boolean'
                     ) {
-                        if (
-                            typeof customFlagProperty === 'number' ||
-                            typeof customFlagProperty === 'string' ||
-                            typeof customFlagProperty === 'boolean'
-                        ) {
-                            valueArray.push(customFlagProperty.toString());
-                        }
-                    });
-                } else if (
-                    typeof event.CustomFlags[prop] === 'number' ||
-                    typeof event.CustomFlags[prop] === 'string' ||
-                    typeof event.CustomFlags[prop] === 'boolean'
-                ) {
-                    valueArray.push(event.CustomFlags[prop].toString());
-                }
+                        valueArray.push(customFlagProperty.toString());
+                    }
+                });
+            } else if (
+                typeof event.CustomFlags[prop] === 'number' ||
+                typeof event.CustomFlags[prop] === 'string' ||
+                typeof event.CustomFlags[prop] === 'boolean'
+            ) {
+                valueArray.push(event.CustomFlags[prop].toString());
+            }
 
-                if (valueArray.length) {
-                    dto.flags[prop] = valueArray;
-                }
+            if (valueArray.length) {
+                dto.flags[prop] = valueArray;
             }
         }
     }
+}
 
-    this.appendUserInfo = function(user, event) {
+function convertProductToDTO(product: SDKProduct): ServerDTO {
+    return {
+        id: parseStringOrNumber(product.Sku),
+        nm: parseStringOrNumber(product.Name),
+        pr: parseNumber(product.Price),
+        qt: parseNumber(product.Quantity),
+        br: parseStringOrNumber(product.Brand),
+        va: parseStringOrNumber(product.Variant),
+        ca: parseStringOrNumber(product.Category),
+        ps: parseNumber(product.Position),
+        cc: parseStringOrNumber(product.CouponCode),
+        tpa: parseNumber(product.TotalAmount),
+        attrs: product.Attributes,
+    };
+}
+
+function convertProductListToDTO(productList: SDKProduct[]): ServerDTO[] {
+    if (!productList) {
+        return [];
+    }
+
+    return productList.map(function(product) {
+        return convertProductToDTO(product);
+    });
+}
+
+export default function ServerModel(
+    this: IServerModel,
+    mpInstance: MParticleWebSDK
+) {
+    var self = this;
+
+    this.appendUserInfo = function(user: MParticleUser, event: SDKEvent): void {
         if (!event) {
             return;
         }
@@ -72,7 +163,7 @@ export default function ServerModel(mpInstance) {
         if (mpInstance._Helpers.isObject(dtoUserIdentities)) {
             if (Object.keys(dtoUserIdentities).length) {
                 for (var key in dtoUserIdentities) {
-                    var userIdentity = {};
+                    var userIdentity: Partial<SDKUserIdentity> = {};
                     userIdentity.Identity = dtoUserIdentities[key];
                     userIdentity.Type = mpInstance._Helpers.parseNumber(key);
                     validUserIdentities.push(userIdentity);
@@ -82,45 +173,19 @@ export default function ServerModel(mpInstance) {
         event.UserIdentities = validUserIdentities;
     };
 
-    function convertProductListToDTO(productList) {
-        if (!productList) {
-            return [];
-        }
-
-        return productList.map(function(product) {
-            return convertProductToDTO(product);
-        });
-    }
-
-    function convertProductToDTO(product) {
-        return {
-            id: mpInstance._Helpers.parseStringOrNumber(product.Sku),
-            nm: mpInstance._Helpers.parseStringOrNumber(product.Name),
-            pr: mpInstance._Helpers.parseNumber(product.Price),
-            qt: mpInstance._Helpers.parseNumber(product.Quantity),
-            br: mpInstance._Helpers.parseStringOrNumber(product.Brand),
-            va: mpInstance._Helpers.parseStringOrNumber(product.Variant),
-            ca: mpInstance._Helpers.parseStringOrNumber(product.Category),
-            ps: mpInstance._Helpers.parseNumber(product.Position),
-            cc: mpInstance._Helpers.parseStringOrNumber(product.CouponCode),
-            tpa: mpInstance._Helpers.parseNumber(product.TotalAmount),
-            attrs: product.Attributes,
-        };
-    }
-
-    this.convertToConsentStateDTO = function(state) {
+    this.convertToConsentStateDTO = function(
+        state: SDKConsentState
+    ): ConsentStateDTO {
         if (!state) {
             return null;
         }
-        var jsonObject = {};
+        var jsonObject: Partial<ConsentStateDTO> = {};
         var gdprConsentState = state.getGDPRConsentState();
         if (gdprConsentState) {
-            var gdpr = {};
-            jsonObject.gdpr = gdpr;
+            var gdpr: Partial<GDPRConsentStateDTO> = {};
             for (var purpose in gdprConsentState) {
                 if (gdprConsentState.hasOwnProperty(purpose)) {
                     var gdprConsent = gdprConsentState[purpose];
-                    jsonObject.gdpr[purpose] = {};
                     if (typeof gdprConsent.Consented === 'boolean') {
                         gdpr[purpose].c = gdprConsent.Consented;
                     }
@@ -138,6 +203,7 @@ export default function ServerModel(mpInstance) {
                     }
                 }
             }
+            jsonObject.gdpr = gdpr;
         }
 
         var ccpaConsentState = state.getCCPAConsentState();
@@ -156,7 +222,10 @@ export default function ServerModel(mpInstance) {
         return jsonObject;
     };
 
-    this.createEventObject = function(event, user) {
+    this.createEventObject = function(
+        event: BaseEvent,
+        user: MParticleUser
+    ): SDKEvent {
         var uploadObject = {};
         var eventObject = {};
 
@@ -247,7 +316,7 @@ export default function ServerModel(mpInstance) {
         return null;
     };
 
-    this.convertEventToDTO = function(event) {
+    this.convertEventToDTO = function(event: SDKEvent): ServerDTO {
         var dto = {
             n: event.EventName,
             et: event.EventCategory,
