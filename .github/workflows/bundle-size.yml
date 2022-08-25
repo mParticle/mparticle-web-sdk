@@ -39,8 +39,10 @@ jobs:
 
             - name: Report Size
               run: |
-                  echo "BUNDLED_MASTER=$(npm run report:bundled)" >> $GITHUB_ENV
-                  echo "BUNDLED_MASTER_HUMAN=$(npm run report:bundled:human)" >> $GITHUB_ENV
+                BUNDLED_MASTER=$(npm run report:bundled)
+                echo "BUNDLED_MASTER=$BUNDLED_MASTER" >> $GITHUB_ENV
+                BUNDLED_MASTER_HUMAN=$(npm run report:bundled:human)
+                echo "BUNDLED_MASTER_HUMAN=$BUNDLED_MASTER_HUMAN" >> $GITHUB_ENV
 
             - name: Set Master Bundled Size
               id: set-bundled-master
