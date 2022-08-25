@@ -4,9 +4,11 @@ updates:
       directory: '/'
       schedule:
           interval: daily
-      target-branch: 'development'
+      target-branch: 'chore/development'
       labels: ['dependabot']
       open-pull-requests-limit: 10
+      commit-message:
+          prefix: "chore"
       ignore:
           - dependency-name: 'rollup'
           - dependency-name: 'browserify'
