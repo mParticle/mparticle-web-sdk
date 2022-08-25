@@ -39,12 +39,135 @@ jobs:
             - name: Run Stub tests
               run: npm run test:stub
               
+            - name: Archive Bundle
+              uses: actions/upload-artifact@v2
+              with:
+                  name: bundle-local
+                  path: dist
+              
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v2
               if: failure()
               with:
                 name: npm-logs
                 path: ~/.npm/_logs
+
+    build-local:
+        name: Get Bundle Size from Current Branch
+        runs-on: ubuntu-latest
+        needs: build-and-test
+
+        outputs:
+            bundledLocal: ${{ steps.set-bundled-local.outputs.bundledLocal }}
+            bundledLocalHuman: ${{ steps.set-bundled-local.outputs.bundledLocalHuman }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: NPM install
+              uses: actions/setup-node@v1
+              with:
+                  node-version: 16.x
+
+            - name: Run NPM CI
+              run: npm ci
+
+            - name: Download Local Bundle
+              uses: actions/download-artifact@v3
+              with:
+                  name: bundle-local
+
+            - name: Compress Bundle
+              run: npm run bundle
+
+            - name: Report Bundle Size
+              run: |
+                  BUNDLED_LOCAL=$(ls -l dist/mparticle.min.js.gz | awk '{print $5}')
+                  echo "BUNDLED_LOCAL=$BUNDLED_LOCAL" >> $GITHUB_ENV
+                  BUNDLED_LOCAL_HUMAN=$(ls -lh dist/mparticle.min.js.gz | awk '{print $5}')
+                  echo "BUNDLED_LOCAL_HUMAN=$BUNDLED_LOCAL_HUMAN" >> $GITHUB_ENV
+
+            - name: Set Local Bundled Size
+              id: set-bundled-local
+              run: |
+                  echo "::set-output name=bundledLocal::${{ env.BUNDLED_LOCAL }}"
+                  echo "::set-output name=bundledLocalHuman::${{ env.BUNDLED_LOCAL_HUMAN }}"
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v2
+              if: failure()
+              with:
+                  name: npm-logs
+                  path: ~/.npm/_logs
+                  
+    build-master:
+        name: Get Bundle Size from Master
+        runs-on: ubuntu-latest
+        needs: build-and-test
+
+        outputs:
+            bundledMaster: ${{ steps.set-bundled-master.outputs.bundledMaster }}
+            bundledMasterHuman: ${{ steps.set-bundled-master.outputs.bundledMasterHuman }}
+
+        steps:
+            - name: Checkout Master
+              uses: actions/checkout@v2
+              with:
+                  ref: master
+
+            - name: NPM install
+              uses: actions/setup-node@v1
+              with:
+                  node-version: 16.x
+
+            - name: Compress Bundle
+              run: npm run bundle
+
+            - name: Report Bundle Size
+              run: |
+                  BUNDLED_MASTER=$(ls -l dist/mparticle.min.js.gz | awk '{print $5}')
+                  echo "BUNDLED_MASTER=$BUNDLED_MASTER" >> $GITHUB_ENV
+                  BUNDLED_MASTER_HUMAN=$(ls -lh dist/mparticle.min.js.gz | awk '{print $5}')
+                  echo "BUNDLED_MASTER_HUMAN=$BUNDLED_MASTER_HUMAN" >> $GITHUB_ENV
+
+            - name: Set Master Bundled Size
+              id: set-bundled-master
+              run: |
+                  echo "::set-output name=bundledMaster::${{ env.BUNDLED_MASTER }}"
+                  echo "::set-output name=bundledMasterHuman::${{ env.BUNDLED_MASTER_HUMAN }}"
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v2
+              if: failure()
+              with:
+                  name: npm-logs
+                  path: ~/.npm/_logs
+
+    calculate-bundled:
+        name: Calculate Bundled Diff
+        uses: ./.github/workflows/calculate-difference.yml
+        needs:
+            - build-master
+            - build-local
+        with:
+            initial_bundle_size: ${{ needs.build-master.outputs.bundledMaster }}
+            updated_bundle_size: ${{ needs.build-local.outputs.bundledLocal }}
+
+    generate-report:
+        name: Generate Report
+        runs-on: ubuntu-latest
+        needs:
+            - build-master
+            - build-local
+            - calculate-bundled
+        steps:
+            - name: Adding Markdown
+              run: |
+                  echo '### Calculate Bundle Size Difference' >> $GITHUB_STEP_SUMMARY
+                  echo "|  | master | current | % changed |" >> $GITHUB_STEP_SUMMARY
+                  echo "|--|--|--|--|" >> $GITHUB_STEP_SUMMARY
+                  echo "| mparticle.min.js.gz | ${{ needs.build-master.outputs.bundledMasterHuman }} | ${{ needs.build-local.outputs.bundledLocalHuman }} | ${{ needs.calculate-bundled.outputs.diff_percent }} |" >> $GITHUB_STEP_SUMMARY
 
     dependabot-automerge:
         name: Rebase dependabot PRs
