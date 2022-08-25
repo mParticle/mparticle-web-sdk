@@ -720,7 +720,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.17.0";
+    var version = "2.17.1";
 
     var Constants = {
       sdkVersion: version,
