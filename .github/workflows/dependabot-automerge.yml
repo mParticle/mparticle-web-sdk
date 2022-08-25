@@ -1,0 +1,13 @@
+name: "Dependabot Automerge"
+
+on:
+  workflow_run:
+    workflows:
+      - "Web SDK Build & Test"
+    types:
+      - completed
+
+jobs:
+  automerge-dependabot:
+    name: "Automerge Dependabot PR"
+    uses: mParticle/mparticle-workflows/.github/workflows/dependabot-automerge.yml@main
