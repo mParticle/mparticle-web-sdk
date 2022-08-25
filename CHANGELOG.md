@@ -1,3 +1,5 @@
+## [2.17.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.17.0...v2.17.1) (2022-08-25)
+
 # [2.17.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.16.3...v2.17.0) (2022-08-23)
 
 
