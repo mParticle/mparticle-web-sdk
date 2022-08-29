@@ -1,9 +1,10 @@
 import { expect } from "chai";
 import sinon from 'sinon';
+import { SDKInitConfig } from "../../src/sdkRuntimeModels";
 import Store, { IStore } from "../../src/store";
 import { MPConfig, apiKey } from './config';
 
-describe.only('Store', ()=> {
+describe('Store', ()=> {
     const now = new Date();
     let sandbox;
     let clock;
@@ -12,7 +13,7 @@ describe.only('Store', ()=> {
         appName: 'Store Test',
         appVersion: '1.x',
         package: 'com.mparticle.test',
-    };
+    } as SDKInitConfig;
 
     beforeEach(function() {
         sandbox = sinon.createSandbox();
@@ -52,7 +53,7 @@ describe.only('Store', ()=> {
         expect(store.eventQueue.length, 'eventQueue').to.eq(0);
         expect(store.currencyCode, 'currencyCode').to.eq(null);
         expect(store.globalTimer, 'globalTimer').to.eq(null);
-        expect(store.context, 'context').to.eq(''); // FIXME: should be null
+        expect(store.context, 'context').to.eq(null);
         expect(store.configurationLoaded, 'configurationLoaded').to.eq(false);
         expect(store.identityCallInFlight, 'identityCallInFlight').to.eq(false);
         expect(store.migratingToIDSyncCookies, 'migratingToIDSyncCookies').to.eq(false);
@@ -135,6 +136,4 @@ describe.only('Store', ()=> {
             });
         });
     });
-
-
 });

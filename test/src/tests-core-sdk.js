@@ -622,7 +622,6 @@ describe('core SDK', function() {
         mp.isTracking.should.equal(false);
         mp.cartProducts.length.should.equal(0);
         mp.eventQueue.length.should.equal(0);
-        mp.context.should.equal('');
         mp.identityCallInFlight.should.equal(false);
         mp.migratingToIDSyncCookies.should.equal(false);
         mp.identifyCalled.should.equal(false);
@@ -631,6 +630,7 @@ describe('core SDK', function() {
         mp.activeForwarders.length.should.equal(0);
 
         (mp.consentState === null).should.equal(true);
+        (mp.context === null).should.equal(true);
         (mp.sessionId === null).should.equal(true);
         (mp.isFirstRun === null).should.equal(true);
         (mp.clientId === null).should.equal(true);
@@ -907,7 +907,6 @@ describe('core SDK', function() {
         'aliasUrl',
         'configUrl',
         'logLevel',
-        'useNativeSdk',
         'kits',
         'isIOS',
         'useCookieStorage',
@@ -924,6 +923,7 @@ describe('core SDK', function() {
         'minWebviewBridgeVersion',
         'aliasMaxWindow'
     ];
+    // TODO: Refactor this test to respect type safety or remove as this duplicates tests in store.ts
     configOptions.forEach(option => {
         it('Store should configure SDKConfig itself with ' + option, done => {
             mParticle._resetForTests();

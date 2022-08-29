@@ -1,8 +1,22 @@
+import { Context } from '@mparticle/event-models';
+import { DataPlanConfig, MPID } from '@mparticle/web-sdk';
 import Constants from './constants';
+import {
+    MParticleWebSDK,
+    SDKConfig,
+    SDKConsentState,
+    SDKEvent,
+    SDKGeoLocation,
+    SDKInitConfig,
+    SDKProduct,
+} from './sdkRuntimeModels';
 import * as utils from './utils';
+import { Dictionary } from './utils';
 
-function createSDKConfig(config) {
-    var sdkConfig = {};
+function createSDKConfig(config: SDKInitConfig): SDKConfig {
+    // TODO: Refactor to create a default config object
+    const sdkConfig = {} as SDKConfig;
+    // TODO: Refactor to prevent keep prop in scope;
     for (var prop in Constants.DefaultConfig) {
         if (Constants.DefaultConfig.hasOwnProperty(prop)) {
             sdkConfig[prop] = Constants.DefaultConfig[prop];
@@ -24,8 +38,61 @@ function createSDKConfig(config) {
     return sdkConfig;
 }
 
-export default function Store(config, mpInstance) {
-    var defaultStore = {
+// TODO: Placeholder Types
+export type MPForwarder = Dictionary;
+export type PixelConfiguration = Dictionary;
+export type MigrationData = Dictionary;
+export type ServerSettings = Dictionary;
+
+// Temporary Interface until Store can be refactored as a class
+export interface IStore {
+    isEnabled: boolean;
+    sessionAttributes: Dictionary;
+    currentSessionMPIDs: MPID[];
+    consentState: SDKConsentState | null;
+    sessionId: string | null;
+    isFirstRun: boolean;
+    clientId: string;
+    deviceId: string;
+    devToken: string | null;
+    migrationData: MigrationData;
+    serverSettings: ServerSettings;
+    dateLastEventSent: number | null;
+    sessionStartDate: number | null;
+    currentPosition: SDKGeoLocation | null;
+    isTracking: boolean;
+    watchPositionId: number | null;
+    cartProducts: SDKProduct[];
+    eventQueue: SDKEvent[];
+    currencyCode: string | null;
+    globalTimer: number | null;
+    context: Context | null;
+    configurationLoaded: boolean;
+    identityCallInFlight: boolean;
+    SDKConfig: Partial<SDKConfig>;
+    migratingToIDSyncCookies: boolean; // TODO: Remove when we archive Web SDK v1
+    nonCurrentUserMPIDs: Record<MPID, Dictionary>;
+    identifyCalled: boolean;
+    isLoggedIn: boolean;
+    cookieSyncDates: Dictionary<number>;
+    integrationAttributes: Dictionary<Dictionary<string>>;
+    requireDelay: boolean;
+    isLocalStorageAvailable: boolean | null;
+    storageName: string | null;
+    prodStorageName: string | null;
+    activeForwarders: MPForwarder[];
+    kits: Dictionary<MPForwarder>;
+    configuredForwarders: MPForwarder[];
+    pixelConfigurations: PixelConfiguration[];
+    integrationDelayTimeoutStart: number; // UNIX Timestamp
+}
+
+export default function Store(
+    this: IStore,
+    config: SDKInitConfig,
+    mpInstance: MParticleWebSDK
+) {
+    const defaultStore: Partial<IStore> = {
         isEnabled: true,
         sessionAttributes: {},
         currentSessionMPIDs: [],
@@ -46,7 +113,7 @@ export default function Store(config, mpInstance) {
         eventQueue: [],
         currencyCode: null,
         globalTimer: null,
-        context: '',
+        context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
         SDKConfig: {},
@@ -114,11 +181,7 @@ export default function Store(config, mpInstance) {
             this.SDKConfig.logLevel = config.logLevel;
         }
 
-        if (config.hasOwnProperty('useNativeSdk')) {
-            this.SDKConfig.useNativeSdk = config.useNativeSdk;
-        } else {
-            this.SDKConfig.useNativeSdk = false;
-        }
+        this.SDKConfig.useNativeSdk = !!config.useNativeSdk;
 
         this.SDKConfig.kits = config.kits || {};
 
@@ -177,8 +240,8 @@ export default function Store(config, mpInstance) {
             } else {
                 mpInstance.Logger.warning(
                     'The optional callback must be a function. You tried entering a(n) ' +
-                        typeof callback,
-                    ' . Callback not set. Please set your callback again.'
+                        typeof callback +
+                        ' . Callback not set. Please set your callback again.'
                 );
             }
         }
@@ -200,10 +263,13 @@ export default function Store(config, mpInstance) {
                 PlanVersion: null,
                 PlanId: null,
             };
-            if (config.dataPlan.hasOwnProperty('planId')) {
-                if (typeof config.dataPlan.planId === 'string') {
-                    if (utils.isSlug(config.dataPlan.planId)) {
-                        this.SDKConfig.dataPlan.PlanId = config.dataPlan.planId;
+
+            // TODO: Can we refactor to avoid unnecessary type checking
+            const dataPlan = config.dataPlan as DataPlanConfig;
+            if (dataPlan.hasOwnProperty('planId')) {
+                if (typeof dataPlan.planId === 'string') {
+                    if (utils.isSlug(dataPlan.planId)) {
+                        this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
                     } else {
                         mpInstance.Logger.error(
                             'Your data plan id must be in a slug format'
@@ -216,10 +282,9 @@ export default function Store(config, mpInstance) {
                 }
             }
 
-            if (config.dataPlan.hasOwnProperty('planVersion')) {
-                if (typeof config.dataPlan.planVersion === 'number') {
-                    this.SDKConfig.dataPlan.PlanVersion =
-                        config.dataPlan.planVersion;
+            if (dataPlan.hasOwnProperty('planVersion')) {
+                if (typeof dataPlan.planVersion === 'number') {
+                    this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
                 } else {
                     mpInstance.Logger.error(
                         'Your data plan version must be a number'
