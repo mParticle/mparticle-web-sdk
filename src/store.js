@@ -1,4 +1,5 @@
 import Constants from './constants';
+import * as utils from './utils';
 
 function createSDKConfig(config) {
     var sdkConfig = {};
@@ -118,9 +119,8 @@ export default function Store(config, mpInstance) {
         } else {
             this.SDKConfig.useNativeSdk = false;
         }
-        if (config.hasOwnProperty('kits')) {
-            this.SDKConfig.kits = config.kits;
-        }
+
+        this.SDKConfig.kits = config.kits || {};
 
         if (config.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = config.isIOS;
@@ -202,7 +202,7 @@ export default function Store(config, mpInstance) {
             };
             if (config.dataPlan.hasOwnProperty('planId')) {
                 if (typeof config.dataPlan.planId === 'string') {
-                    if (mpInstance._Helpers.isSlug(config.dataPlan.planId)) {
+                    if (utils.isSlug(config.dataPlan.planId)) {
                         this.SDKConfig.dataPlan.PlanId = config.dataPlan.planId;
                     } else {
                         mpInstance.Logger.error(
@@ -226,6 +226,8 @@ export default function Store(config, mpInstance) {
                     );
                 }
             }
+        } else {
+            this.SDKConfig.dataPlan = {};
         }
 
         if (config.hasOwnProperty('forceHttps')) {
@@ -235,9 +237,7 @@ export default function Store(config, mpInstance) {
         }
 
         // Some forwarders require custom flags on initialization, so allow them to be set using config object
-        if (config.hasOwnProperty('customFlags')) {
-            this.SDKConfig.customFlags = config.customFlags;
-        }
+        this.SDKConfig.customFlags = config.customFlags || {};
 
         if (config.hasOwnProperty('minWebviewBridgeVersion')) {
             this.SDKConfig.minWebviewBridgeVersion =

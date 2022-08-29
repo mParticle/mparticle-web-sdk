@@ -1,6 +1,5 @@
 import Types from './types';
 import Constants from './constants';
-import Slugify from 'slugify';
 import * as utils from './utils';
 import Validators from './validators';
 
@@ -503,10 +502,6 @@ export default function Helpers(mpInstance) {
         } else {
             return StorageNames.currentStorageProductsName;
         }
-    };
-
-    this.isSlug = function(str) {
-        return str === Slugify(str);
     };
 
     // Utility Functions

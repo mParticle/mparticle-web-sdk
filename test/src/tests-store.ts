@@ -3,7 +3,7 @@ import sinon from 'sinon';
 import Store, { IStore } from "../../src/store";
 import { MPConfig, apiKey } from './config';
 
-describe('Store', ()=> {
+describe.only('Store', ()=> {
     const now = new Date();
     let sandbox;
     let clock;
@@ -17,7 +17,6 @@ describe('Store', ()=> {
     beforeEach(function() {
         sandbox = sinon.createSandbox();
         clock = sinon.useFakeTimers(now.getTime());
-        console.log('clock', clock);
         // MP Instance is just used because Store requires an mParticle instance
         window.mParticle.init(apiKey, window.mParticle.config);
     });
@@ -28,7 +27,7 @@ describe('Store', ()=> {
         clock.restore();
     });
 
-	it('should set defaults', () => {
+	it('should initialize with defaults', () => {
         // Use sample config to make sure our types are safe
         const store: IStore = new Store(sampleConfig, window.mParticle);
 
@@ -75,11 +74,9 @@ describe('Store', ()=> {
         
     });
 
-    describe('SDKConfig', () => {
+    describe('#createStore', () => {
         it('should set valid defaults', () => {
             const store: IStore = new Store(sampleConfig, window.mParticle);
-
-            console.log('CONFIG', store.SDKConfig);
 
             expect(store.SDKConfig.appName).to.eq('Store Test');
             expect(store.SDKConfig.isDevelopmentMode, 'isDevelopmentMode').to.eq(false);
@@ -111,19 +108,33 @@ describe('Store', ()=> {
             expect(store.SDKConfig.v3SecureServiceUrl, 'v3SecureServiceUrl').to.eq('jssdks.mparticle.com/v3/JS/');// ?: string;
 
 
-            // expect(store.SDKConfig.customFlags, 'customFlags').to.eq('');// ?: SDKEventCustomFlags;
-            // expect(store.SDKConfig.dataPlan, 'dataPlan').to.eq('');// : DataPlanConfig | SDKDataPlan; // FIXME: Resolve kit blocker data plan confusion
-            // expect(store.SDKConfig.kitConfigs, 'kitConfigs').to.eq(0);// : any; // FIXME: What type is this?
-            // expect(store.SDKConfig.kits, 'kits').to.eq('');// ?: Record<string, any>; // FIXME: Create a Kits Type
-            // expect(store.SDKConfig.workspaceToken, 'workspaceToken').to.eq('');// : string;
-            // expect(store.SDKConfig.requiredWebviewBridgeName, 'requiredWebviewBridgeName').to.eq('');// : string;
-            // expect(store.SDKConfig.identifyRequest, 'identifyRequest').to.eq('');// : IdentifyRequest;
-            // expect(store.SDKConfig.identityCallback, 'identityCallback').to.eq('');// : IdentityCallback;
-            // expect(store.SDKConfig.requestConfig, 'requestConfig').to.eq('');// : boolean;
-            // expect(store.SDKConfig.dataPlanOptions, 'dataPlanOptions').to.eq('');// : KitBlockerOptions; // when the user provides their own data plan
-            // expect(store.SDKConfig.dataPlanResult, 'dataPlanResult').to.eq('');// ?: DataPlanResult; // when the data plan comes from the server via /config
-            // expect(store.SDKConfig.useNativeSdk, 'useNativeSdk').to.eq('');// ?: boolean;
+            expect(store.SDKConfig.customFlags, 'customFlags').to.deep.equal({});
+            expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({});
+            expect(store.SDKConfig.kits, 'kits').to.deep.equal({});
+
+            expect(store.SDKConfig.identifyRequest, 'identifyRequest').to.be.undefined;
+            expect(store.SDKConfig.identityCallback, 'identityCallback').to.be.undefined;
+            expect(store.SDKConfig.dataPlanOptions, 'dataPlanOptions').to.be.undefined;
+            expect(store.SDKConfig.dataPlanResult, 'dataPlanResult').to.be.undefined;
+            expect(store.SDKConfig.useNativeSdk, 'useNativeSdk').to.eq(false);
+        });
+        
+        it('should assign expected values to dataPlan', () => {
+            const dataPlanConfig = {
+                ...sampleConfig,
+                dataPlan: {
+                    planId: 'test-data-plan',
+                    planVersion: 3
+                }
+            };
+            const store: IStore = new Store(dataPlanConfig, window.mParticle);
+
+            expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({
+                PlanId: 'test-data-plan',
+                PlanVersion: 3
+            });
         });
     });
+
 
 });

@@ -1,3 +1,5 @@
+import slugify from 'slugify';
+
 type valueof<T> = T[keyof T];
 
 const inArray = (items: any[], name: string): boolean => {
@@ -70,6 +72,8 @@ const converted = (s: string): string => {
     return s;
 };
 
+const isSlug = (str: string) => str === slugify(str);
+
 export {
     valueof,
     converted,
@@ -79,4 +83,5 @@ export {
     isObject,
     parseNumber,
     returnConvertedBoolean,
+    isSlug,
 };
