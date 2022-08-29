@@ -2,6 +2,9 @@ import slugify from 'slugify';
 
 type valueof<T> = T[keyof T];
 
+// Placeholder for Dictionary-like Types
+export type Dictionary<V = any> = Record<string, V>;
+
 const inArray = (items: any[], name: string): boolean => {
     let i = 0;
 
