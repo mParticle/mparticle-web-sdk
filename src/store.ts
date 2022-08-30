@@ -1,10 +1,23 @@
+import { Batch } from '@mparticle/event-models';
 import { Context } from '@mparticle/event-models';
-import { DataPlanConfig, MPID } from '@mparticle/web-sdk';
+import {
+    DataPlanConfig,
+    MPID,
+    IdentifyRequest,
+    IdentityCallback,
+    SDKEventCustomFlags,
+} from '@mparticle/web-sdk';
 import Constants from './constants';
 import {
+    DataPlanResult,
+    Kit,
+    KitBlockerOptions,
+    KitConfigs,
+    LogLevelType,
     MParticleWebSDK,
-    SDKConfig,
+    MPForwarder,
     SDKConsentState,
+    SDKDataPlan,
     SDKEvent,
     SDKGeoLocation,
     SDKInitConfig,
@@ -12,6 +25,53 @@ import {
 } from './sdkRuntimeModels';
 import * as utils from './utils';
 import { Dictionary } from './utils';
+
+// This represents the runtime configuration of the SDK AFTER
+// initialization has been complete and all settings and
+// configurations have been stitched together.
+export interface SDKConfig {
+    isDevelopmentMode?: boolean;
+    logger: {
+        error?(msg);
+        warning?(msg);
+        verbose?(msg);
+    };
+    onCreateBatch(batch: Batch): Batch;
+    customFlags?: SDKEventCustomFlags;
+    dataPlan: SDKDataPlan;
+    dataPlanOptions: KitBlockerOptions; // when the user provides their own data plan
+    dataPlanResult?: DataPlanResult; // when the data plan comes from the server via /config
+
+    appName?: string;
+    appVersion?: string;
+    package?: string;
+    flags?: { [key: string]: string | number | boolean };
+    kitConfigs: KitConfigs[];
+    kits: Dictionary<Kit>;
+    logLevel?: LogLevelType;
+    cookieDomain?: string;
+    maxCookieSize?: number | undefined;
+    minWebviewBridgeVersion: 1 | 2 | undefined;
+    identifyRequest: IdentifyRequest;
+    identityCallback: IdentityCallback;
+    integrationDelayTimeout: number;
+
+    aliasMaxWindow: number;
+    deviceId?: string;
+    forceHttps?: boolean;
+    aliasUrl?: string;
+    configUrl?: string;
+    identityUrl?: string;
+    isIOS?: boolean;
+    maxProducts: number;
+    requestConfig?: boolean;
+    sessionTimeout?: number;
+    useNativeSdk?: boolean;
+    useCookieStorage?: boolean;
+    v1SecureServiceUrl?: string;
+    v2SecureServiceUrl?: string;
+    v3SecureServiceUrl?: string;
+}
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
     // TODO: Refactor to create a default config object
@@ -39,7 +99,6 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
 }
 
 // TODO: Placeholder Types
-export type MPForwarder = Dictionary;
 export type PixelConfiguration = Dictionary;
 export type MigrationData = Dictionary;
 export type ServerSettings = Dictionary;

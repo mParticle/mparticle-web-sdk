@@ -1,11 +1,7 @@
-import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import {
-    IdentifyRequest,
-    IdentityCallback,
-    MPConfiguration,
-    SDKEventCustomFlags,
-} from '@mparticle/web-sdk';
+import { Batch } from '@mparticle/event-models';
+import { MPConfiguration } from '@mparticle/web-sdk';
+import { SDKConfig } from './store';
 import { Dictionary } from './utils';
 import Validators from './validators';
 
@@ -124,7 +120,7 @@ export interface SDKProduct {
 }
 
 export interface MParticleWebSDK {
-    addForwarder(mockForwarder: any); // TODO: Should be type MPForwarder
+    addForwarder(mockForwarder: MPForwarder): void;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     _Store: SDKStoreApi;
@@ -149,66 +145,26 @@ export interface MParticleWebSDK {
     isIOS?: boolean;
 }
 
-// TODO: Move into Store.ts
-export interface SDKConfig {
-    isDevelopmentMode?: boolean;
-    logger: {
-        error?(msg);
-        warning?(msg);
-        verbose?(msg);
-    };
-    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
-    customFlags?: SDKEventCustomFlags;
-    dataPlan: SDKDataPlan;
-    dataPlanOptions: KitBlockerOptions; // when the user provides their own data plan
-    dataPlanResult?: DataPlanResult; // when the data plan comes from the server via /config
-
-    appName?: string;
-    appVersion?: string;
-    package?: string;
-    flags?: { [key: string]: string | number | boolean };
-    kitConfigs: KitConfigs[];
-    kits: Dictionary<Kit>;
-    logLevel?: LogLevelType;
-    cookieDomain?: string;
-    maxCookieSize?: number | undefined;
-    minWebviewBridgeVersion: 1 | 2 | undefined;
-    identifyRequest: IdentifyRequest;
-    identityCallback: IdentityCallback;
-    integrationDelayTimeout: number;
-
-    aliasMaxWindow: number;
-    deviceId?: string;
-    forceHttps?: boolean;
-    aliasUrl?: string;
-    configUrl?: string;
-    identityUrl?: string;
-    isIOS?: boolean;
-    maxProducts: number;
-    requestConfig?: boolean;
-    sessionTimeout?: number;
-    useNativeSdk?: boolean;
-    useCookieStorage?: boolean;
-    v1SecureServiceUrl?: string;
-    v2SecureServiceUrl?: string;
-    v3SecureServiceUrl?: string;
-}
-
 export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
 
 // TODO: Create true types for Kits and Kit Configs
 export type KitConfigs = Dictionary;
 export type Kit = Dictionary;
+export type MPForwarder = Dictionary;
 
 // TODO: This should eventually be moved into wherever init logic lives
 // TODO: Replace/Merge this with MPConfiguration in @types/mparticle__web-sdk
+// SDK Init Config represents the config that is passed into mParticle.init when
+// the sdk is initialized.
+// Currently, this extends MPConfiguration in @types/mparticle__web-sdk
+// and the two will be merged in once the Store module is refactored
 export interface SDKInitConfig
     extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
     dataPlan?: DataPlanConfig | KitBlockerDataPlan; // TODO: These should be eventually split into two different attributes
     logLevel?: LogLevelType;
 
     kitConfigs?: KitConfigs[];
-    kits?: Record<string, Kit>;
+    kits?: Dictionary<Kit>;
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
 
@@ -272,7 +228,7 @@ export interface SDKConfigApi {
     v3SecureServiceUrl?: string;
     isDevelopmentMode: boolean;
     appVersion?: string;
-    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
+    onCreateBatch(batch: Batch): Batch;
 }
 export interface MParticleUser {
     getMPID(): string;
