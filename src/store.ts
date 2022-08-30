@@ -23,7 +23,7 @@ import {
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
-import * as utils from './utils';
+import { isNumber, isSlug, isString } from './utils';
 import { Dictionary } from './utils';
 
 // This represents the runtime configuration of the SDK AFTER
@@ -326,8 +326,8 @@ export default function Store(
             // TODO: Can we refactor to avoid unnecessary type checking
             const dataPlan = config.dataPlan as DataPlanConfig;
             if (dataPlan.hasOwnProperty('planId')) {
-                if (typeof dataPlan.planId === 'string') {
-                    if (utils.isSlug(dataPlan.planId)) {
+                if (isString(dataPlan.planId)) {
+                    if (isSlug(dataPlan.planId)) {
                         this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
                     } else {
                         mpInstance.Logger.error(
@@ -342,7 +342,7 @@ export default function Store(
             }
 
             if (dataPlan.hasOwnProperty('planVersion')) {
-                if (typeof dataPlan.planVersion === 'number') {
+                if (isNumber(dataPlan.planVersion)) {
                     this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
                 } else {
                     mpInstance.Logger.error(

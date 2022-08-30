@@ -75,7 +75,12 @@ const converted = (s: string): string => {
     return s;
 };
 
+const isString = (value: any): boolean => typeof value === 'string';
+const isNumber = (value: any): boolean => typeof value === 'number';
+const isFunction = (fn: any): boolean => typeof fn === 'function';
 const isSlug = (str: string) => str === slugify(str);
+const isStringOrNumber = (value: any): boolean =>
+    isString(value) || isNumber(value);
 
 export {
     valueof,
@@ -86,5 +91,9 @@ export {
     isObject,
     parseNumber,
     returnConvertedBoolean,
+    isString,
+    isNumber,
+    isFunction,
+    isStringOrNumber,
     isSlug,
 };
