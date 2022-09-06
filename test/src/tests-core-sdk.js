@@ -899,42 +899,6 @@ describe('core SDK', function() {
         done();
     });
 
-    const configOptions = [
-        'v1SecureServiceUrl',
-        'v2SecureServiceUrl',
-        'v3SecureServiceUrl',
-        'identityUrl',
-        'aliasUrl',
-        'configUrl',
-        'logLevel',
-        'kits',
-        'isIOS',
-        'useCookieStorage',
-        'maxProducts',
-        'maxCookieSize',
-        'appName',
-        'integrationDelayTimeout',
-        'identifyRequest',
-        'appVersion',
-        'appName',
-        'sessionTimeout',
-        'forceHttps',
-        'customFlags',
-        'minWebviewBridgeVersion',
-        'aliasMaxWindow'
-    ];
-    // TODO: Refactor this test to respect type safety or remove as this duplicates tests in store.ts
-    configOptions.forEach(option => {
-        it('Store should configure SDKConfig itself with ' + option, done => {
-            mParticle._resetForTests();
-            const config = {}
-            config[option] = 'custom-' + option;
-            mParticle.init(apiKey, config);
-            mParticle.getInstance()._Store.SDKConfig[option].should.equal('custom-' + option);
-            done();
-        });
-    });
-    
     it('should add onCreateBatch to _Store.SDKConfig if onCreateBatch is provide on mParticle.config object', function(done) {
         window.mParticle._resetForTests();
         mParticle.config.onCreateBatch = function(batch) { return batch};

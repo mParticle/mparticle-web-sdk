@@ -1,4 +1,13 @@
-import { converted, decoded, findKeyInObject, inArray, isObject, parseNumber, returnConvertedBoolean } from '../../src/utils';
+import {
+    converted,
+    decoded,
+    findKeyInObject,
+    inArray,
+    isDataPlanSlug,
+    isObject,
+    parseNumber,
+    returnConvertedBoolean
+} from '../../src/utils';
 import { expect } from 'chai';
 
 describe('Utils', () => {
@@ -98,5 +107,35 @@ describe('Utils', () => {
             const cookieString = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='";
             expect(converted(cookieString)).to.eq("{\'sid\':\'1992BDBB-AD74-49DB-9B20-5EC8037E72DE\'|\'ie\':1|\'ua\':\'eyJ0ZXN\'0Ijoiwq7igJkifQ==\'")
         })
+    });
+
+    describe('#isDataPlanSlug', function () {
+        it('returns false for numbers', function () {
+            isDataPlanSlug(35 as unknown as string).should.equal(false);
+        });
+
+        it('returns false for spaces', function () {
+            isDataPlanSlug('Slug with spaces in').should.equal(false);
+        });
+
+        it('returns false for PascalCase', function () {
+            isDataPlanSlug('PascalSlug').should.equal(false);
+        });
+
+        it('returns false for kabob-case-slug', function () {
+            isDataPlanSlug('kabob-case-slug').should.equal(false);
+        });
+
+        it('returns true for simple string', function () {
+            isDataPlanSlug('slug').should.equal(true);
+        });
+
+        it('returns true for under_score_slug', function () {
+            isDataPlanSlug('under_score_slug').should.equal(true);
+        });
+
+        it('returns true for numerical strings', function () {
+            isDataPlanSlug('42').should.equal(true);
+        });
     });
 });

@@ -23,7 +23,7 @@ import {
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
-import { isNumber, isSlug, isString } from './utils';
+import { isNumber, isDataPlanSlug } from './utils';
 import { Dictionary } from './utils';
 
 // This represents the runtime configuration of the SDK AFTER
@@ -76,29 +76,29 @@ export interface SDKConfig {
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
     // TODO: Refactor to create a default config object
     const sdkConfig = {} as SDKConfig;
-    // TODO: Refactor to prevent keep prop in scope;
-    for (var prop in Constants.DefaultConfig) {
+
+    for (const prop in Constants.DefaultConfig) {
         if (Constants.DefaultConfig.hasOwnProperty(prop)) {
             sdkConfig[prop] = Constants.DefaultConfig[prop];
         }
     }
 
     if (config) {
-        for (prop in config) {
+        for (const prop in config) {
             if (config.hasOwnProperty(prop)) {
                 sdkConfig[prop] = config[prop];
             }
         }
     }
 
-    for (prop in Constants.DefaultUrls) {
+    for (const prop in Constants.DefaultUrls) {
         sdkConfig[prop] = Constants.DefaultUrls[prop];
     }
 
     return sdkConfig;
 }
 
-// TODO: Placeholder Types
+// TODO: Placeholder Types, MigrationData is temporary and will be removed in the future to reduce SDK size
 export type PixelConfiguration = Dictionary;
 export type MigrationData = Dictionary;
 export type ServerSettings = Dictionary;
@@ -323,32 +323,27 @@ export default function Store(
                 PlanId: null,
             };
 
-            // TODO: Can we refactor to avoid unnecessary type checking
             const dataPlan = config.dataPlan as DataPlanConfig;
-            if (dataPlan.hasOwnProperty('planId')) {
-                if (isString(dataPlan.planId)) {
-                    if (isSlug(dataPlan.planId)) {
-                        this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
-                    } else {
-                        mpInstance.Logger.error(
-                            'Your data plan id must be in a slug format'
-                        );
-                    }
-                } else {
-                    mpInstance.Logger.error(
-                        'Your data plan id must be a string'
-                    );
-                }
+            if (
+                dataPlan.hasOwnProperty('planId') &&
+                isDataPlanSlug(dataPlan.planId)
+            ) {
+                this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
+            } else {
+                mpInstance.Logger.error(
+                    'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
+                );
             }
 
-            if (dataPlan.hasOwnProperty('planVersion')) {
-                if (isNumber(dataPlan.planVersion)) {
-                    this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
-                } else {
-                    mpInstance.Logger.error(
-                        'Your data plan version must be a number'
-                    );
-                }
+            if (
+                dataPlan.hasOwnProperty('planVersion') &&
+                isNumber(dataPlan.planVersion)
+            ) {
+                this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
+            } else {
+                mpInstance.Logger.error(
+                    'Your data plan version must be a number'
+                );
             }
         } else {
             this.SDKConfig.dataPlan = {};
