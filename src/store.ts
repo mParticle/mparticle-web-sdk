@@ -324,26 +324,24 @@ export default function Store(
             };
 
             const dataPlan = config.dataPlan as DataPlanConfig;
-            if (
-                dataPlan.hasOwnProperty('planId') &&
-                isDataPlanSlug(dataPlan.planId)
-            ) {
-                this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
-            } else {
-                mpInstance.Logger.error(
-                    'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
-                );
+            if (dataPlan.planId) {
+                if (isDataPlanSlug(dataPlan.planId)) {
+                    this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
+                } else {
+                    mpInstance.Logger.error(
+                        'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
+                    );
+                }
             }
 
-            if (
-                dataPlan.hasOwnProperty('planVersion') &&
-                isNumber(dataPlan.planVersion)
-            ) {
-                this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
-            } else {
-                mpInstance.Logger.error(
-                    'Your data plan version must be a number'
-                );
+            if (dataPlan.planVersion) {
+                if (isNumber(dataPlan.planVersion)) {
+                    this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
+                } else {
+                    mpInstance.Logger.error(
+                        'Your data plan version must be a number'
+                    );
+                }
             }
         } else {
             this.SDKConfig.dataPlan = {};

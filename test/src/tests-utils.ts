@@ -110,32 +110,33 @@ describe('Utils', () => {
     });
 
     describe('#isDataPlanSlug', function () {
-        it('returns false for numbers', function () {
-            isDataPlanSlug(35 as unknown as string).should.equal(false);
+        it('handles numbers', function () {
+            expect(isDataPlanSlug(35 as unknown as string)).to.equal(false);
         });
 
-        it('returns false for spaces', function () {
-            isDataPlanSlug('Slug with spaces in').should.equal(false);
+        it('handles spaces', function () {
+            expect(isDataPlanSlug('Slug with spaces in')).to.equal(false);
         });
 
-        it('returns false for PascalCase', function () {
-            isDataPlanSlug('PascalSlug').should.equal(false);
+        it('handles PascalCase', function () {
+            expect(isDataPlanSlug('PascalSlug')).to.equal(false);
         });
 
-        it('returns false for kabob-case-slug', function () {
-            isDataPlanSlug('kabob-case-slug').should.equal(false);
+        it('handles kabob-case-slug', function () {
+            // TODO: Remove support for kabob case once we remove slugify
+            expect(isDataPlanSlug('kabob-case-slug')).to.equal(true);
         });
 
-        it('returns true for simple string', function () {
-            isDataPlanSlug('slug').should.equal(true);
+        it('handles simple string', function () {
+            expect(isDataPlanSlug('slug')).to.equal(true);
         });
 
-        it('returns true for under_score_slug', function () {
-            isDataPlanSlug('under_score_slug').should.equal(true);
+        it('handles under_score_slug', function () {
+            expect(isDataPlanSlug('under_score_slug')).to.equal(true);
         });
 
-        it('returns true for numerical strings', function () {
-            isDataPlanSlug('42').should.equal(true);
+        it('handles numerical strings', function () {
+            expect(isDataPlanSlug('42')).to.equal(true);
         });
     });
 });

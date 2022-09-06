@@ -78,7 +78,11 @@ const converted = (s: string): string => {
 const isString = (value: any): boolean => typeof value === 'string';
 const isNumber = (value: any): boolean => typeof value === 'number';
 const isFunction = (fn: any): boolean => typeof fn === 'function';
-const isDataPlanSlug = (str: string) => isString(str) && slugify(str);
+
+// TODO: Refactor this to a regex
+const isDataPlanSlug = (str: string): boolean =>
+    isString(str) && str === slugify(str, { replacement: '_', lower: true });
+
 const isStringOrNumber = (value: any): boolean =>
     isString(value) || isNumber(value);
 
