@@ -30,6 +30,7 @@ afterEach(function() {
 });
 
 import './tests-core-sdk';
+import './tests-temp-session-bug-fix';
 import './tests-batchUploader';
 import './tests-kit-blocking';
 import './tests-migrations';
