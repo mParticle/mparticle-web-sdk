@@ -15,6 +15,8 @@ export default function APIClient(mpInstance, kitBlocker) {
             this.uploader = new BatchUploader(mpInstance, millis);
         }
         this.uploader.queueEvent(event);
+
+        mpInstance._Persistence.update();
     };
 
     this.shouldEnableBatching = function() {
