@@ -720,7 +720,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.17.1";
+    var version = "2.17.2";
 
     var Constants = {
       sdkVersion: version,
@@ -2350,6 +2350,8 @@ var mParticle = (function () {
         }
 
         this.uploader.queueEvent(event);
+
+        mpInstance._Persistence.update();
       };
 
       this.shouldEnableBatching = function () {
