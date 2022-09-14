@@ -1,3 +1,10 @@
+## [2.17.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.17.1...v2.17.2) (2022-09-14)
+
+
+### Bug Fixes
+
+* Update last event sent timestamp for batch uploads ([#360](https://github.com/mParticle/mparticle-web-sdk/issues/360)) ([4cbb3c5](https://github.com/mParticle/mparticle-web-sdk/commit/4cbb3c55b2702da35dc79db195607ff00aee4f2f))
+
 ## [2.17.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.17.0...v2.17.1) (2022-08-25)
 
 # [2.17.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.16.3...v2.17.0) (2022-08-23)
