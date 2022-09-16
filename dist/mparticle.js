@@ -8138,7 +8138,7 @@ var mParticle = (function () {
       };
 
       this.createUserAttributeChange = function (key, newValue, previousUserAttributeValue, isNewAttribute, deleted, user) {
-        if (previousUserAttributeValue === undefined) {
+        if (!previousUserAttributeValue) {
           previousUserAttributeValue = null;
         }
 

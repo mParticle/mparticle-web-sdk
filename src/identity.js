@@ -1819,7 +1819,7 @@ export default function Identity(mpInstance) {
         deleted,
         user
     ) {
-        if (!previousUserAttributeValue) {
+        if (previousUserAttributeValue === undefined) {
             previousUserAttributeValue = null;
         }
         var userAttributeChangeEvent;
