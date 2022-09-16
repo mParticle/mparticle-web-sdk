@@ -1163,4 +1163,46 @@ describe('identities and attributes', function() {
 
         done();
     });
+
+    it('should not send user attribute change requests when user attribute already set with same value', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.config.flags = {
+            eventsV3: 100,
+            EventBatchingIntervalMillis: 0,
+        };
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        // set a new attribute, age
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
+        var body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.user_attributes.should.have.property('age', '25')
+        var event = body.events[0];
+        event.should.be.ok();
+        event.event_type.should.equal('user_attribute_change');
+        event.data.new.should.equal('25');
+        (event.data.old === null).should.equal(true);
+        event.data.user_attribute_name.should.equal('age');
+        event.data.deleted.should.equal(false);
+        event.data.is_new_attribute.should.equal(true);
+
+        // confirm attribute already exist for user
+        var userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+        userAttributes.should.have.property('age');
+
+        // re-set same attribute with the same value, age
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
+        (window.fetchMock.lastOptions() === undefined).should.equal(true);
+        (window.fetchMock._calls.length === 0).should.equal(true);
+
+        done()
+    });
 });
