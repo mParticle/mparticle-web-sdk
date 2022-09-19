@@ -1164,7 +1164,7 @@ describe('identities and attributes', function() {
         done();
     });
 
-    it('should not send user attribute change requests when user attribute already set with same value', function(done) {
+    it('should not send user attribute change requests when user attribute already set with same value with false values', function(done) {
         mParticle._resetForTests(MPConfig);
 
         window.fetchMock.post(
@@ -1184,22 +1184,70 @@ describe('identities and attributes', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
         var body = JSON.parse(window.fetchMock.lastOptions().body)
         body.user_attributes.should.have.property('age', '25')
-        var event = body.events[0];
-        event.should.be.ok();
-        event.event_type.should.equal('user_attribute_change');
-        event.data.new.should.equal('25');
-        (event.data.old === null).should.equal(true);
-        event.data.user_attribute_name.should.equal('age');
-        event.data.deleted.should.equal(false);
-        event.data.is_new_attribute.should.equal(true);
+        var event1 = body.events[0];
+        event1.should.be.ok();
+        event1.event_type.should.equal('user_attribute_change');
+        event1.data.new.should.equal('25');
+        (event1.data.old === null).should.equal(true);
+        event1.data.user_attribute_name.should.equal('age');
+        event1.data.deleted.should.equal(false);
+        event1.data.is_new_attribute.should.equal(true);
 
-        // confirm attribute already exist for user
+        // test setting attributes with 'false' values (i.e false, 0 and '')
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().setUserAttribute('testFalse', false);
+        mParticle.Identity.getCurrentUser().setUserAttribute('testEmptyString', '');
+        mParticle.Identity.getCurrentUser().setUserAttribute('testZero', 0);
+
+        var body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.user_attributes.should.have.property('testFalse', false)
+        body.user_attributes.should.have.property('testEmptyString', '')
+        body.user_attributes.should.have.property('testZero', 0)
+
+        // check for UAC event for testFalse: fasle when set for first time
+        var event2 = body.events[0];
+        event2.should.be.ok();
+        event2.event_type.should.equal('user_attribute_change');
+        event2.data.new.should.equal(false);
+        (event2.data.old === null).should.equal(true);
+        event2.data.user_attribute_name.should.equal('testFalse');
+        event2.data.deleted.should.equal(false);
+        event2.data.is_new_attribute.should.equal(true);
+
+        // check for UAC event for testEmptyString: '' when set for first time
+        var event3 = body.events[1];
+        event3.should.be.ok();
+        event3.event_type.should.equal('user_attribute_change');
+        event3.data.new.should.equal('');
+        (event3.data.old === null).should.equal(true);
+        event3.data.user_attribute_name.should.equal('testEmptyString');
+        event3.data.deleted.should.equal(false);
+        event3.data.is_new_attribute.should.equal(true);
+
+        // check for UAC event for testZero: 0 when set for first time
+        var event4 = body.events[2];
+        event4.should.be.ok();
+        event4.event_type.should.equal('user_attribute_change');
+        event4.data.new.should.equal(0);
+        (event4.data.old === null).should.equal(true);
+        event4.data.user_attribute_name.should.equal('testZero');
+        event4.data.deleted.should.equal(false);
+        event4.data.is_new_attribute.should.equal(true);
+
+
+        // confirm user attributes previously set already exist for user
         var userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
         userAttributes.should.have.property('age');
+        userAttributes.should.have.property('testFalse');
+        userAttributes.should.have.property('testEmptyString');
+        userAttributes.should.have.property('testZero');
 
-        // re-set same attribute with the same value, age
+        // re-set all previous attributes with the same values
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
+        mParticle.Identity.getCurrentUser().setUserAttribute('testFalse', false);
+        mParticle.Identity.getCurrentUser().setUserAttribute('testEmptyString', '');
+        mParticle.Identity.getCurrentUser().setUserAttribute('testZero', 0);
         (window.fetchMock.lastOptions() === undefined).should.equal(true);
         (window.fetchMock._calls.length === 0).should.equal(true);
 
