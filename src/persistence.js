@@ -463,11 +463,13 @@ export default function _Persistence(mpInstance) {
                 );
             }
 
+            // TODO: Is this part of the deprecated cookie conversion flow?
             if (key && key === name) {
                 result = mpInstance._Helpers.converted(cookie);
                 break;
             }
 
+            // TODO: Which path should we be using?
             if (!key) {
                 result[name] = mpInstance._Helpers.converted(cookie);
             }
@@ -541,7 +543,7 @@ export default function _Persistence(mpInstance) {
             mpInstance._Store.SDKConfig.maxCookieSize
         );
 
-        mpInstance.Logger.verbose(Messages.InformationMessages.CookieSet);
+        // mpInstance.Logger.verbose(Messages.InformationMessages.CookieSet);
 
         window.document.cookie =
             encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
@@ -701,6 +703,8 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // TODO: Describe expected functionality and give examples of a persistence object
+    // FIXME: this should not mutate persistence
     this.encodePersistence = function(persistence) {
         persistence = JSON.parse(persistence);
         for (var key in persistence.gs) {
@@ -761,6 +765,8 @@ export default function _Persistence(mpInstance) {
         return self.createCookieString(JSON.stringify(persistence));
     };
 
+    // TODO: Describe expected functionality and give examples of a persistence object
+    // FIXME: this should not mutate persistence
     this.decodePersistence = function(persistence) {
         try {
             if (persistence) {
@@ -815,18 +821,22 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // TODO: This should be a helper
     this.replaceCommasWithPipes = function(string) {
         return string.replace(/,/g, '|');
     };
 
+    // TODO: This should be a helper
     this.replacePipesWithCommas = function(string) {
         return string.replace(/\|/g, ',');
     };
 
+    // TODO: This should be a helper
     this.replaceApostrophesWithQuotes = function(string) {
         return string.replace(/\'/g, '"');
     };
 
+    // TODO: This should be a helper
     this.replaceQuotesWithApostrophes = function(string) {
         return string.replace(/\"/g, "'");
     };

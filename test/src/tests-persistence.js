@@ -1,6 +1,15 @@
 import Utils from './utils';
 import sinon from 'sinon';
-import { urls, apiKey, testMPID, MPConfig,localStorageProductsV4, LocalStorageProductsV4WithWorkSpaceName, workspaceCookieName, v4LSKey } from './config';
+import {
+    urls,
+    apiKey,
+    testMPID,
+    MPConfig,
+    localStorageProductsV4,
+    LocalStorageProductsV4WithWorkSpaceName,
+    workspaceCookieName,
+    v4LSKey,
+} from './config';
 
 /* eslint-disable quotes*/
 var findCookie = Utils.findCookie,
@@ -11,76 +20,382 @@ var findCookie = Utils.findCookie,
     getEvent = Utils.getEvent,
     mockServer;
 
-describe('Persistence', function () {
-    describe('#useLocalStorage', function () {
-        it.skip('returns true if Local Storage is available', function () {
+describe('Persistence', function() {
+    describe('#useLocalStorage', function() {
+        it('returns true if Local Storage is available', function() {
             mParticle._resetForTests(MPConfig);
-            // FIXME: Returns an object instead of boolean for some reason
-            mParticle.getInstance()._Persistence.useLocalStorage().should.eq(true);
+            mParticle
+                .getInstance()
+                ._Persistence.useLocalStorage()
+                .should.eql(true);
+        });
+
+        it('returns false if Local Storage is not available', function() {
+            mParticle._resetForTests(MPConfig);
+            mParticle.getInstance()._Store.isLocalStorageAvailable = false;
+            mParticle
+                .getInstance()
+                ._Persistence.useLocalStorage()
+                .should.eql(false);
+        });
+
+        it('returns false if cookie storage is preferred', function() {
+            mParticle._resetForTests(MPConfig);
+            mParticle.getInstance()._Store.SDKConfig.useCookieStorage = true;
+            mParticle
+                .getInstance()
+                ._Persistence.useLocalStorage()
+                .should.eql(false);
         });
     });
-    describe('#initializeStorage', function () {});
-    describe('#update', function () {});
-    describe('#storeProductsInMemory', function () {});
-    describe('#storeDataInMemory', function () {});
+    describe('#initializeStorage', function() {});
 
-    describe.only('#determineLocalStorageAvailability', function () {
-        it('returns true if Local Storage is available', function (){
+    describe('#update', function() {
+        it('sets local storage', () => {
+            var bond = sinon.spy(
+                mParticle.getInstance()._Persistence,
+                'setLocalStorage'
+            );
+
             mParticle._resetForTests(MPConfig);
-            mParticle.getInstance()._Persistence.determineLocalStorageAvailability(window.localStorage).should.equal(true);
+            mParticle.getInstance()._Persistence.update();
+
+            bond.called.should.eql(true);
         });
 
-        it('returns false if Local Storage is not available', function (){
+        it.skip('sets a cookie when useCookieStorage is set', () => {
+            var bond = sinon.spy(
+                mParticle.getInstance()._Persistence,
+                'setCookie'
+            );
+
+            // var setCookieSpy = sinon.spy(
+            //     mParticle.getInstance()._Persistence,
+            //     'setCookie'
+            // );
+
+            // var getCookieSpy = sinon.spy(
+            //     mParticle.getInstance()._Persistence,
+            //     'getCookie'
+            // );
+
+            document.cookie =
+                "mprtcl-v4_4DD884CD={'gs':{'ie':1|'dt':'9aa8aa0514a802498e8e941d53e2a1d9'|'cgid':'e32ee0cf-83c7-4398-bd50-462a943d16b6'|'das':'99f5ad4d-ed1b-4044-89b6-977d7fac40c5'|'ia':'eyIxMjQiOnsibWlkIjoiNDk3NTQ1MzkyNzgyOTUxNTkxOTA4OTgwNzQ5NzYyOTQwNDQyNzAifX0='|'av':'1.0.0'}|'l':1|'9128337746531357694':{'fst':1663610956871|'ui':'eyIxIjoiMTIzNDU2IiwiNyI6ImVtYWlsQGV4YW1wbGUuY29tIn0='}|'cu':'9128337746531357694'}";
+
+            mParticle.getInstance().Logger = {
+                verbose: function(msg) {},
+                error: function(msg) {},
+            };
+
+            mParticle._resetForTests(MPConfig);
+
+            mParticle.getInstance()._Persistence.update();
+
+            bond.called.should.eql(false);
+
+            mParticle._resetForTests(
+                Object.assign(MPConfig, {
+                    useCookieStorage: true,
+                    workspaceToken: 'cookie-test',
+                })
+            );
+
+            debugger;
+
+            mParticle.getInstance()._Persistence.update();
+
+            bond.called.should.eql(true);
+        });
+    });
+
+    describe('#storeProductsInMemory', function() {
+        it('stores an array of products in memory', () => {
+            var products = {
+                'test-mpid': {
+                    cp: 'foo',
+                },
+            };
+            mParticle._resetForTests(MPConfig);
+            mParticle
+                .getInstance()
+                ._Persistence.storeProductsInMemory(products, 'test-mpid');
+
+            mParticle.getInstance()._Store.cartProducts.should.equal('foo');
+        });
+
+        it('stores an empty array if products are not groupd by mpid', () => {
+            var products = {};
+            mParticle._resetForTests(MPConfig);
+            mParticle
+                .getInstance()
+                ._Persistence.storeProductsInMemory(products, 'test-mpid');
+            mParticle.getInstance()._Store.cartProducts.should.deepEqual([]);
+        });
+
+        it.skip('logs an error if something goes wrong', () => {
+            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+            mParticle._resetForTests(MPConfig);
+            mParticle
+                .getInstance()
+                ._Persistence.storeProductsInMemory(products, 'test-mpid');
+            mParticle.getInstance()._Store.cartProducts.should.deepEqual([]);
+            bond.getCalls()[0].args[0].should.eql('Could not parse cookie');
+        });
+    });
+
+    describe('#storeDataInMemory', function() {});
+
+    describe('#determineLocalStorageAvailability', function() {
+        it('returns true if Local Storage is available', function() {
+            mParticle._resetForTests(MPConfig);
+            mParticle
+                .getInstance()
+                ._Persistence.determineLocalStorageAvailability(
+                    window.localStorage
+                )
+                .should.equal(true);
+        });
+
+        it('returns false if Local Storage is not available', function() {
             mParticle._resetForTests(MPConfig);
             // FIXME: this method should not take storage as a param
-            mParticle.getInstance()._Persistence.determineLocalStorageAvailability(null).should.equal(false);
+            mParticle
+                .getInstance()
+                ._Persistence.determineLocalStorageAvailability(null)
+                .should.equal(false);
         });
 
-        it('returns false if Local Storage disabled via _forceNoLocalStorage', function (){
+        it('returns false if Local Storage disabled via _forceNoLocalStorage', function() {
             mParticle._resetForTests(MPConfig);
             mParticle._forceNoLocalStorage = true;
-            mParticle.getInstance()._Persistence.determineLocalStorageAvailability(window.localStorage).should.equal(false);
+            mParticle
+                .getInstance()
+                ._Persistence.determineLocalStorageAvailability(
+                    window.localStorage
+                )
+                .should.equal(false);
         });
     });
 
-    describe('#getUserProductsFromLS', function () {});
-    describe('#getAllUserProductsFromLS', function () {});
-    describe('#setLocalStorage', function () {});
-    describe('#getLocalStorage', function () {});
-    describe('#expireCookies', function () {});
-    describe('#getCookie', function () {});
-    describe('#setCookie', function () {});
-    describe('#reduceAndEncodePersistence', function () {});
-    describe('#findPrevCookiesBasedOnUI', function () {});
-    describe('#encodePersistence', function () {});
-    describe('#decodePersistence', function () {});
-    describe('#replaceCommasWithPipes', function () {});
-    describe('#replacePipesWithCommas', function () {});
-    describe('#replaceApostrophesWithQuotes', function () {});
-    describe('#replaceQuotesWithApostrophes', function () {});
-    describe('#createCookieString', function () {});
-    describe('#revertCookieString', function () {});
-    describe('#getCookieDomain', function () {});
-    describe('#getDomain', function () {});
-    describe('#getUserIdentities', function () {});
-    describe('#getAllUserAttributes', function () {});
-    describe('#getCartProducts', function () {});
-    describe('#setCartProducts', function () {});
-    describe('#saveUserIdentitiesToPersistence', function () {});
-    describe('#saveUserAttributesToPersistence', function () {});
-    describe('#saveUserCookieSyncDatesToPersistence', function () {});
-    describe('#saveUserConsentStateToCookies', function () {});
-    describe('#savePersistence', function () {});
-    describe('#getPersistence', function () {});
-    describe('#getConsentState', function () {});
-    describe('#getFirstSeenTime', function () {});
-    describe('#setFirstSeenTime', function () {});
-    describe('#getLastSeenTime', function () {});
-    describe('#setLastSeenTime', function () {});
-    describe('#getDeviceId', function () {});
-    describe('#setDeviceId', function () {});
-    describe('#resetPersistence', function () {});
+    describe('#getUserProductsFromLS', function() {});
+    describe('#getAllUserProductsFromLS', function() {});
+    describe('#setLocalStorage', function() {});
 
+    describe('#getLocalStorage', function() {
+        it('returns null if storage name is not set', function() {
+            mParticle._resetForTests(MPConfig);
+
+            (
+                mParticle.getInstance()._Persistence.getLocalStorage() === null
+            ).should.eql(true);
+        });
+
+        it('returns null if local storage data is empty', function() {
+            window.localStorage.setItem('foo-storage', '{}');
+
+            mParticle._resetForTests(MPConfig);
+
+            mParticle.getInstance()._Store.isLocalStorageAvailable = true;
+            mParticle.getInstance()._Store.storageName = 'foo-storage';
+
+            (
+                mParticle.getInstance()._Persistence.getLocalStorage() === null
+            ).should.eql(true);
+        });
+
+        it('returns a local storage object', function() {
+            window.localStorage.setItem(
+                'foo-storage',
+                '{"foo": "bar", "mpid": "12345"}'
+            );
+
+            mParticle._resetForTests(MPConfig);
+
+            mParticle.getInstance()._Store.isLocalStorageAvailable = true;
+            mParticle.getInstance()._Store.storageName = 'foo-storage';
+
+            mParticle
+                .getInstance()
+                ._Persistence.getLocalStorage()
+                .should.eql({
+                    foo: 'bar',
+                    mpid: '12345',
+                });
+        });
+    });
+
+    describe('#expireCookies', function() {});
+
+    describe.only('#getCookie', function() {
+        it('returns a cookie', function() {
+            // TODO: What does our cookie look like?
+            document.cookie =
+                // "mprtcl-v4_4DD884CD={'gs':{'ie':1|'dt':'9aa8aa0514a802498e8e941d53e2a1d9'|'cgid':'e32ee0cf-83c7-4398-bd50-462a943d16b6'|'das':'99f5ad4d-ed1b-4044-89b6-977d7fac40c5'|'ia':'eyIxMjQiOnsibWlkIjoiNDk3NTQ1MzkyNzgyOTUxNTkxOTA4OTgwNzQ5NzYyOTQwNDQyNzAifX0='|'av':'1.0.0'}|'l':1|'9128337746531357694':{'fst':1663610956871|'ui':'eyIxIjoiMTIzNDU2IiwiNyI6ImVtYWlsQGV4YW1wbGUuY29tIn0='}|'cu':'9128337746531357694'}";
+                "{'gs':{'ie':1|'dt':'9aa8aa0514a802498e8e941d53e2a1d9'|'cgid':'e32ee0cf-83c7-4398-bd50-462a943d16b6'|'das':'99f5ad4d-ed1b-4044-89b6-977d7fac40c5'|'ia':'eyIxMjQiOnsibWlkIjoiNDk3NTQ1MzkyNzgyOTUxNTkxOTA4OTgwNzQ5NzYyOTQwNDQyNzAifX0='|'av':'1.0.0'}|'l':1|'9128337746531357694':{'fst':1663610956871|'ui':'eyIxIjoiMTIzNDU2IiwiNyI6ImVtYWlsQGV4YW1wbGUuY29tIn0='}|'cu':'9128337746531357694'}";
+
+            mParticle._resetForTests(MPConfig);
+
+            mParticle.getInstance().Logger = {
+                verbose: function(msg) {},
+                error: function(msg) {},
+            };
+
+            // TODO: What storage name should we be passing?
+            // mParticle.getInstance()._Store.storageName = 'mprtcl-v4';
+            // mParticle.getInstance()._Store.storageName = 'mprtcl-v4_4DD884CD';
+            mParticle.getInstance()._Store.storageName = undefined;
+
+            mParticle
+                .getInstance()
+                ._Persistence.getCookie()
+                .should.deepEqual({
+                    gs: {
+                        ie: true,
+                        dt: '9aa8aa0514a802498e8e941d53e2a1d9',
+                        cgid: 'e32ee0cf-83c7-4398-bd50-462a943d16b6',
+                        das: '99f5ad4d-ed1b-4044-89b6-977d7fac40c5',
+                        ia:
+                            'eyIxMjQiOnsibWlkIjoiNDk3NTQ1MzkyNzgyOTUxNTkxOTA4OTgwNzQ5NzYyOTQwNDQyNzAifX0=',
+                        av: '1.0.0',
+                    },
+                    l: 1,
+                    '9128337746531357694': {
+                        fst: 1663610956871,
+                        ui:
+                            'eyIxIjoiMTIzNDU2IiwiNyI6ImVtYWlsQGV4YW1wbGUuY29tIn0=',
+                    },
+                    cu: '9128337746531357694',
+                });
+        });
+
+        it.skip('returns a null if cookie is not available', function() {
+            (
+                mParticle.getInstance()._Persistence.getCookie() === null
+            ).should.eql(true);
+        });
+    });
+
+    describe('#setCookie', function() {
+        it('should set a cookie', () => {});
+    });
+
+    describe('#reduceAndEncodePersistence', function() {});
+    describe('#findPrevCookiesBasedOnUI', function() {});
+
+    describe('#encodePersistence', function() {
+        it('should encode a persistence object', function() {
+            var persistanceObject =
+                '{"gs": {"ie": "1", "sid": "This is an id"}, "mpid": "12345"}';
+            var encodedPersistenceObject = `{\'gs\':{\'ie\':1|\'sid\':\'This is an id\'}|\'mpid\':\'12345\'}`;
+            mParticle
+                .getInstance()
+                ._Persistence.encodePersistence(persistanceObject)
+                .should.deepEqual(encodedPersistenceObject);
+        });
+    });
+
+    describe('#decodePersistence', function() {
+        it('should decode a persistence object', function() {
+            var persistanceObject = `{\'gs\':{\'ie\':1|\'sid\':\'This is an id\'}|\'mpid\':\'12345\'}`;
+            var decodedPersistenceObject =
+                '{"gs":{"ie":true,"sid":"This is an id"},"mpid":"12345"}';
+            mParticle
+                .getInstance()
+                ._Persistence.decodePersistence(persistanceObject)
+                .should.deepEqual(decodedPersistenceObject);
+        });
+    });
+
+    describe('#replaceCommasWithPipes', function() {
+        it('replaces commas with pipes', function() {
+            mParticle
+                .getInstance()
+                ._Persistence.replaceCommasWithPipes('veni,vidi,vici')
+                .should.eql('veni|vidi|vici');
+        });
+    });
+
+    describe('#replacePipesWithCommas', function() {
+        it('replaces pipes with commas', function() {
+            mParticle
+                .getInstance()
+                ._Persistence.replacePipesWithCommas('veni|vidi|vici')
+                .should.eql('veni,vidi,vici');
+        });
+    });
+
+    describe('#replaceApostrophesWithQuotes', function() {
+        it('replaces apostrophies with quotes', function() {
+            mParticle
+                .getInstance()
+                ._Persistence.replaceApostrophesWithQuotes("'''")
+                .should.eql('"""');
+        });
+    });
+
+    describe('#replaceQuotesWithApostrophes', function() {
+        it('replaces quotes with apostrophies', function() {
+            mParticle
+                .getInstance()
+                ._Persistence.replaceQuotesWithApostrophes('"""""')
+                .should.eql("'''''");
+        });
+    });
+
+    describe('#createCookieString', function() {
+        it('should create a cookie string', function() {
+            mParticle
+                .getInstance()
+                ._Persistence.createCookieString(
+                    '"ie":1,"ua":"eyJ0ZXN"0Ijoiwq7igJkifQ=="'
+                )
+                .should.eql(`\'ie\':1|\'ua\':\'eyJ0ZXN\'0Ijoiwq7igJkifQ==\'`);
+        });
+    });
+
+    describe('#revertCookieString', function() {
+        it('should revert a cookie string', function() {
+            mParticle
+                .getInstance()
+                ._Persistence.revertCookieString(
+                    `\'ie\':1|\'ua\':\'eyJ0ZXN\'0Ijoiwq7igJkifQ==\'`
+                )
+                .should.eql('"ie":1,"ua":"eyJ0ZXN"0Ijoiwq7igJkifQ=="');
+        });
+    });
+
+    describe('#getCookieDomain', function() {});
+    describe('#getDomain', function() {});
+    describe('#getUserIdentities', function() {});
+    describe('#getAllUserAttributes', function() {});
+    describe('#getCartProducts', function() {});
+    describe('#setCartProducts', function() {});
+    describe('#saveUserIdentitiesToPersistence', function() {});
+    describe('#saveUserAttributesToPersistence', function() {});
+    describe('#saveUserCookieSyncDatesToPersistence', function() {});
+    describe('#saveUserConsentStateToCookies', function() {});
+    describe('#savePersistence', function() {});
+    describe('#getPersistence', function() {});
+    describe('#getConsentState', function() {});
+    describe('#getFirstSeenTime', function() {});
+    describe('#setFirstSeenTime', function() {});
+    describe('#getLastSeenTime', function() {});
+    describe('#setLastSeenTime', function() {});
+
+    describe('#getDeviceId', function() {
+        it('returns a device ID', () => {
+            mParticle._resetForTests(
+                Object.assign(MPConfig, { deviceId: 'foo-id' })
+            );
+            mParticle
+                .getInstance()
+                ._Persistence.getDeviceId()
+                .should.equal('foo-id');
+        });
+    });
+
+    describe('#setDeviceId', function() {});
+    describe('#resetPersistence', function() {});
 });
 
 describe('migrations and persistence-related', function() {
@@ -91,8 +406,8 @@ describe('migrations and persistence-related', function() {
         mockServer.respondWith(urls.eventsV2, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ])
+            JSON.stringify({ mpid: testMPID, Store: {} }),
+        ]);
         mockServer.respondWith(urls.identify, [
             200,
             {},
@@ -520,13 +835,13 @@ describe('migrations and persistence-related', function() {
         mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, window.mParticle.config);
-        
+
         mockServer.respondWith(urls.login, [
             200,
             {},
             JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
         ]);
-        
+
         var user1 = { userIdentities: { customerid: 'customerid1' } };
 
         mParticle.Identity.login(user1);
@@ -544,9 +859,7 @@ describe('migrations and persistence-related', function() {
 
         mParticle.Identity.logout();
 
-        var user2Result = mParticle
-            .getInstance()
-            .Identity.getCurrentUser();
+        var user2Result = mParticle.getInstance().Identity.getCurrentUser();
         Object.keys(
             user2Result.getUserIdentities().userIdentities
         ).length.should.equal(0);
@@ -651,11 +964,10 @@ describe('migrations and persistence-related', function() {
             JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
         ]);
 
-        mockServer.respondWith('https://identity.mparticle.com/v1/mpid1/modify', [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
-        ]);
+        mockServer.respondWith(
+            'https://identity.mparticle.com/v1/mpid1/modify',
+            [200, {}, JSON.stringify({ mpid: 'mpid1', is_logged_in: false })]
+        );
 
         mParticle.Identity.login(user1);
 
@@ -912,11 +1224,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-            mockServer.respondWith(urls.login, [
-                200,
-                {},
-                JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-            ]);
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -1095,11 +1407,11 @@ describe('migrations and persistence-related', function() {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-            mockServer.respondWith(urls.login, [
-                200,
-                {},
-                JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-            ]);
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+        ]);
 
         mParticle.Identity.login();
 
@@ -1845,7 +2157,9 @@ describe('migrations and persistence-related', function() {
             .getInstance()
             ._Persistence.getLastSeenTime('previous_set')
             .should.equal(10);
-        mParticle.getInstance()._Persistence.setLastSeenTime('previous_set', 20);
+        mParticle
+            .getInstance()
+            ._Persistence.setLastSeenTime('previous_set', 20);
         mParticle
             .getInstance()
             ._Persistence.getLastSeenTime('previous_set')
@@ -1961,11 +2275,14 @@ describe('migrations and persistence-related', function() {
 
     it('should save to persistance a device id set with setDeviceId', function(done) {
         mParticle._resetForTests(MPConfig);
-        
+
         mParticle.init(apiKey, window.mParticle.config);
         mParticle.setDeviceId('foo-guid');
 
-        mParticle.getInstance()._Persistence.getLocalStorage().gs.das.should.equal('foo-guid');
+        mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage()
+            .gs.das.should.equal('foo-guid');
 
         done();
     });
@@ -1975,7 +2292,10 @@ describe('migrations and persistence-related', function() {
         window.mParticle.config.deviceId = 'foo-guid';
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.getInstance()._Persistence.getLocalStorage().gs.das.should.equal('foo-guid');
+        mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage()
+            .gs.das.should.equal('foo-guid');
 
         done();
     });
@@ -1998,8 +2318,8 @@ describe('migrations and persistence-related', function() {
 
         var user = mParticle.Identity.getCurrentUser();
 
-        user.setUserAttribute("ua-1","a")
-        user.setUserAttributeList("ua-list", ["a\\","<b>"]);
+        user.setUserAttribute('ua-1', 'a');
+        user.setUserAttributeList('ua-list', ['a\\', '<b>']);
 
         user.getAllUserAttributes()['ua-list'][0].should.equal('a\\');
         user.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
@@ -2014,8 +2334,8 @@ describe('migrations and persistence-related', function() {
 
         var user2 = mParticle.Identity.getCurrentUser();
 
-        user2.setUserAttribute("ua-1","a")
-        user2.setUserAttributeList("ua-list", ["a\\","<b>"]);
+        user2.setUserAttribute('ua-1', 'a');
+        user2.setUserAttributeList('ua-list', ['a\\', '<b>']);
 
         user2.getAllUserAttributes()['ua-list'][0].should.equal('a\\');
         user2.getAllUserAttributes()['ua-list'][1].should.equal('<b>');
