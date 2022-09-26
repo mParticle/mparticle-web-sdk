@@ -139,6 +139,7 @@ export default function _Persistence(mpInstance) {
     };
 
     this.storeProductsInMemory = function(products, mpid) {
+        // TODO: Is it necessary to do a try/catch? When would it throw?
         if (products) {
             try {
                 mpInstance._Store.cartProducts =
@@ -156,6 +157,8 @@ export default function _Persistence(mpInstance) {
     this.storeDataInMemory = function(obj, currentMPID) {
         try {
             if (!obj) {
+                // TODO: why do we need to update client id or device id if object
+                //       is empty?
                 mpInstance.Logger.verbose(
                     Messages.InformationMessages.CookieNotFound
                 );
@@ -215,11 +218,14 @@ export default function _Persistence(mpInstance) {
                     mpInstance._Store.sessionStartDate = new Date();
                 }
 
+                // TODO: What is the purpose of overwriting the obj?
                 if (currentMPID) {
                     obj = obj[currentMPID];
                 } else {
+                    // FIXME: This could make obj === undefined
                     obj = obj[obj.cu];
                 }
+                console.log('what is my obj?', obj);
             }
         } catch (e) {
             mpInstance.Logger.error(Messages.ErrorMessages.CookieParseError);

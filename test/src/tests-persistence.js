@@ -1,5 +1,6 @@
 import Utils from './utils';
 import sinon from 'sinon';
+import { expect } from 'chai';
 import {
     urls,
     apiKey,
@@ -131,19 +132,127 @@ describe('Persistence', function() {
                 ._Persistence.storeProductsInMemory(products, 'test-mpid');
             mParticle.getInstance()._Store.cartProducts.should.deepEqual([]);
         });
-
-        it.skip('logs an error if something goes wrong', () => {
-            var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
-            mParticle._resetForTests(MPConfig);
-            mParticle
-                .getInstance()
-                ._Persistence.storeProductsInMemory(products, 'test-mpid');
-            mParticle.getInstance()._Store.cartProducts.should.deepEqual([]);
-            bond.getCalls()[0].args[0].should.eql('Could not parse cookie');
-        });
     });
 
-    describe('#storeDataInMemory', function() {});
+    describe('#storeDataInMemory', function() {
+        it.skip('updates Store with client ID with a unique ID', () => {
+            // var bond = sinon.spy(mParticle.getInstance().Logger, 'verbose');
+
+            mParticle._resetForTests(MPConfig);
+
+            // mParticle.getInstance().Logger = {
+            //     verbose: function() {},
+            //     error: function() {},
+            // };
+
+            mParticle
+                .getInstance()
+                ._Persistence.storeDataInMemory(null, 'test_mpid');
+            mParticle.getInstance()._Store.clientId.should.equal('foo');
+            // bond.called.should.eql(true);
+            // bond.getCalls()[0].args[0].should.eql(
+            //     'I like turtles'
+            // );
+        });
+        it.skip('updates Store with device ID with a unique ID', () => {});
+        it('stores the persistence object in the Store', () => {
+            mParticle._resetForTests(MPConfig);
+            var persistenceObject = {
+                cu: 'my_cu',
+                gs: {
+                    sid: 'my_session_id',
+                    ie: true,
+                    sa: {
+                        foo: 'bar',
+                    },
+                    ss: {
+                        fizz: 'buzz',
+                    },
+                    dt: 'my_dev_token',
+                    av: '1.2.3.4',
+                    cgid: 'my_client_id',
+                    das: 'my_device_id',
+                    ia: { bizz: 'bazz' },
+                    c: {
+                        data_plan: {
+                            plan_id: 'my data plan',
+                            plan_version: 2,
+                        },
+                    },
+                    csm: ['123456', '555', 'my_test_mpid'],
+                    les: 1661548842,
+                    ssd: 1661552442,
+                },
+                l: false,
+            };
+            mParticle
+                .getInstance()
+                ._Persistence.storeDataInMemory(persistenceObject);
+
+            expect(mParticle.getInstance()._Store.mpid, '_Store.mpid').to.equal(
+                'my_cu'
+            );
+            expect(
+                mParticle.getInstance()._Store.sessionId,
+                '_Store.sessionId'
+            ).to.equal('my_session_id');
+            expect(
+                mParticle.getInstance()._Store.isEnabled,
+                '_Store.isEnabled'
+            ).to.equal(true);
+            expect(
+                mParticle.getInstance()._Store.sessionAttributes,
+                '_Store.sessionAttributes'
+            ).to.eql({
+                foo: 'bar',
+            });
+            expect(
+                mParticle.getInstance()._Store.serverSettings,
+                '_Store.serverSettings'
+            ).to.eql({
+                fizz: 'buzz',
+            });
+            expect(
+                mParticle.getInstance()._Store.devToken,
+                '._Store.devToken'
+            ).to.equal('my_dev_token');
+            expect(
+                mParticle.getInstance()._Store.deviceId,
+                '_Store.deviceId.'
+            ).to.equal('my_device_id');
+            expect(
+                mParticle.getInstance()._Store.integrationAttributes,
+                '_Store.integrationAttributes'
+            ).to.eql({
+                bizz: 'bazz',
+            });
+            expect(
+                mParticle.getInstance()._Store.context,
+                '_Store.context'
+            ).to.eql({
+                data_plan: {
+                    plan_id: 'my data plan',
+                    plan_version: 2,
+                },
+            });
+            expect(
+                mParticle.getInstance()._Store.currentSessionMPIDs,
+                '_Store.currentSessionMPIDs'
+            ).to.eql(['123456', '555', 'my_test_mpid']);
+            expect(
+                mParticle.getInstance()._Store.isLoggedIn,
+                '_Store.isLoggedIn'
+            ).to.equal(false);
+            expect(
+                mParticle.getInstance()._Store.dateLastEventSent,
+                '_Store.dateLastEventSent'
+            ).to.equal('111111');
+            expect(
+                mParticle.getInstance()._Store.SDKConfig.appVersion,
+                '_Store.SDKConfig.appVersion'
+            ).to.equal('1.2.3.4');
+        });
+    });
 
     describe('#determineLocalStorageAvailability', function() {
         it('returns true if Local Storage is available', function() {
@@ -153,7 +262,7 @@ describe('Persistence', function() {
                 ._Persistence.determineLocalStorageAvailability(
                     window.localStorage
                 )
-                .should.equal(true);
+                .to.equal(true);
         });
 
         it('returns false if Local Storage is not available', function() {
@@ -226,8 +335,9 @@ describe('Persistence', function() {
 
     describe('#expireCookies', function() {});
 
-    describe.only('#getCookie', function() {
-        it('returns a cookie', function() {
+    describe('#getCookie', function() {
+        it.skip('returns a cookie', function() {
+            // TODO: Ask ob what a cookie should look like
             // TODO: What does our cookie look like?
             document.cookie =
                 // "mprtcl-v4_4DD884CD={'gs':{'ie':1|'dt':'9aa8aa0514a802498e8e941d53e2a1d9'|'cgid':'e32ee0cf-83c7-4398-bd50-462a943d16b6'|'das':'99f5ad4d-ed1b-4044-89b6-977d7fac40c5'|'ia':'eyIxMjQiOnsibWlkIjoiNDk3NTQ1MzkyNzgyOTUxNTkxOTA4OTgwNzQ5NzYyOTQwNDQyNzAifX0='|'av':'1.0.0'}|'l':1|'9128337746531357694':{'fst':1663610956871|'ui':'eyIxIjoiMTIzNDU2IiwiNyI6ImVtYWlsQGV4YW1wbGUuY29tIn0='}|'cu':'9128337746531357694'}";
@@ -236,8 +346,8 @@ describe('Persistence', function() {
             mParticle._resetForTests(MPConfig);
 
             mParticle.getInstance().Logger = {
-                verbose: function(msg) {},
-                error: function(msg) {},
+                verbose: function() {},
+                error: function() {},
             };
 
             // TODO: What storage name should we be passing?
