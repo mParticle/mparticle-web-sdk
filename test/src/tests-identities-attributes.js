@@ -1313,7 +1313,7 @@ describe('identities and attributes', function() {
 
         // re-set same test attribute with 'falsey' value to original value 0
         window.fetchMock._calls = [];
-        mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', '');
+        mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', 0);
         var body4 = JSON.parse(window.fetchMock.lastOptions().body)
         body4.user_attributes.should.have.property('testFalsey', 0)
         var event4 = body4.events[0];
