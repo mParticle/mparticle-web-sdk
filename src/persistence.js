@@ -12,6 +12,7 @@ export default function _Persistence(mpInstance) {
     this.useLocalStorage = function() {
         return (
             !mpInstance._Store.SDKConfig.useCookieStorage &&
+            // FIXME: Should return boolean but is returning an object
             mpInstance._Store.isLocalStorageAvailable
         );
     };
@@ -549,7 +550,7 @@ export default function _Persistence(mpInstance) {
             mpInstance._Store.SDKConfig.maxCookieSize
         );
 
-        // mpInstance.Logger.verbose(Messages.InformationMessages.CookieSet);
+        mpInstance.Logger.verbose(Messages.InformationMessages.CookieSet);
 
         window.document.cookie =
             encodeURIComponent(key) + '=' + encodedCookiesWithExpirationAndPath;
