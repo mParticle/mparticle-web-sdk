@@ -226,7 +226,6 @@ export default function _Persistence(mpInstance) {
                     // FIXME: This could make obj === undefined
                     obj = obj[obj.cu];
                 }
-                console.log('what is my obj?', obj);
             }
         } catch (e) {
             mpInstance.Logger.error(Messages.ErrorMessages.CookieParseError);
