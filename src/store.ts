@@ -23,8 +23,7 @@ import {
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
-import { isNumber, isDataPlanSlug } from './utils';
-import { Dictionary } from './utils';
+import { isNumber, isDataPlanSlug, Dictionary } from './utils';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and

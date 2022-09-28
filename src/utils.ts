@@ -81,7 +81,7 @@ const isFunction = (fn: any): boolean => typeof fn === 'function';
 
 // TODO: Refactor this to a regex
 const isDataPlanSlug = (str: string): boolean =>
-    isString(str) && str === slugify(str, { replacement: '_', lower: true });
+    isString(str) && str === slugify(str, { lower: true });
 
 const isStringOrNumber = (value: any): boolean =>
     isString(value) || isNumber(value);

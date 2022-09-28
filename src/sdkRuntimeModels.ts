@@ -1,6 +1,6 @@
 import { DataPlanVersion } from '@mparticle/data-planning-models';
 import { Batch } from '@mparticle/event-models';
-import { MPConfiguration } from '@mparticle/web-sdk';
+import { MPConfiguration, SDKEventCustomFlags } from '@mparticle/web-sdk';
 import { SDKConfig } from './store';
 import { Dictionary } from './utils';
 import Validators from './validators';
@@ -135,7 +135,8 @@ export interface MParticleWebSDK {
     logEvent(
         eventName: string,
         eventType?: number,
-        attrs?: { [key: string]: string }
+        attrs?: { [key: string]: string },
+        customFlags?: SDKEventCustomFlags
     ): void;
     logBaseEvent(event: any): void;
     eCommerce: any;

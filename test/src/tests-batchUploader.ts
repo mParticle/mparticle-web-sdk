@@ -248,6 +248,9 @@ describe('batch uploader', () => {
             window.mParticle.config.identityCallback = function(result) {
                 let currentUser = result.getUser()
                 if (currentUser) {
+                    // TODO: Investigate if we should update definitely typed typings for
+                    // setUserAttribute which only allows strings right now
+                    // more context at https://go.mparticle.com/work/SQDSDKS-4576
                     currentUser.setUserAttribute("number", `${Math.floor((Math.random() * 1000) + 1)}`)
                 }
             }

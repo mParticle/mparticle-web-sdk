@@ -28,7 +28,7 @@ const builds = {
                 include: ['src/**/*'],
                 babelHelpers: 'runtime',
             }),
-            typescript(),
+            typescript({ tsconfig: './tsconfig.json' }),
             json(),
         ],
     },
