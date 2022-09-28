@@ -1830,7 +1830,7 @@ export default function Identity(mpInstance) {
                     userAttributeChanges: {
                         UserAttributeName: key,
                         New: newValue,
-                        Old: previousUserAttributeValue || null,
+                        Old: previousUserAttributeValue,
                         Deleted: deleted,
                         IsNewAttribute: isNewAttribute,
                     },

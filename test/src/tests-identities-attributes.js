@@ -1253,4 +1253,79 @@ describe('identities and attributes', function() {
 
         done()
     });
+
+    it('should send user attributes when setting different falsey values', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events',
+            200
+        );
+
+        window.mParticle.config.flags = {
+            eventsV3: 100,
+            EventBatchingIntervalMillis: 0,
+        };
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        // set initial test attribute with 'falsey' value to 0 
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', 0);
+        var body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.user_attributes.should.have.property('testFalsey', 0)
+        var event1 = body.events[0];
+        event1.should.be.ok();
+        event1.event_type.should.equal('user_attribute_change');
+        event1.data.new.should.equal(0);
+        (event1.data.old === null).should.equal(true);
+        event1.data.user_attribute_name.should.equal('testFalsey');
+        event1.data.deleted.should.equal(false);
+        event1.data.is_new_attribute.should.equal(true);
+
+        // re-set same test attribute with 'falsey' value to ''
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', '');
+        var body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.user_attributes.should.have.property('testFalsey', '')
+        var event2 = body.events[0];
+        event2.should.be.ok();
+        event2.event_type.should.equal('user_attribute_change');
+        event2.data.new.should.equal('');
+        event2.data.old.should.equal(0);
+        event2.data.user_attribute_name.should.equal('testFalsey');
+        event2.data.deleted.should.equal(false);
+        event2.data.is_new_attribute.should.equal(false);
+
+        // re-set same test attribute with 'falsey' value to false
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', false);
+        var body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.user_attributes.should.have.property('testFalsey', false)
+        var event3 = body.events[0];
+        event3.should.be.ok();
+        event3.event_type.should.equal('user_attribute_change');
+        event3.data.new.should.equal(false);
+        event3.data.old.should.equal('');
+        event3.data.user_attribute_name.should.equal('testFalsey');
+        event3.data.deleted.should.equal(false);
+        event3.data.is_new_attribute.should.equal(false);
+
+        // re-set same test attribute with 'falsey' value to original value 0
+        window.fetchMock._calls = [];
+        mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', '');
+        var body = JSON.parse(window.fetchMock.lastOptions().body)
+        body.user_attributes.should.have.property('testFalsey', 0)
+        var event4 = body.events[0];
+        event4.should.be.ok();
+        event4.event_type.should.equal('user_attribute_change');
+        event4.data.new.should.equal(0);
+        event4.data.old.should.equal(false);
+        event4.data.user_attribute_name.should.equal('testFalsey');
+        event4.data.deleted.should.equal(false);
+        event4.data.is_new_attribute.should.equal(false);
+
+        done()
+    });
+
 });
