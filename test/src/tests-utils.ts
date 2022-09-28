@@ -119,7 +119,8 @@ describe('Utils', () => {
         });
 
         it('handles PascalCase', function () {
-            expect(isDataPlanSlug('PascalSlug')).to.equal(false);
+            // TODO: Remove support for kabob case once we remove slugify
+            expect(isDataPlanSlug('PascalSlug')).to.equal(true);
         });
 
         it('handles kabob-case-slug', function () {
