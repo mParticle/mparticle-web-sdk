@@ -336,52 +336,55 @@ describe('Persistence', function() {
     describe('#expireCookies', function() {});
 
     describe('#getCookie', function() {
-        it.skip('returns a cookie', function() {
-            // TODO: Ask ob what a cookie should look like
-            // TODO: What does our cookie look like?
+        it('returns a cookie', function() {
             document.cookie =
-                // "mprtcl-v4_4DD884CD={'gs':{'ie':1|'dt':'9aa8aa0514a802498e8e941d53e2a1d9'|'cgid':'e32ee0cf-83c7-4398-bd50-462a943d16b6'|'das':'99f5ad4d-ed1b-4044-89b6-977d7fac40c5'|'ia':'eyIxMjQiOnsibWlkIjoiNDk3NTQ1MzkyNzgyOTUxNTkxOTA4OTgwNzQ5NzYyOTQwNDQyNzAifX0='|'av':'1.0.0'}|'l':1|'9128337746531357694':{'fst':1663610956871|'ui':'eyIxIjoiMTIzNDU2IiwiNyI6ImVtYWlsQGV4YW1wbGUuY29tIn0='}|'cu':'9128337746531357694'}";
-                "{'gs':{'ie':1|'dt':'9aa8aa0514a802498e8e941d53e2a1d9'|'cgid':'e32ee0cf-83c7-4398-bd50-462a943d16b6'|'das':'99f5ad4d-ed1b-4044-89b6-977d7fac40c5'|'ia':'eyIxMjQiOnsibWlkIjoiNDk3NTQ1MzkyNzgyOTUxNTkxOTA4OTgwNzQ5NzYyOTQwNDQyNzAifX0='|'av':'1.0.0'}|'l':1|'9128337746531357694':{'fst':1663610956871|'ui':'eyIxIjoiMTIzNDU2IiwiNyI6ImVtYWlsQGV4YW1wbGUuY29tIn0='}|'cu':'9128337746531357694'}";
+            "mprtcl-v4_defghi={'gs':{'ie':1|'dt':'test_key'|'cgid':'4bb52bdd-e021-4476-bf79-d1060ca2482b'|'das':'13d96730-9332-45ea-aebf-0e3cb10f5f09'|'csm':'WyJ0ZXN0TVBJRCJd'|'sid':'1A3B41A0-42F4-49A1-96D0-178A40A4DDFE'|'les':1664380692122|'ssd':1664380540712}|'l':0|'testMPID':{'fst':1664380540716|'ua':'eyJmb28iOiJiYXIiLCJmaXp6IjoiYmF6eiJ9'|'con':'eyJnZHByIjp7ImxvY2F0aW9uX2NvbGxlY3Rpb24iOnsiYyI6dHJ1ZSwidHMiOjE2NjQzODA2NzQ3MjYsImQiOiJsb2NhdGlvbl9jb2xsZWN0aW9uX2FncmVlbWVudF92NCIsImwiOiIxNyBDaGVycnkgVHJlZSBMYW5lIiwiaCI6IklERkE6YTVkOTM0bjAtMjMyZi00YWZjLTJlOWEtMzgzMmQ5NXpjNzAyIn19fQ=='}|'cu':'testMPID'}";
 
-            mParticle._resetForTests(MPConfig);
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.storageName = 'mprtcl-v4_defghi';
 
-            mParticle.getInstance().Logger = {
-                verbose: function() {},
-                error: function() {},
-            };
-
-            // TODO: What storage name should we be passing?
-            // mParticle.getInstance()._Store.storageName = 'mprtcl-v4';
-            // mParticle.getInstance()._Store.storageName = 'mprtcl-v4_4DD884CD';
-            mParticle.getInstance()._Store.storageName = undefined;
-
-            mParticle
+            expect(mParticle
                 .getInstance()
-                ._Persistence.getCookie()
-                .should.deepEqual({
+                ._Persistence.getCookie())
+                .to.eql({
+                    cu: 'testMPID',
                     gs: {
+                        cgid: '4bb52bdd-e021-4476-bf79-d1060ca2482b',
+                        csm: ['testMPID'],
+                        das: '13d96730-9332-45ea-aebf-0e3cb10f5f09',
+                        dt: 'test_key',
                         ie: true,
-                        dt: '9aa8aa0514a802498e8e941d53e2a1d9',
-                        cgid: 'e32ee0cf-83c7-4398-bd50-462a943d16b6',
-                        das: '99f5ad4d-ed1b-4044-89b6-977d7fac40c5',
-                        ia:
-                            'eyIxMjQiOnsibWlkIjoiNDk3NTQ1MzkyNzgyOTUxNTkxOTA4OTgwNzQ5NzYyOTQwNDQyNzAifX0=',
-                        av: '1.0.0',
+                        les: 1664380692122,
+                        sid: '1A3B41A0-42F4-49A1-96D0-178A40A4DDFE',
+                        ssd: 1664380540712,
                     },
-                    l: 1,
-                    '9128337746531357694': {
-                        fst: 1663610956871,
-                        ui:
-                            'eyIxIjoiMTIzNDU2IiwiNyI6ImVtYWlsQGV4YW1wbGUuY29tIn0=',
-                    },
-                    cu: '9128337746531357694',
+                    l: false,
+                    testMPID: {
+                        con: {
+                            gdpr: {
+                                location_collection: {
+                                    c: true,
+                                    d: 'location_collection_agreement_v4',
+                                    h: 'IDFA:a5d934n0-232f-4afc-2e9a-3832d95zc702',
+                                    l: '17 Cherry Tree Lane',
+                                    ts: 1664380674726
+                                }
+                            }
+                        },
+                        fst: 1664380540716,
+                        ua: { fizz: 'bazz', foo: 'bar' } 
+                    }
                 });
         });
 
-        it.skip('returns a null if cookie is not available', function() {
-            (
+        it('returns a null if cookie is not available', function() {
+            document.cookie = 'mprtcl-v4_defghi=';
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.storageName = 'mprtcl-v4_defghi';
+
+            expect(
                 mParticle.getInstance()._Persistence.getCookie() === null
-            ).should.eql(true);
+            ).to.eql(true);
         });
     });
 

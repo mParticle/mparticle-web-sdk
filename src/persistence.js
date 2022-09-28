@@ -469,13 +469,11 @@ export default function _Persistence(mpInstance) {
                 );
             }
 
-            // TODO: Is this part of the deprecated cookie conversion flow?
             if (key && key === name) {
                 result = mpInstance._Helpers.converted(cookie);
                 break;
             }
 
-            // TODO: Which path should we be using?
             if (!key) {
                 result[name] = mpInstance._Helpers.converted(cookie);
             }
