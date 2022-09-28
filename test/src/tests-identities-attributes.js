@@ -1182,9 +1182,9 @@ describe('identities and attributes', function() {
         // set a new attribute, age
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
-        var body = JSON.parse(window.fetchMock.lastOptions().body)
-        body.user_attributes.should.have.property('age', '25')
-        var event1 = body.events[0];
+        var body1 = JSON.parse(window.fetchMock.lastOptions().body)
+        body1.user_attributes.should.have.property('age', '25')
+        var event1 = body1.events[0];
         event1.should.be.ok();
         event1.event_type.should.equal('user_attribute_change');
         event1.data.new.should.equal('25');
@@ -1199,13 +1199,13 @@ describe('identities and attributes', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('testEmptyString', '');
         mParticle.Identity.getCurrentUser().setUserAttribute('testZero', 0);
 
-        var body = JSON.parse(window.fetchMock.lastOptions().body)
-        body.user_attributes.should.have.property('testFalse', false)
-        body.user_attributes.should.have.property('testEmptyString', '')
-        body.user_attributes.should.have.property('testZero', 0)
+        var body2 = JSON.parse(window.fetchMock.lastOptions().body)
+        body2.user_attributes.should.have.property('testFalse', false)
+        body2.user_attributes.should.have.property('testEmptyString', '')
+        body2.user_attributes.should.have.property('testZero', 0)
 
         // check for UAC event for testFalse: fasle when set for first time
-        var event2 = body.events[0];
+        var event2 = body2.events[0];
         event2.should.be.ok();
         event2.event_type.should.equal('user_attribute_change');
         event2.data.new.should.equal(false);
@@ -1215,7 +1215,7 @@ describe('identities and attributes', function() {
         event2.data.is_new_attribute.should.equal(true);
 
         // check for UAC event for testEmptyString: '' when set for first time
-        var event3 = body.events[1];
+        var event3 = body2.events[1];
         event3.should.be.ok();
         event3.event_type.should.equal('user_attribute_change');
         event3.data.new.should.equal('');
@@ -1225,7 +1225,7 @@ describe('identities and attributes', function() {
         event3.data.is_new_attribute.should.equal(true);
 
         // check for UAC event for testZero: 0 when set for first time
-        var event4 = body.events[2];
+        var event4 = body2.events[2];
         event4.should.be.ok();
         event4.event_type.should.equal('user_attribute_change');
         event4.data.new.should.equal(0);
@@ -1272,9 +1272,9 @@ describe('identities and attributes', function() {
         // set initial test attribute with 'falsey' value to 0 
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', 0);
-        var body = JSON.parse(window.fetchMock.lastOptions().body)
-        body.user_attributes.should.have.property('testFalsey', 0)
-        var event1 = body.events[0];
+        var body1 = JSON.parse(window.fetchMock.lastOptions().body)
+        body1.user_attributes.should.have.property('testFalsey', 0)
+        var event1 = body1.events[0];
         event1.should.be.ok();
         event1.event_type.should.equal('user_attribute_change');
         event1.data.new.should.equal(0);
@@ -1286,9 +1286,9 @@ describe('identities and attributes', function() {
         // re-set same test attribute with 'falsey' value to ''
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', '');
-        var body = JSON.parse(window.fetchMock.lastOptions().body)
-        body.user_attributes.should.have.property('testFalsey', '')
-        var event2 = body.events[0];
+        var body2 = JSON.parse(window.fetchMock.lastOptions().body)
+        body2.user_attributes.should.have.property('testFalsey', '')
+        var event2 = body2.events[0];
         event2.should.be.ok();
         event2.event_type.should.equal('user_attribute_change');
         event2.data.new.should.equal('');
@@ -1300,9 +1300,9 @@ describe('identities and attributes', function() {
         // re-set same test attribute with 'falsey' value to false
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', false);
-        var body = JSON.parse(window.fetchMock.lastOptions().body)
-        body.user_attributes.should.have.property('testFalsey', false)
-        var event3 = body.events[0];
+        var body3 = JSON.parse(window.fetchMock.lastOptions().body)
+        body3.user_attributes.should.have.property('testFalsey', false)
+        var event3 = body3.events[0];
         event3.should.be.ok();
         event3.event_type.should.equal('user_attribute_change');
         event3.data.new.should.equal(false);
@@ -1314,9 +1314,9 @@ describe('identities and attributes', function() {
         // re-set same test attribute with 'falsey' value to original value 0
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', '');
-        var body = JSON.parse(window.fetchMock.lastOptions().body)
-        body.user_attributes.should.have.property('testFalsey', 0)
-        var event4 = body.events[0];
+        var body4 = JSON.parse(window.fetchMock.lastOptions().body)
+        body4.user_attributes.should.have.property('testFalsey', 0)
+        var event4 = body4.events[0];
         event4.should.be.ok();
         event4.event_type.should.equal('user_attribute_change');
         event4.data.new.should.equal(0);
