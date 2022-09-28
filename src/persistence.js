@@ -233,15 +233,17 @@ export default function _Persistence(mpInstance) {
     };
 
     this.determineLocalStorageAvailability = function(storage) {
+        var result;
         if (window.mParticle && window.mParticle._forceNoLocalStorage) {
             storage = undefined;
         }
 
         try {
             storage.setItem('mparticle', 'test');
-            storage.getItem('mparticle') === 'test';
+            result = storage.getItem('mparticle') === 'test';
             storage.removeItem('mparticle');
-            return true;
+            // FIXME: This should return a boolean
+            return result && storage;
         } catch (e) {
             return false;
         }
