@@ -28,7 +28,7 @@ describe('Store', () => {
         clock.restore();
     });
 
-    it('should initialize with defaults', () => {
+    it('should initialize Store with defaults', () => {
         // Use sample config to make sure our types are safe
         const store: IStore = new Store(sampleConfig, window.mParticle);
 
@@ -83,108 +83,98 @@ describe('Store', () => {
         ).to.eq(clock.now);
     });
 
-    describe('#createStore', () => {
-        it('should set valid defaults', () => {
-            const store: IStore = new Store(sampleConfig, window.mParticle);
+    it('should initialize store.SDKConfig with valid defaults', () => {
+        const store: IStore = new Store(sampleConfig, window.mParticle);
 
-            expect(store.SDKConfig.aliasMaxWindow, 'aliasMaxWindow').to.eq(90);
-            expect(store.SDKConfig.aliasUrl, 'aliasUrl').to.eq(
-                'jssdks.mparticle.com/v1/identity/'
-            );
-            expect(store.SDKConfig.appName).to.eq('Store Test');
-            expect(store.SDKConfig.appVersion, 'appVersion').to.eq('1.x');
+        expect(store.SDKConfig.aliasMaxWindow, 'aliasMaxWindow').to.eq(90);
+        expect(store.SDKConfig.aliasUrl, 'aliasUrl').to.eq(
+            'jssdks.mparticle.com/v1/identity/'
+        );
+        expect(store.SDKConfig.appName).to.eq('Store Test');
+        expect(store.SDKConfig.appVersion, 'appVersion').to.eq('1.x');
 
-            expect(store.SDKConfig.cookieDomain, 'cookieDomain').to.eq(null);
-            expect(store.SDKConfig.configUrl, 'configUrl').to.eq(
-                'jssdkcdns.mparticle.com/JS/v2/'
-            );
-            expect(store.SDKConfig.customFlags, 'customFlags').to.deep.equal(
-                {}
-            );
+        expect(store.SDKConfig.cookieDomain, 'cookieDomain').to.eq(null);
+        expect(store.SDKConfig.configUrl, 'configUrl').to.eq(
+            'jssdkcdns.mparticle.com/JS/v2/'
+        );
+        expect(store.SDKConfig.customFlags, 'customFlags').to.deep.equal({});
 
-            expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({});
-            expect(store.SDKConfig.dataPlanOptions, 'dataPlanOptions').to.be
-                .undefined;
-            expect(store.SDKConfig.dataPlanResult, 'dataPlanResult').to.be
-                .undefined;
+        expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({});
+        expect(store.SDKConfig.dataPlanOptions, 'dataPlanOptions').to.be
+            .undefined;
+        expect(store.SDKConfig.dataPlanResult, 'dataPlanResult').to.be
+            .undefined;
 
-            expect(
-                store.SDKConfig.flags.eventBatchingIntervalMillis,
-                'flags.eventBatchingIntervalMillis'
-            ).to.eq(0);
-            expect(store.SDKConfig.flags.eventsV3, 'flags.eventsV3').to.eq(0);
-            expect(
-                store.SDKConfig.flags.reportBatching,
-                'flags.reportBatching'
-            ).to.eq(false);
-            expect(store.SDKConfig.forceHttps, 'forceHttps').to.eq(true);
+        expect(
+            store.SDKConfig.flags.eventBatchingIntervalMillis,
+            'flags.eventBatchingIntervalMillis'
+        ).to.eq(0);
+        expect(store.SDKConfig.flags.eventsV3, 'flags.eventsV3').to.eq(0);
+        expect(
+            store.SDKConfig.flags.reportBatching,
+            'flags.reportBatching'
+        ).to.eq(false);
+        expect(store.SDKConfig.forceHttps, 'forceHttps').to.eq(true);
 
-            expect(store.SDKConfig.identityCallback, 'identityCallback').to.be
-                .undefined;
-            expect(store.SDKConfig.identityUrl, 'identityUrl').to.eq(
-                'identity.mparticle.com/v1/'
-            );
-            expect(store.SDKConfig.identifyRequest, 'identifyRequest').to.be
-                .undefined;
-            expect(
-                store.SDKConfig.integrationDelayTimeout,
-                'integrationDelayTimeout'
-            ).to.eq(5000);
-            expect(
-                store.SDKConfig.isDevelopmentMode,
-                'isDevelopmentMode'
-            ).to.eq(false);
-            expect(store.SDKConfig.isIOS, 'isIOS').to.eq(false);
+        expect(store.SDKConfig.identityCallback, 'identityCallback').to.be
+            .undefined;
+        expect(store.SDKConfig.identityUrl, 'identityUrl').to.eq(
+            'identity.mparticle.com/v1/'
+        );
+        expect(store.SDKConfig.identifyRequest, 'identifyRequest').to.be
+            .undefined;
+        expect(
+            store.SDKConfig.integrationDelayTimeout,
+            'integrationDelayTimeout'
+        ).to.eq(5000);
+        expect(store.SDKConfig.isDevelopmentMode, 'isDevelopmentMode').to.eq(
+            false
+        );
+        expect(store.SDKConfig.isIOS, 'isIOS').to.eq(false);
 
-            expect(store.SDKConfig.kits, 'kits').to.deep.equal({});
-            expect(store.SDKConfig.logLevel, 'logLevel').to.eq(null);
+        expect(store.SDKConfig.kits, 'kits').to.deep.equal({});
+        expect(store.SDKConfig.logLevel, 'logLevel').to.eq(null);
 
-            expect(store.SDKConfig.maxCookieSize, 'maxCookieSize').to.eq(3000);
-            expect(store.SDKConfig.maxProducts, 'maxProducts').to.eq(20);
-            expect(
-                store.SDKConfig.minWebviewBridgeVersion,
-                'minWebviewBridgeVersion'
-            ).to.eq(1);
+        expect(store.SDKConfig.maxCookieSize, 'maxCookieSize').to.eq(3000);
+        expect(store.SDKConfig.maxProducts, 'maxProducts').to.eq(20);
+        expect(
+            store.SDKConfig.minWebviewBridgeVersion,
+            'minWebviewBridgeVersion'
+        ).to.eq(1);
 
-            expect(store.SDKConfig.package, 'package').to.eq(
-                'com.mparticle.test'
-            );
+        expect(store.SDKConfig.package, 'package').to.eq('com.mparticle.test');
 
-            expect(store.SDKConfig.sessionTimeout, 'sessionTimeout').to.eq(30);
+        expect(store.SDKConfig.sessionTimeout, 'sessionTimeout').to.eq(30);
 
-            expect(store.SDKConfig.useCookieStorage, 'useCookieStorage').to.eq(
-                false
-            );
-            expect(store.SDKConfig.useNativeSdk, 'useNativeSdk').to.eq(false);
+        expect(store.SDKConfig.useCookieStorage, 'useCookieStorage').to.eq(
+            false
+        );
+        expect(store.SDKConfig.useNativeSdk, 'useNativeSdk').to.eq(false);
 
-            expect(
-                store.SDKConfig.v1SecureServiceUrl,
-                'v1SecureServiceUrl'
-            ).to.eq('jssdks.mparticle.com/v1/JS/');
-            expect(
-                store.SDKConfig.v2SecureServiceUrl,
-                'v2SecureServiceUrl'
-            ).to.eq('jssdks.mparticle.com/v2/JS/');
-            expect(
-                store.SDKConfig.v3SecureServiceUrl,
-                'v3SecureServiceUrl'
-            ).to.eq('jssdks.mparticle.com/v3/JS/');
-        });
+        expect(store.SDKConfig.v1SecureServiceUrl, 'v1SecureServiceUrl').to.eq(
+            'jssdks.mparticle.com/v1/JS/'
+        );
+        expect(store.SDKConfig.v2SecureServiceUrl, 'v2SecureServiceUrl').to.eq(
+            'jssdks.mparticle.com/v2/JS/'
+        );
+        expect(store.SDKConfig.v3SecureServiceUrl, 'v3SecureServiceUrl').to.eq(
+            'jssdks.mparticle.com/v3/JS/'
+        );
+    });
 
-        it('should assign expected values to dataPlan', () => {
-            const dataPlanConfig = {
-                ...sampleConfig,
-                dataPlan: {
-                    planId: 'test-data-plan',
-                    planVersion: 3,
-                },
-            };
-            const store: IStore = new Store(dataPlanConfig, window.mParticle);
+    it('should assign expected values to dataPlan', () => {
+        const dataPlanConfig = {
+            ...sampleConfig,
+            dataPlan: {
+                planId: 'test-data-plan',
+                planVersion: 3,
+            },
+        };
+        const store: IStore = new Store(dataPlanConfig, window.mParticle);
 
-            expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({
-                PlanId: 'test-data-plan',
-                PlanVersion: 3,
-            });
+        expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({
+            PlanId: 'test-data-plan',
+            PlanVersion: 3,
         });
     });
 });
