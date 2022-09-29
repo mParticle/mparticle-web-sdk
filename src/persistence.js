@@ -155,11 +155,14 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // Stores the state of the Store after being read from Persistence
+    // If this is a first visit, does a basic assignment of client and
+    // device IDs
     this.storeDataInMemory = function(obj, currentMPID) {
         try {
             if (!obj) {
-                // TODO: why do we need to update client id or device id if object
-                //       is empty?
+                // Sets up the default "Store" if a cookie is not found
+                // (user's fresh visit)
                 mpInstance.Logger.verbose(
                     Messages.InformationMessages.CookieNotFound
                 );

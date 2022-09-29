@@ -364,6 +364,7 @@ describe('Persistence', function() {
             mParticle.getInstance()._Store.storageName = 'mprtcl-v4_defghi';
 
             expect(mParticle.getInstance()._Persistence.getCookie()).to.eql({
+                // TODO: Use this to create a Persistence Object Interface
                 cu: 'testMPID',
                 gs: {
                     cgid: '4bb52bdd-e021-4476-bf79-d1060ca2482b',
@@ -378,6 +379,7 @@ describe('Persistence', function() {
                 l: false,
                 testMPID: {
                     con: {
+                        // TODO: Should have CCPA
                         gdpr: {
                             location_collection: {
                                 c: true,
@@ -412,6 +414,7 @@ describe('Persistence', function() {
     describe('#reduceAndEncodePersistence', function() {});
     describe('#findPrevCookiesBasedOnUI', function() {});
 
+    // TODO: Use a full sized persistence object
     describe('#encodePersistence', function() {
         it('should encode a persistence object', function() {
             var persistanceObject =
@@ -424,6 +427,7 @@ describe('Persistence', function() {
         });
     });
 
+    // TODO: Use a full sized persistence object
     describe('#decodePersistence', function() {
         it('should decode a persistence object', function() {
             var persistanceObject = `{\'gs\':{\'ie\':1|\'sid\':\'This is an id\'}|\'mpid\':\'12345\'}`;
