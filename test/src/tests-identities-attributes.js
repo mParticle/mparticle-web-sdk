@@ -1256,7 +1256,7 @@ describe('identities and attributes', function() {
         done()
     });
 
-    it('should send user attributes when setting different falsey values', function(done) {
+    it('should send user attribute change event when setting different falsey values', function(done) {
         mParticle._resetForTests(MPConfig);
 
         window.fetchMock.post(
