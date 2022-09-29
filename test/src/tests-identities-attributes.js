@@ -1219,7 +1219,7 @@ describe('identities and attributes', function() {
         event3.event_type.should.equal('user_attribute_change');
         event3.data.new.should.equal('');
         (event3.data.old === null).should.equal(true);
-        event3.data.user_attribute_name.should.equal('testFalse');
+        event3.data.user_attribute_name.should.equal('testEmptyString');
         event3.data.deleted.should.equal(false);
         event3.data.is_new_attribute.should.equal(true);
 
@@ -1233,7 +1233,7 @@ describe('identities and attributes', function() {
         event4.event_type.should.equal('user_attribute_change');
         event4.data.new.should.equal(0);
         (event4.data.old === null).should.equal(true);
-        event4.data.user_attribute_name.should.equal('testFalse');
+        event4.data.user_attribute_name.should.equal('testZero');
         event4.data.deleted.should.equal(false);
         event4.data.is_new_attribute.should.equal(true);
         
