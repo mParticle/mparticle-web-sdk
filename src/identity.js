@@ -1819,7 +1819,7 @@ export default function Identity(mpInstance) {
         deleted,
         user
     ) {
-        if (!previousUserAttributeValue) {
+        if (typeof previousUserAttributeValue === 'undefined') {
             previousUserAttributeValue = null;
         }
         var userAttributeChangeEvent;
@@ -1830,7 +1830,7 @@ export default function Identity(mpInstance) {
                     userAttributeChanges: {
                         UserAttributeName: key,
                         New: newValue,
-                        Old: previousUserAttributeValue || null,
+                        Old: previousUserAttributeValue,
                         Deleted: deleted,
                         IsNewAttribute: isNewAttribute,
                     },
