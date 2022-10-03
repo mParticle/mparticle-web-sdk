@@ -1,3 +1,10 @@
+## [2.17.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.17.2...v2.17.3) (2022-10-03)
+
+
+### Bug Fixes
+
+* Check for undefined rather than falsey values for UAC events ([#361](https://github.com/mParticle/mparticle-web-sdk/issues/361)) ([2514055](https://github.com/mParticle/mparticle-web-sdk/commit/2514055e2ba7f0dc1b3030a187bafba49b72dbd7))
+
 ## [2.17.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.17.1...v2.17.2) (2022-09-14)
 
 
