@@ -720,7 +720,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.17.2";
+    var version = "2.17.3";
 
     var Constants = {
       sdkVersion: version,
@@ -8138,7 +8138,7 @@ var mParticle = (function () {
       };
 
       this.createUserAttributeChange = function (key, newValue, previousUserAttributeValue, isNewAttribute, deleted, user) {
-        if (!previousUserAttributeValue) {
+        if (typeof previousUserAttributeValue === 'undefined') {
           previousUserAttributeValue = null;
         }
 
@@ -8150,7 +8150,7 @@ var mParticle = (function () {
             userAttributeChanges: {
               UserAttributeName: key,
               New: newValue,
-              Old: previousUserAttributeValue || null,
+              Old: previousUserAttributeValue,
               Deleted: deleted,
               IsNewAttribute: isNewAttribute
             }
