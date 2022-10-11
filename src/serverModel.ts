@@ -133,7 +133,7 @@ export interface ProductImpressionDTO {
     pl: ProductDTO[];
 }
 
-interface UploadObject extends SDKEvent {
+export interface UploadObject extends SDKEvent {
     ClientGeneratedId: string;
     Store: IStore;
     ExpandedEventCount: number;
@@ -142,7 +142,7 @@ interface UploadObject extends SDKEvent {
 
 export interface IServerModel {
     convertEventToDTO: (event: UploadObject) => ServerDTO;
-    createEventObject: (event: BaseEvent, user: MParticleUser) => SDKEvent;
+    createEventObject: (event: BaseEvent, user?: MParticleUser) => SDKEvent;
     convertToConsentStateDTO: (state: SDKConsentState) => ConsentStateDTO;
     appendUserInfo: (user: MParticleUser, event: SDKEvent) => void;
 }
@@ -306,8 +306,8 @@ export default function ServerModel(
 
     this.createEventObject = function(
         event: BaseEvent,
-        user: MParticleUser
-    ): SDKEvent {
+        user?: MParticleUser
+    ): SDKEvent | UploadObject {
         var uploadObject: Partial<UploadObject> = {};
         var eventObject: Partial<SDKEvent> = {};
 

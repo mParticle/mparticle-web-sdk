@@ -2,6 +2,9 @@ import Types from '../../src/types';
 import sinon from 'sinon';
 import { urls, testMPID, apiKey } from './config';
 import { expect } from 'chai';
+import { UploadObject } from '../../src/serverModel';
+import { AllUserAttributes, IdentityApiData } from '@mparticle/web-sdk';
+import { MParticleUser } from '../../src/sdkRuntimeModels';
 
 let mockServer;
 const mParticle = window.mParticle;
@@ -12,7 +15,7 @@ describe.only('Server Model', function() {
         name: 'foo page',
         data: { 'foo-attr': 'foo-val' },
         eventType: Types.EventType.Navigation,
-        customFlags:{ 'foo-flag': 'foo-flag-val' }
+        customFlags: { 'foo-flag': 'foo-flag-val' },
     };
 
     beforeEach(function() {
@@ -22,7 +25,7 @@ describe.only('Server Model', function() {
         mockServer.respondWith(urls.eventsV2, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
+            JSON.stringify({ mpid: testMPID, Store: {} }),
         ]);
         mockServer.respondWith(urls.identify, [
             200,
@@ -40,10 +43,10 @@ describe.only('Server Model', function() {
         let sdkEvent = window.mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
-        
+
         let upload = window.mParticle
             .getInstance()
-            ._ServerModel.convertEventToDTO(sdkEvent);
+            ._ServerModel.convertEventToDTO(sdkEvent as UploadObject);
 
         upload.should.not.have.property('dp_id');
         upload.should.not.have.property('dp_v');
@@ -53,7 +56,7 @@ describe.only('Server Model', function() {
     it('Should convert data plan id to server DTO', function(done) {
         mParticle._resetForTests();
         mParticle.config.dataPlan = {
-            planId: 'plan-slug'
+            planId: 'plan-slug',
         };
 
         mParticle.init('foo', mParticle.config);
@@ -62,7 +65,7 @@ describe.only('Server Model', function() {
             ._ServerModel.createEventObject(event);
         let upload = mParticle
             .getInstance()
-            ._ServerModel.convertEventToDTO(sdkEvent);
+            ._ServerModel.convertEventToDTO(sdkEvent as UploadObject);
 
         upload.should.have.property('dp_id', 'plan-slug');
         upload.should.not.have.property('dp_v');
@@ -72,7 +75,7 @@ describe.only('Server Model', function() {
     it('Should not convert data plan object to server DTO when no id is set', function(done) {
         mParticle._resetForTests();
         mParticle.config.dataPlan = {
-            planVersion: 5
+            planVersion: 5,
         };
 
         mParticle.init('foo', mParticle.config);
@@ -81,7 +84,7 @@ describe.only('Server Model', function() {
             ._ServerModel.createEventObject(event);
         let upload = mParticle
             .getInstance()
-            ._ServerModel.convertEventToDTO(sdkEvent);
+            ._ServerModel.convertEventToDTO(sdkEvent as UploadObject);
 
         upload.should.not.have.property('dp_id');
         upload.should.not.have.property('dp_v');
@@ -92,7 +95,7 @@ describe.only('Server Model', function() {
         mParticle._resetForTests();
         mParticle.config.dataPlan = {
             planId: 'plan-slug',
-            planVersion: 10
+            planVersion: 10,
         };
 
         mParticle.init('foo', mParticle.config);
@@ -101,7 +104,7 @@ describe.only('Server Model', function() {
             ._ServerModel.createEventObject(event);
         let upload = mParticle
             .getInstance()
-            ._ServerModel.convertEventToDTO(sdkEvent);
+            ._ServerModel.convertEventToDTO(sdkEvent as UploadObject);
 
         upload.should.have.property('dp_id', 'plan-slug');
         upload.should.have.property('dp_v', 10);
@@ -130,7 +133,7 @@ describe.only('Server Model', function() {
             .getInstance()
             ._ServerModel.convertToConsentStateDTO(consentState);
 
-        consent.should.be.ok();
+        expect(consent).to.be.ok;
 
         consent.should.have.property('gdpr');
         consent.gdpr.should.have.property('foo');
@@ -142,7 +145,8 @@ describe.only('Server Model', function() {
         done();
     });
 
-    it('Should not append user info when no user', function(done) {
+    it('Should not append user info when no user exists', function(done) {
+        debugger;
         mParticle.getInstance()._Store.should.be.ok;
 
         let sdkEvent = mParticle
@@ -150,9 +154,9 @@ describe.only('Server Model', function() {
             ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
-        expect(sdkEvent.UserIdentities).to.not.be.ok;
-        expect(sdkEvent.UserAttributes).to.not.be.ok;
-        expect(sdkEvent.ConsentState).to.not.be.ok;
+        expect(sdkEvent.UserIdentities).to.eql([]);
+        expect(sdkEvent.UserAttributes).to.eql({});
+        expect(sdkEvent.ConsentState === null).to.eql(true);
         done();
     });
 
@@ -173,6 +177,20 @@ describe.only('Server Model', function() {
                     'foo hardware id'
                 )
         );
+
+        const expectedUserIdentities = [
+            { Identity: 'foo-other', Type: 0 },
+            { Identity: '1234567', Type: 1 },
+            { Identity: 'foo-email', Type: 7 },
+            { Identity: 'foo-other2', Type: 10 },
+            { Identity: 'foo-other3', Type: 11 },
+            { Identity: 'foo-other4', Type: 12 },
+        ];
+
+        const expectedUserAttributes = {
+            'foo-user-attr': 'foo-attr-value',
+            'foo-user-attr-list': ['item1', 'item2'],
+        };
 
         window.mParticle.getInstance().Identity.getCurrentUser = () => {
             return {
@@ -206,11 +224,11 @@ describe.only('Server Model', function() {
             .getInstance()
             ._ServerModel.createEventObject(event);
 
-        sdkEvent.should.be.ok;
-        sdkEvent.UserIdentities.should.be.ok;
-        sdkEvent.MPID.should.be.ok;
-        sdkEvent.UserAttributes.should.be.ok;
-        sdkEvent.ConsentState.should.be.ok;
+        expect(sdkEvent).to.be.ok;
+        expect(sdkEvent.UserIdentities).to.eql(expectedUserIdentities);
+        expect(sdkEvent.MPID).to.equal('98765');
+        expect(sdkEvent.UserAttributes).to.eql(expectedUserAttributes);
+        expect(sdkEvent.ConsentState).to.be.ok;
 
         done();
     });
@@ -221,7 +239,7 @@ describe.only('Server Model', function() {
             ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
-        expect(sdkEvent.UserIdentities).to.not.be.ok;
+        expect(sdkEvent.UserIdentities).to.eql([]);
 
         var user = {
             getUserIdentities: () => {
@@ -275,13 +293,14 @@ describe.only('Server Model', function() {
             ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
-        expect(sdkEvent.UserAttributes).to.not.be.ok;
+        expect(sdkEvent.UserAttributes).to.eql({});
         var attributes = { foo: 'bar', 'foo-arr': ['bar1', 'bar2'] };
-        var user = {
-            getUserIdentities: () => {
-                return { userIdentites: {} };
+        var user: MParticleUser = {
+            // TODO: Compiler is not happy with this
+            getUserIdentities: (): IdentityApiData => {
+                return ({ userIdentites: {} } as unknown) as IdentityApiData;
             },
-            getAllUserAttributes: () => {
+            getAllUserAttributes: (): AllUserAttributes => {
                 return attributes;
             },
             getMPID: () => {
@@ -293,23 +312,26 @@ describe.only('Server Model', function() {
         };
 
         mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
-        sdkEvent.UserAttributes.should.be.ok;
-        sdkEvent.UserAttributes.should.deepEqual(attributes);
+        expect(sdkEvent.UserAttributes).to.be.ok;
+        expect(sdkEvent.UserAttributes).to.eql(attributes);
 
         done();
     });
 
-    it('Should append mpid when user present', function(done) {
+    it('Should update mpid when user info is appended with a new mpid', function(done) {
         let sdkEvent = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
-        expect(sdkEvent.MPID).to.not.be.ok;
 
-        var user = {
+        // By default, all tests instances have 'testMPID'
+        expect(sdkEvent.MPID).to.equal('testMPID');
+
+        // TODO: this makes the compiler angry unless we make it hacky
+        var user: MParticleUser = {
             getUserIdentities: () => {
-                return { userIdentites: {} };
+                return ({ userIdentites: {} } as unknown) as IdentityApiData;
             },
             getAllUserAttributes: () => {
                 return null;
@@ -322,43 +344,45 @@ describe.only('Server Model', function() {
             },
         };
         mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
-        sdkEvent.MPID.should.be.ok;
-        sdkEvent.MPID.should.equal('98765');
+        expect(sdkEvent.MPID).to.equal('98765');
         done();
     });
 
-    it('convertEventToDTO should maintain launch referral', function(done) {
+    it('convertEventToDTO should contain launch referral', function(done) {
+        // TODO: Verify if this should be an SDKEvent or UploadObject
         var event = {
-            "EventName": 10,
-            "EventAttributes": null,
-            "SourceMessageId": "7efa0811-c716-4a1d-b8bf-dae90242849c",
-            "EventDataType": 10,
-            "CustomFlags": {},
-            "IsFirstRun": false,
-            "LaunchReferral": "http://foo.bar/this/is/a/test",
-            "CurrencyCode": null,
-            "MPID": "testMPID",
-            "ConsentState": null,
-            "UserAttributes": {},
-            "UserIdentities": [],
-            "Store": {},
-            "SDKVersion": "2.14.0",
-            "SessionId": "43E9CB7B-A533-48A0-9D34-A9D51A4986F1",
-            "SessionStartDate": 1630528189521,
-            "Debug": false,
-            "Location": null,
-            "OptOut": null,
-            "ExpandedEventCount": 0,
-            "ClientGeneratedId": "abbaac60-6356-4cdb-88ab-ac63ffdc7b11",
-            "DeviceId": "f0164e59-ffe2-4c01-bd82-b1267096f8a1",
-            "IntegrationAttributes": {},
-            "DataPlan": {},
-            "Timestamp": 1630528218899
-        }
+            EventName: 10,
+            EventAttributes: null,
+            SourceMessageId: '7efa0811-c716-4a1d-b8bf-dae90242849c',
+            EventDataType: 10,
+            CustomFlags: {},
+            IsFirstRun: false,
+            LaunchReferral: 'http://foo.bar/this/is/a/test',
+            CurrencyCode: null,
+            MPID: 'testMPID',
+            ConsentState: null,
+            UserAttributes: {},
+            UserIdentities: [],
+            Store: {},
+            SDKVersion: '2.14.0',
+            SessionId: '43E9CB7B-A533-48A0-9D34-A9D51A4986F1',
+            SessionStartDate: 1630528189521,
+            Debug: false,
+            Location: null,
+            OptOut: null,
+            ExpandedEventCount: 0,
+            ClientGeneratedId: 'abbaac60-6356-4cdb-88ab-ac63ffdc7b11',
+            DeviceId: 'f0164e59-ffe2-4c01-bd82-b1267096f8a1',
+            IntegrationAttributes: {},
+            DataPlan: {},
+            Timestamp: 1630528218899,
+        };
 
-        var upload = mParticle.getInstance()._ServerModel.convertEventToDTO(event);
+        var upload = mParticle
+            .getInstance()
+            ._ServerModel.convertEventToDTO((event as unknown) as UploadObject);
 
-        upload.lr.should.startWith('http://foo.bar/this/is/a/test');
+        expect(upload.lr).to.equal('http://foo.bar/this/is/a/test');
 
         done();
     });

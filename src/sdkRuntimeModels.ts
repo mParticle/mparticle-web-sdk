@@ -6,6 +6,7 @@ import { MPConfiguration, SDKEventCustomFlags, IdentityApiData
 import { IStore, SDKConfig } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
+import { IServerModel } from './serverModel';
 
 export interface SDKEvent {
     DeviceId: string;
@@ -125,14 +126,18 @@ export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
+    _APIClient: any; // TODO: Set up API Client
     _Store: IStore;
     _Helpers: SDKHelpersApi;
     config: SDKInitConfig;
+    _ServerModel: IServerModel;
+    _SessionManager: any; // TODO: Set up Session Manager
+    _Consent: any; // TODO: Set up Consent SDK
     _resetForTests(MPConfig?: SDKConfig): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
     getAppName();
     getAppVersion();
-    getInstance();
+    getInstance(): MParticleWebSDK;
     ServerModel();
     upload();
     setPosition(lat: number | string, lng: number | string): void;

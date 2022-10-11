@@ -26,6 +26,10 @@ export default class _BatchValidator {
                 Validators: null,
             },
             _resetForTests: mockFunction,
+            _APIClient: null,
+            _Consent: null,
+            _ServerModel: null,
+            _SessionManager: null,
             _Store: {
                 sessionId: 'mockSessionId',
                 devToken: 'test_dev_token',
