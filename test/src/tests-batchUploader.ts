@@ -1,8 +1,7 @@
 import sinon from 'sinon';
 import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
-import { BatchUploader } from  '../../src/batchUploader';
-import { MParticleWebSDK, SDKEvent, SDKProductActionType } from  '../../src/sdkRuntimeModels';
+import { MParticleWebSDK, SDKProductActionType } from  '../../src/sdkRuntimeModels';
 import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './utils';
 
@@ -249,7 +248,10 @@ describe('batch uploader', () => {
             window.mParticle.config.identityCallback = function(result) {
                 let currentUser = result.getUser()
                 if (currentUser) {
-                    currentUser.setUserAttribute("number", Math.floor((Math.random() * 1000) + 1))
+                    // TODO: Investigate if we should update definitely typed typings for
+                    // setUserAttribute which only allows strings right now
+                    // more context at https://go.mparticle.com/work/SQDSDKS-4576
+                    currentUser.setUserAttribute("number", `${Math.floor((Math.random() * 1000) + 1)}`)
                 }
             }
             

@@ -930,7 +930,7 @@ describe('event logging', function() {
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
-            planId: '--',
+            planId: 'not a slug',
             planVersion: 10,
         };
         
@@ -942,7 +942,7 @@ describe('event logging', function() {
             
         window.mParticle.logEvent('Test Event');
 
-        errorMessage.should.equal('Your data plan id must be in a slug format')
+        errorMessage.should.equal('Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)')
         var batch = JSON.parse(window.fetchMock.lastOptions().body);
         batch.should.not.have.property('context');
         delete window.mParticle.config.flags

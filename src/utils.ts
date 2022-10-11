@@ -1,4 +1,9 @@
+import slugify from 'slugify';
+
 type valueof<T> = T[keyof T];
+
+// Placeholder for Dictionary-like Types
+export type Dictionary<V = any> = Record<string, V>;
 
 const inArray = (items: any[], name: string): boolean => {
     let i = 0;
@@ -70,6 +75,17 @@ const converted = (s: string): string => {
     return s;
 };
 
+const isString = (value: any): boolean => typeof value === 'string';
+const isNumber = (value: any): boolean => typeof value === 'number';
+const isFunction = (fn: any): boolean => typeof fn === 'function';
+
+// TODO: Refactor this to a regex
+const isDataPlanSlug = (str: string): boolean =>
+    isString(str) && str === slugify(str);
+
+const isStringOrNumber = (value: any): boolean =>
+    isString(value) || isNumber(value);
+
 export {
     valueof,
     converted,
@@ -79,4 +95,9 @@ export {
     isObject,
     parseNumber,
     returnConvertedBoolean,
+    isString,
+    isNumber,
+    isFunction,
+    isStringOrNumber,
+    isDataPlanSlug,
 };

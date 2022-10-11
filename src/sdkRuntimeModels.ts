@@ -1,5 +1,9 @@
-import * as EventsApi from '@mparticle/event-models';
-import { DataPlanVersion, DataPlan } from '@mparticle/data-planning-models';
+import { DataPlanVersion } from '@mparticle/data-planning-models';
+import { Batch } from '@mparticle/event-models';
+import { MPConfiguration, SDKEventCustomFlags } from '@mparticle/web-sdk';
+import { SDKConfig } from './store';
+import { Dictionary } from './utils';
+import Validators from './validators';
 
 export interface SDKEvent {
     DeviceId: string;
@@ -116,59 +120,77 @@ export interface SDKProduct {
 }
 
 export interface MParticleWebSDK {
-    addForwarder(mockForwarder: any);
+    addForwarder(mockForwarder: MPForwarder): void;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     _Store: SDKStoreApi;
     _Helpers: SDKHelpersApi;
-    config: SDKConfig;
+    config: SDKInitConfig;
     _resetForTests(MPConfig: SDKConfig): void;
-    init(apiKey: string, config: SDKConfig): void;
+    init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
     getInstance();
     ServerModel();
     upload();
     setPosition(lat: number | string, lng: number | string): void;
-    logEvent(eventName: string, eventType?: number, attrs?: { [key: string]: string }): void;
+    logEvent(
+        eventName: string,
+        eventType?: number,
+        attrs?: { [key: string]: string },
+        customFlags?: SDKEventCustomFlags
+    ): void;
     logBaseEvent(event: any): void;
     eCommerce: any;
     logLevel: string;
     ProductActionType: SDKProductActionType;
     generateHash(value: string);
+    isIOS?: boolean;
 }
 
-export interface SDKConfig {
-    isDevelopmentMode?: boolean;
-    logger: {
-        error?(msg);
-        warning?(msg) 
-        verbose?(msg) 
-    };
-    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
-    dataPlan: DataPlanConfig;
-    appVersion?: string;
-    package?: string;
-    flags?: { [key: string]: string | number };
-    kitConfigs: any;
-    appName?: string;
-    logLevel?: string;
-    sessionTimeout?: number;
-    useCookieStorage?: boolean;
-    cookieDomain?: string;
-    workspaceToken: string;
-    requiredWebviewBridgeName: string;
-    minWebviewBridgeVersion: number;
+export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
+
+// TODO: Create true types for Kits and Kit Configs
+export type KitConfigs = Dictionary;
+export type Kit = Dictionary;
+export type MPForwarder = Dictionary;
+
+// TODO: This should eventually be moved into wherever init logic lives
+// TODO: Replace/Merge this with MPConfiguration in @types/mparticle__web-sdk
+// SDK Init Config represents the config that is passed into mParticle.init when
+// the sdk is initialized.
+// Currently, this extends MPConfiguration in @types/mparticle__web-sdk
+// and the two will be merged in once the Store module is refactored
+export interface SDKInitConfig
+    extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
+    dataPlan?: DataPlanConfig | KitBlockerDataPlan; // TODO: These should be eventually split into two different attributes
+    logLevel?: LogLevelType;
+
+    kitConfigs?: KitConfigs[];
+    kits?: Dictionary<Kit>;
+    dataPlanOptions?: KitBlockerOptions;
+    flags?: Dictionary;
+
+    aliasMaxWindow: number;
+    deviceId?: string;
+    forceHttps?: boolean;
+    aliasUrl?: string;
+    configUrl?: string;
+    identityUrl?: string;
+    integrationDelayTimeout: number;
     isIOS?: boolean;
-    identifyRequest: { [key: string]: {[key: string]: string} };
-    identityCallback: (result) => void;
-    requestConfig: boolean;
-    dataPlanOptions: KitBlockerOptions // when the user provides their own data plan
-    dataPlanResult?: DataPlanResult  // when the data plan comes from the server via /config
+    maxProducts: number;
+    requestConfig?: boolean;
+    sessionTimeout?: number;
+    useNativeSdk?: boolean;
+    useCookieStorage?: boolean;
+    v1SecureServiceUrl?: string;
+    v2SecureServiceUrl?: string;
+    v3SecureServiceUrl?: string;
 }
 
 export interface DataPlanConfig {
     planId?: string;
     planVersion?: number;
-    document?: DataPlanResult  // when the data plan comes from the server via /mparticle.js
+    document?: DataPlanResult; // when the data plan comes from the server via /mparticle.js
 }
 
 export interface SDKIdentityApi {
@@ -182,9 +204,11 @@ export interface SDKIdentityApi {
 
 export interface SDKHelpersApi {
     createServiceUrl(arg0: string, arg1: string): void;
-    parseNumber(value: number)
+    parseNumber(value: number);
     generateUniqueId();
-    isObject(item: any)
+    isObject(item: any);
+    returnConvertedBoolean(data: string | boolean | number): boolean;
+    Validators: typeof Validators;
 }
 
 export interface SDKLoggerApi {
@@ -205,7 +229,7 @@ export interface SDKConfigApi {
     v3SecureServiceUrl?: string;
     isDevelopmentMode: boolean;
     appVersion?: string;
-    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch
+    onCreateBatch(batch: Batch): Batch;
 }
 export interface MParticleUser {
     getMPID(): string;
@@ -267,7 +291,7 @@ export interface KitBlockerOptions {
 }
 
 export interface KitBlockerDataPlan {
-    document: DataPlanResult
+    document: DataPlanResult;
 }
 
 export interface DataPlanResult {
@@ -280,30 +304,30 @@ export interface DataPlanResult {
             id: boolean;
         };
     };
-    error_message?: string
+    error_message?: string;
 }
 
 export enum SDKIdentityTypeEnum {
-    other = "other",
-    customerId = "customerid",
-    facebook = "facebook",
-    twitter = "twitter",
-    google = "google",
-    microsoft = "microsoft",
-    yahoo = "yahoo",
-    email = "email",
-    alias = "alias",
-    facebookCustomAudienceId = "facebookcustomaudienceid",
-    otherId2 = "other2",
-    otherId3 = "other3",
-    otherId4 = "other4",
-    otherId5 = "other5",
-    otherId6 = "other6",
-    otherId7 = "other7",
-    otherId8 = "other8",
-    otherId9 = "other9",
-    otherId10 = "other10",
-    mobileNumber = "mobile_number",
-    phoneNumber2 = "phone_number_2",
-    phoneNumber3 = "phone_number_3"
+    other = 'other',
+    customerId = 'customerid',
+    facebook = 'facebook',
+    twitter = 'twitter',
+    google = 'google',
+    microsoft = 'microsoft',
+    yahoo = 'yahoo',
+    email = 'email',
+    alias = 'alias',
+    facebookCustomAudienceId = 'facebookcustomaudienceid',
+    otherId2 = 'other2',
+    otherId3 = 'other3',
+    otherId4 = 'other4',
+    otherId5 = 'other5',
+    otherId6 = 'other6',
+    otherId7 = 'other7',
+    otherId8 = 'other8',
+    otherId9 = 'other9',
+    otherId10 = 'other10',
+    mobileNumber = 'mobile_number',
+    phoneNumber2 = 'phone_number_2',
+    phoneNumber3 = 'phone_number_3',
 }

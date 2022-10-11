@@ -1,30 +1,156 @@
+import { Batch } from '@mparticle/event-models';
+import { Context } from '@mparticle/event-models';
+import {
+    DataPlanConfig,
+    MPID,
+    IdentifyRequest,
+    IdentityCallback,
+    SDKEventCustomFlags,
+} from '@mparticle/web-sdk';
 import Constants from './constants';
+import {
+    DataPlanResult,
+    Kit,
+    KitBlockerOptions,
+    KitConfigs,
+    LogLevelType,
+    MParticleWebSDK,
+    MPForwarder,
+    SDKConsentState,
+    SDKDataPlan,
+    SDKEvent,
+    SDKGeoLocation,
+    SDKInitConfig,
+    SDKProduct,
+} from './sdkRuntimeModels';
+import { isNumber, isDataPlanSlug, Dictionary } from './utils';
 
-function createSDKConfig(config) {
-    var sdkConfig = {};
-    for (var prop in Constants.DefaultConfig) {
+// This represents the runtime configuration of the SDK AFTER
+// initialization has been complete and all settings and
+// configurations have been stitched together.
+export interface SDKConfig {
+    isDevelopmentMode?: boolean;
+    logger: {
+        error?(msg);
+        warning?(msg);
+        verbose?(msg);
+    };
+    onCreateBatch(batch: Batch): Batch;
+    customFlags?: SDKEventCustomFlags;
+    dataPlan: SDKDataPlan;
+    dataPlanOptions: KitBlockerOptions; // when the user provides their own data plan
+    dataPlanResult?: DataPlanResult; // when the data plan comes from the server via /config
+
+    appName?: string;
+    appVersion?: string;
+    package?: string;
+    flags?: { [key: string]: string | number | boolean };
+    kitConfigs: KitConfigs[];
+    kits: Dictionary<Kit>;
+    logLevel?: LogLevelType;
+    cookieDomain?: string;
+    maxCookieSize?: number | undefined;
+    minWebviewBridgeVersion: 1 | 2 | undefined;
+    identifyRequest: IdentifyRequest;
+    identityCallback: IdentityCallback;
+    integrationDelayTimeout: number;
+
+    aliasMaxWindow: number;
+    deviceId?: string;
+    forceHttps?: boolean;
+    aliasUrl?: string;
+    configUrl?: string;
+    identityUrl?: string;
+    isIOS?: boolean;
+    maxProducts: number;
+    requestConfig?: boolean;
+    sessionTimeout?: number;
+    useNativeSdk?: boolean;
+    useCookieStorage?: boolean;
+    v1SecureServiceUrl?: string;
+    v2SecureServiceUrl?: string;
+    v3SecureServiceUrl?: string;
+}
+
+function createSDKConfig(config: SDKInitConfig): SDKConfig {
+    // TODO: Refactor to create a default config object
+    const sdkConfig = {} as SDKConfig;
+
+    for (const prop in Constants.DefaultConfig) {
         if (Constants.DefaultConfig.hasOwnProperty(prop)) {
             sdkConfig[prop] = Constants.DefaultConfig[prop];
         }
     }
 
     if (config) {
-        for (prop in config) {
+        for (const prop in config) {
             if (config.hasOwnProperty(prop)) {
                 sdkConfig[prop] = config[prop];
             }
         }
     }
 
-    for (prop in Constants.DefaultUrls) {
+    for (const prop in Constants.DefaultUrls) {
         sdkConfig[prop] = Constants.DefaultUrls[prop];
     }
 
     return sdkConfig;
 }
 
-export default function Store(config, mpInstance) {
-    var defaultStore = {
+// TODO: Placeholder Types, MigrationData is temporary and will be removed in the future to reduce SDK size
+export type PixelConfiguration = Dictionary;
+export type MigrationData = Dictionary;
+export type ServerSettings = Dictionary;
+
+// Temporary Interface until Store can be refactored as a class
+export interface IStore {
+    isEnabled: boolean;
+    sessionAttributes: Dictionary;
+    currentSessionMPIDs: MPID[];
+    consentState: SDKConsentState | null;
+    sessionId: string | null;
+    isFirstRun: boolean;
+    clientId: string;
+    deviceId: string;
+    devToken: string | null;
+    migrationData: MigrationData;
+    serverSettings: ServerSettings;
+    dateLastEventSent: number | null;
+    sessionStartDate: number | null;
+    currentPosition: SDKGeoLocation | null;
+    isTracking: boolean;
+    watchPositionId: number | null;
+    cartProducts: SDKProduct[];
+    eventQueue: SDKEvent[];
+    currencyCode: string | null;
+    globalTimer: number | null;
+    context: Context | null;
+    configurationLoaded: boolean;
+    identityCallInFlight: boolean;
+    SDKConfig: Partial<SDKConfig>;
+    migratingToIDSyncCookies: boolean; // TODO: Remove when we archive Web SDK v1
+    nonCurrentUserMPIDs: Record<MPID, Dictionary>;
+    identifyCalled: boolean;
+    isLoggedIn: boolean;
+    cookieSyncDates: Dictionary<number>;
+    integrationAttributes: Dictionary<Dictionary<string>>;
+    requireDelay: boolean;
+    isLocalStorageAvailable: boolean | null;
+    storageName: string | null;
+    prodStorageName: string | null;
+    activeForwarders: MPForwarder[];
+    kits: Dictionary<MPForwarder>;
+    configuredForwarders: MPForwarder[];
+    pixelConfigurations: PixelConfiguration[];
+    integrationDelayTimeoutStart: number; // UNIX Timestamp
+}
+
+export default function Store(
+    this: IStore,
+    config: SDKInitConfig,
+    mpInstance: MParticleWebSDK
+) {
+    const defaultStore: Partial<IStore> = {
         isEnabled: true,
         sessionAttributes: {},
         currentSessionMPIDs: [],
@@ -45,7 +171,7 @@ export default function Store(config, mpInstance) {
         eventQueue: [],
         currencyCode: null,
         globalTimer: null,
-        context: '',
+        context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
         SDKConfig: {},
@@ -113,14 +239,9 @@ export default function Store(config, mpInstance) {
             this.SDKConfig.logLevel = config.logLevel;
         }
 
-        if (config.hasOwnProperty('useNativeSdk')) {
-            this.SDKConfig.useNativeSdk = config.useNativeSdk;
-        } else {
-            this.SDKConfig.useNativeSdk = false;
-        }
-        if (config.hasOwnProperty('kits')) {
-            this.SDKConfig.kits = config.kits;
-        }
+        this.SDKConfig.useNativeSdk = !!config.useNativeSdk;
+
+        this.SDKConfig.kits = config.kits || {};
 
         if (config.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = config.isIOS;
@@ -177,8 +298,8 @@ export default function Store(config, mpInstance) {
             } else {
                 mpInstance.Logger.warning(
                     'The optional callback must be a function. You tried entering a(n) ' +
-                        typeof callback,
-                    ' . Callback not set. Please set your callback again.'
+                        typeof callback +
+                        ' . Callback not set. Please set your callback again.'
                 );
             }
         }
@@ -200,32 +321,29 @@ export default function Store(config, mpInstance) {
                 PlanVersion: null,
                 PlanId: null,
             };
-            if (config.dataPlan.hasOwnProperty('planId')) {
-                if (typeof config.dataPlan.planId === 'string') {
-                    if (mpInstance._Helpers.isSlug(config.dataPlan.planId)) {
-                        this.SDKConfig.dataPlan.PlanId = config.dataPlan.planId;
-                    } else {
-                        mpInstance.Logger.error(
-                            'Your data plan id must be in a slug format'
-                        );
-                    }
+
+            const dataPlan = config.dataPlan as DataPlanConfig;
+            if (dataPlan.planId) {
+                if (isDataPlanSlug(dataPlan.planId)) {
+                    this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
                 } else {
                     mpInstance.Logger.error(
-                        'Your data plan id must be a string'
+                        'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
                     );
                 }
             }
 
-            if (config.dataPlan.hasOwnProperty('planVersion')) {
-                if (typeof config.dataPlan.planVersion === 'number') {
-                    this.SDKConfig.dataPlan.PlanVersion =
-                        config.dataPlan.planVersion;
+            if (dataPlan.planVersion) {
+                if (isNumber(dataPlan.planVersion)) {
+                    this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
                 } else {
                     mpInstance.Logger.error(
                         'Your data plan version must be a number'
                     );
                 }
             }
+        } else {
+            this.SDKConfig.dataPlan = {};
         }
 
         if (config.hasOwnProperty('forceHttps')) {
@@ -235,9 +353,7 @@ export default function Store(config, mpInstance) {
         }
 
         // Some forwarders require custom flags on initialization, so allow them to be set using config object
-        if (config.hasOwnProperty('customFlags')) {
-            this.SDKConfig.customFlags = config.customFlags;
-        }
+        this.SDKConfig.customFlags = config.customFlags || {};
 
         if (config.hasOwnProperty('minWebviewBridgeVersion')) {
             this.SDKConfig.minWebviewBridgeVersion =

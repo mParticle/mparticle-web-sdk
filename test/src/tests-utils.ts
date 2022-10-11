@@ -1,4 +1,13 @@
-import { converted, decoded, findKeyInObject, inArray, isObject, parseNumber, returnConvertedBoolean } from '../../src/utils';
+import {
+    converted,
+    decoded,
+    findKeyInObject,
+    inArray,
+    isDataPlanSlug,
+    isObject,
+    parseNumber,
+    returnConvertedBoolean
+} from '../../src/utils';
 import { expect } from 'chai';
 
 describe('Utils', () => {
@@ -98,5 +107,37 @@ describe('Utils', () => {
             const cookieString = "{'sid':'1992BDBB-AD74-49DB-9B20-5EC8037E72DE'|'ie':1|'ua':'eyJ0ZXN'0Ijoiwq7igJkifQ=='";
             expect(converted(cookieString)).to.eq("{\'sid\':\'1992BDBB-AD74-49DB-9B20-5EC8037E72DE\'|\'ie\':1|\'ua\':\'eyJ0ZXN\'0Ijoiwq7igJkifQ==\'")
         })
+    });
+
+    describe('#isDataPlanSlug', function () {
+        it('handles numbers', function () {
+            expect(isDataPlanSlug(35 as unknown as string)).to.equal(false);
+        });
+
+        it('handles spaces', function () {
+            expect(isDataPlanSlug('Slug with spaces in')).to.equal(false);
+        });
+
+        it('handles PascalCase', function () {
+            // TODO: Remove support for kabob case once we remove slugify
+            expect(isDataPlanSlug('PascalSlug')).to.equal(true);
+        });
+
+        it('handles kabob-case-slug', function () {
+            // TODO: Remove support for kabob case once we remove slugify
+            expect(isDataPlanSlug('kabob-case-slug')).to.equal(true);
+        });
+
+        it('handles simple string', function () {
+            expect(isDataPlanSlug('slug')).to.equal(true);
+        });
+
+        it('handles under_score_slug', function () {
+            expect(isDataPlanSlug('under_score_slug')).to.equal(true);
+        });
+
+        it('handles numerical strings', function () {
+            expect(isDataPlanSlug('42')).to.equal(true);
+        });
     });
 });

@@ -1,5 +1,5 @@
 import Types from './types';
-import { isObject } from './utils';
+import { isFunction, isNumber, isObject, isStringOrNumber } from './utils';
 import Constants from './constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
 import { valueof } from './utils';
@@ -12,6 +12,11 @@ type ValidationIdentitiesReturn = {
 };
 
 const Validators = {
+    // From ./utils
+    isNumber,
+    isFunction,
+    isStringOrNumber,
+
     isValidAttributeValue: function(value: any): boolean {
         return value !== undefined && !isObject(value) && !Array.isArray(value);
     },
@@ -24,18 +29,6 @@ const Validators = {
                 !Array.isArray(key) &&
                 !this.isFunction(key)
         );
-    },
-
-    isStringOrNumber: function(value: any): boolean {
-        return typeof value === 'string' || typeof value === 'number';
-    },
-
-    isNumber: function(value: any): boolean {
-        return typeof value === 'number';
-    },
-
-    isFunction: (fn: any): boolean => {
-        return typeof fn === 'function';
     },
 
     validateIdentities: function(
