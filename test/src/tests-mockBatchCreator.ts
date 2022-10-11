@@ -9,7 +9,7 @@ describe('Create a batch from a base event', () => {
         name: 'testEvent'
     }
     
-    it('creates a batch wth base event ', done => {
+    it('creates a batch with base event ', done => {
         let batch = batchValidator.returnBatch(baseEvent);
 
         expect(batch).to.have.property('environment').equal('production');

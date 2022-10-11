@@ -70,7 +70,7 @@ export default class _BatchValidator {
                 configuredForwarders: [],
                 pixelConfigurations: [],
                 SDKConfig: {
-                    isDevelopmentMode: true,
+                    isDevelopmentMode: false,
                     onCreateBatch: mockFunction,
                 },
             },
