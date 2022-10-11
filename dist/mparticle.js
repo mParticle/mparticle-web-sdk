@@ -720,7 +720,7 @@ var mParticle = (function () {
       TriggerUploadType: TriggerUploadType
     };
 
-    var version = "2.17.3";
+    var version = "2.17.4";
 
     var Constants = {
       sdkVersion: version,
@@ -2555,7 +2555,7 @@ var mParticle = (function () {
       };
     }
 
-    var slugify = {exports: {}};
+    var slugify$1 = {exports: {}};
 
     (function (module, exports) {
     (function (name, root, factory) {
@@ -2619,9 +2619,9 @@ var mParticle = (function () {
 
     	  return replace
     	}));
-    } (slugify));
+    } (slugify$1));
 
-    var Slugify = slugify.exports;
+    var slugify = slugify$1.exports;
 
     var inArray = function inArray(items, name) {
       var i = 0;
@@ -2689,22 +2689,38 @@ var mParticle = (function () {
       return s;
     };
 
+    var isString = function isString(value) {
+      return typeof value === 'string';
+    };
+
+    var isNumber = function isNumber(value) {
+      return typeof value === 'number';
+    };
+
+    var isFunction = function isFunction(fn) {
+      return typeof fn === 'function';
+    }; // TODO: Refactor this to a regex
+
+
+    var isDataPlanSlug = function isDataPlanSlug(str) {
+      return isString(str) && str === slugify(str);
+    };
+
+    var isStringOrNumber = function isStringOrNumber(value) {
+      return isString(value) || isNumber(value);
+    };
+
     var Validators = {
+      // From ./utils
+      isNumber: isNumber,
+      isFunction: isFunction,
+      isStringOrNumber: isStringOrNumber,
       isValidAttributeValue: function isValidAttributeValue(value) {
         return value !== undefined && !isObject(value) && !Array.isArray(value);
       },
       // Neither null nor undefined can be a valid Key
       isValidKeyValue: function isValidKeyValue(key) {
         return Boolean(key && !isObject(key) && !Array.isArray(key) && !this.isFunction(key));
-      },
-      isStringOrNumber: function isStringOrNumber(value) {
-        return typeof value === 'string' || typeof value === 'number';
-      },
-      isNumber: function isNumber(value) {
-        return typeof value === 'number';
-      },
-      isFunction: function isFunction(fn) {
-        return typeof fn === 'function';
       },
       validateIdentities: function validateIdentities(identityApiData, method) {
         var validIdentityRequestKeys = {
@@ -3220,10 +3236,6 @@ var mParticle = (function () {
         } else {
           return StorageNames$2.currentStorageProductsName;
         }
-      };
-
-      this.isSlug = function (str) {
-        return str === Slugify(str);
       }; // Utility Functions
 
 
@@ -4137,6 +4149,7 @@ var mParticle = (function () {
     }
 
     function createSDKConfig(config) {
+      // TODO: Refactor to create a default config object
       var sdkConfig = {};
 
       for (var prop in Constants.DefaultConfig) {
@@ -4146,14 +4159,14 @@ var mParticle = (function () {
       }
 
       if (config) {
-        for (prop in config) {
+        for (var prop in config) {
           if (config.hasOwnProperty(prop)) {
             sdkConfig[prop] = config[prop];
           }
         }
       }
 
-      for (prop in Constants.DefaultUrls) {
+      for (var prop in Constants.DefaultUrls) {
         sdkConfig[prop] = Constants.DefaultUrls[prop];
       }
 
@@ -4182,7 +4195,7 @@ var mParticle = (function () {
         eventQueue: [],
         currencyCode: null,
         globalTimer: null,
-        context: '',
+        context: null,
         configurationLoaded: false,
         identityCallInFlight: false,
         SDKConfig: {},
@@ -4248,15 +4261,8 @@ var mParticle = (function () {
           this.SDKConfig.logLevel = config.logLevel;
         }
 
-        if (config.hasOwnProperty('useNativeSdk')) {
-          this.SDKConfig.useNativeSdk = config.useNativeSdk;
-        } else {
-          this.SDKConfig.useNativeSdk = false;
-        }
-
-        if (config.hasOwnProperty('kits')) {
-          this.SDKConfig.kits = config.kits;
-        }
+        this.SDKConfig.useNativeSdk = !!config.useNativeSdk;
+        this.SDKConfig.kits = config.kits || {};
 
         if (config.hasOwnProperty('isIOS')) {
           this.SDKConfig.isIOS = config.isIOS;
@@ -4306,7 +4312,7 @@ var mParticle = (function () {
           if (mpInstance._Helpers.Validators.isFunction(callback)) {
             this.SDKConfig.identityCallback = config.identityCallback;
           } else {
-            mpInstance.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + _typeof(callback), ' . Callback not set. Please set your callback again.');
+            mpInstance.Logger.warning('The optional callback must be a function. You tried entering a(n) ' + _typeof(callback) + ' . Callback not set. Please set your callback again.');
           }
         }
 
@@ -4327,26 +4333,25 @@ var mParticle = (function () {
             PlanVersion: null,
             PlanId: null
           };
+          var dataPlan = config.dataPlan;
 
-          if (config.dataPlan.hasOwnProperty('planId')) {
-            if (typeof config.dataPlan.planId === 'string') {
-              if (mpInstance._Helpers.isSlug(config.dataPlan.planId)) {
-                this.SDKConfig.dataPlan.PlanId = config.dataPlan.planId;
-              } else {
-                mpInstance.Logger.error('Your data plan id must be in a slug format');
-              }
+          if (dataPlan.planId) {
+            if (isDataPlanSlug(dataPlan.planId)) {
+              this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
             } else {
-              mpInstance.Logger.error('Your data plan id must be a string');
+              mpInstance.Logger.error('Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)');
             }
           }
 
-          if (config.dataPlan.hasOwnProperty('planVersion')) {
-            if (typeof config.dataPlan.planVersion === 'number') {
-              this.SDKConfig.dataPlan.PlanVersion = config.dataPlan.planVersion;
+          if (dataPlan.planVersion) {
+            if (isNumber(dataPlan.planVersion)) {
+              this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
             } else {
               mpInstance.Logger.error('Your data plan version must be a number');
             }
           }
+        } else {
+          this.SDKConfig.dataPlan = {};
         }
 
         if (config.hasOwnProperty('forceHttps')) {
@@ -4356,9 +4361,7 @@ var mParticle = (function () {
         } // Some forwarders require custom flags on initialization, so allow them to be set using config object
 
 
-        if (config.hasOwnProperty('customFlags')) {
-          this.SDKConfig.customFlags = config.customFlags;
-        }
+        this.SDKConfig.customFlags = config.customFlags || {};
 
         if (config.hasOwnProperty('minWebviewBridgeVersion')) {
           this.SDKConfig.minWebviewBridgeVersion = config.minWebviewBridgeVersion;
