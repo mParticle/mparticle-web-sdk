@@ -9,7 +9,7 @@ import { MParticleUser } from '../../src/sdkRuntimeModels';
 let mockServer;
 const mParticle = window.mParticle;
 
-describe.only('Server Model', function() {
+describe('Server Model', function() {
     var event = {
         messageType: Types.MessageType.PageEvent,
         name: 'foo page',
