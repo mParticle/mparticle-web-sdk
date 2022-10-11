@@ -1,10 +1,12 @@
 import Types from '../../src/types';
 import sinon from 'sinon';
 import { urls, testMPID, apiKey } from './config';
+import { expect } from 'chai';
 
-var mockServer;
+let mockServer;
+const mParticle = window.mParticle;
 
-describe('Server Model', function() {
+describe.only('Server Model', function() {
     var event = {
         messageType: Types.MessageType.PageEvent,
         name: 'foo page',
@@ -27,7 +29,7 @@ describe('Server Model', function() {
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
-        mParticle.init(apiKey, window.mParticle.config);
+        mParticle.init(apiKey, mParticle.config);
     });
 
     afterEach(function() {
@@ -35,11 +37,11 @@ describe('Server Model', function() {
     });
 
     it('Should not convert data plan object to server DTO when no id or version is set', function(done) {
-        let sdkEvent = mParticle
+        let sdkEvent = window.mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
         
-        let upload = mParticle
+        let upload = window.mParticle
             .getInstance()
             ._ServerModel.convertEventToDTO(sdkEvent);
 
@@ -110,6 +112,7 @@ describe('Server Model', function() {
         var consentState = mParticle
             .getInstance()
             ._Consent.createConsentState();
+
         consentState.addGDPRConsentState(
             'foo',
             mParticle
@@ -122,9 +125,11 @@ describe('Server Model', function() {
                     'foo hardware id'
                 )
         );
+
         var consent = mParticle
             .getInstance()
             ._ServerModel.convertToConsentStateDTO(consentState);
+
         consent.should.be.ok();
 
         consent.should.have.property('gdpr');
@@ -145,9 +150,9 @@ describe('Server Model', function() {
             ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
-        Should(sdkEvent.UserIdentities).not.be.ok;
-        Should(sdkEvent.UserAttributes).not.be.ok;
-        Should(sdkEvent.ConsentState).not.be.ok;
+        expect(sdkEvent.UserIdentities).to.not.be.ok;
+        expect(sdkEvent.UserAttributes).to.not.be.ok;
+        expect(sdkEvent.ConsentState).to.not.be.ok;
         done();
     });
 
@@ -216,7 +221,7 @@ describe('Server Model', function() {
             ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
-        Should(sdkEvent.UserIdentities).not.be.ok;
+        expect(sdkEvent.UserIdentities).to.not.be.ok;
 
         var user = {
             getUserIdentities: () => {
@@ -270,7 +275,7 @@ describe('Server Model', function() {
             ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
-        Should(sdkEvent.UserAttributes).not.be.ok;
+        expect(sdkEvent.UserAttributes).to.not.be.ok;
         var attributes = { foo: 'bar', 'foo-arr': ['bar1', 'bar2'] };
         var user = {
             getUserIdentities: () => {
@@ -300,7 +305,7 @@ describe('Server Model', function() {
             ._ServerModel.createEventObject(event);
 
         sdkEvent.should.be.ok;
-        Should(sdkEvent.MPID).not.be.ok;
+        expect(sdkEvent.MPID).to.not.be.ok;
 
         var user = {
             getUserIdentities: () => {

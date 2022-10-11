@@ -260,13 +260,15 @@ export default function ServerModel(
         if (!state) {
             return null;
         }
-        var jsonObject: Partial<ConsentStateDTO> = {};
+        var jsonObject: ConsentStateDTO = {};
         var gdprConsentState = state.getGDPRConsentState();
         if (gdprConsentState) {
-            var gdpr: Partial<GDPRConsentStateDTO> = {};
+            var gdpr: GDPRConsentStateDTO = {};
+            jsonObject.gdpr = gdpr;
             for (var purpose in gdprConsentState) {
                 if (gdprConsentState.hasOwnProperty(purpose)) {
                     var gdprConsent = gdprConsentState[purpose];
+                    jsonObject.gdpr[purpose] = {} as PrivacyDTO;
                     if (typeof gdprConsent.Consented === 'boolean') {
                         gdpr[purpose].c = gdprConsent.Consented;
                     }
@@ -284,7 +286,6 @@ export default function ServerModel(
                     }
                 }
             }
-            jsonObject.gdpr = gdpr;
         }
 
         var ccpaConsentState = state.getCCPAConsentState();
@@ -300,7 +301,7 @@ export default function ServerModel(
             };
         }
 
-        return jsonObject;
+        return jsonObject as ConsentStateDTO;
     };
 
     this.createEventObject = function(

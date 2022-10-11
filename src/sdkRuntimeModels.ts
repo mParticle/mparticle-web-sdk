@@ -128,7 +128,7 @@ export interface MParticleWebSDK {
     _Store: IStore;
     _Helpers: SDKHelpersApi;
     config: SDKInitConfig;
-    _resetForTests(MPConfig: SDKConfig): void;
+    _resetForTests(MPConfig?: SDKConfig): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
     getAppName();
     getAppVersion();
