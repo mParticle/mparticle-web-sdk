@@ -6,19 +6,16 @@ import {
     MParticleWebSDK,
     SDKConsentState,
     SDKEvent,
+    SDKGeoLocation,
     SDKProduct,
     SDKUserIdentity,
 } from './sdkRuntimeModels';
-import { parseNumber, parseStringOrNumber } from './utils';
-import Validators from './validators';
+import { parseNumber, parseStringOrNumber, Dictionary } from './utils';
+import { IStore } from './store';
+import { MPID } from '@mparticle/web-sdk';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
-
-// FIXME: What's the diff between this an a Server DTO?
-export interface DTO {
-    flags: Record<string, string[]>;
-}
 
 // TODO: Move to Consent Module
 export interface PrivacyDTO {
@@ -45,6 +42,7 @@ export interface ConsentStateDTO {
     ccpa?: CCPAConsentStateDTO;
 }
 
+// TODO: Confirm which attributes are optional
 export interface ServerDTO {
     id: string | number;
     nm: string | number;
@@ -55,19 +53,102 @@ export interface ServerDTO {
     ca: string | number;
     ps: number;
     cc: string | number;
+    attrs: Record<string, string> | null;
+    dp_id?: string;
+    dp_v?: number;
+    n?: string;
+    et?: number;
+    ua?: Dictionary<string | string[]>;
+    ui?: SDKUserIdentity[];
+    ia?: Dictionary<Dictionary<string>>;
+    str?: IStore;
+    sdk?: string;
+    sid?: string;
+    sl?: number;
+    ssd?: number;
+    dt?: number;
+    dbg?: boolean;
+    ct?: number;
+    lc?: SDKGeoLocation;
+    o?: boolean;
+    eec?: number;
+    av?: string;
+    cgid?: string;
+    das?: string;
+    mpid?: MPID;
+    smpids?: MPID[];
+    con?: ConsentStateDTO;
+    fr?: boolean;
+    iu?: boolean;
+    at?: number;
+    lr?: string;
+    flags?: Dictionary<string[]>;
+    cu?: string;
+    sc?: {
+        pl: ProductDTO[];
+    };
+    pd?: {
+        an: number;
+        cs: number;
+        co: string;
+        pl: ProductDTO[];
+        ta: string;
+        ti: string;
+        tcc: string;
+        tr: number;
+        ts: number;
+        tt: number;
+    };
+    pm?: {
+        an: string;
+        pl: PromotionDTO[];
+    };
+    pi?: ProductImpressionDTO[];
+    pet?: number;
+}
+
+export interface ProductDTO {
+    id: string | number;
+    nm: string | number;
+    pr: number;
+    qt: number;
+    br: string | number;
+    va: string | number;
+    ca: string | number;
+    ps: number;
+    cc: string | number;
     tpa: number;
-    attrs: Record<string, string>;
+    attrs: Record<string, string> | null;
+}
+
+export interface PromotionDTO {
+    id: string | number;
+    nm: string | number;
+    ps: string | number;
+    cr: string;
+}
+
+export interface ProductImpressionDTO {
+    pil: string;
+    pl: ProductDTO[];
+}
+
+interface UploadObject extends SDKEvent {
+    ClientGeneratedId: string;
+    Store: IStore;
+    ExpandedEventCount: number;
+    ProfileMessageType: number;
 }
 
 export interface IServerModel {
-    convertEventToDTO: (event: SDKEvent) => ServerDTO;
+    convertEventToDTO: (event: UploadObject) => ServerDTO;
     createEventObject: (event: BaseEvent, user: MParticleUser) => SDKEvent;
     convertToConsentStateDTO: (state: SDKConsentState) => ConsentStateDTO;
     appendUserInfo: (user: MParticleUser, event: SDKEvent) => void;
 }
 
 // TODO: Make this a pure function that returns a new object
-function convertCustomFlags(event: SDKEvent, dto: DTO) {
+function convertCustomFlags(event: SDKEvent, dto: ServerDTO) {
     var valueArray = [];
     dto.flags = {};
 
@@ -100,7 +181,7 @@ function convertCustomFlags(event: SDKEvent, dto: DTO) {
     }
 }
 
-function convertProductToDTO(product: SDKProduct): ServerDTO {
+function convertProductToDTO(product: SDKProduct): ProductDTO {
     return {
         id: parseStringOrNumber(product.Sku),
         nm: parseStringOrNumber(product.Name),
@@ -116,7 +197,7 @@ function convertProductToDTO(product: SDKProduct): ServerDTO {
     };
 }
 
-function convertProductListToDTO(productList: SDKProduct[]): ServerDTO[] {
+function convertProductListToDTO(productList: SDKProduct[]): ProductDTO[] {
     if (!productList) {
         return [];
     }
@@ -226,8 +307,8 @@ export default function ServerModel(
         event: BaseEvent,
         user: MParticleUser
     ): SDKEvent {
-        var uploadObject = {};
-        var eventObject = {};
+        var uploadObject: Partial<UploadObject> = {};
+        var eventObject: Partial<SDKEvent> = {};
 
         var optOut =
             event.messageType === Types.MessageType.OptOut
@@ -243,7 +324,10 @@ export default function ServerModel(
                 eventObject = event.toEventAPIObject();
             } else {
                 eventObject = {
-                    EventName: event.name || event.messageType,
+                    // TODO: Do we need the number from the enum or the string it evaluates to?
+                    EventName:
+                        event.name ||
+                        ((event.messageType as unknown) as string),
                     EventCategory: event.eventType,
                     EventAttributes: mpInstance._Helpers.sanitizeAttributes(
                         event.data,
@@ -264,7 +348,8 @@ export default function ServerModel(
             }
 
             uploadObject = {
-                Store: mpInstance._Store.serverSettings,
+                // TODO: Why are we passing Server Settings as Store?
+                Store: (mpInstance._Store.serverSettings as unknown) as IStore,
                 SDKVersion: Constants.sdkVersion,
                 SessionId: mpInstance._Store.sessionId,
                 SessionStartDate: mpInstance._Store.sessionStartDate
@@ -293,7 +378,7 @@ export default function ServerModel(
 
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
             var currentUser = user || mpInstance.Identity.getCurrentUser();
-            self.appendUserInfo(currentUser, eventObject);
+            self.appendUserInfo(currentUser, eventObject as SDKEvent);
 
             if (event.messageType === Types.MessageType.SessionEnd) {
                 eventObject.SessionLength =
@@ -316,8 +401,9 @@ export default function ServerModel(
         return null;
     };
 
-    this.convertEventToDTO = function(event: SDKEvent): ServerDTO {
-        var dto = {
+    // TODO: Should this take an event or upload object?
+    this.convertEventToDTO = function(event: UploadObject): ServerDTO {
+        var dto: Partial<ServerDTO> = {
             n: event.EventName,
             et: event.EventCategory,
             ua: event.UserAttributes,
@@ -363,12 +449,13 @@ export default function ServerModel(
         }
 
         if (event.CustomFlags) {
-            convertCustomFlags(event, dto);
+            convertCustomFlags(event, dto as ServerDTO);
         }
 
         if (event.EventDataType === MessageType.Commerce) {
             dto.cu = event.CurrencyCode;
 
+            // TODO: If Cart is deprecated, we should deprecate this too
             if (event.ShoppingCart) {
                 dto.sc = {
                     pl: convertProductListToDTO(event.ShoppingCart.ProductList),
@@ -424,6 +511,6 @@ export default function ServerModel(
             dto.pet = event.ProfileMessageType;
         }
 
-        return dto;
+        return dto as ServerDTO;
     };
 }

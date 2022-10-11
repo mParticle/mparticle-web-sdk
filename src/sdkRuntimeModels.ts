@@ -3,7 +3,7 @@ import { Batch } from '@mparticle/event-models';
 import { DataPlanVersion, DataPlan } from '@mparticle/data-planning-models';
 import { MPConfiguration, SDKEventCustomFlags, IdentityApiData
 } from '@mparticle/web-sdk';
-import { SDKConfig } from './store';
+import { IStore, SDKConfig } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
 
@@ -125,11 +125,13 @@ export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
-    _Store: SDKStoreApi;
+    _Store: IStore;
     _Helpers: SDKHelpersApi;
     config: SDKInitConfig;
     _resetForTests(MPConfig: SDKConfig): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
+    getAppName();
+    getAppVersion();
     getInstance();
     ServerModel();
     upload();
@@ -206,10 +208,12 @@ export interface SDKIdentityApi {
 
 export interface SDKHelpersApi {
     createServiceUrl(arg0: string, arg1: string): void;
+    extend(...args: any[]);
     parseNumber(value: string | number);
     generateUniqueId();
     isObject(item: any);
     returnConvertedBoolean(data: string | boolean | number): boolean;
+    sanitizeAttributes(attrs: Dictionary<string>, name: string): Dictionary<string> | null;
     Validators: typeof Validators;
 }
 
@@ -219,7 +223,9 @@ export interface SDKLoggerApi {
     warning(arg0: string): void;
 }
 
+// TODO: Merge this with IStore in store.ts
 export interface SDKStoreApi {
+    isEnabled: boolean;
     isFirstRun: boolean;
     devToken: string;
     SDKConfig: SDKConfigApi;
@@ -285,6 +291,10 @@ export interface BaseEvent {
     eventType?: number;
     data?: { [key: string]: string };
     customFlags?: { [key: string]: string };
+    toEventAPIObject?(): SDKEvent;
+    sourceMessageId?: string;
+    userAttributeChanges?: SDKUserAttributeChangeData;
+    userIdentityChanges?: SDKUserIdentityChangeData;
 }
 
 export interface KitBlockerOptions {
