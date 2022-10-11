@@ -213,6 +213,7 @@ export default function ServerModel(
 ) {
     var self = this;
 
+    // TODO: Can we refactor this to not mutate the event?
     this.appendUserInfo = function(user: MParticleUser, event: SDKEvent): void {
         if (!event) {
             return;
@@ -308,6 +309,7 @@ export default function ServerModel(
         event: BaseEvent,
         user?: MParticleUser
     ): SDKEvent | UploadObject {
+        debugger;
         var uploadObject: Partial<UploadObject> = {};
         var eventObject: Partial<SDKEvent> = {};
 
