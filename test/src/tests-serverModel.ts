@@ -139,12 +139,12 @@ describe('ServerModel', () => {
             expect(event.UserAttributes).to.eql(null);
         });
 
-        it('returns if event is empty', () => {
+        it('returns undefined if event is empty', () => {
             expect(ServerModel.appendUserInfo({} as MParticleUser, null)).to.be
                 .undefined;
         });
 
-        it('returns if event MPID does not match User MPID', () => {
+        it('returns early if event MPID matches User MPID', () => {
             const user = {
                 getUserIdentities: () => {
                     return { userIdentities: {} };
@@ -194,7 +194,7 @@ describe('ServerModel', () => {
             expect(event.MPID).to.equal('123456');
         });
 
-        it('returns if event and user are not valid', () => {
+        it('returns early if event and user are not valid', () => {
             expect(ServerModel.appendUserInfo(null, null)).to.be.undefined;
         });
     });
@@ -493,7 +493,23 @@ describe('ServerModel', () => {
             );
         });
 
-        it('should add custom flags to DTO', () => {});
+        it.only('should add custom flags to DTO', () => {
+            const uploadObject = {
+                CustomFlags: {
+                    foo: 'bar',
+                    fizz: 'buzz',
+                }
+            } as unknown as UploadObject;
+
+            const expectedFlags = {
+                foo: 'bar',
+                fizz: 'buzz',
+            };
+
+            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+
+            expect(actualDTO.flags).to.eql(expectedFlags);
+        });
 
         it('should add shopping cart to DTO', () => {});
 

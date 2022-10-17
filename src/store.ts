@@ -115,8 +115,8 @@ export interface IStore {
     devToken: string | null;
     migrationData: MigrationData;
     serverSettings: ServerSettings;
-    dateLastEventSent: Date | null; // TODO: Number or Date?
-    sessionStartDate: Date | null; // TODO: Number or Date?
+    dateLastEventSent: Date;
+    sessionStartDate: Date;
     currentPosition: SDKGeoLocation | null;
     isTracking: boolean;
     watchPositionId: number | null;

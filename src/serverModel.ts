@@ -158,6 +158,7 @@ function convertCustomFlags(event: SDKEvent, dto: ServerDTO) {
         if (event.CustomFlags.hasOwnProperty(prop)) {
             if (Array.isArray(event.CustomFlags[prop])) {
                 event.CustomFlags[prop].forEach(function(customFlagProperty) {
+                    // TODO: Can we use our utility functions here?
                     if (
                         typeof customFlagProperty === 'number' ||
                         typeof customFlagProperty === 'string' ||
@@ -167,6 +168,7 @@ function convertCustomFlags(event: SDKEvent, dto: ServerDTO) {
                     }
                 });
             } else if (
+                // TODO: Can we use our utility functions here?
                 typeof event.CustomFlags[prop] === 'number' ||
                 typeof event.CustomFlags[prop] === 'string' ||
                 typeof event.CustomFlags[prop] === 'boolean'
@@ -309,7 +311,6 @@ export default function ServerModel(
         event: BaseEvent,
         user?: MParticleUser
     ): SDKEvent | UploadObject {
-        debugger;
         var uploadObject: Partial<UploadObject> = {};
         var eventObject: Partial<SDKEvent> = {};
 
