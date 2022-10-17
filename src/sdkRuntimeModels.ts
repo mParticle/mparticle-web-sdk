@@ -1,12 +1,15 @@
 import * as EventsApi from '@mparticle/event-models';
 import { Batch } from '@mparticle/event-models';
 import { DataPlanVersion, DataPlan } from '@mparticle/data-planning-models';
-import { MPConfiguration, SDKEventCustomFlags, IdentityApiData
-} from '@mparticle/web-sdk';
+import { MPConfiguration, IdentityApiData } from '@mparticle/web-sdk';
 import { IStore, SDKConfig } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
+
+
+// TODO: Resolve this with version in @mparticle/web-sdk
+export type SDKEventCustomFlags = Dictionary<any>;
 
 export interface SDKEvent {
     DeviceId: string;
@@ -28,7 +31,7 @@ export interface SDKEvent {
     Debug: boolean;
     Location?: SDKGeoLocation;
     OptOut?: boolean;
-    CustomFlags?: { [key: string]: any }; // FIXME: Breaks validation in Server Model
+    CustomFlags?: SDKEventCustomFlags;
     AppVersion?: string;
     AppName?: string;
     Package?: string;

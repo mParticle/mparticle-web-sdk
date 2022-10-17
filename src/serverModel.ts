@@ -149,7 +149,7 @@ export interface IServerModel {
 
 // TODO: Make this a pure function that returns a new object
 function convertCustomFlags(event: SDKEvent, dto: ServerDTO) {
-    var valueArray = [];
+    var valueArray: string[] = [];
     dto.flags = {};
 
     for (var prop in event.CustomFlags) {

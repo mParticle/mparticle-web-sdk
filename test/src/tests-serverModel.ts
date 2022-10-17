@@ -493,17 +493,21 @@ describe('ServerModel', () => {
             );
         });
 
-        it.only('should add custom flags to DTO', () => {
+        it('should add custom flags to DTO', () => {
             const uploadObject = {
                 CustomFlags: {
                     foo: 'bar',
-                    fizz: 'buzz',
+                    fizz: ['bizz', 'buzz', 37, true],
+                    answer: 42,
+                    isCustom: false,
                 }
             } as unknown as UploadObject;
 
             const expectedFlags = {
-                foo: 'bar',
-                fizz: 'buzz',
+                foo: ['bar'],
+                fizz: ['bizz', 'buzz', '37', 'true'],
+                answer: ['42'],
+                isCustom: ['false'],
             };
 
             const actualDTO = ServerModel.convertEventToDTO(uploadObject);
@@ -511,7 +515,97 @@ describe('ServerModel', () => {
             expect(actualDTO.flags).to.eql(expectedFlags);
         });
 
-        it('should add shopping cart to DTO', () => {});
+        it('should add shopping cart to DTO', () => {
+            const uploadObject = {
+                CurrencyCode: 'USD',
+                EventDataType: Types.MessageType.Commerce,
+                ShoppingCart: {
+                    ProductList: [{
+                        Sku: 'SKU-12345',
+                        Name: 'Some Item',
+                        Price: '42',
+                        Quantity: '3',
+                        Brand: 'mParticle',
+                        Variant: 'blue',
+                        Category: 'product',
+                        Position: 1,
+                        CouponCode: 'FIDDY',
+                        TotalAmount: '41.50',
+                        Attributes: {
+                            foo: 'bar',
+                            fizz: 'bizz',
+                        }
+                    }, {
+                        Sku: 'SKU-67890',
+                        Name: 'Some Other Item',
+                        Price: '37',
+                        Quantity: '5',
+                        Brand: 'mParticle',
+                        Variant: 'red',
+                        Category: 'not-product',
+                        Position: 2,
+                        CouponCode: 'FIDDY',
+                        TotalAmount: '36.50',
+                        Attributes: {
+                            fizz: 'buzz',
+                        }
+                    }],
+                }
+            } as unknown as UploadObject;
+
+            const expectedShoppingCart = {
+                pl: [{
+                    id: 'SKU-12345',
+                    nm: 'Some Item',
+                    pr: 42,
+                    qt: 3,
+                    br: 'mParticle',
+                    va: 'blue',
+                    ca: 'product',
+                    ps: 1,
+                    cc: 'FIDDY',
+                    tpa: 41.5,
+                    attrs: {
+                        foo: 'bar',
+                        fizz: 'bizz',
+                    }
+                }, {
+                    id: 'SKU-67890',
+                    nm: 'Some Other Item',
+                    pr: 37,
+                    qt: 5,
+                    br: 'mParticle',
+                    va: 'red',
+                    ca: 'not-product',
+                    ps: 2,
+                    cc: 'FIDDY',
+                    tpa: 36.5,
+                    attrs: {
+                        fizz: 'buzz',
+                    }
+                }]
+            };
+            const actualDTO = ServerModel.convertEventToDTO(uploadObject)
+
+            expect(actualDTO.cu).to.equal('USD');
+            expect(actualDTO.sc).to.eql(expectedShoppingCart);
+        });
+        it.only('should add empty array to DTO if shopping cart is empty', () => {
+
+            const uploadObject = {
+                CurrencyCode: 'USD',
+                EventDataType: Types.MessageType.Commerce,
+                ShoppingCart: {}
+            } as unknown as UploadObject;
+
+            const expectedShoppingCart = {
+                pl: []
+            };
+            const actualDTO = ServerModel.convertEventToDTO(uploadObject)
+
+            expect(actualDTO.cu).to.equal('USD');
+            expect(actualDTO.sc).to.eql(expectedShoppingCart);
+        });
 
         it('should add product action to DTO', () => {});
 
