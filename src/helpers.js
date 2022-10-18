@@ -398,14 +398,6 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.parseStringOrNumber = function(value) {
-        if (Validators.isStringOrNumber(value)) {
-            return value;
-        } else {
-            return null;
-        }
-    };
-
     this.generateHash = function(name) {
         var hash = 0,
             i = 0,
@@ -512,6 +504,7 @@ export default function Helpers(mpInstance) {
     this.isObject = utils.isObject;
     this.decoded = utils.decoded;
     this.returnConvertedBoolean = utils.returnConvertedBoolean;
+    this.parseStringOrNumber = utils.parseStringOrNumber;
 
     // Imported Validators
     this.Validators = Validators;

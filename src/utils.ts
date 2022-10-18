@@ -49,6 +49,16 @@ const parseNumber = (value: string | number): number => {
     return isNaN(floatValue) ? 0 : floatValue;
 };
 
+const parseStringOrNumber = (
+    value: string | number
+): string | number | null => {
+    if (isStringOrNumber(value)) {
+        return value;
+    } else {
+        return null;
+    }
+};
+
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of
 // booleans when checking for `isDevelopmentMode`
@@ -93,11 +103,12 @@ export {
     findKeyInObject,
     inArray,
     isObject,
+    isStringOrNumber,
     parseNumber,
+    parseStringOrNumber,
     returnConvertedBoolean,
     isString,
     isNumber,
     isFunction,
-    isStringOrNumber,
     isDataPlanSlug,
 };

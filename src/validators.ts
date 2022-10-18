@@ -1,8 +1,7 @@
 import Types from './types';
-import { isFunction, isNumber, isObject, isStringOrNumber } from './utils';
+import { isFunction, isNumber, isObject, isStringOrNumber, valueof } from './utils';
 import Constants from './constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
-import { valueof } from './utils';
 
 type IdentityAPIMethod = 'login' | 'logout' | 'identify' | 'modify';
 
@@ -13,6 +12,7 @@ type ValidationIdentitiesReturn = {
 
 const Validators = {
     // From ./utils
+    // Utility Functions for backwards compatability
     isNumber,
     isFunction,
     isStringOrNumber,
@@ -21,6 +21,7 @@ const Validators = {
         return value !== undefined && !isObject(value) && !Array.isArray(value);
     },
 
+    // Validator Functions
     // Neither null nor undefined can be a valid Key
     isValidKeyValue: function(key: any): boolean {
         return Boolean(

@@ -5,7 +5,9 @@ import {
     inArray,
     isDataPlanSlug,
     isObject,
+    isStringOrNumber,
     parseNumber,
+    parseStringOrNumber,
     returnConvertedBoolean
 } from '../../src/utils';
 import { expect } from 'chai';
@@ -31,6 +33,19 @@ describe('Utils', () => {
 
     });
 
+    describe('#isStringOrNumber', () => {
+        it(' should correctly validate a string or number', ()=> {
+            expect(isStringOrNumber(42)).to.eq(true);
+            expect(isStringOrNumber('42')).to.eq(true);
+
+            expect(isStringOrNumber(null)).to.eq(false);
+            expect(isStringOrNumber(undefined)).to.eq(false);
+            expect(isStringOrNumber([])).to.eq(false);
+            expect(isStringOrNumber({})).to.eq(false);
+            expect(isStringOrNumber(function (){})).to.eq(false);
+        });
+    });
+
     describe('#parseNumber', () => {
         it('should parse a number into a number', () => {
             expect(parseNumber('42')).to.eq(42);
@@ -41,6 +56,16 @@ describe('Utils', () => {
             expect(parseNumber('not an number')).to.eq(0);
             expect(parseNumber('3.50')).to.eq(3.5);
         });
+    });
+
+    describe('#parseStringOrNumber', ()=> {
+        it('should correctly parse string or number', ()=> {
+            expect(parseStringOrNumber('abc')).to.eq('abc');
+            expect(parseStringOrNumber(123)).to.eq(123);
+            expect(parseStringOrNumber({} as unknown as string)).to.eq(null);
+            expect(parseStringOrNumber([] as unknown as string)).to.eq(null);
+            expect(parseStringOrNumber(null as unknown as string)).to.eq(null);
+        })
     });
 
     describe('#returnConvertedBoolean', () => {
