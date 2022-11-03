@@ -1207,6 +1207,21 @@ export default function mParticleInstance(instanceName) {
     };
     this._setIntegrationDelay = function(module, boolean) {
         self._preInit.integrationDelays[module] = boolean;
+
+        if (boolean === true) {
+            return;
+        }
+        if (Object.keys(self._preInit.integrationDelays).length) {
+            if (
+                Object.keys(self._preInit.integrationDelays).filter(function(
+                    singleInt
+                ) {
+                    return self._preInit.integrationDelays[singleInt] === true;
+                }).length === 0
+            ) {
+                self._APIClient.processQueuedEvents();
+            }
+        }
     };
 }
 
