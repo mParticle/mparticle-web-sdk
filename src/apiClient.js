@@ -5,15 +5,19 @@ import { BatchUploader } from './batchUploader';
 var Messages = Constants.Messages;
 
 export default function APIClient(mpInstance, kitBlocker) {
-    this.uploader = null;
+    var millis = mpInstance._Helpers.getFeatureFlag(
+        Constants.FeatureFlags.EventBatchingIntervalMillis
+    );
+    this.uploader = new BatchUploader(mpInstance, millis);
+    // this.uploader = null;
     var self = this;
     this.queueEventForBatchUpload = function(event) {
-        if (!this.uploader) {
-            var millis = mpInstance._Helpers.getFeatureFlag(
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            );
-            this.uploader = new BatchUploader(mpInstance, millis);
-        }
+        // if (!this.uploader) {
+        //     var millis = mpInstance._Helpers.getFeatureFlag(
+        //         Constants.FeatureFlags.EventBatchingIntervalMillis
+        //     );
+        //     this.uploader = new BatchUploader(mpInstance, millis);
+        // }
         this.uploader.queueEvent(event);
 
         mpInstance._Persistence.update();
