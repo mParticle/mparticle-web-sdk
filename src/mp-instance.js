@@ -1206,14 +1206,21 @@ export default function mParticleInstance(instanceName) {
         return self._preInit.integrationDelays;
     };
     /*
-        An integration delay prevents events from being sent.  Some server side integrations require a client 
-        side value to successfully forward.  This value can only be pulled from the client side partner SDK.
-        During the kit initialization, it sets an integration delay to true, grabs the required value from 
-        the partner SDK, sets it via `setIntegrationAttribute`, then sets the integration delay to false so that
-        the SDK then knows via `isDelayedByIntegration` to no longer delay sending events.  This integration
-        attribute is now on the batch payload for the server side to read.
+        An integration delay is a workaround that prevents events from being sent when it is necessary to do so.
+        Some server side integrations require a client side value to be included in the payload set to successfully 
+        forward.  This value can only be pulled from the client side partner SDK.
+        
+        During the kit initialization the kit:
+        * sets an integration delay to `true`
+        * grabs the required value from the partner SDK,
+        * sets it via `setIntegrationAttribute`
+        * sets the integration delay to `false`
+        
+        The core SDK can then read via `isDelayedByIntegration` to no longer delay sending events.
+        
+        This integration attribute is now on the batch payload for the server side to read.
 
-        If there is not delay, then the events sent before an integration attribute is included would not
+        If there is no delay, then the events sent before an integration attribute is included would not
         be forwarded successfully server side.
     */
     this._setIntegrationDelay = function(module, boolean) {
