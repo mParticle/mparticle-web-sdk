@@ -2250,6 +2250,28 @@ describe('forwarders', function() {
         done();
     });
 
+    it('integration test - after an integration delay is set to false, should fire an event after the event timeout', function(done) {
+        const clock = sinon.useFakeTimers();
+        mParticle._resetForTests(MPConfig);
+        // this code will be put in each forwarder as each forwarder is initialized
+        mParticle._setIntegrationDelay(128, true);
+        mParticle._setIntegrationDelay(24, false);
+        mParticle.init(apiKey, window.mParticle.config);
+        mockServer.requests = [];
+        mParticle.logEvent('test1');
+        mockServer.requests.length.should.equal(0);
+
+        // now that we set all integrations to false, the SDK should process queued events
+        mParticle._setIntegrationDelay(128, false);
+
+        clock.tick(5001);
+
+        mockServer.requests.length.should.equal(3);
+        clock.restore();
+
+        done();
+    });
+
     it('parse and capture forwarderConfiguration properly from backend', function(done) {
         mParticle._resetForTests(MPConfig);
 

@@ -1205,8 +1205,51 @@ export default function mParticleInstance(instanceName) {
     this._getIntegrationDelays = function() {
         return self._preInit.integrationDelays;
     };
-    this._setIntegrationDelay = function(module, boolean) {
-        self._preInit.integrationDelays[module] = boolean;
+    /*
+        An integration delay is a workaround that prevents events from being sent when it is necessary to do so.
+        Some server side integrations require a client side value to be included in the payload to successfully 
+        forward.  This value can only be pulled from the client side partner SDK.
+
+        During the kit initialization, the kit:
+        * sets an integration delay to `true`
+        * grabs the required value from the partner SDK,
+        * sets it via `setIntegrationAttribute`
+        * sets the integration delay to `false`
+
+        The core SDK can then read via `isDelayedByIntegration` to no longer delay sending events.
+
+        This integration attribute is now on the batch payload for the server side to read.
+
+        If there is no delay, then the events sent before an integration attribute is included would not
+        be forwarded successfully server side.
+    */
+    this._setIntegrationDelay = function(module, shouldDelayIntegration) {
+        self._preInit.integrationDelays[module] = shouldDelayIntegration;
+
+        // If the integration delay is set to true, no further action needed
+        if (shouldDelayIntegration === true) {
+            return;
+        }
+        // If the integration delay is set to false, check to see if there are any
+        // other integration delays set to true.  It not, process the queued events/.
+
+        const integrationDelaysKeys = Object.keys(
+            self._preInit.integrationDelays
+        );
+
+        if (integrationDelaysKeys.length === 0) {
+            return;
+        }
+
+        const hasIntegrationDelays = integrationDelaysKeys.some(function(
+            integration
+        ) {
+            return self._preInit.integrationDelays[integration] === true;
+        });
+
+        if (!hasIntegrationDelays) {
+            self._APIClient.processQueuedEvents();
+        }
     };
 }
 
