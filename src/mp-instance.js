@@ -1207,7 +1207,7 @@ export default function mParticleInstance(instanceName) {
     };
     /*
         An integration delay is a workaround that prevents events from being sent when it is necessary to do so.
-        Some server side integrations require a client side value to be included in the payload set to successfully 
+        Some server side integrations require a client side value to be included in the payload to successfully 
         forward.  This value can only be pulled from the client side partner SDK.
         
         During the kit initialization the kit:
