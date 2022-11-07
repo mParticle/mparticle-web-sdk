@@ -2251,7 +2251,7 @@ describe('forwarders', function() {
     });
 
     it('integration test - after an integration delay is set to false, should fire an event after the event timeout', function(done) {
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle._resetForTests(MPConfig);
         // this code will be put in each forwarder as each forwarder is initialized
         mParticle._setIntegrationDelay(128, true);

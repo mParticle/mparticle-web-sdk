@@ -1223,25 +1223,31 @@ export default function mParticleInstance(instanceName) {
         If there is no delay, then the events sent before an integration attribute is included would not
         be forwarded successfully server side.
     */
-    this._setIntegrationDelay = function(module, boolean) {
-        self._preInit.integrationDelays[module] = boolean;
+    this._setIntegrationDelay = function(module, shouldDelayIntegration) {
+        self._preInit.integrationDelays[module] = shouldDelayIntegration;
 
         // If the integration delay is set to true, no further action needed
-        if (boolean === true) {
+        if (shouldDelayIntegration === true) {
             return;
         }
         // If the integration delay is set to false, check to see if there are any
         // other integration delays set to true.  It not, process the queued events/.
-        if (Object.keys(self._preInit.integrationDelays).length) {
-            if (
-                Object.keys(self._preInit.integrationDelays).filter(function(
-                    singleInt
-                ) {
-                    return self._preInit.integrationDelays[singleInt] === true;
-                }).length === 0
-            ) {
-                self._APIClient.processQueuedEvents();
-            }
+
+        var integrationDelaysKeys = Object.keys(
+            self._preInit.integrationDelays
+        );
+
+        if (integrationDelaysKeys.length === 0) {
+            return;
+        }
+        var hasIntegrationDelays = integrationDelaysKeys.some(function(
+            integration
+        ) {
+            return self._preInit.integrationDelays[integration] === true;
+        });
+
+        if (!hasIntegrationDelays) {
+            self._APIClient.processQueuedEvents();
         }
     };
 }
