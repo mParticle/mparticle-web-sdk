@@ -1240,6 +1240,7 @@ export default function mParticleInstance(instanceName) {
         if (integrationDelaysKeys.length === 0) {
             return;
         }
+
         var hasIntegrationDelays = integrationDelaysKeys.some(function(
             integration
         ) {
