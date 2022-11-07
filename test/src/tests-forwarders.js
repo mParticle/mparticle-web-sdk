@@ -2267,6 +2267,7 @@ describe('forwarders', function() {
         clock.tick(5001);
 
         mockServer.requests.length.should.equal(3);
+        clock.restore();
 
         done();
     });
