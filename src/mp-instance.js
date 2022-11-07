@@ -189,6 +189,16 @@ export default function mParticleInstance(instanceName) {
         }
     };
     /**
+     * Returns the current mParticle environment setting
+     * @method getEnvironment
+     * @returns {String} mParticle environment setting
+     */
+    this.getEnvironment = function() {
+        return self._Store.SDKConfig.isDevelopmentMode
+            ? Types.Environment.Development
+            : Types.Environment.Production;
+    };
+    /**
      * Returns the mParticle SDK version number
      * @method getVersion
      * @return {String} mParticle SDK version number

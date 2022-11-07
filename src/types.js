@@ -361,6 +361,11 @@ var ApplicationTransitionType = {
     AppInit: 1,
 };
 
+const Environment = {
+    Production: 'production',
+    Development: 'development',
+};
+
 export default {
     MessageType: MessageType,
     EventType: EventType,
@@ -371,4 +376,5 @@ export default {
     ProductActionType: ProductActionType,
     PromotionActionType: PromotionActionType,
     TriggerUploadType: TriggerUploadType,
+    Environment,
 };

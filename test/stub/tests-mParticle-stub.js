@@ -6,6 +6,7 @@ describe('mParticle stubs', function() {
         mParticle.getAppName();
         mParticle.getAppVersion();
         mParticle.getDeviceId();
+        mParticle.getEnvironment();
         mParticle.getVersion();
         mParticle.init();
         mParticle.logError();
