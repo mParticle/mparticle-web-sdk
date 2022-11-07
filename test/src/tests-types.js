@@ -12,7 +12,7 @@ describe('Types', function() {
             mParticle.Types.Environment.Production.should.equal('production');
         });
 
-        it('should return Development', function() {
+        it('should return `development`', function() {
             mParticle.Types.Environment.Development.should.equal('development');
         });
     });
