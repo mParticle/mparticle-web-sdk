@@ -8,7 +8,7 @@ var EventType = Types.EventType,
 
 describe('Types', function() {
     describe('Environment', function() {
-        it('should return Production', function() {
+        it('should return `production`', function() {
             mParticle.Types.Environment.Production.should.equal('production');
         });
 
