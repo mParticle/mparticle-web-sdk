@@ -1233,7 +1233,7 @@ export default function mParticleInstance(instanceName) {
         // If the integration delay is set to false, check to see if there are any
         // other integration delays set to true.  It not, process the queued events/.
 
-        var integrationDelaysKeys = Object.keys(
+        const integrationDelaysKeys = Object.keys(
             self._preInit.integrationDelays
         );
 
@@ -1241,7 +1241,7 @@ export default function mParticleInstance(instanceName) {
             return;
         }
 
-        var hasIntegrationDelays = integrationDelaysKeys.some(function(
+        const hasIntegrationDelays = integrationDelaysKeys.some(function(
             integration
         ) {
             return self._preInit.integrationDelays[integration] === true;
