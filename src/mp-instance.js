@@ -1219,12 +1219,12 @@ export default function mParticleInstance(instanceName) {
     this._setIntegrationDelay = function(module, boolean) {
         self._preInit.integrationDelays[module] = boolean;
 
-        
+
         // If the integration delay is set to true, no further action needed
         if (boolean === true) {
             return;
         }
-        // If the integration delay is set to false, check to see if there are any 
+        // If the integration delay is set to false, check to see if there are any
         // other integration delays set to true.  It not, process the queued events/.
         if (Object.keys(self._preInit.integrationDelays).length) {
             if (
