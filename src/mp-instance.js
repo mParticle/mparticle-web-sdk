@@ -1210,7 +1210,7 @@ export default function mParticleInstance(instanceName) {
         Some server side integrations require a client side value to be included in the payload to successfully 
         forward.  This value can only be pulled from the client side partner SDK.
         
-        During the kit initialization the kit:
+        During the kit initialization, the kit:
         * sets an integration delay to `true`
         * grabs the required value from the partner SDK,
         * sets it via `setIntegrationAttribute`
