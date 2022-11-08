@@ -708,6 +708,10 @@ var mParticle = (function () {
     var ApplicationTransitionType$1 = {
       AppInit: 1
     };
+    var Environment = {
+      Production: 'production',
+      Development: 'development'
+    };
     var Types = {
       MessageType: MessageType$1,
       EventType: EventType,
@@ -717,10 +721,11 @@ var mParticle = (function () {
       ApplicationTransitionType: ApplicationTransitionType$1,
       ProductActionType: ProductActionType,
       PromotionActionType: PromotionActionType,
-      TriggerUploadType: TriggerUploadType
+      TriggerUploadType: TriggerUploadType,
+      Environment: Environment
     };
 
-    var version = "2.17.4";
+    var version = "2.18.0";
 
     var Constants = {
       sdkVersion: version,
@@ -2663,6 +2668,14 @@ var mParticle = (function () {
 
       var floatValue = parseFloat(value);
       return isNaN(floatValue) ? 0 : floatValue;
+    };
+
+    var parseStringOrNumber = function parseStringOrNumber(value) {
+      if (isStringOrNumber(value)) {
+        return value;
+      } else {
+        return null;
+      }
     }; // FIXME: REFACTOR for V3
     // only used in store.js to sanitize server-side formatting of
     // booleans when checking for `isDevelopmentMode`
@@ -2712,12 +2725,14 @@ var mParticle = (function () {
 
     var Validators = {
       // From ./utils
+      // Utility Functions for backwards compatability
       isNumber: isNumber,
       isFunction: isFunction,
       isStringOrNumber: isStringOrNumber,
       isValidAttributeValue: function isValidAttributeValue(value) {
         return value !== undefined && !isObject(value) && !Array.isArray(value);
       },
+      // Validator Functions
       // Neither null nor undefined can be a valid Key
       isValidKeyValue: function isValidKeyValue(key) {
         return Boolean(key && !isObject(key) && !Array.isArray(key) && !this.isFunction(key));
@@ -3148,14 +3163,6 @@ var mParticle = (function () {
         return false;
       };
 
-      this.parseStringOrNumber = function (value) {
-        if (Validators.isStringOrNumber(value)) {
-          return value;
-        } else {
-          return null;
-        }
-      };
-
       this.generateHash = function (name) {
         var hash = 0,
             i = 0,
@@ -3245,7 +3252,8 @@ var mParticle = (function () {
       this.inArray = inArray;
       this.isObject = isObject;
       this.decoded = decoded;
-      this.returnConvertedBoolean = returnConvertedBoolean; // Imported Validators
+      this.returnConvertedBoolean = returnConvertedBoolean;
+      this.parseStringOrNumber = parseStringOrNumber; // Imported Validators
 
       this.Validators = Validators;
     }
@@ -9372,6 +9380,16 @@ var mParticle = (function () {
         }
       };
       /**
+       * Returns the current mParticle environment setting
+       * @method getEnvironment
+       * @returns {String} mParticle environment setting
+       */
+
+
+      this.getEnvironment = function () {
+        return self._Store.SDKConfig.isDevelopmentMode ? Types.Environment.Development : Types.Environment.Production;
+      };
+      /**
        * Returns the mParticle SDK version number
        * @method getVersion
        * @return {String} mParticle SDK version number
@@ -10250,9 +10268,44 @@ var mParticle = (function () {
       this._getIntegrationDelays = function () {
         return self._preInit.integrationDelays;
       };
+      /*
+          An integration delay is a workaround that prevents events from being sent when it is necessary to do so.
+          Some server side integrations require a client side value to be included in the payload to successfully 
+          forward.  This value can only be pulled from the client side partner SDK.
+           During the kit initialization, the kit:
+          * sets an integration delay to `true`
+          * grabs the required value from the partner SDK,
+          * sets it via `setIntegrationAttribute`
+          * sets the integration delay to `false`
+           The core SDK can then read via `isDelayedByIntegration` to no longer delay sending events.
+           This integration attribute is now on the batch payload for the server side to read.
+           If there is no delay, then the events sent before an integration attribute is included would not
+          be forwarded successfully server side.
+      */
 
-      this._setIntegrationDelay = function (module, _boolean) {
-        self._preInit.integrationDelays[module] = _boolean;
+
+      this._setIntegrationDelay = function (module, shouldDelayIntegration) {
+        self._preInit.integrationDelays[module] = shouldDelayIntegration; // If the integration delay is set to true, no further action needed
+
+        if (shouldDelayIntegration === true) {
+          return;
+        } // If the integration delay is set to false, check to see if there are any
+        // other integration delays set to true.  It not, process the queued events/.
+
+
+        var integrationDelaysKeys = Object.keys(self._preInit.integrationDelays);
+
+        if (integrationDelaysKeys.length === 0) {
+          return;
+        }
+
+        var hasIntegrationDelays = integrationDelaysKeys.some(function (integration) {
+          return self._preInit.integrationDelays[integration] === true;
+        });
+
+        if (!hasIntegrationDelays) {
+          self._APIClient.processQueuedEvents();
+        }
       };
     } // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 
@@ -10683,6 +10736,10 @@ var mParticle = (function () {
 
       this.getAppVersion = function () {
         return self.getInstance().getAppVersion();
+      };
+
+      this.getEnvironment = function () {
+        return self.getInstance().getEnvironment();
       };
 
       this.stopTrackingLocation = function () {

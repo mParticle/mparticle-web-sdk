@@ -5,6 +5,7 @@ var mParticle = (function () {
         getAppName: returnString,
         getAppVersion: returnString,
         getDeviceId: returnString,
+        getEnvironment: returnString,
         getVersion: returnString,
         init: voidFunction,
         logError: voidFunction,
