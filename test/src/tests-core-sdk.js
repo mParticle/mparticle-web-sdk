@@ -157,6 +157,30 @@ describe('core SDK', function() {
         done();
     });
 
+    it('should get environment setting when set to `production`', function(done) {
+        mParticle._resetForTests(MPConfig);
+        mParticle.init(apiKey, {
+            ...window.mParticle.config,
+            isDevelopmentMode: false,
+        });
+
+        mParticle.getEnvironment().should.equal('production');
+
+        done();
+    });
+
+    it('should get environment setting when set to `development`', function(done) {
+        mParticle._resetForTests(MPConfig);
+        mParticle.init(apiKey, {
+            ...window.mParticle.config,
+            isDevelopmentMode: true,
+        });
+
+        mParticle.getEnvironment().should.equal('development');
+
+        done();
+    });
+
     it('should get app version from config', function(done) {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.appName = "testAppName";

@@ -7,6 +7,16 @@ var EventType = Types.EventType,
     IdentityType = Types.IdentityType;
 
 describe('Types', function() {
+    describe('Environment', function() {
+        it('should return `production`', function() {
+            mParticle.Types.Environment.Production.should.equal('production');
+        });
+
+        it('should return `development`', function() {
+            mParticle.Types.Environment.Development.should.equal('development');
+        });
+    });
+
     it('event type should return name', function(done) {
         mParticle.EventType.getName(EventType.Navigation).should.equal(
             'Navigation'

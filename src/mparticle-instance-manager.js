@@ -128,6 +128,9 @@ function mParticle() {
     this.getAppVersion = function() {
         return self.getInstance().getAppVersion();
     };
+    this.getEnvironment = function() {
+        return self.getInstance().getEnvironment();
+    };
     this.stopTrackingLocation = function() {
         self.getInstance().stopTrackingLocation();
     };
