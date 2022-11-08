@@ -1,3 +1,15 @@
+# [2.18.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.17.4...v2.18.0) (2022-11-08)
+
+
+### Bug Fixes
+
+* Process queued events after there are no more integration delays ([#365](https://github.com/mParticle/mparticle-web-sdk/issues/365)) ([99910c7](https://github.com/mParticle/mparticle-web-sdk/commit/99910c79849063adcf922c588d6b96bcc984c9f3))
+
+
+### Features
+
+* Expose getEnvironment() for mParticle Instance ([#366](https://github.com/mParticle/mparticle-web-sdk/issues/366)) ([378b894](https://github.com/mParticle/mparticle-web-sdk/commit/378b8948cc77edc71625cd07b21a3613a6300ea2))
+
 ## [2.17.4](https://github.com/mParticle/mparticle-web-sdk/compare/v2.17.3...v2.17.4) (2022-10-11)
 
 ## [2.17.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.17.2...v2.17.3) (2022-10-03)
