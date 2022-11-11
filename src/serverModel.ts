@@ -314,14 +314,17 @@ export default function ServerModel(
         var uploadObject: Partial<IUploadObject> = {};
         var eventObject: Partial<SDKEvent> = {};
 
+        // TODO: What is the purpose of setting OptOut to the inverse of the Store's
+        //       isEnabled property and not just `false`?
         var optOut =
             event.messageType === Types.MessageType.OptOut
                 ? !mpInstance._Store.isEnabled
                 : null;
 
+        // TODO: Why is Webview Bridge Enabled or Opt Out necessary here?
         if (
             mpInstance._Store.sessionId ||
-            event.messageType == Types.MessageType.OptOut ||
+            event.messageType === Types.MessageType.OptOut ||
             mpInstance._Store.webviewBridgeEnabled
         ) {
             if (event.hasOwnProperty('toEventAPIObject')) {
@@ -347,6 +350,7 @@ export default function ServerModel(
                 };
             }
 
+            // TODO: Should we move this side effect outside of this method?
             if (event.messageType !== Types.MessageType.SessionEnd) {
                 mpInstance._Store.dateLastEventSent = new Date();
             }
@@ -380,6 +384,7 @@ export default function ServerModel(
                 eventObject.LaunchReferral = window.location.href || null;
             }
 
+            // TODO: why is this duplicated with `uploadObject`?
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
             var currentUser = user || mpInstance.Identity.getCurrentUser();
             self.appendUserInfo(currentUser, eventObject as SDKEvent);
@@ -390,9 +395,12 @@ export default function ServerModel(
                     mpInstance._Store.sessionStartDate.getTime();
                 eventObject.currentSessionMPIDs =
                     mpInstance._Store.currentSessionMPIDs;
+
+                // TODO: Why are we using session attributes instead of the event's Event Attributes?
                 eventObject.EventAttributes =
                     mpInstance._Store.sessionAttributes;
 
+                // TODO: We should move this out of here to avoid side effects
                 mpInstance._Store.currentSessionMPIDs = [];
                 mpInstance._Store.sessionStartDate = null;
             }

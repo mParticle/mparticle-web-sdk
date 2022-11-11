@@ -2,17 +2,19 @@ import Types from '../../src/types';
 import sinon from 'sinon';
 import { urls, testMPID, apiKey } from './config';
 import { expect } from 'chai';
-import { IServerDTO, IUploadObject } from '../../src/serverModel';
+import { IUploadObject } from '../../src/serverModel';
 import { AllUserAttributes, IdentityApiData } from '@mparticle/web-sdk';
 import {
+    BaseEvent,
     MParticleUser,
     SDKConsentState,
     SDKEvent,
 } from '../../src/sdkRuntimeModels';
+import Constants from '../../src/constants';
 
 let mockServer;
 let initialEvent = {};
-let testEvent = {};
+
 const mParticle = window.mParticle;
 const ServerModel = mParticle.getInstance()._ServerModel;
 
@@ -315,7 +317,432 @@ describe('ServerModel', () => {
         });
     });
 
-    describe('#createEventObject', () => {});
+    describe('#createEventObject', () => {
+        beforeEach(() => {
+            // TODO: Create Event Object is tightly coupled with mp Init and Store
+            // This should be refactored to make the function more pure
+            mockServer = sinon.createFakeServer();
+            mockServer.respondImmediately = true;
+
+            mockServer.respondWith(urls.eventsV2, [
+                200,
+                {},
+                JSON.stringify({ mpid: testMPID, Store: {} }),
+            ]);
+            mockServer.respondWith(urls.identify, [
+                200,
+                {},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+
+            mParticle.init(apiKey, mParticle.config);
+        });
+
+        afterEach(function() {
+            mockServer.restore();
+        });
+
+        it('should create an event object without a user', () => {
+            const mPStore = mParticle.getInstance()._Store;
+
+            const event: BaseEvent = {
+                name: 'Test Event',
+                messageType: Types.MessageType.PageEvent,
+                eventType: Types.EventType.Navigation,
+                data: {
+                    foo: 'bar',
+                    bizz: 'bazz',
+                },
+                sourceMessageId: 'test-source-message-id',
+                customFlags: {
+                    custom: 'flag',
+                },
+                userAttributeChanges: {
+                    UserAttributeName: '$Age',
+                    New: '42',
+                    Old: '37',
+                    Deleted: false,
+                    IsNewAttribute: false,
+                },
+                userIdentityChanges: {
+                    New: {
+                        IdentityType: Types.IdentityType.Other2,
+                        Identity: 'new_identity',
+                        Timestamp: 1668194307,
+                        CreatedThisBatch: false,
+                    },
+                    Old: {
+                        IdentityType: Types.IdentityType.Other,
+                        Identity: 'old_identity',
+                        Timestamp: 1668193307,
+                        CreatedThisBatch: false,
+                    },
+                },
+            };
+
+            const actualEventObject = mParticle
+                .getInstance()
+                ._ServerModel.createEventObject(event) as IUploadObject;
+
+            expect(actualEventObject.EventName, 'EventName').to.equal(
+                'Test Event'
+            );
+            expect(actualEventObject.EventCategory, 'EventCategory').to.equal(
+                Types.EventType.Navigation
+            );
+            expect(actualEventObject.EventAttributes, 'EventCategory').to.eql({
+                foo: 'bar',
+                bizz: 'bazz',
+            });
+            expect(actualEventObject.EventDataType, 'EventDataType').to.equal(
+                Types.MessageType.PageEvent
+            );
+            expect(actualEventObject.CustomFlags, 'CustomFlags').to.eql({
+                custom: 'flag',
+            });
+            expect(
+                actualEventObject.UserAttributeChanges,
+                'UserAttributeChanges'
+            ).to.eql({
+                UserAttributeName: '$Age',
+                New: '42',
+                Old: '37',
+                Deleted: false,
+                IsNewAttribute: false,
+            });
+
+            expect(
+                actualEventObject.UserIdentityChanges,
+                'UserrIdentityChanges'
+            ).to.eql({
+                New: {
+                    IdentityType: Types.IdentityType.Other2,
+                    Identity: 'new_identity',
+                    Timestamp: 1668194307,
+                    CreatedThisBatch: false,
+                },
+                Old: {
+                    IdentityType: Types.IdentityType.Other,
+                    Identity: 'old_identity',
+                    Timestamp: 1668193307,
+                    CreatedThisBatch: false,
+                },
+            });
+            expect(actualEventObject.Store, 'Store').to.eql({});
+            expect(actualEventObject.SDKVersion, 'SDKVersion').to.equal(
+                Constants.sdkVersion
+            );
+            expect(actualEventObject.SessionId, 'SessionId').to.equal(
+                mPStore.sessionId
+            );
+            expect(
+                actualEventObject.SessionStartDate,
+                'SessionStartDate'
+            ).to.equal(mPStore.sessionStartDate.getTime());
+            expect(actualEventObject.Debug, 'Debug').to.equal(false);
+            expect(actualEventObject.Location, 'Location').to.equal(null);
+            expect(actualEventObject.OptOut, 'OptOut').to.equal(null);
+            expect(
+                actualEventObject.ExpandedEventCount,
+                'ExpandedEventCount'
+            ).to.equal(0);
+            expect(actualEventObject.AppVersion, 'AppVersion').to.equal(
+                undefined
+            );
+            expect(actualEventObject.AppName, 'AppName').to.equal(undefined);
+            expect(actualEventObject.Package, 'Package').to.equal(undefined);
+            expect(
+                actualEventObject.ClientGeneratedId,
+                'ClientGeneratedId'
+            ).to.equal(mPStore.clientId);
+            expect(actualEventObject.DeviceId, 'DeviceId').to.equal(
+                mPStore.deviceId
+            );
+            expect(
+                actualEventObject.IntegrationAttributes,
+                'IntegrationAttributes'
+            ).to.eql({});
+
+            // TODO: Should this default to USD?
+            expect(actualEventObject.CurrencyCode, 'CurrencyCode').to.equal(
+                null
+            );
+            expect(actualEventObject.DataPlan, 'DataPlan').to.eql({});
+            expect(actualEventObject.Timestamp, 'Timestamp').to.equal(
+                mPStore.dateLastEventSent.getTime()
+            );
+        });
+
+        it('should create an event object with a user', () => {
+            const event: BaseEvent = {
+                name: 'Test Event',
+                messageType: Types.MessageType.PageEvent,
+                eventType: Types.EventType.Navigation,
+                data: {
+                    foo: 'bar',
+                    bizz: 'bazz',
+                },
+                sourceMessageId: 'test-source-message-id',
+                customFlags: {
+                    custom: 'flag',
+                },
+                userAttributeChanges: {
+                    UserAttributeName: '$Age',
+                    New: '42',
+                    Old: '37',
+                    Deleted: false,
+                    IsNewAttribute: false,
+                },
+                userIdentityChanges: {
+                    New: {
+                        IdentityType: Types.IdentityType.Other2,
+                        Identity: 'new_identity',
+                        Timestamp: 1668194307,
+                        CreatedThisBatch: false,
+                    },
+                    Old: {
+                        IdentityType: Types.IdentityType.Other,
+                        Identity: 'old_identity',
+                        Timestamp: 1668193307,
+                        CreatedThisBatch: false,
+                    },
+                },
+            };
+
+            const user = {
+                getUserIdentities: () => {
+                    return {
+                        userIdentities: {
+                            customerid: '1234567',
+                            email: 'foo-email',
+                            other: 'foo-other',
+                            other2: 'foo-other2',
+                            other3: 'foo-other3',
+                            other4: 'foo-other4',
+                        },
+                    };
+                },
+                getAllUserAttributes: () => {
+                    return {
+                        'foo-user-attr': 'foo-attr-value',
+                        'foo-user-attr-list': ['item1', 'item2'],
+                    };
+                },
+                getMPID: () => {
+                    return '98765';
+                },
+                getConsentState: () => {
+                    return {
+                        gdpr: {
+                            'test-purpose': {
+                                consented: true,
+                                timestamp: 11111,
+                                consent_document: 'gdpr-doc',
+                                location: 'test-gdpr-location',
+                                hardwareId: 'test-gdpr-hardware',
+                            },
+                        },
+                        ccpa: {
+                            data_sale_opt_out: {
+                                consented: false,
+                                timestamp: 22222,
+                                consent_document: 'ccpa-doc',
+                                location: 'test-ccpa-location',
+                                hardwareId: 'test-ccpa-hardware',
+                            },
+                        },
+                    };
+                },
+            };
+
+            const actualEventObject = mParticle
+                .getInstance()
+                ._ServerModel.createEventObject(event, user) as IUploadObject;
+
+            expect(actualEventObject.MPID, 'MPID').to.equal('98765');
+            expect(actualEventObject.ConsentState, 'ConsentState').to.eql({
+                gdpr: {
+                    'test-purpose': {
+                        consented: true,
+                        timestamp: 11111,
+                        consent_document: 'gdpr-doc',
+                        location: 'test-gdpr-location',
+                        hardwareId: 'test-gdpr-hardware',
+                    },
+                },
+                ccpa: {
+                    data_sale_opt_out: {
+                        consented: false,
+                        timestamp: 22222,
+                        consent_document: 'ccpa-doc',
+                        location: 'test-ccpa-location',
+                        hardwareId: 'test-ccpa-hardware',
+                    },
+                },
+            });
+            expect(actualEventObject.UserAttributes).to.eql({
+                'foo-user-attr': 'foo-attr-value',
+                'foo-user-attr-list': ['item1', 'item2'],
+            });
+            expect(actualEventObject.UserIdentities).to.eql([
+                { Identity: 'foo-other', Type: 0 },
+                { Identity: '1234567', Type: 1 },
+                { Identity: 'foo-email', Type: 7 },
+                { Identity: 'foo-other2', Type: 10 },
+                { Identity: 'foo-other3', Type: 11 },
+                { Identity: 'foo-other4', Type: 12 },
+            ]);
+        });
+
+        it('should set necessary attributes if MessageType is SessionEnd', () => {
+            const mPStore = mParticle.getInstance()._Store;
+
+            mPStore.sessionAttributes = {
+                foo: 'session-foo',
+                bar: 'session-bar',
+            };
+
+            const event: BaseEvent = {
+                name: 'Test Event',
+                messageType: Types.MessageType.SessionEnd,
+                eventType: Types.EventType.Other,
+                data: {
+                    foo: 'bar',
+                    bizz: 'bazz',
+                },
+            };
+
+            const actualEventObject = mParticle
+                .getInstance()
+                ._ServerModel.createEventObject(event) as IUploadObject;
+
+            expect(
+                actualEventObject.currentSessionMPIDs,
+                'currentSessionMPIDs'
+            ).to.eql(['testMPID']);
+
+            // CreateEventObject nullifies the store's sessionStartDate, so to verify we have a
+            // valid session length, we can check to make sure that the length is shorter than the last
+            // time seen but not zero
+            expect(
+                actualEventObject.SessionStartDate,
+                'sessionStartDate'
+            ).to.be.lessThan(mPStore.dateLastEventSent.getTime());
+            expect(
+                actualEventObject.SessionStartDate,
+                'sessionStartDate'
+            ).to.be.greaterThan(0);
+
+            // Session Events should ignore data/Event Attributes and use Session Attributes instead
+            expect(actualEventObject.EventAttributes, 'EventAttributes').to.eql(
+                { foo: 'session-foo', bar: 'session-bar' }
+            );
+        });
+
+        it('should set necessary attributes if MessageType is AppStateTransition', () => {
+            const event: BaseEvent = {
+                name: 'Test Event',
+                messageType: Types.MessageType.AppStateTransition,
+                eventType: Types.EventType.Other,
+            };
+
+            const actualEventObject = mParticle
+                .getInstance()
+                ._ServerModel.createEventObject(event) as IUploadObject;
+
+            expect(actualEventObject.IsFirstRun, 'IsFirstRun').to.eql(false);
+            expect(actualEventObject.LaunchReferral, 'LaunchRefferral').to.eql(
+                window.location.href
+            );
+        });
+
+        it('should generate a sourceMessageId if one is not provided', () => {
+            const event: BaseEvent = {
+                name: 'Test Event',
+                sourceMessageId: null,
+                messageType: Types.MessageType.CustomEvent,
+                eventType: Types.EventType.Other,
+            };
+
+            const actualEventObject = mParticle
+                .getInstance()
+                ._ServerModel.createEventObject(event) as IUploadObject;
+
+            expect(
+                actualEventObject.SourceMessageId,
+                'SourceMessageId'
+            ).to.not.equal(null);
+        });
+
+        it('returns null if _Store does not have a sessionId', () => {
+            const mPStore = mParticle.getInstance()._Store;
+            mPStore.sessionId = null;
+
+            const event: BaseEvent = {
+                name: 'Test Opt Out Event',
+                messageType: Types.MessageType.CustomEvent,
+            };
+
+            const actualEventObject = mParticle
+                .getInstance()
+                ._ServerModel.createEventObject(event) as IUploadObject;
+
+            expect(actualEventObject).to.equal(null);
+        });
+
+        it('returns null if _Store has Webview Bridge Disabled', () => {
+            const mPStore = mParticle.getInstance()._Store;
+
+            mPStore.sessionId = null;
+            mPStore.webviewBridgeEnabled = false;
+
+            const event: BaseEvent = {
+                name: 'Test Opt Out Event',
+                messageType: Types.MessageType.CustomEvent,
+            };
+
+            const actualEventObject = mParticle
+                .getInstance()
+                ._ServerModel.createEventObject(event) as IUploadObject;
+
+            expect(actualEventObject).to.equal(null);
+        });
+
+        it('returns null if event is invalid', () => {
+            const event: BaseEvent = ({} as unknown) as BaseEvent;
+
+            expect(ServerModel.createEventObject(event)).to.eql(null);
+        });
+
+        it('should support toEventAPIObject', () => {
+            const eventAPIObject = {
+                EventName: 'Test Event Object Override',
+                EventCategory: Types.EventType.Media,
+                EventDataType: Types.MessageType.Media,
+            };
+
+            const event = {
+                name: 'Test Event Object',
+                messageType: Types.MessageType.PageEvent,
+                eventType: Types.EventType.Other,
+                toEventAPIObject: () => eventAPIObject,
+            } as BaseEvent;
+
+            const actualEventObject = mParticle
+                .getInstance()
+                ._ServerModel.createEventObject(event);
+
+            expect(actualEventObject.EventName, 'EventName').to.equal(
+                'Test Event Object Override'
+            );
+            expect(actualEventObject.EventCategory, 'EventCategory').to.equal(
+                Types.EventType.Media
+            );
+            expect(actualEventObject.EventDataType, 'EventDataType').to.equal(
+                Types.MessageType.Media
+            );
+        });
+    });
 
     describe('#convertEventToDTO', () => {
         it('should return defaults', () => {
@@ -851,13 +1278,13 @@ describe('ServerModel', () => {
         });
 
         it('should add profile to DTO', () => {
-            const uploadObject = {
+            const uploadObject = ({
                 EventDataType: Types.MessageType.Profile,
-                ProfileMessageType: 'foo-message-type'
-            } as unknown as IUploadObject;
+                ProfileMessageType: 'foo-message-type',
+            } as unknown) as IUploadObject;
 
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject)
-            
+            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+
             expect(actualDTO.pet).to.equal('foo-message-type');
         });
     });
