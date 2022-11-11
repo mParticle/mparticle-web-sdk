@@ -2,10 +2,9 @@ import Types from '../../src/types';
 import sinon from 'sinon';
 import { urls, testMPID, apiKey } from './config';
 import { expect } from 'chai';
-import { ServerDTO, UploadObject } from '../../src/serverModel';
+import { IServerDTO, IUploadObject } from '../../src/serverModel';
 import { AllUserAttributes, IdentityApiData } from '@mparticle/web-sdk';
 import {
-    BaseEvent,
     MParticleUser,
     SDKConsentState,
     SDKEvent,
@@ -346,7 +345,7 @@ describe('ServerModel', () => {
                 MPID: 'test-mpid',
                 ExpandedEventCount: 0,
                 currentSessionMPIDs: ['test-mpids'],
-            } as unknown) as UploadObject;
+            } as unknown) as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToDTO(uploadObject);
 
@@ -400,7 +399,7 @@ describe('ServerModel', () => {
                     PlanId: 'test-data-plan',
                     PlanVersion: 3,
                 },
-            } as UploadObject;
+            } as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToDTO(uploadObject);
 
@@ -437,7 +436,7 @@ describe('ServerModel', () => {
                         };
                     },
                 } as SDKConsentState,
-            } as UploadObject;
+            } as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToDTO(uploadObject);
 
@@ -471,7 +470,7 @@ describe('ServerModel', () => {
                 EventAttributes: {
                     foo: 'bar', // TODO: test will nullify these
                 },
-            } as unknown) as UploadObject;
+            } as unknown) as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToDTO(uploadObject);
 
@@ -501,7 +500,7 @@ describe('ServerModel', () => {
                     answer: 42,
                     isCustom: false,
                 },
-            } as unknown) as UploadObject;
+            } as unknown) as IUploadObject;
 
             const expectedFlags = {
                 foo: ['bar'],
@@ -554,7 +553,7 @@ describe('ServerModel', () => {
                         },
                     ],
                 },
-            } as unknown) as UploadObject;
+            } as unknown) as IUploadObject;
 
             const expectedShoppingCart = {
                 pl: [
@@ -602,7 +601,7 @@ describe('ServerModel', () => {
                 CurrencyCode: 'USD',
                 EventDataType: Types.MessageType.Commerce,
                 ShoppingCart: {},
-            } as unknown) as UploadObject;
+            } as unknown) as IUploadObject;
 
             const expectedShoppingCart = {
                 pl: [],
@@ -664,7 +663,7 @@ describe('ServerModel', () => {
                         },
                     ],
                 },
-            } as unknown) as UploadObject;
+            } as unknown) as IUploadObject;
 
             const expectedProducts = [
                 {
@@ -740,7 +739,7 @@ describe('ServerModel', () => {
                         },
                     ],
                 },
-            } as unknown) as UploadObject;
+            } as unknown) as IUploadObject;
 
             const expectedPromotion = [
                 {
@@ -807,7 +806,7 @@ describe('ServerModel', () => {
                         ],
                     },
                 ],
-            } as unknown) as UploadObject;
+            } as unknown) as IUploadObject;
 
             const expectedProducts = [
                 {
@@ -855,7 +854,7 @@ describe('ServerModel', () => {
             const uploadObject = {
                 EventDataType: Types.MessageType.Profile,
                 ProfileMessageType: 'foo-message-type'
-            } as unknown as UploadObject;
+            } as unknown as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToDTO(uploadObject)
             
@@ -900,7 +899,7 @@ describe('ServerModel', () => {
 
             let upload = window.mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(sdkEvent as UploadObject);
+                ._ServerModel.convertEventToDTO(sdkEvent as IUploadObject);
 
             upload.should.not.have.property('dp_id');
             upload.should.not.have.property('dp_v');
@@ -919,7 +918,7 @@ describe('ServerModel', () => {
                 ._ServerModel.createEventObject(event);
             let upload = mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(sdkEvent as UploadObject);
+                ._ServerModel.convertEventToDTO(sdkEvent as IUploadObject);
 
             upload.should.have.property('dp_id', 'plan-slug');
             upload.should.not.have.property('dp_v');
@@ -938,7 +937,7 @@ describe('ServerModel', () => {
                 ._ServerModel.createEventObject(event);
             let upload = mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(sdkEvent as UploadObject);
+                ._ServerModel.convertEventToDTO(sdkEvent as IUploadObject);
 
             upload.should.not.have.property('dp_id');
             upload.should.not.have.property('dp_v');
@@ -958,7 +957,7 @@ describe('ServerModel', () => {
                 ._ServerModel.createEventObject(event);
             let upload = mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(sdkEvent as UploadObject);
+                ._ServerModel.convertEventToDTO(sdkEvent as IUploadObject);
 
             upload.should.have.property('dp_id', 'plan-slug');
             upload.should.have.property('dp_v', 10);
@@ -1238,7 +1237,7 @@ describe('ServerModel', () => {
             var upload = mParticle
                 .getInstance()
                 ._ServerModel.convertEventToDTO(
-                    (event as unknown) as UploadObject
+                    (event as unknown) as IUploadObject
                 );
 
             expect(upload.lr).to.equal('http://foo.bar/this/is/a/test');

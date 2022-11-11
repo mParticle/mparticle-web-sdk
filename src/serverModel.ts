@@ -18,7 +18,7 @@ const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
 
 // TODO: Move to Consent Module
-export interface PrivacyDTO {
+export interface IPrivacyDTO {
     c: boolean; // Consented
     ts: number; // Timestamp
     d: string; // Document
@@ -27,23 +27,23 @@ export interface PrivacyDTO {
 }
 
 // TODO: Move to Consent Module
-export interface GDPRConsentStateDTO {
-    [key: string]: PrivacyDTO;
+export interface IGDPRConsentStateDTO {
+    [key: string]: IPrivacyDTO;
 }
 
 // TODO: Move to Consent Module
-export interface CCPAConsentStateDTO {
-    data_sale_opt_out: PrivacyDTO;
+export interface ICCPAConsentStateDTO {
+    data_sale_opt_out: IPrivacyDTO;
 }
 
 // TODO: Break this up into GDPR and CCPA interfaces
-export interface ConsentStateDTO {
-    gdpr?: GDPRConsentStateDTO;
-    ccpa?: CCPAConsentStateDTO;
+export interface IConsentStateDTO {
+    gdpr?: IGDPRConsentStateDTO;
+    ccpa?: ICCPAConsentStateDTO;
 }
 
 // TODO: Confirm which attributes are optional
-export interface ServerDTO {
+export interface IServerDTO {
     id: string | number;
     nm: string | number;
     pr: number;
@@ -77,7 +77,7 @@ export interface ServerDTO {
     das?: string;
     mpid?: MPID;
     smpids?: MPID[];
-    con?: ConsentStateDTO;
+    con?: IConsentStateDTO;
     fr?: boolean;
     iu?: boolean;
     at?: number;
@@ -85,13 +85,13 @@ export interface ServerDTO {
     flags?: Dictionary<string[]>;
     cu?: string;
     sc?: {
-        pl: ProductDTO[];
+        pl: IProductDTO[];
     };
     pd?: {
         an: number;
         cs: number;
         co: string;
-        pl: ProductDTO[];
+        pl: IProductDTO[];
         ta: string;
         ti: string;
         tcc: string;
@@ -101,13 +101,13 @@ export interface ServerDTO {
     };
     pm?: {
         an: string;
-        pl: PromotionDTO[];
+        pl: IPromotionDTO[];
     };
-    pi?: ProductImpressionDTO[];
+    pi?: IProductImpressionDTO[];
     pet?: number;
 }
 
-export interface ProductDTO {
+export interface IProductDTO {
     id: string | number;
     nm: string | number;
     pr: number;
@@ -121,19 +121,19 @@ export interface ProductDTO {
     attrs: Record<string, string> | null;
 }
 
-export interface PromotionDTO {
+export interface IPromotionDTO {
     id: string | number;
     nm: string | number;
     ps: string | number;
     cr: string;
 }
 
-export interface ProductImpressionDTO {
+export interface IProductImpressionDTO {
     pil: string;
-    pl: ProductDTO[];
+    pl: IProductDTO[];
 }
 
-export interface UploadObject extends SDKEvent {
+export interface IUploadObject extends SDKEvent {
     ClientGeneratedId: string;
     Store: IStore;
     ExpandedEventCount: number;
@@ -141,14 +141,14 @@ export interface UploadObject extends SDKEvent {
 }
 
 export interface IServerModel {
-    convertEventToDTO: (event: UploadObject) => ServerDTO;
+    convertEventToDTO: (event: IUploadObject) => IServerDTO;
     createEventObject: (event: BaseEvent, user?: MParticleUser) => SDKEvent;
-    convertToConsentStateDTO: (state: SDKConsentState) => ConsentStateDTO;
+    convertToConsentStateDTO: (state: SDKConsentState) => IConsentStateDTO;
     appendUserInfo: (user: MParticleUser, event: SDKEvent) => void;
 }
 
 // TODO: Make this a pure function that returns a new object
-function convertCustomFlags(event: SDKEvent, dto: ServerDTO) {
+function convertCustomFlags(event: SDKEvent, dto: IServerDTO) {
     var valueArray: string[] = [];
     dto.flags = {};
 
@@ -183,7 +183,7 @@ function convertCustomFlags(event: SDKEvent, dto: ServerDTO) {
     }
 }
 
-function convertProductToDTO(product: SDKProduct): ProductDTO {
+function convertProductToDTO(product: SDKProduct): IProductDTO {
     return {
         id: parseStringOrNumber(product.Sku),
         nm: parseStringOrNumber(product.Name),
@@ -199,7 +199,7 @@ function convertProductToDTO(product: SDKProduct): ProductDTO {
     };
 }
 
-function convertProductListToDTO(productList: SDKProduct[]): ProductDTO[] {
+function convertProductListToDTO(productList: SDKProduct[]): IProductDTO[] {
     if (!productList) {
         return [];
     }
@@ -259,19 +259,19 @@ export default function ServerModel(
 
     this.convertToConsentStateDTO = function(
         state: SDKConsentState
-    ): ConsentStateDTO {
+    ): IConsentStateDTO {
         if (!state) {
             return null;
         }
-        var jsonObject: ConsentStateDTO = {};
+        var jsonObject: IConsentStateDTO = {};
         var gdprConsentState = state.getGDPRConsentState();
         if (gdprConsentState) {
-            var gdpr: GDPRConsentStateDTO = {};
+            var gdpr: IGDPRConsentStateDTO = {};
             jsonObject.gdpr = gdpr;
             for (var purpose in gdprConsentState) {
                 if (gdprConsentState.hasOwnProperty(purpose)) {
                     var gdprConsent = gdprConsentState[purpose];
-                    jsonObject.gdpr[purpose] = {} as PrivacyDTO;
+                    jsonObject.gdpr[purpose] = {} as IPrivacyDTO;
                     if (typeof gdprConsent.Consented === 'boolean') {
                         gdpr[purpose].c = gdprConsent.Consented;
                     }
@@ -304,14 +304,14 @@ export default function ServerModel(
             };
         }
 
-        return jsonObject as ConsentStateDTO;
+        return jsonObject as IConsentStateDTO;
     };
 
     this.createEventObject = function(
         event: BaseEvent,
         user?: MParticleUser
-    ): SDKEvent | UploadObject {
-        var uploadObject: Partial<UploadObject> = {};
+    ): SDKEvent | IUploadObject {
+        var uploadObject: Partial<IUploadObject> = {};
         var eventObject: Partial<SDKEvent> = {};
 
         var optOut =
@@ -406,8 +406,8 @@ export default function ServerModel(
     };
 
     // TODO: Should this take an event or upload object?
-    this.convertEventToDTO = function(event: UploadObject): ServerDTO {
-        var dto: Partial<ServerDTO> = {
+    this.convertEventToDTO = function(event: IUploadObject): IServerDTO {
+        var dto: Partial<IServerDTO> = {
             n: event.EventName,
             et: event.EventCategory,
             ua: event.UserAttributes,
@@ -453,7 +453,7 @@ export default function ServerModel(
         }
 
         if (event.CustomFlags) {
-            convertCustomFlags(event, dto as ServerDTO);
+            convertCustomFlags(event, dto as IServerDTO);
         }
 
         if (event.EventDataType === MessageType.Commerce) {
@@ -515,6 +515,6 @@ export default function ServerModel(
             dto.pet = event.ProfileMessageType;
         }
 
-        return dto as ServerDTO;
+        return dto as IServerDTO;
     };
 }
