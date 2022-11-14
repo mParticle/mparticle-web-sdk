@@ -217,7 +217,7 @@ export interface SDKIdentityApi {
 export interface SDKHelpersApi {
     createServiceUrl(arg0: string, arg1: string): void;
     extend(...args: any[]);
-    parseNumber(value: string | number);
+    parseNumber(value: string | number): number;
     generateUniqueId();
     isObject(item: any);
     returnConvertedBoolean(data: string | boolean | number): boolean;
