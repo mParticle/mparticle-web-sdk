@@ -334,7 +334,9 @@ export default function ServerModel(
                 eventObject = event.toEventAPIObject();
             } else {
                 eventObject = {
-                    // TODO: Do we need the number from the enum or the string it evaluates to?
+                    // This is an artifact from v2 events where SessionStart/End and AST event
+                    //  names are numbers (1, 2, or 10), but going forward with v3, these lifecycle 
+                    //  events do not have names, but are denoted by their `event_type`
                     EventName:
                         event.name ||
                         ((event.messageType as unknown) as string),
