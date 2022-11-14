@@ -134,6 +134,7 @@ export interface IProductImpressionDTO {
 }
 
 export interface IUploadObject extends SDKEvent {
+    // TODO: References to `ClientGeneratedId` can be removed when we remove the V2 event upload path because it does not exist in the V3 payload
     ClientGeneratedId: string;
     Store: IStore;
     ExpandedEventCount: number;
