@@ -1,3 +1,7 @@
+// TODO: This file is no longer the server model because the web SDK payload
+//       is now the server-to-server model.  We should rename this to
+//       something more appropriate.
+
 import Types from './types';
 import Constants from './constants';
 import {
@@ -11,14 +15,14 @@ import {
     SDKUserIdentity,
 } from './sdkRuntimeModels';
 import { parseNumber, parseStringOrNumber, Dictionary } from './utils';
-import { IStore } from './store';
+import { ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
 
 // TODO: Move to Consent Module
-export interface IPrivacyDTO {
+export interface IPrivacyV2DTO {
     c: boolean; // Consented
     ts: number; // Timestamp
     d: string; // Document
@@ -28,12 +32,12 @@ export interface IPrivacyDTO {
 
 // TODO: Move to Consent Module
 export interface IGDPRConsentStateDTO {
-    [key: string]: IPrivacyDTO;
+    [key: string]: IPrivacyV2DTO;
 }
 
 // TODO: Move to Consent Module
 export interface ICCPAConsentStateDTO {
-    data_sale_opt_out: IPrivacyDTO;
+    data_sale_opt_out: IPrivacyV2DTO;
 }
 
 // TODO: Break this up into GDPR and CCPA interfaces
@@ -61,7 +65,7 @@ export interface IServerDTO {
     ua?: Dictionary<string | string[]>;
     ui?: SDKUserIdentity[];
     ia?: Dictionary<Dictionary<string>>;
-    str?: IStore;
+    str?: ServerSettings;
     sdk?: string;
     sid?: string;
     sl?: number;
@@ -134,9 +138,12 @@ export interface IProductImpressionDTO {
 }
 
 export interface IUploadObject extends SDKEvent {
-    // TODO: References to `ClientGeneratedId` can be removed when we remove the V2 event upload path because it does not exist in the V3 payload
+    // TODO: References to `ClientGeneratedId` can be removed when we remove the
+    //       V2 event upload path because it does not exist in the V3 payload
     ClientGeneratedId: string;
-    Store: IStore;
+    // FIXME: This reference to Store is misleading and can be removed whenever
+    //        we deprecate v2 related code
+    Store: ServerSettings;
     ExpandedEventCount: number;
     ProfileMessageType: number;
 }
@@ -272,7 +279,7 @@ export default function ServerModel(
             for (var purpose in gdprConsentState) {
                 if (gdprConsentState.hasOwnProperty(purpose)) {
                     var gdprConsent = gdprConsentState[purpose];
-                    jsonObject.gdpr[purpose] = {} as IPrivacyDTO;
+                    jsonObject.gdpr[purpose] = {} as IPrivacyV2DTO;
                     if (typeof gdprConsent.Consented === 'boolean') {
                         gdpr[purpose].c = gdprConsent.Consented;
                     }
@@ -317,7 +324,7 @@ export default function ServerModel(
 
         //  The `optOut` variable is passed later in this method to the `uploadObject`
         //  so that it can be used to denote whether or not a user has "opted out" of being
-        //  tracked. If this is an `optOut` Event, we set `optOut` to the inverse of the SDK's 
+        //  tracked. If this is an `optOut` Event, we set `optOut` to the inverse of the SDK's
         // `isEnabled` boolean which is controlled via `MPInstanceManager.setOptOut`.
         var optOut =
             event.messageType === Types.MessageType.OptOut
@@ -335,7 +342,7 @@ export default function ServerModel(
             } else {
                 eventObject = {
                     // This is an artifact from v2 events where SessionStart/End and AST event
-                    //  names are numbers (1, 2, or 10), but going forward with v3, these lifecycle 
+                    //  names are numbers (1, 2, or 10), but going forward with v3, these lifecycle
                     //  events do not have names, but are denoted by their `event_type`
                     EventName:
                         event.name ||
@@ -362,7 +369,7 @@ export default function ServerModel(
 
             uploadObject = {
                 // FIXME: Deprecate when we get rid of V2
-                Store: (mpInstance._Store.serverSettings as unknown) as IStore,
+                Store: mpInstance._Store.serverSettings,
                 SDKVersion: Constants.sdkVersion,
                 SessionId: mpInstance._Store.sessionId,
                 SessionStartDate: mpInstance._Store.sessionStartDate
@@ -389,7 +396,7 @@ export default function ServerModel(
                 eventObject.LaunchReferral = window.location.href || null;
             }
 
-            // TODO: why is this duplicated with `uploadObject`?
+            // FIXME: Remove duplicate occurence
             eventObject.CurrencyCode = mpInstance._Store.currencyCode;
             var currentUser = user || mpInstance.Identity.getCurrentUser();
             self.appendUserInfo(currentUser, eventObject as SDKEvent);
