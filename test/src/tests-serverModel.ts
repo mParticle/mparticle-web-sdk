@@ -233,7 +233,7 @@ describe('ServerModel', () => {
             );
         });
 
-        it('should convert Consente State with CCPA to a DTO', () => {
+        it('should convert Consent State with CCPA to a DTO', () => {
             const consentState = ({
                 getGDPRConsentState: () => {},
                 getCCPAConsentState: () => {
