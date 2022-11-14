@@ -140,7 +140,7 @@ export interface MParticleWebSDK {
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
     getAppName(): string;
     getAppVersion(): string;
-    getInstance(): MParticleWebSDK;
+    getInstance(): MParticleWebSDK; // TODO: Create a new type for MParticleWebSDKInstance
     ServerModel();
     upload();
     setPosition(lat: number | string, lng: number | string): void;
