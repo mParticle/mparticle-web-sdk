@@ -138,8 +138,8 @@ export interface MParticleWebSDK {
     _Consent: any; // TODO: Set up Consent SDK
     _resetForTests(MPConfig?: SDKConfig): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
-    getAppName();
-    getAppVersion();
+    getAppName(): string;
+    getAppVersion(): string;
     getInstance(): MParticleWebSDK;
     ServerModel();
     upload();
