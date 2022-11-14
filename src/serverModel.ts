@@ -401,7 +401,10 @@ export default function ServerModel(
                 eventObject.currentSessionMPIDs =
                     mpInstance._Store.currentSessionMPIDs;
 
-                // TODO: Why are we using session attributes instead of the event's Event Attributes?
+                // Session attributes are assigned on a session level, but only uploaded
+                // when a session ends. As there is no way to attach event attributes to
+                // a `SessionEnd` event, we are uploading the session level attributes
+                // as event level attributes in a `SessionEnd` event.
                 eventObject.EventAttributes =
                     mpInstance._Store.sessionAttributes;
 
