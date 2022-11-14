@@ -361,7 +361,7 @@ export default function ServerModel(
             }
 
             uploadObject = {
-                // TODO: Why are we passing Server Settings as Store?
+                // FIXME: Deprecate when we get rid of V2
                 Store: (mpInstance._Store.serverSettings as unknown) as IStore,
                 SDKVersion: Constants.sdkVersion,
                 SessionId: mpInstance._Store.sessionId,
