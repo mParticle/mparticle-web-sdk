@@ -421,7 +421,6 @@ export default function ServerModel(
         return null;
     };
 
-    // TODO: Should this take an event or upload object?
     this.convertEventToDTO = function(event: IUploadObject): IServerDTO {
         var dto: Partial<IServerDTO> = {
             n: event.EventName,
