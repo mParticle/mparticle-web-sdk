@@ -315,8 +315,10 @@ export default function ServerModel(
         var uploadObject: Partial<IUploadObject> = {};
         var eventObject: Partial<SDKEvent> = {};
 
-        // TODO: What is the purpose of setting OptOut to the inverse of the Store's
-        //       isEnabled property and not just `false`?
+        //  The `optOut` variable is passed later in this method to the `uploadObject`
+        //  so that it can be used to denote whether or not a user has "opted out" of being
+        //  tracked. If this is an `optOut` Event, we set `optOut` to the inverse of the SDK's 
+        // `isEnabled` boolean which is controlled via `MPInstanceManager.setOptOut`.
         var optOut =
             event.messageType === Types.MessageType.OptOut
                 ? !mpInstance._Store.isEnabled
