@@ -202,7 +202,7 @@ describe('ServerModel', () => {
     });
 
     describe('#convertToConsentStateDTO', () => {
-        it('should convert Consente State with GDPR to a DTO', () => {
+        it('should convert Consent State with GDPR to a DTO', () => {
             const consentState = ({
                 getGDPRConsentState: () => {
                     return {
