@@ -77,6 +77,8 @@ describe('ServerModel', () => {
                 },
             };
 
+            // TODO: We should move some of the event samples into a reusable module
+            //       or set up an event factory
             const event: SDKEvent = {
                 EventName: 'Test Event',
                 MPID: '',
@@ -264,7 +266,7 @@ describe('ServerModel', () => {
             );
         });
 
-        it('should convert Consente State with both GDPR and CCPA to a DTO', () => {
+        it('should convert Consent State with both GDPR and CCPA to a DTO', () => {
             const consentState = ({
                 getGDPRConsentState: () => {
                     return {
@@ -904,8 +906,7 @@ describe('ServerModel', () => {
 
             expect(actualDTO.fr, 'event.IsFirstRun (fr)').to.equal(true);
 
-            // TODO: What is IU?
-            expect(actualDTO.iu, '(iu)').to.equal(false);
+            expect(actualDTO.iu, 'event.isUpgrade').to.equal(false);
             expect(
                 actualDTO.at,
                 'event.ApplicationTransitionType.AppInit (at)'
@@ -914,7 +915,6 @@ describe('ServerModel', () => {
                 'https://mparticle.com/test-referral'
             );
 
-            // TODO: Why do we nullify this?
             expect(actualDTO.attrs, 'event.EventAttributes (attrs)').to.eql(
                 null
             );

@@ -83,7 +83,7 @@ export interface IServerDTO {
     smpids?: MPID[];
     con?: IConsentStateDTO;
     fr?: boolean;
-    iu?: boolean;
+    iu?: boolean; // isUpgrade
     at?: number;
     lr?: string;
     flags?: Dictionary<string[]>;
@@ -471,6 +471,9 @@ export default function ServerModel(
             dto.iu = false;
             dto.at = ApplicationTransitionType.AppInit;
             dto.lr = event.LaunchReferral;
+
+            // Nullify Attributes in case AST Was logged manually or
+            // via logBaseEvent. AST should not have any attributes
             dto.attrs = null;
         }
 
