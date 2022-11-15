@@ -821,7 +821,7 @@ describe('ServerModel', () => {
             ).to.eql(['test-mpids']);
         });
 
-        it('should add data plan id to DTO', () => {
+        it('should add data plan id and version to DTO', () => {
             const uploadObject = {
                 DataPlan: {
                     PlanId: 'test-data-plan',
