@@ -168,6 +168,7 @@ describe('ServerModel', () => {
             ServerModel.appendUserInfo(user, event as SDKEvent);
 
             expect(event.MPID).to.equal('123456');
+            expect(Object.keys(event).length.to.equal(1);
         });
 
         it('updates event MPID with User MPID', () => {
