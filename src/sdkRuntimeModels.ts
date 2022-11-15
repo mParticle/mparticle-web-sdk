@@ -1,9 +1,15 @@
-import { DataPlanVersion } from '@mparticle/data-planning-models';
+import * as EventsApi from '@mparticle/event-models';
 import { Batch } from '@mparticle/event-models';
-import { MPConfiguration, SDKEventCustomFlags } from '@mparticle/web-sdk';
-import { SDKConfig } from './store';
-import { Dictionary } from './utils';
+import { DataPlanVersion, DataPlan } from '@mparticle/data-planning-models';
+import { MPConfiguration, IdentityApiData } from '@mparticle/web-sdk';
+import { IStore, SDKConfig } from './store';
 import Validators from './validators';
+import { Dictionary } from './utils';
+import { IServerModel } from './serverModel';
+
+
+// TODO: Resolve this with version in @mparticle/web-sdk
+export type SDKEventCustomFlags = Dictionary<any>;
 
 export interface SDKEvent {
     DeviceId: string;
@@ -25,7 +31,7 @@ export interface SDKEvent {
     Debug: boolean;
     Location?: SDKGeoLocation;
     OptOut?: boolean;
-    CustomFlags?: { [key: string]: string };
+    CustomFlags?: SDKEventCustomFlags;
     AppVersion?: string;
     AppName?: string;
     Package?: string;
@@ -123,12 +129,18 @@ export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
-    _Store: SDKStoreApi;
+    _APIClient: any; // TODO: Set up API Client
+    _Store: IStore;
     _Helpers: SDKHelpersApi;
     config: SDKInitConfig;
-    _resetForTests(MPConfig: SDKConfig): void;
+    _ServerModel: IServerModel;
+    _SessionManager: any; // TODO: Set up Session Manager
+    _Consent: any; // TODO: Set up Consent SDK
+    _resetForTests(MPConfig?: SDKConfig): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
-    getInstance();
+    getAppName(): string;
+    getAppVersion(): string;
+    getInstance(): MParticleWebSDK; // TODO: Create a new type for MParticleWebSDKInstance
     ServerModel();
     upload();
     setPosition(lat: number | string, lng: number | string): void;
@@ -160,7 +172,7 @@ export type MPForwarder = Dictionary;
 // Currently, this extends MPConfiguration in @types/mparticle__web-sdk
 // and the two will be merged in once the Store module is refactored
 export interface SDKInitConfig
-    extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
+extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
     dataPlan?: DataPlanConfig | KitBlockerDataPlan; // TODO: These should be eventually split into two different attributes
     logLevel?: LogLevelType;
 
@@ -204,10 +216,12 @@ export interface SDKIdentityApi {
 
 export interface SDKHelpersApi {
     createServiceUrl(arg0: string, arg1: string): void;
-    parseNumber(value: number);
+    extend(...args: any[]);
+    parseNumber(value: string | number): number;
     generateUniqueId();
     isObject(item: any);
     returnConvertedBoolean(data: string | boolean | number): boolean;
+    sanitizeAttributes(attrs: Dictionary<string>, name: string): Dictionary<string> | null;
     Validators: typeof Validators;
 }
 
@@ -217,7 +231,9 @@ export interface SDKLoggerApi {
     warning(arg0: string): void;
 }
 
+// TODO: Merge this with IStore in store.ts
 export interface SDKStoreApi {
+    isEnabled: boolean;
     isFirstRun: boolean;
     devToken: string;
     SDKConfig: SDKConfigApi;
@@ -229,10 +245,13 @@ export interface SDKConfigApi {
     v3SecureServiceUrl?: string;
     isDevelopmentMode: boolean;
     appVersion?: string;
-    onCreateBatch(batch: Batch): Batch;
+    onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
 }
 export interface MParticleUser {
     getMPID(): string;
+    getConsentState(): any; // FIXME:
+    getAllUserAttributes(): any; // FIXME;
+    getUserIdentities(): IdentityApiData; // FIXME: Is this correct?
 }
 
 export interface SDKConsentState {
@@ -280,6 +299,10 @@ export interface BaseEvent {
     eventType?: number;
     data?: { [key: string]: string };
     customFlags?: { [key: string]: string };
+    toEventAPIObject?(): SDKEvent;
+    sourceMessageId?: string;
+    userAttributeChanges?: SDKUserAttributeChangeData;
+    userIdentityChanges?: SDKUserIdentityChangeData;
 }
 
 export interface KitBlockerOptions {

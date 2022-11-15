@@ -115,8 +115,8 @@ export interface IStore {
     devToken: string | null;
     migrationData: MigrationData;
     serverSettings: ServerSettings;
-    dateLastEventSent: number | null;
-    sessionStartDate: number | null;
+    dateLastEventSent: Date;
+    sessionStartDate: Date;
     currentPosition: SDKGeoLocation | null;
     isTracking: boolean;
     watchPositionId: number | null;
@@ -143,8 +143,10 @@ export interface IStore {
     configuredForwarders: MPForwarder[];
     pixelConfigurations: PixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
+    webviewBridgeEnabled?: boolean;
 }
 
+// TODO: Merge this with SDKStoreApi in sdkRuntimeModels
 export default function Store(
     this: IStore,
     config: SDKInitConfig,
