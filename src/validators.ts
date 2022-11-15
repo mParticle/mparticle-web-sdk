@@ -17,6 +17,7 @@ const Validators = {
     isFunction,
     isStringOrNumber,
 
+    // Validator Functions
     isValidAttributeValue: function(value: any): boolean {
         return value !== undefined && !isObject(value) && !Array.isArray(value);
     },
