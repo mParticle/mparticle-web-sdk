@@ -746,7 +746,7 @@ describe('ServerModel', () => {
     });
 
     describe('#convertEventToDTO', () => {
-        it('should return defaults', () => {
+        it('should convert an event to a DTO', () => {
             const uploadObject = ({
                 EventName: 'test-name',
                 EventCategory: Types.EventType.Navigation,
