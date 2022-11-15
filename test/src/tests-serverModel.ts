@@ -1514,7 +1514,7 @@ describe('ServerModel', () => {
             done();
         });
 
-        it('Should append identities when user present', function(done) {
+        it('Should append identities when user is present', function(done) {
             let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);
