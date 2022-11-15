@@ -1280,14 +1280,14 @@ describe('ServerModel', () => {
         });
 
         it('should add profile to DTO', () => {
-            const uploadObject = ({
+            const uploadObject = {
                 EventDataType: Types.MessageType.Profile,
-                ProfileMessageType: 'foo-message-type',
-            } as unknown) as IUploadObject;
+                ProfileMessageType: Types.ProfileMessageType.Logout,
+            } as unknown as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToDTO(uploadObject);
 
-            expect(actualDTO.pet).to.equal('foo-message-type');
+            expect(actualDTO.pet).to.equal(Types.ProfileMessageType.Logout);
         });
     });
 
