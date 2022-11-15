@@ -1280,10 +1280,10 @@ describe('ServerModel', () => {
         });
 
         it('should add profile to DTO', () => {
-            const uploadObject = {
+            const uploadObject = ({
                 EventDataType: Types.MessageType.Profile,
                 ProfileMessageType: Types.ProfileMessageType.Logout,
-            } as unknown as IUploadObject;
+            } as unknown) as IUploadObject;
 
             const actualDTO = ServerModel.convertEventToDTO(uploadObject);
 
@@ -1577,12 +1577,9 @@ describe('ServerModel', () => {
             expect(sdkEvent.UserAttributes).to.eql({});
             var attributes = { foo: 'bar', 'foo-arr': ['bar1', 'bar2'] };
             var user: MParticleUser = {
-                // TODO: Compiler is not happy with this
-                getUserIdentities: (): IdentityApiData => {
-                    return ({
-                        userIdentites: {},
-                    } as unknown) as IdentityApiData;
-                },
+                getUserIdentities: (): IdentityApiData => ({
+                    userIdentities: {},
+                }),
                 getAllUserAttributes: (): AllUserAttributes => {
                     return attributes;
                 },
@@ -1634,8 +1631,7 @@ describe('ServerModel', () => {
         });
 
         it('convertEventToDTO should contain launch referral', function(done) {
-            // TODO: Verify if this should be an SDKEvent or UploadObject
-            var event = {
+            var event = ({
                 EventName: 10,
                 EventAttributes: null,
                 SourceMessageId: '7efa0811-c716-4a1d-b8bf-dae90242849c',
@@ -1661,13 +1657,11 @@ describe('ServerModel', () => {
                 IntegrationAttributes: {},
                 DataPlan: {},
                 Timestamp: 1630528218899,
-            };
+            } as unknown) as IUploadObject;
 
             var upload = mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(
-                    (event as unknown) as IUploadObject
-                );
+                ._ServerModel.convertEventToDTO(event);
 
             expect(upload.lr).to.equal('http://foo.bar/this/is/a/test');
 
