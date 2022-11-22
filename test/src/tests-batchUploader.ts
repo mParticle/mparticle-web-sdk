@@ -1,9 +1,15 @@
 import sinon from 'sinon';
 import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
-import { MParticleWebSDK, SDKProductActionType } from  '../../src/sdkRuntimeModels';
+import {
+    MParticleWebSDK,
+    SDKEvent,
+    SDKProductActionType,
+} from '../../src/sdkRuntimeModels';
 import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './utils';
+import { BatchUploader } from '../../src/batchUploader';
+import { expect } from 'chai';
 
 declare global {
     interface Window {
@@ -27,11 +33,66 @@ describe('batch uploader', () => {
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
     });
-    
+
     afterEach(function() {
         mockServer.reset();
     });
-    
+
+    describe('Unit Tests', () => {
+        describe('#upload', () => {
+            it('should add events to the Pending Events Queue', () => {
+                window.mParticle._resetForTests(MPConfig);
+                window.mParticle.init(apiKey, window.mParticle.config);
+
+                const mpInstance = window.mParticle.getInstance();
+
+                const uploader = new BatchUploader(mpInstance, 1000);
+
+                const event: SDKEvent = {
+                    EventName: 'Test Event',
+                    EventAttributes: null,
+                    SourceMessageId: 'test-smid',
+                    EventDataType: 4,
+                    EventCategory: 1,
+                    CustomFlags: {},
+                    IsFirstRun: false,
+                    CurrencyCode: null,
+                    MPID: 'testMPID',
+                    ConsentState: null,
+                    UserAttributes: {},
+                    UserIdentities: [],
+                    SDKVersion: 'X.XX.XX',
+                    SessionId: 'test-session-id',
+                    SessionStartDate: 0,
+                    Debug: false,
+                    DeviceId: 'test-device',
+                    Timestamp: 0,
+                };
+
+                uploader.queueEvent(event);
+
+                expect(uploader.pendingEvents.length).to.eql(1);
+            });
+
+            it('should reject batches without events', () => {
+                window.mParticle._resetForTests(MPConfig);
+                window.mParticle.init(apiKey, window.mParticle.config);
+
+                const mpInstance = window.mParticle.getInstance();
+
+                const uploader = new BatchUploader(mpInstance, 1000);
+
+                // debugger;
+
+                uploader.queueEvent(null);
+                uploader.queueEvent(({} as unknown) as SDKEvent);
+
+                expect(uploader.pendingEvents).to.eql([]);
+                expect(uploader.pendingUploads).to.eql([]);
+            });
+        });
+    });
+
     describe('batching via window.fetch', () => {
         beforeEach(function() {
             window.fetchMock.post(urls.eventsV3, 200);

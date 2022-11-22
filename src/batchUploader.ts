@@ -7,6 +7,7 @@ import {
 } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
+import { isEmptyObject } from './utils';
 
 export class BatchUploader {
     //we upload JSON, but this content type is required to avoid a CORS preflight request
@@ -64,8 +65,8 @@ export class BatchUploader {
         return false;
     }
 
-    queueEvent(event: SDKEvent) {
-        if (event) {
+    queueEvent(event: SDKEvent): void {
+        if (!isEmptyObject(event)) {
             this.pendingEvents.push(event);
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
