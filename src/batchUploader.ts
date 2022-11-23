@@ -66,7 +66,7 @@ export class BatchUploader {
     }
 
     queueEvent(event: SDKEvent): void {
-        if (!isEmptyObject(event)) {
+        if (!isEmpty(event)) {
             this.pendingEvents.push(event);
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
@@ -132,15 +132,24 @@ export class BatchUploader {
                 eventsBySession.set(sdkEvent.SessionId, events);
             }
             for (const entry of Array.from(eventsBySession.entries())) {
-                let uploadBatchObject = convertEvents(mpid, entry[1], mpInstance);
-                const onCreateBatchCallback = mpInstance._Store.SDKConfig.onCreateBatch;
+                let uploadBatchObject = convertEvents(
+                    mpid,
+                    entry[1],
+                    mpInstance
+                );
+                const onCreateBatchCallback =
+                    mpInstance._Store.SDKConfig.onCreateBatch;
 
                 if (onCreateBatchCallback) {
-                    uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
+                    uploadBatchObject = onCreateBatchCallback(
+                        uploadBatchObject
+                    );
                     if (uploadBatchObject) {
                         uploadBatchObject.modified = true;
                     } else {
-                        mpInstance.Logger.warning('Skiping batch upload because no batch was returned from onCreateBatch callback');
+                        mpInstance.Logger.warning(
+                            'Skiping batch upload because no batch was returned from onCreateBatch callback'
+                        );
                     }
                 }
 
@@ -198,7 +207,11 @@ export class BatchUploader {
         useBeacon: boolean
     ): Promise<Batch[]> {
         let uploader;
-        if (!uploads || uploads.length < 1) {
+
+        if (
+            isEmpty(uploads) ||
+            uploads.some(upload => isEmpty(upload.events))
+        ) {
             return null;
         }
         logger.verbose(`Uploading batches: ${JSON.stringify(uploads)}`);
