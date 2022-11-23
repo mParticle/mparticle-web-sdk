@@ -203,17 +203,18 @@ export class BatchUploader {
 
     private async upload(
         logger: SDKLoggerApi,
-        uploads: Batch[],
+        _uploads: Batch[],
         useBeacon: boolean
     ): Promise<Batch[]> {
         let uploader;
 
-        if (
-            isEmpty(uploads) ||
-            uploads.some(upload => isEmpty(upload.events))
-        ) {
+        // Filter out any batches that don't have events
+        const uploads = _uploads.filter(upload => !isEmpty(upload.events));
+
+        if (isEmpty(uploads)) {
             return null;
         }
+
         logger.verbose(`Uploading batches: ${JSON.stringify(uploads)}`);
         logger.verbose(`Batch count: ${uploads.length}`);
 

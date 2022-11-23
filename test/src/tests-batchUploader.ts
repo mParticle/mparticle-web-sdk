@@ -2,6 +2,7 @@ import sinon from 'sinon';
 import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
 import {
+    BaseEvent,
     MParticleWebSDK,
     SDKEvent,
     SDKProductActionType,
@@ -10,7 +11,8 @@ import { Batch, CustomEventData } from '@mparticle/event-models';
 import Utils from './utils';
 import { BatchUploader } from '../../src/batchUploader';
 import { expect } from 'chai';
-
+import _BatchValidator from '../../src/mockBatchCreator';
+import Logger from '../../src/logger.js';
 declare global {
     interface Window {
         mParticle: MParticleWebSDK;
@@ -745,4 +747,68 @@ describe('batch uploader', () => {
             done();
         });
     });
-}); 
+
+    describe('handling eventless batches', () => {
+        it('should reject batches without events', async () => {
+            window.mParticle.config.flags = {
+                eventsV3: '100',
+                eventBatchingIntervalMillis: 1000,
+            };
+
+            mockServer = sinon.createFakeServer();
+            mockServer.respondImmediately = true;
+
+            mockServer.respondWith(urls.identify, [
+                200,
+                {},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+
+            window.mParticle._resetForTests(MPConfig);
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            window.fetchMock.post(
+                'https://jssdks.mparticle.com/v3/JS/test_key/events',
+                200
+            );
+
+            const newLogger = new Logger(window.mParticle.config);
+            const mpInstance = window.mParticle.getInstance();
+
+            const uploader = new BatchUploader(mpInstance, 1000);
+
+            const batchValidator = new _BatchValidator();
+            const baseEvent: BaseEvent = {
+                messageType: 4,
+                name: 'testEvent',
+            };
+
+            const actualBatch = batchValidator.returnBatch(baseEvent);
+            const eventlessBatch = batchValidator.returnBatch(
+                ({} as unknown) as BaseEvent
+            );
+            const testBatches = [actualBatch, eventlessBatch];
+
+            // HACK: Directly access uploader to Force an upload
+            await (<any>uploader).upload(newLogger, testBatches, false);
+
+            window.fetchMock._calls.forEach(call =>
+                console.log('body events', JSON.parse(call[1].body).events)
+            );
+
+            console.log(
+                'fetch mock calls length',
+                window.fetchMock.calls().length
+            );
+
+            expect(window.fetchMock.calls().length).to.equal(1);
+
+            const actualBatchResult = JSON.parse(
+                window.fetchMock.calls()[0][1].body
+            );
+
+            expect(actualBatchResult.events.length).to.equal(1);
+            expect(actualBatchResult.events).to.eql(actualBatch.events);
+        });
+    });
+});
