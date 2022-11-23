@@ -4,7 +4,7 @@ import {
     findKeyInObject,
     inArray,
     isDataPlanSlug,
-    isEmptyObject,
+    isEmpty,
     isObject,
     isStringOrNumber,
     parseNumber,
@@ -167,17 +167,29 @@ describe('Utils', () => {
         });
     });
 
-    describe('#isEmptyObject', () => {
-        it('returns true if object is empty', () => {
-            expect(isEmptyObject([])).to.equal(true);
+    describe('#isEmpty', () => {
+        it('returns true if array is empty', () => {
+            expect(isEmpty([])).to.equal(true);
         });
 
-        it('returns false if object is not empty', () => {
-            expect(isEmptyObject([1, 2, 3])).to.equal(false);
+        it('returns false if array is not empty', () => {
+            expect(isEmpty([1, 2, 3])).to.equal(false);
+        });
+
+        it('returns true if object is empty', ()=> {
+            expect(isEmpty({})).to.equal(true);
+        });
+
+        it('returns false if object is not empty', ()=> {
+            expect(isEmpty({'foo': 'bar'})).to.equal(false);
         });
 
         it('returns true if object is null', () => {
-            expect(isEmptyObject(null)).to.equal(true);
+            expect(isEmpty(null)).to.equal(true);
+        });
+
+        it('returns true if object is null', () => {
+            expect(isEmpty(null)).to.equal(true);
         });
     });
 });

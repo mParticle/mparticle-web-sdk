@@ -7,7 +7,7 @@ import {
 } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
-import { isEmptyObject } from './utils';
+import { isEmpty } from './utils';
 
 export class BatchUploader {
     //we upload JSON, but this content type is required to avoid a CORS preflight request

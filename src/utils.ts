@@ -96,7 +96,7 @@ const isDataPlanSlug = (str: string): boolean =>
 const isStringOrNumber = (value: any): boolean =>
     isString(value) || isNumber(value);
 
-const isEmptyObject = (val: Dictionary<any> | null | undefined): boolean =>
+const isEmpty = (val: Dictionary<any> | null | undefined): boolean =>
     val == null || !(Object.keys(val) || val).length;
 
 export {
@@ -114,5 +114,5 @@ export {
     isNumber,
     isFunction,
     isDataPlanSlug,
-    isEmptyObject,
+    isEmpty,
 };

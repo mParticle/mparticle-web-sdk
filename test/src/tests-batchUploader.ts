@@ -82,8 +82,6 @@ describe('batch uploader', () => {
 
                 const uploader = new BatchUploader(mpInstance, 1000);
 
-                // debugger;
-
                 uploader.queueEvent(null);
                 uploader.queueEvent(({} as unknown) as SDKEvent);
 
