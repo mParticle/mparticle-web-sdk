@@ -792,15 +792,6 @@ describe('batch uploader', () => {
             // HACK: Directly access uploader to Force an upload
             await (<any>uploader).upload(newLogger, testBatches, false);
 
-            window.fetchMock._calls.forEach(call =>
-                console.log('body events', JSON.parse(call[1].body).events)
-            );
-
-            console.log(
-                'fetch mock calls length',
-                window.fetchMock.calls().length
-            );
-
             expect(window.fetchMock.calls().length).to.equal(1);
 
             const actualBatchResult = JSON.parse(
