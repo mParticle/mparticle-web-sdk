@@ -30,6 +30,12 @@ jobs:
             - name: Build Files
               run: npm run build
 
+            - name: Install Firefox Latest
+              uses: browser-actions/setup-firefox@latest
+
+            - name: Log Firefox Version
+              run: firefox --version
+
             - name: Run Core tests
               run: npm run test
 
