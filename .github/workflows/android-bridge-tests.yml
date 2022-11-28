@@ -6,16 +6,16 @@ jobs:
         runs-on: macos-11
         steps:
             - name: "Checkout internal"
-              uses: actions/checkout@v2
+              uses: actions/checkout@v3
 
             - name: "Clone Android Repo"
-              uses: actions/checkout@v2
+              uses: actions/checkout@v3
               with:
                 repository: mParticle/mparticle-android-sdk
                 ref: development
                 path: mparticle-android-sdk
             - name: "Install JDK 11"
-              uses: actions/setup-java@v2
+              uses: actions/setup-java@v3
               with:
                 distribution: "zulu"
                 java-version: "11"    
@@ -24,14 +24,14 @@ jobs:
                 npm ci
                 npm run build:iife
             - name: "Run Instrumented Tests"
-              uses: reactivecircus/android-emulator-runner@v2.20.0
+              uses: reactivecircus/android-emulator-runner@v2.27.0
               with:
                 working-directory: mparticle-android-sdk
                 api-level: 29
                 script: ./gradlew :android-core:cAT -Pandroid.testInstrumentationRunnerArguments.class=com.mparticle.internal.MParticleJSInterfaceITest -Pjs-sdk-file=../dist/mparticle.js
             - name: "Archive Test Results"
               if: ${{ always() }}
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v3
               with:
                   name: test-results
                   path: mparticle-android-sdk/android-core/build/reports/androidTests/connected/**
