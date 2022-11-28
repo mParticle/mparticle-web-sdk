@@ -188,8 +188,8 @@ describe('Utils', () => {
             expect(isEmpty(null)).to.equal(true);
         });
 
-        it('returns true if object is null', () => {
-            expect(isEmpty(null)).to.equal(true);
+        it('returns true if object is undefined', () => {
+            expect(isEmpty(undefined)).to.equal(true);
         });
     });
 });
