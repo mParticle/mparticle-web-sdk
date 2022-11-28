@@ -11,10 +11,10 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
-              uses: actions/checkout@v2
+              uses: actions/checkout@v3
 
             - name: NPM install
-              uses: actions/setup-node@v1
+              uses: actions/setup-node@v3
               with:
                   node-version: 16.x
 
@@ -44,19 +44,19 @@ jobs:
 
             - name: Run Stub tests
               run: npm run test:stub
-              
+
             - name: Archive Bundle
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v3
               with:
                   name: bundle-local
                   path: dist
-              
+
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v3
               if: failure()
               with:
-                name: npm-logs
-                path: ~/.npm/_logs
+                  name: npm-logs
+                  path: ~/.npm/_logs
 
     build-local:
         name: Get Bundle Size from Current Branch
@@ -69,10 +69,10 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v2
+              uses: actions/checkout@v3
 
             - name: NPM install
-              uses: actions/setup-node@v1
+              uses: actions/setup-node@v3
               with:
                   node-version: 16.x
 
@@ -101,12 +101,12 @@ jobs:
                   echo "::set-output name=bundledLocalHuman::${{ env.BUNDLED_LOCAL_HUMAN }}"
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v3
               if: failure()
               with:
                   name: npm-logs
                   path: ~/.npm/_logs
-                  
+
     build-master:
         name: Get Bundle Size from Master
         runs-on: ubuntu-latest
@@ -118,12 +118,12 @@ jobs:
 
         steps:
             - name: Checkout Master
-              uses: actions/checkout@v2
+              uses: actions/checkout@v3
               with:
                   ref: master
 
             - name: NPM install
-              uses: actions/setup-node@v1
+              uses: actions/setup-node@v3
               with:
                   node-version: 16.x
 
@@ -144,7 +144,7 @@ jobs:
                   echo "::set-output name=bundledMasterHuman::${{ env.BUNDLED_MASTER_HUMAN }}"
 
             - name: Archive npm failure logs
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v3
               if: failure()
               with:
                   name: npm-logs
