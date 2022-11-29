@@ -43,7 +43,7 @@ export default class Vault {
     /**
      * Retrieves all batches from local storage as an array
      * @method retrieveBatches
-     * @returns {Batch[]} a list of Batches
+     * @returns {Batch[]} an array of Batches
      */
     retrieveBatches(): Batch[] {
         this.contents = this.getItems() || {};
