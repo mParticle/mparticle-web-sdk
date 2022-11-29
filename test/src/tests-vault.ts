@@ -2,7 +2,7 @@ import { Batch } from '@mparticle/event-models';
 import { expect } from 'chai';
 import Vault from '../../src/vault';
 
-describe.only('Vault', () => {
+describe('Vault', () => {
     afterEach(() => {
         window.localStorage.clear();
     });
