@@ -13,6 +13,7 @@ describe('Vault', () => {
                 foo: 'bar',
                 source_request_id: 'item-123',
             };
+
             const batch2 = {
                 foo: 'bar',
                 source_request_id: 'item-456',
@@ -21,11 +22,9 @@ describe('Vault', () => {
             const batches = ([batch1, batch2] as unknown) as Batch[];
 
             const vault = new Vault('test-key-store-batches');
-
-            const expectedContents = { 'item-123': batch1, 'item-456': batch2 };
-
             vault.storeBatches(batches);
 
+            const expectedContents = { 'item-123': batch1, 'item-456': batch2 };
             expect(vault.contents).to.eql(expectedContents);
         });
 
