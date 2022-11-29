@@ -48,6 +48,13 @@ describe('Vault', () => {
 
             const vault = new Vault('test-key-store-batches');
 
+            vault.storeBatches(batches);
+
+            batch1.events.push({ eventName: 'test-event-4' });
+            batch2.events.push({ eventName: 'test-event-5' });
+
+            vault.storeBatches(batches);
+
             const expectedContents = {
                 'item-123': {
                     foo: 'bar',
@@ -67,13 +74,6 @@ describe('Vault', () => {
                     ],
                 },
             };
-
-            vault.storeBatches(batches);
-
-            batch1.events.push({ eventName: 'test-event-4' });
-            batch2.events.push({ eventName: 'test-event-5' });
-
-            vault.storeBatches(batches);
 
             expect(vault.contents['item-123']).to.eql(
                 expectedContents['item-123']
