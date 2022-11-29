@@ -4,9 +4,10 @@ import { Dictionary, isEmpty } from './utils';
 export default class Vault {
     // TODO: Make this generic
     public contents: Dictionary<Batch>;
+    private readonly _key: string;
 
-    constructor(public key: string) {
-        this.key = key;
+    constructor(key: string) {
+        this._key = key;
         this.contents = this.getItems();
     }
 
@@ -63,7 +64,7 @@ export default class Vault {
     private saveItems<T>(items: Dictionary<T>): void {
         try {
             window.localStorage.setItem(
-                this.key,
+                this._key,
                 !isEmpty(items) ? JSON.stringify(items) : ''
             );
         } catch (err) {
@@ -72,12 +73,12 @@ export default class Vault {
     }
 
     private getItems<T>(): Dictionary<T> {
-        const itemString = window.localStorage.getItem(this.key);
+        const itemString = window.localStorage.getItem(this._key);
 
         return itemString ? JSON.parse(itemString) : {};
     }
 
     private removeItems(): void {
-        window.localStorage.removeItem(this.key);
+        window.localStorage.removeItem(this._key);
     }
 }
