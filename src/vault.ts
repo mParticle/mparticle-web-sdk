@@ -13,7 +13,7 @@ export default class Vault {
     /**
      * Stores Batches using `source_request_id` as an index
      * @method storeBatches
-     * @param {Batches[]} batches an Array of Batches
+     * @param {Batches[]} an Array of Batches
      */
     storeBatches(batches: Batch[]): void {
         this.contents = this.getItems() || {};
