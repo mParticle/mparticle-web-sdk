@@ -15,8 +15,8 @@ export default class Vault {
      * @method storeBatches
      * @param {Batches[]} an Array of Batches
      */
-    storeBatches(batches: Batch[]): void {
-        this.contents = this.getItems() || {};
+    public storeBatches(batches: Batch[]): void {
+        this.contents = this.getItems();
 
         batches.forEach(batch => {
             if (batch.source_request_id) {
@@ -32,7 +32,7 @@ export default class Vault {
      * @method removeBatch
      * @param {String} source_request_id
      */
-    removeBatch(source_request_id: string): void {
+    public removeBatch(source_request_id: string): void {
         this.contents = this.getItems() || {};
 
         delete this.contents[source_request_id];
@@ -45,8 +45,8 @@ export default class Vault {
      * @method retrieveBatches
      * @returns {Batch[]} an array of Batches
      */
-    retrieveBatches(): Batch[] {
-        this.contents = this.getItems() || {};
+    public retrieveBatches(): Batch[] {
+        this.contents = this.getItems();
 
         return Object.keys(this.contents).map(item => this.contents[item]);
     }
@@ -55,7 +55,7 @@ export default class Vault {
      * Removes all persisted data from local storage based on this vault's `key`
      * @method purge
      */
-    purge(): void {
+    public purge(): void {
         this.contents = {};
         this.removeItems();
     }
