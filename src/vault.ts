@@ -1,0 +1,84 @@
+import { Batch } from '@mparticle/event-models';
+import { Dictionary, isEmpty } from './utils';
+
+export default class Vault {
+    // TODO: Make this generic
+    public contents: Dictionary<Batch>;
+    private readonly _key: string;
+
+    constructor(key: string) {
+        this._key = key;
+        this.contents = this.getItems();
+    }
+
+    /**
+     * Stores Batches using `source_request_id` as an index
+     * @method storeBatches
+     * @param {Batches[]} an Array of Batches
+     */
+    public storeBatches(batches: Batch[]): void {
+        this.contents = this.getItems();
+
+        batches.forEach(batch => {
+            if (batch.source_request_id) {
+                this.contents[batch.source_request_id] = batch;
+            }
+        });
+
+        this.saveItems(this.contents);
+    }
+
+    /**
+     * Removes a single batch based on `source_request_id`
+     * @method removeBatch
+     * @param {String} source_request_id
+     */
+    public removeBatch(source_request_id: string): void {
+        this.contents = this.getItems() || {};
+
+        delete this.contents[source_request_id];
+
+        this.saveItems<Batch>(this.contents);
+    }
+
+    /**
+     * Retrieves all batches from local storage as an array
+     * @method retrieveBatches
+     * @returns {Batch[]} an array of Batches
+     */
+    public retrieveBatches(): Batch[] {
+        this.contents = this.getItems();
+
+        return Object.keys(this.contents).map(item => this.contents[item]);
+    }
+
+    /**
+     * Removes all persisted data from local storage based on this vault's `key`
+     * @method purge
+     */
+    public purge(): void {
+        this.contents = {};
+        this.removeItems();
+    }
+
+    private saveItems<T>(items: Dictionary<T>): void {
+        try {
+            window.localStorage.setItem(
+                this._key,
+                !isEmpty(items) ? JSON.stringify(items) : ''
+            );
+        } catch (err) {
+            console.error('Cannot Save Items to Local Storage', err);
+        }
+    }
+
+    private getItems<T>(): Dictionary<T> {
+        const itemString = window.localStorage.getItem(this._key);
+
+        return itemString ? JSON.parse(itemString) : {};
+    }
+
+    private removeItems(): void {
+        window.localStorage.removeItem(this._key);
+    }
+}
