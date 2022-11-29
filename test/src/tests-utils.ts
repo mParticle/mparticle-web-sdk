@@ -4,6 +4,7 @@ import {
     findKeyInObject,
     inArray,
     isDataPlanSlug,
+    isEmpty,
     isObject,
     isStringOrNumber,
     parseNumber,
@@ -163,6 +164,32 @@ describe('Utils', () => {
 
         it('handles numerical strings', function () {
             expect(isDataPlanSlug('42')).to.equal(true);
+        });
+    });
+
+    describe('#isEmpty', () => {
+        it('returns true if array is empty', () => {
+            expect(isEmpty([])).to.equal(true);
+        });
+
+        it('returns false if array is not empty', () => {
+            expect(isEmpty([1, 2, 3])).to.equal(false);
+        });
+
+        it('returns true if object is empty', ()=> {
+            expect(isEmpty({})).to.equal(true);
+        });
+
+        it('returns false if object is not empty', ()=> {
+            expect(isEmpty({'foo': 'bar'})).to.equal(false);
+        });
+
+        it('returns true if object is null', () => {
+            expect(isEmpty(null)).to.equal(true);
+        });
+
+        it('returns true if object is undefined', () => {
+            expect(isEmpty(undefined)).to.equal(true);
         });
     });
 });

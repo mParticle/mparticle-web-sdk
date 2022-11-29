@@ -7,6 +7,7 @@ import {
 } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
+import { isEmpty } from './utils';
 
 export class BatchUploader {
     //we upload JSON, but this content type is required to avoid a CORS preflight request
@@ -64,8 +65,8 @@ export class BatchUploader {
         return false;
     }
 
-    queueEvent(event: SDKEvent) {
-        if (event) {
+    queueEvent(event: SDKEvent): void {
+        if (!isEmpty(event)) {
             this.pendingEvents.push(event);
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
@@ -131,15 +132,24 @@ export class BatchUploader {
                 eventsBySession.set(sdkEvent.SessionId, events);
             }
             for (const entry of Array.from(eventsBySession.entries())) {
-                let uploadBatchObject = convertEvents(mpid, entry[1], mpInstance);
-                const onCreateBatchCallback = mpInstance._Store.SDKConfig.onCreateBatch;
+                let uploadBatchObject = convertEvents(
+                    mpid,
+                    entry[1],
+                    mpInstance
+                );
+                const onCreateBatchCallback =
+                    mpInstance._Store.SDKConfig.onCreateBatch;
 
                 if (onCreateBatchCallback) {
-                    uploadBatchObject = onCreateBatchCallback(uploadBatchObject);
+                    uploadBatchObject = onCreateBatchCallback(
+                        uploadBatchObject
+                    );
                     if (uploadBatchObject) {
                         uploadBatchObject.modified = true;
                     } else {
-                        mpInstance.Logger.warning('Skiping batch upload because no batch was returned from onCreateBatch callback');
+                        mpInstance.Logger.warning(
+                            'Skiping batch upload because no batch was returned from onCreateBatch callback'
+                        );
                     }
                 }
 
@@ -193,13 +203,18 @@ export class BatchUploader {
 
     private async upload(
         logger: SDKLoggerApi,
-        uploads: Batch[],
+        _uploads: Batch[],
         useBeacon: boolean
     ): Promise<Batch[]> {
         let uploader;
-        if (!uploads || uploads.length < 1) {
+
+        // Filter out any batches that don't have events
+        const uploads = _uploads.filter(upload => !isEmpty(upload.events));
+
+        if (isEmpty(uploads)) {
             return null;
         }
+
         logger.verbose(`Uploading batches: ${JSON.stringify(uploads)}`);
         logger.verbose(`Batch count: ${uploads.length}`);
 
