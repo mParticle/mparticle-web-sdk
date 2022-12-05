@@ -12,6 +12,8 @@ import {
     v4LSKey,
 } from './config';
 
+import Polyfill from '../../src/polyfill';
+
 /* eslint-disable quotes*/
 var findCookie = Utils.findCookie,
     getLocalStorage = Utils.getLocalStorage,
@@ -21,7 +23,9 @@ var findCookie = Utils.findCookie,
     getEvent = Utils.getEvent,
     mockServer;
 
-describe('Persistence', function() {
+var Base64 = Polyfill.Base64;
+
+describe.only('Persistence', function() {
     describe('#useLocalStorage', function() {
         it('returns true if Local Storage is available', function() {
             mParticle._resetForTests(MPConfig);
@@ -102,8 +106,6 @@ describe('Persistence', function() {
                     workspaceToken: 'cookie-test',
                 })
             );
-
-            debugger;
 
             mParticle.getInstance()._Persistence.update();
 
@@ -306,7 +308,96 @@ describe('Persistence', function() {
         });
     });
 
-    describe('#getUserProductsFromLS', function() {});
+    describe('#getUserProductsFromLS', function() {
+        it('returns an empty array if mpid is missing', () => {
+            mParticle._resetForTests(MPConfig);
+            expect(
+                mParticle.getInstance()._Persistence.getUserProductsFromLS('')
+            ).to.eql([]);
+        });
+
+        it('returns an empty array if no user products exist in local storage', () => {
+            const lsKey = 'test-getUserProductsFromLS';
+
+            mParticle._resetForTests(MPConfig);
+            mParticle.getInstance()._Store.prodStorageName = lsKey;
+
+            window.localStorage.setItem(lsKey, JSON.stringify(''));
+
+            expect(
+                mParticle
+                    .getInstance()
+                    ._Persistence.getUserProductsFromLS(
+                        'test-mpid-getUserProductsFromLS'
+                    )
+            ).to.eql([]);
+        });
+
+        it('returns an array user products if they exist in local storage', () => {
+            const lsKey = 'test-getUserProductsFromLS';
+            const testMPID = 'test-mpid-getUserProductsFromLS';
+
+            mParticle._resetForTests(MPConfig);
+            mParticle.getInstance()._Store.prodStorageName = lsKey;
+
+            const expectedProducts = [
+                {
+                    Attributes: {
+                        plannedAttr1: 'val1',
+                        plannedAttr2: 'val2',
+                        unplannedAttr1: 'val3',
+                        allowedAttr1: 'val4',
+                        allowedAttr2: 'val5',
+                    },
+                    Name: 'iPhone',
+                    Category: 'category',
+                    CouponCode: 'coupon',
+                    Position: 1,
+                    Price: 999,
+                    Quantity: 1,
+                    Sku: 'iphoneSKU',
+                    TotalAmount: 999,
+                    Variant: '128',
+                },
+                {
+                    Attributes: {
+                        plannedAttr1: 'val1',
+                        plannedAttr2: 'val2',
+                        unplannedAttr1: 'val3',
+                        allowedAttr1: 'val4',
+                        allowedAttr2: 'val5',
+                    },
+                    Name: 'S10',
+                    Category: 'category',
+                    CouponCode: 'coupon',
+                    Position: 2,
+                    Price: 500,
+                    Quantity: 1,
+                    Sku: 'galaxySKU',
+                    TotalAmount: 500,
+                    Variant: '256',
+                },
+            ];
+
+            const actualStorageItem = {
+                [testMPID]: {
+                    cp: expectedProducts,
+                },
+            };
+
+            window.localStorage.setItem(
+                lsKey,
+                Base64.encode(JSON.stringify(actualStorageItem))
+            );
+
+            expect(
+                mParticle
+                    .getInstance()
+                    ._Persistence.getUserProductsFromLS(testMPID)
+            ).to.eql(expectedProducts);
+        });
+    });
+
     describe('#getAllUserProductsFromLS', function() {});
     describe('#setLocalStorage', function() {});
 
