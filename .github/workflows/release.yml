@@ -154,12 +154,13 @@ jobs:
           if: ${{ github.event.inputs.dryRun == 'false' }}
           run: |
             git pull origin release/${{ github.run_number }}
-            
-        - name: Push release commits to master and development branches
+
+        - name: Push release commits to main, master and development branches
           if: ${{ github.event.inputs.dryRun == 'false' }}
           run: |
             git push origin HEAD:development
             git push origin HEAD:master
+            git push origin HEAD:main
 
         - name: Delete release branch
           if: ${{ github.event.inputs.dryRun == 'false' }}
