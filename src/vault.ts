@@ -1,27 +1,27 @@
-import { Batch } from '@mparticle/event-models';
 import { Dictionary, isEmpty } from './utils';
 
-export default class Vault {
-    // TODO: Make this generic
-    public contents: Dictionary<Batch>;
-    private readonly _key: string;
+export default class Vault<StorableItem extends Dictionary> {
+    public contents: Dictionary<StorableItem>;
+    private readonly _storageKey: string;
+    private readonly _itemKey: keyof StorableItem;
 
-    constructor(key: string) {
-        this._key = key;
+    constructor(storageKey: string, itemKey: keyof StorableItem) {
+        this._storageKey = storageKey;
+        this._itemKey = itemKey;
         this.contents = this.getItems();
     }
 
     /**
-     * Stores Batches using `source_request_id` as an index
-     * @method storeBatches
-     * @param {Batches[]} an Array of Batches
+     * Stores Items using `itemId` as an index
+     * @method storeItems
+     * @param {StorableItem[]} an Array of StorableItems
      */
-    public storeBatches(batches: Batch[]): void {
+    public storeItems(items: StorableItem[]): void {
         this.contents = this.getItems();
 
-        batches.forEach(batch => {
-            if (batch.source_request_id) {
-                this.contents[batch.source_request_id] = batch;
+        items.forEach(item => {
+            if (item[this._itemKey]) {
+                this.contents[item[this._itemKey]] = item;
             }
         });
 
@@ -29,24 +29,28 @@ export default class Vault {
     }
 
     /**
-     * Removes a single batch based on `source_request_id`
-     * @method removeBatch
-     * @param {String} source_request_id
+     * Removes a single StorableItem based on `indexId`
+     * @method removeItem
+     * @param {String} indexId
      */
-    public removeBatch(source_request_id: string): void {
+    public removeItem(indexId: string): void {
         this.contents = this.getItems() || {};
 
-        delete this.contents[source_request_id];
+        try {
+            delete this.contents[indexId];
 
-        this.saveItems<Batch>(this.contents);
+            this.saveItems(this.contents);
+        } catch (e) {
+            console.error('Unable to remove item without a matching ID', e);
+        }
     }
 
     /**
-     * Retrieves all batches from local storage as an array
-     * @method retrieveBatches
-     * @returns {Batch[]} an array of Batches
+     * Retrieves all StorableItems from local storage as an array
+     * @method retrieveItems
+     * @returns {StorableItem[]} an array of Batches
      */
-    public retrieveBatches(): Batch[] {
+    public retrieveItems(): StorableItem[] {
         this.contents = this.getItems();
 
         return Object.keys(this.contents).map(item => this.contents[item]);
@@ -61,10 +65,10 @@ export default class Vault {
         this.removeItems();
     }
 
-    private saveItems<T>(items: Dictionary<T>): void {
+    private saveItems(items: Dictionary<StorableItem>): void {
         try {
             window.localStorage.setItem(
-                this._key,
+                this._storageKey,
                 !isEmpty(items) ? JSON.stringify(items) : ''
             );
         } catch (err) {
@@ -72,13 +76,14 @@ export default class Vault {
         }
     }
 
-    private getItems<T>(): Dictionary<T> {
-        const itemString = window.localStorage.getItem(this._key);
+    private getItems(): Dictionary<StorableItem> {
+        // TODO: return contents if local storage is unavailable?
+        const itemString = window.localStorage.getItem(this._storageKey);
 
         return itemString ? JSON.parse(itemString) : {};
     }
 
     private removeItems(): void {
-        window.localStorage.removeItem(this._key);
+        window.localStorage.removeItem(this._storageKey);
     }
 }
