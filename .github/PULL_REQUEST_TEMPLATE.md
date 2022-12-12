@@ -1,5 +1,5 @@
 ## Instructions
-1. PR target branch should be against development
+1. PR target branch should be against `development`
 2. PR title name should follow this format: https://github.com/mParticle/mparticle-workflows/blob/main/.github/workflows/pr-title-check.yml
 3. PR branch prefix should follow this format: https://github.com/mParticle/mparticle-workflows/blob/main/.github/workflows/pr-branch-check-name.yml
 
