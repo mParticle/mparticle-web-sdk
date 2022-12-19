@@ -560,8 +560,8 @@ describe('batch uploader', () => {
             // include an identify request so that it creates a UIC
             window.mParticle.config.identifyRequest = {
                 userIdentities: {
-                    customerid: 'foo-customer-id'
-                }
+                    customerid: 'foo-customer-id',
+                },
             };
 
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -573,15 +573,21 @@ describe('batch uploader', () => {
 
             // 1st request is /Identity call, 2nd request is UIC call
             var batch = JSON.parse(mockServer.secondRequest.requestBody);
-            
-            batch.events[0].event_type.should.equal('user_identity_change');
+
+            expect(batch.events[0].event_type, 'Batch 1 Event 1').to.equal(
+                'user_identity_change'
+            );
 
             // force upload of other events
-            window.mParticle.upload()
+            window.mParticle.upload();
             var batch2 = JSON.parse(mockServer.thirdRequest.requestBody);
 
-            batch2.events[0].event_type.should.equal('session_start');
-            batch2.events[1].event_type.should.equal('application_state_transition');
+            expect(batch2.events[0].event_type, 'Batch 2 Event 1').to.equal(
+                'session_start'
+            );
+            expect(batch2.events[1].event_type, 'Batch 2 Event 2').to.equal(
+                'application_state_transition'
+            );
 
             done();
         });
@@ -703,13 +709,13 @@ describe('batch uploader', () => {
         });
     })
 
-    describe('upload beacon', ()=> {
+    describe('upload beacon', () => {
         beforeEach(() => {
             window.mParticle.config.flags = {
                 eventsV3: '100',
                 eventBatchingIntervalMillis: 1000,
-            }
-        })
+            };
+        });
         afterEach(() => {
             sinon.restore();
         });
@@ -719,7 +725,8 @@ describe('batch uploader', () => {
 
             var bond = sinon.spy(navigator, 'sendBeacon');
             window.mParticle.init(apiKey, window.mParticle.config);
-            document.dispatchEvent(new Event('visibilitychange'))
+
+            document.dispatchEvent(new Event('visibilitychange'));
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
@@ -736,31 +743,31 @@ describe('batch uploader', () => {
             window.mParticle.init(apiKey, window.mParticle.config);
 
             // karma fails if onbeforeunload is not set to null
-            window.onbeforeunload = null
-            window.dispatchEvent(new Event('beforeunload'))
-            
+            window.onbeforeunload = null;
+            window.dispatchEvent(new Event('beforeunload'));
+
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
                 'https://jssdks.mparticle.com/v3/JS/test_key/events'
             );
-                
+
             done();
         });
 
         it('should trigger beacon on pagehide events', function(done) {
             window.mParticle._resetForTests(MPConfig);
-            
+
             var bond = sinon.spy(navigator, 'sendBeacon');
-            
             window.mParticle.init(apiKey, window.mParticle.config);
-            window.dispatchEvent(new Event('pagehide'))
+
+            window.dispatchEvent(new Event('pagehide'));
 
             bond.called.should.eql(true);
             bond.getCalls()[0].args[0].should.eql(
                 'https://jssdks.mparticle.com/v3/JS/test_key/events'
             );
 
-            (typeof(bond.getCalls()[0].args[1])).should.eql('object');
+            (typeof bond.getCalls()[0].args[1]).should.eql('object');
 
             done();
         });

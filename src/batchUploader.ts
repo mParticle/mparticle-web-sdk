@@ -8,6 +8,7 @@ import {
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
 import { isEmpty } from './utils';
+import Vault from './vault';
 
 export class BatchUploader {
     //we upload JSON, but this content type is required to avoid a CORS preflight request
@@ -19,6 +20,8 @@ export class BatchUploader {
     mpInstance: MParticleWebSDK;
     uploadUrl: string;
     batchingEnabled: boolean;
+    private eventVault: Vault<SDKEvent>;
+    private batchVault: Vault<Batch>;
 
     constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
         this.mpInstance = mpInstance;
@@ -31,6 +34,22 @@ export class BatchUploader {
         this.pendingEvents = [];
         this.pendingUploads = [];
 
+        this.eventVault = new Vault<SDKEvent>(
+            `${mpInstance._Store.storageName}-events`,
+            'SourceMessageId',
+            {
+                logger: mpInstance.Logger,
+            }
+        );
+
+        this.batchVault = new Vault<Batch>(
+            `${mpInstance._Store.storageName}-batches`,
+            'source_request_id',
+            {
+                logger: mpInstance.Logger,
+            }
+        );
+
         const { SDKConfig, devToken } = this.mpInstance._Store;
         const baseUrl = this.mpInstance._Helpers.createServiceUrl(
             SDKConfig.v3SecureServiceUrl,
@@ -38,6 +57,8 @@ export class BatchUploader {
         );
         this.uploadUrl = `${baseUrl}/events`;
 
+        // TODO: Store timeout as attribute so we can clear it to prevent
+        //       an unnecessary timer running with nothing to do
         setTimeout(() => {
             this.prepareAndUpload(true, false);
         }, this.uploadIntervalMillis);
@@ -59,6 +80,8 @@ export class BatchUploader {
     }
 
     private isBeaconAvailable(): boolean {
+        // TODO: Is there any chance that `sendBeacon` exists
+        //       but that the beacon would not be available?
         if (navigator.sendBeacon) {
             return true;
         }
@@ -67,7 +90,11 @@ export class BatchUploader {
 
     queueEvent(event: SDKEvent): void {
         if (!isEmpty(event)) {
+            // TODO: This is where we should store events in Vault
             this.pendingEvents.push(event);
+            // TODO: Maybe we need a storeItem function?
+            this.eventVault.storeItems([event]);
+
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
             );
@@ -172,30 +199,61 @@ export class BatchUploader {
     private async prepareAndUpload(triggerFuture: boolean, useBeacon: boolean) {
         const currentUser = this.mpInstance.Identity.getCurrentUser();
 
-        const currentEvents = this.pendingEvents;
+        // const currentEvents = this.pendingEvents;
+        // this.pendingEvents = [];
+
+        console.warn('Event Vault contents?', this.eventVault.retrieveItems());
+        // TODO: Retrieve and Purge events from Event Vault
+        const currentEvents = this.eventVault.retrieveItems();
+        // Should this really purge, or just empty local storage?
+        this.eventVault.purge();
+        // TODO: Deprecate pending Events
         this.pendingEvents = [];
+
         const newUploads = BatchUploader.createNewUploads(
             currentEvents,
             currentUser,
             this.mpInstance
         );
+        console.log('uploads', newUploads);
         if (newUploads && newUploads.length) {
             this.pendingUploads.push(...newUploads);
+            this.batchVault.storeItems([...newUploads]);
+            console.log(
+                'what is in the batch vault?',
+                this.batchVault.contents
+            );
         }
 
         const currentUploads = this.pendingUploads;
+        // this.vault.storeItems([...newUploads]);
         this.pendingUploads = [];
+
         const remainingUploads: Batch[] = await this.upload(
             this.mpInstance.Logger,
             currentUploads,
+            // this.vault.retrieveItems(),
             useBeacon
         );
+
+        console.info('remaining uploads', remainingUploads);
+
+        // Check to make sure there not any in-memory batches waiting to upload
+        // before we get batches from the Vault. A callback in `upload`
+        // will clear out any successfully uploaded batches
+        // This check will make sure we're not accidentally resneding something
+        // that is already in transit
         if (remainingUploads && remainingUploads.length) {
             this.pendingUploads.unshift(...remainingUploads);
+        } else if (!isEmpty(this.batchVault.contents)) {
+            this.pendingUploads.push(...this.batchVault.retrieveItems());
         }
 
         if (triggerFuture) {
+            // TODO: Nothing catches this. We should store the timer in the instance
+            //       and clear the timeout when this is done
             setTimeout(() => {
+                console.warn('Triggering prepareAndUpload via setTimeout');
                 this.prepareAndUpload(true, false);
             }, this.uploadIntervalMillis);
         }
@@ -207,6 +265,9 @@ export class BatchUploader {
         useBeacon: boolean
     ): Promise<Batch[]> {
         let uploader;
+
+        // TODO: Looks like tests are not running this uploader, and not clearing out
+        //       the batches in the vault?
 
         // Filter out any batches that don't have events
         const uploads = _uploads.filter(upload => !isEmpty(upload.events));
@@ -233,12 +294,15 @@ export class BatchUploader {
                 let blob = new Blob([fetchPayload.body], {
                     type: 'text/plain;charset=UTF-8',
                 });
+                // TODO: Can we flag anytihng in the vault to say it's
+                //       added to the beacon?
                 navigator.sendBeacon(this.uploadUrl, blob);
             } else {
                 if (!uploader) {
                     if (window.fetch) {
                         uploader = new FetchUploader(this.uploadUrl, logger);
                     } else {
+                        // debugger;
                         uploader = new XHRUploader(this.uploadUrl, logger);
                     }
                 }
@@ -249,9 +313,16 @@ export class BatchUploader {
                         i
                     );
 
+                    // TODO: Can we move these returns out of here
+                    // and keep the upload function "pure?"
                     if (response.status >= 200 && response.status < 300) {
                         logger.verbose(
                             `Upload success for request ID: ${uploads[i].source_request_id}`
+                        );
+                        // TODO: Should we trigger an event here instead of touching
+                        //       the vault directly?
+                        this.batchVault.removeItem(
+                            uploads[i].source_request_id
                         );
                     } else if (
                         response.status >= 500 ||
@@ -260,6 +331,7 @@ export class BatchUploader {
                         logger.error(
                             `HTTP error status ${response.status} received`
                         );
+                        // TODO: Maybe Vault renders this unnecessary?
                         //server error, add back current events and try again later
                         return uploads.slice(i, uploads.length);
                     } else if (response.status >= 401) {
@@ -273,6 +345,7 @@ export class BatchUploader {
                     logger.error(
                         `Error sending event to mParticle servers. ${e}`
                     );
+                    // TODO: Maybe Vault renders this unnecessary?
                     return uploads.slice(i, uploads.length);
                 }
             }
