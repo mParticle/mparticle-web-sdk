@@ -1,14 +1,29 @@
+import { Logger } from '@mparticle/web-sdk';
 import { Dictionary, isEmpty } from './utils';
+
+interface IVaultOptions {
+    logger?: Logger;
+}
 
 export default class Vault<StorableItem extends Dictionary> {
     public contents: Dictionary<StorableItem>;
     private readonly _storageKey: string;
     private readonly _itemKey: keyof StorableItem;
+    private logger?: Logger | undefined;
 
-    constructor(storageKey: string, itemKey: keyof StorableItem) {
+    constructor(
+        storageKey: string,
+        itemKey: keyof StorableItem,
+        options?: IVaultOptions
+    ) {
         this._storageKey = storageKey;
         this._itemKey = itemKey;
         this.contents = this.getItems();
+
+        // Add a fake logger in case one is not provided or needed
+        this.logger = options?.logger || {
+            verbose: ()=> {}
+        };
     }
 
     /**
@@ -22,10 +37,12 @@ export default class Vault<StorableItem extends Dictionary> {
         items.forEach(item => {
             if (item[this._itemKey]) {
                 this.contents[item[this._itemKey]] = item;
+                this.logger.verbose(`Saved items to vault with key: ${item[this._itemKey]}`);
             }
         });
 
         this.saveItems(this.contents);
+
     }
 
     /**
@@ -34,6 +51,7 @@ export default class Vault<StorableItem extends Dictionary> {
      * @param {String} indexId
      */
     public removeItem(indexId: string): void {
+        this.logger.verbose(`Removing from vault: ${indexId}`);
         this.contents = this.getItems() || {};
 
         try {
@@ -48,7 +66,7 @@ export default class Vault<StorableItem extends Dictionary> {
     /**
      * Retrieves all StorableItems from local storage as an array
      * @method retrieveItems
-     * @returns {StorableItem[]} an array of Batches
+     * @returns {StorableItem[]} an array of Items 
      */
     public retrieveItems(): StorableItem[] {
         this.contents = this.getItems();
