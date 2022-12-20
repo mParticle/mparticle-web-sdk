@@ -39,11 +39,11 @@ export interface IConsent {
     isEnabledForUserConsent: (consentRules: any, user: any) => boolean;
     createPrivacyConsent: (
         consented: boolean,
-        timestamp: number,
-        consentDocument: string,
-        location: string,
-        hardwareId: string
-    ) => PrivacyConsentState;
+        timestamp?: number,
+        consentDocument?: string,
+        location?: string,
+        hardwareId?: string
+    ) => PrivacyConsentState | null;
     // TODO: Resolve the difference between ConsentState and ConsentStateOBJ
     createConsentState: (
         consentState?: ConsentState
@@ -294,7 +294,7 @@ class ConsentStateOBJ {
 
     // TODO: Fix return type
     // constructor(): ConsentState {}
-    constructor(consentState?: ConsentState ) {
+    constructor(consentState?: ConsentState) {
         this.gdpr = {};
         this.ccpa = {};
 
