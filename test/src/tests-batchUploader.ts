@@ -20,6 +20,122 @@ declare global {
     }
 }
 
+describe('upload beacon', () => {
+    let mockServer;
+
+    beforeEach(function() {
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
+        // Stub Local Storage response because it causes beacon to not fire in
+        // repeated tests
+        sinon.stub(window.localStorage, 'getItem').callsFake(() => {
+            return JSON.stringify({
+                'b56a0cdf-91b8-4d86-96a8-57d8886d3b7a': {
+                    EventName: 10,
+                    EventAttributes: null,
+                    SourceMessageId: 'b56a0cdf-91b8-4d86-96a8-57d8886d3b7a',
+                    EventDataType: 10,
+                    CustomFlags: {},
+                    IsFirstRun: true,
+                    LaunchReferral: 'http://localhost:9876/debug.html',
+                    CurrencyCode: null,
+                    MPID: 'testMPID',
+                    ConsentState: null,
+                    UserAttributes: {},
+                    UserIdentities: [],
+                    Store: {},
+                    SDKVersion: '2.18.0',
+                    SessionId: '0D63646B-EA93-4AD1-8378-FAD7A71A333B',
+                    SessionStartDate: 1671576752819,
+                    Debug: false,
+                    Location: null,
+                    OptOut: null,
+                    ExpandedEventCount: 0,
+                    ClientGeneratedId:
+                        '95a0d3e4-f16c-4bd4-a86a-60bfd1ed353f',
+                    DeviceId: '062e7536-cf85-4430-a177-282dd0bbb31f',
+                    IntegrationAttributes: {},
+                    DataPlan: {},
+                    Timestamp: 1671576752827,
+                },
+            });
+        });
+
+        window.mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 1000,
+        };
+    });
+
+    afterEach(() => {
+        sinon.restore();
+        mockServer.reset();
+        window.localStorage.clear();
+    });
+
+    // TODO: For some reason, the first one uses a custom event url rather than jssdk?
+    it('should trigger beacon on page visibilitychange events', function(done) {
+        window.mParticle._resetForTests(MPConfig);
+
+        var bond = sinon.spy(navigator, 'sendBeacon');
+        window.mParticle.init(apiKey, window.mParticle.config);
+
+        // visibility change is a document property, not window
+        document.dispatchEvent(new Event('visibilitychange'));
+
+        bond.called.should.eql(true);
+        bond.getCalls()[0].args[0].should.eql(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events'
+        );
+
+        done();
+    });
+
+    it('should trigger beacon on page beforeunload events', function(done) {
+        window.mParticle._resetForTests(MPConfig);
+
+        var bond = sinon.spy(navigator, 'sendBeacon');
+        // debugger;
+        window.mParticle.init(apiKey, window.mParticle.config);
+
+        // karma fails if onbeforeunload is not set to null
+        window.onbeforeunload = null;
+        window.dispatchEvent(new Event('beforeunload'));
+
+        bond.called.should.eql(true);
+        bond.getCalls()[0].args[0].should.eql(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events'
+        );
+
+        done();
+    });
+
+    it('should trigger beacon on pagehide events', function(done) {
+        window.mParticle._resetForTests(MPConfig);
+
+        var bond = sinon.spy(navigator, 'sendBeacon');
+        window.mParticle.init(apiKey, window.mParticle.config);
+
+        window.dispatchEvent(new Event('pagehide'));
+
+        bond.called.should.eql(true);
+        bond.getCalls()[0].args[0].should.eql(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events'
+        );
+
+        (typeof bond.getCalls()[0].args[1]).should.eql('object');
+
+        done();
+    });
+});
+
 describe('batch uploader', () => {
     let mockServer;
     let clock;
@@ -96,6 +212,7 @@ describe('batch uploader', () => {
 
     describe('batching via window.fetch', () => {
         beforeEach(function() {
+            window.fetchMock.restore();
             window.fetchMock.post(urls.eventsV3, 200);
             window.fetchMock.config.overwriteRoutes = true;
             clock = sinon.useFakeTimers({now: new Date().getTime()});
@@ -709,106 +826,7 @@ describe('batch uploader', () => {
         });
     })
 
-    describe('upload beacon', () => {
-        beforeEach(() => {
-            // Stub Local Storage response because it causes beacon to not fire in
-            // repeated tests
-            sinon.stub(window.localStorage, 'getItem').callsFake(() => {
-                return JSON.stringify({
-                    'b56a0cdf-91b8-4d86-96a8-57d8886d3b7a': {
-                        EventName: 10,
-                        EventAttributes: null,
-                        SourceMessageId: 'b56a0cdf-91b8-4d86-96a8-57d8886d3b7a',
-                        EventDataType: 10,
-                        CustomFlags: {},
-                        IsFirstRun: true,
-                        LaunchReferral: 'http://localhost:9876/debug.html',
-                        CurrencyCode: null,
-                        MPID: 'testMPID',
-                        ConsentState: null,
-                        UserAttributes: {},
-                        UserIdentities: [],
-                        Store: {},
-                        SDKVersion: '2.18.0',
-                        SessionId: '0D63646B-EA93-4AD1-8378-FAD7A71A333B',
-                        SessionStartDate: 1671576752819,
-                        Debug: false,
-                        Location: null,
-                        OptOut: null,
-                        ExpandedEventCount: 0,
-                        ClientGeneratedId:
-                            '95a0d3e4-f16c-4bd4-a86a-60bfd1ed353f',
-                        DeviceId: '062e7536-cf85-4430-a177-282dd0bbb31f',
-                        IntegrationAttributes: {},
-                        DataPlan: {},
-                        Timestamp: 1671576752827,
-                    },
-                });
-            });
 
-            window.mParticle.config.flags = {
-                eventsV3: '100',
-                eventBatchingIntervalMillis: 1000,
-            };
-        });
-
-        afterEach(() => {
-            sinon.restore();
-        });
-
-        it('should trigger beacon on page visibilitychange events', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            var bond = sinon.spy(navigator, 'sendBeacon');
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            // visibility change is a document property, not window
-            document.dispatchEvent(new Event('visibilitychange'));
-
-            bond.called.should.eql(true);
-            bond.getCalls()[0].args[0].should.eql(
-                'https://jssdks.mparticle.com/v3/JS/test_key/events'
-            );
-
-            done();
-        });
-
-        it('should trigger beacon on page beforeunload events', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            var bond = sinon.spy(navigator, 'sendBeacon');
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            // karma fails if onbeforeunload is not set to null
-            window.onbeforeunload = null;
-            window.dispatchEvent(new Event('beforeunload'));
-
-            bond.called.should.eql(true);
-            bond.getCalls()[0].args[0].should.eql(
-                'https://jssdks.mparticle.com/v3/JS/test_key/events'
-            );
-
-            done();
-        });
-
-        it('should trigger beacon on pagehide events', function(done) {
-            window.mParticle._resetForTests(MPConfig);
-
-            var bond = sinon.spy(navigator, 'sendBeacon');
-            window.mParticle.init(apiKey, window.mParticle.config);
-
-            window.dispatchEvent(new Event('pagehide'));
-
-            bond.called.should.eql(true);
-            bond.getCalls()[0].args[0].should.eql(
-                'https://jssdks.mparticle.com/v3/JS/test_key/events'
-            );
-
-            (typeof bond.getCalls()[0].args[1]).should.eql('object');
-
-            done();
-        });
-    });
 
     describe('handling eventless batches', () => {
         it('should reject batches without events', async () => {

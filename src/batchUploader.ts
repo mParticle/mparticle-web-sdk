@@ -295,7 +295,6 @@ export class BatchUploader {
                     if (window.fetch) {
                         uploader = new FetchUploader(this.uploadUrl, logger);
                     } else {
-                        // debugger;
                         uploader = new XHRUploader(this.uploadUrl, logger);
                     }
                 }
