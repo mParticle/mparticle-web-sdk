@@ -163,6 +163,10 @@ const Constants = {
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
     },
     DefaultInstance: 'default_instance',
+    WrapperSDKNames: {
+        None: 'none',
+        Flutter: 'flutter',
+    }
 } as const;
 
 export default Constants;

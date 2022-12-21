@@ -70,6 +70,9 @@ export interface SDKConfig {
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
+
+    wrapperSDKName: string;
+    wrapperSDKVersion?: string;
 }
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
@@ -423,6 +426,16 @@ export default function Store(
             )
         ) {
             this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching] = false;
+        }
+
+        if (config.hasOwnProperty('wrapperSDKName')) {
+            this.SDKConfig.wrapperSDKName = config.wrapperSDKName;
+        } else {
+            this.SDKConfig.wrapperSDKName = Constants.WrapperSDKNames.None;
+        }
+        
+        if (config.hasOwnProperty('wrapperSDKVersion')) {
+            this.SDKConfig.wrapperSDKVersion = config.wrapperSDKVersion;
         }
     }
 }
