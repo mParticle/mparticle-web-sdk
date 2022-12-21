@@ -68,6 +68,7 @@ export class BatchUploader {
     private addEventListeners() {
         const _this = this;
 
+        // visibility change is a document property, not window
         document.addEventListener('visibilitychange', () => {
             _this.prepareAndUpload(false, _this.isBeaconAvailable());
         });
@@ -202,7 +203,6 @@ export class BatchUploader {
         // const currentEvents = this.pendingEvents;
         // this.pendingEvents = [];
 
-        console.warn('Event Vault contents?', this.eventVault.retrieveItems());
         // TODO: Retrieve and Purge events from Event Vault
         const currentEvents = this.eventVault.retrieveItems();
         // Should this really purge, or just empty local storage?
@@ -215,14 +215,10 @@ export class BatchUploader {
             currentUser,
             this.mpInstance
         );
-        console.log('uploads', newUploads);
+
         if (newUploads && newUploads.length) {
             this.pendingUploads.push(...newUploads);
             this.batchVault.storeItems([...newUploads]);
-            console.log(
-                'what is in the batch vault?',
-                this.batchVault.contents
-            );
         }
 
         const currentUploads = this.pendingUploads;
@@ -235,8 +231,6 @@ export class BatchUploader {
             // this.vault.retrieveItems(),
             useBeacon
         );
-
-        console.info('remaining uploads', remainingUploads);
 
         // Check to make sure there not any in-memory batches waiting to upload
         // before we get batches from the Vault. A callback in `upload`
@@ -253,7 +247,6 @@ export class BatchUploader {
             // TODO: Nothing catches this. We should store the timer in the instance
             //       and clear the timeout when this is done
             setTimeout(() => {
-                console.warn('Triggering prepareAndUpload via setTimeout');
                 this.prepareAndUpload(true, false);
             }, this.uploadIntervalMillis);
         }
