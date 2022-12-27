@@ -15,6 +15,6 @@ jobs:
     uses: mParticle/mparticle-workflows/.github/workflows/pr-branch-target-gitflow.yml@stable
   security-lint-checks:
     name: Security Lint Checks
-    uses: mparticle/mparticle-workflows/.github/workflows/security-checks.yml@main
+    uses: mparticle/mparticle-workflows/.github/workflows/security-checks.yml@stable
     with:
       base_branch: "development"
