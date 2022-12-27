@@ -1261,6 +1261,26 @@ export default function mParticleInstance(instanceName) {
             self._APIClient.processQueuedEvents();
         }
     };
+
+    // Internal use only. Used by our wrapper SDKs to identify themselves during initialization.
+    this._setWrapperSDKInfo = function(name, version) {
+        var queued = queueIfNotInitialized(function() {
+            self._setWrapperSDKInfo(name, version);
+        }, self);
+
+        if (queued) return;
+
+        if (
+            self._Store.wrapperSDKInfo === undefined ||
+            !self._Store.wrapperSDKInfo.isInfoSet
+        ) {
+            self._Store.wrapperSDKInfo = {
+                name: name,
+                version: version,
+                isInfoSet: true,
+            };
+        }
+    };
 }
 
 // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment

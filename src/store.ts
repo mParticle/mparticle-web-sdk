@@ -102,6 +102,14 @@ export type PixelConfiguration = Dictionary;
 export type MigrationData = Dictionary;
 export type ServerSettings = Dictionary;
 
+type WrapperSDKTypes = 'flutter' | 'none';
+interface WrapperSDKInfo {
+    name: WrapperSDKTypes;
+    version: string | null;
+    isInfoSet: boolean;
+}
+
+
 // Temporary Interface until Store can be refactored as a class
 export interface IStore {
     isEnabled: boolean;
@@ -144,6 +152,7 @@ export interface IStore {
     pixelConfigurations: PixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
+    wrapperSDKInfo: WrapperSDKInfo;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -191,6 +200,11 @@ export default function Store(
         kits: {},
         configuredForwarders: [],
         pixelConfigurations: [],
+        wrapperSDKInfo: {
+            name: 'none',
+            version: null,
+            isInfoSet: false,
+        },
     };
 
     for (var key in defaultStore) {

@@ -69,6 +69,11 @@ export default class _BatchValidator {
                 kits: {},
                 configuredForwarders: [],
                 pixelConfigurations: [],
+                wrapperSDKInfo: {
+                    name: 'none',
+                    version: null,
+                    isInfoSet: false,
+                },
                 SDKConfig: {
                     isDevelopmentMode: false,
                     onCreateBatch: mockFunction,
@@ -102,7 +107,7 @@ export default class _BatchValidator {
             logLevel: 'none',
             setPosition: mockFunction,
             upload: mockFunction,
-        };
+        } as MParticleWebSDK;
     }
 
     returnBatch(event: BaseEvent) {
