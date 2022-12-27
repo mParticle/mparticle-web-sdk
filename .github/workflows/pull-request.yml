@@ -27,7 +27,6 @@ jobs:
             - name: Lint with Prettier
               run: npm run prettier
 
-
             - name: Build Files
               run: npm run build
 
