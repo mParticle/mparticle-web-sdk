@@ -27,11 +27,6 @@ jobs:
             - name: Lint with Prettier
               run: npm run prettier
 
-            - name: Security Lint Checks
-              uses: mparticle/mparticle-workflows/.github/workflows/security-checks.yml@main
-              with:
-                base_branch: "development"
-
             - name: Build Files
               run: npm run build
 
