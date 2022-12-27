@@ -6,12 +6,6 @@ name: Web SDK Build & Test
 on: pull_request
 
 jobs:
-    security-lint-checks:
-      name: Security Lint Checks
-      uses: mparticle/mparticle-workflows/.github/workflows/security-checks.yml@main
-      with:
-        base_branch: "development"
-
     build-and-test:
         name: Build and Test
         runs-on: ubuntu-latest
