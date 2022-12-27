@@ -9,7 +9,7 @@ export default class Vault<StorableItem extends Dictionary> {
     public contents: Dictionary<StorableItem>;
     private readonly _storageKey: string;
     private readonly _itemKey: keyof StorableItem;
-    private logger?: Logger | undefined;
+    private logger?: Logger;
 
     constructor(
         storageKey: string,
@@ -22,7 +22,9 @@ export default class Vault<StorableItem extends Dictionary> {
 
         // Add a fake logger in case one is not provided or needed
         this.logger = options?.logger || {
-            verbose: ()=> {}
+            verbose: ()=> {},
+            warning: ()=> {},
+            error: ()=> {},
         };
     }
 
@@ -58,8 +60,9 @@ export default class Vault<StorableItem extends Dictionary> {
             delete this.contents[indexId];
 
             this.saveItems(this.contents);
-        } catch (e) {
-            console.error('Unable to remove item without a matching ID', e);
+        } catch (error) {
+            this.logger.error(`Unable to remove item without a matching ID ${indexId}`);
+            this.logger.error(error as string);
         }
     }
 
@@ -89,8 +92,9 @@ export default class Vault<StorableItem extends Dictionary> {
                 this._storageKey,
                 !isEmpty(items) ? JSON.stringify(items) : ''
             );
-        } catch (err) {
-            console.error('Cannot Save Items to Local Storage', err);
+        } catch (error) {
+            this.logger.error(`Cannot Save items to Local Storage: ${items}`);
+            this.logger.error(error as string);
         }
     }
 

@@ -22,6 +22,7 @@ export class BatchUploader {
     batchingEnabled: boolean;
     private eventVault: Vault<SDKEvent>;
     private batchVault: Vault<Batch>;
+    private uploadIntervalTimeout: NodeJS.Timeout;
 
     constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
         this.mpInstance = mpInstance;
@@ -57,11 +58,8 @@ export class BatchUploader {
         );
         this.uploadUrl = `${baseUrl}/events`;
 
-        // TODO: Store timeout as attribute so we can clear it to prevent
-        //       an unnecessary timer running with nothing to do
-        setTimeout(() => {
-            this.prepareAndUpload(true, false);
-        }, this.uploadIntervalMillis);
+        // TODO: if we're setting trigger future, we probably don't need to set the interval here
+        this.triggerUploadInterval(true, false);
         this.addEventListeners();
     }
 
@@ -89,6 +87,18 @@ export class BatchUploader {
         return false;
     }
 
+    // Triggers a setTimeout for prepareAndUpload
+    private triggerUploadInterval(
+        triggerFuture: boolean = false,
+        useBeacon: boolean = false
+    ): void {
+        // Clear out existing interval before creating a new one
+        clearTimeout(this.uploadIntervalTimeout);
+        this.uploadIntervalTimeout = setTimeout(() => {
+            this.prepareAndUpload(triggerFuture, useBeacon);
+        }, this.uploadIntervalMillis);
+    }
+
     queueEvent(event: SDKEvent): void {
         if (!isEmpty(event)) {
             // TODO: This is where we should store events in Vault
@@ -103,11 +113,21 @@ export class BatchUploader {
                 `Queued event count: ${this.pendingEvents.length}`
             );
 
+            // TODO: Do we still needto check if batching is enabled?
+            //       I thought we are moving towards having this on for everyone?
+            // TODO: Need a workaround for the set timeout being triggered
+            // TODO: Refactor this logic so that it is clear that priority events are procesed
+            //       immediately, but other events wait until an interval has passed
             if (
                 !this.batchingEnabled ||
                 Types.TriggerUploadType[event.EventDataType]
             ) {
-                this.prepareAndUpload(false, false);
+                this.prepareAndUpload(true, false);
+            }
+
+            // Set up a one-time future upload just in case we have unprocessed events
+            if (this.batchingEnabled) {
+                this.triggerUploadInterval(false, false);
             }
         }
     }
@@ -200,11 +220,11 @@ export class BatchUploader {
     private async prepareAndUpload(triggerFuture: boolean, useBeacon: boolean) {
         const currentUser = this.mpInstance.Identity.getCurrentUser();
 
-        // const currentEvents = this.pendingEvents;
-        // this.pendingEvents = [];
+        const currentEvents = this.pendingEvents;
+        this.pendingEvents = [];
 
         // TODO: Retrieve and Purge events from Event Vault
-        const currentEvents = this.eventVault.retrieveItems();
+        // const currentEvents = this.eventVault.retrieveItems();
         // Should this really purge, or just empty local storage?
         this.eventVault.purge();
         // TODO: Deprecate pending Events
@@ -246,9 +266,16 @@ export class BatchUploader {
         if (triggerFuture) {
             // TODO: Nothing catches this. We should store the timer in the instance
             //       and clear the timeout when this is done
-            setTimeout(() => {
+            this.uploadIntervalTimeout = setTimeout(() => {
                 this.prepareAndUpload(true, false);
             }, this.uploadIntervalMillis);
+        }
+        if (
+            isEmpty(this.pendingUploads) &&
+            isEmpty(this.eventVault.contents) &&
+            isEmpty(this.batchVault.contents)
+        ) {
+            clearTimeout(this.uploadIntervalTimeout);
         }
     }
 
@@ -258,9 +285,6 @@ export class BatchUploader {
         useBeacon: boolean
     ): Promise<Batch[]> {
         let uploader;
-
-        // TODO: Looks like tests are not running this uploader, and not clearing out
-        //       the batches in the vault?
 
         // Filter out any batches that don't have events
         const uploads = _uploads.filter(upload => !isEmpty(upload.events));

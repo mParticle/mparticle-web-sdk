@@ -45,7 +45,7 @@ export function convertEvents(
         return null;
     }
 
-    let consentState;
+    let consentState: SDKConsentState = null;
 
     // Get consent state from last event or user
     if (!isEmpty(lastEvent.ConsentState)) {
@@ -53,7 +53,6 @@ export function convertEvents(
     } else if (!isEmpty(user)) {
         consentState = user.getConsentState();
     }
-    // TODO: what happens if we can't get consent state?
 
     const upload: EventsApi.Batch = {
         source_request_id: mpInstance._Helpers.generateUniqueId(),
