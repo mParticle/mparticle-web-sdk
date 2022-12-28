@@ -21,6 +21,70 @@ declare global {
     }
 }
 
+describe('upload beacon', ()=> {
+    beforeEach(() => {
+        window.mParticle.config.flags = {
+            eventsV3: '100',
+            eventBatchingIntervalMillis: 1000,
+        }
+    })
+    afterEach(() => {
+        sinon.restore();
+    });
+
+    it('should trigger beacon on page visibilitychange events', function(done) {
+        window.mParticle._resetForTests(MPConfig);
+
+        var bond = sinon.spy(navigator, 'sendBeacon');
+        window.mParticle.init(apiKey, window.mParticle.config);
+        document.dispatchEvent(new Event('visibilitychange'))
+
+        bond.called.should.eql(true);
+        bond.getCalls()[0].args[0].should.eql(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events'
+        );
+
+        done();
+    });
+
+    it('should trigger beacon on page beforeunload events', function(done) {
+        window.mParticle._resetForTests(MPConfig);
+
+        var bond = sinon.spy(navigator, 'sendBeacon');
+        window.mParticle.init(apiKey, window.mParticle.config);
+
+        // karma fails if onbeforeunload is not set to null
+        window.onbeforeunload = null
+        window.dispatchEvent(new Event('beforeunload'))
+        
+        bond.called.should.eql(true);
+        bond.getCalls()[0].args[0].should.eql(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events'
+        );
+            
+        done();
+    });
+
+    it('should trigger beacon on pagehide events', function(done) {
+        window.mParticle._resetForTests(MPConfig);
+        
+        var bond = sinon.spy(navigator, 'sendBeacon');
+        
+        window.mParticle.init(apiKey, window.mParticle.config);
+        window.dispatchEvent(new Event('pagehide'))
+
+        bond.called.should.eql(true);
+        bond.getCalls()[0].args[0].should.eql(
+            'https://jssdks.mparticle.com/v3/JS/test_key/events'
+        );
+
+        (typeof(bond.getCalls()[0].args[1])).should.eql('object');
+
+        done();
+    });
+});
+
+
 describe('batch uploader', () => {
     var mockServer,
         clock
