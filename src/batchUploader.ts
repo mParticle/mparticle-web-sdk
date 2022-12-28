@@ -21,7 +21,7 @@ export class BatchUploader {
     uploadUrl: string;
     batchingEnabled: boolean;
     // private eventVault: Vault<SDKEvent>;
-    // private batchVault: Vault<Batch>;
+    private batchVault: Vault<Batch>;
     private uploadIntervalTimeout: NodeJS.Timeout;
 
     constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
@@ -43,13 +43,13 @@ export class BatchUploader {
         //     }
         // );
 
-        // this.batchVault = new Vault<Batch>(
-        //     `${mpInstance._Store.storageName}-batches`,
-        //     'source_request_id',
-        //     {
-        //         logger: mpInstance.Logger,
-        //     }
-        // );
+        this.batchVault = new Vault<Batch>(
+            `${mpInstance._Store.storageName}-batches`,
+            'source_request_id',
+            {
+                logger: mpInstance.Logger,
+            }
+        );
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
         const baseUrl = this.mpInstance._Helpers.createServiceUrl(
@@ -238,11 +238,10 @@ export class BatchUploader {
 
         if (newUploads && newUploads.length) {
             this.pendingUploads.push(...newUploads);
-            // this.batchVault.storeItems([...newUploads]);
+            this.batchVault.storeItems([...newUploads]);
         }
 
         const currentUploads = this.pendingUploads;
-        // this.vault.storeItems([...newUploads]);
         this.pendingUploads = [];
 
         const remainingUploads: Batch[] = await this.upload(
@@ -337,9 +336,9 @@ export class BatchUploader {
                         );
                         // TODO: Should we trigger an event here instead of touching
                         //       the vault directly?
-                        // this.batchVault.removeItem(
-                        //     uploads[i].source_request_id
-                        // );
+                        this.batchVault.removeItem(
+                            uploads[i].source_request_id
+                        );
                     } else if (
                         response.status >= 500 ||
                         response.status === 429
