@@ -20,7 +20,7 @@ declare global {
     }
 }
 
-describe('upload beacon', () => {
+describe.only('upload beacon', () => {
     let mockServer;
 
     beforeEach(function() {
