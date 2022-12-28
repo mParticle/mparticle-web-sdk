@@ -247,7 +247,6 @@ export class BatchUploader {
         const remainingUploads: Batch[] = await this.upload(
             this.mpInstance.Logger,
             currentUploads,
-            // this.vault.retrieveItems(),
             useBeacon
         );
 
@@ -258,8 +257,8 @@ export class BatchUploader {
         // that is already in transit
         if (remainingUploads && remainingUploads.length) {
             this.pendingUploads.unshift(...remainingUploads);
-            // } else if (!isEmpty(this.batchVault.contents)) {
-            //     this.pendingUploads.push(...this.batchVault.retrieveItems());
+        } else if (!isEmpty(this.batchVault.contents)) {
+            this.pendingUploads.push(...this.batchVault.retrieveItems());
         }
 
         if (triggerFuture) {
