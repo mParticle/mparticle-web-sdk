@@ -22,7 +22,18 @@ declare global {
 }
 
 describe('upload beacon', ()=> {
+    let mockServer;
+
     beforeEach(() => {
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
         window.mParticle.config.flags = {
             eventsV3: '100',
             eventBatchingIntervalMillis: 1000,
@@ -30,6 +41,7 @@ describe('upload beacon', ()=> {
     })
     afterEach(() => {
         sinon.restore();
+        mockServer.reset();
     });
 
     it('should trigger beacon on page visibilitychange events', function(done) {
