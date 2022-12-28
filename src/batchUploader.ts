@@ -20,8 +20,8 @@ export class BatchUploader {
     mpInstance: MParticleWebSDK;
     uploadUrl: string;
     batchingEnabled: boolean;
-    private eventVault: Vault<SDKEvent>;
-    private batchVault: Vault<Batch>;
+    // private eventVault: Vault<SDKEvent>;
+    // private batchVault: Vault<Batch>;
     private uploadIntervalTimeout: NodeJS.Timeout;
 
     constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
@@ -35,21 +35,21 @@ export class BatchUploader {
         this.pendingEvents = [];
         this.pendingUploads = [];
 
-        this.eventVault = new Vault<SDKEvent>(
-            `${mpInstance._Store.storageName}-events`,
-            'SourceMessageId',
-            {
-                logger: mpInstance.Logger,
-            }
-        );
+        // this.eventVault = new Vault<SDKEvent>(
+        //     `${mpInstance._Store.storageName}-events`,
+        //     'SourceMessageId',
+        //     {
+        //         logger: mpInstance.Logger,
+        //     }
+        // );
 
-        this.batchVault = new Vault<Batch>(
-            `${mpInstance._Store.storageName}-batches`,
-            'source_request_id',
-            {
-                logger: mpInstance.Logger,
-            }
-        );
+        // this.batchVault = new Vault<Batch>(
+        //     `${mpInstance._Store.storageName}-batches`,
+        //     'source_request_id',
+        //     {
+        //         logger: mpInstance.Logger,
+        //     }
+        // );
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
         const baseUrl = this.mpInstance._Helpers.createServiceUrl(
@@ -104,7 +104,7 @@ export class BatchUploader {
             // TODO: This is where we should store events in Vault
             this.pendingEvents.push(event);
             // TODO: Maybe we need a storeItem function?
-            this.eventVault.storeItems([event]);
+            // this.eventVault.storeItems([event]);
 
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
@@ -226,9 +226,9 @@ export class BatchUploader {
         // TODO: Retrieve and Purge events from Event Vault
         // const currentEvents = this.eventVault.retrieveItems();
         // Should this really purge, or just empty local storage?
-        this.eventVault.purge();
+        // this.eventVault.purge();
         // TODO: Deprecate pending Events
-        this.pendingEvents = [];
+        // this.pendingEvents = [];
 
         const newUploads = BatchUploader.createNewUploads(
             currentEvents,
@@ -238,7 +238,7 @@ export class BatchUploader {
 
         if (newUploads && newUploads.length) {
             this.pendingUploads.push(...newUploads);
-            this.batchVault.storeItems([...newUploads]);
+            // this.batchVault.storeItems([...newUploads]);
         }
 
         const currentUploads = this.pendingUploads;
@@ -259,8 +259,8 @@ export class BatchUploader {
         // that is already in transit
         if (remainingUploads && remainingUploads.length) {
             this.pendingUploads.unshift(...remainingUploads);
-        } else if (!isEmpty(this.batchVault.contents)) {
-            this.pendingUploads.push(...this.batchVault.retrieveItems());
+            // } else if (!isEmpty(this.batchVault.contents)) {
+            //     this.pendingUploads.push(...this.batchVault.retrieveItems());
         }
 
         if (triggerFuture) {
@@ -271,9 +271,9 @@ export class BatchUploader {
             }, this.uploadIntervalMillis);
         }
         if (
-            isEmpty(this.pendingUploads) &&
-            isEmpty(this.eventVault.contents) &&
-            isEmpty(this.batchVault.contents)
+            isEmpty(this.pendingUploads) // &&
+            // isEmpty(this.eventVault.contents) &&
+            // isEmpty(this.batchVault.contents)
         ) {
             clearTimeout(this.uploadIntervalTimeout);
         }
@@ -337,9 +337,9 @@ export class BatchUploader {
                         );
                         // TODO: Should we trigger an event here instead of touching
                         //       the vault directly?
-                        this.batchVault.removeItem(
-                            uploads[i].source_request_id
-                        );
+                        // this.batchVault.removeItem(
+                        //     uploads[i].source_request_id
+                        // );
                     } else if (
                         response.status >= 500 ||
                         response.status === 429
