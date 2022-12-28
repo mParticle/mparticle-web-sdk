@@ -24,6 +24,11 @@ describe('upload beacon', () => {
     let mockServer;
 
     beforeEach(function() {
+        // Force this test to use v3 endpoints because of a race condition in the tests
+        window.mParticle.config.v3SecureServiceUrl =
+            'jssdks.mparticle.com/v3/JS/';
+        window.mParticle.config.identityUrl = 'identity.mparticle.com/v1/';
+
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -80,7 +85,6 @@ describe('upload beacon', () => {
         window.localStorage.clear();
     });
 
-    // TODO: For some reason, the first one uses a custom event url rather than jssdk?
     it('should trigger beacon on page visibilitychange events', function(done) {
         window.mParticle._resetForTests(MPConfig);
 
@@ -102,7 +106,6 @@ describe('upload beacon', () => {
         window.mParticle._resetForTests(MPConfig);
 
         var bond = sinon.spy(navigator, 'sendBeacon');
-        // debugger;
         window.mParticle.init(apiKey, window.mParticle.config);
 
         // karma fails if onbeforeunload is not set to null
