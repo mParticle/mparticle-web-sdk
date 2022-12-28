@@ -8,6 +8,7 @@ import {
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
 import { isEmpty } from './utils';
+import Vault from './vault';
 
 export class BatchUploader {
     //we upload JSON, but this content type is required to avoid a CORS preflight request
@@ -19,6 +20,7 @@ export class BatchUploader {
     mpInstance: MParticleWebSDK;
     uploadUrl: string;
     batchingEnabled: boolean;
+    private eventVault: Vault<SDKEvent>;
 
     constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
         this.mpInstance = mpInstance;
@@ -30,6 +32,14 @@ export class BatchUploader {
         }
         this.pendingEvents = [];
         this.pendingUploads = [];
+
+        this.eventVault = new Vault<SDKEvent>(
+            `${mpInstance._Store.storageName}-events`,
+            'SourceMessageId',
+            {
+                logger: mpInstance.Logger,
+            }
+        );
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
         const baseUrl = this.mpInstance._Helpers.createServiceUrl(
@@ -68,6 +78,7 @@ export class BatchUploader {
     queueEvent(event: SDKEvent): void {
         if (!isEmpty(event)) {
             this.pendingEvents.push(event);
+            this.eventVault.storeItems([event]);
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
             );
@@ -174,6 +185,8 @@ export class BatchUploader {
 
         const currentEvents = this.pendingEvents;
         this.pendingEvents = [];
+        this.eventVault.purge();
+
         const newUploads = BatchUploader.createNewUploads(
             currentEvents,
             currentUser,
