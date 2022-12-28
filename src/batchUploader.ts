@@ -257,8 +257,8 @@ export class BatchUploader {
         // that is already in transit
         if (remainingUploads && remainingUploads.length) {
             this.pendingUploads.unshift(...remainingUploads);
-        } else if (!isEmpty(this.batchVault.contents)) {
-            this.pendingUploads.push(...this.batchVault.retrieveItems());
+            // } else if (!isEmpty(this.batchVault.contents)) {
+            //     this.pendingUploads.push(...this.batchVault.retrieveItems());
         }
 
         if (triggerFuture) {
@@ -269,9 +269,9 @@ export class BatchUploader {
             }, this.uploadIntervalMillis);
         }
         if (
-            isEmpty(this.pendingUploads) // &&
+            isEmpty(this.pendingUploads) &&
             // isEmpty(this.eventVault.contents) &&
-            // isEmpty(this.batchVault.contents)
+            isEmpty(this.batchVault.contents)
         ) {
             clearTimeout(this.uploadIntervalTimeout);
         }
