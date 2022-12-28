@@ -88,9 +88,15 @@ describe('upload beacon', () => {
 
     beforeEach(function() {
         // Force this test to use v3 endpoints because of a race condition in the tests
+        window.mParticle.config.v1SecureServiceUrl =
+            'jssdks.mparticle.com/v1/JS/';
+        window.mParticle.config.v2SecureServiceUrl =
+            'jssdks.mparticle.com/v2/JS/';
         window.mParticle.config.v3SecureServiceUrl =
             'jssdks.mparticle.com/v3/JS/';
+        window.mParticle.config.configUrl = 'jssdkcdns.mparticle.com/JS/v2/';
         window.mParticle.config.identityUrl = 'identity.mparticle.com/v1/';
+        window.mParticle.config.aliasUrl = 'jssdks.mparticle.com/v1/identity/';
 
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
