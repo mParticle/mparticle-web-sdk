@@ -1143,7 +1143,7 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should set the wrapper sdk info in store when mParticle._setWrapperSDKInfo() method is called and init is called', function(done) {
+    it('should set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called after init is called', function(done) {
         mParticle._resetForTests(MPConfig);
 
         mParticle.getInstance()._setWrapperSDKInfo('flutter', '1.0.3');
