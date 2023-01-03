@@ -1122,7 +1122,7 @@ describe('core SDK', function() {
     it('should not set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called if init not called', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        mParticle.getInstance()._setWrapperSDKInfo('flutter', '1.0.3');
+        mParticle._setWrapperSDKInfo('flutter', '1.0.3');
 
         mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('none');
         (mParticle.getInstance()._Store.wrapperSDKInfo.version === null).should.equal(true);
@@ -1146,7 +1146,7 @@ describe('core SDK', function() {
     it('should set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called after init is called', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        mParticle.getInstance()._setWrapperSDKInfo('flutter', '1.0.3');
+        mParticle._setWrapperSDKInfo('flutter', '1.0.3');
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -1160,11 +1160,11 @@ describe('core SDK', function() {
     it('should not set the wrapper sdk info in Store after it has previously been set', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        mParticle.getInstance()._setWrapperSDKInfo('flutter', '1.0.3');
+        mParticle._setWrapperSDKInfo('flutter', '1.0.3');
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.getInstance()._setWrapperSDKInfo('none', '2.0.5');
+        mParticle._setWrapperSDKInfo('none', '2.0.5');
 
         mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('flutter');
         mParticle.getInstance()._Store.wrapperSDKInfo.version.should.equal('1.0.3');
