@@ -80,6 +80,7 @@ export default class _BatchValidator {
                 },
             },
             config: null,
+            Consent: null,
             eCommerce: null,
             Identity: {
                 getCurrentUser: mockFunction,

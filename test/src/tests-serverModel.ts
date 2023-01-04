@@ -7,8 +7,10 @@ import { AllUserAttributes, IdentityApiData } from '@mparticle/web-sdk';
 import {
     BaseEvent,
     MParticleUser,
+    SDKCCPAConsentState,
     SDKConsentState,
     SDKEvent,
+    SDKGDPRConsentState,
 } from '../../src/sdkRuntimeModels';
 import Constants from '../../src/constants';
 
@@ -855,7 +857,7 @@ describe('ServerModel', () => {
                                 Location: 'test-gdpr-location',
                                 HardwareId: 'test-gdpr-hardware-id',
                             },
-                        };
+                        } as SDKGDPRConsentState;
                     },
                     getCCPAConsentState: () => {
                         return {
@@ -864,7 +866,7 @@ describe('ServerModel', () => {
                             ConsentDocument: 'ccpa-doc',
                             Location: 'test-ccpa-location',
                             HardwareId: 'test-ccpa-hardware-id',
-                        };
+                        } as SDKCCPAConsentState;
                     },
                 } as SDKConsentState,
             } as IUploadObject;
@@ -1411,9 +1413,13 @@ describe('ServerModel', () => {
                     )
             );
 
+            // TODO: Resolve differences between SDKConsentState and ConsentState
+            // TODO: verify this tests passes
             var consent = mParticle
                 .getInstance()
-                ._ServerModel.convertToConsentStateDTO(consentState);
+                ._ServerModel.convertToConsentStateDTO(
+                    (consentState as unknown) as SDKConsentState
+                );
 
             expect(consent).to.be.ok;
 
