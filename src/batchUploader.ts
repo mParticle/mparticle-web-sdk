@@ -22,7 +22,7 @@ export class BatchUploader {
     batchingEnabled: boolean;
     // private eventVault: Vault<SDKEvent>;
     private batchVault: Vault<Batch>;
-    private uploadIntervalTimeout: NodeJS.Timeout;
+    private uploadIntervalTimeoutID: NodeJS.Timeout;
 
     constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
         this.mpInstance = mpInstance;
@@ -93,8 +93,8 @@ export class BatchUploader {
         useBeacon: boolean = false
     ): void {
         // Clear out existing interval before creating a new one
-        clearTimeout(this.uploadIntervalTimeout);
-        this.uploadIntervalTimeout = setTimeout(() => {
+        clearTimeout(this.uploadIntervalTimeoutID);
+        this.uploadIntervalTimeoutID = setTimeout(() => {
             this.prepareAndUpload(triggerFuture, useBeacon);
         }, this.uploadIntervalMillis);
     }
@@ -264,7 +264,7 @@ export class BatchUploader {
         if (triggerFuture) {
             // TODO: Nothing catches this. We should store the timer in the instance
             //       and clear the timeout when this is done
-            this.uploadIntervalTimeout = setTimeout(() => {
+            this.uploadIntervalTimeoutID = setTimeout(() => {
                 this.prepareAndUpload(true, false);
             }, this.uploadIntervalMillis);
         }
@@ -273,7 +273,7 @@ export class BatchUploader {
             // isEmpty(this.eventVault.contents) &&
             isEmpty(this.batchVault.contents)
         ) {
-            clearTimeout(this.uploadIntervalTimeout);
+            clearTimeout(this.uploadIntervalTimeoutID);
         }
     }
 
