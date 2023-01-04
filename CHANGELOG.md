@@ -1,3 +1,11 @@
+## [2.18.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.18.0...v2.18.1) (2023-01-04)
+
+
+### Bug Fixes
+
+* Fix Firefox Runner and Remove references to node 12 ([#369](https://github.com/mParticle/mparticle-web-sdk/issues/369)) ([083672f](https://github.com/mParticle/mparticle-web-sdk/commit/083672f8d5056f88c2362e2eab42e92762c17b5d))
+* Prevent Batches from queuing empty events ([#367](https://github.com/mParticle/mparticle-web-sdk/issues/367)) ([4bf8ef9](https://github.com/mParticle/mparticle-web-sdk/commit/4bf8ef96e2cd130e3a9ff83e14047c63987c694f))
+
 # [2.18.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.17.4...v2.18.0) (2022-11-08)
 
 
