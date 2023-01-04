@@ -1118,4 +1118,58 @@ describe('core SDK', function() {
 
         done();
     });
+
+    it('should not set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called if init not called', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        mParticle._setWrapperSDKInfo('flutter', '1.0.3');
+
+        mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('none');
+        (mParticle.getInstance()._Store.wrapperSDKInfo.version === null).should.equal(true);
+        mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(false);
+        
+        done();
+    });
+
+    it('should have the correct wrapper sdk info default values when init is called', function(done) {
+        mParticle._resetForTests(MPConfig);
+        
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('none');
+        (mParticle.getInstance()._Store.wrapperSDKInfo.version === null).should.equal(true);
+        mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(false);
+
+        done();
+    });
+
+    it('should set the wrapper sdk info in Store when mParticle._setWrapperSDKInfo() method is called after init is called', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        mParticle._setWrapperSDKInfo('flutter', '1.0.3');
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('flutter');
+        mParticle.getInstance()._Store.wrapperSDKInfo.version.should.equal('1.0.3');
+        mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(true);
+        
+        done();
+    });
+
+    it('should not set the wrapper sdk info in Store after it has previously been set', function(done) {
+        mParticle._resetForTests(MPConfig);
+
+        mParticle._setWrapperSDKInfo('flutter', '1.0.3');
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle._setWrapperSDKInfo('none', '2.0.5');
+
+        mParticle.getInstance()._Store.wrapperSDKInfo.name.should.equal('flutter');
+        mParticle.getInstance()._Store.wrapperSDKInfo.version.should.equal('1.0.3');
+        mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(true);
+
+        done();
+    });
 });

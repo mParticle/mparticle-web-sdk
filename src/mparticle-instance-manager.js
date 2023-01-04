@@ -472,6 +472,9 @@ function mParticle() {
     this._getActiveForwarders = function() {
         return self.getInstance()._getActiveForwarders();
     };
+    this._setWrapperSDKInfo = function(name, version) {
+        self.getInstance()._setWrapperSDKInfo(name, version);
+    };
 }
 
 var mparticleInstance = new mParticle();
