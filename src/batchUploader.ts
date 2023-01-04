@@ -20,7 +20,7 @@ export class BatchUploader {
     mpInstance: MParticleWebSDK;
     uploadUrl: string;
     batchingEnabled: boolean;
-    // private eventVault: Vault<SDKEvent>;
+    private eventVault: Vault<SDKEvent>;
     private batchVault: Vault<Batch>;
     private uploadIntervalTimeoutID: NodeJS.Timeout;
 
@@ -35,13 +35,13 @@ export class BatchUploader {
         this.pendingEvents = [];
         this.pendingUploads = [];
 
-        // this.eventVault = new Vault<SDKEvent>(
-        //     `${mpInstance._Store.storageName}-events`,
-        //     'SourceMessageId',
-        //     {
-        //         logger: mpInstance.Logger,
-        //     }
-        // );
+        this.eventVault = new Vault<SDKEvent>(
+            `${mpInstance._Store.storageName}-events`,
+            'SourceMessageId',
+            {
+                logger: mpInstance.Logger,
+            }
+        );
 
         this.batchVault = new Vault<Batch>(
             `${mpInstance._Store.storageName}-batches`,
@@ -104,7 +104,7 @@ export class BatchUploader {
             // TODO: This is where we should store events in Vault
             this.pendingEvents.push(event);
             // TODO: Maybe we need a storeItem function?
-            // this.eventVault.storeItems([event]);
+            this.eventVault.storeItems([event]);
 
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
@@ -113,8 +113,8 @@ export class BatchUploader {
                 `Queued event count: ${this.pendingEvents.length}`
             );
 
-            // TODO: Do we still needto check if batching is enabled?
-            //       I thought we are moving towards having this on for everyone?
+            // TODO: Remove this check once the v2 code path is removed
+            //       https://go.mparticle.com/work/SQDSDKS-3720
             // TODO: Need a workaround for the set timeout being triggered
             // TODO: Refactor this logic so that it is clear that priority events are procesed
             //       immediately, but other events wait until an interval has passed
@@ -127,7 +127,7 @@ export class BatchUploader {
 
             // Set up a one-time future upload just in case we have unprocessed events
             if (this.batchingEnabled) {
-                this.triggerUploadInterval(false, false);
+                this.triggerUploadInterval(true, false);
             }
         }
     }
@@ -220,15 +220,18 @@ export class BatchUploader {
     private async prepareAndUpload(triggerFuture: boolean, useBeacon: boolean) {
         const currentUser = this.mpInstance.Identity.getCurrentUser();
 
-        const currentEvents = this.pendingEvents;
-        this.pendingEvents = [];
+        // TODO: check in memory events and add those to current events
+        //       if there are no in memory events, check local storage
+        //       purge local storage and in memory
 
-        // TODO: Retrieve and Purge events from Event Vault
-        // const currentEvents = this.eventVault.retrieveItems();
-        // Should this really purge, or just empty local storage?
-        // this.eventVault.purge();
-        // TODO: Deprecate pending Events
-        // this.pendingEvents = [];
+        // Prioritize in-memory events, then check persistence layer
+        let currentEvents: SDKEvent[] = this.pendingEvents;
+        if (isEmpty(currentEvents)) {
+            currentEvents = this.eventVault.retrieveItems();
+            this.eventVault.purge();
+        }
+
+        this.pendingEvents = [];
 
         const newUploads = BatchUploader.createNewUploads(
             currentEvents,
@@ -236,7 +239,7 @@ export class BatchUploader {
             this.mpInstance
         );
 
-        if (newUploads && newUploads.length) {
+        if (!isEmpty(newUploads)) {
             this.pendingUploads.push(...newUploads);
             this.batchVault.storeItems([...newUploads]);
         }
@@ -255,22 +258,20 @@ export class BatchUploader {
         // will clear out any successfully uploaded batches
         // This check will make sure we're not accidentally resneding something
         // that is already in transit
-        if (remainingUploads && remainingUploads.length) {
+        if (!isEmpty(remainingUploads)) {
             this.pendingUploads.unshift(...remainingUploads);
         } else if (!isEmpty(this.batchVault.contents)) {
             this.pendingUploads.push(...this.batchVault.retrieveItems());
         }
 
         if (triggerFuture) {
-            // TODO: Nothing catches this. We should store the timer in the instance
-            //       and clear the timeout when this is done
             this.uploadIntervalTimeoutID = setTimeout(() => {
                 this.prepareAndUpload(true, false);
             }, this.uploadIntervalMillis);
         }
         if (
             isEmpty(this.pendingUploads) &&
-            // isEmpty(this.eventVault.contents) &&
+            isEmpty(this.eventVault.contents) &&
             isEmpty(this.batchVault.contents)
         ) {
             clearTimeout(this.uploadIntervalTimeoutID);
