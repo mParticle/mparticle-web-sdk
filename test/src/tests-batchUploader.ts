@@ -37,38 +37,38 @@ describe('upload beacon', () => {
 
         // Stub Local Storage response because it causes beacon to not fire in
         // repeated tests
-        mockLS = sinon.stub(window.localStorage, 'getItem');
-        mockLS.withArgs('mprtcl-v4_abcdef-events').returns(
-            JSON.stringify({
-                'b56a0cdf-91b8-4d86-96a8-57d8886d3b7a': {
-                    EventName: 10,
-                    EventAttributes: null,
-                    SourceMessageId: 'b56a0cdf-91b8-4d86-96a8-57d8886d3b7a',
-                    EventDataType: 10,
-                    CustomFlags: {},
-                    IsFirstRun: true,
-                    LaunchReferral: 'http://localhost:9876/debug.html',
-                    CurrencyCode: null,
-                    MPID: 'testMPID',
-                    ConsentState: null,
-                    UserAttributes: {},
-                    UserIdentities: [],
-                    Store: {},
-                    SDKVersion: '2.18.0',
-                    SessionId: '0D63646B-EA93-4AD1-8378-FAD7A71A333B',
-                    SessionStartDate: 1671576752819,
-                    Debug: false,
-                    Location: null,
-                    OptOut: null,
-                    ExpandedEventCount: 0,
-                    ClientGeneratedId: '95a0d3e4-f16c-4bd4-a86a-60bfd1ed353f',
-                    DeviceId: '062e7536-cf85-4430-a177-282dd0bbb31f',
-                    IntegrationAttributes: {},
-                    DataPlan: {},
-                    Timestamp: 1671576752827,
-                },
-            })
-        );
+        // mockLS = sinon.stub(window.localStorage, 'getItem');
+        // mockLS.withArgs('mprtcl-v4_abcdef-events').returns(
+        //     JSON.stringify({
+        //         'b56a0cdf-91b8-4d86-96a8-57d8886d3b7a': {
+        //             EventName: 10,
+        //             EventAttributes: null,
+        //             SourceMessageId: 'b56a0cdf-91b8-4d86-96a8-57d8886d3b7a',
+        //             EventDataType: 10,
+        //             CustomFlags: {},
+        //             IsFirstRun: true,
+        //             LaunchReferral: 'http://localhost:9876/debug.html',
+        //             CurrencyCode: null,
+        //             MPID: 'testMPID',
+        //             ConsentState: null,
+        //             UserAttributes: {},
+        //             UserIdentities: [],
+        //             Store: {},
+        //             SDKVersion: '2.18.0',
+        //             SessionId: '0D63646B-EA93-4AD1-8378-FAD7A71A333B',
+        //             SessionStartDate: 1671576752819,
+        //             Debug: false,
+        //             Location: null,
+        //             OptOut: null,
+        //             ExpandedEventCount: 0,
+        //             ClientGeneratedId: '95a0d3e4-f16c-4bd4-a86a-60bfd1ed353f',
+        //             DeviceId: '062e7536-cf85-4430-a177-282dd0bbb31f',
+        //             IntegrationAttributes: {},
+        //             DataPlan: {},
+        //             Timestamp: 1671576752827,
+        //         },
+        //     })
+        // );
 
         window.mParticle.config.flags = {
             eventsV3: '100',
