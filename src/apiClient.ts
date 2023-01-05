@@ -1,13 +1,49 @@
 import Constants from './constants';
 import Types from './types';
 import { BatchUploader } from './batchUploader';
+import {
+    MParticleUser,
+    MParticleWebSDK,
+    MPForwarder,
+    SDKEvent,
+} from './sdkRuntimeModels';
+import KitBlocker from './kitBlocking';
+import { Dictionary } from './utils';
+import { IUploadObject } from './serverModel';
 
 var Messages = Constants.Messages;
 
-export default function APIClient(mpInstance, kitBlocker) {
+export type ForwardingStatsData = Dictionary<any>;
+
+export interface IAPIClient {
+    uploader: BatchUploader | null;
+    queueEventForBatchUpload: (event: SDKEvent) => void;
+    shouldEnableBatching: () => boolean;
+    processQueuedEvents: () => void;
+    appendUserInfoToEvents: (user: MParticleUser, events: SDKEvent[]) => void;
+    sendEventToServer: (event: SDKEvent, _options?: Dictionary<any>) => void;
+    sendSingleEventToServer: (event: SDKEvent) => void;
+    sendBatchForwardingStatsToServer: (
+        forwardingStatsData: ForwardingStatsData,
+        xhr: XMLHttpRequest
+    ) => void;
+    sendSingleForwardingStatsToServer: (
+        forwardingStatsData: ForwardingStatsData
+    ) => void;
+    prepareForwardingStats: (
+        forwarder: MPForwarder,
+        event: IUploadObject
+    ) => void;
+}
+
+export default function APIClient(
+    this: IAPIClient,
+    mpInstance: MParticleWebSDK,
+    kitBlocker: KitBlocker
+) {
     this.uploader = null;
     var self = this;
-    this.queueEventForBatchUpload = function(event) {
+    this.queueEventForBatchUpload = function(event: SDKEvent) {
         if (!this.uploader) {
             var millis = mpInstance._Helpers.getFeatureFlag(
                 Constants.FeatureFlags.EventBatchingIntervalMillis
@@ -153,7 +189,9 @@ export default function APIClient(mpInstance, kitBlocker) {
                 );
                 xhr.send(
                     JSON.stringify(
-                        mpInstance._ServerModel.convertEventToDTO(event)
+                        mpInstance._ServerModel.convertEventToDTO(
+                            event as IUploadObject
+                        )
                     )
                 );
             } catch (e) {

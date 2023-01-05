@@ -1,6 +1,17 @@
 import Types from '../../src/types';
 import Constants from '../../src/constants';
 import { apiKey, MPConfig } from './config';
+import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
+import { expect } from 'chai';
+
+declare global {
+    interface Window {
+        mParticle: MParticleWebSDK;
+        fetchMock: any;
+    }
+}
+
+const mParticle = window.mParticle;
 
 describe('Api Client', function() {
     beforeEach(function() {
@@ -11,12 +22,12 @@ describe('Api Client', function() {
         mParticle._resetForTests(MPConfig);
     });
 
-    it('Should enable batching for ramp percentages', function(done) {
+    it('should enable batching for ramp percentages', function(done) {
         mParticle.getInstance()._Store.SDKConfig.flags[
             Constants.FeatureFlags.EventsV3
         ] = 0;
         let result1 = mParticle.getInstance()._APIClient.shouldEnableBatching();
-        result1.should.be.not.ok();
+        expect(result1).to.be.not.ok;
 
         mParticle.getInstance()._Store.SDKConfig.flags[
             Constants.FeatureFlags.EventsV3
@@ -24,13 +35,13 @@ describe('Api Client', function() {
         let nullResult = mParticle
             .getInstance()
             ._APIClient.shouldEnableBatching();
-        nullResult.should.be.not.ok();
+        expect(nullResult).to.be.not.ok;
 
         mParticle.getInstance()._Store.SDKConfig.flags[
             Constants.FeatureFlags.EventsV3
         ] = '100';
         let result2 = mParticle.getInstance()._APIClient.shouldEnableBatching();
-        result2.should.be.ok();
+        expect(result2).to.be.ok;
 
         var fakeDeviceId = '946cdc15-3179-41fe-b777-4f3bf1ac0ddc';
         mParticle.getInstance()._Store.deviceId = fakeDeviceId; //this will hash/ramp to 28
@@ -39,18 +50,18 @@ describe('Api Client', function() {
         ] = '28';
 
         let result3 = mParticle.getInstance()._APIClient.shouldEnableBatching();
-        result3.should.be.ok();
+        expect(result3).to.be.ok;
 
         mParticle.getInstance()._Store.SDKConfig.flags[
             Constants.FeatureFlags.EventsV3
         ] = '27';
         let result4 = mParticle.getInstance()._APIClient.shouldEnableBatching();
-        result4.should.not.be.ok();
+        expect(result4).to.not.be.ok;
 
         done();
     });
 
-    it('Should update queued events with latest user info', function(done) {
+    it('should update queued events with latest user info', function(done) {
         var event = {
             messageType: Types.MessageType.PageEvent,
             name: 'foo page',
@@ -59,26 +70,26 @@ describe('Api Client', function() {
             customFlags:{ 'foo-flag': 'foo-flag-val' }
         };
 
-        mParticle.getInstance()._Store.should.be.ok();
+        expect(mParticle.getInstance()._Store).to.be.ok;
         let sdkEvent1 = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
 
-        sdkEvent1.should.be.ok();
-        Should(sdkEvent1.MPID).equal(null);
-        Should(sdkEvent1.UserAttributes).equal(null);
-        Should(sdkEvent1.UserIdentities).equal(null);
-        Should(sdkEvent1.ConsentState).equal(null);
+        expect(sdkEvent1).to.be.ok;
+        expect(sdkEvent1.MPID).equal(null);
+        expect(sdkEvent1.UserAttributes).equal(null);
+        expect(sdkEvent1.UserIdentities).equal(null);
+        expect(sdkEvent1.ConsentState).equal(null);
 
         let sdkEvent2 = mParticle
             .getInstance()
             ._ServerModel.createEventObject(event);
 
-        sdkEvent2.should.be.ok();
-        Should(sdkEvent2.MPID).equal(null);
-        Should(sdkEvent2.UserAttributes).equal(null);
-        Should(sdkEvent2.UserIdentities).equal(null);
-        Should(sdkEvent2.ConsentState).equal(null);
+        expect(sdkEvent2).to.be.ok;
+        expect(sdkEvent2.MPID).equal(null);
+        expect(sdkEvent2.UserAttributes).equal(null);
+        expect(sdkEvent2.UserIdentities).equal(null);
+        expect(sdkEvent2.ConsentState).equal(null);
 
         var consentState = mParticle.getInstance().Consent.createConsentState();
         consentState.addGDPRConsentState(
@@ -130,15 +141,15 @@ describe('Api Client', function() {
                 [sdkEvent1, sdkEvent2]
             );
 
-        sdkEvent1.UserIdentities.length.should.equal(6);
-        Object.keys(sdkEvent2.UserAttributes).length.should.equal(2);
-        sdkEvent1.MPID.should.equal('98765');
-        sdkEvent1.ConsentState.should.not.equal(null);
+        expect(sdkEvent1.UserIdentities.length).to.equal(6);
+        expect(Object.keys(sdkEvent2.UserAttributes).length).to.equal(2);
+        expect(sdkEvent1.MPID).to.equal('98765');
+        expect(sdkEvent1.ConsentState).to.not.equal(null);
 
-        sdkEvent2.UserIdentities.length.should.equal(6);
-        Object.keys(sdkEvent2.UserAttributes).length.should.equal(2);
-        sdkEvent2.MPID.should.equal('98765');
-        sdkEvent2.ConsentState.should.not.equal(null);
+        expect(sdkEvent2.UserIdentities.length).to.equal(6);
+        expect(Object.keys(sdkEvent2.UserAttributes).length).to.equal(2);
+        expect(sdkEvent2.MPID).to.equal('98765');
+        expect(sdkEvent2.ConsentState).to.not.equal(null);
 
         done();
     });
@@ -150,7 +161,7 @@ describe('Api Client', function() {
         };
         var batchingEnabled = mParticle.getInstance()._APIClient.shouldEnableBatching();
 
-        batchingEnabled.should.equal(true);
+        expect(batchingEnabled).to.equal(true);
 
         done();
     });

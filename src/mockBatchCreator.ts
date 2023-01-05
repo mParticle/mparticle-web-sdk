@@ -5,9 +5,9 @@ import { SDKEvent, BaseEvent, MParticleWebSDK } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import * as EventsApi from '@mparticle/event-models';
 
-const mockFunction = function () {
+const mockFunction = function() {
     return null;
-}
+};
 export default class _BatchValidator {
     private getMPInstance() {
         return {
@@ -28,6 +28,11 @@ export default class _BatchValidator {
             _resetForTests: mockFunction,
             _APIClient: null,
             _Consent: null,
+            _Forwarders: null,
+            _NativeSdkHelpers: null,
+            _Persistence: null,
+            _preInit: null,
+            Consent: null,
             _ServerModel: null,
             _SessionManager: null,
             _Store: {

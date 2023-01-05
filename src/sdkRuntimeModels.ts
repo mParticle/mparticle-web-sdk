@@ -11,6 +11,7 @@ import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent.interfaces';
+import Constants from './constants';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -135,13 +136,17 @@ export interface MParticleWebSDK {
     Logger: SDKLoggerApi;
     _APIClient: any; // TODO: Set up API Client
     _Store: IStore;
+    _Forwarders: any;
     _Helpers: SDKHelpersApi;
     config: SDKInitConfig;
     _ServerModel: IServerModel;
     _SessionManager: any; // TODO: Set up Session Manager
     _Consent: SDKConsentApi;
     Consent: SDKConsentApi;
-    _resetForTests(MPConfig?: SDKConfig): void;
+    _NativeSdkHelpers: any; // TODO: Set up API
+    _Persistence: any; // TODO: Set up Persistence API
+    _preInit: any; // TODO: Set up API
+    _resetForTests(MPConfig?: SDKInitConfig): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
     getAppName(): string;
     getAppVersion(): string;
@@ -225,12 +230,19 @@ export interface SDKIdentityApi {
 export interface SDKHelpersApi {
     createServiceUrl(arg0: string, arg1: string): void;
     createXHR?(cb: () => void): XMLHttpRequest;
-    extend(...args: any[]);
-    parseNumber(value: string | number): number;
+    extend?(...args: any[]);
+    parseNumber?(value: string | number): number;
     generateUniqueId();
-    isObject(item: any);
+    getFeatureFlag?(feature: string); // TODO: Feature Constants should be converted to enum
+    getRampNumber?(deviceId: string): number;
+    isDelayedByIntegration?(
+        delayedIntegrations: Dictionary<boolean>,
+        timeoutStart: number,
+        now: number
+    ): boolean;
+    isObject?(item: any);
     returnConvertedBoolean(data: string | boolean | number): boolean;
-    sanitizeAttributes(
+    sanitizeAttributes?(
         attrs: Dictionary<string>,
         name: string
     ): Dictionary<string> | null;
