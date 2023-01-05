@@ -13,16 +13,16 @@ declare global {
 
 const mParticle = window.mParticle;
 
-describe('Api Client', function() {
-    beforeEach(function() {
-        mParticle.init(apiKey, window.mParticle.config);
+describe('Api Client', () => {
+    beforeEach(() => {
+        mParticle.init(apiKey, mParticle.config);
     });
 
-    afterEach(function() {
+    afterEach(() => {
         mParticle._resetForTests(MPConfig);
     });
 
-    it('should enable batching for ramp percentages', function(done) {
+    it('should enable batching for ramp percentages', done => {
         mParticle.getInstance()._Store.SDKConfig.flags[
             Constants.FeatureFlags.EventsV3
         ] = 0;
@@ -43,7 +43,7 @@ describe('Api Client', function() {
         let result2 = mParticle.getInstance()._APIClient.shouldEnableBatching();
         expect(result2).to.be.ok;
 
-        var fakeDeviceId = '946cdc15-3179-41fe-b777-4f3bf1ac0ddc';
+        const fakeDeviceId = '946cdc15-3179-41fe-b777-4f3bf1ac0ddc';
         mParticle.getInstance()._Store.deviceId = fakeDeviceId; //this will hash/ramp to 28
         mParticle.getInstance()._Store.SDKConfig.flags[
             Constants.FeatureFlags.EventsV3
@@ -61,13 +61,13 @@ describe('Api Client', function() {
         done();
     });
 
-    it('should update queued events with latest user info', function(done) {
-        var event = {
+    it('should update queued events with latest user info', done => {
+        const event = {
             messageType: Types.MessageType.PageEvent,
             name: 'foo page',
             data: { 'foo-attr': 'foo-val' },
             eventType: Types.EventType.Navigation,
-            customFlags:{ 'foo-flag': 'foo-flag-val' }
+            customFlags: { 'foo-flag': 'foo-flag-val' },
         };
 
         expect(mParticle.getInstance()._Store).to.be.ok;
@@ -91,7 +91,9 @@ describe('Api Client', function() {
         expect(sdkEvent2.UserIdentities).equal(null);
         expect(sdkEvent2.ConsentState).equal(null);
 
-        var consentState = mParticle.getInstance().Consent.createConsentState();
+        const consentState = mParticle
+            .getInstance()
+            .Consent.createConsentState();
         consentState.addGDPRConsentState(
             'foo',
             mParticle
@@ -105,7 +107,7 @@ describe('Api Client', function() {
                 )
         );
 
-        window.mParticle.getInstance().Identity.getCurrentUser = () => {
+        mParticle.getInstance().Identity.getCurrentUser = () => {
             return {
                 getUserIdentities: () => {
                     return {
@@ -137,7 +139,7 @@ describe('Api Client', function() {
         mParticle
             .getInstance()
             ._APIClient.appendUserInfoToEvents(
-                window.mParticle.Identity.getCurrentUser(),
+                mParticle.Identity.getCurrentUser(),
                 [sdkEvent1, sdkEvent2]
             );
 
@@ -154,12 +156,14 @@ describe('Api Client', function() {
         done();
     });
 
-    it('should return true when events v3 endpoint is "100"', function(done) {
+    it('should return true when events v3 endpoint is "100"', done => {
         mParticle.getInstance()._Store.SDKConfig.flags = {
             eventBatchingIntervalMillis: '0',
             eventsV3: '100',
         };
-        var batchingEnabled = mParticle.getInstance()._APIClient.shouldEnableBatching();
+        const batchingEnabled = mParticle
+            .getInstance()
+            ._APIClient.shouldEnableBatching();
 
         expect(batchingEnabled).to.equal(true);
 

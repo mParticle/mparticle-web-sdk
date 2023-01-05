@@ -11,7 +11,7 @@ import KitBlocker from './kitBlocking';
 import { Dictionary } from './utils';
 import { IUploadObject } from './serverModel';
 
-var Messages = Constants.Messages;
+const Messages = Constants.Messages;
 
 export type ForwardingStatsData = Dictionary<any>;
 
@@ -42,10 +42,10 @@ export default function APIClient(
     kitBlocker: KitBlocker
 ) {
     this.uploader = null;
-    var self = this;
+    const self = this;
     this.queueEventForBatchUpload = function(event: SDKEvent) {
         if (!this.uploader) {
-            var millis = mpInstance._Helpers.getFeatureFlag(
+            const millis = mpInstance._Helpers.getFeatureFlag(
                 Constants.FeatureFlags.EventBatchingIntervalMillis
             );
             this.uploader = new BatchUploader(mpInstance, millis);
@@ -58,7 +58,7 @@ export default function APIClient(
     this.shouldEnableBatching = function() {
         // Returns a string of a number that must be parsed
         // Invalid strings will be parsed to NaN which is falsey
-        var eventsV3Percentage = parseInt(
+        const eventsV3Percentage = parseInt(
             mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3),
             10
         );
@@ -67,20 +67,20 @@ export default function APIClient(
             return false;
         }
 
-        var rampNumber = mpInstance._Helpers.getRampNumber(
+        const rampNumber = mpInstance._Helpers.getRampNumber(
             mpInstance._Store.deviceId
         );
         return eventsV3Percentage >= rampNumber;
     };
 
     this.processQueuedEvents = function() {
-        var mpid,
+        let mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
             mpid = currentUser.getMPID();
         }
         if (mpInstance._Store.eventQueue.length && mpid) {
-            var localQueueCopy = mpInstance._Store.eventQueue;
+            const localQueueCopy = mpInstance._Store.eventQueue;
             mpInstance._Store.eventQueue = [];
             this.appendUserInfoToEvents(currentUser, localQueueCopy);
             localQueueCopy.forEach(function(event) {
@@ -98,10 +98,10 @@ export default function APIClient(
     };
 
     this.sendEventToServer = function(event, _options) {
-        var defaultOptions = {
+        const defaultOptions = {
             shouldUploadEvent: true,
         };
-        var options = mpInstance._Helpers.extend(defaultOptions, _options);
+        const options = mpInstance._Helpers.extend(defaultOptions, _options);
 
         if (mpInstance._Store.webviewBridgeEnabled) {
             mpInstance._NativeSdkHelpers.sendToNative(
@@ -111,7 +111,7 @@ export default function APIClient(
             return;
         }
 
-        var mpid,
+        let mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
             mpid = currentUser.getMPID();
@@ -162,7 +162,7 @@ export default function APIClient(
         if (event.EventDataType === Types.MessageType.Media) {
             return;
         }
-        var xhr,
+        let xhr,
             xhrCallback = function() {
                 if (xhr.readyState === 4) {
                     mpInstance.Logger.verbose(
@@ -203,7 +203,8 @@ export default function APIClient(
     };
 
     this.sendBatchForwardingStatsToServer = function(forwardingStatsData, xhr) {
-        var url, data;
+        let url;
+        let data;
         try {
             url = mpInstance._Helpers.createServiceUrl(
                 mpInstance._Store.SDKConfig.v2SecureServiceUrl,
@@ -226,9 +227,10 @@ export default function APIClient(
     };
 
     this.sendSingleForwardingStatsToServer = function(forwardingStatsData) {
-        var url, data;
+        let url;
+        let data;
         try {
-            var xhrCallback = function() {
+            const xhrCallback = function() {
                 if (xhr.readyState === 4) {
                     if (xhr.status === 202) {
                         mpInstance.Logger.verbose(
@@ -239,7 +241,7 @@ export default function APIClient(
                     }
                 }
             };
-            var xhr = mpInstance._Helpers.createXHR(xhrCallback);
+            const xhr = mpInstance._Helpers.createXHR(xhrCallback);
             url = mpInstance._Helpers.createServiceUrl(
                 mpInstance._Store.SDKConfig.v1SecureServiceUrl,
                 mpInstance._Store.devToken
@@ -258,8 +260,8 @@ export default function APIClient(
     };
 
     this.prepareForwardingStats = function(forwarder, event) {
-        var forwardingStatsData,
-            queue = mpInstance._Forwarders.getForwarderStatsQueue();
+        let forwardingStatsData;
+        const queue = mpInstance._Forwarders.getForwarderStatsQueue();
 
         if (forwarder && forwarder.isVisible) {
             forwardingStatsData = {
