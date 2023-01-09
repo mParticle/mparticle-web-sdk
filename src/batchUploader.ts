@@ -266,16 +266,16 @@ export class BatchUploader {
 
     private async upload(
         logger: SDKLoggerApi,
-        upload: Batch,
+        batch: Batch,
         useBeacon: boolean
     ): Promise<Batch> {
         let uploader: AsyncUploader;
 
-        if (isEmpty(upload) || isEmpty(upload.events)) {
+        if (isEmpty(batch) || isEmpty(batch.events)) {
             return null;
         }
 
-        logger.verbose(`Uploading batch: ${JSON.stringify(upload)}`);
+        logger.verbose(`Uploading batch: ${JSON.stringify(batch)}`);
 
         const fetchPayload: fetchPayload = {
             method: 'POST',
@@ -283,9 +283,10 @@ export class BatchUploader {
                 Accept: BatchUploader.CONTENT_TYPE,
                 'Content-Type': 'text/plain;charset=UTF-8',
             },
-            body: JSON.stringify(upload),
+            body: JSON.stringify(batch),
         };
 
+        // TODO: Make beacon its own function
         // beacon is only used on onbeforeunload onpagehide events
         if (useBeacon && this.isBeaconAvailable()) {
             let blob = new Blob([fetchPayload.body], {
@@ -308,7 +309,7 @@ export class BatchUploader {
                 // TODO: Should we make this a switch statement instead?
                 if (response.status >= 200 && response.status < 300) {
                     logger.verbose(
-                        `Upload success for request ID: ${upload.source_request_id}`
+                        `Upload success for request ID: ${batch.source_request_id}`
                     );
 
                     // upload successful, return null.
@@ -317,17 +318,17 @@ export class BatchUploader {
                     logger.error(
                         `HTTP error status ${response.status} received`
                     );
-                    return upload;
+                    return batch;
                 } else if (response.status >= 401) {
                     logger.error(
                         `HTTP error status ${response.status} while uploading - please verify your API key.`
                     );
                     // if we're getting a 401, assume we'll keep getting a 401
                     // so return the upload so it can be stored for later use
-                    return upload;
+                    return batch;
                 } else {
                     // If we can't send it, return it so we can try again later
-                    return upload;
+                    return batch;
                 }
             } catch (error) {
                 logger.error(
@@ -335,7 +336,7 @@ export class BatchUploader {
                 );
 
                 // If we can't send it, return it so we can try again later
-                return upload;
+                return batch;
             }
         }
 

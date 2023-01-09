@@ -535,14 +535,6 @@ describe('batch uploader', () => {
             // Force an upload of events
             window.mParticle.upload();
 
-            // We have to restore the clock in order to use setTimeout below
-            clock.restore();
-
-            // TODO: Recent Offline Batch logic makes setTimeout unnecessary
-            // This timeout is required for all batches to be sent due to there being
-            // an async/await inside of a for loop in the batch uploader
-            // setTimeout(function() {
-
             var batch1 = JSON.parse(window.fetchMock._calls[0][1].body);
             var batch2 = JSON.parse(window.fetchMock._calls[1][1].body);
             var batch3 = JSON.parse(window.fetchMock._calls[2][1].body);
@@ -561,18 +553,14 @@ describe('batch uploader', () => {
             // session end
             expect(batch3.events.length, 'Batch 3: Session End').to.equal(1);
 
-            // FIXME: This is breaking because my UAC (batch 5) is firing before
-            //        the Session Start/AST (batch 4)
-            //        Is this really a problem?
-
             // session start, AST
-            expect(
-                batch4.events.length,
-                'Batch 4: Session Start, AST'
-            ).to.equal(2);
+            expect(batch4.events.length, 'Batch 4: UAC event').to.equal(1);
 
             // UAC event
-            expect(batch5.events.length, 'Batch 5: UAC event').to.equal(1);
+            expect(
+                batch5.events.length,
+                'Batch 5: Session Start, AST'
+            ).to.equal(2);
 
             var batch1UAC = Utils.findEventFromBatch(
                 batch1,
@@ -598,23 +586,23 @@ describe('batch uploader', () => {
             );
             batch3SessionEnd.should.be.ok();
 
-            var batch4SessionStart = Utils.findEventFromBatch(
+            var batch4UAC = Utils.findEventFromBatch(
                 batch4,
+                'user_attribute_change'
+            );
+            batch4UAC.should.be.ok();
+
+            var batch5SessionStart = Utils.findEventFromBatch(
+                batch5,
                 'session_start'
             );
-            var batch4AST = Utils.findEventFromBatch(
-                batch4,
+            var batch5AST = Utils.findEventFromBatch(
+                batch5,
                 'application_state_transition'
             );
 
-            batch4SessionStart.should.be.ok();
-            batch4AST.should.be.ok();
-
-            var batch5UAC = Utils.findEventFromBatch(
-                batch5,
-                'user_attribute_change'
-            );
-            batch5UAC.should.be.ok();
+            batch5SessionStart.should.be.ok();
+            batch5AST.should.be.ok();
 
             (typeof batch1.source_request_id).should.equal('string');
             (typeof batch2.source_request_id).should.equal('string');
@@ -641,13 +629,13 @@ describe('batch uploader', () => {
                 batch2SessionStart.data.session_uuid
             );
             batch1UAC.data.session_uuid.should.not.equal(
-                batch4SessionStart.data.session_uuid
+                batch4UAC.data.session_uuid
             );
             batch1UAC.data.session_uuid.should.not.equal(
-                batch4AST.data.session_uuid
+                batch5SessionStart.data.session_uuid
             );
             batch1UAC.data.session_uuid.should.not.equal(
-                batch5UAC.data.session_uuid
+                batch5AST.data.session_uuid
             );
 
             batch1UAC.data.session_start_unixtime_ms.should.equal(
@@ -657,13 +645,13 @@ describe('batch uploader', () => {
                 batch2SessionStart.data.session_start_unixtime_ms
             );
             batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                batch4SessionStart.data.session_start_unixtime_ms
+                batch4UAC.data.session_start_unixtime_ms
             );
             batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                batch4AST.data.session_start_unixtime_ms
+                batch5SessionStart.data.session_start_unixtime_ms
             );
             batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                batch5UAC.data.session_start_unixtime_ms
+                batch5AST.data.session_start_unixtime_ms
             );
 
             batch2SessionStart.data.session_uuid.should.equal(
@@ -686,29 +674,27 @@ describe('batch uploader', () => {
                 batch3SessionEnd.data.session_start_unixtime_ms
             );
 
-            batch4SessionStart.data.session_uuid.should.equal(
-                batch4AST.data.session_uuid
+            batch5AST.data.session_uuid.should.equal(
+                batch4UAC.data.session_uuid
             );
-            batch4SessionStart.data.session_uuid.should.equal(
-                batch5UAC.data.session_uuid
+            batch5SessionStart.data.session_uuid.should.equal(
+                batch4UAC.data.session_uuid
             );
-            batch4AST.data.session_uuid.should.equal(
-                batch5UAC.data.session_uuid
+            batch5SessionStart.data.session_uuid.should.equal(
+                batch5AST.data.session_uuid
             );
 
-            batch4SessionStart.data.session_start_unixtime_ms.should.equal(
-                batch4AST.data.session_start_unixtime_ms
+            batch5AST.data.session_start_unixtime_ms.should.equal(
+                batch4UAC.data.session_start_unixtime_ms
             );
-            batch4SessionStart.data.session_start_unixtime_ms.should.equal(
-                batch5UAC.data.session_start_unixtime_ms
+            batch5SessionStart.data.session_start_unixtime_ms.should.equal(
+                batch4UAC.data.session_start_unixtime_ms
             );
-            batch4AST.data.session_start_unixtime_ms.should.equal(
-                batch5UAC.data.session_start_unixtime_ms
+            batch5SessionStart.data.session_start_unixtime_ms.should.equal(
+                batch5AST.data.session_start_unixtime_ms
             );
 
             done();
-            // wait for more than 1000 milliseconds to force the final upload
-            // }, 1200);
         });
     });
 
