@@ -89,6 +89,9 @@ describe('Beacon Upload', () => {
 
         // Stub Local Storage response because it causes beacon to not fire in
         // repeated tests
+        // Note: Firefox won't let you mock local storage directly, so
+        //       you need to mock Storage.prototype
+        // https://github.com/jasmine/jasmine/issues/299#issuecomment-312599271
         mockLS = sinon.stub(Storage.prototype, 'getItem');
         mockLS.withArgs('mprtcl-v4_abcdef-events').returns(
             JSON.stringify({

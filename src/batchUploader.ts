@@ -20,6 +20,7 @@ export class BatchUploader {
     batchingEnabled: boolean;
     private eventVault: Vault<SDKEvent>;
     private batchVault: Vault<Batch>;
+    private uploader: AsyncUploader;
 
     constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
         this.mpInstance = mpInstance;
@@ -52,6 +53,10 @@ export class BatchUploader {
             devToken
         );
         this.uploadUrl = `${baseUrl}/events`;
+
+        this.uploader = window.fetch
+            ? new FetchUploader(this.uploadUrl)
+            : new XHRUploader(this.uploadUrl);
 
         this.triggerUploadInterval(true, false);
         this.addEventListeners();
@@ -101,7 +106,11 @@ export class BatchUploader {
         }, this.uploadIntervalMillis);
     }
 
-    queueEvent(event: SDKEvent): void {
+    /**
+     * This method will queue a single Event which will eventually be processed into a Batch
+     * @param event event that should be queued
+     */
+    public queueEvent(event: SDKEvent): void {
         if (!isEmpty(event)) {
             this.eventVault.storeItems([event]);
 
@@ -297,17 +306,8 @@ export class BatchUploader {
             //       support sendbeacon?
             navigator.sendBeacon(this.uploadUrl, blob);
         } else {
-            // TODO: Should we make this part of the BatchUploader Init?
-            if (!uploader) {
-                if (window.fetch) {
-                    uploader = new FetchUploader(this.uploadUrl);
-                } else {
-                    uploader = new XHRUploader(this.uploadUrl);
-                }
-            }
-
             try {
-                const response = await uploader.upload(fetchPayload);
+                const response = await this.uploader.upload(fetchPayload);
 
                 // TODO: Should we make this a switch statement instead?
                 if (response.status >= 200 && response.status < 300) {
