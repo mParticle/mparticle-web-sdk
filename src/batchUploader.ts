@@ -292,6 +292,9 @@ export class BatchUploader {
             let blob = new Blob([fetchPayload.body], {
                 type: 'text/plain;charset=UTF-8',
             });
+
+            // TODO: Should we consider creating a polyfill for browsers that don't
+            //       support sendbeacon?
             navigator.sendBeacon(this.uploadUrl, blob);
         } else {
             // TODO: Should we make this part of the BatchUploader Init?
