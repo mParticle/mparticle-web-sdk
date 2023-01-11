@@ -357,14 +357,14 @@ abstract class AsyncUploader {
 }
 
 class FetchUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload) {
+    public async upload(fetchPayload: fetchPayload): XHRResponse {
         const response: XHRResponse = await fetch(this.url, fetchPayload);
         return response;
     }
 }
 
 class XHRUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload) {
+    public async upload(fetchPayload: fetchPayload): XHRResponse {
         const response: XHRResponse = await this.makeRequest(
             this.url,
             fetchPayload.body
