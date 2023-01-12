@@ -1,13 +1,37 @@
-export default function ConfigAPIClient() {
-    this.getSDKConfiguration = function(
+import { DataPlanConfig } from '@mparticle/web-sdk';
+import { KitConfigs, MParticleWebSDK, SDKInitConfig } from './sdkRuntimeModels';
+
+export type SDKInitFunction = (
+    apiKey: string,
+    config: SDKInitConfig,
+    mpInstance: MParticleWebSDK
+) => void;
+
+export interface IConfigResponse {
+    appName: string;
+    kitConfigs: KitConfigs[];
+}
+
+export interface IConfigAPIClient {
+    getSDKConfiguration: (
+        apiKey: string,
+        config: SDKInitConfig,
+        completeSDKInitialization: SDKInitFunction,
+        mpInstance: MParticleWebSDK
+    ) => void;
+}
+
+export default function ConfigAPIClient(this: IConfigAPIClient) {
+    this.getSDKConfiguration = (
         apiKey,
         config,
         completeSDKInitialization,
         mpInstance
-    ) {
-        var url;
+    ): void => {
+        // debugger;
+        let url: string;
         try {
-            var xhrCallback = function() {
+            const xhrCallback = function() {
                 if (xhr.readyState === 4) {
                     // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
                     if (xhr.status === 200) {
@@ -31,7 +55,7 @@ export default function ConfigAPIClient() {
                 }
             };
 
-            var xhr = mpInstance._Helpers.createXHR(xhrCallback);
+            const xhr = mpInstance._Helpers.createXHR(xhrCallback);
             url =
                 'https://' +
                 mpInstance._Store.SDKConfig.configUrl +
@@ -43,7 +67,7 @@ export default function ConfigAPIClient() {
                 url = url + '0';
             }
 
-            var dataPlan = config.dataPlan;
+            const dataPlan = config.dataPlan as DataPlanConfig;
             if (dataPlan) {
                 if (dataPlan.planId) {
                     url = url + '&plan_id=' + dataPlan.planId || '';

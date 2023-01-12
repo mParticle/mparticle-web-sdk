@@ -1,4 +1,4 @@
-import { MPConfig, workspaceToken} from './config';
+import { MPConfig, workspaceToken } from './config';
 
 var userApi = null;
 
@@ -7,8 +7,7 @@ beforeEach(function() {
     //mocha can't clean up after itself, so this lets
     //tests mock the current user and restores in between runs.
     if (!userApi) {
-        userApi = window.mParticle.getInstance().Identity
-            .getCurrentUser;
+        userApi = window.mParticle.getInstance().Identity.getCurrentUser;
     } else {
         window.mParticle.getInstance().Identity.getCurrentUser = userApi;
     }
@@ -20,7 +19,7 @@ beforeEach(function() {
         requestConfig: false,
         isDevelopmentMode: false,
     };
-    
+
     mParticle._resetForTests(MPConfig);
     delete mParticle._instances['default_instance'];
 });
@@ -55,3 +54,4 @@ import './tests-queue-public-methods';
 import './tests-validators';
 import './tests-utils';
 import './tests-store';
+import './tests-config-api-client';
