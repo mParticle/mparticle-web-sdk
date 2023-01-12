@@ -4,7 +4,7 @@ import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
-import { GDPRConsentState } from '@mparticle/web-sdk';
+import { GDPRConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
 import { Dictionary } from '../../src/utils';
 
 declare global {
@@ -145,11 +145,11 @@ describe('Consent', function() {
         consentState
             .addGDPRConsentState(
                 'foo',
-                mParticle.Consent.createGDPRConsent(true)
+                mParticle.Consent.createGDPRConsent(true) as unknown as PrivacyConsentState
             )
             .addGDPRConsentState(
                 'bar',
-                mParticle.Consent.createGDPRConsent(false)
+                mParticle.Consent.createGDPRConsent(false) as unknown as PrivacyConsentState
             );
 
         expect(consentState.getGDPRConsentState()).to.have.property('foo');
