@@ -127,7 +127,9 @@ export class BatchUploader {
                 !this.batchingEnabled ||
                 Types.TriggerUploadType[event.EventDataType]
             ) {
-                this.prepareAndUpload(true, false);
+                // TODO: Should trigger future be true or false?
+                // this.prepareAndUpload(true, false);
+                this.prepareAndUpload(false, false);
             }
         }
     }
@@ -233,6 +235,9 @@ export class BatchUploader {
         );
 
         if (isEmpty(newBatches)) {
+            // TODO: We should refactor queueEvents to fire the interval if new events
+            //       are ready for processing rather than do it here
+            this.triggerUploadInterval(triggerFuture, false);
             return;
         }
 
@@ -249,28 +254,29 @@ export class BatchUploader {
             return this.upload(this.mpInstance.Logger, upload, useBeacon);
         });
 
-        // TODO: Review how Promise.all handles individual failures or exceptions
+        // Iterate through fulfilled promises and store any remaining batches
+        // for future re-transmission attempts
         if (!isEmpty(promises)) {
             Promise.all(promises)
                 .then(batchResponses => {
-                    // TODO: verify that a batch that fails to upload is added back
-                    //       into local storage
                     batchResponses.forEach(batch =>
                         !isEmpty(batch) ? remainingUploads.push(batch) : null
                     );
                 })
                 .catch(error => {
-                    console.error('Batch Upload Error', error);
+                    this.mpInstance.Logger.error(
+                        `Error processing batches after upload: ${error}`
+                    );
+                })
+                .finally(() => {
+                    if (!isEmpty(remainingUploads)) {
+                        this.batchVault.storeItems(remainingUploads);
+                    }
                 });
         }
 
-        if (!isEmpty(remainingUploads)) {
-            this.batchVault.storeItems(remainingUploads);
-        }
-
-        if (triggerFuture) {
-            this.triggerUploadInterval(true, false);
-        }
+        // TODO: We should kill the interval if batches are empty
+        this.triggerUploadInterval(triggerFuture, false);
     }
 
     private async upload(
@@ -278,8 +284,6 @@ export class BatchUploader {
         batch: Batch,
         useBeacon: boolean
     ): Promise<Batch> {
-        let uploader: AsyncUploader;
-
         if (isEmpty(batch) || isEmpty(batch.events)) {
             return null;
         }
