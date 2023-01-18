@@ -9,11 +9,10 @@ import { MParticleWebSDK, SDKInitConfig } from '../../src/sdkRuntimeModels';
 declare global {
     interface Window {
         mParticle: MParticleWebSDK;
-        // fetchMock: any;
     }
 }
 
-describe.only('ConfigAPIClient', () => {
+describe('ConfigAPIClient', () => {
     let mockServer;
     let sdkInitCompleteCallback;
     let configUrl;
@@ -33,7 +32,6 @@ describe.only('ConfigAPIClient', () => {
 
     describe('#getSDKConfiguration', () => {
         describe('with defaults', () => {
-            beforeEach(() => {});
             it('should fetch a config from the server', () => {
                 const config = { requestConfig: true } as SDKInitConfig;
 

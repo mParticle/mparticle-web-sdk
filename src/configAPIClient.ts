@@ -28,7 +28,6 @@ export default function ConfigAPIClient(this: IConfigAPIClient) {
         completeSDKInitialization,
         mpInstance
     ): void => {
-        // debugger;
         let url: string;
         try {
             const xhrCallback = function() {
