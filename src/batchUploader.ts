@@ -8,18 +8,36 @@ import {
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
 import { isEmpty } from './utils';
+import Vault from './vault';
 
+/**
+ * BatchUploader contains all the logic to store/retrieve events and batches
+ * to/from persistence, and upload batches to mParticle. It queues events as
+ * they come in, and at set intervals, retrieves events from persistence and
+ * turns them into batches. It then attempts to upload them to mParticle.
+ * These uploads happen on an interval basis using window.fetch or XHR
+ * requests, depending on what is available in the browser.
+ *
+ * Uploads can also triggered on browser visibility/focus changes via an
+ * event listener, which then uploads to mPartice via the browser's Beacon API.
+ */
 export class BatchUploader {
-    //we upload JSON, but this content type is required to avoid a CORS preflight request
+    // we upload JSON, but this content type is required to avoid a CORS preflight request
     static readonly CONTENT_TYPE: string = 'text/plain;charset=UTF-8';
     static readonly MINIMUM_INTERVAL_MILLIS: number = 500;
     uploadIntervalMillis: number;
-    pendingEvents: SDKEvent[];
-    pendingUploads: Batch[];
     mpInstance: MParticleWebSDK;
     uploadUrl: string;
     batchingEnabled: boolean;
+    private eventVault: Vault<SDKEvent>;
+    private batchVault: Vault<Batch>;
+    private uploader: AsyncUploader;
 
+    /**
+     * Creates an instance of a BatchUploader
+     * @param {MParticleWebSDK} mpInstance - the mParticle SDK instance
+     * @param {number} uploadInterval - the desired upload interval in milliseconds
+     */
     constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
@@ -28,8 +46,22 @@ export class BatchUploader {
         if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
             this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
         }
-        this.pendingEvents = [];
-        this.pendingUploads = [];
+
+        this.eventVault = new Vault<SDKEvent>(
+            `${mpInstance._Store.storageName}-events`,
+            'SourceMessageId',
+            {
+                logger: mpInstance.Logger,
+            }
+        );
+
+        this.batchVault = new Vault<Batch>(
+            `${mpInstance._Store.storageName}-batches`,
+            'source_request_id',
+            {
+                logger: mpInstance.Logger,
+            }
+        );
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
         const baseUrl = this.mpInstance._Helpers.createServiceUrl(
@@ -38,15 +70,34 @@ export class BatchUploader {
         );
         this.uploadUrl = `${baseUrl}/events`;
 
-        setTimeout(() => {
-            this.prepareAndUpload(true, false);
-        }, this.uploadIntervalMillis);
+        this.uploader = window.fetch
+            ? new FetchUploader(this.uploadUrl)
+            : new XHRUploader(this.uploadUrl);
+
+        this.triggerUploadInterval(true, false);
         this.addEventListeners();
+    }
+
+    /**
+     * Get the current list of events waiting to be processed
+     * @return {SDKEvent[]} an array of events waiting to be processed
+     */
+    public get eventsQueuedForProcessing(): SDKEvent[] {
+        return this.eventVault.retrieveItems();
+    }
+
+    /**
+     * Get the current list of batches waiting to be processed
+     * @return {Batch[]} an array of batches waiting to be processed
+     */
+    public get batchesQueuedForProcessing(): Batch[] {
+        return this.batchVault.retrieveItems();
     }
 
     private addEventListeners() {
         const _this = this;
 
+        // visibility change is a document property, not window
         document.addEventListener('visibilitychange', () => {
             _this.prepareAndUpload(false, _this.isBeaconAvailable());
         });
@@ -65,20 +116,39 @@ export class BatchUploader {
         return false;
     }
 
-    queueEvent(event: SDKEvent): void {
+    // Triggers a setTimeout for prepareAndUpload
+    private triggerUploadInterval(
+        triggerFuture: boolean = false,
+        useBeacon: boolean = false
+    ): void {
+        setTimeout(() => {
+            this.prepareAndUpload(triggerFuture, useBeacon);
+        }, this.uploadIntervalMillis);
+    }
+
+    /**
+     * This method will queue a single Event which will eventually be processed into a Batch
+     * @param event event that should be queued
+     */
+    public queueEvent(event: SDKEvent): void {
         if (!isEmpty(event)) {
-            this.pendingEvents.push(event);
+            this.eventVault.storeItem(event);
+
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
             );
             this.mpInstance.Logger.verbose(
-                `Queued event count: ${this.pendingEvents.length}`
+                `Queued event count: ${this.eventsQueuedForProcessing.length}`
             );
 
+            // TODO: Remove this check once the v2 code path is removed
+            //       https://go.mparticle.com/work/SQDSDKS-3720
             if (
                 !this.batchingEnabled ||
                 Types.TriggerUploadType[event.EventDataType]
             ) {
+                // TODO: Should trigger future be true or false?
+                // this.prepareAndUpload(true, false);
                 this.prepareAndUpload(false, false);
             }
         }
@@ -93,7 +163,7 @@ export class BatchUploader {
      * @param sdkEvents current pending events
      * @param defaultUser the user to reference for events that are missing data
      */
-    private static createNewUploads(
+    private static createNewBatches(
         sdkEvents: SDKEvent[],
         defaultUser: MParticleUser,
         mpInstance: MParticleWebSDK
@@ -169,148 +239,160 @@ export class BatchUploader {
      * @param triggerFuture whether to trigger the loop again - for manual/forced uploads this should be false
      * @param useBeacon whether to use the beacon API - used when the page is being unloaded
      */
-    private async prepareAndUpload(triggerFuture: boolean, useBeacon: boolean) {
+    private async prepareAndUpload(
+        triggerFuture: boolean,
+        useBeacon: boolean
+    ): Promise<void> {
         const currentUser = this.mpInstance.Identity.getCurrentUser();
 
-        const currentEvents = this.pendingEvents;
-        this.pendingEvents = [];
-        const newUploads = BatchUploader.createNewUploads(
+        let currentEvents: SDKEvent[] = this.eventVault.retrieveItems();
+        this.eventVault.purge();
+
+        const newBatches = BatchUploader.createNewBatches(
             currentEvents,
             currentUser,
             this.mpInstance
         );
-        if (newUploads && newUploads.length) {
-            this.pendingUploads.push(...newUploads);
+
+        if (isEmpty(newBatches)) {
+            // TODO: We should refactor queueEvents to fire the interval if new events
+            //       are ready for processing rather than do it here
+            this.triggerUploadInterval(triggerFuture, false);
+            return;
         }
 
-        const currentUploads = this.pendingUploads;
-        this.pendingUploads = [];
-        const remainingUploads: Batch[] = await this.upload(
-            this.mpInstance.Logger,
-            currentUploads,
-            useBeacon
-        );
-        if (remainingUploads && remainingUploads.length) {
-            this.pendingUploads.unshift(...remainingUploads);
+        this.batchVault.storeItems([...newBatches]);
+
+        const batchesToUpload = this.batchVault.retrieveItems();
+        const batchesThatDidNotUpload: Batch[] = [];
+
+        const promises: Promise<Batch>[] = batchesToUpload.map(upload => {
+            // Remove batch from persistence to prevent accidental
+            // re-upload. They should be added back to persistence
+            // if upload is unsuccessful
+            this.batchVault.removeItem(upload.source_request_id);
+            return this.upload(this.mpInstance.Logger, upload, useBeacon);
+        });
+
+        // Iterate through fulfilled promises and store any remaining batches
+        // for future re-transmission attempts
+        if (!isEmpty(promises)) {
+            Promise.all(promises)
+                .then(batchResponses => {
+                    batchResponses.forEach(batch =>
+                        !isEmpty(batch)
+                            ? batchesThatDidNotUpload.push(batch)
+                            : null
+                    );
+                })
+                .catch(error => {
+                    this.mpInstance.Logger.error(
+                        `Error processing batches during upload attempt: ${error}`
+                    );
+                })
+                .finally(() => {
+                    if (!isEmpty(batchesThatDidNotUpload)) {
+                        this.batchVault.storeItems(batchesThatDidNotUpload);
+                    }
+                });
         }
 
-        if (triggerFuture) {
-            setTimeout(() => {
-                this.prepareAndUpload(true, false);
-            }, this.uploadIntervalMillis);
-        }
+        // TODO: We should kill the interval if batches are empty
+        this.triggerUploadInterval(triggerFuture, false);
     }
 
     private async upload(
         logger: SDKLoggerApi,
-        _uploads: Batch[],
+        batch: Batch,
         useBeacon: boolean
-    ): Promise<Batch[]> {
-        let uploader;
-
-        // Filter out any batches that don't have events
-        const uploads = _uploads.filter(upload => !isEmpty(upload.events));
-
-        if (isEmpty(uploads)) {
+    ): Promise<Batch | null> {
+        if (isEmpty(batch) || isEmpty(batch.events)) {
             return null;
         }
 
-        logger.verbose(`Uploading batches: ${JSON.stringify(uploads)}`);
-        logger.verbose(`Batch count: ${uploads.length}`);
+        logger.verbose(`Uploading batch: ${JSON.stringify(batch)}`);
 
-        for (let i = 0; i < uploads.length; i++) {
-            const fetchPayload: fetchPayload = {
-                method: 'POST',
-                headers: {
-                    Accept: BatchUploader.CONTENT_TYPE,
-                    'Content-Type': 'text/plain;charset=UTF-8',
-                },
-                body: JSON.stringify(uploads[i]),
-            };
+        const fetchPayload: fetchPayload = {
+            method: 'POST',
+            headers: {
+                Accept: BatchUploader.CONTENT_TYPE,
+                'Content-Type': 'text/plain;charset=UTF-8',
+            },
+            body: JSON.stringify(batch),
+        };
 
-            // beacon is only used on onbeforeunload onpagehide events
-            if (useBeacon && this.isBeaconAvailable()) {
-                let blob = new Blob([fetchPayload.body], {
-                    type: 'text/plain;charset=UTF-8',
-                });
-                navigator.sendBeacon(this.uploadUrl, blob);
-            } else {
-                if (!uploader) {
-                    if (window.fetch) {
-                        uploader = new FetchUploader(this.uploadUrl, logger);
-                    } else {
-                        uploader = new XHRUploader(this.uploadUrl, logger);
-                    }
-                }
-                try {
-                    const response = await uploader.upload(
-                        fetchPayload,
-                        uploads,
-                        i
+        // TODO: Make beacon its own function
+        // beacon is only used on onbeforeunload onpagehide events
+        if (useBeacon && this.isBeaconAvailable()) {
+            let blob = new Blob([fetchPayload.body], {
+                type: 'text/plain;charset=UTF-8',
+            });
+
+            // TODO: Create a polyfill for Navigator.sendBeacon
+            // https://go.mparticle.com/work/SQDSDKS-5021
+            navigator.sendBeacon(this.uploadUrl, blob);
+        } else {
+            try {
+                const response = await this.uploader.upload(fetchPayload);
+
+                // TODO: Should we make this a switch statement instead?
+                if (response.status >= 200 && response.status < 300) {
+                    logger.verbose(
+                        `Upload success for request ID: ${batch.source_request_id}`
                     );
 
-                    if (response.status >= 200 && response.status < 300) {
-                        logger.verbose(
-                            `Upload success for request ID: ${uploads[i].source_request_id}`
-                        );
-                    } else if (
-                        response.status >= 500 ||
-                        response.status === 429
-                    ) {
-                        logger.error(
-                            `HTTP error status ${response.status} received`
-                        );
-                        //server error, add back current events and try again later
-                        return uploads.slice(i, uploads.length);
-                    } else if (response.status >= 401) {
-                        logger.error(
-                            `HTTP error status ${response.status} while uploading - please verify your API key.`
-                        );
-                        //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
-                        return null;
-                    }
-                } catch (e) {
+                    // upload successful, return null.
+                    return null;
+                } else if (response.status >= 500 || response.status === 429) {
                     logger.error(
-                        `Error sending event to mParticle servers. ${e}`
+                        `HTTP error status ${response.status} received`
                     );
-                    return uploads.slice(i, uploads.length);
+                    return batch;
+                } else if (response.status >= 401) {
+                    logger.error(
+                        `HTTP error status ${response.status} while uploading - please verify your API key.`
+                    );
+                    // if we're getting a 401, assume we'll keep getting a 401
+                    // so return the upload so it can be stored for later use
+                    return batch;
+                } else {
+                    // If we can't send it, return it so we can try again later
+                    return batch;
                 }
+            } catch (error) {
+                logger.error(
+                    `Error sending event to mParticle servers. ${error}`
+                );
+
+                // If we can't send it, return it so we can try again later
+                return batch;
             }
         }
+
         return null;
     }
 }
 
 abstract class AsyncUploader {
     url: string;
-    logger: SDKLoggerApi;
+    public abstract upload(fetchPayload: fetchPayload): Promise<XHRResponse>;
 
-    constructor(url: string, logger: SDKLoggerApi) {
+    constructor(url: string) {
         this.url = url;
-        this.logger = logger;
     }
 }
 
 class FetchUploader extends AsyncUploader {
-    private async upload(
-        fetchPayload: fetchPayload,
-        uploads: Batch[],
-        i: number
-    ) {
+    public async upload(fetchPayload: fetchPayload): Promise<XHRResponse> {
         const response: XHRResponse = await fetch(this.url, fetchPayload);
         return response;
     }
 }
 
 class XHRUploader extends AsyncUploader {
-    private async upload(
-        fetchPayload: fetchPayload,
-        uploads: Batch[],
-        i: number
-    ) {
+    public async upload(fetchPayload: fetchPayload): Promise<XHRResponse> {
         const response: XHRResponse = await this.makeRequest(
             this.url,
-            this.logger,
             fetchPayload.body
         );
         return response;
@@ -318,7 +400,6 @@ class XHRUploader extends AsyncUploader {
 
     private async makeRequest(
         url: string,
-        logger: SDKLoggerApi,
         data: string
     ): Promise<XMLHttpRequest> {
         const xhr: XMLHttpRequest = new XMLHttpRequest();
