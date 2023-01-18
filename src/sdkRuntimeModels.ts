@@ -160,7 +160,7 @@ export interface MParticleWebSDK {
 
 // Used in cases where server requires booleans as strings
 export type BooleanStringLowerCase = 'false' | 'true';
-export type BooleanStringUpperCase = 'False' | 'True';
+export type BooleanStringTitleCase = 'False' | 'True';
 
 export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
 
