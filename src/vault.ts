@@ -11,6 +11,12 @@ export default class Vault<StorableItem extends Dictionary> {
     private readonly _itemKey: keyof StorableItem;
     private logger?: Logger;
 
+    /**
+     * 
+     * @param {string} storageKey the local storage key string 
+     * @param {string} itemKey an element within your StorableItem to use as a key
+     * @param {IVaultOptions} options A Dictionary of IVaultOptions
+     */
     constructor(
         storageKey: string,
         itemKey: keyof StorableItem,
@@ -29,6 +35,23 @@ export default class Vault<StorableItem extends Dictionary> {
     }
 
     /**
+     * Stores a single Item using `itemId` as an index
+     * @method storeItem
+     * @param item {StorableItem} a Dictonary with key to store
+     */
+    public storeItem(item: StorableItem): void {
+        this.contents = this.getItems();
+
+        if (item[this._itemKey]) {
+            this.contents[item[this._itemKey]] = item;
+            this.logger.verbose(`Saved items to vault with key: ${item[this._itemKey]}`);
+        }
+
+        this.saveItems(this.contents);
+
+    }
+
+    /**
      * Stores Items using `itemId` as an index
      * @method storeItems
      * @param {StorableItem[]} an Array of StorableItems
@@ -36,12 +59,7 @@ export default class Vault<StorableItem extends Dictionary> {
     public storeItems(items: StorableItem[]): void {
         this.contents = this.getItems();
 
-        items.forEach(item => {
-            if (item[this._itemKey]) {
-                this.contents[item[this._itemKey]] = item;
-                this.logger.verbose(`Saved items to vault with key: ${item[this._itemKey]}`);
-            }
-        });
+        items.forEach(item => this.storeItem(item));
 
         this.saveItems(this.contents);
 
@@ -99,7 +117,8 @@ export default class Vault<StorableItem extends Dictionary> {
     }
 
     private getItems(): Dictionary<StorableItem> {
-        // TODO: return contents if local storage is unavailable?
+        // TODO: Handle cases where Local Storage is unavailable
+        // https://go.mparticle.com/work/SQDSDKS-5022
         const itemString = window.localStorage.getItem(this._storageKey);
 
         return itemString ? JSON.parse(itemString) : {};

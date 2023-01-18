@@ -73,7 +73,7 @@ describe('batch uploader', () => {
 
                 uploader.queueEvent(event);
 
-                expect(uploader.pendingEvents.length).to.eql(1);
+                expect(uploader.eventsQueuedForProcessing.length).to.eql(1);
             });
 
             it('should reject batches without events', () => {
@@ -87,8 +87,8 @@ describe('batch uploader', () => {
                 uploader.queueEvent(null);
                 uploader.queueEvent(({} as unknown) as SDKEvent);
 
-                expect(uploader.pendingEvents).to.eql([]);
-                expect(uploader.pendingUploads).to.eql([]);
+                expect(uploader.eventsQueuedForProcessing).to.eql([]);
+                expect(uploader.batchesQueuedForProcessing).to.eql([]);
             });
         });
     });
@@ -241,7 +241,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event');
 
             let pendingEvents = window.mParticle.getInstance()._APIClient
-                .uploader.pendingEvents;
+                .uploader.eventsQueuedForProcessing;
 
             pendingEvents.length.should.equal(3);
             pendingEvents[0].EventName.should.equal(1);
@@ -254,7 +254,7 @@ describe('batch uploader', () => {
             clock.tick(1000);
 
             let nowPendingEvents = window.mParticle.getInstance()._APIClient
-                .uploader.pendingEvents;
+                .uploader.eventsQueuedForProcessing;
             nowPendingEvents.length.should.equal(0);
 
             var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
@@ -721,7 +721,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event');
 
             let pendingEvents = window.mParticle.getInstance()._APIClient
-                .uploader.pendingEvents;
+                .uploader.eventsQueuedForProcessing;
 
             pendingEvents.length.should.equal(3);
             pendingEvents[0].EventName.should.equal(1);
@@ -731,7 +731,7 @@ describe('batch uploader', () => {
             clock.tick(1000);
 
             let nowPendingEvents = window.mParticle.getInstance()._APIClient
-                .uploader.pendingEvents;
+                .uploader.eventsQueuedForProcessing;
             nowPendingEvents.length.should.equal(0);
 
             var batch = JSON.parse(mockServer.secondRequest.requestBody);

@@ -8,6 +8,36 @@ describe('Vault', () => {
     });
 
     describe('#storeItems', () => {
+        it('should store an individual item as a hashmap', () => {
+            const batch1: Partial<Batch> = {
+                mpid: 'bar',
+                source_request_id: 'item-123',
+            };
+
+            const batch2: Partial<Batch> = {
+                mpid: 'baz',
+                source_request_id: 'item-456',
+            };
+
+            const vault = new Vault<Partial<Batch>>(
+                'test-key-store-batches',
+                'source_request_id'
+            );
+
+            vault.storeItem(batch1);
+
+            expect(vault.contents).to.eql({ 'item-123': batch1 });
+
+            vault.storeItem(batch2);
+
+            expect(vault.contents).to.eql({
+                'item-123': batch1,
+                'item-456': batch2,
+            });
+        });
+    });
+
+    describe('#storeItems', () => {
         it('should store an array of batches as a hashmap', () => {
             const batch1 = {
                 foo: 'bar',

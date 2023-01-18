@@ -10,6 +10,17 @@ import Types from './types';
 import { isEmpty } from './utils';
 import Vault from './vault';
 
+/**
+ * BatchUploader contains all the logic to store/retrieve events and batches
+ * to/from persistence, and upload batches to mParticle. It queues events as
+ * they come in, and at set intervals, retrieves events from persistence and
+ * turns them into batches. It then attempts to upload them to mParticle.
+ * These uploads happen on an interval basis using window.fetch or XHR
+ * requests, depending on what is available in the browser.
+ *
+ * Uploads can also triggered on browser visibility/focus changes via an
+ * event listener, which then uploads to mPartice via the browser's Beacon API.
+ */
 export class BatchUploader {
     // we upload JSON, but this content type is required to avoid a CORS preflight request
     static readonly CONTENT_TYPE: string = 'text/plain;charset=UTF-8';
@@ -22,6 +33,11 @@ export class BatchUploader {
     private batchVault: Vault<Batch>;
     private uploader: AsyncUploader;
 
+    /**
+     * Creates an instance of a BatchUploader
+     * @param {MParticleWebSDK} mpInstance - the mParticle SDK instance
+     * @param {number} uploadInterval - the desired upload interval in milliseconds
+     */
     constructor(mpInstance: MParticleWebSDK, uploadInterval: number) {
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
@@ -62,15 +78,19 @@ export class BatchUploader {
         this.addEventListeners();
     }
 
-    // Legacy methods to replace old pendingEvents array
-    // Used mostly for unit testing
-    public get pendingEvents() {
+    /**
+     * Get the current list of events waiting to be processed
+     * @return {SDKEvent[]} an array of events waiting to be processed
+     */
+    public get eventsQueuedForProcessing(): SDKEvent[] {
         return this.eventVault.retrieveItems();
     }
 
-    // Legacy methods to replace old pendingUploads array
-    // Used mostly for unit testing
-    public get pendingUploads() {
+    /**
+     * Get the current list of batches waiting to be processed
+     * @return {Batch[]} an array of batches waiting to be processed
+     */
+    public get batchesQueuedForProcessing(): Batch[] {
         return this.batchVault.retrieveItems();
     }
 
@@ -118,7 +138,7 @@ export class BatchUploader {
                 `Queuing event: ${JSON.stringify(event)}`
             );
             this.mpInstance.Logger.verbose(
-                `Queued event count: ${this.pendingEvents.length}`
+                `Queued event count: ${this.eventsQueuedForProcessing.length}`
             );
 
             // TODO: Remove this check once the v2 code path is removed
@@ -243,10 +263,10 @@ export class BatchUploader {
 
         this.batchVault.storeItems([...newBatches]);
 
-        const currentUploads = this.batchVault.retrieveItems();
-        const remainingUploads: Batch[] = [];
+        const batchesToUpload = this.batchVault.retrieveItems();
+        const batchesThatDidNotUpload: Batch[] = [];
 
-        const promises = currentUploads.map(upload => {
+        const promises: Promise<Batch>[] = batchesToUpload.map(upload => {
             // Remove batch from persistence to prevent accidental
             // re-upload. They should be added back to persistence
             // if upload is unsuccessful
@@ -260,17 +280,19 @@ export class BatchUploader {
             Promise.all(promises)
                 .then(batchResponses => {
                     batchResponses.forEach(batch =>
-                        !isEmpty(batch) ? remainingUploads.push(batch) : null
+                        !isEmpty(batch)
+                            ? batchesThatDidNotUpload.push(batch)
+                            : null
                     );
                 })
                 .catch(error => {
                     this.mpInstance.Logger.error(
-                        `Error processing batches after upload: ${error}`
+                        `Error processing batches during upload attempt: ${error}`
                     );
                 })
                 .finally(() => {
-                    if (!isEmpty(remainingUploads)) {
-                        this.batchVault.storeItems(remainingUploads);
+                    if (!isEmpty(batchesThatDidNotUpload)) {
+                        this.batchVault.storeItems(batchesThatDidNotUpload);
                     }
                 });
         }
@@ -283,7 +305,7 @@ export class BatchUploader {
         logger: SDKLoggerApi,
         batch: Batch,
         useBeacon: boolean
-    ): Promise<Batch> {
+    ): Promise<Batch | null> {
         if (isEmpty(batch) || isEmpty(batch.events)) {
             return null;
         }
@@ -306,8 +328,8 @@ export class BatchUploader {
                 type: 'text/plain;charset=UTF-8',
             });
 
-            // TODO: Should we consider creating a polyfill for browsers that don't
-            //       support sendbeacon?
+            // TODO: Create a polyfill for Navigator.sendBeacon
+            // https://go.mparticle.com/work/SQDSDKS-5021
             navigator.sendBeacon(this.uploadUrl, blob);
         } else {
             try {
