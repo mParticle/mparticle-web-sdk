@@ -386,10 +386,10 @@ describe('batch uploader', () => {
             // session end
             expect(batch3.events.length, 'Batch 3: Session End').to.equal(1);
 
-            // session start, AST
+            // UAC event
             expect(batch4.events.length, 'Batch 4: UAC event').to.equal(1);
 
-            // UAC event
+            // session start, AST
             expect(
                 batch5.events.length,
                 'Batch 5: Session Start, AST'
@@ -447,6 +447,7 @@ describe('batch uploader', () => {
             batch1.source_request_id.should.not.equal(batch3.source_request_id);
             batch1.source_request_id.should.not.equal(batch4.source_request_id);
             batch1.source_request_id.should.not.equal(batch5.source_request_id);
+
             batch2.source_request_id.should.not.equal(batch3.source_request_id);
             batch2.source_request_id.should.not.equal(batch4.source_request_id);
             batch2.source_request_id.should.not.equal(batch5.source_request_id);
