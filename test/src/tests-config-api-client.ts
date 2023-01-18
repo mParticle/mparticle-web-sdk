@@ -1,10 +1,17 @@
 import sinon from 'sinon';
 import { urls } from './config';
-import { apiKey, MPConfig, testMPID } from './config';
+import { apiKey, MPConfig } from './config';
 import { expect } from 'chai';
-import Constants from '../../src/constants';
-import ConfigAPIClient, { IConfigResponse } from '../../src/configAPIClient';
-import { MParticleWebSDK, SDKInitConfig } from '../../src/sdkRuntimeModels';
+import ConfigAPIClient, {
+    IConfigAPIClient,
+    IConfigResponse,
+} from '../../src/configAPIClient';
+import {
+    DataPlanConfig,
+    DataPlanResult,
+    MParticleWebSDK,
+    SDKInitConfig,
+} from '../../src/sdkRuntimeModels';
 
 declare global {
     interface Window {
@@ -16,7 +23,8 @@ describe('ConfigAPIClient', () => {
     let mockServer;
     let sdkInitCompleteCallback;
     let configUrl;
-    let dataPlan;
+    let dataPlan: DataPlanConfig;
+    let dataPlanResult: DataPlanResult;
 
     beforeEach(() => {
         mockServer = sinon.createFakeServer();
@@ -110,19 +118,41 @@ describe('ConfigAPIClient', () => {
                     planVersion: 42,
                 };
 
+                dataPlanResult = {
+                    dtpn: {
+                        blok: {
+                            ev: false,
+                            ea: false,
+                            ua: false,
+                            id: false,
+                        },
+                        vers: {
+                            version: 17,
+                            data_plan_id: 'fake_data_plan',
+                            last_modified_on: '2022-02-16T17:52:19.13Z',
+                            version_document: {
+                                data_points: [],
+                            },
+                        },
+                    },
+                };
+
                 mockServer.respondWith(configUrl, [
                     200,
                     {},
                     JSON.stringify({
                         appName: 'Test App',
                         kitConfigs: [],
-                        dataPlan,
+                        dataPlanResult,
                     }),
                 ]);
             });
 
             it('appends data plan information to url', () => {
-                const config = { requestConfig: true, dataPlan: dataPlan };
+                const config: Partial<SDKInitConfig> = {
+                    requestConfig: true,
+                    dataPlan,
+                };
 
                 window.mParticle.init(apiKey, window.mParticle.config);
 
@@ -149,11 +179,14 @@ describe('ConfigAPIClient', () => {
 
             it('returns data plan information within the HTTP Response', () => {
                 const configUrl = `${urls.config}&plan_id=test_data_plan&plan_version=42`;
-                const config = { requestConfig: true, dataPlan: dataPlan };
+                const config = ({
+                    requestConfig: true,
+                    dataPlan: dataPlan,
+                } as unknown) as SDKInitConfig;
 
                 window.mParticle.init(apiKey, window.mParticle.config);
 
-                const configAPIClient = new ConfigAPIClient();
+                const configAPIClient: IConfigAPIClient = new ConfigAPIClient();
                 configAPIClient.getSDKConfiguration(
                     apiKey,
                     config,
@@ -174,6 +207,7 @@ describe('ConfigAPIClient', () => {
                 expect(configResponse).to.be.ok;
                 expect(configResponse.appName).to.equal('Test App');
                 expect(configResponse.kitConfigs).to.be.ok;
+                expect(configResponse.dataPlanResult).to.be.ok;
             });
         });
     });

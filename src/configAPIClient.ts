@@ -1,13 +1,14 @@
 import { DataPlanConfig } from '@mparticle/web-sdk';
 import {
     BooleanStringLowerCase,
+    DataPlanResult,
     MParticleWebSDK,
     SDKEventCustomFlags,
     SDKInitConfig,
 } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 
-export type SDKInitFunction = (
+export type SDKCompleteInitCallback = (
     apiKey: string,
     config: SDKInitConfig,
     mpInstance: MParticleWebSDK
@@ -52,6 +53,7 @@ export interface IPixelConfig {
 
 export interface IConfigResponse {
     appName: string;
+    dataPlanResult: DataPlanResult;
     kitConfigs: IKitConfigs[];
     serviceUrl: string;
     secureServiceUrl: string;
@@ -65,7 +67,7 @@ export interface IConfigAPIClient {
     getSDKConfiguration: (
         apiKey: string,
         config: SDKInitConfig,
-        completeSDKInitialization: SDKInitFunction,
+        completeSDKInitialization: SDKCompleteInitCallback,
         mpInstance: MParticleWebSDK
     ) => void;
 }
