@@ -57,12 +57,7 @@ export default class Vault<StorableItem extends Dictionary> {
      * @param {StorableItem[]} an Array of StorableItems
      */
     public storeItems(items: StorableItem[]): void {
-        this.contents = this.getItems();
-
         items.forEach(item => this.storeItem(item));
-
-        this.saveItems(this.contents);
-
     }
 
     /**
