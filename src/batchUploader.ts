@@ -132,7 +132,7 @@ export class BatchUploader {
      */
     public queueEvent(event: SDKEvent): void {
         if (!isEmpty(event)) {
-            this.eventVault.storeItems([event]);
+            this.eventVault.storeItem(event);
 
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
