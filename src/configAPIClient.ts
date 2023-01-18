@@ -1,5 +1,11 @@
 import { DataPlanConfig } from '@mparticle/web-sdk';
-import { KitConfigs, MParticleWebSDK, SDKInitConfig } from './sdkRuntimeModels';
+import {
+    BooleanStringLowerCase,
+    MParticleWebSDK,
+    SDKEventCustomFlags,
+    SDKInitConfig,
+} from './sdkRuntimeModels';
+import { Dictionary } from './utils';
 
 export type SDKInitFunction = (
     apiKey: string,
@@ -7,9 +13,52 @@ export type SDKInitFunction = (
     mpInstance: MParticleWebSDK
 ) => void;
 
+export interface IKitConfigs {
+    name: string;
+    moduleId: number;
+    isDebug: boolean;
+    isVisible: boolean;
+    isDebugString: BooleanStringLowerCase;
+    hasDebugString: BooleanStringLowerCase;
+    settings: Dictionary;
+    screenNameFilters: number[];
+    screenAttributeFilters: number[];
+    userIdentityFilters: number[];
+    userAttributeFilters: number[];
+    eventNameFilters: number[];
+    eventTypeFilters: number[];
+    attributeFilters: number[];
+    filteringEventAttributeValue: Dictionary;
+    filteringConsentRuleValues: Dictionary;
+    consentRegulationFilters: number[];
+    consentRegulationPurposeFilters: number[];
+    messageTypeFilters: number[];
+    messageTypeStateFilters: number[];
+    eventSubscriptionId: number;
+    excludeAnonymousUser: boolean;
+}
+
+export interface IPixelConfig {
+    name: string;
+    moduleId: number;
+    esId: number;
+    isDebug: boolean;
+    isProduction: boolean;
+    settings: Dictionary;
+    frequencyCap: number;
+    pixelUrl: string;
+    redirectUrl: string;
+}
+
 export interface IConfigResponse {
     appName: string;
-    kitConfigs: KitConfigs[];
+    kitConfigs: IKitConfigs[];
+    serviceUrl: string;
+    secureServiceUrl: string;
+    minWebviewBridgeVersion: number;
+    workspaceToken: string;
+    pixelConfigs: IPixelConfig[];
+    flags: SDKEventCustomFlags;
 }
 
 export interface IConfigAPIClient {

@@ -6,7 +6,7 @@ import { IStore, SDKConfig } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
-
+import { IKitConfigs } from './configAPIClient';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -158,10 +158,13 @@ export interface MParticleWebSDK {
     isIOS?: boolean;
 }
 
+// Used in cases where server requires booleans as strings
+export type BooleanStringLowerCase = 'false' | 'true';
+export type BooleanStringUpperCase = 'False' | 'True';
+
 export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
 
 // TODO: Create true types for Kits and Kit Configs
-export type KitConfigs = Dictionary;
 export type Kit = Dictionary;
 export type MPForwarder = Dictionary;
 
@@ -172,11 +175,11 @@ export type MPForwarder = Dictionary;
 // Currently, this extends MPConfiguration in @types/mparticle__web-sdk
 // and the two will be merged in once the Store module is refactored
 export interface SDKInitConfig
-extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
+    extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
     dataPlan?: DataPlanConfig | KitBlockerDataPlan; // TODO: These should be eventually split into two different attributes
     logLevel?: LogLevelType;
 
-    kitConfigs?: KitConfigs[];
+    kitConfigs?: IKitConfigs[];
     kits?: Dictionary<Kit>;
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
@@ -222,7 +225,10 @@ export interface SDKHelpersApi {
     generateUniqueId();
     isObject(item: any);
     returnConvertedBoolean(data: string | boolean | number): boolean;
-    sanitizeAttributes(attrs: Dictionary<string>, name: string): Dictionary<string> | null;
+    sanitizeAttributes(
+        attrs: Dictionary<string>,
+        name: string
+    ): Dictionary<string> | null;
     Validators: typeof Validators;
 }
 

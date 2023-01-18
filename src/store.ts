@@ -7,12 +7,12 @@ import {
     IdentityCallback,
     SDKEventCustomFlags,
 } from '@mparticle/web-sdk';
+import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {
     DataPlanResult,
     Kit,
     KitBlockerOptions,
-    KitConfigs,
     LogLevelType,
     MParticleWebSDK,
     MPForwarder,
@@ -45,7 +45,7 @@ export interface SDKConfig {
     appVersion?: string;
     package?: string;
     flags?: { [key: string]: string | number | boolean };
-    kitConfigs: KitConfigs[];
+    kitConfigs: IKitConfigs[];
     kits: Dictionary<Kit>;
     logLevel?: LogLevelType;
     cookieDomain?: string;
@@ -108,7 +108,6 @@ interface WrapperSDKInfo {
     version: string | null;
     isInfoSet: boolean;
 }
-
 
 // Temporary Interface until Store can be refactored as a class
 export interface IStore {
