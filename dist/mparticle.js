@@ -725,7 +725,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.18.1";
+    var version = "2.18.2";
 
     var Constants = {
       sdkVersion: version,
@@ -4230,7 +4230,12 @@ var mParticle = (function () {
         activeForwarders: [],
         kits: {},
         configuredForwarders: [],
-        pixelConfigurations: []
+        pixelConfigurations: [],
+        wrapperSDKInfo: {
+          name: 'none',
+          version: null,
+          isInfoSet: false
+        }
       };
 
       for (var key in defaultStore) {
@@ -9129,21 +9134,21 @@ var mParticle = (function () {
 
         try {
           var xhrCallback = function xhrCallback() {
-            if (xhr.readyState === 4) {
+            if (xhr_1.readyState === 4) {
               // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
-              if (xhr.status === 200) {
-                config = mpInstance._Helpers.extend({}, config, JSON.parse(xhr.responseText));
+              if (xhr_1.status === 200) {
+                config = mpInstance._Helpers.extend({}, config, JSON.parse(xhr_1.responseText));
                 completeSDKInitialization(apiKey, config, mpInstance);
                 mpInstance.Logger.verbose('Successfully received configuration from server');
               } else {
                 // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
                 completeSDKInitialization(apiKey, config, mpInstance);
-                mpInstance.Logger.verbose('Issue with receiving configuration from server, received HTTP Code of ' + xhr.status);
+                mpInstance.Logger.verbose('Issue with receiving configuration from server, received HTTP Code of ' + xhr_1.status);
               }
             }
           };
 
-          var xhr = mpInstance._Helpers.createXHR(xhrCallback);
+          var xhr_1 = mpInstance._Helpers.createXHR(xhrCallback);
 
           url = 'https://' + mpInstance._Store.SDKConfig.configUrl + apiKey + '/config?env=';
 
@@ -9165,9 +9170,9 @@ var mParticle = (function () {
             }
           }
 
-          if (xhr) {
-            xhr.open('get', url);
-            xhr.send(null);
+          if (xhr_1) {
+            xhr_1.open('get', url);
+            xhr_1.send(null);
           }
         } catch (e) {
           completeSDKInitialization(apiKey, config, mpInstance);
@@ -10337,6 +10342,22 @@ var mParticle = (function () {
         if (!hasIntegrationDelays) {
           self._APIClient.processQueuedEvents();
         }
+      }; // Internal use only. Used by our wrapper SDKs to identify themselves during initialization.
+
+
+      this._setWrapperSDKInfo = function (name, version) {
+        var queued = queueIfNotInitialized(function () {
+          self._setWrapperSDKInfo(name, version);
+        }, self);
+        if (queued) return;
+
+        if (self._Store.wrapperSDKInfo === undefined || !self._Store.wrapperSDKInfo.isInfoSet) {
+          self._Store.wrapperSDKInfo = {
+            name: name,
+            version: version,
+            isInfoSet: true
+          };
+        }
       };
     } // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 
@@ -10666,6 +10687,11 @@ var mParticle = (function () {
             kits: {},
             configuredForwarders: [],
             pixelConfigurations: [],
+            wrapperSDKInfo: {
+              name: 'none',
+              version: null,
+              isInfoSet: false
+            },
             SDKConfig: {
               isDevelopmentMode: false,
               onCreateBatch: mockFunction
@@ -11043,6 +11069,10 @@ var mParticle = (function () {
 
       this._getActiveForwarders = function () {
         return self.getInstance()._getActiveForwarders();
+      };
+
+      this._setWrapperSDKInfo = function (name, version) {
+        self.getInstance()._setWrapperSDKInfo(name, version);
       };
     }
 
