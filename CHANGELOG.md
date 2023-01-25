@@ -1,3 +1,10 @@
+## [2.18.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.18.1...v2.18.2) (2023-01-25)
+
+
+### Bug Fixes
+
+* Add wrapper SDK name/version setter for diagnostics ([#376](https://github.com/mParticle/mparticle-web-sdk/issues/376)) ([727e8e2](https://github.com/mParticle/mparticle-web-sdk/commit/727e8e2abed705041930cd13ba43204e5d8c2b32))
+
 ## [2.18.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.18.0...v2.18.1) (2023-01-04)
 
 
