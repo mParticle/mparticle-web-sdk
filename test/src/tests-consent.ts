@@ -134,7 +134,7 @@ describe('Consent', function() {
         consent.should.have.property('HardwareId', 'foo hardware id');
         done();
     });
-    // to here
+
     it('Should create basic ConsentState object', done => {
         const consentState = mParticle
             .getInstance()
@@ -216,7 +216,7 @@ describe('Consent', function() {
         done();
     });
 
-    it("Can't modify GDPR ConsentState object", done => {
+    it('should not be able to modify GDPR ConsentState object', done => {
         const consentState = mParticle
             .getInstance()
             .Consent.createConsentState();
