@@ -8,7 +8,6 @@ import {
     BaseEvent,
     MParticleUser,
     MParticleWebSDK,
-    SDKConsentState,
     SDKEvent,
     SDKGeoLocation,
     SDKProduct,
@@ -17,34 +16,15 @@ import {
 import { parseNumber, parseStringOrNumber, Dictionary } from './utils';
 import { ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
+import {
+    IConsentStateDTO,
+    IGDPRConsentStateDTO,
+    IPrivacyV2DTO,
+    SDKConsentState,
+} from './consent.interfaces';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
-
-// TODO: Move to Consent Module
-export interface IPrivacyV2DTO {
-    c: boolean; // Consented
-    ts: number; // Timestamp
-    d: string; // Document
-    l: string; // Location
-    h: string; // HardwareID
-}
-
-// TODO: Move to Consent Module
-export interface IGDPRConsentStateDTO {
-    [key: string]: IPrivacyV2DTO;
-}
-
-// TODO: Move to Consent Module
-export interface ICCPAConsentStateDTO {
-    data_sale_opt_out: IPrivacyV2DTO;
-}
-
-// TODO: Break this up into GDPR and CCPA interfaces
-export interface IConsentStateDTO {
-    gdpr?: IGDPRConsentStateDTO;
-    ccpa?: ICCPAConsentStateDTO;
-}
 
 // TODO: Confirm which attributes are optional
 export interface IServerDTO {

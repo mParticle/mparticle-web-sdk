@@ -16,7 +16,6 @@ import {
     LogLevelType,
     MParticleWebSDK,
     MPForwarder,
-    SDKConsentState,
     SDKDataPlan,
     SDKEvent,
     SDKGeoLocation,
@@ -24,6 +23,7 @@ import {
     SDKProduct,
 } from './sdkRuntimeModels';
 import { isNumber, isDataPlanSlug, Dictionary } from './utils';
+import { SDKConsentState } from './consent.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and

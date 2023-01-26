@@ -1,18 +1,16 @@
 import * as EventsApi from '@mparticle/event-models';
-import { DataPlanVersion, DataPlan } from '@mparticle/data-planning-models';
+import { DataPlanVersion } from '@mparticle/data-planning-models';
 import {
     MPConfiguration,
     IdentityApiData,
-    GDPRConsentState,
-    CCPAConsentState,
     ConsentState,
-    PrivacyConsentState,
 } from '@mparticle/web-sdk';
 import { IStore, SDKConfig } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
+import { SDKConsentApi, SDKConsentState } from './consent.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -261,68 +259,15 @@ export interface SDKConfigApi {
     appVersion?: string;
     onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
 }
+
+// FIXME: Resolve with User in @types/mparticle-web-sdk
+//        https://go.mparticle.com/work/SQDSDKS-5033
 export interface MParticleUser {
     getMPID(): string;
     getConsentState(): any; // FIXME:
     getAllUserAttributes(): any; // FIXME;
     getUserIdentities(): IdentityApiData; // FIXME: Is this correct?
 }
-
-export interface SDKConsentApi {
-    createGDPRConsent: (
-        consented?: boolean,
-        timestamp?: number,
-        consentDocument?: string,
-        location?: string,
-        hardwareId?: string
-    ) => GDPRConsentState;
-    createCCPAConsent: (
-        consented?: boolean,
-        timestamp?: number,
-        consentDocument?: string,
-        location?: string,
-        hardwareId?: string
-    ) => CCPAConsentState;
-    // TODO: This is a discrepency between the consent module and
-    //       the Consent namespace in mpInstance
-    createConsentState: (consentState?: ConsentState) => ConsentState;
-    // TODO: Migrate this to Consent.ts when that is created
-    ConsentSerialization: SDKConsentSerialization;
-    createPrivacyConsent: (
-        consented: boolean,
-        timestamp?: number,
-        consentDocument?: string,
-        location?: string,
-        hardwareId?: string
-    ) => PrivacyConsentState | null;
-}
-
-// TODO: Migrate this to Consent.ts when that is created
-export interface SDKConsentSerialization {
-    toMinifiedJsonObject: (state: any) => Dictionary<any>;
-    fromMinifiedJsonObject: (json: any) => ConsentState;
-}
-
-// TODO: Resolve discrepency between ConsentState and SDKConsentState
-export interface SDKConsentState
-    extends Omit<ConsentState, 'getGDPRConsentState' | 'getCCPAConsentState'> {
-    getGDPRConsentState(): SDKGDPRConsentState;
-    getCCPAConsentState(): SDKCCPAConsentState;
-}
-
-export interface SDKGDPRConsentState {
-    [key: string]: SDKConsentStateData;
-}
-
-export interface SDKConsentStateData {
-    Consented: boolean;
-    Timestamp?: number;
-    ConsentDocument?: string;
-    Location?: string;
-    HardwareId?: string;
-}
-
-export interface SDKCCPAConsentState extends SDKConsentStateData {}
 
 export interface SDKUserIdentityChangeData {
     New: Identity;
