@@ -1,17 +1,12 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import {
-    MPConfiguration,
-    IdentityApiData,
-    ConsentState,
-} from '@mparticle/web-sdk';
-import { IStore, SDKConfig } from './store';
+import { MPConfiguration, IdentityApiData } from '@mparticle/web-sdk';
+import { IStore } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent.interfaces';
-import Constants from './constants';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
