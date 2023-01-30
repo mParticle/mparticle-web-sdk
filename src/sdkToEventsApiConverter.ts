@@ -1,9 +1,6 @@
 import {
     SDKEvent,
-    SDKConsentState,
-    SDKGDPRConsentState,
     SDKGeoLocation,
-    SDKCCPAConsentState,
     SDKProduct,
     SDKPromotion,
     SDKUserIdentity,
@@ -13,6 +10,11 @@ import {
 } from './sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
 import Types from './types';
+import {
+    SDKConsentState,
+    SDKGDPRConsentState,
+    SDKCCPAConsentState,
+} from './consent.interfaces';
 
 export function convertEvents(
     mpid: string,
@@ -327,7 +329,8 @@ export function convertPromotionAction(
         return null;
     }
     const promotionAction: EventsApi.PromotionAction = {
-        action: sdkEvent.PromotionAction.PromotionActionType as EventsApi.PromotionActionActionEnum,
+        action: sdkEvent.PromotionAction
+            .PromotionActionType as EventsApi.PromotionActionActionEnum,
         promotions: convertPromotions(sdkEvent.PromotionAction.PromotionList),
     };
     return promotionAction;
@@ -596,7 +599,7 @@ export function convertBaseEventData(
         session_start_unixtime_ms: sdkEvent.SessionStartDate,
         custom_attributes: sdkEvent.EventAttributes,
         location: convertSDKLocation(sdkEvent.Location),
-        source_message_id: sdkEvent.SourceMessageId
+        source_message_id: sdkEvent.SourceMessageId,
     };
 
     return commonEventData;
@@ -683,48 +686,48 @@ export function convertUserIdentityTypeToServerIdentityType(
 ): EventsApi.IdentityType {
     switch (identityType) {
         case SDKIdentityTypeEnum.other:
-            return EventsApi.IdentityTypeEnum.other
+            return EventsApi.IdentityTypeEnum.other;
         case SDKIdentityTypeEnum.customerId:
-            return EventsApi.IdentityTypeEnum.customerId
+            return EventsApi.IdentityTypeEnum.customerId;
         case SDKIdentityTypeEnum.facebook:
-            return EventsApi.IdentityTypeEnum.facebook
+            return EventsApi.IdentityTypeEnum.facebook;
         case SDKIdentityTypeEnum.twitter:
-            return EventsApi.IdentityTypeEnum.twitter
+            return EventsApi.IdentityTypeEnum.twitter;
         case SDKIdentityTypeEnum.google:
-            return EventsApi.IdentityTypeEnum.google
+            return EventsApi.IdentityTypeEnum.google;
         case SDKIdentityTypeEnum.microsoft:
-            return EventsApi.IdentityTypeEnum.microsoft
+            return EventsApi.IdentityTypeEnum.microsoft;
         case SDKIdentityTypeEnum.yahoo:
-            return EventsApi.IdentityTypeEnum.yahoo
+            return EventsApi.IdentityTypeEnum.yahoo;
         case SDKIdentityTypeEnum.email:
-            return EventsApi.IdentityTypeEnum.email
+            return EventsApi.IdentityTypeEnum.email;
         case SDKIdentityTypeEnum.alias:
-            return EventsApi.IdentityTypeEnum.alias
+            return EventsApi.IdentityTypeEnum.alias;
         case SDKIdentityTypeEnum.facebookCustomAudienceId:
-            return EventsApi.IdentityTypeEnum.facebookCustomAudienceId
+            return EventsApi.IdentityTypeEnum.facebookCustomAudienceId;
         case SDKIdentityTypeEnum.otherId2:
-            return EventsApi.IdentityTypeEnum.otherId2
+            return EventsApi.IdentityTypeEnum.otherId2;
         case SDKIdentityTypeEnum.otherId3:
-            return EventsApi.IdentityTypeEnum.otherId3
+            return EventsApi.IdentityTypeEnum.otherId3;
         case SDKIdentityTypeEnum.otherId4:
-            return EventsApi.IdentityTypeEnum.otherId4
+            return EventsApi.IdentityTypeEnum.otherId4;
         case SDKIdentityTypeEnum.otherId5:
-            return EventsApi.IdentityTypeEnum.otherId5
+            return EventsApi.IdentityTypeEnum.otherId5;
         case SDKIdentityTypeEnum.otherId6:
-            return EventsApi.IdentityTypeEnum.otherId6
+            return EventsApi.IdentityTypeEnum.otherId6;
         case SDKIdentityTypeEnum.otherId7:
-            return EventsApi.IdentityTypeEnum.otherId7
+            return EventsApi.IdentityTypeEnum.otherId7;
         case SDKIdentityTypeEnum.otherId8:
-            return EventsApi.IdentityTypeEnum.otherId8
+            return EventsApi.IdentityTypeEnum.otherId8;
         case SDKIdentityTypeEnum.otherId9:
-            return EventsApi.IdentityTypeEnum.otherId9
+            return EventsApi.IdentityTypeEnum.otherId9;
         case SDKIdentityTypeEnum.otherId10:
-            return EventsApi.IdentityTypeEnum.otherId10
+            return EventsApi.IdentityTypeEnum.otherId10;
         case SDKIdentityTypeEnum.mobileNumber:
-            return EventsApi.IdentityTypeEnum.mobileNumber
+            return EventsApi.IdentityTypeEnum.mobileNumber;
         case SDKIdentityTypeEnum.phoneNumber2:
-            return EventsApi.IdentityTypeEnum.phoneNumber2
+            return EventsApi.IdentityTypeEnum.phoneNumber2;
         case SDKIdentityTypeEnum.phoneNumber3:
-            return EventsApi.IdentityTypeEnum.phoneNumber3
+            return EventsApi.IdentityTypeEnum.phoneNumber3;
     }
 }

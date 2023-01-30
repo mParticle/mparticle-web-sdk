@@ -4,13 +4,13 @@ import { urls, testMPID, apiKey } from './config';
 import { expect } from 'chai';
 import { IUploadObject } from '../../src/serverModel';
 import { AllUserAttributes, IdentityApiData } from '@mparticle/web-sdk';
-import {
-    BaseEvent,
-    MParticleUser,
-    SDKConsentState,
-    SDKEvent,
-} from '../../src/sdkRuntimeModels';
+import { BaseEvent, MParticleUser, SDKEvent } from '../../src/sdkRuntimeModels';
 import Constants from '../../src/constants';
+import {
+    SDKConsentState,
+    SDKCCPAConsentState,
+    SDKGDPRConsentState,
+} from '../../src/consent.interfaces';
 
 let mockServer;
 let initialEvent = {};
@@ -855,7 +855,7 @@ describe('ServerModel', () => {
                                 Location: 'test-gdpr-location',
                                 HardwareId: 'test-gdpr-hardware-id',
                             },
-                        };
+                        } as SDKGDPRConsentState;
                     },
                     getCCPAConsentState: () => {
                         return {
@@ -864,7 +864,7 @@ describe('ServerModel', () => {
                             ConsentDocument: 'ccpa-doc',
                             Location: 'test-ccpa-location',
                             HardwareId: 'test-ccpa-hardware-id',
-                        };
+                        } as SDKCCPAConsentState;
                     },
                 } as SDKConsentState,
             } as IUploadObject;
@@ -1411,9 +1411,13 @@ describe('ServerModel', () => {
                     )
             );
 
+            // TODO: Resolve differences between SDKConsentState and ConsentState
+            // TODO: verify this tests passes
             var consent = mParticle
                 .getInstance()
-                ._ServerModel.convertToConsentStateDTO(consentState);
+                ._ServerModel.convertToConsentStateDTO(
+                    (consentState as unknown) as SDKConsentState
+                );
 
             expect(consent).to.be.ok;
 
