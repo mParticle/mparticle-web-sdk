@@ -75,7 +75,7 @@ describe('ServerModel', () => {
                         },
                     };
                 },
-            };
+            } as unknown as MParticleUser;
 
             // TODO: We should move some of the event samples into a reusable module
             //       or set up an event factory
@@ -557,7 +557,7 @@ describe('ServerModel', () => {
                         },
                     };
                 },
-            };
+            } as unknown as MParticleUser;
 
             const actualEventObject = mParticle
                 .getInstance()

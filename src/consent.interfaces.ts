@@ -1,17 +1,22 @@
 // TODO: Migrate this to Consent.ts when that is created
 import { ConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
+import { Dictionary } from './utils';
 
-export interface IGDPRConsentObject {
-    purpose: string;
+// TODO: Verify that we don't have something similar elsewhere
+export interface IPrivacyConsentStateJSON {
+    consented: boolean;
+    timestamp: number;
+    consent_document: string;
+    location: string;
+    hardwareId: string;
 }
 
-export interface ICCPAConsentObject {
-    purpose: string;
-}
-
+// TODO: Verify that we don't have something similar elsewhere
 export interface IConsentJSONObject {
-    gdpr?: Partial<IGDPRConsentObject>;
-    ccpa?: Partial<ICCPAConsentObject>;
+    gdpr?: Dictionary<IPrivacyConsentStateJSON>;
+    ccpa?: {
+        data_sale_opt_out: IPrivacyConsentStateJSON;
+    };
 }
 
 interface ICreatePrivacyConsentFunction {
