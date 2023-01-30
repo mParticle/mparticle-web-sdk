@@ -49,8 +49,7 @@ export function convertEvents(
 
     let currentConsentState: SDKConsentState = null;
 
-    // If the event is missing consent state for some reason,
-    // get consent state from last event or user
+    // Add the consent state from either the Last Event or the user
     if (!isEmpty(lastEvent.ConsentState)) {
         currentConsentState = lastEvent.ConsentState;
     } else if (!isEmpty(user)) {
