@@ -50,7 +50,7 @@ describe('Consent', function() {
     });
 
     it('Should not create consent object without consented boolean', done => {
-        let consent = mParticle.Consent.createGDPRConsent();
+        let consent = mParticle.Consent.createGDPRConsent(null);
         expect(consent === null).to.be.ok;
 
         consent = mParticle.Consent.createGDPRConsent(BadBoolean);
@@ -491,7 +491,7 @@ describe('Consent', function() {
     });
 
     it('Should not create a CCPA consent object without consented boolean', done => {
-        let consent = mParticle.Consent.createCCPAConsent();
+        let consent = mParticle.Consent.createCCPAConsent(null);
         expect(consent === null).to.be.ok;
 
         consent = mParticle.Consent.createCCPAConsent(BadBoolean);

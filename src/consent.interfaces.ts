@@ -1,52 +1,46 @@
 // TODO: Migrate this to Consent.ts when that is created
 import { ConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
 
-export interface GDPRConsentObject {
+export interface IGDPRConsentObject {
     purpose: string;
 }
 
-export interface CCPAConsentObject {
+export interface ICCPAConsentObject {
     purpose: string;
 }
 
-export interface ConsentJSONObject {
-    gdpr?: Partial<GDPRConsentObject>;
-    ccpa?: Partial<CCPAConsentObject>;
+export interface IConsentJSONObject {
+    gdpr?: Partial<IGDPRConsentObject>;
+    ccpa?: Partial<ICCPAConsentObject>;
 }
 
-// TODO: Refactor this with Consent Namespace in @types/mparticle-web-sdk
-export interface SDKConsentApi {
-    createGDPRConsent: (
-        consented?: boolean,
-        timestamp?: number,
-        consentDocument?: string,
-        location?: string,
-        hardwareId?: string
-    ) => PrivacyConsentState | null;
-    createCCPAConsent: (
-        consented?: boolean,
-        timestamp?: number,
-        consentDocument?: string,
-        location?: string,
-        hardwareId?: string
-    ) => PrivacyConsentState | null;
-    createConsentState: (consentState?: ConsentState) => ConsentState;
-    ConsentSerialization: SDKConsentSerialization;
-    createPrivacyConsent: (
+interface ICreatePrivacyConsentFunction {
+    (
         consented: boolean,
         timestamp?: number,
         consentDocument?: string,
         location?: string,
         hardwareId?: string
-    ) => PrivacyConsentState | null;
+    ): PrivacyConsentState | null;
 }
 
-export interface SDKConsentSerialization {
-    toMinifiedJsonObject: (state: ConsentState) => ConsentJSONObject;
-    fromMinifiedJsonObject: (json: ConsentJSONObject) => ConsentState;
+// TODO: Refactor this with Consent Namespace in @types/mparticle-web-sdk
+//       https://go.mparticle.com/work/SQDSDKS-5009
+export interface SDKConsentApi {
+    createGDPRConsent: ICreatePrivacyConsentFunction;
+    createCCPAConsent: ICreatePrivacyConsentFunction;
+    createConsentState: (consentState?: ConsentState) => ConsentState;
+    ConsentSerialization: IConsentSerialization;
+    createPrivacyConsent: ICreatePrivacyConsentFunction;
+}
+
+export interface IConsentSerialization {
+    toMinifiedJsonObject: (state: ConsentState) => IConsentJSONObject;
+    fromMinifiedJsonObject: (json: IConsentJSONObject) => ConsentState;
 }
 
 // TODO: Resolve discrepency between ConsentState and SDKConsentState
+//       https://go.mparticle.com/work/SQDSDKS-5009
 export interface SDKConsentState
     extends Omit<ConsentState, 'getGDPRConsentState' | 'getCCPAConsentState'> {
     getGDPRConsentState(): SDKGDPRConsentState;
@@ -57,6 +51,12 @@ export interface SDKGDPRConsentState {
     [key: string]: SDKConsentStateData;
 }
 
+// TODO: Resolve discrepency between ConsentState and SDKConsentState
+//       https://go.mparticle.com/work/SQDSDKS-5009
+//       Specifically PrivacyConsentState, GDPRConsentState and CCPAConsentState
+//       Treat all attributes as required, but we had to override this
+//       to be optional for a bugfix:
+//       https://github.com/mParticle/mparticle-web-sdk/commit/3b11ead79f25b417737442a4fabd6435750f46b8
 export interface SDKConsentStateData {
     Consented: boolean;
     Timestamp?: number;
