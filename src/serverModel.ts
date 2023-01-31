@@ -21,7 +21,7 @@ import {
     IGDPRConsentStateDTO,
     IPrivacyV2DTO,
     SDKConsentState,
-} from './consent.interfaces';
+} from './consent';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;

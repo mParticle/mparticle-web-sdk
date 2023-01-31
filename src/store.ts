@@ -23,7 +23,7 @@ import {
     SDKProduct,
 } from './sdkRuntimeModels';
 import { isNumber, isDataPlanSlug, Dictionary } from './utils';
-import { SDKConsentState } from './consent.interfaces';
+import { SDKConsentState } from './consent';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -219,9 +219,10 @@ export default function Store(
             this.deviceId = config.deviceId;
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
-                config.isDevelopmentMode
-            );
+            this.SDKConfig.isDevelopmentMode =
+                mpInstance._Helpers.returnConvertedBoolean(
+                    config.isDevelopmentMode
+                );
         } else {
             this.SDKConfig.isDevelopmentMode = false;
         }

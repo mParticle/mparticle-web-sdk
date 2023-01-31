@@ -10,7 +10,7 @@ import {
     SDKConsentState,
     SDKCCPAConsentState,
     SDKGDPRConsentState,
-} from '../../src/consent.interfaces';
+} from '../../src/consent';
 
 let mockServer;
 let initialEvent = {};

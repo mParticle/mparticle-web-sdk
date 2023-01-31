@@ -13,7 +13,7 @@ import {
     SDKConsentState,
     SDKGDPRConsentState,
     SDKCCPAConsentState,
-} from './consent.interfaces';
+} from './consent';
 import Types from './types';
 import { isEmpty } from './utils';
 
