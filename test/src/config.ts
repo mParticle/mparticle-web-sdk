@@ -1,3 +1,5 @@
+import { SDKInitConfig } from "../../src/sdkRuntimeModels";
+
 export const urls = {
     eventsV2: 'https://jssdks.mparticle.com/v2/JS/test_key/Events',
     eventsV3: 'https://jssdks.mparticle.com/v3/JS/test_key/events',
@@ -24,7 +26,7 @@ export const LocalStorageProductsV4WithWorkSpaceName =
     'mprtcl-prodv4' + '_' + workspaceToken;
 export const MPConfig = {
     workspaceToken: workspaceToken,
-};
+} as SDKInitConfig;
 
 export const MessageType = {
     SessionStart: 1,

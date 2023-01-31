@@ -7,15 +7,15 @@ import * as EventsApi from '@mparticle/event-models';
 
 const mockFunction = function () {
     return null;
-}
+};
 export default class _BatchValidator {
     private getMPInstance() {
         return {
             // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
             _Helpers: {
-                sanitizeAttributes: window.mParticle.getInstance()._Helpers
-                    .sanitizeAttributes,
-                generateUniqueId: function() {
+                sanitizeAttributes:
+                    window.mParticle.getInstance()._Helpers.sanitizeAttributes,
+                generateUniqueId: function () {
                     return 'mockId';
                 },
                 extend: window.mParticle.getInstance()._Helpers.extend,
@@ -28,6 +28,11 @@ export default class _BatchValidator {
             _resetForTests: mockFunction,
             _APIClient: null,
             _Consent: null,
+            _Forwarders: null,
+            _NativeSdkHelpers: null,
+            _Persistence: null,
+            _preInit: null,
+            Consent: null,
             _ServerModel: null,
             _SessionManager: null,
             _Store: {
@@ -80,7 +85,6 @@ export default class _BatchValidator {
                 },
             },
             config: null,
-            Consent: null,
             eCommerce: null,
             Identity: {
                 getCurrentUser: mockFunction,
