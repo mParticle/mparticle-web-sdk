@@ -17,7 +17,7 @@ import { isEmpty } from './utils';
  * These uploads happen on an interval basis using window.fetch or XHR
  * requests, depending on what is available in the browser.
  *
- * Uploads can also triggered on browser visibility/focus changes via an
+ * Uploads can also be triggered on browser visibility/focus changes via an
  * event listener, which then uploads to mPartice via the browser's Beacon API.
  */
 
