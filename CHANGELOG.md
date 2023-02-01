@@ -1,3 +1,10 @@
+## [2.18.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.18.2...v2.18.3) (2023-02-01)
+
+
+### Bug Fixes
+
+* use currentUser consent state as backup if missing in last event ([#384](https://github.com/mParticle/mparticle-web-sdk/issues/384)) ([9493faa](https://github.com/mParticle/mparticle-web-sdk/commit/9493faa67da415ff54eb18ec001bdef537b3cca5))
+
 ## [2.18.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.18.1...v2.18.2) (2023-01-25)
 
 
