@@ -7,7 +7,38 @@ describe('Vault', () => {
         window.localStorage.clear();
     });
 
-    describe('#storeBatches', () => {
+    describe('#storeItems', () => {
+        it('should store an individual item as a hashmap', () => {
+            const batch1: Partial<Batch> = {
+                mpid: 'bar',
+                source_request_id: 'item-123',
+            };
+
+            const batch2: Partial<Batch> = {
+                mpid: 'baz',
+                source_request_id: 'item-456',
+            };
+
+            const vault = new Vault<Partial<Batch>>(
+                'test-key-store-batches',
+                'source_request_id',
+                { offlineStorageEnabled: true }
+            );
+
+            vault.storeItem(batch1);
+
+            expect(vault.contents).to.eql({ 'item-123': batch1 });
+
+            vault.storeItem(batch2);
+
+            expect(vault.contents).to.eql({
+                'item-123': batch1,
+                'item-456': batch2,
+            });
+        });
+    });
+
+    describe('#storeItems', () => {
         it('should store an array of batches as a hashmap', () => {
             const batch1 = {
                 foo: 'bar',
@@ -19,10 +50,14 @@ describe('Vault', () => {
                 source_request_id: 'item-456',
             };
 
-            const batches = ([batch1, batch2] as unknown) as Batch[];
+            const batches = [batch1, batch2] as unknown as Batch[];
 
-            const vault = new Vault('test-key-store-batches');
-            vault.storeBatches(batches);
+            const vault = new Vault<Batch>(
+                'test-key-store-batches',
+                'source_request_id',
+                { offlineStorageEnabled: true }
+            );
+            vault.storeItems(batches);
 
             const expectedContents = { 'item-123': batch1, 'item-456': batch2 };
             expect(vault.contents).to.eql(expectedContents);
@@ -44,16 +79,19 @@ describe('Vault', () => {
                 events: [{ eventName: 'test-event-3' }],
             };
 
-            const batches = ([batch1, batch2] as unknown) as Batch[];
+            const batches = [batch1, batch2] as unknown as Batch[];
 
-            const vault = new Vault('test-key-store-batches');
-
-            vault.storeBatches(batches);
+            const vault = new Vault<Batch>(
+                'test-key-store-batches',
+                'source_request_id',
+                { offlineStorageEnabled: true }
+            );
+            vault.storeItems(batches);
 
             batch1.events.push({ eventName: 'test-event-4' });
             batch2.events.push({ eventName: 'test-event-5' });
 
-            vault.storeBatches(batches);
+            vault.storeItems(batches);
 
             const expectedContents = {
                 'item-123': {
@@ -85,7 +123,7 @@ describe('Vault', () => {
         });
     });
 
-    describe('#retrieveBatches', () => {
+    describe('#retrieveItems', () => {
         it('returns all batches from local storage', () => {
             const batches = {
                 'item-123': {
@@ -112,9 +150,13 @@ describe('Vault', () => {
                 JSON.stringify(batches)
             );
 
-            const vault = new Vault('test-key-retrieve-batches');
+            const vault = new Vault<Batch>(
+                'test-key-retrieve-batches',
+                'source_request_id',
+                { offlineStorageEnabled: true }
+            );
 
-            const actualBatches = vault.retrieveBatches();
+            const actualBatches = vault.retrieveItems();
 
             const expectedBatches = [
                 {
@@ -140,12 +182,17 @@ describe('Vault', () => {
         });
 
         it('returns an empty array if no batches exist in local storage', () => {
-            const vault = new Vault('test-key-retrieve-batches');
-            expect(vault.retrieveBatches()).to.eql([]);
+            const vault = new Vault<Batch>(
+                'test-key-retrieve-batches',
+                'source_request_id',
+                { offlineStorageEnabled: true }
+            );
+
+            expect(vault.retrieveItems()).to.eql([]);
         });
     });
 
-    describe('#removeBatch', () => {
+    describe('#removeItem', () => {
         it('should remove a batch using source_request_id', () => {
             const batches = {
                 'item-123': {
@@ -172,9 +219,13 @@ describe('Vault', () => {
                 JSON.stringify(batches)
             );
 
-            const vault = new Vault('test-key-remove-batches');
+            const vault = new Vault<Batch>(
+                'test-key-remove-batches',
+                'source_request_id',
+                { offlineStorageEnabled: true }
+            );
 
-            vault.removeBatch('item-123');
+            vault.removeItem('item-123');
 
             expect(vault.contents).to.eql({
                 'item-456': {
@@ -216,7 +267,11 @@ describe('Vault', () => {
                 JSON.stringify(batches)
             );
 
-            const vault = new Vault('test-key-purge');
+            const vault = new Vault<Batch>(
+                'test-key-purge',
+                'source_request_id',
+                { offlineStorageEnabled: true }
+            );
             vault.purge();
 
             expect(vault.contents).to.eql({});
@@ -256,7 +311,11 @@ describe('Vault', () => {
                 'this data should not be purged'
             );
 
-            const vault = new Vault('test-key-purge');
+            const vault = new Vault<Batch>(
+                'test-key-purge',
+                'source_request_id',
+                { offlineStorageEnabled: true }
+            );
             vault.purge();
 
             expect(window.localStorage.getItem('test-key-purge')).to.equal(
