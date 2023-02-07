@@ -437,5 +437,12 @@ export default function Store(
         ) {
             this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching] = false;
         }
+        if (
+            !this.SDKConfig.flags.hasOwnProperty(
+                Constants.FeatureFlags.OfflineBatching
+            )
+        ) {
+            this.SDKConfig.flags.offlineBatching = 0;
+        }
     }
 }

@@ -1,4 +1,5 @@
 import { Batch } from '@mparticle/event-models';
+import Constants from './constants';
 import {
     SDKEvent,
     MParticleUser,
@@ -8,29 +9,29 @@ import {
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
 import { isEmpty } from './utils';
+import Vault from './vault';
 
 /**
- * BatchUploader contains all the logic to upload batches to mParticle.
- * It queues events as they come in and at set intervals turns them into batches.
- * It then attempts to upload them to mParticle.
- *
+ * BatchUploader contains all the logic to store/retrieve events and batches
+ * to/from persistence, and upload batches to mParticle. It queues events as
+ * they come in, and at set intervals, retrieves events from persistence and
+ * turns them into batches. It then attempts to upload them to mParticle.
  * These uploads happen on an interval basis using window.fetch or XHR
  * requests, depending on what is available in the browser.
  *
- * Uploads can also be triggered on browser visibility/focus changes via an
+ * Uploads can also triggered on browser visibility/focus changes via an
  * event listener, which then uploads to mPartice via the browser's Beacon API.
  */
-
 export class BatchUploader {
     // We upload JSON, but this content type is required to avoid a CORS preflight request
     static readonly CONTENT_TYPE: string = 'text/plain;charset=UTF-8';
     static readonly MINIMUM_INTERVAL_MILLIS: number = 500;
     uploadIntervalMillis: number;
-    eventsQueuedForProcessing: SDKEvent[];
-    batchesQueuedForProcessing: Batch[];
     mpInstance: MParticleWebSDK;
     uploadUrl: string;
     batchingEnabled: boolean;
+    private eventVault: Vault<SDKEvent>;
+    private batchVault: Vault<Batch>;
     private uploader: AsyncUploader;
 
     /**
@@ -46,8 +47,39 @@ export class BatchUploader {
         if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
             this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
         }
-        this.eventsQueuedForProcessing = [];
-        this.batchesQueuedForProcessing = [];
+
+        const offlineBatchingPercentage = parseInt(
+            mpInstance._Helpers.getFeatureFlag(
+                Constants.FeatureFlags.OfflineBatching
+            ),
+            10
+        );
+
+        // TODO: Break out getRampNumber to be a utility method
+        //       https://go.mparticle.com/work/SQDSDKS-5074
+        const rampNumber = mpInstance._Helpers.getRampNumber(
+            mpInstance._Store.deviceId
+        );
+
+        const offlineStorageEnabled = offlineBatchingPercentage >= rampNumber;
+
+        this.eventVault = new Vault<SDKEvent>(
+            `${mpInstance._Store.storageName}-events`,
+            'SourceMessageId',
+            {
+                logger: mpInstance.Logger,
+                offlineStorageEnabled,
+            }
+        );
+
+        this.batchVault = new Vault<Batch>(
+            `${mpInstance._Store.storageName}-batches`,
+            'source_request_id',
+            {
+                logger: mpInstance.Logger,
+                offlineStorageEnabled,
+            }
+        );
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
         const baseUrl = this.mpInstance._Helpers.createServiceUrl(
@@ -62,6 +94,22 @@ export class BatchUploader {
 
         this.triggerUploadInterval(true, false);
         this.addEventListeners();
+    }
+
+    /**
+     * Get the current list of events waiting to be processed
+     * @return {SDKEvent[]} an array of events waiting to be processed
+     */
+    public get eventsQueuedForProcessing(): SDKEvent[] {
+        return this.eventVault.retrieveItems();
+    }
+
+    /**
+     * Get the current list of batches waiting to be processed
+     * @return {Batch[]} an array of batches waiting to be processed
+     */
+    public get batchesQueuedForProcessing(): Batch[] {
+        return this.batchVault.retrieveItems();
     }
 
     // Adds listeners to be used trigger Navigator.sendBeacon if the browser
@@ -102,9 +150,10 @@ export class BatchUploader {
      * This method will queue a single Event which will eventually be processed into a Batch
      * @param event event that should be queued
      */
-    queueEvent(event: SDKEvent): void {
+    public queueEvent(event: SDKEvent): void {
         if (!isEmpty(event)) {
-            this.eventsQueuedForProcessing.push(event);
+            this.eventVault.storeItem(event);
+
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
             );
@@ -180,8 +229,9 @@ export class BatchUploader {
                     mpInstance._Store.SDKConfig.onCreateBatch;
 
                 if (onCreateBatchCallback) {
-                    uploadBatchObject =
-                        onCreateBatchCallback(uploadBatchObject);
+                    uploadBatchObject = onCreateBatchCallback(
+                        uploadBatchObject
+                    );
                     if (uploadBatchObject) {
                         uploadBatchObject.modified = true;
                     } else {
@@ -213,24 +263,33 @@ export class BatchUploader {
     ): Promise<void> {
         const currentUser = this.mpInstance.Identity.getCurrentUser();
 
-        const currentEvents = this.eventsQueuedForProcessing;
-        this.eventsQueuedForProcessing = [];
+        const currentEvents: SDKEvent[] = this.eventVault.retrieveItems();
+        this.eventVault.purge();
 
         const newBatches = BatchUploader.createNewBatches(
             currentEvents,
             currentUser,
             this.mpInstance
         );
-        if (!isEmpty(newBatches)) {
-            this.batchesQueuedForProcessing.push(...newBatches);
+
+        if (isEmpty(newBatches)) {
+            // TODO: We should refactor queueEvents to fire the interval if new events
+            //       are ready for processing rather than do it here
+            this.triggerUploadInterval(triggerFuture, false);
+            return;
         }
 
-        const batchesToUpload = this.batchesQueuedForProcessing;
+        this.batchVault.storeItems([...newBatches]);
+
+        const batchesToUpload = this.batchVault.retrieveItems();
         const batchesThatDidNotUpload: Batch[] = [];
-        this.batchesQueuedForProcessing = [];
 
         // Create an array of promises as we try to upload each batch indvidually
-        const promises: Promise<Batch>[] = batchesToUpload.map((upload) => {
+        const promises: Promise<Batch>[] = batchesToUpload.map(upload => {
+            // Remove batch from persistence to prevent accidental
+            // re-upload. They should be added back to persistence
+            // if upload is unsuccessful
+            this.batchVault.removeItem(upload.source_request_id);
             return this.upload(this.mpInstance.Logger, upload, useBeacon);
         });
 
@@ -238,14 +297,14 @@ export class BatchUploader {
         // for future re-transmission attempts
         if (!isEmpty(promises)) {
             Promise.all(promises)
-                .then((batchResponses) => {
-                    batchResponses.forEach((batch) =>
+                .then(batchResponses => {
+                    batchResponses.forEach(batch =>
                         !isEmpty(batch)
                             ? batchesThatDidNotUpload.push(batch)
                             : null
                     );
                 })
-                .catch((error) => {
+                .catch(error => {
                     this.mpInstance.Logger.error(
                         `Error processing batches during upload attempt: ${error}`
                     );
@@ -253,16 +312,13 @@ export class BatchUploader {
                 .finally(() => {
                     // Any batches that did not upload should be put back into the queue for processing
                     if (!isEmpty(batchesThatDidNotUpload)) {
-                        this.batchesQueuedForProcessing.unshift(
-                            ...batchesThatDidNotUpload
-                        );
+                        this.batchVault.storeItems(batchesThatDidNotUpload);
                     }
                 });
         }
 
-        if (triggerFuture) {
-            this.triggerUploadInterval(triggerFuture, false);
-        }
+        // TODO: We should kill the interval if batches are empty
+        this.triggerUploadInterval(triggerFuture, false);
     }
 
     private async upload(
@@ -274,7 +330,7 @@ export class BatchUploader {
             return null;
         }
 
-        logger.verbose(`Uploading batches: ${JSON.stringify(batch)}`);
+        logger.verbose(`Uploading batch: ${JSON.stringify(batch)}`);
 
         const fetchPayload: fetchPayload = {
             method: 'POST',
@@ -291,6 +347,9 @@ export class BatchUploader {
             let blob = new Blob([fetchPayload.body], {
                 type: 'text/plain;charset=UTF-8',
             });
+
+            // TODO: Create a polyfill for Navigator.sendBeacon
+            // https://go.mparticle.com/work/SQDSDKS-5021
             navigator.sendBeacon(this.uploadUrl, blob);
         } else {
             try {
@@ -302,6 +361,7 @@ export class BatchUploader {
                         `Upload success for request ID: ${batch.source_request_id}`
                     );
 
+                    // upload successful, return null.
                     return null;
                 } else if (response.status >= 500 || response.status === 429) {
                     logger.error(
@@ -317,14 +377,20 @@ export class BatchUploader {
                     // if we're getting a 401, assume we'll keep getting a 401
                     // so return the upload so it can be stored for later use
                     return batch;
+                } else {
+                    // If we can't send it, return it so we can try again later
+                    return batch;
                 }
             } catch (error) {
                 logger.error(
                     `Error sending event to mParticle servers. ${error}`
                 );
+
+                // If we can't send it, return it so we can try again later
                 return batch;
             }
         }
+
         return null;
     }
 }

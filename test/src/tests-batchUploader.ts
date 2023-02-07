@@ -37,6 +37,7 @@ describe('batch uploader', () => {
 
     afterEach(function() {
         mockServer.reset();
+        window.localStorage.clear();
     });
 
     describe('Unit Tests', () => {
@@ -91,6 +92,114 @@ describe('batch uploader', () => {
             });
         });
     });
+
+    describe('Feature Flag', () => {
+        afterEach(() => {
+            sinon.restore();
+            mockServer.reset();
+            window.localStorage.clear();
+        });
+
+        it('should use local storage when enabled', done => {
+            window.mParticle.config.flags = {
+                offlineBatching: '100',
+            };
+            window.mParticle._resetForTests(MPConfig);
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            const getItemSpy = sinon.spy(Storage.prototype, 'getItem');
+            const setItemSpy = sinon.spy(Storage.prototype, 'setItem');
+
+            const mpInstance = window.mParticle.getInstance();
+
+            const uploader = new BatchUploader(mpInstance, 1000);
+
+            const event: SDKEvent = {
+                EventName: 'Test Event',
+                EventAttributes: null,
+                SourceMessageId: 'test-smid',
+                EventDataType: 4,
+                EventCategory: 1,
+                CustomFlags: {},
+                IsFirstRun: false,
+                CurrencyCode: null,
+                MPID: 'testMPID',
+                ConsentState: null,
+                UserAttributes: {},
+                UserIdentities: [],
+                SDKVersion: 'X.XX.XX',
+                SessionId: 'test-session-id',
+                SessionStartDate: 0,
+                Debug: false,
+                DeviceId: 'test-device',
+                Timestamp: 0,
+            };
+
+            const expectedEvent = {
+                'test-smid': event,
+            };
+
+            uploader.queueEvent(event);
+
+            expect(uploader.eventsQueuedForProcessing.length).to.eql(1);
+
+            expect(setItemSpy.called).to.eq(true);
+            expect(setItemSpy.getCall(0).lastArg).to.equal(
+                JSON.stringify(expectedEvent)
+            );
+
+            expect(getItemSpy.called).to.eq(true);
+            expect(getItemSpy.getCall(0).lastArg).to.equal(
+                'mprtcl-v4_abcdef-events'
+            );
+
+            done();
+        });
+
+        it('should not use local storage when disabled', () => {
+            window.mParticle.config.flags = {
+                offlineBatching: '0',
+            };
+
+            window.mParticle._resetForTests(MPConfig);
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            const getItemSpy = sinon.spy(Storage.prototype, 'getItem');
+            const setItemSpy = sinon.spy(Storage.prototype, 'setItem');
+
+            const mpInstance = window.mParticle.getInstance();
+
+            const uploader = new BatchUploader(mpInstance, 1000);
+
+            const event: SDKEvent = {
+                EventName: 'Test Event',
+                EventAttributes: null,
+                SourceMessageId: 'test-smid',
+                EventDataType: 4,
+                EventCategory: 1,
+                CustomFlags: {},
+                IsFirstRun: false,
+                CurrencyCode: null,
+                MPID: 'testMPID',
+                ConsentState: null,
+                UserAttributes: {},
+                UserIdentities: [],
+                SDKVersion: 'X.XX.XX',
+                SessionId: 'test-session-id',
+                SessionStartDate: 0,
+                Debug: false,
+                DeviceId: 'test-device',
+                Timestamp: 0,
+            };
+
+            uploader.queueEvent(event);
+
+            expect(uploader.eventsQueuedForProcessing.length).to.eql(1);
+
+            expect(setItemSpy.called).to.eq(false);
+            expect(getItemSpy.called).to.eq(false);
+        });
+    })
 
     describe('batching via window.fetch', () => {
         beforeEach(function() {
