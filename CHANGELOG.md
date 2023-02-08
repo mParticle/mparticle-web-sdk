@@ -1,3 +1,10 @@
+# [2.19.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.18.3...v2.19.0) (2023-02-08)
+
+
+### Features
+
+* Add Persistence Wrapper ([#388](https://github.com/mParticle/mparticle-web-sdk/issues/388)) ([f4bc3d6](https://github.com/mParticle/mparticle-web-sdk/commit/f4bc3d6548451d0167d6dffb7da73e574a44a069))
+
 ## [2.18.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.18.2...v2.18.3) (2023-02-01)
 
 
