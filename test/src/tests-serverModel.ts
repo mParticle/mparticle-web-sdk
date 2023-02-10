@@ -232,7 +232,7 @@ describe('ServerModel', () => {
                 },
             };
 
-            expect(ServerModel.convertToConsentStateDTO(consentState)).to.eql(
+            expect(ServerModel.convertToConsentStateV2DTO(consentState)).to.eql(
                 expectedDTO
             );
         });
@@ -262,7 +262,7 @@ describe('ServerModel', () => {
                 },
             };
 
-            expect(ServerModel.convertToConsentStateDTO(consentState)).to.eql(
+            expect(ServerModel.convertToConsentStateV2DTO(consentState)).to.eql(
                 expectedDTO
             );
         });
@@ -311,13 +311,13 @@ describe('ServerModel', () => {
                 },
             };
 
-            expect(ServerModel.convertToConsentStateDTO(consentState)).to.eql(
+            expect(ServerModel.convertToConsentStateV2DTO(consentState)).to.eql(
                 expectedDTO
             );
         });
 
         it('returns null if Consent State is null', () => {
-            expect(ServerModel.convertToConsentStateDTO(null)).to.eql(null);
+            expect(ServerModel.convertToConsentStateV2DTO(null)).to.eql(null);
         });
     });
 
@@ -778,7 +778,7 @@ describe('ServerModel', () => {
                 currentSessionMPIDs: ['test-mpids'],
             } as unknown) as IUploadObject;
 
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.n, 'event.EventName (n)').to.equal('test-name');
             expect(actualDTO.et, 'event.EventType (et)').to.equal(
@@ -832,7 +832,7 @@ describe('ServerModel', () => {
                 },
             } as IUploadObject;
 
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.dp_id, 'event.DataPlan.PlanId (dp_id)').to.equal(
                 'test-data-plan'
@@ -869,7 +869,7 @@ describe('ServerModel', () => {
                 } as SDKConsentState,
             } as IUploadObject;
 
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.con, 'event.ConsentState (con)').to.eql({
                 gdpr: {
@@ -903,7 +903,7 @@ describe('ServerModel', () => {
                 },
             } as unknown) as IUploadObject;
 
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.fr, 'event.IsFirstRun (fr)').to.equal(true);
 
@@ -938,7 +938,7 @@ describe('ServerModel', () => {
                 isCustom: ['false'],
             };
 
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.flags).to.eql(expectedFlags);
         });
@@ -1019,7 +1019,7 @@ describe('ServerModel', () => {
                     },
                 ],
             };
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.cu).to.equal('USD');
             expect(actualDTO.sc).to.eql(expectedShoppingCart);
@@ -1035,7 +1035,7 @@ describe('ServerModel', () => {
             const expectedShoppingCart = {
                 pl: [],
             };
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.cu).to.equal('USD');
             expect(actualDTO.sc).to.eql(expectedShoppingCart);
@@ -1127,7 +1127,7 @@ describe('ServerModel', () => {
                     },
                 },
             ];
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.cu).to.equal('USD');
             expect(actualDTO.pd.an, 'ActionName').to.equal(
@@ -1184,7 +1184,7 @@ describe('ServerModel', () => {
                     ps: 2,
                 },
             ];
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.cu).to.equal('USD');
             expect(actualDTO.pm.an, 'ActionName').to.equal(
@@ -1270,7 +1270,7 @@ describe('ServerModel', () => {
                     },
                 },
             ];
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.cu).to.equal('USD');
             expect(actualDTO.pi[0].pil, 'ProductImpressionList').to.equal(
@@ -1285,7 +1285,7 @@ describe('ServerModel', () => {
                 ProfileMessageType: Types.ProfileMessageType.Logout,
             } as unknown) as IUploadObject;
 
-            const actualDTO = ServerModel.convertEventToDTO(uploadObject);
+            const actualDTO = ServerModel.convertEventToV2DTO(uploadObject);
 
             expect(actualDTO.pet).to.equal(Types.ProfileMessageType.Logout);
         });
@@ -1328,7 +1328,7 @@ describe('ServerModel', () => {
 
             let upload = window.mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(sdkEvent as IUploadObject);
+                ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
             upload.should.not.have.property('dp_id');
             upload.should.not.have.property('dp_v');
@@ -1347,7 +1347,7 @@ describe('ServerModel', () => {
                 ._ServerModel.createEventObject(event);
             let upload = mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(sdkEvent as IUploadObject);
+                ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
             upload.should.have.property('dp_id', 'plan-slug');
             upload.should.not.have.property('dp_v');
@@ -1366,7 +1366,7 @@ describe('ServerModel', () => {
                 ._ServerModel.createEventObject(event);
             let upload = mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(sdkEvent as IUploadObject);
+                ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
             upload.should.not.have.property('dp_id');
             upload.should.not.have.property('dp_v');
@@ -1386,7 +1386,7 @@ describe('ServerModel', () => {
                 ._ServerModel.createEventObject(event);
             let upload = mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(sdkEvent as IUploadObject);
+                ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
             upload.should.have.property('dp_id', 'plan-slug');
             upload.should.have.property('dp_v', 10);
@@ -1415,7 +1415,7 @@ describe('ServerModel', () => {
             // TODO: verify this tests passes
             var consent = mParticle
                 .getInstance()
-                ._ServerModel.convertToConsentStateDTO(
+                ._ServerModel.convertToConsentStateV2DTO(
                     (consentState as unknown) as SDKConsentState
                 );
 
@@ -1665,7 +1665,7 @@ describe('ServerModel', () => {
 
             var upload = mParticle
                 .getInstance()
-                ._ServerModel.convertEventToDTO(event);
+                ._ServerModel.convertEventToV2DTO(event);
 
             expect(upload.lr).to.equal('http://foo.bar/this/is/a/test');
 

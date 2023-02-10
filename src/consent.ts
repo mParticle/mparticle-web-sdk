@@ -50,10 +50,6 @@ export interface SDKConsentState
     getCCPAConsentState(): SDKCCPAConsentState;
 }
 
-export interface SDKGDPRConsentState {
-    [key: string]: SDKConsentStateData;
-}
-
 // TODO: Resolve discrepency between ConsentState and SDKConsentState
 //       https://go.mparticle.com/work/SQDSDKS-5009
 //       Specifically PrivacyConsentState, GDPRConsentState and CCPAConsentState
@@ -68,6 +64,7 @@ export interface SDKConsentStateData {
     HardwareId?: string;
 }
 
+export type SDKGDPRConsentState = Dictionary<SDKConsentStateData>;
 export interface SDKCCPAConsentState extends SDKConsentStateData {}
 
 export interface IPrivacyV2DTO {
@@ -78,26 +75,25 @@ export interface IPrivacyV2DTO {
     h: string; // HardwareID
 }
 
-export interface IGDPRConsentStateDTO {
-    [key: string]: IPrivacyV2DTO;
+export type IGDPRConsentStateV2DTO = Dictionary<IPrivacyV2DTO>;
+
+export interface ICCPAConsentStateV2DTO {
+    [CCPAPurpose]: IPrivacyV2DTO;
 }
 
-export interface ICCPAConsentStateDTO {
-    data_sale_opt_out: IPrivacyV2DTO;
+// TODO: Remove when Deprecating V2
+export interface IConsentStateV2DTO {
+    gdpr?: IGDPRConsentStateV2DTO;
+    ccpa?: ICCPAConsentStateV2DTO;
 }
 
-export interface IConsentStateDTO {
-    gdpr?: IGDPRConsentStateDTO;
-    ccpa?: ICCPAConsentStateDTO;
-}
-
-export interface IConsentRuleValues {
+export interface IConsentRulesValues {
     consentPurpose: string;
     hasConsented: boolean;
 }
 export interface IConsentRules {
     includeOnMatch: boolean;
-    values: IConsentRuleValues[];
+    values: IConsentRulesValues[];
 }
 
 // TODO: Remove this if we can safely deprecate `removeCCPAState`
@@ -108,9 +104,10 @@ export interface IConsentState extends ConsentState {
 // Represents Actual Interface for Consent Module
 // TODO: Should eventually consolidate with SDKConsentStateApi
 export interface IConsent {
-    mPinstance;
-    // TODO: Define these ANYs
-    isEnabledForUserConsent: (consentRules: any, user: any) => boolean;
+    isEnabledForUserConsent: (
+        consentRules: IConsentRules,
+        user: MParticleUser
+    ) => boolean;
     createPrivacyConsent: ICreatePrivacyConsentFunction;
     createConsentState: (consentState?: ConsentState) => ConsentState;
     ConsentSerialization: IConsentSerialization;
@@ -122,7 +119,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
     // this function is called when consent is required to
     // determine if a cookie sync should happen, or a
     // forwarder should be initialized
-    this.isEnabledForUserConsent = function (
+    this.isEnabledForUserConsent = function(
         consentRules: IConsentRules,
         user: MParticleUser
     ): boolean {
@@ -146,7 +143,6 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             // GDPR - '1' + purpose name
             // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
             const GDPRConsentHashPrefix = '1';
-            const CCPAPurpose = 'data_sale_opt_out'; // FIXME: is this redundant?
             const CCPAHashString = '2' + CCPAPurpose;
 
             const gdprConsentState = consentState.getGDPRConsentState();
@@ -169,7 +165,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
                 purposeHashes[purposeHash] = CCPAConsentState.Consented;
             }
         }
-        const isMatch = consentRules.values.some(function (consentRule) {
+        const isMatch = consentRules.values.some(function(consentRule) {
             const consentPurposeHash = consentRule.consentPurpose;
             const hasConsented = consentRule.hasConsented;
             if (purposeHashes.hasOwnProperty(consentPurposeHash)) {
@@ -181,7 +177,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
         return consentRules.includeOnMatch === isMatch;
     };
 
-    this.createPrivacyConsent = function (
+    this.createPrivacyConsent = function(
         consented: boolean,
         timestamp?: number,
         consentDocument?: string,
@@ -296,7 +292,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
         },
 
         fromMinifiedJsonObject(json: IMinifiedConsentJSONObject): ConsentState {
-            const state = self.createConsentState() as ConsentState;
+            const state: ConsentState = self.createConsentState();
             if (json.gdpr) {
                 for (const purpose in json.gdpr) {
                     if (json.gdpr.hasOwnProperty(purpose)) {
@@ -329,7 +325,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
     };
 
     // TODO: Refactor this method into a constructor
-    this.createConsentState = function (
+    this.createConsentState = function(
         this: ConsentState,
         consentState?: ConsentState
     ): IConsentState {
