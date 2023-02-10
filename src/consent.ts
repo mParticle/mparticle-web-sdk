@@ -454,9 +454,6 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
          */
 
         function getGDPRConsentState(): GDPRConsentState {
-            // TODO: Can we replace the usage of extend and either use
-            //       Object.assign or create our own clone function?
-            // return mpInstance._Helpers.extend({}, gdpr);
             return Object.assign({}, gdpr);
         }
 
