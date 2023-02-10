@@ -710,7 +710,7 @@ describe('Consent', function() {
         done();
     });
 
-    // TODO: Can we remove this now?
+    // TODO: Deprecate in next major version
     it('Should log deprecated message when using removeCCPAState', done => {
         const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
         const consentState = mParticle

@@ -6,7 +6,7 @@ import Validators from './validators';
 import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
-import { IConsent, SDKConsentApi, SDKConsentState } from './consent';
+import { SDKConsentApi, SDKConsentState } from './consent';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
