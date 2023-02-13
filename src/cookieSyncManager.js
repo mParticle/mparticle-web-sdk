@@ -53,7 +53,7 @@ export default function cookieSyncManager(mpInstance) {
                         pixelSettings.filteringConsentRuleValues,
                 };
 
-                // TODO: combine replaceMPID and replaceAMp into sanitizeUrl function
+                // TODO: combine replaceMPID and replaceAmp into sanitizeUrl function
                 url = self.replaceMPID(pixelConfig.pixelUrl, mpid);
                 redirect = pixelConfig.redirectUrl
                     ? self.replaceMPID(pixelConfig.redirectUrl, mpid)
