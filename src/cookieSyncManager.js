@@ -60,8 +60,8 @@ export default function cookieSyncManager(mpInstance) {
                     : '';
                 urlWithRedirect = url + encodeURIComponent(redirect);
 
-                // TODO: Do we need to fetch persistence during every loop,
-                //       or can we fetch once and cache?
+                // TODO: Refactor so that Persistence is only called once
+                //       outside of the loop
                 var persistence = mpInstance._Persistence.getPersistence();
 
                 // TODO: Is there a historic reason for checking for previousMPID?
@@ -160,14 +160,16 @@ export default function cookieSyncManager(mpInstance) {
         // if MPID is new to cookies, we should not try to perform the cookie sync
         // because a cookie sync can only occur once a user either consents or doesn't
         // we should not check if its enabled if the user has a blank consent
+        // TODO: We should do this check outside of this function
         if (requiresConsent && mpidIsNotInCookies) {
             return;
         }
 
-        // TODO: attemptCookieSync is called as a loop and therefore this function
-        //       polls the user object and consent multiple times.
-        //       Could we factor this out or cache the boolean so that it
-        //       only gets called once per cookie sync attempt per module?
+        // TODO: Refactor so that check is made outside of the function.
+        //       Cache or store the boolean so that it only gets called once per
+        //       cookie sync attempt per module?
+        //       Currently, attemptCookieSync is called as a loop and therefore this
+        //       function polls the user object and consent multiple times.
         if (
             mpInstance._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
