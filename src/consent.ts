@@ -7,6 +7,7 @@ import {
 import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
 import { Dictionary, isObject } from './utils';
 
+// Specifies to compiler that CCPAPurpose can only be one specific value
 export const CCPAPurpose = 'data_sale_opt_out' as const;
 
 export interface IMinifiedConsentJSONObject {
