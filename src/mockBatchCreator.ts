@@ -34,6 +34,7 @@ export default class _BatchValidator {
             _APIClient: null,
             MPSideloadedKit: null,
             _Consent: null,
+            _Events: null,
             _Forwarders: null,
             _NativeSdkHelpers: null,
             _Persistence: null,

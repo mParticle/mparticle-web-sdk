@@ -35,6 +35,7 @@ function SessionManager(mpInstance) {
         }
     };
 
+    // TODO: Rename to getSessionId
     this.getSession = function() {
         return mpInstance._Store.sessionId;
     };
