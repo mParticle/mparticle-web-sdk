@@ -6,8 +6,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
     const UserAttributeActionTypes = {
         setUserAttribute: 'setUserAttribute',
-        removeUserAttribute: 'removeUserAttribute'
-    }
+        removeUserAttribute: 'removeUserAttribute',
+    };
 
     this.initForwarders = function(userIdentities, forwardingStatsCallback) {
         var user = mpInstance.Identity.getCurrentUser();
@@ -393,14 +393,18 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.onHandleForwarderUserAttributes = function(key, value, functionNameKey) {
+    this.onHandleForwarderUserAttributes = function(
+        key,
+        value,
+        functionNameKey
+    ) {
         if (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) {
             return;
         }
 
         if (mpInstance._Store.activeForwarders.length) {
             mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-                var forwarderFunction = forwarder[functionNameKey];
+                const forwarderFunction = forwarder[functionNameKey];
                 if (
                     forwarderFunction &&
                     forwarder.userAttributeFilters &&
@@ -412,9 +416,15 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     try {
                         var result;
 
-                        if (functionNameKey === UserAttributeActionTypes.setUserAttribute) {
+                        if (
+                            functionNameKey ===
+                            UserAttributeActionTypes.setUserAttribute
+                        ) {
                             result = forwarder.setUserAttribute(key, value);
-                        } else if (functionNameKey === UserAttributeActionTypes.removeUserAttribute) {
+                        } else if (
+                            functionNameKey ===
+                            UserAttributeActionTypes.removeUserAttribute
+                        ) {
                             result = forwarder.removeUserAttribute(key);
                         }
 
