@@ -1255,7 +1255,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        let dummyUserAttributes = {
+        const dummyUserAttributes = {
             'gender': 'male',
             'age': 20,
         }
