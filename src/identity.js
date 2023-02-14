@@ -904,9 +904,10 @@ export default function Identity(mpInstance) {
                             self.IdentityAPI.getCurrentUser().getUserIdentities(),
                             mpInstance._APIClient.prepareForwardingStats
                         );
-                        mpInstance._Forwarders.callSetUserAttributeOnForwarders(
+                        mpInstance._Forwarders.onHandleForwarderUserAttributes(
                             key,
-                            newValue
+                            newValue,
+                            'setUserAttribute'
                         );
                     }
                 }
@@ -990,9 +991,10 @@ export default function Identity(mpInstance) {
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
                         mpInstance._APIClient.prepareForwardingStats
                     );
-                    mpInstance._Forwarders.applyToForwarders(
-                        'removeUserAttribute',
-                        key
+                    mpInstance._Forwarders.onHandleForwarderUserAttributes(
+                        key,
+                        null,
+                        'removeUserAttribute'
                     );
                 }
             },
@@ -1098,9 +1100,10 @@ export default function Identity(mpInstance) {
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
                         mpInstance._APIClient.prepareForwardingStats
                     );
-                    mpInstance._Forwarders.callSetUserAttributeOnForwarders(
+                    mpInstance._Forwarders.onHandleForwarderUserAttributes(
                         key,
-                        arrayCopy
+                        arrayCopy,
+                        'setUserAttribute'
                     );
                 }
             },
@@ -1127,9 +1130,10 @@ export default function Identity(mpInstance) {
                     if (userAttributes) {
                         for (var prop in userAttributes) {
                             if (userAttributes.hasOwnProperty(prop)) {
-                                mpInstance._Forwarders.applyToForwarders(
-                                    'removeUserAttribute',
-                                    prop
+                                mpInstance._Forwarders.onHandleForwarderUserAttributes(
+                                    prop,
+                                    null,
+                                    'removeUserAttribute'
                                 );
                             }
                             this.removeUserAttribute(prop);

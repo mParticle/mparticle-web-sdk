@@ -1229,6 +1229,66 @@ describe('forwarders', function() {
         done();
     });
 
+    it('should filter user attributes from forwarder on init, and on subsequent remove attribute calls', function(done) {
+        mParticle._resetForTests(MPConfig);
+        var mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+        mParticle.init(apiKey, window.mParticle.config);
+
+        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+
+        // filtered User Attributes that should should not call removeUserAttribute
+        config1.userAttributeFilters = [
+            mParticle.generateHash('weight'),
+            mParticle.generateHash('age'),
+        ];
+
+        window.mParticle.config.kitConfigs.push(config1);
+        mParticle.init(apiKey, window.mParticle.config);
+
+        // force filtered UA in mock forwarder (due to filtering affecting setUserAttribute) and test init
+        window.MockForwarder1.instance.userAttributes['weight'] = 150
+        mParticle.Identity.getCurrentUser().removeUserAttribute('weight');
+        mParticle.userAttributesFilterOnInitTest.should.have.property(
+            'weight'
+        );
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        let dummyUserAttributes = {
+            'gender': 'male',
+            'age': 20,
+        }
+
+        // force filtered UA in mock forwarder (due to filtering affecting setUserAttribute) and non filtered UA
+        for (let key of Object.keys(dummyUserAttributes)) {
+            window.MockForwarder1.instance.userAttributes[key] = dummyUserAttributes[key]
+        }
+
+        // "age" is filtered and should not call removeUserAttribute on forwarder
+        mParticle.Identity.getCurrentUser().removeUserAttribute('age');
+        window.MockForwarder1.instance.should.not.have.property(
+            'removeUserAttributeCalled',
+            true
+        );
+        window.MockForwarder1.instance.userAttributes.should.have.property(
+            'age',
+            20
+        );
+
+        // "gender" is not filtered and should call removeUserAttribute on forwarder
+        mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
+        window.MockForwarder1.instance.should.have.property(
+            'removeUserAttributeCalled',
+            true
+        );
+        window.MockForwarder1.instance.userAttributes.should.not.have.property(
+            'gender'
+        );
+
+        done();
+    });
+
     it('should filter event names', function(done) {
         mParticle._resetForTests(MPConfig);
 

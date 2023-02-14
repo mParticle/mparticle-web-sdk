@@ -387,15 +387,16 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.callSetUserAttributeOnForwarders = function(key, value) {
+    this.onHandleForwarderUserAttributes = function(key, value, functionName) {
         if (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) {
             return;
         }
 
         if (mpInstance._Store.activeForwarders.length) {
             mpInstance._Store.activeForwarders.forEach(function(forwarder) {
+                var forwarderFunction = forwarder[functionName];
                 if (
-                    forwarder.setUserAttribute &&
+                    forwarderFunction &&
                     forwarder.userAttributeFilters &&
                     !mpInstance._Helpers.inArray(
                         forwarder.userAttributeFilters,
@@ -403,7 +404,13 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     )
                 ) {
                     try {
-                        var result = forwarder.setUserAttribute(key, value);
+                        var result;
+
+                        if (functionName === 'setUserAttribute') {
+                            result = forwarder.setUserAttribute(key, value);
+                        } else if (functionName === 'removeUserAttribute') {
+                            result = forwarder.removeUserAttribute(key);
+                        }
 
                         if (result) {
                             mpInstance.Logger.verbose(result);
