@@ -1231,11 +1231,11 @@ describe('forwarders', function() {
 
     it('should filter user attributes from forwarder on init, and on subsequent remove attribute calls', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
 
-        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
 
         // filtered User Attributes that should should not call removeUserAttribute
         config1.userAttributeFilters = [
@@ -1255,7 +1255,7 @@ describe('forwarders', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        let dummyUserAttributes = {
+        const dummyUserAttributes = {
             'gender': 'male',
             'age': 20,
         }
