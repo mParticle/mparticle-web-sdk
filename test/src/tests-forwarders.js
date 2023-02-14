@@ -1235,7 +1235,7 @@ describe('forwarders', function() {
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
 
-        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
 
         // filtered User Attributes that should should not call removeUserAttribute
         config1.userAttributeFilters = [
