@@ -1231,7 +1231,7 @@ describe('forwarders', function() {
 
     it('should filter user attributes from forwarder on init, and on subsequent remove attribute calls', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
 
