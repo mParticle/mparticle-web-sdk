@@ -83,8 +83,8 @@ export default function cookieSyncManager(mpInstance) {
                     }
                     return;
                 } else {
-                    // TODO: can we check for the inverse and exit early
-                    //       rather than nesting?
+                    // TODO: Refactor to check for the inverse and exit early
+                    //       rather than nesting
                     if (persistence[mpid]) {
                         if (!persistence[mpid].csd) {
                             persistence[mpid].csd = {};
@@ -100,10 +100,14 @@ export default function cookieSyncManager(mpInstance) {
                         if (lastSyncDateForModule) {
                             // Check to see if we need to refresh cookieSync
                             if (
-                                // Can this be turned into a convenience method for readability?
+                                // TODO: Turn this into a convenience method for readability?
+                                //       We use similar comparisons elsewhere in the SDK,
+                                //       so perhaps we can make a time comparison convenience method
                                 new Date().getTime() >
                                 new Date(lastSyncDateForModule).getTime() +
                                     pixelConfig.frequencyCap *
+                                        // TODO: Turn these numbers into a constant so
+                                        //       we can remember what this number is for
                                         60 *
                                         1000 *
                                         60 *
