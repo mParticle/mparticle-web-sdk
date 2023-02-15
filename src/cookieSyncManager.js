@@ -171,7 +171,7 @@ export default function cookieSyncManager(mpInstance) {
 
         // TODO: Refactor so that check is made outside of the function.
         //       Cache or store the boolean so that it only gets called once per
-        //       cookie sync attempt per module?
+        //       cookie sync attempt per module.
         //       Currently, attemptCookieSync is called as a loop and therefore this
         //       function polls the user object and consent multiple times.
         if (
