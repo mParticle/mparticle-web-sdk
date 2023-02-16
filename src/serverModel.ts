@@ -17,17 +17,17 @@ import { parseNumber, parseStringOrNumber, Dictionary } from './utils';
 import { ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
 import {
-    IConsentStateDTO,
-    IGDPRConsentStateDTO,
+    IConsentStateV2DTO,
+    IGDPRConsentStateV2DTO,
     IPrivacyV2DTO,
     SDKConsentState,
-} from './consent.interfaces';
+} from './consent';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
 
 // TODO: Confirm which attributes are optional
-export interface IServerDTO {
+export interface IServerV2DTO {
     id: string | number;
     nm: string | number;
     pr: number;
@@ -61,7 +61,7 @@ export interface IServerDTO {
     das?: string;
     mpid?: MPID;
     smpids?: MPID[];
-    con?: IConsentStateDTO;
+    con?: IConsentStateV2DTO;
     fr?: boolean;
     iu?: boolean; // isUpgrade
     at?: number;
@@ -69,13 +69,13 @@ export interface IServerDTO {
     flags?: Dictionary<string[]>;
     cu?: string;
     sc?: {
-        pl: IProductDTO[];
+        pl: IProductV2DTO[];
     };
     pd?: {
         an: number;
         cs: number;
         co: string;
-        pl: IProductDTO[];
+        pl: IProductV2DTO[];
         ta: string;
         ti: string;
         tcc: string;
@@ -85,13 +85,13 @@ export interface IServerDTO {
     };
     pm?: {
         an: string;
-        pl: IPromotionDTO[];
+        pl: IPromotionV2DTO[];
     };
-    pi?: IProductImpressionDTO[];
+    pi?: IProductImpressionV2DTO[];
     pet?: number;
 }
 
-export interface IProductDTO {
+export interface IProductV2DTO {
     id: string | number;
     nm: string | number;
     pr: number;
@@ -105,16 +105,16 @@ export interface IProductDTO {
     attrs: Record<string, string> | null;
 }
 
-export interface IPromotionDTO {
+export interface IPromotionV2DTO {
     id: string | number;
     nm: string | number;
     ps: string | number;
     cr: string;
 }
 
-export interface IProductImpressionDTO {
+export interface IProductImpressionV2DTO {
     pil: string;
-    pl: IProductDTO[];
+    pl: IProductV2DTO[];
 }
 
 export interface IUploadObject extends SDKEvent {
@@ -129,14 +129,14 @@ export interface IUploadObject extends SDKEvent {
 }
 
 export interface IServerModel {
-    convertEventToDTO: (event: IUploadObject) => IServerDTO;
+    convertEventToV2DTO: (event: IUploadObject) => IServerV2DTO;
     createEventObject: (event: BaseEvent, user?: MParticleUser) => SDKEvent;
-    convertToConsentStateDTO: (state: SDKConsentState) => IConsentStateDTO;
+    convertToConsentStateV2DTO: (state: SDKConsentState) => IConsentStateV2DTO;
     appendUserInfo: (user: MParticleUser, event: SDKEvent) => void;
 }
 
 // TODO: Make this a pure function that returns a new object
-function convertCustomFlags(event: SDKEvent, dto: IServerDTO) {
+function convertCustomFlags(event: SDKEvent, dto: IServerV2DTO) {
     var valueArray: string[] = [];
     dto.flags = {};
 
@@ -171,7 +171,7 @@ function convertCustomFlags(event: SDKEvent, dto: IServerDTO) {
     }
 }
 
-function convertProductToDTO(product: SDKProduct): IProductDTO {
+function convertProductToV2DTO(product: SDKProduct): IProductV2DTO {
     return {
         id: parseStringOrNumber(product.Sku),
         nm: parseStringOrNumber(product.Name),
@@ -187,13 +187,13 @@ function convertProductToDTO(product: SDKProduct): IProductDTO {
     };
 }
 
-function convertProductListToDTO(productList: SDKProduct[]): IProductDTO[] {
+function convertProductListToV2DTO(productList: SDKProduct[]): IProductV2DTO[] {
     if (!productList) {
         return [];
     }
 
     return productList.map(function(product) {
-        return convertProductToDTO(product);
+        return convertProductToV2DTO(product);
     });
 }
 
@@ -245,16 +245,16 @@ export default function ServerModel(
         event.UserIdentities = validUserIdentities;
     };
 
-    this.convertToConsentStateDTO = function(
+    this.convertToConsentStateV2DTO = function(
         state: SDKConsentState
-    ): IConsentStateDTO {
+    ): IConsentStateV2DTO {
         if (!state) {
             return null;
         }
-        var jsonObject: IConsentStateDTO = {};
+        var jsonObject: IConsentStateV2DTO = {};
         var gdprConsentState = state.getGDPRConsentState();
         if (gdprConsentState) {
-            var gdpr: IGDPRConsentStateDTO = {};
+            var gdpr: IGDPRConsentStateV2DTO = {};
             jsonObject.gdpr = gdpr;
             for (var purpose in gdprConsentState) {
                 if (gdprConsentState.hasOwnProperty(purpose)) {
@@ -292,7 +292,7 @@ export default function ServerModel(
             };
         }
 
-        return jsonObject as IConsentStateDTO;
+        return jsonObject as IConsentStateV2DTO;
     };
 
     this.createEventObject = function(
@@ -408,8 +408,8 @@ export default function ServerModel(
         return null;
     };
 
-    this.convertEventToDTO = function(event: IUploadObject): IServerDTO {
-        var dto: Partial<IServerDTO> = {
+    this.convertEventToV2DTO = function(event: IUploadObject): IServerV2DTO {
+        var dto: Partial<IServerV2DTO> = {
             n: event.EventName,
             et: event.EventCategory,
             ua: event.UserAttributes,
@@ -441,7 +441,7 @@ export default function ServerModel(
             }
         }
 
-        var consent = self.convertToConsentStateDTO(event.ConsentState);
+        var consent = self.convertToConsentStateV2DTO(event.ConsentState);
         if (consent) {
             dto.con = consent;
         }
@@ -458,7 +458,7 @@ export default function ServerModel(
         }
 
         if (event.CustomFlags) {
-            convertCustomFlags(event, dto as IServerDTO);
+            convertCustomFlags(event, dto as IServerV2DTO);
         }
 
         if (event.EventDataType === MessageType.Commerce) {
@@ -467,7 +467,9 @@ export default function ServerModel(
             // TODO: If Cart is deprecated, we should deprecate this too
             if (event.ShoppingCart) {
                 dto.sc = {
-                    pl: convertProductListToDTO(event.ShoppingCart.ProductList),
+                    pl: convertProductListToV2DTO(
+                        event.ShoppingCart.ProductList
+                    ),
                 };
             }
 
@@ -478,7 +480,7 @@ export default function ServerModel(
                         event.ProductAction.CheckoutStep
                     ),
                     co: event.ProductAction.CheckoutOptions,
-                    pl: convertProductListToDTO(
+                    pl: convertProductListToV2DTO(
                         event.ProductAction.ProductList
                     ),
                     ti: event.ProductAction.TransactionId,
@@ -512,7 +514,7 @@ export default function ServerModel(
                 dto.pi = event.ProductImpressions.map(function(impression) {
                     return {
                         pil: impression.ProductImpressionList,
-                        pl: convertProductListToDTO(impression.ProductList),
+                        pl: convertProductListToV2DTO(impression.ProductList),
                     };
                 });
             }
@@ -520,6 +522,6 @@ export default function ServerModel(
             dto.pet = event.ProfileMessageType;
         }
 
-        return dto as IServerDTO;
+        return dto as IServerV2DTO;
     };
 }

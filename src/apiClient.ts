@@ -189,7 +189,7 @@ export default function APIClient(
                 );
                 xhr.send(
                     JSON.stringify(
-                        mpInstance._ServerModel.convertEventToDTO(
+                        mpInstance._ServerModel.convertEventToV2DTO(
                             event as IUploadObject
                         )
                     )

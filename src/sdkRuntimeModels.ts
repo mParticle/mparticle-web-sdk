@@ -6,7 +6,7 @@ import Validators from './validators';
 import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
-import { SDKConsentApi, SDKConsentState } from './consent.interfaces';
+import { SDKConsentApi, SDKConsentState } from './consent';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -159,7 +159,7 @@ export interface MParticleWebSDK {
     eCommerce: any;
     logLevel: string;
     ProductActionType: SDKProductActionType;
-    generateHash(value: string);
+    generateHash(value: string): string;
     isIOS?: boolean;
 }
 
@@ -228,6 +228,7 @@ export interface SDKHelpersApi {
     extend?(...args: any[]);
     parseNumber?(value: string | number): number;
     generateUniqueId();
+    generateHash?(value: string): string;
     getFeatureFlag?(feature: string); // TODO: Feature Constants should be converted to enum
     getRampNumber?(deviceId: string): number;
     isDelayedByIntegration?(
@@ -271,7 +272,7 @@ export interface SDKConfigApi {
 //        https://go.mparticle.com/work/SQDSDKS-5033
 export interface MParticleUser {
     getMPID(): string;
-    getConsentState(): any; // FIXME:
+    getConsentState(): SDKConsentState;
     getAllUserAttributes(): any; // FIXME;
     getUserIdentities(): IdentityApiData; // FIXME: Is this correct?
 }
