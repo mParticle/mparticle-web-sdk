@@ -598,7 +598,7 @@ describe('ServerModel', () => {
             ]);
         });
 
-        it.only('should set necessary attributes if MessageType is SessionEnd', () => {
+        it('should set necessary attributes if MessageType is SessionEnd', () => {
             const mPStore = mParticle.getInstance()._Store;
 
             mPStore.sessionAttributes = {
