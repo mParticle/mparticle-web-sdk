@@ -725,7 +725,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.19.0";
+    var version = "2.19.1";
 
     var Constants = {
       sdkVersion: version,
@@ -2679,7 +2679,7 @@ var mParticle = (function () {
         if (xhr) {
           try {
             xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.v2SecureServiceUrl, mpInstance._Store.devToken) + '/Events');
-            xhr.send(JSON.stringify(mpInstance._ServerModel.convertEventToDTO(event)));
+            xhr.send(JSON.stringify(mpInstance._ServerModel.convertEventToV2DTO(event)));
           } catch (e) {
             mpInstance.Logger.error('Error sending event to mParticle servers. ' + e);
           }
@@ -3435,33 +3435,43 @@ var mParticle = (function () {
 
     var Messages$7 = Constants.Messages;
     function cookieSyncManager(mpInstance) {
-      var self = this;
+      var self = this; // Public
 
       this.attemptCookieSync = function (previousMPID, mpid, mpidIsNotInCookies) {
-        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect, requiresConsent;
+        // TODO: These should move inside the for loop
+        var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect, requiresConsent; // TODO: Make this exit quicker instead of nested
 
         if (mpid && !mpInstance._Store.webviewBridgeEnabled) {
           mpInstance._Store.pixelConfigurations.forEach(function (pixelSettings) {
             // set requiresConsent to false to start each additional pixel configuration
             // set to true only if filteringConsenRuleValues.values.length exists
-            requiresConsent = false;
+            requiresConsent = false; // TODO: Replace with isEmpty
 
             if (pixelSettings.filteringConsentRuleValues && pixelSettings.filteringConsentRuleValues.values && pixelSettings.filteringConsentRuleValues.values.length) {
               requiresConsent = true;
             }
 
             pixelConfig = {
+              // Kit Module ID
               moduleId: pixelSettings.moduleId,
+              // Tells you how often we should do a cookie sync (in days)
               frequencyCap: pixelSettings.frequencyCap,
+              // Url for cookie sync pixel
               pixelUrl: self.replaceAmp(pixelSettings.pixelUrl),
+              // TODO: Document requirements for redirectUrl
               redirectUrl: pixelSettings.redirectUrl ? self.replaceAmp(pixelSettings.redirectUrl) : null,
+              // Filtering rules as defined in UI
               filteringConsentRuleValues: pixelSettings.filteringConsentRuleValues
-            };
+            }; // TODO: combine replaceMPID and replaceAmp into sanitizeUrl function
+
             url = self.replaceMPID(pixelConfig.pixelUrl, mpid);
             redirect = pixelConfig.redirectUrl ? self.replaceMPID(pixelConfig.redirectUrl, mpid) : '';
-            urlWithRedirect = url + encodeURIComponent(redirect);
+            urlWithRedirect = url + encodeURIComponent(redirect); // TODO: Refactor so that Persistence is only called once
+            //       outside of the loop
 
-            var persistence = mpInstance._Persistence.getPersistence();
+            var persistence = mpInstance._Persistence.getPersistence(); // TODO: Is there a historic reason for checking for previousMPID?
+            //       it does not appear to be passed in anywhere
+
 
             if (previousMPID && previousMPID !== mpid) {
               if (persistence && persistence[mpid]) {
@@ -3474,6 +3484,8 @@ var mParticle = (function () {
 
               return;
             } else {
+              // TODO: Refactor to check for the inverse and exit early
+              //       rather than nesting
               if (persistence[mpid]) {
                 if (!persistence[mpid].csd) {
                   persistence[mpid].csd = {};
@@ -3483,7 +3495,12 @@ var mParticle = (function () {
 
                 if (lastSyncDateForModule) {
                   // Check to see if we need to refresh cookieSync
-                  if (new Date().getTime() > new Date(lastSyncDateForModule).getTime() + pixelConfig.frequencyCap * 60 * 1000 * 60 * 24) {
+                  if ( // TODO: Turn this into a convenience method for readability?
+                  //       We use similar comparisons elsewhere in the SDK,
+                  //       so perhaps we can make a time comparison convenience method
+                  new Date().getTime() > new Date(lastSyncDateForModule).getTime() + pixelConfig.frequencyCap * // TODO: Turn these numbers into a constant so
+                  //       we can remember what this number is for
+                  60 * 1000 * 60 * 24) {
                     self.performCookieSync(urlWithRedirect, pixelConfig.moduleId, mpid, persistence[mpid].csd, pixelConfig.filteringConsentRuleValues, mpidIsNotInCookies, requiresConsent);
                   }
                 } else {
@@ -3493,29 +3510,40 @@ var mParticle = (function () {
             }
           });
         }
-      };
+      }; // Private
+
 
       this.replaceMPID = function (string, mpid) {
         return string.replace('%%mpid%%', mpid);
-      };
+      }; // Private
+      // TODO: Rename function to replaceAmpWithAmpersand
+
 
       this.replaceAmp = function (string) {
         return string.replace(/&amp;/g, '&');
-      };
+      }; // Private
+
 
       this.performCookieSync = function (url, moduleId, mpid, cookieSyncDates, filteringConsentRuleValues, mpidIsNotInCookies, requiresConsent) {
         // if MPID is new to cookies, we should not try to perform the cookie sync
         // because a cookie sync can only occur once a user either consents or doesn't
         // we should not check if its enabled if the user has a blank consent
+        // TODO: We should do this check outside of this function
         if (requiresConsent && mpidIsNotInCookies) {
           return;
-        }
+        } // TODO: Refactor so that check is made outside of the function.
+        //       Cache or store the boolean so that it only gets called once per
+        //       cookie sync attempt per module.
+        //       Currently, attemptCookieSync is called as a loop and therefore this
+        //       function polls the user object and consent multiple times.
+
 
         if (mpInstance._Consent.isEnabledForUserConsent(filteringConsentRuleValues, mpInstance.Identity.getCurrentUser())) {
           var img = document.createElement('img');
           mpInstance.Logger.verbose(Messages$7.InformationMessages.CookieSync);
 
           img.onload = function () {
+            // TODO: Break this out into a convenience method so we can unit test
             cookieSyncDates[moduleId.toString()] = new Date().getTime();
 
             mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(mpid, cookieSyncDates);
@@ -6585,7 +6613,7 @@ var mParticle = (function () {
       }
     }
 
-    function convertProductToDTO(product) {
+    function convertProductToV2DTO(product) {
       return {
         id: parseStringOrNumber(product.Sku),
         nm: parseStringOrNumber(product.Name),
@@ -6601,13 +6629,13 @@ var mParticle = (function () {
       };
     }
 
-    function convertProductListToDTO(productList) {
+    function convertProductListToV2DTO(productList) {
       if (!productList) {
         return [];
       }
 
       return productList.map(function (product) {
-        return convertProductToDTO(product);
+        return convertProductToV2DTO(product);
       });
     }
 
@@ -6661,7 +6689,7 @@ var mParticle = (function () {
         event.UserIdentities = validUserIdentities;
       };
 
-      this.convertToConsentStateDTO = function (state) {
+      this.convertToConsentStateV2DTO = function (state) {
         if (!state) {
           return null;
         }
@@ -6801,7 +6829,7 @@ var mParticle = (function () {
         return null;
       };
 
-      this.convertEventToDTO = function (event) {
+      this.convertEventToV2DTO = function (event) {
         var dto = {
           n: event.EventName,
           et: event.EventCategory,
@@ -6835,7 +6863,7 @@ var mParticle = (function () {
           }
         }
 
-        var consent = self.convertToConsentStateDTO(event.ConsentState);
+        var consent = self.convertToConsentStateV2DTO(event.ConsentState);
 
         if (consent) {
           dto.con = consent;
@@ -6860,7 +6888,7 @@ var mParticle = (function () {
 
           if (event.ShoppingCart) {
             dto.sc = {
-              pl: convertProductListToDTO(event.ShoppingCart.ProductList)
+              pl: convertProductListToV2DTO(event.ShoppingCart.ProductList)
             };
           }
 
@@ -6869,7 +6897,7 @@ var mParticle = (function () {
               an: event.ProductAction.ProductActionType,
               cs: mpInstance._Helpers.parseNumber(event.ProductAction.CheckoutStep),
               co: event.ProductAction.CheckoutOptions,
-              pl: convertProductListToDTO(event.ProductAction.ProductList),
+              pl: convertProductListToV2DTO(event.ProductAction.ProductList),
               ti: event.ProductAction.TransactionId,
               ta: event.ProductAction.Affiliation,
               tcc: event.ProductAction.CouponCode,
@@ -6893,7 +6921,7 @@ var mParticle = (function () {
             dto.pi = event.ProductImpressions.map(function (impression) {
               return {
                 pil: impression.ProductImpressionList,
-                pl: convertProductListToDTO(impression.ProductList)
+                pl: convertProductListToV2DTO(impression.ProductList)
               };
             });
           }
@@ -8241,9 +8269,11 @@ var mParticle = (function () {
       };
     }
 
+    var CCPAPurpose = 'data_sale_opt_out';
     function Consent(mpInstance) {
-      var self = this;
-      var CCPAPurpose = 'data_sale_opt_out'; // this function is called when consent is required to determine if a cookie sync should happen, or a forwarder should be initialized
+      var self = this; // this function is called when consent is required to
+      // determine if a cookie sync should happen, or a
+      // forwarder should be initialized
 
       this.isEnabledForUserConsent = function (consentRules, user) {
         if (!consentRules || !consentRules.values || !consentRules.values.length) {
@@ -8254,16 +8284,15 @@ var mParticle = (function () {
           return false;
         }
 
-        var purposeHashes = {},
-            consentState = user.getConsentState(),
-            purposeHash;
+        var purposeHashes = {};
+        var consentState = user.getConsentState();
+        var purposeHash;
 
         if (consentState) {
           // the server hashes consent purposes in the following way:
           // GDPR - '1' + purpose name
           // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
           var GDPRConsentHashPrefix = '1';
-          var CCPAPurpose = 'data_sale_opt_out';
           var CCPAHashString = '2' + CCPAPurpose;
           var gdprConsentState = consentState.getGDPRConsentState();
 
@@ -8291,6 +8320,8 @@ var mParticle = (function () {
           if (purposeHashes.hasOwnProperty(consentPurposeHash)) {
             return purposeHashes[consentPurposeHash] === hasConsented;
           }
+
+          return false;
         });
         return consentRules.includeOnMatch === isMatch;
       };
@@ -8332,6 +8363,8 @@ var mParticle = (function () {
 
       this.ConsentSerialization = {
         toMinifiedJsonObject: function toMinifiedJsonObject(state) {
+          var _a;
+
           var jsonObject = {};
 
           if (state) {
@@ -8371,8 +8404,7 @@ var mParticle = (function () {
             var ccpaConsentState = state.getCCPAConsentState();
 
             if (ccpaConsentState) {
-              jsonObject.ccpa = {};
-              jsonObject.ccpa[CCPAPurpose] = {};
+              jsonObject.ccpa = (_a = {}, _a[CCPAPurpose] = {}, _a);
 
               if (typeof ccpaConsentState.Consented === 'boolean') {
                 jsonObject.ccpa[CCPAPurpose].c = ccpaConsentState.Consented;
@@ -8419,15 +8451,18 @@ var mParticle = (function () {
 
           return state;
         }
-      };
+      }; // TODO: Refactor this method into a constructor
 
       this.createConsentState = function (consentState) {
         var gdpr = {};
         var ccpa = {};
 
         if (consentState) {
-          setGDPRConsentState(consentState.getGDPRConsentState());
-          setCCPAConsentState(consentState.getCCPAConsentState());
+          var consentStateCopy = self.createConsentState();
+          consentStateCopy.setGDPRConsentState(consentState.getGDPRConsentState());
+          consentStateCopy.setCCPAConsentState(consentState.getCCPAConsentState()); // TODO: Remove casting once `removeCCPAState` is removed;
+
+          return consentStateCopy;
         }
 
         function canonicalizeForDeduplication(purpose) {
@@ -8446,7 +8481,7 @@ var mParticle = (function () {
         /**
          * Invoke these methods on a consent state object.
          * <p>
-         * Usage: var consent = mParticle.Consent.createConsentState()
+         * Usage: const consent = mParticle.Consent.createConsentState()
          * <br>
          * consent.setGDPRCoonsentState()
          *
@@ -8470,7 +8505,7 @@ var mParticle = (function () {
             return this;
           }
 
-          if (!mpInstance._Helpers.isObject(gdprConsent)) {
+          if (!isObject(gdprConsent)) {
             mpInstance.Logger.error('Invoked with a bad or empty consent object.');
             return this;
           }
@@ -8487,12 +8522,12 @@ var mParticle = (function () {
         function setGDPRConsentState(gdprConsentState) {
           if (!gdprConsentState) {
             gdpr = {};
-          } else if (mpInstance._Helpers.isObject(gdprConsentState)) {
+          } else if (isObject(gdprConsentState)) {
             gdpr = {};
 
             for (var purpose in gdprConsentState) {
               if (gdprConsentState.hasOwnProperty(purpose)) {
-                addGDPRConsentState(purpose, gdprConsentState[purpose]);
+                this.addGDPRConsentState(purpose, gdprConsentState[purpose]);
               }
             }
           }
@@ -8526,7 +8561,7 @@ var mParticle = (function () {
 
 
         function getGDPRConsentState() {
-          return mpInstance._Helpers.extend({}, gdpr);
+          return Object.assign({}, gdpr);
         }
         /**
          * Sets a CCPA Consent state (has a single purpose of 'data_sale_opt_out')
@@ -8537,7 +8572,7 @@ var mParticle = (function () {
 
 
         function setCCPAConsentState(ccpaConsent) {
-          if (!mpInstance._Helpers.isObject(ccpaConsent)) {
+          if (!isObject(ccpaConsent)) {
             mpInstance.Logger.error('Invoked with a bad or empty CCPA consent object.');
             return this;
           }
@@ -8571,10 +8606,12 @@ var mParticle = (function () {
         function removeCCPAConsentState() {
           delete ccpa[CCPAPurpose];
           return this;
-        }
+        } // TODO: Can we remove this? It is deprecated.
+
 
         function removeCCPAState() {
-          mpInstance.Logger.warning('removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead');
+          mpInstance.Logger.warning('removeCCPAState is deprecated and will be removed in a future release; use removeCCPAConsentState instead'); // @ts-ignore
+
           return removeCCPAConsentState();
         }
 
@@ -10666,6 +10703,9 @@ var mParticle = (function () {
           // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
           _Helpers: {
             sanitizeAttributes: window.mParticle.getInstance()._Helpers.sanitizeAttributes,
+            generateHash: function generateHash() {
+              return 'mockHash';
+            },
             generateUniqueId: function generateUniqueId() {
               return 'mockId';
             },
