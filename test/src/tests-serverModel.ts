@@ -625,8 +625,8 @@ describe('ServerModel', () => {
                 'currentSessionMPIDs'
             ).to.eql(['testMPID']);
 
-            // A SessionEnd event appends sessionLength
-            expect(actualEventObject).to.have.property('sessionLength');
+            // A SessionEnd event appends SessionLength
+            expect(actualEventObject).to.have.property('SessionLength');
 
             // A SessionEnd event should ignore Event Attributes and use Session Attributes instead
             expect(actualEventObject.EventAttributes, 'EventAttributes').to.eql(
