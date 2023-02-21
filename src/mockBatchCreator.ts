@@ -5,7 +5,7 @@ import { SDKEvent, BaseEvent, MParticleWebSDK } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import * as EventsApi from '@mparticle/event-models';
 
-const mockFunction = function () {
+const mockFunction = function() {
     return null;
 };
 export default class _BatchValidator {
@@ -13,12 +13,12 @@ export default class _BatchValidator {
         return {
             // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
             _Helpers: {
-                sanitizeAttributes:
-                    window.mParticle.getInstance()._Helpers.sanitizeAttributes,
-                generateHash: function () {
+                sanitizeAttributes: window.mParticle.getInstance()._Helpers
+                    .sanitizeAttributes,
+                generateHash: function() {
                     return 'mockHash';
                 },
-                generateUniqueId: function () {
+                generateUniqueId: function() {
                     return 'mockId';
                 },
                 extend: window.mParticle.getInstance()._Helpers.extend,
@@ -39,6 +39,7 @@ export default class _BatchValidator {
             _ServerModel: null,
             _SessionManager: null,
             _Store: {
+                mpid: 'test-mpid',
                 sessionId: 'mockSessionId',
                 devToken: 'test_dev_token',
                 isFirstRun: true,

@@ -101,6 +101,8 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
 export type PixelConfiguration = Dictionary;
 export type MigrationData = Dictionary;
 export type ServerSettings = Dictionary;
+export type SessionAttributes = Dictionary;
+export type IntegrationAttributes = Dictionary<Dictionary<string>>;
 
 type WrapperSDKTypes = 'flutter' | 'none';
 interface WrapperSDKInfo {
@@ -111,8 +113,10 @@ interface WrapperSDKInfo {
 
 // Temporary Interface until Store can be refactored as a class
 export interface IStore {
+    mpid?: MPID;
     isEnabled: boolean;
     sessionAttributes: Dictionary;
+    // sessionAttributes: SessionAttributes;
     currentSessionMPIDs: MPID[];
     consentState: SDKConsentState | null;
     sessionId: string | null;
@@ -141,6 +145,7 @@ export interface IStore {
     isLoggedIn: boolean;
     cookieSyncDates: Dictionary<number>;
     integrationAttributes: Dictionary<Dictionary<string>>;
+    // integrationAttributes: IntegrationAttributes;
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
@@ -219,10 +224,9 @@ export default function Store(
             this.deviceId = config.deviceId;
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode =
-                mpInstance._Helpers.returnConvertedBoolean(
-                    config.isDevelopmentMode
-                );
+            this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
+                config.isDevelopmentMode
+            );
         } else {
             this.SDKConfig.isDevelopmentMode = false;
         }

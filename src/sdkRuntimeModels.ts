@@ -126,6 +126,12 @@ export interface SDKProduct {
 }
 
 export interface MParticleWebSDK {
+    _forceNoLocalStorage?: boolean;
+
+    // TODO: Why are tehse both in the Store SDK Config and in the MP SDK object?
+    maxCookieSize?: number;
+    useCookieStorage?: boolean;
+
     addForwarder(mockForwarder: MPForwarder): void;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
@@ -141,7 +147,7 @@ export interface MParticleWebSDK {
     _NativeSdkHelpers: any; // TODO: Set up API
     _Persistence: any; // TODO: Set up Persistence API
     _preInit: any; // TODO: Set up API
-    _resetForTests(MPConfig?: SDKInitConfig): void;
+    _resetForTests(MPConfig?: SDKInitConfig, keepPersistence?: boolean): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
     getAppName(): string;
     getAppVersion(): string;
