@@ -602,8 +602,8 @@ describe('ServerModel', () => {
             const mPStore = mParticle.getInstance()._Store;
 
             mPStore.sessionAttributes = {
-                foo: 'session-foo',
-                bar: 'session-bar',
+                fooSessionAttr: 'session-foo',
+                barSessionAttr: 'session-bar',
             };
 
             const event: BaseEvent = {
@@ -611,8 +611,8 @@ describe('ServerModel', () => {
                 messageType: Types.MessageType.SessionEnd,
                 eventType: Types.EventType.Other,
                 data: {
-                    foo: 'bar',
-                    bizz: 'bazz',
+                    fooEventAttr: 'bar',
+                    barEventAttr: 'bazz',
                 },
             };
 
@@ -625,22 +625,19 @@ describe('ServerModel', () => {
                 'currentSessionMPIDs'
             ).to.eql(['testMPID']);
 
-            // CreateEventObject nullifies the store's sessionStartDate, so to verify we have a
-            // valid session length, we can check to make sure that the length is shorter than the last
-            // time seen but not zero
-            expect(
-                actualEventObject.SessionStartDate,
-                'sessionStartDate'
-            ).to.be.lessThan(mPStore.dateLastEventSent.getTime());
-            expect(
-                actualEventObject.SessionStartDate,
-                'sessionStartDate'
-            ).to.be.greaterThan(0);
+            // A SessionEnd event appends SessionLength
+            expect(actualEventObject).to.have.property('SessionLength');
 
-            // Session Events should ignore data/Event Attributes and use Session Attributes instead
+            // A SessionEnd event should ignore Event Attributes and use Session Attributes instead
             expect(actualEventObject.EventAttributes, 'EventAttributes').to.eql(
-                { foo: 'session-foo', bar: 'session-bar' }
+                { fooSessionAttr: 'session-foo', barSessionAttr: 'session-bar' }
             );
+            expect(actualEventObject.EventAttributes, 'EventAttributes').to.not.have.property('fooEventAttr');
+            expect(actualEventObject.EventAttributes, 'EventAttributes').to.not.have.property('barEventAttr');
+
+            // A SessionEnd event resets currentSessionMPIDs and sessionStartDate.  When a new session starts, these are filled again
+            expect(mPStore.currentSessionMPIDs).to.eql([]);
+            expect(mPStore.sessionStartDate).to.eql(null);
         });
 
         it('should set necessary attributes if MessageType is AppStateTransition', () => {
