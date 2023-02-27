@@ -388,7 +388,7 @@ export default function Helpers(mpInstance) {
     };
 
     this.isFilteredUserAttribute = function(userAttributeKey, filterList) {
-        var hashedUserAttribute = self.generateHash(userAttributeKey);
+        const hashedUserAttribute = self.generateHash(userAttributeKey);
         if (filterList && !self.inArray(filterList, hashedUserAttribute)) {
             return true;
         }
