@@ -2,12 +2,15 @@ import Utils from './utils';
 import sinon from 'sinon';
 import { urls } from './config';
 import { apiKey, MPConfig, testMPID, MessageType } from './config';
+import { expect } from 'chai';
+
 
 var getEvent = Utils.getEvent,
     getForwarderEvent = Utils.getForwarderEvent,
     setLocalStorage = Utils.setLocalStorage,
     forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder,
+    SideloadedKit = Utils.sideloadedKit,
     mockServer;
 
 describe('forwarders', function() {
@@ -24,6 +27,24 @@ describe('forwarders', function() {
         ]);
 
         mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
+        mockServer.respondWith(urls.logout, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
+        mockServer.respondWith(urls.modify, [
             200,
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
@@ -1122,12 +1143,6 @@ describe('forwarders', function() {
         config1.userIdentityFilters = [mParticle.IdentityType.Google];
         window.mParticle.config.kitConfigs.push(config1);
 
-        mockServer.respondWith(urls.modify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
-
         mParticle.Identity.modify({
             userIdentities: {
                 google: 'test@google.com',
@@ -1162,12 +1177,6 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
-
-        mockServer.respondWith(urls.modify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
 
         mParticle.Identity.modify({
             userIdentities: {
@@ -1355,6 +1364,11 @@ describe('forwarders', function() {
 
         window.MockForwarder1.instance.should.have.property(
             'logOutCalled',
+            true
+        );
+
+        window.MockForwarder1.instance.should.have.property(
+            'onLogoutCompleteCalled',
             true
         );
 
@@ -2512,5 +2526,179 @@ describe('forwarders', function() {
         infoMessage.should.equal('Test Event sent');
 
         done();
+    });
+
+    describe('side loaded kits', function() {
+        describe('initialization', function() {
+            beforeEach(function() {
+                mParticle._resetForTests(MPConfig);
+                delete mParticle._instances['default_instance'];
+            });
+
+            afterEach(function() {
+                delete window.MockForwarder1;
+                mockServer.restore();
+            });
+
+            it('should add sideloaded kits to the active forwarders', function() {
+                var sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
+                var sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+                
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                mParticle.init(apiKey, window.mParticle.config);
+                const activeForwarders = mParticle.getInstance()._getActiveForwarders();
+                expect(activeForwarders.length, 'active forwarders length').to.equal(sideloadedKits.length);
+                expect(activeForwarders[0].name, '1st active forwarder ').to.deep.equal(sideloadedKit1.name);
+                expect(activeForwarders[1].name, '2nd active forwarder').to.deep.equal(sideloadedKit2.name);
+            });
+
+            it('should add sideloaded kits along with configured forwarders from server to the active forwarders', function() {
+                var sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
+                var sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                var mockForwarder = new MockForwarder('fooForwarder', 1);
+                mParticle.addForwarder(mockForwarder);
+
+                window.mParticle.config.kitConfigs.push(
+                    forwarderDefaultConfiguration('fooForwarder', 1)
+                );
+                
+                mParticle.init(apiKey, window.mParticle.config);
+                const activeForwarders = mParticle.getInstance()._getActiveForwarders();
+
+                expect(activeForwarders.length, 'active forwarders length').to.equal(sideloadedKits.length +1);
+                expect(activeForwarders[0].name, '1st active forwarder name').to.equal('fooForwarder');
+                expect(activeForwarders[1].name, '2nd active forwarder ').to.deep.equal(sideloadedKit1.name);
+                expect(activeForwarders[2].name, '3rd active forwarder').to.deep.equal(sideloadedKit2.name);
+            });
+        });
+
+        describe('forwarding', function() {
+            beforeEach(function() {
+                mParticle._resetForTests(MPConfig);
+                delete mParticle._instances['default_instance'];
+            });
+
+            afterEach(function() {
+                delete window.MockForwarder1;
+                mockServer.restore();
+            });
+
+            it('should send event to sideloaded kits', function() {
+                var sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
+                var sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+                
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+                mParticle.init(apiKey, window.mParticle.config);
+
+                mParticle.logEvent('foo', mParticle.EventType.Navigation);
+                var sideloadedKit1Event = window.SideloadedKit11.instance.receivedEvent;
+                var sideloadedKit2Event = window.SideloadedKit22.instance.receivedEvent;
+
+                sideloadedKit1Event.should.have.property('EventName', 'foo');
+                sideloadedKit2Event.should.have.property('EventName', 'foo');
+            });
+
+            it('should invoke side loaded identify call', function() {
+                var sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
+                var sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+                
+                window.mParticle.config.identifyRequest = {
+                    userIdentities: {
+                        google: 'google123',
+                    },
+                };
+
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                mParticle.init(apiKey, window.mParticle.config);
+                window.SideloadedKit11.instance.should.have.property('setUserIdentityCalled', true);
+                window.SideloadedKit22.instance.should.have.property('setUserIdentityCalled', true);
+
+                window.SideloadedKit11.instance.should.have.property('onUserIdentifiedCalled', true);
+                window.SideloadedKit22.instance.should.have.property('onUserIdentifiedCalled', true);
+            });
+
+            it('should invoke side loaded set/removeUserAttribute call', function() {
+                var sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
+                var sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
+                mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
+
+                window.SideloadedKit11.instance.should.have.property('setUserAttributeCalled', true);
+                window.SideloadedKit22.instance.should.have.property('setUserAttributeCalled', true);
+
+                window.SideloadedKit11.instance.should.have.property('removeUserAttributeCalled', true);
+                window.SideloadedKit22.instance.should.have.property('removeUserAttributeCalled', true);
+            });
+
+            it('should invoke side loaded logout call', function() {
+                var sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
+                var sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.Identity.logout();
+
+                window.SideloadedKit11.instance.should.have.property('onLogoutCompleteCalled', true);
+                window.SideloadedKit22.instance.should.have.property('onLogoutCompleteCalled', true);
+            });
+
+            it('should invoke side loaded login call', function() {
+                var sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
+                var sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.Identity.login({userIdentities: {customerid: 'abc'}});
+
+                window.SideloadedKit11.instance.should.have.property('onLoginCompleteCalled', true);
+                window.SideloadedKit22.instance.should.have.property('onLoginCompleteCalled', true);
+            });
+
+            it('should invoke side loaded modify call', function() {
+                var sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
+                var sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.Identity.modify({userIdentities: {customerid: 'abc'}});
+
+                window.SideloadedKit11.instance.should.have.property('onModifyCompleteCalled', true);
+                window.SideloadedKit22.instance.should.have.property('onModifyCompleteCalled', true);
+            });
+
+            it('should invoke side loaded modify call', function() {
+                var sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
+                var sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                mParticle.init(apiKey, window.mParticle.config);
+                        mParticle.setOptOut(true);
+
+
+                window.SideloadedKit11.instance.should.have.property('setOptOutCalled', true);
+                window.SideloadedKit22.instance.should.have.property('setOptOutCalled', true);
+            });
+        });
     });
 });

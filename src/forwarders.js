@@ -53,7 +53,6 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         user ? user.getAllUserAttributes() : {},
                         forwarder.userAttributeFilters
                     );
-
                     if (!forwarder.initialized) {
                         forwarder.logger = mpInstance.Logger;
                         forwarder.init(
@@ -532,44 +531,60 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     config.isSandbox ===
                         mpInstance._Store.SDKConfig.isDevelopmentMode
                 ) {
-                    newForwarder = new forwarders[name].constructor();
-
-                    newForwarder.id = config.moduleId;
-                    newForwarder.isSandbox = config.isDebug || config.isSandbox;
-                    newForwarder.hasSandbox = config.hasDebugString === 'true';
-                    newForwarder.isVisible = config.isVisible;
-                    newForwarder.settings = config.settings;
-
-                    newForwarder.eventNameFilters = config.eventNameFilters;
-                    newForwarder.eventTypeFilters = config.eventTypeFilters;
-                    newForwarder.attributeFilters = config.attributeFilters;
-
-                    newForwarder.screenNameFilters = config.screenNameFilters;
-                    newForwarder.screenNameFilters = config.screenNameFilters;
-                    newForwarder.screenAttributeFilters =
-                        config.screenAttributeFilters;
-
-                    newForwarder.userIdentityFilters =
-                        config.userIdentityFilters;
-                    newForwarder.userAttributeFilters =
-                        config.userAttributeFilters;
-
-                    newForwarder.filteringEventAttributeValue =
-                        config.filteringEventAttributeValue;
-                    newForwarder.filteringUserAttributeValue =
-                        config.filteringUserAttributeValue;
-                    newForwarder.eventSubscriptionId =
-                        config.eventSubscriptionId;
-                    newForwarder.filteringConsentRuleValues =
-                        config.filteringConsentRuleValues;
-                    newForwarder.excludeAnonymousUser =
-                        config.excludeAnonymousUser;
+                    newForwarder = this.returnConfiguredKit(
+                        forwarders[name],
+                        config
+                    );
 
                     mpInstance._Store.configuredForwarders.push(newForwarder);
                     break;
                 }
             }
         }
+    };
+
+    // kits can be included via mParticle UI, or vi
+    this.configureSideloadedKit = function(sideloadedKit) {
+        mpInstance._Store.configuredForwarders.push(
+            this.returnConfiguredKit(sideloadedKit)
+        );
+    };
+
+    this.returnConfiguredKit = function(forwarder, config = {}) {
+        const newForwarder = new forwarder.constructor();
+        newForwarder.id = config.moduleId;
+
+        // TODO: isSandbox, hasSandbox is never used in any kit or in core SDK.
+        // isVisibleInvestigate is only used in 1 place. It is always true if
+        // it is sent to JS. Investigate further to determine if these can be removed.
+        // https://go.mparticle.com/work/SQDSDKS-5156
+        newForwarder.isSandbox = config.isDebug || config.isSandbox;
+        newForwarder.hasSandbox = config.hasDebugString === 'true';
+        newForwarder.isVisible = config.isVisible || true;
+        newForwarder.settings = config.settings || {};
+
+        newForwarder.eventNameFilters = config.eventNameFilters || [];
+        newForwarder.eventTypeFilters = config.eventTypeFilters || [];
+        newForwarder.attributeFilters = config.attributeFilters || [];
+
+        newForwarder.screenNameFilters = config.screenNameFilters || [];
+        newForwarder.screenAttributeFilters =
+            config.screenAttributeFilters || [];
+
+        newForwarder.userIdentityFilters = config.userIdentityFilters || [];
+        newForwarder.userAttributeFilters = config.userAttributeFilters || [];
+
+        newForwarder.filteringEventAttributeValue =
+            config.filteringEventAttributeValue || {};
+        newForwarder.filteringUserAttributeValue =
+            config.filteringUserAttributeValue || {};
+        newForwarder.eventSubscriptionId = config.eventSubscriptionId || null;
+        newForwarder.filteringConsentRuleValues =
+            config.filteringConsentRuleValues || {};
+        newForwarder.excludeAnonymousUser =
+            config.excludeAnonymousUser || false;
+
+        return newForwarder;
     };
 
     this.configurePixel = function(settings) {
@@ -590,6 +605,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
             );
         } else {
             try {
+                // Process MP configured Kits
                 if (
                     Array.isArray(config.kitConfigs) &&
                     config.kitConfigs.length
@@ -597,6 +613,30 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     config.kitConfigs.forEach(function(kitConfig) {
                         self.configureForwarder(kitConfig);
                     });
+                }
+
+                // Process sideloaded kits
+                // TODO: Sideloading kits currently requires the use of a register method
+                // which requires an object on which to be registered.
+                // In the future, when all kits are moved to the config rather than
+                // there being a separate process for MP configured kits and
+                // sideloaded kits, this will need to be refactored.
+                if (Array.isArray(config.sideloadedKits)) {
+                    var registeredSideloadedKits = { kits: {} };
+
+                    // First register each kit's constructor onto registeredSideloadedKits,
+                    // which is typed { kits: Dictionary<constructor> }.
+                    // The constructors are keyed by the name of the kit.
+                    config.sideloadedKits.forEach(function(sideloadedKit) {
+                        sideloadedKit.register(registeredSideloadedKits);
+                    });
+
+                    // Then configure each kit
+                    for (var registeredKit in registeredSideloadedKits.kits) {
+                        var kitConstructor =
+                            registeredSideloadedKits.kits[registeredKit];
+                        self.configureSideloadedKit(kitConstructor);
+                    }
                 }
 
                 if (

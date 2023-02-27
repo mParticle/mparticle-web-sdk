@@ -3,6 +3,8 @@ import sinon from 'sinon';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 import Store, { IStore } from '../../src/store';
 import { MPConfig, apiKey } from './config';
+import Utils from './utils';
+const SideloadedKit = Utils.sideloadedKit;
 
 describe('Store', () => {
     const now = new Date();
@@ -73,6 +75,7 @@ describe('Store', () => {
         expect(store.prodStorageName, 'prodStorageName').to.eq(null);
         expect(store.activeForwarders.length, 'activeForwarders').to.eq(0);
         expect(store.kits, 'kits').to.be.ok;
+        expect(store.sideloadedKits, 'sideloaded kits').to.be.ok;
         expect(store.configuredForwarders, 'configuredForwarders').to.be.ok;
         expect(store.pixelConfigurations.length, 'pixelConfigurations').to.eq(
             0
@@ -133,6 +136,7 @@ describe('Store', () => {
         expect(store.SDKConfig.isIOS, 'isIOS').to.eq(false);
 
         expect(store.SDKConfig.kits, 'kits').to.deep.equal({});
+        expect(store.SDKConfig.sideloadedKits, 'kits').to.deep.equal([]);
         expect(store.SDKConfig.logLevel, 'logLevel').to.eq(null);
 
         expect(store.SDKConfig.maxCookieSize, 'maxCookieSize').to.eq(3000);
@@ -176,5 +180,21 @@ describe('Store', () => {
             PlanId: 'test-data-plan',
             PlanVersion: 3,
         });
+    });
+
+    it('should assign expected values to side loaded kits', () => {
+        var sideloadedKit1 = new SideloadedKit();
+        var sideloadedKit2 = new SideloadedKit();
+        var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+
+        const config = {
+            ...sampleConfig,
+            sideloadedKits,
+        };
+        const store: IStore = new Store(config, window.mParticle);
+
+        expect(store.SDKConfig.sideloadedKits.length, 'side loaded kits').to.equal(sideloadedKits.length);
+        expect(store.SDKConfig.sideloadedKits[0], 'side loaded kits').to.deep.equal(sideloadedKit1);
+        expect(store.SDKConfig.sideloadedKits[1], 'side loaded kits').to.deep.equal(sideloadedKit2);
     });
 });
