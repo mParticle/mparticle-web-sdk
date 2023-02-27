@@ -393,50 +393,46 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.onHandleForwarderUserAttributes = function(
-        key,
-        value,
-        functionNameKey
-    ) {
-        if (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) {
+    this.handleForwarderUserAttributes = function(key, value, functionNameKey) {
+        if (
+            (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) ||
+            !mpInstance._Store.activeForwarders.length
+        ) {
             return;
         }
 
-        if (mpInstance._Store.activeForwarders.length) {
-            mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-                const forwarderFunction = forwarder[functionNameKey];
-                if (
-                    forwarderFunction &&
-                    forwarder.userAttributeFilters &&
-                    !mpInstance._Helpers.inArray(
-                        forwarder.userAttributeFilters,
-                        mpInstance._Helpers.generateHash(key)
-                    )
-                ) {
-                    try {
-                        var result;
+        mpInstance._Store.activeForwarders.forEach(function(forwarder) {
+            const forwarderFunction = forwarder[functionNameKey];
+            if (
+                forwarderFunction &&
+                mpInstance._Helpers.isFilteredUserAttribute(
+                    key,
+                    forwarder.userAttributeFilters
+                )
+            ) {
+                try {
+                    var result;
 
-                        if (
-                            functionNameKey ===
-                            UserAttributeActionTypes.setUserAttribute
-                        ) {
-                            result = forwarder.setUserAttribute(key, value);
-                        } else if (
-                            functionNameKey ===
-                            UserAttributeActionTypes.removeUserAttribute
-                        ) {
-                            result = forwarder.removeUserAttribute(key);
-                        }
-
-                        if (result) {
-                            mpInstance.Logger.verbose(result);
-                        }
-                    } catch (e) {
-                        mpInstance.Logger.error(e);
+                    if (
+                        functionNameKey ===
+                        UserAttributeActionTypes.setUserAttribute
+                    ) {
+                        result = forwarder.setUserAttribute(key, value);
+                    } else if (
+                        functionNameKey ===
+                        UserAttributeActionTypes.removeUserAttribute
+                    ) {
+                        result = forwarder.removeUserAttribute(key);
                     }
+
+                    if (result) {
+                        mpInstance.Logger.verbose(result);
+                    }
+                } catch (e) {
+                    mpInstance.Logger.error(e);
                 }
-            });
-        }
+            }
+        });
     };
 
     this.setForwarderUserIdentities = function(userIdentities) {

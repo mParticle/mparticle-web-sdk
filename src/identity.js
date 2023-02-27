@@ -904,7 +904,7 @@ export default function Identity(mpInstance) {
                             self.IdentityAPI.getCurrentUser().getUserIdentities(),
                             mpInstance._APIClient.prepareForwardingStats
                         );
-                        mpInstance._Forwarders.onHandleForwarderUserAttributes(
+                        mpInstance._Forwarders.handleForwarderUserAttributes(
                             key,
                             newValue,
                             'setUserAttribute'
@@ -991,7 +991,7 @@ export default function Identity(mpInstance) {
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
                         mpInstance._APIClient.prepareForwardingStats
                     );
-                    mpInstance._Forwarders.onHandleForwarderUserAttributes(
+                    mpInstance._Forwarders.handleForwarderUserAttributes(
                         key,
                         null,
                         'removeUserAttribute'
@@ -1100,7 +1100,7 @@ export default function Identity(mpInstance) {
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
                         mpInstance._APIClient.prepareForwardingStats
                     );
-                    mpInstance._Forwarders.onHandleForwarderUserAttributes(
+                    mpInstance._Forwarders.handleForwarderUserAttributes(
                         key,
                         arrayCopy,
                         'setUserAttribute'
@@ -1130,7 +1130,7 @@ export default function Identity(mpInstance) {
                     if (userAttributes) {
                         for (var prop in userAttributes) {
                             if (userAttributes.hasOwnProperty(prop)) {
-                                mpInstance._Forwarders.onHandleForwarderUserAttributes(
+                                mpInstance._Forwarders.handleForwarderUserAttributes(
                                     prop,
                                     null,
                                     'removeUserAttribute'
