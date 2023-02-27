@@ -186,6 +186,7 @@ export interface SDKInitConfig
 
     kitConfigs?: IKitConfigs[];
     kits?: Dictionary<Kit>;
+    sideloadedKits?: MPForwarder[];
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
 

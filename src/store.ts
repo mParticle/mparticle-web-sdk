@@ -54,7 +54,7 @@ export interface SDKConfig {
     identifyRequest: IdentifyRequest;
     identityCallback: IdentityCallback;
     integrationDelayTimeout: number;
-
+    sideloadedKits: MPForwarder[];
     aliasMaxWindow: number;
     deviceId?: string;
     forceHttps?: boolean;
@@ -147,6 +147,7 @@ export interface IStore {
     prodStorageName: string | null;
     activeForwarders: MPForwarder[];
     kits: Dictionary<MPForwarder>;
+    sideloadedKits: MPForwarder[];
     configuredForwarders: MPForwarder[];
     pixelConfigurations: PixelConfiguration[];
     integrationDelayTimeoutStart: number; // UNIX Timestamp
@@ -197,6 +198,7 @@ export default function Store(
         prodStorageName: null,
         activeForwarders: [],
         kits: {},
+        sideloadedKits: [],
         configuredForwarders: [],
         pixelConfigurations: [],
         wrapperSDKInfo: {
@@ -258,6 +260,8 @@ export default function Store(
         this.SDKConfig.useNativeSdk = !!config.useNativeSdk;
 
         this.SDKConfig.kits = config.kits || {};
+
+        this.SDKConfig.sideloadedKits = config.sideloadedKits || [];
 
         if (config.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = config.isIOS;

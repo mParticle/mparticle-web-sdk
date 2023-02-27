@@ -1421,6 +1421,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._APIClient.prepareForwardingStats
         );
 
+        mpInstance._Forwarders.processPixelConfigs(config);
+
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
