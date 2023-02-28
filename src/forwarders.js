@@ -410,27 +410,28 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     forwarder.userAttributeFilters
                 )
             ) {
-                try {
-                    var result;
+                return;
+            }
+            try {
+                let result;
 
-                    if (
-                        functionNameKey ===
-                        UserAttributeActionTypes.setUserAttribute
-                    ) {
-                        result = forwarder.setUserAttribute(key, value);
-                    } else if (
-                        functionNameKey ===
-                        UserAttributeActionTypes.removeUserAttribute
-                    ) {
-                        result = forwarder.removeUserAttribute(key);
-                    }
-
-                    if (result) {
-                        mpInstance.Logger.verbose(result);
-                    }
-                } catch (e) {
-                    mpInstance.Logger.error(e);
+                if (
+                    functionNameKey ===
+                    UserAttributeActionTypes.setUserAttribute
+                ) {
+                    result = forwarder.setUserAttribute(key, value);
+                } else if (
+                    functionNameKey ===
+                    UserAttributeActionTypes.removeUserAttribute
+                ) {
+                    result = forwarder.removeUserAttribute(key);
                 }
+
+                if (result) {
+                    mpInstance.Logger.verbose(result);
+                }
+            } catch (e) {
+                mpInstance.Logger.error(e);
             }
         });
     };
