@@ -1,5 +1,6 @@
 import { Batch } from '@mparticle/event-models';
 import { expect } from 'chai';
+import { Dictionary } from '../../src/utils';
 import Vault from '../../src/vault';
 
 describe('Vault', () => {
@@ -7,8 +8,46 @@ describe('Vault', () => {
         window.localStorage.clear();
     });
 
-    describe('#storeItems', () => {
-        it('should store an individual item as a hashmap', () => {
+    describe('#store', () => {
+        it('should store an object', () => {
+            const storageKey = 'test-key-store-object';
+
+            const dict: Dictionary<Dictionary<string>> = {
+                foo: { foo: 'bar', buzz: 'bazz' },
+                pinky: { narf: 'poit' },
+            };
+
+            const vault = new Vault<Dictionary<Dictionary<string>>>(storageKey);
+
+            vault.store(dict);
+
+            expect(vault.contents).to.equal(dict);
+            expect(window.localStorage.getItem(storageKey)).to.equal(
+                JSON.stringify(dict)
+            );
+        });
+
+        it('should store an array', () => {
+            const storageKey = 'test-key-store-array';
+
+            const array: Dictionary<string>[] = [
+                { foo: 'bar', buzz: 'bazz' },
+                { narf: 'poit' },
+            ];
+
+            const vault = new Vault<Dictionary<string>[]>(storageKey);
+
+            vault.store(array);
+
+            expect(vault.contents).to.equal(array);
+            expect(window.localStorage.getItem(storageKey)).to.equal(
+                JSON.stringify(array)
+            );
+        });
+
+        it('should store batches in the order they were added', () => {
+            const storageKey = 'test-batch-save-order';
+
             const batch1: Partial<Batch> = {
                 mpid: 'bar',
                 source_request_id: 'item-123',
@@ -16,314 +55,114 @@ describe('Vault', () => {
 
             const batch2: Partial<Batch> = {
                 mpid: 'baz',
-                source_request_id: 'item-456',
+                source_request_id: 'item-ABC',
             };
 
-            const vault = new Vault<Partial<Batch>>(
-                'test-key-store-batches',
-                'source_request_id',
-                { offlineStorageEnabled: true }
-            );
-
-            vault.storeItem(batch1);
-
-            expect(vault.contents).to.eql({ 'item-123': batch1 });
-
-            vault.storeItem(batch2);
-
-            expect(vault.contents).to.eql({
-                'item-123': batch1,
-                'item-456': batch2,
-            });
-        });
-    });
-
-    describe('#storeItems', () => {
-        it('should store an array of batches as a hashmap', () => {
-            const batch1 = {
-                foo: 'bar',
-                source_request_id: 'item-123',
+            const batch3: Partial<Batch> = {
+                mpid: 'boo',
+                source_request_id: '12345',
             };
 
-            const batch2 = {
-                foo: 'bar',
-                source_request_id: 'item-456',
+            const batch4: Partial<Batch> = {
+                mpid: 'zoo',
+                source_request_id: 'ZYXWV',
             };
 
-            const batches = [batch1, batch2] as unknown as Batch[];
-
-            const vault = new Vault<Batch>(
-                'test-key-store-batches',
-                'source_request_id',
-                { offlineStorageEnabled: true }
-            );
-            vault.storeItems(batches);
-
-            const expectedContents = { 'item-123': batch1, 'item-456': batch2 };
-            expect(vault.contents).to.eql(expectedContents);
-        });
-
-        it('should update an existing batches with new events', () => {
-            const batch1 = {
-                foo: 'bar',
-                source_request_id: 'item-123',
-                events: [
-                    { eventName: 'test-event-1' },
-                    { eventName: 'test-event-2' },
-                ],
+            const batch5: Partial<Batch> = {
+                mpid: 'piza',
+                source_request_id: 'ABCDEFG',
             };
 
-            const batch2 = {
-                foo: 'bar',
-                source_request_id: 'item-456',
-                events: [{ eventName: 'test-event-3' }],
-            };
+            const vault = new Vault<Partial<Batch>[]>(storageKey);
 
-            const batches = [batch1, batch2] as unknown as Batch[];
+            vault.store([batch1, batch2, batch3, batch4, batch5]);
 
-            const vault = new Vault<Batch>(
-                'test-key-store-batches',
-                'source_request_id',
-                { offlineStorageEnabled: true }
-            );
-            vault.storeItems(batches);
+            expect(vault.contents[0]).to.eql(batch1);
+            expect(vault.contents[1]).to.eql(batch2);
+            expect(vault.contents[2]).to.eql(batch3);
+            expect(vault.contents[3]).to.eql(batch4);
+            expect(vault.contents[4]).to.eql(batch5);
 
-            batch1.events.push({ eventName: 'test-event-4' });
-            batch2.events.push({ eventName: 'test-event-5' });
-
-            vault.storeItems(batches);
-
-            const expectedContents = {
-                'item-123': {
-                    foo: 'bar',
-                    source_request_id: 'item-123',
-                    events: [
-                        { eventName: 'test-event-1' },
-                        { eventName: 'test-event-2' },
-                        { eventName: 'test-event-4' },
-                    ],
-                },
-                'item-456': {
-                    foo: 'bar',
-                    source_request_id: 'item-456',
-                    events: [
-                        { eventName: 'test-event-3' },
-                        { eventName: 'test-event-5' },
-                    ],
-                },
-            };
-
-            expect(vault.contents['item-123']).to.eql(
-                expectedContents['item-123']
-            );
-
-            expect(vault.contents['item-456']).to.eql(
-                expectedContents['item-456']
+            expect(window.localStorage.getItem(storageKey)).to.equal(
+                JSON.stringify([batch1, batch2, batch3, batch4, batch5])
             );
         });
     });
 
-    describe('#retrieveItems', () => {
-        it('returns all batches from local storage', () => {
-            const batches = {
-                'item-123': {
-                    foo: 'bar',
-                    source_request_id: 'item-123',
-                    events: [
-                        { eventName: 'test-event-1' },
-                        { eventName: 'test-event-2' },
-                        { eventName: 'test-event-4' },
-                    ],
-                },
-                'item-456': {
-                    foo: 'bar',
-                    source_request_id: 'item-456',
-                    events: [
-                        { eventName: 'test-event-3' },
-                        { eventName: 'test-event-5' },
-                    ],
-                },
+    describe('#retrieve', () => {
+        it('should retrieve an object', () => {
+            const storageKey = 'test-key-retrieve-object';
+
+            const dict: Dictionary<Dictionary<string>> = {
+                foo: { foo: 'bar', buzz: 'bazz' },
+                pinky: { narf: 'poit' },
             };
 
-            window.localStorage.setItem(
-                'test-key-retrieve-batches',
-                JSON.stringify(batches)
-            );
+            window.localStorage.setItem(storageKey, JSON.stringify(dict));
 
-            const vault = new Vault<Batch>(
-                'test-key-retrieve-batches',
-                'source_request_id',
-                { offlineStorageEnabled: true }
-            );
+            const vault = new Vault<Dictionary<Dictionary<string>>>(storageKey);
 
-            const actualBatches = vault.retrieveItems();
+            const retrievedItem = vault.retrieve();
 
-            const expectedBatches = [
-                {
-                    foo: 'bar',
-                    source_request_id: 'item-123',
-                    events: [
-                        { eventName: 'test-event-1' },
-                        { eventName: 'test-event-2' },
-                        { eventName: 'test-event-4' },
-                    ],
-                },
-                {
-                    foo: 'bar',
-                    source_request_id: 'item-456',
-                    events: [
-                        { eventName: 'test-event-3' },
-                        { eventName: 'test-event-5' },
-                    ],
-                },
+            // We are storing a simple object, so we are not doing a
+            // deep equals, merely making sure the two objects
+            // match
+            expect(retrievedItem).to.eql(dict);
+        });
+
+        it('should retrieve an array', () => {
+            const storageKey = 'test-key-retrieve-array';
+
+            const array: Dictionary<string>[] = [
+                { foo: 'bar', buzz: 'bazz' },
+                { narf: 'poit' },
             ];
 
-            expect(actualBatches).to.eql(expectedBatches);
-        });
+            window.localStorage.setItem(storageKey, JSON.stringify(array));
 
-        it('returns an empty array if no batches exist in local storage', () => {
-            const vault = new Vault<Batch>(
-                'test-key-retrieve-batches',
-                'source_request_id',
-                { offlineStorageEnabled: true }
-            );
+            const vault = new Vault<Dictionary<string>[]>(storageKey);
 
-            expect(vault.retrieveItems()).to.eql([]);
-        });
-    });
+            const retrievedItem = vault.retrieve();
 
-    describe('#removeItem', () => {
-        it('should remove a batch using source_request_id', () => {
-            const batches = {
-                'item-123': {
-                    foo: 'bar',
-                    source_request_id: 'item-123',
-                    events: [
-                        { eventName: 'test-event-1' },
-                        { eventName: 'test-event-2' },
-                        { eventName: 'test-event-4' },
-                    ],
-                },
-                'item-456': {
-                    foo: 'bar',
-                    source_request_id: 'item-456',
-                    events: [
-                        { eventName: 'test-event-3' },
-                        { eventName: 'test-event-5' },
-                    ],
-                },
-            };
-
-            window.localStorage.setItem(
-                'test-key-remove-batches',
-                JSON.stringify(batches)
-            );
-
-            const vault = new Vault<Batch>(
-                'test-key-remove-batches',
-                'source_request_id',
-                { offlineStorageEnabled: true }
-            );
-
-            vault.removeItem('item-123');
-
-            expect(vault.contents).to.eql({
-                'item-456': {
-                    foo: 'bar',
-                    source_request_id: 'item-456',
-                    events: [
-                        { eventName: 'test-event-3' },
-                        { eventName: 'test-event-5' },
-                    ],
-                },
-            });
+            expect(retrievedItem).to.eql(array);
         });
     });
 
     describe('#purge', () => {
-        it('should remove all items from local storage', () => {
-            const batches = {
-                'item-123': {
-                    foo: 'bar',
-                    source_request_id: 'item-123',
-                    events: [
-                        { eventName: 'test-event-1' },
-                        { eventName: 'test-event-2' },
-                        { eventName: 'test-event-4' },
-                    ],
-                },
-                'item-456': {
-                    foo: 'bar',
-                    source_request_id: 'item-456',
-                    events: [
-                        { eventName: 'test-event-3' },
-                        { eventName: 'test-event-5' },
-                    ],
-                },
+        it('should purge an object', () => {
+            const storageKey = 'test-key-purge-object';
+
+            const dict: Dictionary<Dictionary<string>> = {
+                foo: { foo: 'bar', buzz: 'bazz' },
+                pinky: { narf: 'poit' },
             };
 
-            window.localStorage.setItem(
-                'test-key-purge',
-                JSON.stringify(batches)
-            );
+            window.localStorage.setItem(storageKey, JSON.stringify(dict));
 
-            const vault = new Vault<Batch>(
-                'test-key-purge',
-                'source_request_id',
-                { offlineStorageEnabled: true }
-            );
+            const vault = new Vault<Dictionary<Dictionary<string>>>(storageKey);
+
             vault.purge();
 
-            expect(vault.contents).to.eql({});
-            expect(window.localStorage.getItem('test-key-purge')).to.equal(
-                null
-            );
+            expect(vault.contents).to.equal(null);
+            expect(window.localStorage.getItem(storageKey)).to.equal(null);
         });
 
-        it('should not affect other items in local storage', () => {
-            const batches = {
-                'item-123': {
-                    foo: 'bar',
-                    source_request_id: 'item-123',
-                    events: [
-                        { eventName: 'test-event-1' },
-                        { eventName: 'test-event-2' },
-                        { eventName: 'test-event-4' },
-                    ],
-                },
-                'item-456': {
-                    foo: 'bar',
-                    source_request_id: 'item-456',
-                    events: [
-                        { eventName: 'test-event-3' },
-                        { eventName: 'test-event-5' },
-                    ],
-                },
-            };
+        it('should purge an array', () => {
+            const storageKey = 'test-key-retrieve-array';
 
-            window.localStorage.setItem(
-                'test-key-purge',
-                JSON.stringify(batches)
-            );
+            const array: Dictionary<string>[] = [
+                { foo: 'bar', buzz: 'bazz' },
+                { narf: 'poit' },
+            ];
 
-            window.localStorage.setItem(
-                'test-key-other-items',
-                'this data should not be purged'
-            );
+            window.localStorage.setItem(storageKey, JSON.stringify(array));
 
-            const vault = new Vault<Batch>(
-                'test-key-purge',
-                'source_request_id',
-                { offlineStorageEnabled: true }
-            );
+            const vault = new Vault<Dictionary<string>[]>(storageKey);
+
             vault.purge();
 
-            expect(window.localStorage.getItem('test-key-purge')).to.equal(
-                null
-            );
-            expect(
-                window.localStorage.getItem('test-key-other-items')
-            ).to.equal('this data should not be purged');
+            expect(vault.contents).to.equal(null);
+            expect(window.localStorage.getItem(storageKey)).to.equal(null);
         });
     });
 });
