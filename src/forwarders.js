@@ -393,7 +393,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.handleForwarderUserAttributes = function(key, value, functionNameKey) {
+    this.handleForwarderUserAttributes = function(functionNameKey, key, value) {
         if (
             (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) ||
             !mpInstance._Store.activeForwarders.length
@@ -405,7 +405,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
             const forwarderFunction = forwarder[functionNameKey];
             if (
                 !forwarderFunction ||
-                !mpInstance._Helpers.isFilteredUserAttribute(
+                mpInstance._Helpers.isFilteredUserAttribute(
                     key,
                     forwarder.userAttributeFilters
                 )

@@ -905,9 +905,9 @@ export default function Identity(mpInstance) {
                             mpInstance._APIClient.prepareForwardingStats
                         );
                         mpInstance._Forwarders.handleForwarderUserAttributes(
+                            'setUserAttribute',
                             key,
-                            newValue,
-                            'setUserAttribute'
+                            newValue
                         );
                     }
                 }
@@ -992,9 +992,9 @@ export default function Identity(mpInstance) {
                         mpInstance._APIClient.prepareForwardingStats
                     );
                     mpInstance._Forwarders.handleForwarderUserAttributes(
+                        'removeUserAttribute',
                         key,
-                        null,
-                        'removeUserAttribute'
+                        null
                     );
                 }
             },
@@ -1101,9 +1101,9 @@ export default function Identity(mpInstance) {
                         mpInstance._APIClient.prepareForwardingStats
                     );
                     mpInstance._Forwarders.handleForwarderUserAttributes(
+                        'setUserAttribute',
                         key,
-                        arrayCopy,
-                        'setUserAttribute'
+                        arrayCopy
                     );
                 }
             },
@@ -1131,9 +1131,9 @@ export default function Identity(mpInstance) {
                         for (var prop in userAttributes) {
                             if (userAttributes.hasOwnProperty(prop)) {
                                 mpInstance._Forwarders.handleForwarderUserAttributes(
+                                    'removeUserAttribute',
                                     prop,
-                                    null,
-                                    'removeUserAttribute'
+                                    null
                                 );
                             }
                             this.removeUserAttribute(prop);

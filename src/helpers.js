@@ -389,7 +389,7 @@ export default function Helpers(mpInstance) {
 
     this.isFilteredUserAttribute = function(userAttributeKey, filterList) {
         const hashedUserAttribute = self.generateHash(userAttributeKey);
-        return filterList && !self.inArray(filterList, hashedUserAttribute);
+        return filterList && self.inArray(filterList, hashedUserAttribute);
     };
 
     this.isEventType = function(type) {
