@@ -49,28 +49,28 @@ describe('Vault', () => {
             const storageKey = 'test-batch-save-order';
 
             const batch1: Partial<Batch> = {
-                mpid: 'bar',
-                source_request_id: 'item-123',
+                mpid: 'mpid-1',
+                source_request_id: 'source-request-id-1',
             };
 
             const batch2: Partial<Batch> = {
-                mpid: 'baz',
-                source_request_id: 'item-ABC',
+                mpid: 'mpid-2',
+                source_request_id: 'source-request-id-2',
             };
 
             const batch3: Partial<Batch> = {
-                mpid: 'boo',
-                source_request_id: '12345',
+                mpid: 'mpid-3',
+                source_request_id: 'source-request-id-3',
             };
 
             const batch4: Partial<Batch> = {
-                mpid: 'zoo',
-                source_request_id: 'ZYXWV',
+                mpid: 'mpid-4',
+                source_request_id: 'source-request-id-4',
             };
 
             const batch5: Partial<Batch> = {
-                mpid: 'piza',
-                source_request_id: 'ABCDEFG',
+                mpid: 'mpid-5',
+                source_request_id: 'source-request-id-5',
             };
 
             const vault = new Vault<Partial<Batch>[]>(storageKey);

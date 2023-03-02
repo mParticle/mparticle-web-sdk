@@ -6,7 +6,7 @@ interface IVaultOptions {
     offlineStorageEnabled?: boolean;
 }
 
-export default class Vault<StorableItem extends Dictionary> {
+export default class Vault<StorableItem> {
     public contents: StorableItem;
     private readonly _storageKey: string;
     private logger?: Logger;
@@ -59,7 +59,7 @@ export default class Vault<StorableItem extends Dictionary> {
      */
     public purge(): void {
         this.contents = null;
-        this.removeItem();
+        this.removeFromLocalStorage();
     }
 
     private saveToLocalStorage(items: StorableItem): void {
@@ -77,12 +77,12 @@ export default class Vault<StorableItem extends Dictionary> {
     private getFromLocalStorage(): StorableItem | null {
         // TODO: Handle cases where Local Storage is unavailable
         // https://go.mparticle.com/work/SQDSDKS-5022
-        const itemString = window.localStorage.getItem(this._storageKey);
+        const item = window.localStorage.getItem(this._storageKey);
 
-        return itemString ? JSON.parse(itemString) : null;
+        return item ? JSON.parse(item) : null;
     }
 
-    private removeItem(): void {
+    private removeFromLocalStorage(): void {
         window.localStorage.removeItem(this._storageKey);
     }
 }
