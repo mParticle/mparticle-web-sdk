@@ -387,6 +387,11 @@ export default function Helpers(mpInstance) {
         return filteredUserAttributes;
     };
 
+    this.isFilteredUserAttribute = function(userAttributeKey, filterList) {
+        const hashedUserAttribute = self.generateHash(userAttributeKey);
+        return filterList && self.inArray(filterList, hashedUserAttribute);
+    };
+
     this.isEventType = function(type) {
         for (var prop in Types.EventType) {
             if (Types.EventType.hasOwnProperty(prop)) {

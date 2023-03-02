@@ -383,8 +383,9 @@ var pluses = /\+/g,
                 this.userAttributes[key] = value;
             };
 
-            this.removeUserAttribute = function() {
+            this.removeUserAttribute = function(key) {
                 this.removeUserAttributeCalled = true;
+                delete this.userAttributes[key]
             };
 
             window[this.name + this.id] = {

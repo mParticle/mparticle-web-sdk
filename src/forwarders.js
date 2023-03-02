@@ -3,6 +3,12 @@ import filteredMparticleUser from './filteredMparticleUser';
 
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
+
+    const UserAttributeActionTypes = {
+        setUserAttribute: 'setUserAttribute',
+        removeUserAttribute: 'removeUserAttribute',
+    };
+
     this.initForwarders = function(userIdentities, forwardingStatsCallback) {
         var user = mpInstance.Identity.getCurrentUser();
         if (
@@ -387,33 +393,47 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.callSetUserAttributeOnForwarders = function(key, value) {
-        if (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) {
+    this.handleForwarderUserAttributes = function(functionNameKey, key, value) {
+        if (
+            (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) ||
+            !mpInstance._Store.activeForwarders.length
+        ) {
             return;
         }
 
-        if (mpInstance._Store.activeForwarders.length) {
-            mpInstance._Store.activeForwarders.forEach(function(forwarder) {
-                if (
-                    forwarder.setUserAttribute &&
-                    forwarder.userAttributeFilters &&
-                    !mpInstance._Helpers.inArray(
-                        forwarder.userAttributeFilters,
-                        mpInstance._Helpers.generateHash(key)
-                    )
-                ) {
-                    try {
-                        var result = forwarder.setUserAttribute(key, value);
+        mpInstance._Store.activeForwarders.forEach(function(forwarder) {
+            const forwarderFunction = forwarder[functionNameKey];
+            if (
+                !forwarderFunction ||
+                mpInstance._Helpers.isFilteredUserAttribute(
+                    key,
+                    forwarder.userAttributeFilters
+                )
+            ) {
+                return;
+            }
+            try {
+                let result;
 
-                        if (result) {
-                            mpInstance.Logger.verbose(result);
-                        }
-                    } catch (e) {
-                        mpInstance.Logger.error(e);
-                    }
+                if (
+                    functionNameKey ===
+                    UserAttributeActionTypes.setUserAttribute
+                ) {
+                    result = forwarder.setUserAttribute(key, value);
+                } else if (
+                    functionNameKey ===
+                    UserAttributeActionTypes.removeUserAttribute
+                ) {
+                    result = forwarder.removeUserAttribute(key);
                 }
-            });
-        }
+
+                if (result) {
+                    mpInstance.Logger.verbose(result);
+                }
+            } catch (e) {
+                mpInstance.Logger.error(e);
+            }
+        });
     };
 
     this.setForwarderUserIdentities = function(userIdentities) {

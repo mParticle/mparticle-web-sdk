@@ -904,7 +904,8 @@ export default function Identity(mpInstance) {
                             self.IdentityAPI.getCurrentUser().getUserIdentities(),
                             mpInstance._APIClient.prepareForwardingStats
                         );
-                        mpInstance._Forwarders.callSetUserAttributeOnForwarders(
+                        mpInstance._Forwarders.handleForwarderUserAttributes(
+                            'setUserAttribute',
                             key,
                             newValue
                         );
@@ -990,9 +991,10 @@ export default function Identity(mpInstance) {
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
                         mpInstance._APIClient.prepareForwardingStats
                     );
-                    mpInstance._Forwarders.applyToForwarders(
+                    mpInstance._Forwarders.handleForwarderUserAttributes(
                         'removeUserAttribute',
-                        key
+                        key,
+                        null
                     );
                 }
             },
@@ -1098,7 +1100,8 @@ export default function Identity(mpInstance) {
                         self.IdentityAPI.getCurrentUser().getUserIdentities(),
                         mpInstance._APIClient.prepareForwardingStats
                     );
-                    mpInstance._Forwarders.callSetUserAttributeOnForwarders(
+                    mpInstance._Forwarders.handleForwarderUserAttributes(
+                        'setUserAttribute',
                         key,
                         arrayCopy
                     );
@@ -1127,9 +1130,10 @@ export default function Identity(mpInstance) {
                     if (userAttributes) {
                         for (var prop in userAttributes) {
                             if (userAttributes.hasOwnProperty(prop)) {
-                                mpInstance._Forwarders.applyToForwarders(
+                                mpInstance._Forwarders.handleForwarderUserAttributes(
                                     'removeUserAttribute',
-                                    prop
+                                    prop,
+                                    null
                                 );
                             }
                             this.removeUserAttribute(prop);
