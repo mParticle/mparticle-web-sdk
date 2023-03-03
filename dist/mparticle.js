@@ -725,7 +725,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.19.1";
+    var version = "2.19.2";
 
     var Constants = {
       sdkVersion: version,
@@ -2111,27 +2111,12 @@ var mParticle = (function () {
       }
     }
 
-    /**
-     * BatchUploader contains all the logic to upload batches to mParticle.
-     * It queues events as they come in and at set intervals turns them into batches.
-     * It then attempts to upload them to mParticle.
-     *
-     * These uploads happen on an interval basis using window.fetch or XHR
-     * requests, depending on what is available in the browser.
-     *
-     * Uploads can also be triggered on browser visibility/focus changes via an
-     * event listener, which then uploads to mPartice via the browser's Beacon API.
-     */
-
     var BatchUploader =
     /** @class */
     function () {
-      /**
-       * Creates an instance of a BatchUploader
-       * @param {MParticleWebSDK} mpInstance - the mParticle SDK instance
-       * @param {number} uploadInterval - the desired upload interval in milliseconds
-       */
       function BatchUploader(mpInstance, uploadInterval) {
+        var _this_1 = this;
+
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
@@ -2140,8 +2125,8 @@ var mParticle = (function () {
           this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
         }
 
-        this.eventsQueuedForProcessing = [];
-        this.batchesQueuedForProcessing = [];
+        this.pendingEvents = [];
+        this.pendingUploads = [];
         var _a = this.mpInstance._Store,
             SDKConfig = _a.SDKConfig,
             devToken = _a.devToken;
@@ -2149,16 +2134,14 @@ var mParticle = (function () {
         var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
 
         this.uploadUrl = "".concat(baseUrl, "/events");
-        this.uploader = window.fetch ? new FetchUploader(this.uploadUrl) : new XHRUploader(this.uploadUrl);
-        this.triggerUploadInterval(true, false);
+        setTimeout(function () {
+          _this_1.prepareAndUpload(true, false);
+        }, this.uploadIntervalMillis);
         this.addEventListeners();
-      } // Adds listeners to be used trigger Navigator.sendBeacon if the browser
-      // loses focus for any reason, such as closing browser tab or minimizing window
-
+      }
 
       BatchUploader.prototype.addEventListeners = function () {
-        var _this = this; // visibility change is a document property, not window
-
+        var _this = this;
 
         document.addEventListener('visibilitychange', function () {
           _this.prepareAndUpload(false, _this.isBeaconAvailable());
@@ -2177,36 +2160,13 @@ var mParticle = (function () {
         }
 
         return false;
-      }; // Triggers a setTimeout for prepareAndUpload
-
-
-      BatchUploader.prototype.triggerUploadInterval = function (triggerFuture, useBeacon) {
-        var _this_1 = this;
-
-        if (triggerFuture === void 0) {
-          triggerFuture = false;
-        }
-
-        if (useBeacon === void 0) {
-          useBeacon = false;
-        }
-
-        setTimeout(function () {
-          _this_1.prepareAndUpload(triggerFuture, useBeacon);
-        }, this.uploadIntervalMillis);
       };
-      /**
-       * This method will queue a single Event which will eventually be processed into a Batch
-       * @param event event that should be queued
-       */
-
 
       BatchUploader.prototype.queueEvent = function (event) {
         if (!isEmpty(event)) {
-          this.eventsQueuedForProcessing.push(event);
+          this.pendingEvents.push(event);
           this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
-          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length)); // TODO: Remove this check once the v2 code path is removed
-          //       https://go.mparticle.com/work/SQDSDKS-3720
+          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.pendingEvents.length));
 
           if (!this.batchingEnabled || Types.TriggerUploadType[event.EventDataType]) {
             this.prepareAndUpload(false, false);
@@ -2224,7 +2184,7 @@ var mParticle = (function () {
        */
 
 
-      BatchUploader.createNewBatches = function (sdkEvents, defaultUser, mpInstance) {
+      BatchUploader.createNewUploads = function (sdkEvents, defaultUser, mpInstance) {
         if (!defaultUser || !sdkEvents || !sdkEvents.length) {
           return null;
         } //bucket by MPID, and then by session, ordered by timestamp
@@ -2304,139 +2264,157 @@ var mParticle = (function () {
 
       BatchUploader.prototype.prepareAndUpload = function (triggerFuture, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
-          var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload, promises;
+          var currentUser, currentEvents, newUploads, currentUploads, remainingUploads;
 
-          var _a;
+          var _a, _b;
 
           var _this_1 = this;
 
-          return __generator(this, function (_b) {
-            currentUser = this.mpInstance.Identity.getCurrentUser();
-            currentEvents = this.eventsQueuedForProcessing;
-            this.eventsQueuedForProcessing = [];
-            newBatches = BatchUploader.createNewBatches(currentEvents, currentUser, this.mpInstance);
+          return __generator(this, function (_c) {
+            switch (_c.label) {
+              case 0:
+                currentUser = this.mpInstance.Identity.getCurrentUser();
+                currentEvents = this.pendingEvents;
+                this.pendingEvents = [];
+                newUploads = BatchUploader.createNewUploads(currentEvents, currentUser, this.mpInstance);
 
-            if (!isEmpty(newBatches)) {
-              (_a = this.batchesQueuedForProcessing).push.apply(_a, newBatches);
-            }
-
-            batchesToUpload = this.batchesQueuedForProcessing;
-            batchesThatDidNotUpload = [];
-            this.batchesQueuedForProcessing = [];
-            promises = batchesToUpload.map(function (upload) {
-              return _this_1.upload(_this_1.mpInstance.Logger, upload, useBeacon);
-            }); // Iterate through fulfilled promises and store any remaining batches
-            // for future re-transmission attempts
-
-            if (!isEmpty(promises)) {
-              Promise.all(promises).then(function (batchResponses) {
-                batchResponses.forEach(function (batch) {
-                  return !isEmpty(batch) ? batchesThatDidNotUpload.push(batch) : null;
-                });
-              })["catch"](function (error) {
-                _this_1.mpInstance.Logger.error("Error processing batches during upload attempt: ".concat(error));
-              })["finally"](function () {
-                var _a; // Any batches that did not upload should be put back into the queue for processing
-
-
-                if (!isEmpty(batchesThatDidNotUpload)) {
-                  (_a = _this_1.batchesQueuedForProcessing).unshift.apply(_a, batchesThatDidNotUpload);
+                if (newUploads && newUploads.length) {
+                  (_a = this.pendingUploads).push.apply(_a, newUploads);
                 }
-              });
-            }
 
-            if (triggerFuture) {
-              this.triggerUploadInterval(triggerFuture, false);
-            }
+                currentUploads = this.pendingUploads;
+                this.pendingUploads = [];
+                return [4
+                /*yield*/
+                , this.upload(this.mpInstance.Logger, currentUploads, useBeacon)];
 
-            return [2
-            /*return*/
-            ];
+              case 1:
+                remainingUploads = _c.sent();
+
+                if (remainingUploads && remainingUploads.length) {
+                  (_b = this.pendingUploads).unshift.apply(_b, remainingUploads);
+                }
+
+                if (triggerFuture) {
+                  setTimeout(function () {
+                    _this_1.prepareAndUpload(true, false);
+                  }, this.uploadIntervalMillis);
+                }
+
+                return [2
+                /*return*/
+                ];
+            }
           });
         });
       };
 
-      BatchUploader.prototype.upload = function (logger, batch, useBeacon) {
+      BatchUploader.prototype.upload = function (logger, _uploads, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
-          var fetchPayload, blob, response, error_1;
+          var uploader, uploads, i, fetchPayload, blob, response, e_1;
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
-                if (isEmpty(batch) || isEmpty(batch.events)) {
+                uploads = _uploads.filter(function (upload) {
+                  return !isEmpty(upload.events);
+                });
+
+                if (isEmpty(uploads)) {
                   return [2
                   /*return*/
                   , null];
                 }
 
-                logger.verbose("Uploading batches: ".concat(JSON.stringify(batch)));
+                logger.verbose("Uploading batches: ".concat(JSON.stringify(uploads)));
+                logger.verbose("Batch count: ".concat(uploads.length));
+                i = 0;
+                _a.label = 1;
+
+              case 1:
+                if (!(i < uploads.length)) return [3
+                /*break*/
+                , 7];
                 fetchPayload = {
                   method: 'POST',
                   headers: {
                     Accept: BatchUploader.CONTENT_TYPE,
                     'Content-Type': 'text/plain;charset=UTF-8'
                   },
-                  body: JSON.stringify(batch)
+                  body: JSON.stringify(uploads[i])
                 };
                 if (!(useBeacon && this.isBeaconAvailable())) return [3
                 /*break*/
-                , 1];
+                , 2];
                 blob = new Blob([fetchPayload.body], {
                   type: 'text/plain;charset=UTF-8'
                 });
                 navigator.sendBeacon(this.uploadUrl, blob);
                 return [3
                 /*break*/
-                , 4];
+                , 6];
 
-              case 1:
-                _a.trys.push([1, 3,, 4]);
+              case 2:
+                if (!uploader) {
+                  if (window.fetch) {
+                    uploader = new FetchUploader(this.uploadUrl, logger);
+                  } else {
+                    uploader = new XHRUploader(this.uploadUrl, logger);
+                  }
+                }
+
+                _a.label = 3;
+
+              case 3:
+                _a.trys.push([3, 5,, 6]);
 
                 return [4
                 /*yield*/
-                , this.uploader.upload(fetchPayload)];
+                , uploader.upload(fetchPayload, uploads, i)];
 
-              case 2:
-                response = _a.sent(); // TODO: Should we make this a switch statement instead?
+              case 4:
+                response = _a.sent();
 
                 if (response.status >= 200 && response.status < 300) {
-                  logger.verbose("Upload success for request ID: ".concat(batch.source_request_id));
+                  logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
+                } else if (response.status >= 500 || response.status === 429) {
+                  logger.error("HTTP error status ".concat(response.status, " received")); //server error, add back current events and try again later
+
+                  return [2
+                  /*return*/
+                  , uploads.slice(i, uploads.length)];
+                } else if (response.status >= 401) {
+                  logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key.")); //if we're getting a 401, assume we'll keep getting a 401 and clear the uploads.
+
                   return [2
                   /*return*/
                   , null];
-                } else if (response.status >= 500 || response.status === 429) {
-                  logger.error("HTTP error status ".concat(response.status, " received")); // Server error, return current batch and try again later
-
-                  return [2
-                  /*return*/
-                  , batch];
-                } else if (response.status >= 401) {
-                  logger.error("HTTP error status ".concat(response.status, " while uploading - please verify your API key.")); // if we're getting a 401, assume we'll keep getting a 401
-                  // so return the upload so it can be stored for later use
-
-                  return [2
-                  /*return*/
-                  , batch];
                 }
 
                 return [3
                 /*break*/
-                , 4];
+                , 6];
 
-              case 3:
-                error_1 = _a.sent();
-                logger.error("Error sending event to mParticle servers. ".concat(error_1));
+              case 5:
+                e_1 = _a.sent();
+                logger.error("Error sending event to mParticle servers. ".concat(e_1));
                 return [2
                 /*return*/
-                , batch];
+                , uploads.slice(i, uploads.length)];
 
-              case 4:
+              case 6:
+                i++;
+                return [3
+                /*break*/
+                , 1];
+
+              case 7:
                 return [2
                 /*return*/
                 , null];
             }
           });
         });
-      }; // We upload JSON, but this content type is required to avoid a CORS preflight request
+      }; //we upload JSON, but this content type is required to avoid a CORS preflight request
 
 
       BatchUploader.CONTENT_TYPE = 'text/plain;charset=UTF-8';
@@ -2447,8 +2425,9 @@ var mParticle = (function () {
     var AsyncUploader =
     /** @class */
     function () {
-      function AsyncUploader(url) {
+      function AsyncUploader(url, logger) {
         this.url = url;
+        this.logger = logger;
       }
 
       return AsyncUploader;
@@ -2463,7 +2442,7 @@ var mParticle = (function () {
         return _super !== null && _super.apply(this, arguments) || this;
       }
 
-      FetchUploader.prototype.upload = function (fetchPayload) {
+      FetchUploader.prototype.upload = function (fetchPayload, uploads, i) {
         return __awaiter(this, void 0, void 0, function () {
           var response;
           return __generator(this, function (_a) {
@@ -2495,7 +2474,7 @@ var mParticle = (function () {
         return _super !== null && _super.apply(this, arguments) || this;
       }
 
-      XHRUploader.prototype.upload = function (fetchPayload) {
+      XHRUploader.prototype.upload = function (fetchPayload, uploads, i) {
         return __awaiter(this, void 0, void 0, function () {
           var response;
           return __generator(this, function (_a) {
@@ -2503,7 +2482,7 @@ var mParticle = (function () {
               case 0:
                 return [4
                 /*yield*/
-                , this.makeRequest(this.url, fetchPayload.body)];
+                , this.makeRequest(this.url, this.logger, fetchPayload.body)];
 
               case 1:
                 response = _a.sent();
@@ -2515,7 +2494,7 @@ var mParticle = (function () {
         });
       };
 
-      XHRUploader.prototype.makeRequest = function (url, data) {
+      XHRUploader.prototype.makeRequest = function (url, logger, data) {
         return __awaiter(this, void 0, void 0, function () {
           var xhr;
           return __generator(this, function (_a) {
