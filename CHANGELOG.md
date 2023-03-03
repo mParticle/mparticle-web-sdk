@@ -1,3 +1,10 @@
+## [2.19.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.19.1...v2.19.2) (2023-03-03)
+
+
+### Bug Fixes
+
+* Revert "refactor: Modify BatchUploader to use promises for individual uploads ([#385](https://github.com/mParticle/mparticle-web-sdk/issues/385))" ([#398](https://github.com/mParticle/mparticle-web-sdk/issues/398)) ([bc9de3a](https://github.com/mParticle/mparticle-web-sdk/commit/bc9de3a6dc9a43e62ac2c53c4897a4b02eb5875f))
+
 ## [2.19.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.19.0...v2.19.1) (2023-02-16)
 
 # [2.19.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.18.3...v2.19.0) (2023-02-08)
