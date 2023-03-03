@@ -10,7 +10,7 @@ var getEvent = Utils.getEvent,
     setLocalStorage = Utils.setLocalStorage,
     forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder,
-    SideloadedKit = Utils.sideloadedKit,
+    MockSideloadedKit = Utils.MockSideloadedKit,
     mockServer;
 
 describe('forwarders', function() {
@@ -2541,8 +2541,8 @@ describe('forwarders', function() {
             });
 
             it('should add sideloaded kits to the active forwarders', function() {
-                const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
-                const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
                 
                 window.mParticle.config.sideloadedKits = sideloadedKits;
@@ -2555,11 +2555,12 @@ describe('forwarders', function() {
             });
 
             it('should add sideloaded kits along with configured forwarders from server to the active forwarders', function() {
-                const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
-                const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
                 window.mParticle.config.sideloadedKits = sideloadedKits;
 
+                // This mockForwarder simulates a server configured forwarder
                 const mockForwarder = new MockForwarder('fooForwarder', 1);
                 mParticle.addForwarder(mockForwarder);
 
@@ -2589,8 +2590,8 @@ describe('forwarders', function() {
             });
 
             it('should send event to sideloaded kits', function() {
-                const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
-                const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
                 
                 window.mParticle.config.sideloadedKits = sideloadedKits;
@@ -2605,8 +2606,8 @@ describe('forwarders', function() {
             });
 
             it('should invoke sideloaded identify call', function() {
-                const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
-                const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
                 
                 window.mParticle.config.identifyRequest = {
@@ -2626,8 +2627,8 @@ describe('forwarders', function() {
             });
 
             it('should invoke sideloaded set/removeUserAttribute call', function() {
-                const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
-                const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
 
                 window.mParticle.config.sideloadedKits = sideloadedKits;
@@ -2644,8 +2645,8 @@ describe('forwarders', function() {
             });
 
             it('should invoke sideloaded logout call', function() {
-                const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
-                const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
 
                 window.mParticle.config.sideloadedKits = sideloadedKits;
@@ -2658,8 +2659,8 @@ describe('forwarders', function() {
             });
 
             it('should invoke sideloaded login call', function() {
-                const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
-                const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
 
                 window.mParticle.config.sideloadedKits = sideloadedKits;
@@ -2672,8 +2673,8 @@ describe('forwarders', function() {
             });
 
             it('should invoke sideloaded modify call', function() {
-                const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
-                const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
 
                 window.mParticle.config.sideloadedKits = sideloadedKits;
@@ -2686,8 +2687,8 @@ describe('forwarders', function() {
             });
 
             it('should invoke sideloaded modify call', function() {
-                const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
-                const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
+                const sideloadedKit1 = new MockSideloadedKit('SideloadedKit1', 1);
+                const sideloadedKit2 = new MockSideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
 
                 window.mParticle.config.sideloadedKits = sideloadedKits;
