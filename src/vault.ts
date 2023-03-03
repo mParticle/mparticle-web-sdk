@@ -77,7 +77,7 @@ export default class Vault<StorableItem> {
     private getFromLocalStorage(): StorableItem | null {
         // TODO: Handle cases where Local Storage is unavailable
         // https://go.mparticle.com/work/SQDSDKS-5022
-        const item = window.localStorage.getItem(this._storageKey);
+        const item: string = window.localStorage.getItem(this._storageKey);
 
         return item ? JSON.parse(item) : null;
     }
