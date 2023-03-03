@@ -642,7 +642,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 // there being a separate process for MP configured kits and
                 // sideloaded kits, this will need to be refactored.
                 if (Array.isArray(config.sideloadedKits)) {
-                    var registeredSideloadedKits = { kits: {} };
+                    const registeredSideloadedKits = { kits: {} };
 
                     // First register each kit's constructor onto registeredSideloadedKits,
                     // which is typed { kits: Dictionary<constructor> }.
@@ -652,8 +652,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     });
 
                     // Then configure each kit
-                    for (var registeredKit in registeredSideloadedKits.kits) {
-                        var kitConstructor =
+                    for (const registeredKit in registeredSideloadedKits.kits) {
+                        const kitConstructor =
                             registeredSideloadedKits.kits[registeredKit];
                         self.configureSideloadedKit(kitConstructor);
                     }
