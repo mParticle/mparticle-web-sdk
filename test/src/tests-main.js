@@ -28,9 +28,6 @@ afterEach(function() {
     window.fetchMock.restore();
 });
 
-// NOTE: Beacon upload must come before core sdk tests beause of race condition
-import './tests-beaconUpload';
-
 import './tests-core-sdk';
 import './tests-temp-session-bug-fix';
 import './tests-batchUploader';
