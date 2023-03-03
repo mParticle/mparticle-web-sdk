@@ -2604,7 +2604,7 @@ describe('forwarders', function() {
                 sideloadedKit2Event.should.have.property('EventName', 'foo');
             });
 
-            it('should invoke side loaded identify call', function() {
+            it('should invoke sideloaded identify call', function() {
                 const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
                 const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
@@ -2625,7 +2625,7 @@ describe('forwarders', function() {
                 window.SideloadedKit22.instance.should.have.property('onUserIdentifiedCalled', true);
             });
 
-            it('should invoke side loaded set/removeUserAttribute call', function() {
+            it('should invoke sideloaded set/removeUserAttribute call', function() {
                 const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
                 const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
@@ -2643,7 +2643,7 @@ describe('forwarders', function() {
                 window.SideloadedKit22.instance.should.have.property('removeUserAttributeCalled', true);
             });
 
-            it('should invoke side loaded logout call', function() {
+            it('should invoke sideloaded logout call', function() {
                 const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
                 const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
@@ -2657,7 +2657,7 @@ describe('forwarders', function() {
                 window.SideloadedKit22.instance.should.have.property('onLogoutCompleteCalled', true);
             });
 
-            it('should invoke side loaded login call', function() {
+            it('should invoke sideloaded login call', function() {
                 const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
                 const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
@@ -2671,7 +2671,7 @@ describe('forwarders', function() {
                 window.SideloadedKit22.instance.should.have.property('onLoginCompleteCalled', true);
             });
 
-            it('should invoke side loaded modify call', function() {
+            it('should invoke sideloaded modify call', function() {
                 const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
                 const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];
@@ -2685,7 +2685,7 @@ describe('forwarders', function() {
                 window.SideloadedKit22.instance.should.have.property('onModifyCompleteCalled', true);
             });
 
-            it('should invoke side loaded modify call', function() {
+            it('should invoke sideloaded modify call', function() {
                 const sideloadedKit1 = new SideloadedKit('SideloadedKit1', 1);
                 const sideloadedKit2 = new SideloadedKit('SideloadedKit2', 2);
                 const sideloadedKits = [sideloadedKit1, sideloadedKit2];

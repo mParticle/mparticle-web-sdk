@@ -544,9 +544,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
     };
 
     // kits can be included via mParticle UI, or vi
-    this.configureSideloadedKit = function(sideloadedKit) {
+    this.configureSideloadedKit = function(kitConstructor) {
         mpInstance._Store.configuredForwarders.push(
-            this.returnConfiguredKit(sideloadedKit)
+            this.returnConfiguredKit(kitConstructor)
         );
     };
 
@@ -632,9 +632,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     });
 
                     // Then configure each kit
-                    for (const registeredKit in registeredSideloadedKits.kits) {
+                    for (const registeredKitKey in registeredSideloadedKits.kits) {
                         const kitConstructor =
-                            registeredSideloadedKits.kits[registeredKit];
+                            registeredSideloadedKits.kits[registeredKitKey];
                         self.configureSideloadedKit(kitConstructor);
                     }
                 }
