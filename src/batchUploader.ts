@@ -241,9 +241,9 @@ export class BatchUploader {
         // in the order they were created so that we can attempt re-transmission in
         // the same sequence. This is to prevent any potential data corruption.
         if (!isEmpty(batchesThatDidNotUpload)) {
-            // FIXME: This unshift will reverse the order of batches on a retry
-            // this.batchesQueuedForProcessing.unshift(...batchesThatDidNotUpload);
-            this.batchesQueuedForProcessing.push(...batchesThatDidNotUpload);
+            // TODO: Investigate workflow with unshift vs push
+            // https://go.mparticle.com/work/SQDSDKS-5165
+            this.batchesQueuedForProcessing.unshift(...batchesThatDidNotUpload);
         }
 
         if (triggerFuture) {
@@ -251,15 +251,15 @@ export class BatchUploader {
         }
     }
 
-    // TODO: Do we need to add the logger and use beacon for this function?
-    //       Should they be part of the class?
+    // TODO: Refactor to use logger as a class method
+    // https://go.mparticle.com/work/SQDSDKS-5167
     private async uploadBatches(
         logger: SDKLoggerApi,
         batches: Batch[],
         useBeacon: boolean
     ): Promise<Batch[] | null> {
         // Filter out any batches that don't have events
-        const uploads = batches.filter((upload) => !isEmpty(upload.events));
+        const uploads = batches.filter((batch) => !isEmpty(batch.events));
 
         if (isEmpty(uploads)) {
             return null;
