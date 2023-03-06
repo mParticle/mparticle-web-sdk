@@ -468,11 +468,8 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event 2');
             window.mParticle.logEvent('Test Event 3');
 
-            // Force an upload of events
+            // Manually initiate the upload process - turn event into batches and upload the batch 
             window.mParticle.upload();
-
-            // Force time to pass so that batch processing occurs
-            clock.tick(1000);
 
             const batch2 = JSON.parse(window.fetchMock._calls[1][1].body);
 
@@ -486,11 +483,8 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event 4');
             window.mParticle.logEvent('Test Event 5');
 
-            // Force an upload of events
+            // Manually initiate the upload process - turn event into batches and upload the batch 
             window.mParticle.upload();
-
-            // Force time to pass so that batch processing occurs
-            clock.tick(1000);
 
             const batch3 = JSON.parse(window.fetchMock._calls[2][1].body);
 
@@ -520,7 +514,7 @@ describe('batch uploader', () => {
             // Adds a custom event to Batch 1
             window.mParticle.logEvent('Test Event 0');
 
-            // Force an upload of events
+            // Manually initiate the upload process - turn event into batches and upload the batch 
             window.mParticle.upload();
 
             expect(
@@ -621,7 +615,7 @@ describe('batch uploader', () => {
             // Adds a custom event to Batch 1
             window.mParticle.logEvent('Test Event 0');
 
-            // Force an upload of events
+            // Manually initiate the upload process - turn event into batches and upload the batch 
             window.mParticle.upload();
 
             // Batch 2
@@ -629,7 +623,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event 2');
             window.mParticle.logEvent('Test Event 3');
 
-            // Force an upload of events
+            // Manually initiate the upload process - turn event into batches and upload the batch 
             window.mParticle.upload();
 
             // Batch 3
@@ -637,7 +631,7 @@ describe('batch uploader', () => {
             window.mParticle.logEvent('Test Event 5');
             window.mParticle.logEvent('Test Event 6');
 
-            // Force an upload of events
+            // Manually initiate the upload process - turn event into batches and upload the batch 
             window.mParticle.upload();
 
             // Reset timer so the setTimeout can trigger
@@ -922,7 +916,7 @@ describe('batch uploader', () => {
             // Initialize imitates returning to the page
             window.mParticle.init(apiKey, window.mParticle.config);
 
-            // Force an upload of events
+            // Manually initiate the upload process - turn event into batches and upload the batch 
             window.mParticle.upload();
 
             // We have to restore the clock in order to use setTimeout below
