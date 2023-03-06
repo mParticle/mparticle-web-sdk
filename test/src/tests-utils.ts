@@ -2,6 +2,10 @@ import {
     converted,
     decoded,
     findKeyInObject,
+    generateHash,
+    generateRandomValue,
+    generateUniqueId,
+    getRampNumber,
     inArray,
     isDataPlanSlug,
     isEmpty,
@@ -14,6 +18,52 @@ import {
 import { expect } from 'chai';
 
 describe('Utils', () => {
+    describe('#generateHash', () => {
+        it('should return a valid hash', () => {
+            expect(generateHash('A'), 'A').to.equal(97);
+            expect(generateHash(false)).to.equal(97196323);
+            expect(generateHash('3569038')).to.equal(-412991536);
+            expect(generateHash(3569038)).to.equal(-412991536);
+            expect(generateHash('TestHash')).to.equal(-1146196832);
+            expect(generateHash('mParticle'), 'mParticle String').to.equal(1744810483);
+        });
+
+        it('returns 0 when hashing undefined or null', () => {
+            expect(generateHash(null)).to.equal(0);
+            expect(generateHash(undefined)).to.equal(0);
+            expect(typeof generateHash(false)).to.equal('number');
+            expect(generateHash(false)).to.not.equal(0);
+        });
+    });
+
+    describe.only('#generateRandomValue', () => {
+        it('should generate random values', () => {
+            // @ts-ignore
+            expect(generateRandomValue().length).to.equal(1);
+            expect(generateRandomValue()).to.equal('1234567');
+        });
+    });
+
+    describe('#generateUniqueId', () => {
+        it('returns a unique ID', () => {
+            expect(generateUniqueId()).to.be.ok;
+            expect(generateUniqueId().length).to.equal(36);
+            expect(typeof generateUniqueId()).to.equal('string');
+
+            // Tests format to be broken up by 5 hypens
+            expect(generateUniqueId().split('-').length).to.equal(5);
+        });
+    });
+
+    describe('#getRampNumber', () => {
+        it('returns a ramp number', () =>{
+            expect(getRampNumber()).to.equal(100);
+            expect(getRampNumber(null)).to.equal(100);
+
+            expect(getRampNumber('2b907d8b-cefe-4530-a6fe-60a381f2e066')).to.equal(100);
+        });
+    });
+
     describe('#isObject', () => {
         it('returns true if object is an object', () => {
             const validObject = {

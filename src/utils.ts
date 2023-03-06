@@ -36,6 +36,62 @@ const findKeyInObject = (obj: any, key: string): string => {
     return null;
 };
 
+const generateHash = (value: any): number => {
+    if (value === undefined || value === null) {
+        return 0;
+    }
+
+    value = value.toString().toLowerCase();
+
+    return value.split('').reduce((a, b) => {
+        a = (a << 5) - a + b.charCodeAt(0);
+        return a & a;
+    }, 0);
+};
+
+const generateRandomValue = (value?: number | string): string => {
+    let randomValue: string;
+    let a: number;
+
+    if (window.crypto && window.crypto.getRandomValues) {
+        // @ts-ignore
+        randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
+    }
+    if (randomValue) {
+        // @ts-ignore
+        return (a ^ (randomValue[0] % 16 >> (a / 4))).toString(16);
+    }
+
+    return (a ^ ((Math.random() * 16) >> (a / 4))).toString(16);
+};
+
+// TODO: What is the value actually for?
+const generateUniqueId = (value?: any): string => {
+    // https://gist.github.com/jed/982883
+    // Added support for crypto for better random
+
+    return value // if the placeholder was passed, return
+        ? generateRandomValue(value) // a random number
+        : // or otherwise a concatenated string:
+
+          `${1e7}-${1e3}-${4e3}-${8e3}-${1e11}`.replace(
+              // replacing
+              /[018]/g, // zeroes, ones, and eights with
+              generateUniqueId // random hex digits
+          );
+};
+
+// Returns a value between 1-100 inclusive.
+const getRampNumber = (idString?: string): number => {
+    if (!idString) {
+        return 100;
+    }
+
+    const hash = generateHash(idString);
+
+    return Math.abs(hash % 100) + 1;
+};
+
 const isObject = (value: any): boolean => {
     var objType = Object.prototype.toString.call(value);
     return objType === '[object Object]' || objType === '[object Error]';
@@ -76,10 +132,7 @@ const decoded = (s: string): string =>
 
 const converted = (s: string): string => {
     if (s.indexOf('"') === 0) {
-        s = s
-            .slice(1, -1)
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, '\\');
+        s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
     }
 
     return s;
@@ -104,6 +157,10 @@ export {
     converted,
     decoded,
     findKeyInObject,
+    generateHash,
+    generateRandomValue,
+    generateUniqueId,
+    getRampNumber,
     inArray,
     isObject,
     isStringOrNumber,
