@@ -162,6 +162,9 @@ jobs:
             - name: Run NPM CI
               run: npm ci
 
+            - name: Build Files
+              run: npm run build
+
             - name: Install Firefox Latest
               uses: browser-actions/setup-firefox@latest
 
