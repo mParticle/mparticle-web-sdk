@@ -112,7 +112,7 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
-    test-integrations-requirejs:
+    test-integrations-require-js:
         name: 'Integration Tests: Require JS'
         runs-on: ubuntu-latest
         needs: build-bundle
