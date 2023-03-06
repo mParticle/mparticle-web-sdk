@@ -43,6 +43,8 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
+    # Only Core test requires bundle, but we want to make sure
+    # that tests only run when the bundle is successfully built
     test-core:
         name: Test Core
         runs-on: ubuntu-latest
