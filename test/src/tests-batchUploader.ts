@@ -610,8 +610,6 @@ describe('batch uploader', () => {
                 eventBatchingIntervalMillis: 1000,
             };
 
-            // debugger;
-
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
             // Generates Batch 1 with Session Start + AST
