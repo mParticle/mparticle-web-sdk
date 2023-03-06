@@ -444,8 +444,8 @@ describe('batch uploader', () => {
 
             window.mParticle.logEvent('Test Event 0');
 
-            // Force time to pass so that batch processing occurs
-            clock.tick(1000);
+            // Manually initiate the upload process - turn event into batches and upload the batch 
+            window.mParticle.upload();
 
             expect(
                 window.fetchMock.called(),
