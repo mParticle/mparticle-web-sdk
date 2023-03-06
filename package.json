@@ -35,6 +35,7 @@
         "build:webpack:module": "webpack --config test/integrations/module/webpack/webpack.config.js && npm run test:karma:webpack:module",
         "build:ts": "tsc -p .",
         "test": "npm run build && cross-env TESTTYPE=main ENVIRONMENT=prod rollup --config rollup.test.config.js && cross-env DEBUG=false karma start test/karma.config.js",
+        "test:build:bundle": "cross-env TESTTYPE=main ENVIRONMENT=prod rollup --config rollup.test.config.js",
         "test:debug": "cross-env DEBUG=true karma start test/karma.config.js",
         "test:stub": "cross-env TESTTYPE=stub ENVIRONMENT=prod rollup --config rollup.test.config.js && karma start test/stub/karma.stub.config.js",
         "test:integrations": "npm run test:requirejs && npm run test:integrations:cjs && npm run test:integrations:module",
