@@ -567,6 +567,7 @@ describe('batch uploader', () => {
                 expect(batchQueue[0].events[1].event_type).to.equal(
                     'application_state_transition'
                 );
+                expect(batchQueue[0].events[2].data.event_name).to.equal('Test Event 0');
 
                 expect(batchQueue[1].events[0].data.event_name).to.equal(
                     'Test Event 1'
