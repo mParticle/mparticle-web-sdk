@@ -194,6 +194,11 @@ jobs:
             - name: Run NPM CI
               run: npm ci
 
+            - name: Download Local Bundle
+              uses: actions/download-artifact@v3
+              with:
+                  name: bundle-local
+
             - name: Install Firefox Latest
               uses: browser-actions/setup-firefox@latest
 
