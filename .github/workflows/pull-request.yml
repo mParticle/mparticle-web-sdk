@@ -168,7 +168,7 @@ jobs:
                   name: bundle-local
 
             - name: Build Test Bundle
-              run: npm run test:build:bundle
+              run: npm run build:test-bundle
 
             - name: Install Firefox Latest
               uses: browser-actions/setup-firefox@latest
@@ -206,6 +206,9 @@ jobs:
               uses: actions/download-artifact@v3
               with:
                   name: bundle-local
+
+            - name: Build Test Bundle
+              run: npm run build:test-bundle
 
             - name: Install Firefox Latest
               uses: browser-actions/setup-firefox@latest
