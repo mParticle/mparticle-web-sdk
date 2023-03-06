@@ -163,7 +163,7 @@ jobs:
               run: npm ci
 
             - name: Build Files
-              run: npm run build
+              run: npm run build:npm
 
             - name: Install Firefox Latest
               uses: browser-actions/setup-firefox@latest
