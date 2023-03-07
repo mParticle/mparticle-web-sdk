@@ -350,6 +350,7 @@ describe.only('Persistence', function() {
 
             mParticle._resetForTests(MPConfig);
             mParticle.getInstance()._Store.prodStorageName = lsKey;
+            mParticle.getInstance()._Store.isLocalStorageAvailable = true;
 
             const expectedProducts = [
                 {
