@@ -241,8 +241,7 @@ export class BatchUploader {
         // in the order they were created so that we can attempt re-transmission in
         // the same sequence. This is to prevent any potential data corruption.
         if (!isEmpty(batchesThatDidNotUpload)) {
-            // TODO: Investigate workflow with unshift vs push
-            // https://go.mparticle.com/work/SQDSDKS-5165
+            // TODO: https://go.mparticle.com/work/SQDSDKS-5165
             this.batchesQueuedForProcessing.unshift(...batchesThatDidNotUpload);
         }
 
