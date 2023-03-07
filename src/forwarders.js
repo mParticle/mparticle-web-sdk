@@ -1,5 +1,6 @@
 import Types from './types';
 import filteredMparticleUser from './filteredMparticleUser';
+import { isEmpty } from './utils';
 
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
@@ -503,19 +504,59 @@ export default function Forwarders(mpInstance, kitBlocker) {
         mpInstance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
     };
 
-    this.configureForwarder = function(configuration) {
+    // Processing forwarders is a 2 step process:
+    //   1. Configure the kit
+    //   2. Initialize the kit
+    // There are 2 types of kits:
+    //   1. UI-enabled kits
+    //   2. Sideloaded kits.
+    this.processForwarders = function(config, forwardingStatsCallback) {
+        if (!config) {
+            mpInstance.Logger.warning(
+                'No config was passed. Cannot process forwarders'
+            );
+        } else {
+            this.processUIEnabledKits(config);
+            this.processSideloadedKits(config);
+
+            self.initForwarders(
+                mpInstance._Store.SDKConfig.identifyRequest.userIdentities,
+                forwardingStatsCallback
+            );
+        }
+    };
+
+    // These are kits that are enabled via the mParticle UI.
+    // A kit that is UI-enabled will have a kit configuration that returns from
+    // the server, or in rare cases, is passed in by the developer.
+    // The kit configuration will be compared with the kit constructors to determine
+    // if there is a match before being initialized.
+    // Only kits that are configured properly can be active and used for kit forwarding.
+    this.processUIEnabledKits = function(config) {
+        try {
+            if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
+                config.kitConfigs.forEach(function(kitConfig) {
+                    self.configureUIEnabledKit(kitConfig);
+                });
+            }
+        } catch (e) {
+            mpInstance.Logger.error(
+                'MP Kits not configured propertly. Kits may not be initialized. ' +
+                    e
+            );
+        }
+    };
+
+    this.configureUIEnabledKit = function(configuration) {
         var newForwarder = null,
             config = configuration,
             forwarders = {};
 
-        // if there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
-        if (
-            mpInstance._Helpers.isObject(mpInstance._Store.SDKConfig.kits) &&
-            Object.keys(mpInstance._Store.SDKConfig.kits).length > 0
-        ) {
+        // If there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
+        if (!isEmpty(mpInstance._Store.SDKConfig.kits)) {
             forwarders = mpInstance._Store.SDKConfig.kits;
             // otherwise mParticle is loaded via script tag
-        } else if (mpInstance._preInit.forwarderConstructors.length > 0) {
+        } else if (!isEmpty(mpInstance._preInit.forwarderConstructors)) {
             mpInstance._preInit.forwarderConstructors.forEach(function(
                 forwarder
             ) {
@@ -540,6 +581,40 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     break;
                 }
             }
+        }
+    };
+
+    // Sideloaded kits are not configured in the UI and do not have kit configurations
+    // They are automatically added to active forwarders.
+
+    // TODO: Sideloading kits currently requires the use of a register method
+    // which requires an object on which to be registered.
+    // In the future, when all kits are moved to the config rather than
+    // there being a separate process for MP configured kits and
+    // sideloaded kits, this will need to be refactored.
+    this.processSideloadedKits = function(config) {
+        try {
+            if (Array.isArray(config.sideloadedKits)) {
+                const sideloadedKits = { kits: {} };
+                // First register each kit's constructor onto sideloadedKits,
+                // which is typed { kits: Dictionary<constructor> }.
+                // The constructors are keyed by the name of the kit.
+                config.sideloadedKits.forEach(function(sideloadedKit) {
+                    sideloadedKit.register(sideloadedKits);
+                });
+
+                // Then configure each kit
+                for (const registeredKitKey in sideloadedKits.kits) {
+                    const kitConstructor =
+                        sideloadedKits.kits[registeredKitKey];
+                    self.configureSideloadedKit(kitConstructor);
+                }
+            }
+        } catch (e) {
+            mpInstance.Logger.error(
+                'Sideloaded Kits not configured propertly. Kits may not be initialized. ' +
+                    e
+            );
         }
     };
 
@@ -595,69 +670,6 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 mpInstance._Store.SDKConfig.isDevelopmentMode
         ) {
             mpInstance._Store.pixelConfigurations.push(settings);
-        }
-    };
-
-    this.processForwarders = function(config, forwardingStatsCallback) {
-        if (!config) {
-            mpInstance.Logger.warning(
-                'No config was passed. Cannot process forwarders'
-            );
-        } else {
-            this.processMpConfiguredKits(config);
-            this.processSideloadedKits(config);
-            this.processPixelConfigs(config);
-
-            self.initForwarders(
-                mpInstance._Store.SDKConfig.identifyRequest.userIdentities,
-                forwardingStatsCallback
-            );
-        }
-    };
-
-    this.processMpConfiguredKits = function(config) {
-        try {
-            if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
-                config.kitConfigs.forEach(function(kitConfig) {
-                    self.configureForwarder(kitConfig);
-                });
-            }
-        } catch (e) {
-            mpInstance.Logger.error(
-                'MP Kits not configured propertly. Kits may not be initialized. ' +
-                    e
-            );
-        }
-    };
-
-    // TODO: Sideloading kits currently requires the use of a register method
-    // which requires an object on which to be registered.
-    // In the future, when all kits are moved to the config rather than
-    // there being a separate process for MP configured kits and
-    // sideloaded kits, this will need to be refactored.
-    this.processSideloadedKits = function(config) {
-        try {
-            if (Array.isArray(config.sideloadedKits)) {
-                const sideloadedKits = { kits: {} };
-                // First register each kit's constructor onto sideloadedKits,
-                // which is typed { kits: Dictionary<constructor> }.
-                // The constructors are keyed by the name of the kit.
-                config.sideloadedKits.forEach(function(sideloadedKit) {
-                    sideloadedKit.register(sideloadedKits);
-                });
-
-                // Then configure each kit
-                for (const registeredKitKey in sideloadedKits.kits) {
-                    const kitConstructor =
-                        sideloadedKits.kits[registeredKitKey];
-                    self.configureSideloadedKit(kitConstructor);
-                }
-            }
-        } catch (e) {
-            mpInstance.Logger.error(
-                'Sideloaded Kits not configured propertly. Kits may not be initialized. ' +
-                    e
-            );
         }
     };
 
