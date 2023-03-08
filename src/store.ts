@@ -444,5 +444,12 @@ export default function Store(
         ) {
             this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching] = false;
         }
+        if (
+            !this.SDKConfig.flags.hasOwnProperty(
+                Constants.FeatureFlags.OfflineStorage
+            )
+        ) {
+            this.SDKConfig.flags[Constants.FeatureFlags.OfflineStorage] = 0;
+        }
     }
 }

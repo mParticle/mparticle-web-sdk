@@ -1,4 +1,5 @@
 import { Batch } from '@mparticle/event-models';
+import Constants from './constants';
 import {
     SDKEvent,
     MParticleUser,
@@ -8,11 +9,16 @@ import {
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
 import { isEmpty } from './utils';
+import { SessionStorageVault, LocalStorageVault } from './vault';
 
 /**
- * BatchUploader contains all the logic to upload batches to mParticle.
- * It queues events as they come in and at set intervals turns them into batches.
- * It then attempts to upload them to mParticle.
+ * BatchUploader contains all the logic to store/retrieve events and batches
+ * to/from persistence, and upload batches to mParticle.
+ * It queues events as they come in, storing them in persistence, then at set
+ * intervals turns them into batches and transfers between event and batch
+ * persistence.
+ * It then attempts to upload them to mParticle, purging batch persistence if
+ * the upload is successful
  *
  * These uploads happen on an interval basis using window.fetch or XHR
  * requests, depending on what is available in the browser.
@@ -31,6 +37,9 @@ export class BatchUploader {
     mpInstance: MParticleWebSDK;
     uploadUrl: string;
     batchingEnabled: boolean;
+    private eventVault: SessionStorageVault<SDKEvent[]>;
+    private batchVault: LocalStorageVault<Batch[]>;
+    private offlineStorageEnabled: boolean = false;
     private uploader: AsyncUploader;
 
     /**
@@ -46,8 +55,37 @@ export class BatchUploader {
         if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
             this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
         }
+
+        // Events will be queued during `queueEvents` method
         this.eventsQueuedForProcessing = [];
+
+        // Batch queue should start empty and will be populated during
+        // `prepareAndUpload` method, either via Local Storage or after
+        // new batches are created.
         this.batchesQueuedForProcessing = [];
+
+        // Cache Offline Storage Availability boolean
+        // so that we don't have to check it every time
+        this.offlineStorageEnabled = this.isOfflineStorageAvailable();
+
+        if (this.offlineStorageEnabled) {
+            this.eventVault = new SessionStorageVault<SDKEvent[]>(
+                `${mpInstance._Store.storageName}-events`,
+                {
+                    logger: mpInstance.Logger,
+                }
+            );
+
+            this.batchVault = new LocalStorageVault<Batch[]>(
+                `${mpInstance._Store.storageName}-batches`,
+                {
+                    logger: mpInstance.Logger,
+                }
+            );
+
+            // Load Events from Session Storage in case we have any in storage
+            this.eventsQueuedForProcessing.push(...this.eventVault.retrieve());
+        }
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
         const baseUrl = this.mpInstance._Helpers.createServiceUrl(
@@ -62,6 +100,31 @@ export class BatchUploader {
 
         this.triggerUploadInterval(true, false);
         this.addEventListeners();
+    }
+
+    private isOfflineStorageAvailable(): boolean {
+        const {
+            _Helpers: { getRampNumber, getFeatureFlag },
+            _Store: { deviceId },
+        } = this.mpInstance;
+
+        const offlineStorageFeatureFlagValue = getFeatureFlag(
+            Constants.FeatureFlags.OfflineStorage
+        );
+
+        const offlineStoragePercentage = parseInt(
+            offlineStorageFeatureFlagValue,
+            10
+        );
+
+        // TODO: Break out getRampNumber to be a utility method
+        //       https://go.mparticle.com/work/SQDSDKS-5074
+        const rampNumber = getRampNumber(deviceId);
+
+        // TODO: Handle cases where Local Storage is unavailable
+        //       Potentially shared between Vault and Persistence as well
+        //       https://go.mparticle.com/work/SQDSDKS-5022
+        return offlineStoragePercentage >= rampNumber;
     }
 
     // Adds listeners to be used trigger Navigator.sendBeacon if the browser
@@ -102,9 +165,12 @@ export class BatchUploader {
      * This method will queue a single Event which will eventually be processed into a Batch
      * @param event event that should be queued
      */
-    queueEvent(event: SDKEvent): void {
+    public queueEvent(event: SDKEvent): void {
         if (!isEmpty(event)) {
             this.eventsQueuedForProcessing.push(event);
+            if (this.offlineStorageEnabled && this.eventVault) {
+                this.eventVault.store(this.eventsQueuedForProcessing);
+            }
             this.mpInstance.Logger.verbose(
                 `Queuing event: ${JSON.stringify(event)}`
             );
@@ -214,14 +280,32 @@ export class BatchUploader {
         // Fetch current user so that events can be grouped by MPID
         const currentUser = this.mpInstance.Identity.getCurrentUser();
 
-        const currentEvents = this.eventsQueuedForProcessing;
-        this.eventsQueuedForProcessing = [];
+        const currentEvents: SDKEvent[] = this.eventsQueuedForProcessing;
 
-        const newBatches = BatchUploader.createNewBatches(
-            currentEvents,
-            currentUser,
-            this.mpInstance
-        );
+        this.eventsQueuedForProcessing = [];
+        if (this.offlineStorageEnabled && this.eventVault) {
+            this.eventVault.store([]);
+        }
+
+        let newBatches: Batch[] = [];
+        if (!isEmpty(currentEvents)) {
+            newBatches = BatchUploader.createNewBatches(
+                currentEvents,
+                currentUser,
+                this.mpInstance
+            );
+        }
+
+        // Top Load any older Batches from Offline Storage so they go out first
+        if (this.offlineStorageEnabled && this.batchVault) {
+            this.batchesQueuedForProcessing.unshift(
+                ...this.batchVault.retrieve()
+            );
+
+            // Remove batches from local storage before transmit to
+            // prevent duplication
+            this.batchVault.purge();
+        }
 
         if (!isEmpty(newBatches)) {
             this.batchesQueuedForProcessing.push(...newBatches);
@@ -230,6 +314,13 @@ export class BatchUploader {
         // Clear out pending batches to avoid any potential duplication
         const batchesToUpload = this.batchesQueuedForProcessing;
         this.batchesQueuedForProcessing = [];
+
+        // If `useBeacon` is true, the browser has been closed suddently
+        // so we should save `batchesToUpload` to Offline Storage before
+        // an upload is attempted.
+        if (useBeacon && this.offlineStorageEnabled && this.batchVault) {
+            this.batchVault.store(batchesToUpload);
+        }
 
         const batchesThatDidNotUpload = await this.uploadBatches(
             this.mpInstance.Logger,
@@ -243,6 +334,14 @@ export class BatchUploader {
         if (!isEmpty(batchesThatDidNotUpload)) {
             // TODO: https://go.mparticle.com/work/SQDSDKS-5165
             this.batchesQueuedForProcessing.unshift(...batchesThatDidNotUpload);
+        }
+
+        // Update Offline Storage with current state of batch queue
+        if (this.offlineStorageEnabled && this.batchVault) {
+            this.batchVault.store(this.batchesQueuedForProcessing);
+
+            // Clear batch queue since everything should be in Offline Storage
+            this.batchesQueuedForProcessing = [];
         }
 
         if (triggerFuture) {
