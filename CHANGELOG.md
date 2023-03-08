@@ -1,3 +1,11 @@
+## [2.19.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.19.2...v2.19.3) (2023-03-08)
+
+
+### Bug Fixes
+
+* removeUserAttribute and forwarder filters fix ([#391](https://github.com/mParticle/mparticle-web-sdk/issues/391)) ([838f267](https://github.com/mParticle/mparticle-web-sdk/commit/838f267c858d56bf5a75b0f1f3a19f1bac4fbc79))
+* Verify Batches and events are uploaded in order of creation ([#394](https://github.com/mParticle/mparticle-web-sdk/issues/394)) ([8553331](https://github.com/mParticle/mparticle-web-sdk/commit/8553331fa7e53e9c59901e98a5f45519b2f7d533))
+
 ## [2.19.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.19.1...v2.19.2) (2023-03-03)
 
 
