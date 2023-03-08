@@ -85,7 +85,7 @@ export interface IPersistence {
     ): void;
     saveUserAttributesToPersistence(
         mpid: MPID,
-        userIdentities: UserIdentities
+        userAttributes: UserAttributes
     ): void;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
     saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
