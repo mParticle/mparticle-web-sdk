@@ -26,18 +26,7 @@ export default function Helpers(mpInstance) {
         return null;
     };
 
-    /**
-     * Returns a value between 1-100 inclusive.
-     */
-    this.getRampNumber = function(deviceId) {
-        if (!deviceId) {
-            return 100;
-        }
-        var hash = self.generateHash(deviceId);
-        return Math.abs(hash % 100) + 1;
-    };
-
-    this.invokeCallback = function(
+    this.invokeCallback = function (
         callback,
         code,
         body,
@@ -284,40 +273,7 @@ export default function Helpers(mpInstance) {
         return xhr;
     };
 
-    function generateRandomValue(a) {
-        var randomValue;
-        if (window.crypto && window.crypto.getRandomValues) {
-            randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
-        }
-        if (randomValue) {
-            return (a ^ (randomValue[0] % 16 >> (a / 4))).toString(16);
-        }
-
-        return (a ^ ((Math.random() * 16) >> (a / 4))).toString(16);
-    }
-
-    this.generateUniqueId = function(a) {
-        // https://gist.github.com/jed/982883
-        // Added support for crypto for better random
-
-        return a // if the placeholder was passed, return
-            ? generateRandomValue(a) // a random number
-            : // or otherwise a concatenated string:
-              (
-                  [1e7] + // 10000000 +
-                  -1e3 + // -1000 +
-                  -4e3 + // -4000 +
-                  -8e3 + // -80000000 +
-                  -1e11
-              ) // -100000000000,
-                  .replace(
-                      // replacing
-                      /[018]/g, // zeroes, ones, and eights with
-                      self.generateUniqueId // random hex digits
-                  );
-    };
-
-    this.filterUserIdentities = function(userIdentitiesObject, filterList) {
+    this.filterUserIdentities = function (userIdentitiesObject, filterList) {
         var filteredUserIdentities = [];
 
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
@@ -403,38 +359,7 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.generateHash = function(name) {
-        var hash = 0,
-            i = 0,
-            character;
-
-        if (name === undefined || name === null) {
-            return 0;
-        }
-
-        name = name.toString().toLowerCase();
-
-        if (Array.prototype.reduce) {
-            return name.split('').reduce(function(a, b) {
-                a = (a << 5) - a + b.charCodeAt(0);
-                return a & a;
-            }, 0);
-        }
-
-        if (name.length === 0) {
-            return hash;
-        }
-
-        for (i = 0; i < name.length; i++) {
-            character = name.charCodeAt(i);
-            hash = (hash << 5) - hash + character;
-            hash = hash & hash;
-        }
-
-        return hash;
-    };
-
-    this.sanitizeAttributes = function(attrs, name) {
+    this.sanitizeAttributes = function (attrs, name) {
         if (!attrs || !self.isObject(attrs)) {
             return null;
         }
@@ -510,6 +435,8 @@ export default function Helpers(mpInstance) {
     this.decoded = utils.decoded;
     this.returnConvertedBoolean = utils.returnConvertedBoolean;
     this.parseStringOrNumber = utils.parseStringOrNumber;
+    this.generateHash = utils.generateHash;
+    this.generateUniqueId = utils.generateUniqueId;
 
     // Imported Validators
     this.Validators = Validators;

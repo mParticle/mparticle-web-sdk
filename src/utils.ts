@@ -36,20 +36,37 @@ const findKeyInObject = (obj: any, key: string): string => {
     return null;
 };
 
-const generateHash = (value: any): number => {
-    if (value === undefined || value === null) {
+function generateHash(name: string): number {
+    let hash: number = 0;
+    let character: number;
+
+    if (name === undefined || name === null) {
         return 0;
     }
 
-    value = value.toString().toLowerCase();
+    name = name.toString().toLowerCase();
 
-    return value.split('').reduce((a, b) => {
-        a = (a << 5) - a + b.charCodeAt(0);
-        return a & a;
-    }, 0);
-};
+    if (Array.prototype.reduce) {
+        return name.split('').reduce(function (a: number, b: string) {
+            a = (a << 5) - a + b.charCodeAt(0);
+            return a & a;
+        }, 0);
+    }
 
-const generateRandomValue = (value?: number | string): string => {
+    if (name.length === 0) {
+        return hash;
+    }
+
+    for (let i = 0; i < name.length; i++) {
+        character = name.charCodeAt(i);
+        hash = (hash << 5) - hash + character;
+        hash = hash & hash;
+    }
+
+    return hash;
+}
+
+const generateRandomValue = (value?: string): string => {
     let randomValue: string;
     let a: number;
 
@@ -65,23 +82,19 @@ const generateRandomValue = (value?: number | string): string => {
     return (a ^ ((Math.random() * 16) >> (a / 4))).toString(16);
 };
 
-// TODO: What is the value actually for?
-const generateUniqueId = (value?: any): string => {
+const generateUniqueId = (a: string = ''): string =>
     // https://gist.github.com/jed/982883
     // Added support for crypto for better random
-
-    return value // if the placeholder was passed, return
-        ? generateRandomValue(value) // a random number
-        : // or otherwise a concatenated string:
-
-          `${1e7}-${1e3}-${4e3}-${8e3}-${1e11}`.replace(
-              // replacing
-              /[018]/g, // zeroes, ones, and eights with
-              generateUniqueId // random hex digits
+    a
+        ? generateRandomValue(a)
+        : `${1e7}-${1e3}-${4e3}-${8e3}-${1e11}`.replace(
+              /[018]/g,
+              generateUniqueId
           );
-};
 
-// Returns a value between 1-100 inclusive.
+/**
+ * Returns a value between 1-100 inclusive.
+ */
 const getRampNumber = (idString?: string): number => {
     if (!idString) {
         return 100;
@@ -158,7 +171,6 @@ export {
     decoded,
     findKeyInObject,
     generateHash,
-    generateRandomValue,
     generateUniqueId,
     getRampNumber,
     inArray,
