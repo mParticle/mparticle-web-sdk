@@ -725,7 +725,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.19.2";
+    var version = "2.19.3";
 
     var Constants = {
       sdkVersion: version,
@@ -2111,12 +2111,27 @@ var mParticle = (function () {
       }
     }
 
+    /**
+     * BatchUploader contains all the logic to upload batches to mParticle.
+     * It queues events as they come in and at set intervals turns them into batches.
+     * It then attempts to upload them to mParticle.
+     *
+     * These uploads happen on an interval basis using window.fetch or XHR
+     * requests, depending on what is available in the browser.
+     *
+     * Uploads can also be triggered on browser visibility/focus changes via an
+     * event listener, which then uploads to mPartice via the browser's Beacon API.
+     */
+
     var BatchUploader =
     /** @class */
     function () {
+      /**
+       * Creates an instance of a BatchUploader
+       * @param {MParticleWebSDK} mpInstance - the mParticle SDK instance
+       * @param {number} uploadInterval - the desired upload interval in milliseconds
+       */
       function BatchUploader(mpInstance, uploadInterval) {
-        var _this_1 = this;
-
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
@@ -2125,8 +2140,8 @@ var mParticle = (function () {
           this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
         }
 
-        this.pendingEvents = [];
-        this.pendingUploads = [];
+        this.eventsQueuedForProcessing = [];
+        this.batchesQueuedForProcessing = [];
         var _a = this.mpInstance._Store,
             SDKConfig = _a.SDKConfig,
             devToken = _a.devToken;
@@ -2134,14 +2149,16 @@ var mParticle = (function () {
         var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
 
         this.uploadUrl = "".concat(baseUrl, "/events");
-        setTimeout(function () {
-          _this_1.prepareAndUpload(true, false);
-        }, this.uploadIntervalMillis);
+        this.uploader = window.fetch ? new FetchUploader(this.uploadUrl) : new XHRUploader(this.uploadUrl);
+        this.triggerUploadInterval(true, false);
         this.addEventListeners();
-      }
+      } // Adds listeners to be used trigger Navigator.sendBeacon if the browser
+      // loses focus for any reason, such as closing browser tab or minimizing window
+
 
       BatchUploader.prototype.addEventListeners = function () {
-        var _this = this;
+        var _this = this; // visibility change is a document property, not window
+
 
         document.addEventListener('visibilitychange', function () {
           _this.prepareAndUpload(false, _this.isBeaconAvailable());
@@ -2160,13 +2177,36 @@ var mParticle = (function () {
         }
 
         return false;
+      }; // Triggers a setTimeout for prepareAndUpload
+
+
+      BatchUploader.prototype.triggerUploadInterval = function (triggerFuture, useBeacon) {
+        var _this_1 = this;
+
+        if (triggerFuture === void 0) {
+          triggerFuture = false;
+        }
+
+        if (useBeacon === void 0) {
+          useBeacon = false;
+        }
+
+        setTimeout(function () {
+          _this_1.prepareAndUpload(triggerFuture, useBeacon);
+        }, this.uploadIntervalMillis);
       };
+      /**
+       * This method will queue a single Event which will eventually be processed into a Batch
+       * @param event event that should be queued
+       */
+
 
       BatchUploader.prototype.queueEvent = function (event) {
         if (!isEmpty(event)) {
-          this.pendingEvents.push(event);
+          this.eventsQueuedForProcessing.push(event);
           this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
-          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.pendingEvents.length));
+          this.mpInstance.Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length)); // TODO: Remove this check once the v2 code path is removed
+          //       https://go.mparticle.com/work/SQDSDKS-3720
 
           if (!this.batchingEnabled || Types.TriggerUploadType[event.EventDataType]) {
             this.prepareAndUpload(false, false);
@@ -2184,7 +2224,7 @@ var mParticle = (function () {
        */
 
 
-      BatchUploader.createNewUploads = function (sdkEvents, defaultUser, mpInstance) {
+      BatchUploader.createNewBatches = function (sdkEvents, defaultUser, mpInstance) {
         if (!defaultUser || !sdkEvents || !sdkEvents.length) {
           return null;
         } //bucket by MPID, and then by session, ordered by timestamp
@@ -2264,41 +2304,40 @@ var mParticle = (function () {
 
       BatchUploader.prototype.prepareAndUpload = function (triggerFuture, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
-          var currentUser, currentEvents, newUploads, currentUploads, remainingUploads;
+          var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload;
 
           var _a, _b;
-
-          var _this_1 = this;
 
           return __generator(this, function (_c) {
             switch (_c.label) {
               case 0:
                 currentUser = this.mpInstance.Identity.getCurrentUser();
-                currentEvents = this.pendingEvents;
-                this.pendingEvents = [];
-                newUploads = BatchUploader.createNewUploads(currentEvents, currentUser, this.mpInstance);
+                currentEvents = this.eventsQueuedForProcessing;
+                this.eventsQueuedForProcessing = [];
+                newBatches = BatchUploader.createNewBatches(currentEvents, currentUser, this.mpInstance);
 
-                if (newUploads && newUploads.length) {
-                  (_a = this.pendingUploads).push.apply(_a, newUploads);
+                if (!isEmpty(newBatches)) {
+                  (_a = this.batchesQueuedForProcessing).push.apply(_a, newBatches);
                 }
 
-                currentUploads = this.pendingUploads;
-                this.pendingUploads = [];
+                batchesToUpload = this.batchesQueuedForProcessing;
+                this.batchesQueuedForProcessing = [];
                 return [4
                 /*yield*/
-                , this.upload(this.mpInstance.Logger, currentUploads, useBeacon)];
+                , this.uploadBatches(this.mpInstance.Logger, batchesToUpload, useBeacon)];
 
               case 1:
-                remainingUploads = _c.sent();
+                batchesThatDidNotUpload = _c.sent(); // Batches that do not successfully upload are added back to the process queue
+                // in the order they were created so that we can attempt re-transmission in
+                // the same sequence. This is to prevent any potential data corruption.
 
-                if (remainingUploads && remainingUploads.length) {
-                  (_b = this.pendingUploads).unshift.apply(_b, remainingUploads);
+                if (!isEmpty(batchesThatDidNotUpload)) {
+                  // TODO: https://go.mparticle.com/work/SQDSDKS-5165
+                  (_b = this.batchesQueuedForProcessing).unshift.apply(_b, batchesThatDidNotUpload);
                 }
 
                 if (triggerFuture) {
-                  setTimeout(function () {
-                    _this_1.prepareAndUpload(true, false);
-                  }, this.uploadIntervalMillis);
+                  this.triggerUploadInterval(triggerFuture, false);
                 }
 
                 return [2
@@ -2307,16 +2346,18 @@ var mParticle = (function () {
             }
           });
         });
-      };
+      }; // TODO: Refactor to use logger as a class method
+      // https://go.mparticle.com/work/SQDSDKS-5167
 
-      BatchUploader.prototype.upload = function (logger, _uploads, useBeacon) {
+
+      BatchUploader.prototype.uploadBatches = function (logger, batches, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
-          var uploader, uploads, i, fetchPayload, blob, response, e_1;
+          var uploads, i, fetchPayload, blob, response, e_1;
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
-                uploads = _uploads.filter(function (upload) {
-                  return !isEmpty(upload.events);
+                uploads = batches.filter(function (batch) {
+                  return !isEmpty(batch.events);
                 });
 
                 if (isEmpty(uploads)) {
@@ -2333,7 +2374,7 @@ var mParticle = (function () {
               case 1:
                 if (!(i < uploads.length)) return [3
                 /*break*/
-                , 7];
+                , 6];
                 fetchPayload = {
                   method: 'POST',
                   headers: {
@@ -2351,33 +2392,22 @@ var mParticle = (function () {
                 navigator.sendBeacon(this.uploadUrl, blob);
                 return [3
                 /*break*/
-                , 6];
+                , 5];
 
               case 2:
-                if (!uploader) {
-                  if (window.fetch) {
-                    uploader = new FetchUploader(this.uploadUrl, logger);
-                  } else {
-                    uploader = new XHRUploader(this.uploadUrl, logger);
-                  }
-                }
-
-                _a.label = 3;
-
-              case 3:
-                _a.trys.push([3, 5,, 6]);
+                _a.trys.push([2, 4,, 5]);
 
                 return [4
                 /*yield*/
-                , uploader.upload(fetchPayload, uploads, i)];
+                , this.uploader.upload(fetchPayload)];
 
-              case 4:
+              case 3:
                 response = _a.sent();
 
                 if (response.status >= 200 && response.status < 300) {
                   logger.verbose("Upload success for request ID: ".concat(uploads[i].source_request_id));
                 } else if (response.status >= 500 || response.status === 429) {
-                  logger.error("HTTP error status ".concat(response.status, " received")); //server error, add back current events and try again later
+                  logger.error("HTTP error status ".concat(response.status, " received")); // Server error, add back current batches and try again later
 
                   return [2
                   /*return*/
@@ -2388,33 +2418,37 @@ var mParticle = (function () {
                   return [2
                   /*return*/
                   , null];
+                } else {
+                  // In case there is an HTTP error we did not anticipate.
+                  console.error("HTTP error status ".concat(response.status, " while uploading events."), response);
+                  throw new Error("Uncaught HTTP Error ".concat(response.status, ".  Batch upload will be re-attempted."));
                 }
 
                 return [3
                 /*break*/
-                , 6];
+                , 5];
 
-              case 5:
+              case 4:
                 e_1 = _a.sent();
                 logger.error("Error sending event to mParticle servers. ".concat(e_1));
                 return [2
                 /*return*/
                 , uploads.slice(i, uploads.length)];
 
-              case 6:
+              case 5:
                 i++;
                 return [3
                 /*break*/
                 , 1];
 
-              case 7:
+              case 6:
                 return [2
                 /*return*/
                 , null];
             }
           });
         });
-      }; //we upload JSON, but this content type is required to avoid a CORS preflight request
+      }; // We upload JSON, but this content type is required to avoid a CORS preflight request
 
 
       BatchUploader.CONTENT_TYPE = 'text/plain;charset=UTF-8';
@@ -2425,9 +2459,8 @@ var mParticle = (function () {
     var AsyncUploader =
     /** @class */
     function () {
-      function AsyncUploader(url, logger) {
+      function AsyncUploader(url) {
         this.url = url;
-        this.logger = logger;
       }
 
       return AsyncUploader;
@@ -2442,7 +2475,7 @@ var mParticle = (function () {
         return _super !== null && _super.apply(this, arguments) || this;
       }
 
-      FetchUploader.prototype.upload = function (fetchPayload, uploads, i) {
+      FetchUploader.prototype.upload = function (fetchPayload) {
         return __awaiter(this, void 0, void 0, function () {
           var response;
           return __generator(this, function (_a) {
@@ -2474,7 +2507,7 @@ var mParticle = (function () {
         return _super !== null && _super.apply(this, arguments) || this;
       }
 
-      XHRUploader.prototype.upload = function (fetchPayload, uploads, i) {
+      XHRUploader.prototype.upload = function (fetchPayload) {
         return __awaiter(this, void 0, void 0, function () {
           var response;
           return __generator(this, function (_a) {
@@ -2482,7 +2515,7 @@ var mParticle = (function () {
               case 0:
                 return [4
                 /*yield*/
-                , this.makeRequest(this.url, this.logger, fetchPayload.body)];
+                , this.makeRequest(this.url, fetchPayload.body)];
 
               case 1:
                 response = _a.sent();
@@ -2494,7 +2527,7 @@ var mParticle = (function () {
         });
       };
 
-      XHRUploader.prototype.makeRequest = function (url, logger, data) {
+      XHRUploader.prototype.makeRequest = function (url, data) {
         return __awaiter(this, void 0, void 0, function () {
           var xhr;
           return __generator(this, function (_a) {
@@ -3170,6 +3203,11 @@ var mParticle = (function () {
         }
 
         return filteredUserAttributes;
+      };
+
+      this.isFilteredUserAttribute = function (userAttributeKey, filterList) {
+        var hashedUserAttribute = self.generateHash(userAttributeKey);
+        return filterList && self.inArray(filterList, hashedUserAttribute);
       };
 
       this.isEventType = function (type) {
@@ -6150,6 +6188,10 @@ var mParticle = (function () {
 
     function Forwarders(mpInstance, kitBlocker) {
       var self = this;
+      var UserAttributeActionTypes = {
+        setUserAttribute: 'setUserAttribute',
+        removeUserAttribute: 'removeUserAttribute'
+      };
 
       this.initForwarders = function (userIdentities, forwardingStatsCallback) {
         var user = mpInstance.Identity.getCurrentUser();
@@ -6384,26 +6426,34 @@ var mParticle = (function () {
         }
       };
 
-      this.callSetUserAttributeOnForwarders = function (key, value) {
-        if (kitBlocker && kitBlocker.isAttributeKeyBlocked(key)) {
+      this.handleForwarderUserAttributes = function (functionNameKey, key, value) {
+        if (kitBlocker && kitBlocker.isAttributeKeyBlocked(key) || !mpInstance._Store.activeForwarders.length) {
           return;
         }
 
-        if (mpInstance._Store.activeForwarders.length) {
-          mpInstance._Store.activeForwarders.forEach(function (forwarder) {
-            if (forwarder.setUserAttribute && forwarder.userAttributeFilters && !mpInstance._Helpers.inArray(forwarder.userAttributeFilters, mpInstance._Helpers.generateHash(key))) {
-              try {
-                var result = forwarder.setUserAttribute(key, value);
+        mpInstance._Store.activeForwarders.forEach(function (forwarder) {
+          var forwarderFunction = forwarder[functionNameKey];
 
-                if (result) {
-                  mpInstance.Logger.verbose(result);
-                }
-              } catch (e) {
-                mpInstance.Logger.error(e);
-              }
+          if (!forwarderFunction || mpInstance._Helpers.isFilteredUserAttribute(key, forwarder.userAttributeFilters)) {
+            return;
+          }
+
+          try {
+            var result;
+
+            if (functionNameKey === UserAttributeActionTypes.setUserAttribute) {
+              result = forwarder.setUserAttribute(key, value);
+            } else if (functionNameKey === UserAttributeActionTypes.removeUserAttribute) {
+              result = forwarder.removeUserAttribute(key);
             }
-          });
-        }
+
+            if (result) {
+              mpInstance.Logger.verbose(result);
+            }
+          } catch (e) {
+            mpInstance.Logger.error(e);
+          }
+        });
       };
 
       this.setForwarderUserIdentities = function (userIdentities) {
@@ -7608,7 +7658,7 @@ var mParticle = (function () {
 
                 mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
 
-                mpInstance._Forwarders.callSetUserAttributeOnForwarders(key, newValue);
+                mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, newValue);
               }
             }
           },
@@ -7677,7 +7727,7 @@ var mParticle = (function () {
 
               mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
 
-              mpInstance._Forwarders.applyToForwarders('removeUserAttribute', key);
+              mpInstance._Forwarders.handleForwarderUserAttributes('removeUserAttribute', key, null);
             }
           },
 
@@ -7755,7 +7805,7 @@ var mParticle = (function () {
 
               mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
 
-              mpInstance._Forwarders.callSetUserAttributeOnForwarders(key, arrayCopy);
+              mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, arrayCopy);
             }
           },
 
@@ -7778,7 +7828,7 @@ var mParticle = (function () {
               if (userAttributes) {
                 for (var prop in userAttributes) {
                   if (userAttributes.hasOwnProperty(prop)) {
-                    mpInstance._Forwarders.applyToForwarders('removeUserAttribute', prop);
+                    mpInstance._Forwarders.handleForwarderUserAttributes('removeUserAttribute', prop, null);
                   }
 
                   this.removeUserAttribute(prop);
