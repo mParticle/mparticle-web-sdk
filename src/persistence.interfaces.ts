@@ -22,6 +22,10 @@ export interface iForwardingStatsBatches {
     forwardingStatsEventQueue: ForwardingStatsData[];
 }
 
+// TODO: Migrate this to @types/mparticle__web-sdk
+//       https://go.mparticle.com/work/SQDSDKS-5196
+export type UserAttributes = AllUserAttributes;
+
 export interface IGlobalStoreV2MinifiedKeys {
     sid: string; // Session ID
     ie: boolean; // Is Enabled
@@ -116,9 +120,7 @@ export interface IPersistence {
     ): void;
     saveUserAttributesToPersistence(
         mpid: MPID,
-        // TODO: UserAttributes is not a thing, but we have `AllUserAttributes`
-        //       Is there a difference?
-        userAttributes: AllUserAttributes
+        userAttributes: UserAttributes
     ): void;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
     saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
