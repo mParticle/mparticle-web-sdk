@@ -22,7 +22,7 @@ export interface iForwardingStatsBatches {
     forwardingStatsEventQueue: ForwardingStatsData[];
 }
 
-export interface IGlobalStoreV2DTO {
+export interface IGlobalStoreV2MinifiedKeys {
     sid: string; // Session ID
     ie: boolean; // Is Enabled
     sa: SessionAttributes;
@@ -38,10 +38,41 @@ export interface IGlobalStoreV2DTO {
     ssd: number; // Session Start Date
 }
 
-export interface IPersistenceV2DTO {
+export interface IPersistenceMinified extends Dictionary {
     cu: MPID; // Current User MPID
-    gs: IGlobalStoreV2DTO;
+    gs: IGlobalStoreV2MinifiedKeys;
     l: false; // IsLoggedIn
+
+    // Persistence Minified can also store optional dictionaries with
+    // an idex of MPID
+    // [mpid: MPID]: Dictionary<any>;
+
+    // For Example:
+    // {
+    //     cu: '123345',
+    //     gs: {
+    //         sid: '123',
+    //         ie: false,
+    //         sa: {},
+    //         ss: {},
+    //         dt: '',
+    //         av: '',
+    //         cgid: '123',
+    //         das: 'das',
+    //         ia: {},
+    //         c: null,
+    //         csm: ['123'],
+    //         les: 0,
+    //         ssd: 0,
+    //     },
+    //     l: false,
+    //     MPID1: {
+    //         csd: [],
+    //         ui: {
+    //             customerid: '12346',
+    //         },
+    //     },
+    // };
 }
 
 export interface IPersistence {
@@ -49,24 +80,24 @@ export interface IPersistence {
     initializeStorage(): void;
     update(): void;
     storeProductsInMemory(products: Product[], mpid: MPID): void;
-    storeDataInMemory(obj: IPersistenceV2DTO, currentMPID: MPID): void;
+    storeDataInMemory(obj: IPersistenceMinified, currentMPID: MPID): void;
     determineLocalStorageAvailability(storage: Storage): boolean;
     getUserProductsFromLS(mpid: MPID): Product[];
     getAllUserProductsFromLS(): Product[];
     setLocalStorage(): void;
-    getLocalStorage(): IPersistenceV2DTO | null;
+    getLocalStorage(): IPersistenceMinified | null;
     expireCookies(cookieName: string): void;
-    getCookie(): IPersistenceV2DTO | null;
+    getCookie(): IPersistenceMinified | null;
     setCookie(): void;
     reduceAndEncodePersistence(
-        persistence: IPersistenceV2DTO,
+        persistence: IPersistenceMinified,
         expires: string,
         domain: string,
         maxCookieSize: number
     ): void;
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
-    encodePersistence(persistance: IPersistenceV2DTO): string;
-    decodePersistence(persistance: IPersistenceV2DTO): string;
+    encodePersistence(persistance: IPersistenceMinified): string;
+    decodePersistence(persistance: IPersistenceMinified): string;
     replaceCommasWithPipes(string: string): string;
     replacePipesWithCommas(string: string): string;
     replaceApostrophesWithQuotes(string: string): string;
@@ -85,12 +116,14 @@ export interface IPersistence {
     ): void;
     saveUserAttributesToPersistence(
         mpid: MPID,
-        userAttributes: UserAttributes
+        // TODO: UserAttributes is not a thing, but we have `AllUserAttributes`
+        //       Is there a difference?
+        userAttributes: AllUserAttributes
     ): void;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
     saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
-    savePersistence(persistance: IPersistenceV2DTO): void;
-    getPersistence(): IPersistenceV2DTO;
+    savePersistence(persistance: IPersistenceMinified): void;
+    getPersistence(): IPersistenceMinified;
     getConsentState(mpid: MPID): ConsentState | null;
     getFirstSeenTime(mpid: MPID): string | null;
     setFirstSeenTime(mpid: MPID, time: number): void;
