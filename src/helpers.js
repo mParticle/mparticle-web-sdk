@@ -26,7 +26,7 @@ export default function Helpers(mpInstance) {
         return null;
     };
 
-    this.invokeCallback = function (
+    this.invokeCallback = function(
         callback,
         code,
         body,
@@ -273,7 +273,7 @@ export default function Helpers(mpInstance) {
         return xhr;
     };
 
-    this.filterUserIdentities = function (userIdentitiesObject, filterList) {
+    this.filterUserIdentities = function(userIdentitiesObject, filterList) {
         var filteredUserIdentities = [];
 
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
@@ -359,7 +359,7 @@ export default function Helpers(mpInstance) {
         return false;
     };
 
-    this.sanitizeAttributes = function (attrs, name) {
+    this.sanitizeAttributes = function(attrs, name) {
         if (!attrs || !self.isObject(attrs)) {
             return null;
         }
