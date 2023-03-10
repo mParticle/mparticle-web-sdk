@@ -959,6 +959,9 @@ export default function _Persistence(mpInstance) {
         if (userAttributes) {
             if (persistence) {
                 if (persistence[mpid]) {
+                    // TODO: Investigate why setting this to UI still shows up as UA
+                    //       when running `mParticle.getInstance()._Persistence.getLocalStorage()`
+                    // https://go.mparticle.com/work/SQDSDKS-5195
                     persistence[mpid].ui = userAttributes;
                 } else {
                     persistence[mpid] = {

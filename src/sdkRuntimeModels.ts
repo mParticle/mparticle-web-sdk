@@ -7,6 +7,7 @@ import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
+import { IPersistence } from './persistence.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -139,7 +140,7 @@ export interface MParticleWebSDK {
     _Consent: SDKConsentApi;
     Consent: SDKConsentApi;
     _NativeSdkHelpers: any; // TODO: Set up API
-    _Persistence: any; // TODO: Set up Persistence API
+    _Persistence: IPersistence;
     _preInit: any; // TODO: Set up API
     _resetForTests(MPConfig?: SDKInitConfig): void;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;

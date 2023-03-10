@@ -101,6 +101,8 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
 export type PixelConfiguration = Dictionary;
 export type MigrationData = Dictionary;
 export type ServerSettings = Dictionary;
+export type SessionAttributes = Dictionary;
+export type IntegrationAttributes = Dictionary<Dictionary<string>>;
 
 type WrapperSDKTypes = 'flutter' | 'none';
 interface WrapperSDKInfo {
@@ -112,7 +114,7 @@ interface WrapperSDKInfo {
 // Temporary Interface until Store can be refactored as a class
 export interface IStore {
     isEnabled: boolean;
-    sessionAttributes: Dictionary;
+    sessionAttributes: SessionAttributes;
     currentSessionMPIDs: MPID[];
     consentState: SDKConsentState | null;
     sessionId: string | null;
@@ -140,7 +142,7 @@ export interface IStore {
     identifyCalled: boolean;
     isLoggedIn: boolean;
     cookieSyncDates: Dictionary<number>;
-    integrationAttributes: Dictionary<Dictionary<string>>;
+    integrationAttributes: IntegrationAttributes;
     requireDelay: boolean;
     isLocalStorageAvailable: boolean | null;
     storageName: string | null;
