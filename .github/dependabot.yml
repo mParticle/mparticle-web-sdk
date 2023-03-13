@@ -4,7 +4,7 @@ updates:
       directory: '/'
       schedule:
           interval: daily
-      target-branch: 'chore/development'
+      target-branch: 'chore/dependabot'
       labels: ['dependabot']
       open-pull-requests-limit: 10
       commit-message:
