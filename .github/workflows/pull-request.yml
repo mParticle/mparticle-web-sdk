@@ -27,9 +27,6 @@ jobs:
             - name: Lint with Prettier
               run: npm run prettier
 
-            - name: Build Files
-              run: npm run build
-
             - name: Archive Bundle
               uses: actions/upload-artifact@v3
               with:
@@ -61,10 +58,8 @@ jobs:
             - name: Run NPM CI
               run: npm ci
 
-            - name: Download Local Bundle
-              uses: actions/download-artifact@v3
-              with:
-                  name: bundle-local
+            - name: Build Files
+              run: npm run build:iife
 
             - name: Install Firefox Latest
               uses: browser-actions/setup-firefox@latest
@@ -162,10 +157,8 @@ jobs:
             - name: Run NPM CI
               run: npm ci
 
-            - name: Download Local Bundle
-              uses: actions/download-artifact@v3
-              with:
-                  name: bundle-local
+            - name: Build Files
+              run: npm run build:npm
 
             - name: Build Test Bundle
               run: npm run build:test-bundle
@@ -202,10 +195,8 @@ jobs:
             - name: Run NPM CI
               run: npm ci
 
-            - name: Download Local Bundle
-              uses: actions/download-artifact@v3
-              with:
-                  name: bundle-local
+            - name: Build Files
+              run: npm run build:esm
 
             - name: Build Test Bundle
               run: npm run build:test-bundle
