@@ -675,10 +675,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
     this.processPixelConfigs = function(config) {
         try {
-            if (
-                Array.isArray(config.pixelConfigs) &&
-                config.pixelConfigs.length
-            ) {
+            if (!isEmpty(config.pixelConfigs)) {
                 config.pixelConfigs.forEach(function(pixelConfig) {
                     self.configurePixel(pixelConfig);
                 });
