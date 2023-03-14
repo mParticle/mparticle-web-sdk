@@ -416,6 +416,7 @@ var pluses = /\+/g,
             name: this.name,
         };
     },
+    MockSideloadedKit = MockForwarder,
     mParticleAndroid = function() {
         var self = this;
 
@@ -537,6 +538,7 @@ var TestsCore = {
     findRequest: findRequest,
     getIdentityEvent: getIdentityEvent,
     MockForwarder: MockForwarder,
+    MockSideloadedKit: MockSideloadedKit,
     mParticleAndroid: mParticleAndroid,
     mParticleIOS: mParticleIOS,
     v4CookieKey: v4CookieKey,

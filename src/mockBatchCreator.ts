@@ -40,6 +40,7 @@ export default class _BatchValidator {
             _SessionManager: null,
             _Store: {
                 sessionId: 'mockSessionId',
+                sideloadedKits: [],
                 devToken: 'test_dev_token',
                 isFirstRun: true,
                 isEnabled: true,

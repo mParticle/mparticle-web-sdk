@@ -115,7 +115,6 @@ describe('session bug fix test', function() {
         clock.tick(70000);
 
         mParticle.logEvent('Test Event2');
-        // debugger;s
         var testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
         testEvent.data.session_uuid.should.not.equal(testEvent2.data.session_uuid);
         mParticle.getInstance()._SessionManager.clearSessionTimeout(); clock.restore();
