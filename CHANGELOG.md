@@ -1,3 +1,10 @@
+# [2.20.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.19.3...v2.20.0) (2023-03-15)
+
+
+### Features
+
+* Support sideloaded kits ([#395](https://github.com/mParticle/mparticle-web-sdk/issues/395)) ([aa86073](https://github.com/mParticle/mparticle-web-sdk/commit/aa86073adc768a448b7d443101fd7f086cb34518))
+
 ## [2.19.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.19.2...v2.19.3) (2023-03-08)
 
 
