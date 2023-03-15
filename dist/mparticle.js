@@ -725,7 +725,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.19.3";
+    var version = "2.20.0";
 
     var Constants = {
       sdkVersion: version,
@@ -4307,6 +4307,7 @@ var mParticle = (function () {
         prodStorageName: null,
         activeForwarders: [],
         kits: {},
+        sideloadedKits: [],
         configuredForwarders: [],
         pixelConfigurations: [],
         wrapperSDKInfo: {
@@ -4364,6 +4365,7 @@ var mParticle = (function () {
 
         this.SDKConfig.useNativeSdk = !!config.useNativeSdk;
         this.SDKConfig.kits = config.kits || {};
+        this.SDKConfig.sideloadedKits = config.sideloadedKits || [];
 
         if (config.hasOwnProperty('isIOS')) {
           this.SDKConfig.isIOS = config.isIOS;
@@ -5359,6 +5361,9 @@ var mParticle = (function () {
         if (userAttributes) {
           if (persistence) {
             if (persistence[mpid]) {
+              // TODO: Investigate why setting this to UI still shows up as UA
+              //       when running `mParticle.getInstance()._Persistence.getLocalStorage()`
+              // https://go.mparticle.com/work/SQDSDKS-5195
               persistence[mpid].ui = userAttributes;
             } else {
               persistence[mpid] = {
@@ -6534,16 +6539,50 @@ var mParticle = (function () {
 
       this.setForwarderStatsQueue = function (queue) {
         mpInstance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue = queue;
+      }; // Processing forwarders is a 2 step process:
+      //   1. Configure the kit
+      //   2. Initialize the kit
+      // There are 2 types of kits:
+      //   1. UI-enabled kits
+      //   2. Sideloaded kits.
+
+
+      this.processForwarders = function (config, forwardingStatsCallback) {
+        if (!config) {
+          mpInstance.Logger.warning('No config was passed. Cannot process forwarders');
+        } else {
+          this.processUIEnabledKits(config);
+          this.processSideloadedKits(config);
+          self.initForwarders(mpInstance._Store.SDKConfig.identifyRequest.userIdentities, forwardingStatsCallback);
+        }
+      }; // These are kits that are enabled via the mParticle UI.
+      // A kit that is UI-enabled will have a kit configuration that returns from
+      // the server, or in rare cases, is passed in by the developer.
+      // The kit configuration will be compared with the kit constructors to determine
+      // if there is a match before being initialized.
+      // Only kits that are configured properly can be active and used for kit forwarding.
+
+
+      this.processUIEnabledKits = function (config) {
+        try {
+          if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
+            config.kitConfigs.forEach(function (kitConfig) {
+              self.configureUIEnabledKit(kitConfig);
+            });
+          }
+        } catch (e) {
+          mpInstance.Logger.error('MP Kits not configured propertly. Kits may not be initialized. ' + e);
+        }
       };
 
-      this.configureForwarder = function (configuration) {
+      this.configureUIEnabledKit = function (configuration) {
         var newForwarder = null,
             config = configuration,
-            forwarders = {}; // if there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
+            forwarders = {}; // If there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
 
-        if (mpInstance._Helpers.isObject(mpInstance._Store.SDKConfig.kits) && Object.keys(mpInstance._Store.SDKConfig.kits).length > 0) {
+        if (!isEmpty(mpInstance._Store.SDKConfig.kits)) {
           forwarders = mpInstance._Store.SDKConfig.kits; // otherwise mParticle is loaded via script tag
-        } else if (mpInstance._preInit.forwarderConstructors.length > 0) {
+        } else if (!isEmpty(mpInstance._preInit.forwarderConstructors)) {
           mpInstance._preInit.forwarderConstructors.forEach(function (forwarder) {
             forwarders[forwarder.name] = forwarder;
           });
@@ -6552,25 +6591,7 @@ var mParticle = (function () {
         for (var name in forwarders) {
           if (name === config.name) {
             if (config.isDebug === mpInstance._Store.SDKConfig.isDevelopmentMode || config.isSandbox === mpInstance._Store.SDKConfig.isDevelopmentMode) {
-              newForwarder = new forwarders[name].constructor();
-              newForwarder.id = config.moduleId;
-              newForwarder.isSandbox = config.isDebug || config.isSandbox;
-              newForwarder.hasSandbox = config.hasDebugString === 'true';
-              newForwarder.isVisible = config.isVisible;
-              newForwarder.settings = config.settings;
-              newForwarder.eventNameFilters = config.eventNameFilters;
-              newForwarder.eventTypeFilters = config.eventTypeFilters;
-              newForwarder.attributeFilters = config.attributeFilters;
-              newForwarder.screenNameFilters = config.screenNameFilters;
-              newForwarder.screenNameFilters = config.screenNameFilters;
-              newForwarder.screenAttributeFilters = config.screenAttributeFilters;
-              newForwarder.userIdentityFilters = config.userIdentityFilters;
-              newForwarder.userAttributeFilters = config.userAttributeFilters;
-              newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue;
-              newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue;
-              newForwarder.eventSubscriptionId = config.eventSubscriptionId;
-              newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues;
-              newForwarder.excludeAnonymousUser = config.excludeAnonymousUser;
+              newForwarder = this.returnConfiguredKit(forwarders[name], config);
 
               mpInstance._Store.configuredForwarders.push(newForwarder);
 
@@ -6578,6 +6599,68 @@ var mParticle = (function () {
             }
           }
         }
+      }; // Sideloaded kits are not configured in the UI and do not have kit configurations
+      // They are automatically added to active forwarders.
+      // TODO: Sideloading kits currently requires the use of a register method
+      // which requires an object on which to be registered.
+      // In the future, when all kits are moved to the config rather than
+      // there being a separate process for MP configured kits and
+      // sideloaded kits, this will need to be refactored.
+
+
+      this.processSideloadedKits = function (config) {
+        try {
+          if (Array.isArray(config.sideloadedKits)) {
+            var sideloadedKits = {
+              kits: {}
+            }; // First register each kit's constructor onto sideloadedKits,
+            // which is typed { kits: Dictionary<constructor> }.
+            // The constructors are keyed by the name of the kit.
+
+            config.sideloadedKits.forEach(function (sideloadedKit) {
+              sideloadedKit.register(sideloadedKits);
+            }); // Then configure each kit
+
+            for (var registeredKitKey in sideloadedKits.kits) {
+              var kitConstructor = sideloadedKits.kits[registeredKitKey];
+              self.configureSideloadedKit(kitConstructor);
+            }
+          }
+        } catch (e) {
+          mpInstance.Logger.error('Sideloaded Kits not configured propertly. Kits may not be initialized. ' + e);
+        }
+      }; // kits can be included via mParticle UI, or via sideloaded kit config API
+
+
+      this.configureSideloadedKit = function (kitConstructor) {
+        mpInstance._Store.configuredForwarders.push(this.returnConfiguredKit(kitConstructor));
+      };
+
+      this.returnConfiguredKit = function (forwarder) {
+        var config = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+        var newForwarder = new forwarder.constructor();
+        newForwarder.id = config.moduleId; // TODO: isSandbox, hasSandbox is never used in any kit or in core SDK.
+        // isVisibleInvestigate is only used in 1 place. It is always true if
+        // it is sent to JS. Investigate further to determine if these can be removed.
+        // https://go.mparticle.com/work/SQDSDKS-5156
+
+        newForwarder.isSandbox = config.isDebug || config.isSandbox;
+        newForwarder.hasSandbox = config.hasDebugString === 'true';
+        newForwarder.isVisible = config.isVisible || true;
+        newForwarder.settings = config.settings || {};
+        newForwarder.eventNameFilters = config.eventNameFilters || [];
+        newForwarder.eventTypeFilters = config.eventTypeFilters || [];
+        newForwarder.attributeFilters = config.attributeFilters || [];
+        newForwarder.screenNameFilters = config.screenNameFilters || [];
+        newForwarder.screenAttributeFilters = config.screenAttributeFilters || [];
+        newForwarder.userIdentityFilters = config.userIdentityFilters || [];
+        newForwarder.userAttributeFilters = config.userAttributeFilters || [];
+        newForwarder.filteringEventAttributeValue = config.filteringEventAttributeValue || {};
+        newForwarder.filteringUserAttributeValue = config.filteringUserAttributeValue || {};
+        newForwarder.eventSubscriptionId = config.eventSubscriptionId || null;
+        newForwarder.filteringConsentRuleValues = config.filteringConsentRuleValues || {};
+        newForwarder.excludeAnonymousUser = config.excludeAnonymousUser || false;
+        return newForwarder;
       };
 
       this.configurePixel = function (settings) {
@@ -6586,27 +6669,15 @@ var mParticle = (function () {
         }
       };
 
-      this.processForwarders = function (config, forwardingStatsCallback) {
-        if (!config) {
-          mpInstance.Logger.warning('No config was passed. Cannot process forwarders');
-        } else {
-          try {
-            if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
-              config.kitConfigs.forEach(function (kitConfig) {
-                self.configureForwarder(kitConfig);
-              });
-            }
-
-            if (Array.isArray(config.pixelConfigs) && config.pixelConfigs.length) {
-              config.pixelConfigs.forEach(function (pixelConfig) {
-                self.configurePixel(pixelConfig);
-              });
-            }
-
-            self.initForwarders(mpInstance._Store.SDKConfig.identifyRequest.userIdentities, forwardingStatsCallback);
-          } catch (e) {
-            mpInstance.Logger.error('Config was not parsed propertly. Forwarders may not be initialized.');
+      this.processPixelConfigs = function (config) {
+        try {
+          if (!isEmpty(config.pixelConfigs)) {
+            config.pixelConfigs.forEach(function (pixelConfig) {
+              self.configurePixel(pixelConfig);
+            });
           }
+        } catch (e) {
+          mpInstance.Logger.error('Cookie Sync configs not configured propertly. Cookie Sync may not be initialized. ' + e);
         }
       };
     }
@@ -10555,6 +10626,8 @@ var mParticle = (function () {
 
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
 
+        mpInstance._Forwarders.processPixelConfigs(config);
+
         mpInstance._SessionManager.initialize();
 
         mpInstance._Events.logAST(); // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
@@ -10757,6 +10830,7 @@ var mParticle = (function () {
           _SessionManager: null,
           _Store: {
             sessionId: 'mockSessionId',
+            sideloadedKits: [],
             devToken: 'test_dev_token',
             isFirstRun: true,
             isEnabled: true,
