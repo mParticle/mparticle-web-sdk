@@ -22,15 +22,16 @@ export interface IKitConfigs {
     isDebugString: BooleanStringLowerCase;
     hasDebugString: BooleanStringLowerCase;
     settings: Dictionary;
-    screenNameFilters: number[];
-    screenAttributeFilters: number[];
+    screenNameFilters: number[]; // TODO: STILL NEED VERIFICATION FROM A REAL CONFIG
+    screenAttributeFilters: number[];  // TODO: STILL NEED VERIFICATION FROM A REAL CONFIG
     userIdentityFilters: number[];
     userAttributeFilters: number[];
     eventNameFilters: number[];
     eventTypeFilters: number[];
     attributeFilters: number[];
-    filteringEventAttributeValue: Dictionary;
+    filteringEventAttributeValue: IFilteringEventAttributeValue;
     filteringConsentRuleValues: Dictionary;
+    filteringUserAttributeValue: IFilteringUserAttributeValue;
     consentRegulationFilters: number[];
     consentRegulationPurposeFilters: number[];
     messageTypeFilters: number[];
@@ -38,6 +39,25 @@ export interface IKitConfigs {
     eventSubscriptionId: number;
     excludeAnonymousUser: boolean;
 }
+
+export interface IFilteringAttributeValue {
+    eventAttributeName: string;
+    eventAttributeValue: string;
+    includeOnMatch: boolean
+}
+
+export interface IFilteringEventAttributeValue extends IFilteringAttributeValue {}
+export interface IFilteringUserAttributeValue extends IFilteringAttributeValue {}
+export interface IFilteringConsentRulesValue {
+    includeOnMatch: boolean;
+    values: IConsentRuleValue[];
+}
+
+export interface IConsentRuleValue {
+    consentPurpose: string;
+    hasConsented: boolean
+}
+
 
 export interface IPixelConfig {
     name: string;
