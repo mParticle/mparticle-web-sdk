@@ -22,8 +22,8 @@ export interface IKitConfigs {
     isDebugString: BooleanStringLowerCase;
     hasDebugString: BooleanStringLowerCase;
     settings: Dictionary;
-    screenNameFilters: number[]; // TODO: STILL NEED VERIFICATION FROM A REAL CONFIG
-    screenAttributeFilters: number[];  // TODO: STILL NEED VERIFICATION FROM A REAL CONFIG
+    screenNameFilters: number[];
+    screenAttributeFilters: number[];
     userIdentityFilters: number[];
     userAttributeFilters: number[];
     eventNameFilters: number[];
