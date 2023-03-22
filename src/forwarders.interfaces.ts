@@ -27,8 +27,8 @@ export interface ConfiguredKit
     onModifyComplete(user, filteredIdentityRequest): string | KitMappedMethodFailure;
     onUserIdentified(user): string | KitMappedMethodFailure;
     process(event: SDKEvent): string;
-    removeUserAttribute(key:string): string;
     setOptOut(isOptingOut: boolean): string | KitMappedMethodFailure;
+    removeUserAttribute(key:string): string;
     setUserAttribute(key: string, value:string): void;
 
     // TODO: Convert type to enum during Identity migration
