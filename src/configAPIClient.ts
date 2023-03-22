@@ -29,9 +29,9 @@ export interface IKitConfigs {
     eventNameFilters: number[];
     eventTypeFilters: number[];
     attributeFilters: number[];
-    filteringEventAttributeValue: IFilteringEventAttributeValue;
-    filteringConsentRuleValues: Dictionary;
-    filteringUserAttributeValue: IFilteringUserAttributeValue;
+    filteringEventAttributeValue: IFilteringAttributeValue;
+    filteringUserAttributeValue: IFilteringAttributeValue;
+    filteringConsentRuleValues: IFilteringConsentRulesValue;
     consentRegulationFilters: number[];
     consentRegulationPurposeFilters: number[];
     messageTypeFilters: number[];
@@ -45,9 +45,6 @@ export interface IFilteringAttributeValue {
     eventAttributeValue: string;
     includeOnMatch: boolean
 }
-
-export interface IFilteringEventAttributeValue extends IFilteringAttributeValue {}
-export interface IFilteringUserAttributeValue extends IFilteringAttributeValue {}
 export interface IFilteringConsentRulesValue {
     includeOnMatch: boolean;
     values: IConsentRuleValue[];
