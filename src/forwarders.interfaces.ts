@@ -1,6 +1,8 @@
-import { SDKEvent } from './sdkRuntimeModels';
+import { MParticleUser, SDKEvent, SDKEventCustomFlags, SDKUserIdentity } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 import { IKitConfigs } from './configAPIClient';
+import { UserAttributes } from './persistence.interfaces';
+import { IdentityApiData } from '@mparticle/web-sdk';
 
 // The state of the kit when accessed via window.KitName via CDN
 // or imported as an NPM package
@@ -19,27 +21,41 @@ export interface RegisteredKit {
 // The state of the kit aftering being configured. This is what the kit looks like when acted on.
 export interface ConfiguredKit
     extends Omit<IKitConfigs, 'isDebugString' | 'hasDebugString'> {
-    common: Dictionary;
-    init(settings, service, testMode, trackerId, userAttributes, userIdentities, appVersion, appName, customFlags, clientId): string;
-    onIdentifyComplete(user, filteredIdentityRequest): string | KitMappedMethodFailure;
-    onLoginComplete(user, filteredIdentityRequest): string | KitMappedMethodFailure;
-    onLogoutComplete(user, filteredIdentityRequest): string | KitMappedMethodFailure;
-    onModifyComplete(user, filteredIdentityRequest): string | KitMappedMethodFailure;
-    onUserIdentified(user): string | KitMappedMethodFailure;
+    common: Dictionary<unknown>;
+    init(
+        settings: Dictionary<unknown>,
+        service: prepareForwardingStats,
+        testMode: boolean,
+        trackerId: string,
+        userAttributes: UserAttributes,
+        userIdentities: SDKUserIdentity,
+        appVersion: string,
+        appName:string,
+        customFlags:SDKEventCustomFlags,
+        clientId:string): string;
+    onIdentifyComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
+    onLoginComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
+    onLogoutComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
+    onModifyComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
+    onUserIdentified(user: MParticleUser): string | KitMappedMethodFailure;
     process(event: SDKEvent): string;
     setOptOut(isOptingOut: boolean): string | KitMappedMethodFailure;
     removeUserAttribute(key:string): string;
-    setUserAttribute(key: string, value:string): void;
+    setUserAttribute(key: string, value:string): string;
 
     // TODO: Convert type to enum during Identity migration
     // https://go.mparticle.com/work/SQDSDKS-5218
-    setUserIdentity(id: string, type: number): void;
+    setUserIdentity(id: UserIdentityId, type: UserIdentityType): void;
 
     // TODO: https://go.mparticle.com/work/SQDSDKS-5156
     isSandbox: boolean;  
     hasSandbox: boolean;
 }
-
 export interface KitMappedMethodFailure {
     error: string
 }
+
+export type UserIdentityId = string;
+export type UserIdentityType = number;
+
+export type prepareForwardingStats = (forwarder: ConfiguredKit, event: SDKEvent) => void;
