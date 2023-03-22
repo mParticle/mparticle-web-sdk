@@ -18,7 +18,7 @@ export interface RegisteredKit {
     getId(): number;
 }
 
-// The state of the kit aftering being configured. This is what the kit looks like when acted on.
+// The state of the kit after being configured. This is what the kit looks like when acted on.
 export interface ConfiguredKit
     extends Omit<IKitConfigs, 'isDebugString' | 'hasDebugString'> {
     common: Dictionary<unknown>;
