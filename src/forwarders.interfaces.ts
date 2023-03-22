@@ -24,7 +24,7 @@ export interface ConfiguredKit
     common: Dictionary<unknown>;
     init(
         settings: Dictionary<unknown>,
-        service: prepareForwardingStats,
+        service: forwardingStatsCallback,
         testMode: boolean,
         trackerId: string | null,
         userAttributes: UserAttributes,
