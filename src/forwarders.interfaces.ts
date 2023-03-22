@@ -26,13 +26,13 @@ export interface ConfiguredKit
         settings: Dictionary<unknown>,
         service: prepareForwardingStats,
         testMode: boolean,
-        trackerId: string,
+        trackerId: string | null,
         userAttributes: UserAttributes,
         userIdentities: SDKUserIdentity,
         appVersion: string,
-        appName:string,
-        customFlags:SDKEventCustomFlags,
-        clientId:string): string;
+        appName: string,
+        customFlags: SDKEventCustomFlags,
+        clientId: string): string;
     onIdentifyComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
     onLoginComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
     onLogoutComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
@@ -40,7 +40,7 @@ export interface ConfiguredKit
     onUserIdentified(user: MParticleUser): string | KitMappedMethodFailure;
     process(event: SDKEvent): string;
     setOptOut(isOptingOut: boolean): string | KitMappedMethodFailure;
-    removeUserAttribute(key:string): string;
+    removeUserAttribute(key: string): string;
     setUserAttribute(key: string, value:string): string;
 
     // TODO: Convert type to enum during Identity migration
@@ -58,4 +58,4 @@ export interface KitMappedMethodFailure {
 export type UserIdentityId = string;
 export type UserIdentityType = number;
 
-export type prepareForwardingStats = (forwarder: ConfiguredKit, event: SDKEvent) => void;
+export type forwardingStatsCallback = (forwarder: ConfiguredKit, event: SDKEvent) => void;
