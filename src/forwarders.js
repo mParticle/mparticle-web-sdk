@@ -650,7 +650,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         newForwarder.id = config.moduleId;
 
         // TODO: isSandbox, hasSandbox is never used in any kit or in core SDK.
-        // isVisibleInvestigate is only used in 1 place. It is always true if
+        // isVisible.  Investigate is only used in 1 place. It is always true if
         // it is sent to JS. Investigate further to determine if these can be removed.
         // https://go.mparticle.com/work/SQDSDKS-5156
         newForwarder.isSandbox = config.isDebug || config.isSandbox;
