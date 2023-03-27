@@ -49,7 +49,7 @@ describe('Utils', () => {
             expect(generateUniqueId().length).to.equal(36);
             expect(typeof generateUniqueId()).to.equal('string');
 
-            // Tests format to be broken up by 5 hypens
+            // Tests format to be broken up by 4 hyphens
             expect(generateUniqueId().split('-').length).to.equal(5);
 
             window.crypto.getRandomValues = undefined;
