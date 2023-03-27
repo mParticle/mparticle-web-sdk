@@ -85,11 +85,17 @@ const generateRandomValue = (value?: string): string => {
 const generateUniqueId = (a: string = ''): string =>
     // https://gist.github.com/jed/982883
     // Added support for crypto for better random
-    a
-        ? generateRandomValue(a)
-        : `${1e7}-${1e3}-${4e3}-${8e3}-${1e11}`.replace(
-              /[018]/g,
-              generateUniqueId
+
+    a // if the placeholder was passed, return
+        ? generateRandomValue(a) // if the placeholder was passed, return
+        : // [1e7] -> // 10000000 +
+          // -1e3  -> // -1000 +
+          // -4e3  -> // -4000 +
+          // -8e3  -> // -80000000 +
+          // -1e11 -> //-100000000000,
+          `${1e7}-${1e3}-${4e3}-${8e3}-${1e11}`.replace(
+              /[018]/g, // zeroes, ones, and eights with
+              generateUniqueId // random hex digits
           );
 
 /**
