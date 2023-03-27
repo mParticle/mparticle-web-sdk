@@ -101,12 +101,12 @@ const generateUniqueId = (a: string = ''): string =>
 /**
  * Returns a value between 1-100 inclusive.
  */
-const getRampNumber = (idString?: string): number => {
-    if (!idString) {
+const getRampNumber = (value?: string): number => {
+    if (!value) {
         return 100;
     }
 
-    const hash = generateHash(idString);
+    const hash = generateHash(value);
 
     return Math.abs(hash % 100) + 1;
 };
