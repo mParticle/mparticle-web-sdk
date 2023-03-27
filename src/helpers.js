@@ -426,6 +426,8 @@ export default function Helpers(mpInstance) {
         }
     };
 
+    // TODO: Refactor SDK to directly use these methods
+    // https://go.mparticle.com/work/SQDSDKS-5239
     // Utility Functions
     this.converted = utils.converted;
     this.findKeyInObject = utils.findKeyInObject;
