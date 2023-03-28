@@ -8,7 +8,7 @@ import {
 } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
-import { isEmpty } from './utils';
+import { getRampNumber, isEmpty } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 
 /**
@@ -104,7 +104,7 @@ export class BatchUploader {
 
     private isOfflineStorageAvailable(): boolean {
         const {
-            _Helpers: { getRampNumber, getFeatureFlag },
+            _Helpers: { getFeatureFlag },
             _Store: { deviceId },
         } = this.mpInstance;
 
@@ -117,8 +117,6 @@ export class BatchUploader {
             10
         );
 
-        // TODO: Break out getRampNumber to be a utility method
-        //       https://go.mparticle.com/work/SQDSDKS-5074
         const rampNumber = getRampNumber(deviceId);
 
         // TODO: Handle cases where Local Storage is unavailable
