@@ -335,7 +335,12 @@ export class BatchUploader {
         }
 
         // Update Offline Storage with current state of batch queue
-        if (this.offlineStorageEnabled && this.batchVault) {
+        if (!useBeacon && this.offlineStorageEnabled && this.batchVault) {
+            // Note: since beacon is "Fire and forget" it will empty `batchesThatDidNotUplod`
+            // regardless of whether the batches were successfully uploaded or not. We should
+            // therefore not update Offline Storage when beacon returns, so that we can retry
+            // uploading saved batches at a later time. Batches shoudl only be remove them once
+            // they have been confirmed to have been successfully uploaded.
             this.batchVault.store(this.batchesQueuedForProcessing);
 
             // Clear batch queue since everything should be in Offline Storage
