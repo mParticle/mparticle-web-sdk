@@ -26,14 +26,14 @@ export abstract class BaseVault<StorableItem> {
         this._storageKey = storageKey;
         this.storageObject = storageObject;
 
-        this.contents = this.retrieve();
-
         // Add a fake logger in case one is not provided or needed
         this.logger = options?.logger || {
             verbose: () => {},
             warning: () => {},
             error: () => {},
         };
+
+        this.contents = this.retrieve();
     }
 
     /**
@@ -44,13 +44,16 @@ export abstract class BaseVault<StorableItem> {
     public store(item: StorableItem): void {
         this.contents = item;
 
+        const stringifiedItem = !isEmpty(item) ? JSON.stringify(item) : '';
+
         try {
-            this.storageObject.setItem(
-                this._storageKey,
-                !isEmpty(item) ? JSON.stringify(item) : ''
-            );
+            this.storageObject.setItem(this._storageKey, stringifiedItem);
+
+            this.logger.verbose(`Saving item to Storage: ${stringifiedItem}`);
         } catch (error) {
-            this.logger.error(`Cannot Save items to Storage: ${item}`);
+            this.logger.error(
+                `Cannot Save items to Storage: ${stringifiedItem}`
+            );
             this.logger.error(error as string);
         }
     }
@@ -67,6 +70,8 @@ export abstract class BaseVault<StorableItem> {
 
         this.contents = item ? JSON.parse(item) : null;
 
+        this.logger.verbose(`Retrieving item from Storage: ${item}`);
+
         return this.contents;
     }
 
@@ -76,6 +81,7 @@ export abstract class BaseVault<StorableItem> {
      * @method purge
      */
     public purge(): void {
+        this.logger.verbose('Purging Storage');
         this.contents = null;
         this.storageObject.removeItem(this._storageKey);
     }
