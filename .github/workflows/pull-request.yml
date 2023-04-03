@@ -12,6 +12,8 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
 
             - name: NPM install
               uses: actions/setup-node@v3
@@ -26,6 +28,12 @@ jobs:
 
             - name: Lint with Prettier
               run: npm run prettier
+
+            - name: Run Build IIFE
+              run: npm run build:iife
+
+            - name: Display Bundle Diff, but Fancy!
+              run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
             - name: Archive Bundle
               uses: actions/upload-artifact@v3
@@ -335,8 +343,8 @@ jobs:
                   echo "| mparticle.min.js.gz | ${{ needs.build-master.outputs.bundledMasterHuman }} | ${{ needs.build-local.outputs.bundledLocalHuman }} | ${{ needs.calculate-bundled.outputs.diff_percent }} |" >> $GITHUB_STEP_SUMMARY
 
     automerge-dependabot:
-        name: "Save PR Number for Dependabot Automerge"
-        needs: 
+        name: 'Save PR Number for Dependabot Automerge'
+        needs:
             - test-core
             - test-stub
             - test-integrations-common-js
