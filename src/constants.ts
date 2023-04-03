@@ -161,7 +161,6 @@ const Constants = {
         ReportBatching: 'reportBatching',
         EventsV3: 'eventsV3',
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
-        TestNewFeatureFlag: 'this-is-a-test-in-constants',
     },
     DefaultInstance: 'default_instance',
 } as const;
