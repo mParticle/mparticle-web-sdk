@@ -232,6 +232,7 @@ export interface SDKHelpersApi {
     generateUniqueId();
     generateHash?(value: string): string;
     getFeatureFlag?(feature: string); // TODO: Feature Constants should be converted to enum
+    getRampNumber?(deviceId: string): number;
     isDelayedByIntegration?(
         delayedIntegrations: Dictionary<boolean>,
         timeoutStart: number,

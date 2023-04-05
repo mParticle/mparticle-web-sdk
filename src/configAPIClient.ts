@@ -29,9 +29,8 @@ export interface IKitConfigs {
     eventNameFilters: number[];
     eventTypeFilters: number[];
     attributeFilters: number[];
-    filteringEventAttributeValue: IFilteringAttributeValue;
-    filteringUserAttributeValue: IFilteringAttributeValue;
-    filteringConsentRuleValues: IFilteringConsentRulesValue;
+    filteringEventAttributeValue: Dictionary;
+    filteringConsentRuleValues: Dictionary;
     consentRegulationFilters: number[];
     consentRegulationPurposeFilters: number[];
     messageTypeFilters: number[];
@@ -39,22 +38,6 @@ export interface IKitConfigs {
     eventSubscriptionId: number;
     excludeAnonymousUser: boolean;
 }
-
-export interface IFilteringAttributeValue {
-    eventAttributeName: string;
-    eventAttributeValue: string;
-    includeOnMatch: boolean
-}
-export interface IFilteringConsentRulesValue {
-    includeOnMatch: boolean;
-    values: IConsentRuleValue[];
-}
-
-export interface IConsentRuleValue {
-    consentPurpose: string;
-    hasConsented: boolean
-}
-
 
 export interface IPixelConfig {
     name: string;

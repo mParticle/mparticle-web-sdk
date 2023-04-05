@@ -59,7 +59,7 @@ jobs:
 
   create-release-branch:
       name: Create release branch
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-18.04
       needs:
         - build-and-test
         - confirm-public-repo-master-branch
@@ -77,7 +77,7 @@ jobs:
 
   release:
       name: Perform Release
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-18.04
       needs: 
         - build-and-test
         - create-release-branch
@@ -142,7 +142,7 @@ jobs:
   sync-repository:
       name: Sync repositories
       needs: release
-      runs-on: ubuntu-latest
+      runs-on: ubuntu-18.04
       steps:
         - name: Checkout master branch
           uses: actions/checkout@v3

@@ -8,7 +8,7 @@ import {
     SDKEvent,
 } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
-import { Dictionary, getRampNumber } from './utils';
+import { Dictionary } from './utils';
 import { IUploadObject } from './serverModel';
 
 const Messages = Constants.Messages;
@@ -67,7 +67,9 @@ export default function APIClient(
             return false;
         }
 
-        const rampNumber = getRampNumber(mpInstance._Store.deviceId);
+        const rampNumber = mpInstance._Helpers.getRampNumber(
+            mpInstance._Store.deviceId
+        );
         return eventsV3Percentage >= rampNumber;
     };
 
