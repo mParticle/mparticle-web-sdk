@@ -2,6 +2,9 @@ import {
     converted,
     decoded,
     findKeyInObject,
+    generateHash,
+    generateUniqueId,
+    getRampNumber,
     inArray,
     isDataPlanSlug,
     isEmpty,
@@ -9,11 +12,76 @@ import {
     isStringOrNumber,
     parseNumber,
     parseStringOrNumber,
-    returnConvertedBoolean
+    returnConvertedBoolean,
 } from '../../src/utils';
 import { expect } from 'chai';
 
 describe('Utils', () => {
+    describe('#generateHash', () => {
+        it('should a hash number with a valid input', () => {
+            expect(generateHash('A'), 'A').to.equal(97);
+            expect(generateHash('false')).to.equal(97196323);
+            expect(generateHash('3569038')).to.equal(-412991536);
+            expect(generateHash('TestHash')).to.equal(-1146196832);
+            expect(generateHash('mParticle'), 'mParticle String').to.equal(
+                1744810483
+            );
+            expect(
+                generateHash('d71b49a6-4248-4581-afff-abb28dada53d')
+            ).to.equal(635757846);
+        });
+
+        it('returns 0 when hashing undefined or null', () => {
+            expect(generateHash(null)).to.equal(0);
+            expect(generateHash(undefined)).to.equal(0);
+
+            // Use bad values to verify expected fail cases
+            expect(typeof generateHash(false as unknown as string)).to.equal(
+                'number'
+            );
+            expect(generateHash(false as unknown as string)).to.not.equal(0);
+        });
+    });
+
+    describe('#generateUniqueId', () => {
+        it('generate a random value', () => {
+            expect(generateUniqueId()).to.be.ok;
+            expect(generateUniqueId().length).to.equal(36);
+            expect(typeof generateUniqueId()).to.equal('string');
+
+            // Tests format to be broken up by 4 hyphens
+            expect(generateUniqueId().split('-').length).to.equal(5);
+
+            window.crypto.getRandomValues = undefined;
+            expect(generateUniqueId()).to.be.ok;
+            // old browsers may return undefined despite
+            // defining the getRandomValues API.
+            window.crypto.getRandomValues = function (a) {
+                a = undefined;
+                return a;
+            };
+            expect(generateUniqueId()).to.be.ok;
+        });
+    });
+
+    describe('#getRampNumber', () => {
+        it('returns a ramp number', () => {
+            expect(getRampNumber()).to.equal(100);
+            expect(getRampNumber(null)).to.equal(100);
+            expect(
+                getRampNumber('2b907d8b-cefe-4530-a6fe-60a381f2e066')
+            ).to.equal(60);
+            expect(
+                getRampNumber('d71b49a6-4248-4581-afff-abb28dada53d')
+            ).to.equal(47);
+
+            const uniqueId = generateUniqueId();
+            const result = getRampNumber(uniqueId);
+            expect(result).to.be.lessThan(101);
+            expect(result).to.be.greaterThan(0);
+        });
+    });
+
     describe('#isObject', () => {
         it('returns true if object is an object', () => {
             const validObject = {
