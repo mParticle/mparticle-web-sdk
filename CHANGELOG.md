@@ -1,10 +1,3 @@
-## [2.20.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.20.1...v2.20.2) (2023-04-05)
-
-
-### Bug Fixes
-
-* Revert 2.20.1 ([#489](https://github.com/mParticle/mparticle-web-sdk/issues/489)) ([0607dab](https://github.com/mParticle/mparticle-web-sdk/commit/0607dab4e9b754de5d7ebc4fd54205a00b2659af)), closes [#485](https://github.com/mParticle/mparticle-web-sdk/issues/485)
-
 # [2.20.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.19.3...v2.20.0) (2023-03-15)
 
 
