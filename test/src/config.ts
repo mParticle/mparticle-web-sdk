@@ -1,7 +1,6 @@
 import { SDKInitConfig } from "../../src/sdkRuntimeModels";
 
 export const urls = {
-    eventsV2: 'https://jssdks.mparticle.com/v2/JS/test_key/Events',
     eventsV3: 'https://jssdks.mparticle.com/v3/JS/test_key/events',
     identify: 'https://identity.mparticle.com/v1/identify',
     login: 'https://identity.mparticle.com/v1/login',

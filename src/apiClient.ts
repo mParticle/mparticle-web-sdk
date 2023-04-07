@@ -11,14 +11,11 @@ import KitBlocker from './kitBlocking';
 import { Dictionary, getRampNumber } from './utils';
 import { IUploadObject } from './serverModel';
 
-const Messages = Constants.Messages;
-
 export type ForwardingStatsData = Dictionary<any>;
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
     queueEventForBatchUpload: (event: SDKEvent) => void;
-    shouldEnableBatching: () => boolean;
     processQueuedEvents: () => void;
     appendUserInfoToEvents: (user: MParticleUser, events: SDKEvent[]) => void;
     sendEventToServer: (event: SDKEvent, _options?: Dictionary<any>) => void;
@@ -53,22 +50,6 @@ export default function APIClient(
         this.uploader.queueEvent(event);
 
         mpInstance._Persistence.update();
-    };
-
-    this.shouldEnableBatching = function() {
-        // Returns a string of a number that must be parsed
-        // Invalid strings will be parsed to NaN which is falsey
-        const eventsV3Percentage = parseInt(
-            mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3),
-            10
-        );
-
-        if (!eventsV3Percentage) {
-            return false;
-        }
-
-        const rampNumber = getRampNumber(mpInstance._Store.deviceId);
-        return eventsV3Percentage >= rampNumber;
     };
 
     this.processQueuedEvents = function() {
@@ -136,11 +117,7 @@ export default function APIClient(
         this.processQueuedEvents();
 
         if (event && options.shouldUploadEvent) {
-            if (this.shouldEnableBatching()) {
-                this.queueEventForBatchUpload(event);
-            } else {
-                this.sendSingleEventToServer(event);
-            }
+            this.queueEventForBatchUpload(event);
         }
 
         if (event && event.EventName !== Types.MessageType.AppStateTransition) {
@@ -152,50 +129,6 @@ export default function APIClient(
             // can nullify the event
             if (event) {
                 mpInstance._Forwarders.sendEventToForwarders(event);
-            }
-        }
-    };
-
-    this.sendSingleEventToServer = function(event) {
-        if (event.EventDataType === Types.MessageType.Media) {
-            return;
-        }
-        let xhr,
-            xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    mpInstance.Logger.verbose(
-                        'Received ' + xhr.statusText + ' from server'
-                    );
-                    mpInstance._Persistence.update();
-                }
-            };
-
-        if (!event) {
-            mpInstance.Logger.error(Messages.ErrorMessages.EventEmpty);
-            return;
-        }
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendHttp);
-        xhr = mpInstance._Helpers.createXHR(xhrCallback);
-        if (xhr) {
-            try {
-                xhr.open(
-                    'post',
-                    mpInstance._Helpers.createServiceUrl(
-                        mpInstance._Store.SDKConfig.v2SecureServiceUrl,
-                        mpInstance._Store.devToken
-                    ) + '/Events'
-                );
-                xhr.send(
-                    JSON.stringify(
-                        mpInstance._ServerModel.convertEventToV2DTO(
-                            event as IUploadObject
-                        )
-                    )
-                );
-            } catch (e) {
-                mpInstance.Logger.error(
-                    'Error sending event to mParticle servers. ' + e
-                );
             }
         }
     };

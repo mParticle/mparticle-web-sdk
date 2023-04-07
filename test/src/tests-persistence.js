@@ -8,7 +8,7 @@ var findCookie = Utils.findCookie,
     getLocalStorageProducts = Utils.getLocalStorageProducts,
     setCookie = Utils.setCookie,
     setLocalStorage = Utils.setLocalStorage,
-    getEvent = Utils.getEvent,
+    findBatch = Utils.findBatch,
     mockServer;
 
 describe('migrations and persistence-related', function() {
@@ -16,16 +16,12 @@ describe('migrations and persistence-related', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ])
         mockServer.respondWith(urls.identify, [
             200,
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
+
         mParticle.init(apiKey, window.mParticle.config);
     });
 
@@ -413,9 +409,9 @@ describe('migrations and persistence-related', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.logEvent('Test Event');
-        var data = getEvent(mockServer.requests, 'Test Event');
-        data.ia.should.have.property('128');
-        data.ia['128'].should.have.property('MCID', 'abcedfg');
+        var testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        testEvent.integration_attributes.should.have.property('128');
+        testEvent.integration_attributes['128'].should.have.property('MCID', 'abcedfg');
 
         done();
     });

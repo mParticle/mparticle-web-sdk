@@ -159,7 +159,6 @@ const Constants = {
     },
     FeatureFlags: {
         ReportBatching: 'reportBatching',
-        EventsV3: 'eventsV3',
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
     },
     DefaultInstance: 'default_instance',
