@@ -5,11 +5,9 @@ updates:
       schedule:
           interval: daily
       target-branch: 'chore/dependabot'
-      labels: ['dependabot']
+      labels: ['dependabot', 'dependencies']
       open-pull-requests-limit: 10
       commit-message:
           prefix: "chore"
-      ignore:
-          - dependency-name: 'rollup'
-          - dependency-name: 'browserify'
-          - dependency-name: '@babel/runtime'
+      allow:
+          - dependency-type: "direct"

@@ -36,6 +36,81 @@ const findKeyInObject = (obj: any, key: string): string => {
     return null;
 };
 
+function generateHash(name: string): number {
+    let hash: number = 0;
+    let character: number;
+
+    if (name === undefined || name === null) {
+        return 0;
+    }
+
+    name = name.toString().toLowerCase();
+
+    if (Array.prototype.reduce) {
+        return name.split('').reduce(function (a: number, b: string) {
+            a = (a << 5) - a + b.charCodeAt(0);
+            return a & a;
+        }, 0);
+    }
+
+    if (name.length === 0) {
+        return hash;
+    }
+
+    for (let i = 0; i < name.length; i++) {
+        character = name.charCodeAt(i);
+        hash = (hash << 5) - hash + character;
+        hash = hash & hash;
+    }
+
+    return hash;
+}
+
+const generateRandomValue = (value?: string): string => {
+    let randomValue: string;
+    let a: number;
+
+    if (window.crypto && window.crypto.getRandomValues) {
+        // @ts-ignore
+        randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
+    }
+    if (randomValue) {
+        // @ts-ignore
+        return (a ^ (randomValue[0] % 16 >> (a / 4))).toString(16);
+    }
+
+    return (a ^ ((Math.random() * 16) >> (a / 4))).toString(16);
+};
+
+const generateUniqueId = (a: string = ''): string =>
+    // https://gist.github.com/jed/982883
+    // Added support for crypto for better random
+
+    a // if the placeholder was passed, return
+        ? generateRandomValue(a) // if the placeholder was passed, return
+        : // [1e7] -> // 10000000 +
+          // -1e3  -> // -1000 +
+          // -4e3  -> // -4000 +
+          // -8e3  -> // -80000000 +
+          // -1e11 -> //-100000000000,
+          `${1e7}-${1e3}-${4e3}-${8e3}-${1e11}`.replace(
+              /[018]/g, // zeroes, ones, and eights with
+              generateUniqueId // random hex digits
+          );
+
+/**
+ * Returns a value between 1-100 inclusive.
+ */
+const getRampNumber = (value?: string): number => {
+    if (!value) {
+        return 100;
+    }
+
+    const hash = generateHash(value);
+
+    return Math.abs(hash % 100) + 1;
+};
+
 const isObject = (value: any): boolean => {
     var objType = Object.prototype.toString.call(value);
     return objType === '[object Object]' || objType === '[object Error]';
@@ -76,10 +151,7 @@ const decoded = (s: string): string =>
 
 const converted = (s: string): string => {
     if (s.indexOf('"') === 0) {
-        s = s
-            .slice(1, -1)
-            .replace(/\\"/g, '"')
-            .replace(/\\\\/g, '\\');
+        s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
     }
 
     return s;
@@ -104,6 +176,9 @@ export {
     converted,
     decoded,
     findKeyInObject,
+    generateHash,
+    generateUniqueId,
+    getRampNumber,
     inArray,
     isObject,
     isStringOrNumber,
