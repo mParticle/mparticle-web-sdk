@@ -548,7 +548,7 @@ describe('core SDK', function() {
 
         var testEvent1URL = findRequest(window.fetchMock._calls, 'Test Event1')[0];
         testEvent1URL.should.equal(
-            urls.eventsV3
+            urls.events
         );
 
         window.fetchMock.post(

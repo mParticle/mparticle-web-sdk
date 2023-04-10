@@ -154,9 +154,6 @@ describe('Store', () => {
         );
         expect(store.SDKConfig.useNativeSdk, 'useNativeSdk').to.eq(false);
 
-        // expect(store.SDKConfig.v1SecureServiceUrl, 'v1SecureServiceUrl').to.eq(
-        //     'jssdks.mparticle.com/v1/JS/'
-        // );
         expect(store.SDKConfig.v2SecureServiceUrl, 'v2SecureServiceUrl').to.eq(
             'jssdks.mparticle.com/v2/JS/'
         );

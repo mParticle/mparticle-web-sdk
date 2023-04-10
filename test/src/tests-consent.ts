@@ -646,7 +646,7 @@ describe('Consent', function() {
         user.setConsentState(consentState);
 
         mParticle.logEvent('Test Event');
-        var testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        const testEvent = findBatch(window.fetchMock._calls, 'Test Event');
 
         testEvent.should.have.property('consent_state');
         testEvent.consent_state.should.have.property('ccpa');
@@ -685,7 +685,7 @@ describe('Consent', function() {
 
         mParticle.logEvent('Test Event');
 
-        var testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        const testEvent = findBatch(window.fetchMock._calls, 'Test Event');
 
         testEvent.should.have.property('consent_state');
         testEvent.consent_state.should.have.property('ccpa');

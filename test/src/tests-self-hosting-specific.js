@@ -2,8 +2,7 @@ import Utils from './utils';
 import sinon from 'sinon';
 import { urls, apiKey, MPConfig } from './config';
 
-var findEventFromRequest = Utils.findEventFromRequest;
-var findBatch = Utils.findBatch;
+const { findEventFromRequest, findBatch } = Utils;
 
 var mockServer;
 

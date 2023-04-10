@@ -8,7 +8,7 @@ import {
     SDKEvent,
 } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
-import { Dictionary, getRampNumber } from './utils';
+import { Dictionary, getRampNumber, isEmpty } from './utils';
 import { IUploadObject } from './serverModel';
 
 export type ForwardingStatsData = Dictionary<any>;
@@ -116,11 +116,15 @@ export default function APIClient(
 
         this.processQueuedEvents();
 
-        if (event && options.shouldUploadEvent) {
+        if (isEmpty(event)) {
+            return;
+        }
+
+        if (options.shouldUploadEvent) {
             this.queueEventForBatchUpload(event);
         }
 
-        if (event && event.EventName !== Types.MessageType.AppStateTransition) {
+        if (event.EventName !== Types.MessageType.AppStateTransition) {
             if (kitBlocker && kitBlocker.kitBlockingEnabled) {
                 event = kitBlocker.createBlockedEvent(event);
             }

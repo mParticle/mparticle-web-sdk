@@ -32,9 +32,9 @@ describe('Require.JS Pages', function() {
 
         mParticle.logEvent('Test Event1');
 
-        var testEvent = window.fetchMock._calls[0];
-        var testEventName = JSON.parse(testEvent[1].body).events[0].data.event_name;
+        const testEvent = window.fetchMock._calls[0];
+        const testEventName = JSON.parse(testEvent[1].body).events[0].data.event_name;
 
-        assert(testEventName === 'Test Event1');
+        testEventName.should.equal('Test Event1');
     });
 });

@@ -17,13 +17,13 @@ beforeEach(function() {
         logLevel: 'none',
         kitConfigs: [],
         requestConfig: false,
-        isDevelopmentMode: false,flags: {
-            eventsV3: '100',
+        isDevelopmentMode: false,
+        flags: {
             eventBatchingIntervalMillis: 0,
         }
     };
 
-    window.fetchMock.post(urls.eventsV3, 200);
+    window.fetchMock.post(urls.events, 200);
     window.fetchMock.config.overwriteRoutes = true;
 
     mParticle._resetForTests(MPConfig);

@@ -431,7 +431,7 @@ describe('batch uploader', () => {
             // Batches should be uploaded in the order they were created to prevent
             // any potential corruption.
 
-            window.fetchMock.post(urls.eventsV3, 200);
+            window.fetchMock.post(urls.events, 200);
             window.fetchMock.config.overwriteRoutes = true;
 
             window.mParticle.config.flags = {
@@ -502,7 +502,7 @@ describe('batch uploader', () => {
             // If batches cannot upload, they should be added back to the Batch Queue
             // in the order they were created so they can be retransmitted.
 
-            window.fetchMock.post(urls.eventsV3, 500);
+            window.fetchMock.post(urls.events, 500);
 
             window.mParticle.config.flags = {
                 eventsV3: '100',
@@ -597,12 +597,12 @@ describe('batch uploader', () => {
         // https://go.mparticle.com/work/SQDSDKS-5165
         it.skip('should keep and retry batches in sequence if the transmission fails midway', (done) => {
             // First request is successful, subsequent requests fail
-            window.fetchMock.post(urls.eventsV3, 200, {
+            window.fetchMock.post(urls.events, 200, {
                 overwriteRoutes: false,
                 repeat: 1,
             });
 
-            window.fetchMock.post(urls.eventsV3, 429, {
+            window.fetchMock.post(urls.events, 429, {
                 overwriteRoutes: false,
             });
 
@@ -678,7 +678,7 @@ describe('batch uploader', () => {
 
     describe('batching via window.fetch', () => {
         beforeEach(() => {
-            window.fetchMock.post(urls.eventsV3, 200);
+            window.fetchMock.post(urls.events, 200);
             window.fetchMock.config.overwriteRoutes = true;
             clock = sinon.useFakeTimers({now: new Date().getTime()});
 
@@ -711,7 +711,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
@@ -732,7 +732,7 @@ describe('batch uploader', () => {
             const lastCall = window.fetchMock.lastCall();
             const endpoint = lastCall[0];
             var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[2].data.location.should.have.property('latitude', 100)
             batch.events[2].data.location.should.have.property('longitude', 100)
     
@@ -759,7 +759,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
@@ -784,7 +784,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
@@ -799,7 +799,7 @@ describe('batch uploader', () => {
             window.mParticle._resetForTests(MPConfig);
             var clock = sinon.useFakeTimers();
 
-            window.fetchMock.post(urls.eventsV3, 500);
+            window.fetchMock.post(urls.events, 500);
             
             window.mParticle.init(apiKey, window.mParticle.config);
             window.mParticle.logEvent('Test Event');
@@ -811,7 +811,7 @@ describe('batch uploader', () => {
             pendingEvents[1].EventName.should.equal(10);
             pendingEvents[2].EventName.should.equal('Test Event');
 
-            window.fetchMock.post(urls.eventsV3, 200);
+            window.fetchMock.post(urls.events, 200);
             
             (window.fetchMock.lastCall() === undefined).should.equal(true);
             clock.tick(1000);
@@ -841,7 +841,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[0].data.should.have.property('source_message_id')
 
             done();
@@ -871,7 +871,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             // event batch includes session start, ast, then last event is Test Event
             batch.events[batch.events.length-1].data.should.have.property('source_message_id', 'abcdefg')
 
@@ -1124,7 +1124,7 @@ describe('batch uploader', () => {
                 eventsV3: '100',
                 eventBatchingIntervalMillis: 1000,
             }
-            mockServer.respondWith(urls.eventsV3, [
+            mockServer.respondWith(urls.events, [
                 200,
                 {},
                 JSON.stringify({ mpid: testMPID, Store: {}})
@@ -1269,7 +1269,7 @@ describe('batch uploader', () => {
             window.mParticle._resetForTests(MPConfig);
             var clock = sinon.useFakeTimers();
 
-            mockServer.respondWith(urls.eventsV3, [
+            mockServer.respondWith(urls.events, [
                 500,
                 {},
                 JSON.stringify({ mpid: testMPID, Store: {}})
