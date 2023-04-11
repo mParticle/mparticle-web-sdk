@@ -409,7 +409,7 @@ describe('migrations and persistence-related', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.logEvent('Test Event');
-        var testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        const testEvent = findBatch(window.fetchMock._calls, 'Test Event');
         testEvent.integration_attributes.should.have.property('128');
         testEvent.integration_attributes['128'].should.have.property('MCID', 'abcedfg');
 

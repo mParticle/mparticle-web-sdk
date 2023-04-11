@@ -124,7 +124,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
 
         mParticle.eCommerce.logCheckout(1);
 
-        var checkoutEvent = findBatch(window.fetchMock._calls, 'checkout');
+        const checkoutEvent = findBatch(window.fetchMock._calls, 'checkout');
 
         checkoutEvent.user_identities.should.have.property('customer_id', 'customerid1');
         checkoutEvent.user_identities.should.have.property('email', 'test@email.com');
@@ -142,7 +142,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var checkoutEvent = findBatch(window.fetchMock._calls, 'checkout');
+        const checkoutEvent = findBatch(window.fetchMock._calls, 'checkout');
 
         checkoutEvent.user_identities.should.have.property('email', 'test@email.com');
 
@@ -201,7 +201,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var checkoutEventBatch = findBatch(window.fetchMock._calls, 'checkout');
+        const checkoutEventBatch = findBatch(window.fetchMock._calls, 'checkout');
 
         checkoutEventBatch.user_identities.should.have.property('customer_id', 'customerid1');
         checkoutEventBatch.user_identities.should.have.property('email', 'test@email.com');
@@ -219,7 +219,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mockServer.requests = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var checkoutEventBatch = findBatch(window.fetchMock._calls, 'checkout');
+        const checkoutEventBatch = findBatch(window.fetchMock._calls, 'checkout');
 
         checkoutEventBatch.user_identities.should.have.property('customer_id', 'customerid1');
         checkoutEventBatch.user_identities.should.have.property('email', 'test@email.com');
@@ -325,7 +325,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         );
         mParticle.eCommerce.logCheckout(1);
 
-        var checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+        const checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
         checkoutEvent.data.product_action.should.have.property('products', null);
 
         done();
@@ -370,7 +370,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         );
         mParticle.eCommerce.logCheckout(1);
 
-        var checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+        const checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
 
         checkoutEvent.data.product_action.should.have.property('products', null)
 

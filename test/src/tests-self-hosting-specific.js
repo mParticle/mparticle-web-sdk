@@ -41,7 +41,7 @@ describe('/config self-hosting integration tests', function() {
 
         // log event before config and identify come back
         mParticle.logEvent('Test');
-        var event = findEventFromRequest(window.fetchMock._calls, 'Test');
+        const event = findEventFromRequest(window.fetchMock._calls, 'Test');
         Should(event).not.be.ok();
 
         // config and identify now get triggered, which runs through the event queue
@@ -106,7 +106,7 @@ describe('/config self-hosting integration tests', function() {
         // config triggers, login triggers immediately before identify
         clock.tick(300);
 
-        var event1 = findBatch(window.fetchMock._calls, 'Test');
+        const event1 = findBatch(window.fetchMock._calls, 'Test');
         event1.mpid.should.equal('loginMPID');
         messages
             .indexOf('Parsing "login" identity response from server')
@@ -116,7 +116,7 @@ describe('/config self-hosting integration tests', function() {
         messages
             .indexOf('Parsing "identify" identity response from server')
             .should.equal(-1);
-        var event2 = findBatch(window.fetchMock._calls, 'identify callback event', false, mockServer);
+        const event2 = findBatch(window.fetchMock._calls, 'identify callback event', false, mockServer);
         event2.mpid.should.equal('loginMPID');
 
         mockServer.restore();

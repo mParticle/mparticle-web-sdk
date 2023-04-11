@@ -1012,7 +1012,7 @@ describe('identity', function() {
         window.fetchMock._calls = [];
         mParticle.logEvent('Test Event1');
 
-        var testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
+        const testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
         
         Should(testEvent1).not.be.ok();
         
@@ -1028,10 +1028,10 @@ describe('identity', function() {
         testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
         window.fetchMock._calls.length.should.equal(4);
         
-        var testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
-        var ASTEvent = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
-        var sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
-        var loginEvent = getIdentityEvent(mockServer.requests, 'login');
+        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+        const ASTEvent = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
+        const sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
+        const loginEvent = getIdentityEvent(mockServer.requests, 'login');
 
         Should(testEvent1).be.ok();
         Should(testEvent2).be.ok();
@@ -1274,7 +1274,7 @@ describe('identity', function() {
 
         mParticle.logEvent('Test Event1');
 
-        var testEvent1Batch = findBatch(window.fetchMock._calls, 'Test Event1');
+        const testEvent1Batch = findBatch(window.fetchMock._calls, 'Test Event1');
 
         testEvent1Batch.user_attributes.should.have.property('foo1', 'bar1');
         testEvent1Batch.user_identities.should.have.property('customer_id', 'customerid1');
@@ -1307,7 +1307,7 @@ describe('identity', function() {
         mParticle.Identity.logout(user2);
         mParticle.logEvent('Test Event2');
 
-        var testEvent2Batch = findBatch(window.fetchMock._calls, 'Test Event2');
+        const testEvent2Batch = findBatch(window.fetchMock._calls, 'Test Event2');
 
         Object.keys(testEvent2Batch.user_attributes).length.should.equal(0);
         testEvent2Batch.user_identities.should.have.property('customer_id', 'customerid2');
@@ -1320,7 +1320,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user1);
         mParticle.logEvent('Test Event3');
-        var testEvent3Batch = findBatch(window.fetchMock._calls, 'Test Event3');
+        const testEvent3Batch = findBatch(window.fetchMock._calls, 'Test Event3');
 
         testEvent3Batch.user_attributes.should.have.property('foo1', 'bar1');
         Object.keys(testEvent3Batch.user_identities).length.should.equal(2);
@@ -1686,7 +1686,7 @@ describe('identity', function() {
 
         mParticle.eCommerce.logCheckout(1);
 
-        var checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+        const checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
 
         checkoutEvent.data.product_action.should.have.property('products', null)
 
@@ -2027,8 +2027,8 @@ describe('identity', function() {
         (window.fetchMock._calls.length === 0).should.equal.true
         clock.tick(1000);
 
-        var sessionStartEventBatch = findBatch(window.fetchMock._calls, 'session_start');
-        var ASTEventBatch = findBatch(window.fetchMock._calls, 'application_state_transition');
+        const sessionStartEventBatch = findBatch(window.fetchMock._calls, 'session_start');
+        const ASTEventBatch = findBatch(window.fetchMock._calls, 'application_state_transition');
 
         sessionStartEventBatch.user_attributes.should.have.property('foo', 'bar');
         ASTEventBatch.user_attributes.should.have.property('foo', 'bar');
