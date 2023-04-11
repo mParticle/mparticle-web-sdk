@@ -980,7 +980,7 @@ describe('core SDK', function() {
 
         mParticle.Identity.identify({ userIdentities: { customerid: 'test' } });
         mParticle.logEvent('Test Event');
-        var testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
 
         testEvent.should.be.ok();
 
