@@ -6,7 +6,6 @@ import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 import { GDPRConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
 import { Dictionary } from '../../src/utils';
-import { join } from 'path';
 
 declare global {
     interface Window {
