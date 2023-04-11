@@ -41,7 +41,7 @@ describe('/config self-hosting integration tests', function() {
 
         // log event before config and identify come back
         mParticle.logEvent('Test');
-        const event = findEventFromRequest(window.fetchMock._calls, 'Test');
+        let event = findEventFromRequest(window.fetchMock._calls, 'Test');
         Should(event).not.be.ok();
 
         // config and identify now get triggered, which runs through the event queue

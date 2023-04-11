@@ -220,7 +220,7 @@ var pluses = /\+/g,
         }
     },
     findRequest = function(requests, eventName) {
-        const matchingRequest;
+        let matchingRequest;
         requests.forEach(function(request) {
             var batch = JSON.parse(request[1].body);
             for (var i = 0; i<batch.events.length; i++) {

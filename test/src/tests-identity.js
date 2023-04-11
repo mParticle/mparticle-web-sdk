@@ -1012,7 +1012,7 @@ describe('identity', function() {
         window.fetchMock._calls = [];
         mParticle.logEvent('Test Event1');
 
-        const testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
+        let testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
         
         Should(testEvent1).not.be.ok();
         
