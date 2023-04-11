@@ -753,7 +753,7 @@ describe('core SDK', function() {
         warnMessages.length.should.equal(0);
         errorMessages.length.should.equal(0);
 
-        var testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
         Should(testEvent).be.ok();
 
         done();
