@@ -28,7 +28,6 @@ import Store from './store';
 import Logger from './logger';
 import Persistence from './persistence';
 import Events from './events';
-import Migrations from './migrations';
 import Forwarders from './forwarders';
 import ServerModel from './serverModel';
 import ForwardingStatsUploader from './forwardingStatsUploader';
@@ -59,7 +58,6 @@ export default function mParticleInstance(instanceName) {
     // These classes are for internal use only. Not documented for public consumption
     this._instanceName = instanceName;
     this._NativeSdkHelpers = new NativeSdkHelpers(this);
-    this._Migrations = new Migrations(this);
     this._SessionManager = new SessionManager(this);
     this._Persistence = new Persistence(this);
     this._Helpers = new Helpers(this);
@@ -1345,9 +1343,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     mpInstance._Store.configurationLoaded = true;
 
     if (!mpInstance._Store.webviewBridgeEnabled) {
-        // Migrate any cookies from previous versions to current cookie version
-        mpInstance._Migrations.migrate();
-
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
     }
