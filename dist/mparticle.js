@@ -582,7 +582,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.20.3";
+    var version = "2.21.0";
 
     var Constants = {
       sdkVersion: version,
@@ -731,7 +731,8 @@ var mParticle = (function () {
       FeatureFlags: {
         ReportBatching: 'reportBatching',
         EventsV3: 'eventsV3',
-        EventBatchingIntervalMillis: 'eventBatchingIntervalMillis'
+        EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
+        OfflineStorage: 'offlineStorage'
       },
       DefaultInstance: 'default_instance'
     };
@@ -1898,10 +1899,88 @@ var mParticle = (function () {
       }
     }
 
+    var BaseVault = /** @class */function () {
+      /**
+       *
+       * @param {string} storageKey the local storage key string
+       * @param {Storage} Web API Storage object that is being used
+       * @param {IVaultOptions} options A Dictionary of IVaultOptions
+       */
+      function BaseVault(storageKey, storageObject, options) {
+        this._storageKey = storageKey;
+        this.storageObject = storageObject;
+        // Add a fake logger in case one is not provided or needed
+        this.logger = (options === null || options === void 0 ? void 0 : options.logger) || {
+          verbose: function verbose() {},
+          warning: function warning() {},
+          error: function error() {}
+        };
+        this.contents = this.retrieve();
+      }
+      /**
+       * Stores a StorableItem to Storage
+       * @method store
+       * @param item {StorableItem}
+       */
+      BaseVault.prototype.store = function (item) {
+        this.contents = item;
+        var stringifiedItem = !isEmpty(item) ? JSON.stringify(item) : '';
+        try {
+          this.storageObject.setItem(this._storageKey, stringifiedItem);
+          this.logger.verbose("Saving item to Storage: ".concat(stringifiedItem));
+        } catch (error) {
+          this.logger.error("Cannot Save items to Storage: ".concat(stringifiedItem));
+          this.logger.error(error);
+        }
+      };
+      /**
+       * Retrieve StorableItem from Storage
+       * @method retrieve
+       * @returns {StorableItem}
+       */
+      BaseVault.prototype.retrieve = function () {
+        // TODO: Handle cases where Local Storage is unavailable
+        // https://go.mparticle.com/work/SQDSDKS-5022
+        var item = this.storageObject.getItem(this._storageKey);
+        this.contents = item ? JSON.parse(item) : null;
+        this.logger.verbose("Retrieving item from Storage: ".concat(item));
+        return this.contents;
+      };
+      /**
+       * Removes all persisted data from Storage based on this vault's `key`
+       * Will remove storage key from Storage as well
+       * @method purge
+       */
+      BaseVault.prototype.purge = function () {
+        this.logger.verbose('Purging Storage');
+        this.contents = null;
+        this.storageObject.removeItem(this._storageKey);
+      };
+      return BaseVault;
+    }();
+    var LocalStorageVault = /** @class */function (_super) {
+      __extends(LocalStorageVault, _super);
+      function LocalStorageVault(storageKey, options) {
+        return _super.call(this, storageKey, window.localStorage, options) || this;
+      }
+      return LocalStorageVault;
+    }(BaseVault);
+    var SessionStorageVault = /** @class */function (_super) {
+      __extends(SessionStorageVault, _super);
+      function SessionStorageVault(storageKey, options) {
+        return _super.call(this, storageKey, window.sessionStorage, options) || this;
+      }
+      return SessionStorageVault;
+    }(BaseVault);
+
     /**
-     * BatchUploader contains all the logic to upload batches to mParticle.
-     * It queues events as they come in and at set intervals turns them into batches.
-     * It then attempts to upload them to mParticle.
+     * BatchUploader contains all the logic to store/retrieve events and batches
+     * to/from persistence, and upload batches to mParticle.
+     * It queues events as they come in, storing them in persistence, then at set
+     * intervals turns them into batches and transfers between event and batch
+     * persistence.
+     * It then attempts to upload them to mParticle, purging batch persistence if
+     * the upload is successful
      *
      * These uploads happen on an interval basis using window.fetch or XHR
      * requests, depending on what is available in the browser.
@@ -1916,23 +1995,53 @@ var mParticle = (function () {
        * @param {number} uploadInterval - the desired upload interval in milliseconds
        */
       function BatchUploader(mpInstance, uploadInterval) {
-        var _a;
+        var _a, _b;
+        this.offlineStorageEnabled = false;
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
         this.batchingEnabled = uploadInterval >= BatchUploader.MINIMUM_INTERVAL_MILLIS;
         if (this.uploadIntervalMillis < BatchUploader.MINIMUM_INTERVAL_MILLIS) {
           this.uploadIntervalMillis = BatchUploader.MINIMUM_INTERVAL_MILLIS;
         }
+        // Events will be queued during `queueEvents` method
         this.eventsQueuedForProcessing = [];
+        // Batch queue should start empty and will be populated during
+        // `prepareAndUpload` method, either via Local Storage or after
+        // new batches are created.
         this.batchesQueuedForProcessing = [];
-        var SDKConfig = (_a = this.mpInstance._Store, _a.SDKConfig),
-          devToken = _a.devToken;
+        // Cache Offline Storage Availability boolean
+        // so that we don't have to check it every time
+        this.offlineStorageEnabled = this.isOfflineStorageAvailable();
+        if (this.offlineStorageEnabled) {
+          this.eventVault = new SessionStorageVault("".concat(mpInstance._Store.storageName, "-events"), {
+            logger: mpInstance.Logger
+          });
+          this.batchVault = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-batches"), {
+            logger: mpInstance.Logger
+          });
+          // Load Events from Session Storage in case we have any in storage
+          (_a = this.eventsQueuedForProcessing).push.apply(_a, this.eventVault.retrieve());
+        }
+        var SDKConfig = (_b = this.mpInstance._Store, _b.SDKConfig),
+          devToken = _b.devToken;
         var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
         this.uploadUrl = "".concat(baseUrl, "/events");
         this.uploader = window.fetch ? new FetchUploader(this.uploadUrl) : new XHRUploader(this.uploadUrl);
         this.triggerUploadInterval(true, false);
         this.addEventListeners();
       }
+      BatchUploader.prototype.isOfflineStorageAvailable = function () {
+        var _a;
+        var getFeatureFlag = (_a = this.mpInstance, _a._Helpers.getFeatureFlag),
+          deviceId = _a._Store.deviceId;
+        var offlineStorageFeatureFlagValue = getFeatureFlag(Constants.FeatureFlags.OfflineStorage);
+        var offlineStoragePercentage = parseInt(offlineStorageFeatureFlagValue, 10);
+        var rampNumber = getRampNumber(deviceId);
+        // TODO: Handle cases where Local Storage is unavailable
+        //       Potentially shared between Vault and Persistence as well
+        //       https://go.mparticle.com/work/SQDSDKS-5022
+        return offlineStoragePercentage >= rampNumber;
+      };
       // Adds listeners to be used trigger Navigator.sendBeacon if the browser
       // loses focus for any reason, such as closing browser tab or minimizing window
       BatchUploader.prototype.addEventListeners = function () {
@@ -1974,6 +2083,9 @@ var mParticle = (function () {
       BatchUploader.prototype.queueEvent = function (event) {
         if (!isEmpty(event)) {
           this.eventsQueuedForProcessing.push(event);
+          if (this.offlineStorageEnabled && this.eventVault) {
+            this.eventVault.store(this.eventsQueuedForProcessing);
+          }
           this.mpInstance.Logger.verbose("Queuing event: ".concat(JSON.stringify(event)));
           this.mpInstance.Logger.verbose("Queued event count: ".concat(this.eventsQueuedForProcessing.length));
           // TODO: Remove this check once the v2 code path is removed
@@ -2057,28 +2169,58 @@ var mParticle = (function () {
       BatchUploader.prototype.prepareAndUpload = function (triggerFuture, useBeacon) {
         return __awaiter(this, void 0, void 0, function () {
           var currentUser, currentEvents, newBatches, batchesToUpload, batchesThatDidNotUpload;
-          var _a, _b;
-          return __generator(this, function (_c) {
-            switch (_c.label) {
+          var _a, _b, _c;
+          return __generator(this, function (_d) {
+            switch (_d.label) {
               case 0:
                 currentUser = this.mpInstance.Identity.getCurrentUser();
                 currentEvents = this.eventsQueuedForProcessing;
                 this.eventsQueuedForProcessing = [];
-                newBatches = BatchUploader.createNewBatches(currentEvents, currentUser, this.mpInstance);
+                if (this.offlineStorageEnabled && this.eventVault) {
+                  this.eventVault.store([]);
+                }
+                newBatches = [];
+                if (!isEmpty(currentEvents)) {
+                  newBatches = BatchUploader.createNewBatches(currentEvents, currentUser, this.mpInstance);
+                }
+                // Top Load any older Batches from Offline Storage so they go out first
+                if (this.offlineStorageEnabled && this.batchVault) {
+                  (_a = this.batchesQueuedForProcessing).unshift.apply(_a, this.batchVault.retrieve());
+                  // Remove batches from local storage before transmit to
+                  // prevent duplication
+                  this.batchVault.purge();
+                }
                 if (!isEmpty(newBatches)) {
-                  (_a = this.batchesQueuedForProcessing).push.apply(_a, newBatches);
+                  (_b = this.batchesQueuedForProcessing).push.apply(_b, newBatches);
                 }
                 batchesToUpload = this.batchesQueuedForProcessing;
                 this.batchesQueuedForProcessing = [];
+                // If `useBeacon` is true, the browser has been closed suddently
+                // so we should save `batchesToUpload` to Offline Storage before
+                // an upload is attempted.
+                if (useBeacon && this.offlineStorageEnabled && this.batchVault) {
+                  this.batchVault.store(batchesToUpload);
+                }
                 return [4 /*yield*/, this.uploadBatches(this.mpInstance.Logger, batchesToUpload, useBeacon)];
               case 1:
-                batchesThatDidNotUpload = _c.sent();
+                batchesThatDidNotUpload = _d.sent();
                 // Batches that do not successfully upload are added back to the process queue
                 // in the order they were created so that we can attempt re-transmission in
                 // the same sequence. This is to prevent any potential data corruption.
                 if (!isEmpty(batchesThatDidNotUpload)) {
                   // TODO: https://go.mparticle.com/work/SQDSDKS-5165
-                  (_b = this.batchesQueuedForProcessing).unshift.apply(_b, batchesThatDidNotUpload);
+                  (_c = this.batchesQueuedForProcessing).unshift.apply(_c, batchesThatDidNotUpload);
+                }
+                // Update Offline Storage with current state of batch queue
+                if (!useBeacon && this.offlineStorageEnabled && this.batchVault) {
+                  // Note: since beacon is "Fire and forget" it will empty `batchesThatDidNotUplod`
+                  // regardless of whether the batches were successfully uploaded or not. We should
+                  // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
+                  // uploading saved batches at a later time. Batches should only be removed from
+                  // Local Storage once we can confirm they are successfully uploaded.
+                  this.batchVault.store(this.batchesQueuedForProcessing);
+                  // Clear batch queue since everything should be in Offline Storage
+                  this.batchesQueuedForProcessing = [];
                 }
                 if (triggerFuture) {
                   this.triggerUploadInterval(triggerFuture, false);
@@ -3813,6 +3955,9 @@ var mParticle = (function () {
         }
         if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.ReportBatching)) {
           this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching] = false;
+        }
+        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.OfflineStorage)) {
+          this.SDKConfig.flags[Constants.FeatureFlags.OfflineStorage] = 0;
         }
       }
     }
@@ -9251,10 +9396,16 @@ var mParticle = (function () {
           upload: mockFunction
         };
       };
-      _BatchValidator.prototype.returnBatch = function (event) {
+      _BatchValidator.prototype.createSDKEventFunction = function (event) {
+        return new ServerModel(this.getMPInstance()).createEventObject(event);
+      };
+      _BatchValidator.prototype.returnBatch = function (events) {
+        var _this = this;
         var mpInstance = this.getMPInstance();
-        var sdkEvent = new ServerModel(mpInstance).createEventObject(event);
-        var batch = convertEvents('0', [sdkEvent], mpInstance);
+        var sdkEvents = Array.isArray(events) ? events.map(function (event) {
+          return _this.createSDKEventFunction(event);
+        }) : [this.createSDKEventFunction(events)];
+        var batch = convertEvents('0', sdkEvents, mpInstance);
         return batch;
       };
       return _BatchValidator;
