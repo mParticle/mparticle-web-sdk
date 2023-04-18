@@ -1,3 +1,10 @@
+# [2.21.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.20.3...v2.21.0) (2023-04-18)
+
+
+### Features
+
+* Add Offline Storage for Events and Batches via Feature Flag ([#402](https://github.com/mParticle/mparticle-web-sdk/issues/402)) ([218bbf5](https://github.com/mParticle/mparticle-web-sdk/commit/218bbf58f75165e4f0fc5459193c50a9db132f2a))
+
 ## [2.20.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.20.2...v2.20.3) (2023-04-10)
 
 
