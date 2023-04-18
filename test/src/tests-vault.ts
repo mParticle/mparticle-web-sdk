@@ -1,51 +1,261 @@
 import { Batch } from '@mparticle/event-models';
 import { expect } from 'chai';
 import { Dictionary } from '../../src/utils';
-import Vault from '../../src/vault';
+import { SessionStorageVault, LocalStorageVault } from '../../src/vault';
+
+const testObject: Dictionary<Dictionary<string>> = {
+    foo: { foo: 'bar', buzz: 'bazz' },
+    pinky: { narf: 'poit' },
+};
+
+const testArray: Dictionary<string>[] = [
+    { foo: 'bar', buzz: 'bazz' },
+    { narf: 'poit' },
+];
 
 describe('Vault', () => {
-    afterEach(() => {
-        window.localStorage.clear();
+    describe('SessionStorageVault', () => {
+        afterEach(() => {
+            window.sessionStorage.clear();
+        });
+
+        describe('#store', () => {
+            it('should store an object', () => {
+                const storageKey = 'test-key-store-object';
+
+                const vault = new SessionStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
+
+                vault.store(testObject);
+
+                expect(vault.contents).to.equal(testObject);
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testObject)
+                );
+            });
+
+            it('should store an array', () => {
+                const storageKey = 'test-key-store-array';
+
+                const vault = new SessionStorageVault<Dictionary<string>[]>(
+                    storageKey
+                );
+
+                vault.store(testArray);
+
+                expect(vault.contents).to.equal(testArray);
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testArray)
+                );
+            });
+        });
+
+        describe('#retrieve', () => {
+            it('should retrieve an object', () => {
+                const storageKey = 'test-key-retrieve-object';
+
+                window.sessionStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testObject)
+                );
+
+                const vault = new SessionStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
+
+                const retrievedItem = vault.retrieve();
+
+                // We are storing a simple object, so we are not doing a
+                // deep equals, merely making sure the two objects
+                // match
+                expect(retrievedItem).to.eql(testObject);
+            });
+
+            it('should retrieve an array', () => {
+                const storageKey = 'test-key-retrieve-array';
+
+                window.sessionStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testArray)
+                );
+
+                const vault = new SessionStorageVault<Dictionary<string>[]>(
+                    storageKey
+                );
+
+                const retrievedItem = vault.retrieve();
+
+                expect(retrievedItem).to.eql(testArray);
+            });
+        });
+
+        describe('#purge', () => {
+            it('should purge an object', () => {
+                const storageKey = 'test-key-purge-object';
+
+                window.sessionStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testObject)
+                );
+
+                const vault = new SessionStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
+
+                vault.purge();
+
+                expect(vault.contents).to.equal(null);
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(
+                    null
+                );
+            });
+
+            it('should purge an array', () => {
+                const storageKey = 'test-key-retrieve-array';
+
+                window.sessionStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testArray)
+                );
+
+                const vault = new SessionStorageVault<Dictionary<string>[]>(
+                    storageKey
+                );
+
+                vault.purge();
+
+                expect(vault.contents).to.equal(null);
+                expect(window.sessionStorage.getItem(storageKey)).to.equal(
+                    null
+                );
+            });
+        });
     });
 
-    describe('#store', () => {
-        it('should store an object', () => {
-            const storageKey = 'test-key-store-object';
-
-            const dict: Dictionary<Dictionary<string>> = {
-                foo: { foo: 'bar', buzz: 'bazz' },
-                pinky: { narf: 'poit' },
-            };
-
-            const vault = new Vault<Dictionary<Dictionary<string>>>(storageKey);
-
-            vault.store(dict);
-
-            expect(vault.contents).to.equal(dict);
-            expect(window.localStorage.getItem(storageKey)).to.equal(
-                JSON.stringify(dict)
-            );
+    describe('LocalStorageVault', () => {
+        afterEach(() => {
+            window.localStorage.clear();
         });
 
-        it('should store an array', () => {
-            const storageKey = 'test-key-store-array';
+        describe('#store', () => {
+            it('should store an object', () => {
+                const storageKey = 'test-key-store-object';
 
-            const array: Dictionary<string>[] = [
-                { foo: 'bar', buzz: 'bazz' },
-                { narf: 'poit' },
-            ];
+                const vault = new LocalStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
 
-            const vault = new Vault<Dictionary<string>[]>(storageKey);
+                vault.store(testObject);
 
-            vault.store(array);
+                expect(vault.contents).to.equal(testObject);
+                expect(window.localStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testObject)
+                );
+            });
 
-            expect(vault.contents).to.equal(array);
-            expect(window.localStorage.getItem(storageKey)).to.equal(
-                JSON.stringify(array)
-            );
+            it('should store an array', () => {
+                const storageKey = 'test-key-store-array';
+
+                const vault = new LocalStorageVault<Dictionary<string>[]>(
+                    storageKey
+                );
+
+                vault.store(testArray);
+
+                expect(vault.contents).to.equal(testArray);
+                expect(window.localStorage.getItem(storageKey)).to.equal(
+                    JSON.stringify(testArray)
+                );
+            });
         });
 
-        it('should store batches in the order they were added', () => {
+        describe('#retrieve', () => {
+            it('should retrieve an object', () => {
+                const storageKey = 'test-key-retrieve-object';
+
+                window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testObject)
+                );
+
+                const vault = new LocalStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
+
+                const retrievedItem = vault.retrieve();
+
+                // We are storing a simple object, so we are not doing a
+                // deep equals, merely making sure the two objects
+                // match
+                expect(retrievedItem).to.eql(testObject);
+            });
+
+            it('should retrieve an array', () => {
+                const storageKey = 'test-key-retrieve-array';
+
+                window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testArray)
+                );
+
+                const vault = new LocalStorageVault<Dictionary<string>[]>(
+                    storageKey
+                );
+
+                const retrievedItem = vault.retrieve();
+
+                expect(retrievedItem).to.eql(testArray);
+            });
+        });
+
+        describe('#purge', () => {
+            it('should purge an object', () => {
+                const storageKey = 'test-key-purge-object';
+
+                window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testObject)
+                );
+
+                const vault = new LocalStorageVault<
+                    Dictionary<Dictionary<string>>
+                >(storageKey);
+
+                vault.purge();
+
+                expect(vault.contents).to.equal(null);
+                expect(window.localStorage.getItem(storageKey)).to.equal(null);
+            });
+
+            it('should purge an array', () => {
+                const storageKey = 'test-key-retrieve-array';
+
+                window.localStorage.setItem(
+                    storageKey,
+                    JSON.stringify(testArray)
+                );
+
+                const vault = new LocalStorageVault<Dictionary<string>[]>(
+                    storageKey
+                );
+
+                vault.purge();
+
+                expect(vault.contents).to.equal(null);
+                expect(window.localStorage.getItem(storageKey)).to.equal(null);
+            });
+        });
+    });
+
+    // This is an example of how to use Vault for Batch Persistence so that we can verify
+    // sequencing and use cases specific to batches
+    describe('Batch Vault', () => {
+        afterEach(() => {
+            window.localStorage.clear();
+        });
+
+        it('should store and retrieve batches in the order they were added', () => {
             const storageKey = 'test-batch-save-order';
 
             const batch1: Partial<Batch> = {
@@ -73,7 +283,7 @@ describe('Vault', () => {
                 source_request_id: 'source-request-id-5',
             };
 
-            const vault = new Vault<Partial<Batch>[]>(storageKey);
+            const vault = new LocalStorageVault<Partial<Batch>[]>(storageKey);
 
             vault.store([batch1, batch2, batch3, batch4, batch5]);
 
@@ -83,86 +293,15 @@ describe('Vault', () => {
             expect(vault.contents[3]).to.eql(batch4);
             expect(vault.contents[4]).to.eql(batch5);
 
+            expect(vault.retrieve()[0]).to.eql(batch1);
+            expect(vault.retrieve()[1]).to.eql(batch2);
+            expect(vault.retrieve()[2]).to.eql(batch3);
+            expect(vault.retrieve()[3]).to.eql(batch4);
+            expect(vault.retrieve()[4]).to.eql(batch5);
+
             expect(window.localStorage.getItem(storageKey)).to.equal(
                 JSON.stringify([batch1, batch2, batch3, batch4, batch5])
             );
-        });
-    });
-
-    describe('#retrieve', () => {
-        it('should retrieve an object', () => {
-            const storageKey = 'test-key-retrieve-object';
-
-            const dict: Dictionary<Dictionary<string>> = {
-                foo: { foo: 'bar', buzz: 'bazz' },
-                pinky: { narf: 'poit' },
-            };
-
-            window.localStorage.setItem(storageKey, JSON.stringify(dict));
-
-            const vault = new Vault<Dictionary<Dictionary<string>>>(storageKey);
-
-            const retrievedItem = vault.retrieve();
-
-            // We are storing a simple object, so we are not doing a
-            // deep equals, merely making sure the two objects
-            // match
-            expect(retrievedItem).to.eql(dict);
-        });
-
-        it('should retrieve an array', () => {
-            const storageKey = 'test-key-retrieve-array';
-
-            const array: Dictionary<string>[] = [
-                { foo: 'bar', buzz: 'bazz' },
-                { narf: 'poit' },
-            ];
-
-            window.localStorage.setItem(storageKey, JSON.stringify(array));
-
-            const vault = new Vault<Dictionary<string>[]>(storageKey);
-
-            const retrievedItem = vault.retrieve();
-
-            expect(retrievedItem).to.eql(array);
-        });
-    });
-
-    describe('#purge', () => {
-        it('should purge an object', () => {
-            const storageKey = 'test-key-purge-object';
-
-            const dict: Dictionary<Dictionary<string>> = {
-                foo: { foo: 'bar', buzz: 'bazz' },
-                pinky: { narf: 'poit' },
-            };
-
-            window.localStorage.setItem(storageKey, JSON.stringify(dict));
-
-            const vault = new Vault<Dictionary<Dictionary<string>>>(storageKey);
-
-            vault.purge();
-
-            expect(vault.contents).to.equal(null);
-            expect(window.localStorage.getItem(storageKey)).to.equal(null);
-        });
-
-        it('should purge an array', () => {
-            const storageKey = 'test-key-retrieve-array';
-
-            const array: Dictionary<string>[] = [
-                { foo: 'bar', buzz: 'bazz' },
-                { narf: 'poit' },
-            ];
-
-            window.localStorage.setItem(storageKey, JSON.stringify(array));
-
-            const vault = new Vault<Dictionary<string>[]>(storageKey);
-
-            vault.purge();
-
-            expect(vault.contents).to.equal(null);
-            expect(window.localStorage.getItem(storageKey)).to.equal(null);
         });
     });
 });

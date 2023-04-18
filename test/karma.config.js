@@ -18,6 +18,22 @@ if (DEBUG === 'true') {
     singleRun = false;
 }
 
+let browserConsoleLogOptions = {
+    terminal: false,
+};
+
+let captureConsole = false;
+
+// Allows console logs to appear when doing npm run test:debug
+if (DEBUG === 'true') {
+    browserConsoleLogOptions = {
+        level: 'log',
+        format: '%b %T: %m',
+        terminal: true,
+    };
+    captureConsole = true;
+}
+
 module.exports = function(config) {
     config.set({
         frameworks: ['mocha', 'should'],
@@ -29,11 +45,9 @@ module.exports = function(config) {
         singleRun,
         debug: true,
         logLevel: config.LOG_INFO,
-        browserConsoleLogOptions: {
-            terminal: false,
-        },
+        browserConsoleLogOptions,
         client: {
-            captureConsole: false,
+            captureConsole,
         },
         customLaunchers: {
             FirefoxHeadless: {

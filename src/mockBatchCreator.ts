@@ -4,6 +4,7 @@ import ServerModel from './serverModel';
 import { SDKEvent, BaseEvent, MParticleWebSDK } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import * as EventsApi from '@mparticle/event-models';
+import { Batch } from '@mparticle/event-models';
 
 const mockFunction = function () {
     return null;
@@ -119,16 +120,19 @@ export default class _BatchValidator {
         } as MParticleWebSDK;
     }
 
-    returnBatch(event: BaseEvent) {
+    private createSDKEventFunction(event): SDKEvent {
+        return new ServerModel(this.getMPInstance()).createEventObject(event);
+    }
+
+    public returnBatch(events: BaseEvent | BaseEvent[]): Batch | null {
         const mpInstance = this.getMPInstance();
-        const sdkEvent: SDKEvent = new ServerModel(
-            mpInstance
-        ).createEventObject(event);
-        const batch: EventsApi.Batch | null = convertEvents(
-            '0',
-            [sdkEvent],
-            mpInstance as any
-        );
+
+        const sdkEvents: SDKEvent[] = Array.isArray(events)
+            ? events.map((event) => this.createSDKEventFunction(event))
+            : [this.createSDKEventFunction(events)];
+
+        const batch: Batch = convertEvents('0', sdkEvents, mpInstance as any);
+
         return batch;
     }
 }

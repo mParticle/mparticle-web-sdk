@@ -161,6 +161,7 @@ const Constants = {
         ReportBatching: 'reportBatching',
         EventsV3: 'eventsV3',
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
+        OfflineStorage: 'offlineStorage',
     },
     DefaultInstance: 'default_instance',
 } as const;

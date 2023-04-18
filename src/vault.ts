@@ -1,25 +1,30 @@
 import { Logger } from '@mparticle/web-sdk';
-import { Dictionary, isEmpty } from './utils';
+import { isEmpty } from './utils';
 
-interface IVaultOptions {
+export interface IVaultOptions {
     logger?: Logger;
     offlineStorageEnabled?: boolean;
 }
 
-export default class Vault<StorableItem> {
+export abstract class BaseVault<StorableItem> {
     public contents: StorableItem;
-    private readonly _storageKey: string;
-    private logger?: Logger;
+    protected readonly _storageKey: string;
+    protected logger?: Logger;
+    protected storageObject: Storage;
 
     /**
      *
      * @param {string} storageKey the local storage key string
-     * @param {string} itemKey an element within your StorableItem to use as a key
+     * @param {Storage} Web API Storage object that is being used
      * @param {IVaultOptions} options A Dictionary of IVaultOptions
      */
-    constructor(storageKey: string, options?: IVaultOptions) {
+    constructor(
+        storageKey: string,
+        storageObject: Storage,
+        options?: IVaultOptions
+    ) {
         this._storageKey = storageKey;
-        this.contents = this.getFromLocalStorage();
+        this.storageObject = storageObject;
 
         // Add a fake logger in case one is not provided or needed
         this.logger = options?.logger || {
@@ -27,62 +32,69 @@ export default class Vault<StorableItem> {
             warning: () => {},
             error: () => {},
         };
+
+        this.contents = this.retrieve();
     }
 
     /**
-     * Stores a StorableItem to Local Storage
-     * @method storeItem
+     * Stores a StorableItem to Storage
+     * @method store
      * @param item {StorableItem}
      */
     public store(item: StorableItem): void {
         this.contents = item;
 
-        this.logger.verbose(`Saved to local storage: ${item}`);
+        const stringifiedItem = !isEmpty(item) ? JSON.stringify(item) : '';
 
-        this.saveToLocalStorage(this.contents);
+        try {
+            this.storageObject.setItem(this._storageKey, stringifiedItem);
+
+            this.logger.verbose(`Saving item to Storage: ${stringifiedItem}`);
+        } catch (error) {
+            this.logger.error(
+                `Cannot Save items to Storage: ${stringifiedItem}`
+            );
+            this.logger.error(error as string);
+        }
     }
 
     /**
-     * Retrieves all StorableItems from local storage as an array
-     * @method retrieveItems
-     * @returns {StorableItem[]} an array of Items
+     * Retrieve StorableItem from Storage
+     * @method retrieve
+     * @returns {StorableItem}
      */
-    public retrieve(): StorableItem {
-        this.contents = this.getFromLocalStorage();
+    public retrieve(): StorableItem | null {
+        // TODO: Handle cases where Local Storage is unavailable
+        // https://go.mparticle.com/work/SQDSDKS-5022
+        const item: string = this.storageObject.getItem(this._storageKey);
+
+        this.contents = item ? JSON.parse(item) : null;
+
+        this.logger.verbose(`Retrieving item from Storage: ${item}`);
 
         return this.contents;
     }
 
     /**
-     * Removes all persisted data from local storage based on this vault's `key`
+     * Removes all persisted data from Storage based on this vault's `key`
+     * Will remove storage key from Storage as well
      * @method purge
      */
     public purge(): void {
+        this.logger.verbose('Purging Storage');
         this.contents = null;
-        this.removeFromLocalStorage();
+        this.storageObject.removeItem(this._storageKey);
     }
+}
 
-    private saveToLocalStorage(items: StorableItem): void {
-        try {
-            window.localStorage.setItem(
-                this._storageKey,
-                !isEmpty(items) ? JSON.stringify(items) : ''
-            );
-        } catch (error) {
-            this.logger.error(`Cannot Save items to Local Storage: ${items}`);
-            this.logger.error(error as string);
-        }
+export class LocalStorageVault<StorableItem> extends BaseVault<StorableItem> {
+    constructor(storageKey: string, options?: IVaultOptions) {
+        super(storageKey, window.localStorage, options);
     }
+}
 
-    private getFromLocalStorage(): StorableItem | null {
-        // TODO: Handle cases where Local Storage is unavailable
-        // https://go.mparticle.com/work/SQDSDKS-5022
-        const item: string = window.localStorage.getItem(this._storageKey);
-
-        return item ? JSON.parse(item) : null;
-    }
-
-    private removeFromLocalStorage(): void {
-        window.localStorage.removeItem(this._storageKey);
+export class SessionStorageVault<StorableItem> extends BaseVault<StorableItem> {
+    constructor(storageKey: string, options?: IVaultOptions) {
+        super(storageKey, window.sessionStorage, options);
     }
 }
