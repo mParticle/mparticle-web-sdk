@@ -136,7 +136,7 @@ describe('core SDK', function() {
         mParticle.setAppVersion('1.0');
 
         window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation);
-        var testEventBatch = findBatch(window.fetchMock._calls, 'Test Event');
+        const testEventBatch = findBatch(window.fetchMock._calls, 'Test Event');
         testEventBatch.application_info.should.have.property('application_version', '1.0');
 
         done();
