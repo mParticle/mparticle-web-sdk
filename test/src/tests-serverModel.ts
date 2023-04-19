@@ -328,11 +328,6 @@ describe('ServerModel', () => {
             mockServer = sinon.createFakeServer();
             mockServer.respondImmediately = true;
 
-            mockServer.respondWith(urls.eventsV2, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, Store: {} }),
-            ]);
             mockServer.respondWith(urls.identify, [
                 200,
                 {},
@@ -1301,11 +1296,6 @@ describe('ServerModel', () => {
             mockServer = sinon.createFakeServer();
             mockServer.respondImmediately = true;
 
-            mockServer.respondWith(urls.eventsV2, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, Store: {} }),
-            ]);
             mockServer.respondWith(urls.identify, [
                 200,
                 {},

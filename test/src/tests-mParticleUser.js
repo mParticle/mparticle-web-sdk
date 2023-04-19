@@ -8,38 +8,31 @@ var forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
 
 describe('mParticleUser', function() {
     beforeEach(function() {
-        // TODO - for some reason when these MPIDs are all testMPID, the following test breaks:
-        // onIdentifyComplete/onLoginComplete/onLogoutComplete/onModifyComplete 
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'testtest', Store: {}})
-        ]);
 
         mockServer.respondWith(urls.identify, [
             200,
             {},
-            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
+            JSON.stringify({ mpid: 'testMPID', is_logged_in: false }),
         ]);
 
         mockServer.respondWith(urls.login, [
             200,
             {},
-            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
+            JSON.stringify({ mpid: 'testMPID', is_logged_in: false }),
         ]);
 
         mockServer.respondWith(urls.logout, [
             200,
             {},
-            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
+            JSON.stringify({ mpid: 'testMPID', is_logged_in: false }),
         ]);
 
-        mockServer.respondWith('https://identity.mparticle.com/v1/testtest/modify', [
+        mockServer.respondWith('https://identity.mparticle.com/v1/testMPID/modify', [
             200,
             {},
-            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
+            JSON.stringify({ mpid: 'testMPID', is_logged_in: false }),
         ]);
     });
 

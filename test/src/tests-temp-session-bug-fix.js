@@ -93,7 +93,7 @@ describe('session bug fix test', function() {
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
-        window.fetchMock.post(urls.eventsV3, 200);
+        window.fetchMock.post(urls.events, 200);
         mParticle.init(apiKey, window.mParticle.config);
     });
 

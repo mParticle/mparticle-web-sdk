@@ -3,24 +3,20 @@ import Store from '../../src/store';
 import Constants from '../../src/constants';
 import sinon from 'sinon';
 import { urls } from './config';
-import { apiKey, das, MPConfig, testMPID, workspaceCookieName, MessageType } from './config';
+import { apiKey, das, MPConfig, testMPID, workspaceCookieName } from './config';
 
 var DefaultConfig = Constants.DefaultConfig,
     setLocalStorage = Utils.setLocalStorage,
-    getEvent = Utils.getEvent,
     findRequest = Utils.findRequest,
+    findRequestURL = Utils.findRequestURL,
+    findEventFromRequest = Utils.findEventFromRequest,
+    findBatch = Utils.findBatch,
     mockServer;
 
 describe('core SDK', function() {
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
-
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ]);
 
         mockServer.respondWith(urls.identify, [
             200,
@@ -38,11 +34,10 @@ describe('core SDK', function() {
     it('starts new session', function(done) {
         mParticle.startNewSession();
 
-        var data = getEvent(mockServer.requests, MessageType.SessionStart);
+        var sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
 
-        data.should.be.ok();
-
-        data.should.have.property('sid');
+        sessionStartEvent.should.be.ok();
+        sessionStartEvent.data.should.have.property('session_uuid');
 
         done();
     });
@@ -92,27 +87,28 @@ describe('core SDK', function() {
         mParticle.startNewSession();
         mParticle.endSession();
 
-        var data = getEvent(mockServer.requests, MessageType.SessionEnd);
+        var sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
-        Should(data).be.ok();
-        data.should.have.property('sl');
+        sessionEndEvent.should.be.ok();
+
+        sessionEndEvent.data.should.have.property('session_duration_ms');
 
         done();
     });
 
     it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', function(done) {
         mParticle.logEvent('Test Event1');
-        var data1 = getEvent(mockServer.requests, 'Test Event1');
+        var testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
 
         setTimeout(function() {
             mParticle.logEvent('Test Event2');
-            var data2 = getEvent(mockServer.requests, 'Test Event2');
+            var testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
 
             mParticle.endSession();
-            var data3 = getEvent(mockServer.requests, MessageType.SessionEnd);
+            var sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
-            var result1 = data1.ct === data2.ct;
-            var result2 = data2.ct === data3.ct;
+            var result1 = testEvent1.data.timestamp_unixtime_ms === testEvent2.data.timestamp_unixtime_ms;
+            var result2 = testEvent2.data.timestamp_unixtime_ms === sessionEndEvent.data.timestamp_unixtime_ms;
 
             Should(result1).not.be.ok();
             Should(result2).be.ok();
@@ -140,9 +136,8 @@ describe('core SDK', function() {
         mParticle.setAppVersion('1.0');
 
         window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation);
-        var data = getEvent(mockServer.requests, 'Test Event');
-
-        data.should.have.property('av', '1.0');
+        const testEventBatch = findBatch(window.fetchMock._calls, 'Test Event');
+        testEventBatch.application_info.should.have.property('application_version', '1.0');
 
         done();
     });
@@ -202,40 +197,12 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, mParticle.config);
 
-        window.fetchMock.post(
-            'https://jssdks.mparticle.com/v3/JS/test_key/events',
-            200
-        );
-
         window.mParticle.logEvent('Test Event');
 
         var batch = JSON.parse(window.fetchMock.lastOptions().body);
 
         batch.application_info.should.have.property('application_name', 'newAppName');
         
-        done();
-    });
-    
-    // TODO: Remove after 8/11/2022
-    it('should warn if user is not on v3', function (done) {
-        var errorMessage;
-        mParticle.config.logLevel = 'verbose';
-        mParticle.config.logger = {
-            warning: function (msg) {
-                if (!errorMessage) {
-                    errorMessage = msg;
-                }
-            }
-        }
-        mParticle.config.flags = {
-            eventsV3: '0',
-            eventBatchingIntervalMillis: 0,
-        }
-
-        mParticle.init(apiKey, mParticle.config);
-
-        errorMessage.should.startWith('mParticle will be enabling Event Batching for all customers on July 12, 2022. For more details, please see our docs: ');
-
         done();
     });
 
@@ -253,29 +220,10 @@ describe('core SDK', function() {
         done();
     })
 
-    it('should set client id', function(done) {
-        window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation);
-        var data = getEvent(mockServer.requests, 'Test Event');
-
-        data.should.have.property('cgid').with.lengthOf(36);
-
-        done();
-    });
-
     it('should set Package Name on Batch Payload', function (done) {
         mParticle.config.package = 'my-web-package';
 
-        mParticle.config.flags = {
-            eventsV3: '100',
-            eventBatchingIntervalMillis: 0,
-        }
-
         mParticle.init(apiKey, mParticle.config);
-
-        window.fetchMock.post(
-            'https://jssdks.mparticle.com/v3/JS/test_key/events',
-            200
-        );
 
         window.mParticle.logEvent('Test Event');
         
@@ -297,13 +245,13 @@ describe('core SDK', function() {
             removeme: new Error(),
         });
 
-        var event = getEvent(mockServer.requests, 'sanitized event');
+        const sanitizedEvent = findEventFromRequest(window.fetchMock._calls, 'sanitized event');
 
-        event.attrs.should.have.property('key1', 'value1');
-        event.attrs.should.have.property('mydate');
-        event.attrs.should.not.have.property('ishouldberemoved');
-        event.attrs.should.not.have.property('ishouldalsoberemoved');
-        event.attrs.should.not.have.property('removeme');
+        sanitizedEvent.data.custom_attributes.should.have.property('key1', 'value1');
+        sanitizedEvent.data.custom_attributes.should.have.property('mydate');
+        sanitizedEvent.data.custom_attributes.should.not.have.property('ishouldberemoved');
+        sanitizedEvent.data.custom_attributes.should.not.have.property('ishouldalsoberemoved');
+        sanitizedEvent.data.custom_attributes.should.not.have.property('removeme');
 
         done();
     });
@@ -330,15 +278,16 @@ describe('core SDK', function() {
         product.Attributes.should.have.property('valid');
 
         mParticle.eCommerce.logCheckout(1, 'visa', attrs);
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        event.attrs.should.not.have.property('invalid');
-        event.attrs.should.have.property('valid');
+        const checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
 
-        mockServer.requests = [];
-        mParticle.eCommerce.logProductAction(1, product, attrs);
-        event = getEvent(mockServer.requests, 'eCommerce - AddToCart');
-        event.attrs.should.not.have.property('invalid');
-        event.attrs.should.have.property('valid');
+        checkoutEvent.data.custom_attributes.should.not.have.property('invalid');
+        checkoutEvent.data.custom_attributes.should.have.property('valid');
+
+        mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, product, attrs);
+        const addToCartEvent = findEventFromRequest(window.fetchMock._calls, 'add_to_cart');
+
+        addToCartEvent.data.custom_attributes.should.not.have.property('invalid');
+        addToCartEvent.data.custom_attributes.should.have.property('valid');
 
         var transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
             '12345',
@@ -356,9 +305,9 @@ describe('core SDK', function() {
             false,
             attrs
         );
-        event = getEvent(mockServer.requests, 'eCommerce - Purchase');
-        event.attrs.should.not.have.property('invalid');
-        event.attrs.should.have.property('valid');
+        const purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        purchaseEvent.data.custom_attributes.should.not.have.property('invalid');
+        purchaseEvent.data.custom_attributes.should.have.property('valid');
 
         var promotion = mParticle.eCommerce.createPromotion(
             'id',
@@ -369,9 +318,9 @@ describe('core SDK', function() {
 
         mockServer.requests = [];
         mParticle.eCommerce.logPromotion(1, promotion, attrs);
-        event = getEvent(mockServer.requests, 'eCommerce - PromotionView');
-        event.attrs.should.not.have.property('invalid');
-        event.attrs.should.have.property('valid');
+        const promotionViewEvent = findEventFromRequest(window.fetchMock._calls, 'view');
+        promotionViewEvent.data.custom_attributes.should.not.have.property('invalid');
+        promotionViewEvent.data.custom_attributes.should.have.property('valid');
 
         mockServer.requests = [];
         mParticle.eCommerce.logRefund(
@@ -380,9 +329,10 @@ describe('core SDK', function() {
             false,
             attrs
         );
-        event = getEvent(mockServer.requests, 'eCommerce - Refund');
-        event.attrs.should.not.have.property('invalid');
-        event.attrs.should.have.property('valid');
+        const refundEvent = findEventFromRequest(window.fetchMock._calls, 'refund');
+
+        refundEvent.data.custom_attributes.should.not.have.property('invalid');
+        refundEvent.data.custom_attributes.should.have.property('valid');
 
         done();
     });
@@ -430,15 +380,14 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
         clock.tick(100);
         mParticle.logEvent('Test Event');
-        var data = getEvent(mockServer.requests, 'Test Event');
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
 
         clock.tick(70000);
 
         mParticle.logEvent('Test Event2');
-        var data2 = getEvent(mockServer.requests, 'Test Event2');
-        data.sid.should.not.equal(data2.sid);
-        mParticle.getInstance()._SessionManager.clearSessionTimeout();
-        clock.restore();
+        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+        testEvent.data.session_uuid.should.not.equal(testEvent2.data.session_uuid);
+        mParticle.getInstance()._SessionManager.clearSessionTimeout(); clock.restore();
 
         done();
     });
@@ -459,12 +408,12 @@ describe('core SDK', function() {
 
         clock.tick(150000);
 
-        var data1 = getEvent(mockServer.requests, 'Test Event');
-        var data2 = getEvent(mockServer.requests, 'Test Event2');
-        var data3 = getEvent(mockServer.requests, 'Test Event3');
-
-        data2.sid.should.equal(data1.sid);
-        data3.sid.should.not.equal(data1.sid);
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
+        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+        const testEvent3 = findEventFromRequest(window.fetchMock._calls, 'Test Event3');
+        
+        testEvent2.data.session_uuid.should.equal(testEvent.data.session_uuid);
+        testEvent3.data.session_uuid.should.not.equal(testEvent.data.session_uuid);
         clock.restore();
         done();
     });
@@ -483,12 +432,12 @@ describe('core SDK', function() {
         // This clock tick initiates a session end event that is successful
         clock.tick(70000);
 
-        var data1 = getEvent(mockServer.requests, 2);
-        Should(data1).be.ok();
+        let sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        Should(sessionEndEvent).be.ok();
 
-        mockServer.requests = [];
+        window.fetchMock._calls = [];
+        clock.tick(100);
 
-        // clock.tick(100);
         mParticle.logEvent('Test Event2');
 
         var sid = mParticle.getInstance()._Persistence.getLocalStorage().gs.sid;
@@ -503,14 +452,15 @@ describe('core SDK', function() {
         setLocalStorage(workspaceCookieName, new_Persistence);
         // // This clock tick initiates a session end event that is not successful
         clock.tick(70000);
-        var noData = getEvent(mockServer.requests, 2);
-        Should(noData).not.be.ok();
-        var data2 = getEvent(mockServer.requests, 'Test Event2');
+        sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+
+        Should(sessionEndEvent).not.be.ok();
+        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
 
         mParticle.logEvent('Test Event3');
 
-        var data3 = getEvent(mockServer.requests, 'Test Event3');
-        data3.sid.should.equal(data2.sid);
+        const testEvent3 = findEventFromRequest(window.fetchMock._calls, 'Test Event3');
+        testEvent3.data.session_uuid.should.equal(testEvent2.data.session_uuid);
 
         clock.restore();
         done();
@@ -518,11 +468,11 @@ describe('core SDK', function() {
 
     it('should get sessionId', function(done) {
         mParticle.logEvent('Test Event');
-        var data = getEvent(mockServer.requests, 'Test Event');
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
 
         var sessionId = mParticle.getInstance()._SessionManager.getSession();
 
-        data.sid.should.equal(sessionId);
+        testEvent.data.session_uuid.should.equal(sessionId);
 
         done();
     });
@@ -530,9 +480,9 @@ describe('core SDK', function() {
     it('should set session start date in dto', function(done) {
         mParticle.logEvent('Test Event');
 
-        var data = getEvent(mockServer.requests, 'Test Event');
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
 
-        data.ssd.should.be.above(0);
+        testEvent.data.session_start_unixtime_ms.should.be.above(0);
 
         done();
     });
@@ -540,15 +490,21 @@ describe('core SDK', function() {
     it('should update session start date when manually ending session then starting a new one', function(done) {
         mParticle.logEvent('Test Event');
 
-        var firstSessionStartDate = getEvent(mockServer.requests, 'Test Event').ssd;
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
+        const testEventSessionStartTime = testEvent.data.session_start_unixtime_ms;
 
         mParticle.endSession();
-        var sessionEndEventSessionStartDate = getEvent(mockServer.requests, 2).ssd;
-        sessionEndEventSessionStartDate.should.equal(firstSessionStartDate);
 
-        mParticle.logEvent('Another Test');
-        var newSessionStartDate = getEvent(mockServer.requests, 'Another Test').ssd;
-        newSessionStartDate.should.be.above(sessionEndEventSessionStartDate);
+        const sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        const sessionEndEventSessionStartDate = sessionEndEvent.data.session_start_unixtime_ms;
+        sessionEndEventSessionStartDate.should.equal(testEventSessionStartTime);
+
+        mParticle.logEvent('Test Event2');
+
+        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+
+        const testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
+        testEvent2SessionStartDate.should.be.above(sessionEndEventSessionStartDate);
 
         done();
     });
@@ -563,19 +519,24 @@ describe('core SDK', function() {
         clock.tick(10);
 
         mParticle.logEvent('Test Event');
-        var firstSessionStartDate = getEvent(mockServer.requests, 'Test Event').ssd;
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
+        const testEventSessionStartDate = testEvent.data.session_start_unixtime_ms;
 
         // trigger session timeout which ends session automatically
         clock.tick(60000);
 
-        var sessionEndEventSessionStartDate = getEvent(mockServer.requests, 2).ssd;
-        sessionEndEventSessionStartDate.should.equal(firstSessionStartDate);
+        // note to self - session end event not being triggered, could be the same bug
+        const sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        const sessionEndEventSessionStartDate = sessionEndEvent.data.session_start_unixtime_ms;
+        sessionEndEventSessionStartDate.should.equal(testEventSessionStartDate);
 
         clock.tick(100);
 
-        mParticle.logEvent('Another Test');
-        var newSessionStartDate = getEvent(mockServer.requests, 'Another Test').ssd;
-        newSessionStartDate.should.be.above(sessionEndEventSessionStartDate);
+        mParticle.logEvent('Test Event2');
+        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+
+        const testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
+        testEvent2SessionStartDate.should.be.above(sessionEndEventSessionStartDate);
 
         clock.restore();
 
@@ -585,16 +546,22 @@ describe('core SDK', function() {
     it('should load SDK with the included api on init and not send events to previous apikey in persistence', function(done) {
         mParticle.logEvent('Test Event1');
 
-        var event1 = findRequest(mockServer.requests, 'Test Event1');
-        event1.url.should.equal(
-            urls.eventsV2
+        const testEvent1URL = findRequest(window.fetchMock._calls, 'Test Event1')[0];
+        testEvent1URL.should.equal(
+            urls.events
         );
 
-        mParticle.init(apiKey, window.mParticle.config);
+        window.fetchMock.post(
+            'https://jssdks.mparticle.com/v3/JS/new-api-key/events',
+            200
+        );
+
+        mParticle.init('new-api-key', window.mParticle.config);
         mParticle.logEvent('Test Event2');
-        var event2 = findRequest(mockServer.requests, 'Test Event2')
-        event2.url.should.equal(
-            urls.eventsV2
+
+        const testEvent2URL = findRequestURL(window.fetchMock._calls, 'Test Event2');
+        testEvent2URL.should.equal(
+            'https://jssdks.mparticle.com/v3/JS/new-api-key/events'
         );
 
         done();
@@ -720,7 +687,7 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         infoMessage.should.equal(
-            'Received OK from server'
+            'Batch count: 1'
         );
 
         mParticle.eCommerce.createProduct();
@@ -780,14 +747,14 @@ describe('core SDK', function() {
 
         mParticle.setLogLevel('none');
 
-        mParticle.logEvent('hi');
+        mParticle.logEvent('Test Event');
 
         infoMessages.length.should.equal(0);
         warnMessages.length.should.equal(0);
         errorMessages.length.should.equal(0);
 
-        var data = getEvent(mockServer.requests, 'hi');
-        Should(data).be.ok();
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
+        Should(testEvent).be.ok();
 
         done();
     });
@@ -832,12 +799,8 @@ describe('core SDK', function() {
     });
 
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', function(done) {
-        window.mParticle.config.v1SecureServiceUrl =
-            'custom-v1SecureServiceUrl/';
-        window.mParticle.config.v2SecureServiceUrl =
-            'custom-v2SecureServiceUrl/v2/JS/';
         window.mParticle.config.v3SecureServiceUrl =
-            'custom-v3SecureServiceUrl/v3/JS/';
+            'custom-v3secureserviceurl/v3/JS/';
         window.mParticle.config.configUrl =
             'custom-configUrl/v2/JS/';
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
@@ -845,20 +808,19 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(window.mParticle.config.v1SecureServiceUrl)
-        mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(window.mParticle.config.v2SecureServiceUrl)
         mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
         mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl)
         mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(window.mParticle.config.identityUrl)
         mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(window.mParticle.config.aliasUrl)
 
         // test events endpoint
-        mockServer.requests = [];
-        mParticle.logEvent('test');
-        mockServer.requests[0].url.should.equal(
+        mParticle.logEvent('Test Event');
+
+        var testEventURL = findRequestURL(window.fetchMock._calls, 'Test Event');
+        testEventURL.should.equal(
             'https://' +
-                window.mParticle.config.v2SecureServiceUrl +
-                'test_key/Events'
+                window.mParticle.config.v3SecureServiceUrl +
+                'test_key/events'
         );
 
         // test Identity endpoint
@@ -1017,9 +979,10 @@ describe('core SDK', function() {
         ]);
 
         mParticle.Identity.identify({ userIdentities: { customerid: 'test' } });
-        mockServer.requests = [];
-        mParticle.logEvent('test');
-        mockServer.requests.length.should.equal(1);
+        mParticle.logEvent('Test Event');
+        const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
+
+        testEvent.should.be.ok();
 
         done();
     });
