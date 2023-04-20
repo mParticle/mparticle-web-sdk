@@ -85,6 +85,34 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
+    test-jest:
+        name: 'Test Jest'
+        runs-on: 'ubuntu-latest'
+        strategy:
+            matrix:
+                node-version: [16.x, 17.x, 18.x, 19.x, 20.x]
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: NPM install
+              uses: actions/setup-node@v3
+              with:
+                  node-version: ${{ matrix.node-version }}
+
+            - name: Run NPM CI
+              run: npm ci
+
+            - name: Run Jest Tests
+              run: npm run test:test
+
+            - name: Archive npm failure logs
+              uses: actions/upload-artifact@v3
+              if: failure()
+              with:
+                  name: npm-logs
+                  path: ~/.npm/_logs
+
     test-stub:
         name: 'Test Stub'
         runs-on: ubuntu-latest
