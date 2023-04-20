@@ -1,7 +1,7 @@
-import theAnswerToLifeTheUnverseAndEverything from "./theAnswer";
+import theAnswerToLifeTheUniverseAndEverything from "./theAnswer";
 
 describe('JEST Hello World', () => {
-    it('The answer to life, the unverse and everything', () => {
-        expect(theAnswerToLifeTheUnverseAndEverything()).toEqual('42');
+    it('The answer to life, the universe and everything', () => {
+        expect(theAnswerToLifeTheUniverseAndEverything()).toEqual('42');
     });
 });

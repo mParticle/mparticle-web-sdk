@@ -1,5 +1,5 @@
-const theAnswerToLifeTheUnverseAndEverything = (): string => {
+const theAnswerToLifeTheUniverseAndEverything = (): string => {
     return '42';
 };
 
-export default theAnswerToLifeTheUnverseAndEverything;
+export default theAnswerToLifeTheUniverseAndEverything;
