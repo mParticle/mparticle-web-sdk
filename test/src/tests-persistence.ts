@@ -32,7 +32,6 @@ let mockServer;
 
 describe('migrations and persistence-related', () => {
     beforeEach(() => {
-        debugger;
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -1796,8 +1795,6 @@ describe('migrations and persistence-related', () => {
     });
 
     it('should properly set setLastSeenTime()', done => {
-        debugger;
-
         const mParticle = window.mParticle;
 
         mParticle._resetForTests(MPConfig);
@@ -1813,8 +1810,6 @@ describe('migrations and persistence-related', () => {
             },
             cu: 'current',
         });
-
-        debugger;
 
         setCookie(workspaceCookieName, cookies, true);
 
