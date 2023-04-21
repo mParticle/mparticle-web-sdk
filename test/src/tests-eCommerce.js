@@ -14,6 +14,7 @@ describe('eCommerce', function() {
         delete mParticle._instances['default_instance'];
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
+        window.fetchMock.post(urls.events, 200);
 
         mockServer.respondWith(urls.identify, [
             200,
@@ -26,6 +27,7 @@ describe('eCommerce', function() {
 
     afterEach(function() {
         mockServer.restore();
+        window.fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 

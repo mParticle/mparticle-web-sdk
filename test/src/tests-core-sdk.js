@@ -15,6 +15,7 @@ var DefaultConfig = Constants.DefaultConfig,
 
 describe('core SDK', function() {
     beforeEach(function() {
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -29,6 +30,8 @@ describe('core SDK', function() {
     afterEach(function() {
         mockServer.reset();
         mParticle._resetForTests(MPConfig);
+        window.fetchMock.restore();
+        sinon.restore();
     });
 
     it('starts new session', function(done) {
@@ -800,9 +803,9 @@ describe('core SDK', function() {
 
     it('should have default urls if no custom urls are set in config object, but use custom urls when they are set', function(done) {
         window.mParticle.config.v3SecureServiceUrl =
-            'custom-v3secureserviceurl/v3/JS/';
+            'testtesttest-custom-v3secureserviceurl/v3/JS/';
         window.mParticle.config.configUrl =
-            'custom-configUrl/v2/JS/';
+            'foo-custom-configUrl/v2/JS/';
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
         window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
 
@@ -861,7 +864,7 @@ describe('core SDK', function() {
     });
 
     it('should use custom v3 endpoint when specified on config object', function(done) {
-        mParticle.config.v3SecureServiceUrl = 'custom-v3SecureServiceUrl/v3/JS/';
+        mParticle.config.v3SecureServiceUrl = 'def-v3SecureServiceUrl/v3/JS/';
 
         mParticle.config.flags = {
             eventsV3: '100',
@@ -869,7 +872,7 @@ describe('core SDK', function() {
         }
 
         window.fetchMock.post(
-            'https://custom-v3SecureServiceUrl/v3/JS/test_key/events',
+            'https://def-v3SecureServiceUrl/v3/JS/test_key/events',
             200
         );
 

@@ -15,6 +15,7 @@ describe('identities and attributes', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
+        window.fetchMock.post(urls.events, 200);
         mockServer.respondWith(urls.identify, [
             200,
             {},
@@ -25,6 +26,7 @@ describe('identities and attributes', function() {
 
     afterEach(function() {
         mockServer.restore();
+        window.fetchMock.restore();
     });
 
     it('should set user attribute', function(done) {

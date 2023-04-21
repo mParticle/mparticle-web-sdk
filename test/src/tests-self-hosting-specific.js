@@ -9,8 +9,14 @@ var mockServer;
 // Calls to /config are specific to only the self hosting environment
 describe('/config self-hosting integration tests', function() {
     beforeEach(function() {
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
     });
+
+    afterEach(function() {
+        window.fetchMock.restore();
+        sinon.restore();
+    })
 
     it('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', function(done) {
         mParticle._resetForTests(MPConfig);

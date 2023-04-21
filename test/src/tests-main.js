@@ -1,4 +1,4 @@
-import { MPConfig, workspaceToken, urls } from './config';
+import { MPConfig, workspaceToken } from './config';
 
 var userApi = null;
 
@@ -23,9 +23,6 @@ beforeEach(function() {
         }
     };
 
-    window.fetchMock.post(urls.events, 200);
-    window.fetchMock.config.overwriteRoutes = true;
-
     mParticle._resetForTests(MPConfig);
     delete mParticle._instances['default_instance'];
 });
@@ -34,10 +31,10 @@ afterEach(function() {
     window.fetchMock.restore();
 });
 
-import './tests-beaconUpload';
-import './tests-batchUploader';
 import './tests-core-sdk';
 import './tests-temp-session-bug-fix';
+import './tests-batchUploader';
+import './tests-beaconUpload';
 import './tests-kit-blocking';
 import './tests-migrations';
 import './tests-persistence';

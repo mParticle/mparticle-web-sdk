@@ -13,6 +13,7 @@ var findCookie = Utils.findCookie,
 
 describe('migrations and persistence-related', function() {
     beforeEach(function() {
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -27,6 +28,7 @@ describe('migrations and persistence-related', function() {
 
     afterEach(function() {
         mockServer.restore();
+        window.fetchMock.restore();
     });
 
     it('should move new schema from cookies to localStorage with useCookieStorage = false', function(done) {

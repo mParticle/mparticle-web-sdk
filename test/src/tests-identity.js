@@ -22,6 +22,7 @@ var getLocalStorage = Utils.getLocalStorage,
 describe('identity', function() {
     beforeEach(function() {
         delete mParticle.config.useCookieStorage;
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -35,6 +36,7 @@ describe('identity', function() {
 
     afterEach(function() {
         mockServer.restore();
+        window.fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 

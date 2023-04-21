@@ -20,6 +20,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
+        window.fetchMock.post(urls.events, 200);
         mockServer.respondWith(urls.identify, [
             200,
             {},
@@ -30,6 +31,7 @@ describe('persistence migrations from SDKv1 to SDKv2', function() {
     afterEach(function() {
         deleteAllCookies();
         mockServer.restore();
+        window.fetchMock.restore();
     });
 
     var mP = new _Persistence(mParticle.getInstance());

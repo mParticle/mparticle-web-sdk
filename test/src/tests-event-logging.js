@@ -13,6 +13,7 @@ var getIdentityEvent = Utils.getIdentityEvent,
 describe('event logging', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
+        window.fetchMock.post(urls.events, 200);
         delete mParticle._instances['default_instance'];
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
@@ -28,6 +29,7 @@ describe('event logging', function() {
 
     afterEach(function() {
         mockServer.restore();
+        window.fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 

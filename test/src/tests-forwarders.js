@@ -16,6 +16,7 @@ describe('forwarders', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -52,6 +53,7 @@ describe('forwarders', function() {
     });
 
     afterEach(function() {
+        window.fetchMock.restore();
         delete window.MockForwarder1;
         mockServer.restore();
     });

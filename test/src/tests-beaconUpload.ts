@@ -13,8 +13,13 @@ declare global {
 
 describe('Beacon Upload', () => {
     let mockServer;
+    before(function() {
+        window.fetchMock.restore();
+        sinon.restore();
+    });
 
     beforeEach(function() {
+        window.fetchMock.restore();
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -33,6 +38,7 @@ describe('Beacon Upload', () => {
     afterEach(() => {
         sinon.restore();
         mockServer.reset();
+        window.fetchMock.restore();
     });
 
     it('should trigger beacon on page visibilitychange events', function(done) {
@@ -45,9 +51,7 @@ describe('Beacon Upload', () => {
         document.dispatchEvent(new Event('visibilitychange'));
 
         bond.called.should.eql(true);
-        bond.getCalls()[0].args[0].should.eql(
-            'https://jssdks.mparticle.com/v3/JS/test_key/events'
-        );
+        bond.lastCall.args[0].should.eql(urls.events);
 
         done();
     });
@@ -63,9 +67,7 @@ describe('Beacon Upload', () => {
         window.dispatchEvent(new Event('beforeunload'));
 
         bond.called.should.eql(true);
-        bond.getCalls()[0].args[0].should.eql(
-            'https://jssdks.mparticle.com/v3/JS/test_key/events'
-        );
+        bond.getCalls()[0].args[0].should.eql(urls.events);
 
         done();
     });
@@ -79,9 +81,7 @@ describe('Beacon Upload', () => {
         window.dispatchEvent(new Event('pagehide'));
 
         bond.called.should.eql(true);
-        bond.getCalls()[0].args[0].should.eql(
-            'https://jssdks.mparticle.com/v3/JS/test_key/events'
-        );
+        bond.getCalls()[0].args[0].should.eql(urls.events);
 
         (typeof bond.getCalls()[0].args[1]).should.eql('object');
 
