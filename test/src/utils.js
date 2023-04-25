@@ -1,4 +1,14 @@
-import { apiKey, testMPID, v3CookieKey, v4CookieKey, v4LSKey, workspaceToken, workspaceCookieName, das } from './config';
+import * as Utils from '../../src/utils';
+import {
+    apiKey,
+    testMPID,
+    v3CookieKey,
+    v4CookieKey,
+    v4LSKey,
+    workspaceToken,
+    workspaceCookieName,
+    das,
+} from './config';
 
 var pluses = /\+/g,
     getLocalStorageProducts = function getLocalStorageProducts() {
@@ -95,9 +105,7 @@ var pluses = /\+/g,
             cookieDomain,
             value;
         if (cname === v4CookieKey || cname === workspaceCookieName) {
-            value = mParticle
-                .getInstance()
-                ._Persistence.replaceCommasWithPipes(data);
+            value = Utils.replaceCommasWithPipes(data);
         } else if (cname === v3CookieKey) {
             value = data;
         } else {

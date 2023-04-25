@@ -102,12 +102,6 @@ export interface IPersistence {
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
     encodePersistence(persistence: IPersistenceMinified): string;
     decodePersistence(persistenceString: string): string;
-    replaceCommasWithPipes(string: string): string;
-    replacePipesWithCommas(string: string): string;
-    replaceApostrophesWithQuotes(string: string): string;
-    replaceQuotesWithApostrophes(string: string): string;
-    createCookieString(string: string): string;
-    revertCookieString(string: string): string;
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
     getUserIdentities(mpid: MPID): UserIdentities;
