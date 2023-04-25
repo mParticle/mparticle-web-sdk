@@ -63,7 +63,6 @@ export default class _BatchValidator {
                 context: null,
                 configurationLoaded: false,
                 identityCallInFlight: false,
-                migratingToIDSyncCookies: false,
                 nonCurrentUserMPIDs: {},
                 identifyCalled: false,
                 isLoggedIn: false,

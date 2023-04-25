@@ -646,7 +646,6 @@ describe('core SDK', function() {
         mp.cartProducts.length.should.equal(0);
         mp.eventQueue.length.should.equal(0);
         mp.identityCallInFlight.should.equal(false);
-        mp.migratingToIDSyncCookies.should.equal(false);
         mp.identifyCalled.should.equal(false);
         mp.isLoggedIn.should.equal(false);
         mp.requireDelay.should.equal(true);

@@ -136,7 +136,6 @@ export interface IStore {
     configurationLoaded: boolean;
     identityCallInFlight: boolean;
     SDKConfig: Partial<SDKConfig>;
-    migratingToIDSyncCookies: boolean; // TODO: Remove when we archive Web SDK v1
     nonCurrentUserMPIDs: Record<MPID, Dictionary>;
     identifyCalled: boolean;
     isLoggedIn: boolean;
@@ -186,7 +185,6 @@ export default function Store(
         configurationLoaded: false,
         identityCallInFlight: false,
         SDKConfig: {},
-        migratingToIDSyncCookies: false,
         nonCurrentUserMPIDs: {},
         identifyCalled: false,
         isLoggedIn: false,

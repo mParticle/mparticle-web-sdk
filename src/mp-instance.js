@@ -1393,15 +1393,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             };
         }
 
-        // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
-        if (mpInstance._Store.migratingToIDSyncCookies) {
-            mpInstance.Identity.identify(
-                mpInstance._Store.SDKConfig.identifyRequest,
-                mpInstance._Store.SDKConfig.identityCallback
-            );
-            mpInstance._Store.migratingToIDSyncCookies = false;
-        }
-
         currentUser = mpInstance.Identity.getCurrentUser();
 
         if (
@@ -1551,7 +1542,9 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
         Messages.InformationMessages.StartingInitialization
     );
 
-    //check to see if localStorage is available for migrating purposes
+    // Check to see if localStorage is available before main configuration runs
+    // since we will need this for the current implementation of user persistence
+    // TODO: Refactor this when we refactor User Identity Persistence
     try {
         mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(
             window.localStorage
