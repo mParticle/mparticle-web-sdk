@@ -727,7 +727,7 @@ describe('migrations and persistence-related', () => {
         mParticle._resetForTests(MPConfig);
         mParticle.config.maxCookieSize = 700;
 
-        const cookies: Partial<IPersistenceMinified> = {
+        const cookies: IPersistenceMinified = {
             gs: {
                 csm: ['mpid1', 'mpid2', 'mpid3'],
                 sid: 'abcd',
@@ -737,7 +737,7 @@ describe('migrations and persistence-related', () => {
                 das: 'das1',
             } as IGlobalStoreV2MinifiedKeys,
             cu: 'mpid3',
-            // FIXME: `l` is required in type definition but what should the default be for this test?
+            l: false,
             mpid1: {
                 ua: {
                     gender: 'female',
@@ -767,12 +767,11 @@ describe('migrations and persistence-related', () => {
         };
         const expires = new Date(
             new Date().getTime() + 365 * 24 * 60 * 60 * 1000
-        ).toString();
+        ).toUTCString();
         const cookiesWithExpiration = mParticle
             .getInstance()
             ._Persistence.reduceAndEncodePersistence(
-                // FIXME: Remove this once line 719 is resolved
-                cookies as IPersistenceMinified,
+                cookies,
                 expires,
                 'testDomain',
                 mParticle.config.maxCookieSize
@@ -784,8 +783,8 @@ describe('migrations and persistence-related', () => {
         const cookiesResult = JSON.parse(
             mParticle
                 .getInstance()
-                // FIXME: should decodePersistence take a string or IPersistenceMinified?
-                // @ts-ignore
+                // TODO: Refactor or rename this to highlight that it is
+                //       a string function
                 ._Persistence.decodePersistence(cookiesWithoutExpiration)
         );
         expect(cookiesResult['mpid1']).to.not.be.ok;
@@ -959,7 +958,7 @@ describe('migrations and persistence-related', () => {
         mParticle._resetForTests(MPConfig);
         mParticle.config.maxCookieSize = 400;
 
-        const cookies: Partial<IPersistenceMinified> = {
+        const cookies: IPersistenceMinified = {
             gs: {
                 csm: ['mpid3'],
                 sid: 'abcd',
@@ -969,6 +968,7 @@ describe('migrations and persistence-related', () => {
                 das: 'das1',
             } as IGlobalStoreV2MinifiedKeys,
             cu: 'mpid3',
+            l: false,
             mpid1: {
                 ua: {
                     gender: 'female',
@@ -1004,8 +1004,7 @@ describe('migrations and persistence-related', () => {
         const cookiesWithExpiration = mParticle
             .getInstance()
             ._Persistence.reduceAndEncodePersistence(
-                // FIXME: We shouldn't have to force this
-                cookies as IPersistenceMinified,
+                cookies,
                 expires,
                 'testDomain',
                 mParticle.config.maxCookieSize
@@ -1017,8 +1016,6 @@ describe('migrations and persistence-related', () => {
         const cookiesResult = JSON.parse(
             mParticle
                 .getInstance()
-                // FIXME: decodePersistence: string or object?
-                // @ts-ignore
                 ._Persistence.decodePersistence(cookiesWithoutExpiration)
         );
 
@@ -1027,7 +1024,8 @@ describe('migrations and persistence-related', () => {
         expect(cookiesResult['mpid3']).be.ok;
         cookiesResult.gs.csm[0].should.equal('mpid3');
         cookiesResult.should.have.property('mpid3');
-        // FIXME: Should this be in the config or not?
+
+        // TODO: Refactor tests to include this in setup/teardown
         mParticle.config.maxCookieSize = 3000;
 
         done();
@@ -1729,7 +1727,8 @@ describe('migrations and persistence-related', () => {
         });
 
         setCookie(workspaceCookieName, cookies);
-        // FIXME: Should this be in configs or global?
+
+        // TODO: Refactor this into setup/teardown
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, mParticle.config);
@@ -1786,7 +1785,7 @@ describe('migrations and persistence-related', () => {
 
         setCookie(workspaceCookieName, cookies, true);
 
-        // FIXME: For some reason, this only passes when `config` is not used?
+        // TODO: https://go.mparticle.com/work/SQDSDKS-5339
         // @ts-ignore
         mParticle.useCookieStorage = true;
 
