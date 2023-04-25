@@ -97,9 +97,9 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
     return sdkConfig;
 }
 
-// TODO: Placeholder Types, MigrationData is temporary and will be removed in the future to reduce SDK size
+// TODO: Placeholder Types to be filled in as we migrate more modules
+//       to TypeScript
 export type PixelConfiguration = Dictionary;
-export type MigrationData = Dictionary;
 export type ServerSettings = Dictionary;
 export type SessionAttributes = Dictionary;
 export type IntegrationAttributes = Dictionary<Dictionary<string>>;
@@ -122,7 +122,6 @@ export interface IStore {
     clientId: string;
     deviceId: string;
     devToken: string | null;
-    migrationData: MigrationData;
     serverSettings: ServerSettings;
     dateLastEventSent: Date;
     sessionStartDate: Date;
@@ -173,7 +172,6 @@ export default function Store(
         clientId: null,
         deviceId: null,
         devToken: null,
-        migrationData: {},
         serverSettings: {},
         dateLastEventSent: null,
         sessionStartDate: null,
@@ -223,10 +221,9 @@ export default function Store(
             this.deviceId = config.deviceId;
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode =
-                mpInstance._Helpers.returnConvertedBoolean(
-                    config.isDevelopmentMode
-                );
+            this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
+                config.isDevelopmentMode
+            );
         } else {
             this.SDKConfig.isDevelopmentMode = false;
         }

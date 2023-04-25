@@ -44,7 +44,6 @@ describe('Store', () => {
         expect(store.clientId, 'clientId').to.eq(null);
         expect(store.deviceId, 'deviceId').to.eq(null);
         expect(store.devToken, 'devToken').to.eq(null);
-        expect(store.migrationData, 'migrationData').to.be.ok;
         expect(store.serverSettings, 'serverSettings').to.be.ok;
         expect(store.dateLastEventSent, 'dateLastEventSent').to.eq(null);
         expect(store.sessionStartDate, 'sessionStartDate').to.eq(null);

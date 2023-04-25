@@ -1563,29 +1563,15 @@ export default function Identity(mpInstance) {
                         mpInstance._Store.currentSessionMPIDs
                     );
 
-                    //if there is any previous migration data
-                    if (Object.keys(mpInstance._Store.migrationData).length) {
-                        newIdentitiesByType =
-                            mpInstance._Store.migrationData.userIdentities ||
-                            {};
-                        var userAttributes =
-                            mpInstance._Store.migrationData.userAttributes ||
-                            {};
-                        mpInstance._Persistence.saveUserAttributesToPersistence(
-                            identityApiResult.mpid,
-                            userAttributes
+                    if (
+                        identityApiData &&
+                        identityApiData.userIdentities &&
+                        Object.keys(identityApiData.userIdentities).length
+                    ) {
+                        newIdentitiesByType = self.IdentityRequest.combineUserIdentities(
+                            incomingMpidUIByName,
+                            identityApiData.userIdentities
                         );
-                    } else {
-                        if (
-                            identityApiData &&
-                            identityApiData.userIdentities &&
-                            Object.keys(identityApiData.userIdentities).length
-                        ) {
-                            newIdentitiesByType = self.IdentityRequest.combineUserIdentities(
-                                incomingMpidUIByName,
-                                identityApiData.userIdentities
-                            );
-                        }
                     }
 
                     mpInstance._Persistence.saveUserIdentitiesToPersistence(
