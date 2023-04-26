@@ -763,6 +763,8 @@ export default function _Persistence(mpInstance) {
         return self.createCookieString(JSON.stringify(persistence));
     };
 
+    // TODO: This should actually be decodePersistenceString or
+    //       we should refactor this to take a string and return an object
     this.decodePersistence = function(persistence) {
         try {
             if (persistence) {

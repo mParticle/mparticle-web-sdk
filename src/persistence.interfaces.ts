@@ -98,10 +98,10 @@ export interface IPersistence {
         expires: string,
         domain: string,
         maxCookieSize: number
-    ): void;
+    ): string;
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
-    encodePersistence(persistance: IPersistenceMinified): string;
-    decodePersistence(persistance: IPersistenceMinified): string;
+    encodePersistence(persistence: IPersistenceMinified): string;
+    decodePersistence(persistenceString: string): string;
     replaceCommasWithPipes(string: string): string;
     replacePipesWithCommas(string: string): string;
     replaceApostrophesWithQuotes(string: string): string;
