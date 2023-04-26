@@ -32,28 +32,28 @@ afterEach(function() {
     window.fetchMock.restore();
 });
 
-// Will slowly uncomment all of these as tests are updated to avoid filing tests
+// Will slowly uncomment all of these as tests are updated to avoid failing tests
 // in Github Action pull request checks
-import './tests-core-sdk';
-import './tests-temp-session-bug-fix';
-import './tests-batchUploader';
-import './tests-beaconUpload';
-import './tests-kit-blocking';
-import './tests-persistence';
-import './tests-forwarders';
-import './tests-helpers';
-import './tests-identity';
-import './tests-event-logging';
-import './tests-eCommerce';
-import './tests-cookie-syncing';
-// import './tests-identities-attributes';
-// import './tests-native-sdk';
-// import './tests-consent';
-// import './tests-serverModel';
-// import './tests-mockBatchCreator.ts';
-// import './tests-mParticleUser';
-// import './tests-self-hosting-specific';
-// import './tests-runtimeToBatchEventsDTO';
+// import './tests-core-sdk';
+// import './tests-temp-session-bug-fix';
+// import './tests-batchUploader';
+// import './tests-beaconUpload';
+// import './tests-kit-blocking';
+// import './tests-persistence';
+// import './tests-forwarders';
+// import './tests-helpers';
+// import './tests-identity';
+// import './tests-event-logging';
+// import './tests-eCommerce';
+// import './tests-cookie-syncing';
+import './tests-identities-attributes';
+import './tests-native-sdk';
+import './tests-consent';
+import './tests-serverModel';
+import './tests-mockBatchCreator.ts';
+import './tests-mParticleUser';
+import './tests-self-hosting-specific';
+import './tests-runtimeToBatchEventsDTO';
 // import './tests-apiClient';
 // import './tests-mparticle-instance-manager';
 // import './tests-queue-public-methods';
