@@ -32,12 +32,14 @@ afterEach(function() {
     window.fetchMock.restore();
 });
 
+// Will slowly uncomment all of these as tests are updated to avoid filing tests
+// in Github Action pull request checks
 import './tests-core-sdk';
 import './tests-temp-session-bug-fix';
 import './tests-batchUploader';
 import './tests-beaconUpload';
-// import './tests-kit-blocking';
-// import './tests-persistence';
+import './tests-kit-blocking';
+import './tests-persistence';
 // import './tests-forwarders';
 // import './tests-helpers';
 // import './tests-identity';

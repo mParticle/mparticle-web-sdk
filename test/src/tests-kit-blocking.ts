@@ -1298,7 +1298,7 @@ describe('kit blocking', () => {
                 );
 
                 let errorMessages = [];
-                console.log(errorMessages);
+
                 window.mParticle._resetForTests(MPConfig);
 
                 let mockForwarder = new MockForwarder();
@@ -1319,7 +1319,7 @@ describe('kit blocking', () => {
                         errorMessages.push(err)
                     }
                 }
-                console.log(errorMessages);
+
                 window.mParticle.init(apiKey, window.mParticle.config);
                 errorMessages[0].should.equal(errorMessage);
                 window.mParticle.config.requestConfig = false;
