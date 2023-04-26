@@ -1,10 +1,10 @@
 import Utils from './utils';
 import sinon from 'sinon';
-import { urls, apiKey, CommerceEventType, workspaceToken, MPConfig, testMPID, ProductActionType, PromotionActionType } from './config';
+import { urls, apiKey, workspaceToken, MPConfig, testMPID, ProductActionType, PromotionActionType } from './config';
 
 var getLocalStorageProducts = Utils.getLocalStorageProducts,
     forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
-    getEvent = Utils.getEvent,
+    findEventFromRequest = Utils.findEventFromRequest,
     MockForwarder = Utils.MockForwarder,
     mockServer;
 
@@ -14,22 +14,20 @@ describe('eCommerce', function() {
         delete mParticle._instances['default_instance'];
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
+        window.fetchMock.post(urls.eventsV3, 200);
 
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ])
         mockServer.respondWith(urls.identify, [
             200,
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
+
         mParticle.init(apiKey, window.mParticle.config);
     });
 
     afterEach(function() {
         mockServer.restore();
+        window.fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 
@@ -95,36 +93,39 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
 
-        data.should.have.property('pd');
-        data.pd.should.have.property('an', ProductActionType.Purchase);
-        data.pd.should.have.property('ti', '12345');
-        data.pd.should.have.property('ta', 'test-affiliation');
-        data.pd.should.have.property('tcc', 'coupon-code');
-        data.pd.should.have.property('tr', 44334);
-        data.pd.should.have.property('ts', 600);
-        data.pd.should.have.property('tt', 200);
-        data.pd.should.have.property('pl').with.lengthOf(1);
+        var purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
 
-        data.pd.pl[0].should.have.property('id', '12345');
-        data.pd.pl[0].should.have.property('nm', 'iPhone');
-        data.pd.pl[0].should.have.property('pr', 400);
-        data.pd.pl[0].should.have.property('qt', 2);
-        data.pd.pl[0].should.have.property('br', 'Apple');
-        data.pd.pl[0].should.have.property('va', 'Plus');
-        data.pd.pl[0].should.have.property('ca', 'Phones');
-        data.pd.pl[0].should.have.property('ps', 1);
-        data.pd.pl[0].should.have.property('cc', 'my-coupon-code');
-        data.pd.pl[0].should.have.property('tpa', 800);
-        data.pd.pl[0].should.have.property('attrs');
+        purchaseEvent.data.should.have.property('product_action');
+        purchaseEvent.data.product_action.should.have.property('action', 'purchase');
+        purchaseEvent.data.product_action.should.have.property('transaction_id', '12345');
+        purchaseEvent.data.product_action.should.have.property('affiliation', 'test-affiliation');
+        purchaseEvent.data.product_action.should.have.property('coupon_code', 'coupon-code');
+        purchaseEvent.data.product_action.should.have.property('total_amount', 44334);
+        purchaseEvent.data.product_action.should.have.property('shipping_amount', 600);
+        purchaseEvent.data.product_action.should.have.property('tax_amount', 200);
+        purchaseEvent.data.product_action.should.have.property('products').with.lengthOf(1);
 
-        data.pd.pl[0].attrs.should.have.property('customkey', 'customvalue');
+        purchaseEvent.data.product_action.products[0].should.have.property('id', '12345');
+        purchaseEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
+        purchaseEvent.data.product_action.products[0].should.have.property('price', 400);
+        purchaseEvent.data.product_action.products[0].should.have.property('quantity', 2);
+        purchaseEvent.data.product_action.products[0].should.have.property('brand', 'Apple');
+        purchaseEvent.data.product_action.products[0].should.have.property('variant', 'Plus');
+        purchaseEvent.data.product_action.products[0].should.have.property('category', 'Phones');
+        purchaseEvent.data.product_action.products[0].should.have.property('total_product_amount', 800);
+        purchaseEvent.data.product_action.products[0].should.have.property('position', 1);
+        purchaseEvent.data.product_action.products[0].should.have.property('coupon_code', 'my-coupon-code');
+        purchaseEvent.data.product_action.products[0].should.have.property('custom_attributes');
+
+        purchaseEvent.data.product_action.products[0].custom_attributes.should.have.property('customkey', 'customvalue');
 
         done();
     });
 
     it('should not log a ecommerce event if there is a typo in the product action type', function(done) {
+        // fetchMock calls will have session start and AST events, we want to reset so that we can prove the product action type does not go through (length remains 0 after logging)
+        window.fetchMock._calls = [];
         var product = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
@@ -133,12 +134,11 @@ describe('eCommerce', function() {
         // At this point, mockServer.requests contains 3 requests - an identity,
         // session start, and AST event. 
         // We empty it in order to prove the following event does not send an event
-        mockServer.requests = [];
         mParticle.eCommerce.logProductAction(
             mParticle.ProductActionType.Typo, // <------ will result in a null when converting the product action type as this is not a real value
             [product]
         );
-        mockServer.requests.length.should.equal(0);
+        window.fetchMock._calls.length.should.equal(0);
 
         done();
     });
@@ -166,31 +166,32 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
 
-        data.should.have.property('pd');
-        data.pd.should.have.property('an', ProductActionType.Purchase);
-        data.pd.should.have.property('ti', '12345');
-        data.pd.should.have.property('ta', 'test-affiliation');
-        data.pd.should.have.property('tcc', 'coupon-code');
-        data.pd.should.have.property('tr', 0);
-        data.pd.should.have.property('ts', 0);
-        data.pd.should.have.property('tt', 0);
-        data.pd.should.have.property('pl').with.lengthOf(1);
+        var purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        
+        purchaseEvent.data.should.have.property('product_action');
+        purchaseEvent.data.product_action.should.have.property('action', 'purchase');
+        purchaseEvent.data.product_action.should.have.property('transaction_id', '12345');
+        purchaseEvent.data.product_action.should.have.property('affiliation', 'test-affiliation');
+        purchaseEvent.data.product_action.should.have.property('coupon_code', 'coupon-code');
+        purchaseEvent.data.product_action.should.have.property('total_amount', 0);
+        purchaseEvent.data.product_action.should.have.property('shipping_amount', 0);
+        purchaseEvent.data.product_action.should.have.property('tax_amount', 0);
+        purchaseEvent.data.product_action.should.have.property('products').with.lengthOf(1);
 
-        data.pd.pl[0].should.have.property('id', '12345');
-        data.pd.pl[0].should.have.property('nm', 'iPhone');
-        data.pd.pl[0].should.have.property('pr', 0);
-        data.pd.pl[0].should.have.property('qt', 0);
-        data.pd.pl[0].should.have.property('br', 'Apple');
-        data.pd.pl[0].should.have.property('va', 'Plus');
-        data.pd.pl[0].should.have.property('ca', 'Phones');
-        data.pd.pl[0].should.have.property('ps', 0);
-        data.pd.pl[0].should.have.property('cc', 'my-coupon-code');
-        data.pd.pl[0].should.have.property('tpa', 0);
-        data.pd.pl[0].should.have.property('attrs');
+        purchaseEvent.data.product_action.products[0].should.have.property('id', '12345');
+        purchaseEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
+        purchaseEvent.data.product_action.products[0].should.have.property('price', 0);
+        purchaseEvent.data.product_action.products[0].should.have.property('quantity', 0);
+        purchaseEvent.data.product_action.products[0].should.have.property('brand', 'Apple');
+        purchaseEvent.data.product_action.products[0].should.have.property('variant', 'Plus');
+        purchaseEvent.data.product_action.products[0].should.have.property('category', 'Phones');
+        purchaseEvent.data.product_action.products[0].should.have.property('position', null);
+        purchaseEvent.data.product_action.products[0].should.have.property('coupon_code', 'my-coupon-code');
+        purchaseEvent.data.product_action.products[0].should.have.property('total_product_amount', 0);
+        purchaseEvent.data.product_action.products[0].should.have.property('custom_attributes');
 
-        data.pd.pl[0].attrs.should.have.property('customkey', 'customvalue');
+        purchaseEvent.data.product_action.products[0].custom_attributes.should.have.property('customkey', 'customvalue');
 
         done();
     });
@@ -218,35 +219,34 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
+        var purchaseEvent1 = findEventFromRequest(window.fetchMock._calls, 'purchase');
 
-        mockServer.requests = [];
+        window.fetchMock._calls = [];
+
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Purchase, product, null, null, transactionAttributes)
-        var data2 = getEvent(mockServer.requests, 'eCommerce - Purchase');
+        var purchaseEvent2 = findEventFromRequest(window.fetchMock._calls, 'purchase');
 
-        data.should.have.property('pd');
+        purchaseEvent1.data.product_action.action.should.equal(purchaseEvent2.data.product_action.action);
+        purchaseEvent1.data.product_action.transaction_id.should.equal(purchaseEvent2.data.product_action.transaction_id);
+        purchaseEvent1.data.product_action.affiliation.should.equal(purchaseEvent2.data.product_action.affiliation);
+        purchaseEvent1.data.product_action.coupon_code.should.equal(purchaseEvent2.data.product_action.coupon_code);
+        purchaseEvent1.data.product_action.total_amount.should.equal(purchaseEvent2.data.product_action.total_amount);
+        purchaseEvent1.data.product_action.shipping_amount.should.equal(purchaseEvent2.data.product_action.shipping_amount);
+        purchaseEvent1.data.product_action.tax_amount.should.equal(purchaseEvent2.data.product_action.tax_amount);
+        purchaseEvent1.data.product_action.products.length.should.equal(purchaseEvent2.data.product_action.products.length);
 
-        data.pd.an.should.equal(data2.pd.an);
-        data.pd.ti.should.equal(data2.pd.ti);
-        data.pd.ta.should.equal(data2.pd.ta);
-        data.pd.tcc.should.equal(data2.pd.tcc);
-        data.pd.tr.should.equal(data2.pd.tr);
-        data.pd.ts.should.equal(data2.pd.ts);
-        data.pd.tt.should.equal(data2.pd.tt);
-        data.pd.pl.length.should.equal(data2.pd.pl.length)
-
-        data.pd.pl[0].id.should.equal(data2.pd.pl[0].id)
-        data.pd.pl[0].pr.should.equal(data2.pd.pl[0].pr)
-        data.pd.pl[0].qt.should.equal(data2.pd.pl[0].qt)
-        data.pd.pl[0].br.should.equal(data2.pd.pl[0].br)
-        data.pd.pl[0].va.should.equal(data2.pd.pl[0].va)
-        data.pd.pl[0].ca.should.equal(data2.pd.pl[0].ca)
-        data.pd.pl[0].ps.should.equal(data2.pd.pl[0].ps)
-        data.pd.pl[0].cc.should.equal(data2.pd.pl[0].cc)
-        data.pd.pl[0].tpa.should.equal(data2.pd.pl[0].tpa)
-        data.pd.pl[0].nm.should.equal(data2.pd.pl[0].nm)
+        purchaseEvent1.data.product_action.products[0].name.should.equal(purchaseEvent2.data.product_action.products[0].name);
+        purchaseEvent1.data.product_action.products[0].id.should.equal(purchaseEvent2.data.product_action.products[0].id);
+        purchaseEvent1.data.product_action.products[0].price.should.equal(purchaseEvent2.data.product_action.products[0].price);
+        purchaseEvent1.data.product_action.products[0].quantity.should.equal(purchaseEvent2.data.product_action.products[0].quantity);
+        purchaseEvent1.data.product_action.products[0].brand.should.equal(purchaseEvent2.data.product_action.products[0].brand);
+        purchaseEvent1.data.product_action.products[0].variant.should.equal(purchaseEvent2.data.product_action.products[0].variant);
+        purchaseEvent1.data.product_action.products[0].category.should.equal(purchaseEvent2.data.product_action.products[0].category);
+        purchaseEvent1.data.product_action.products[0].position.should.equal(purchaseEvent2.data.product_action.products[0].position);
         
-        data.pd.pl[0].attrs.customkey.should.equal(data2.pd.pl[0].attrs.customkey);
+        purchaseEvent1.data.product_action.products[0].coupon_code.should.equal(purchaseEvent2.data.product_action.products[0].coupon_code);
+        purchaseEvent1.data.product_action.products[0].total_product_amount.should.equal(purchaseEvent2.data.product_action.products[0].total_product_amount);
+        purchaseEvent1.data.product_action.products[0].custom_attributes.customkey.should.equal(purchaseEvent2.data.product_action.products[0].custom_attributes.customkey);
 
         done();
     });
@@ -262,12 +262,13 @@ describe('eCommerce', function() {
             product1,
             product2,
         ]);
-        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
 
-        data.should.have.property('pd');
-        data.pd.should.have.property('pl').with.lengthOf(2);
-        data.pd.pl[0].should.have.property('nm', 'iPhone');
-        data.pd.pl[1].should.have.property('nm', 'Android');
+        var purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
+
+        purchaseEvent.data.should.have.property('product_action');
+        purchaseEvent.data.product_action.should.have.property('products').with.lengthOf(2);
+        purchaseEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
+        purchaseEvent.data.product_action.products[1].should.have.property('name', 'Android');
 
         done();
     });
@@ -283,13 +284,13 @@ describe('eCommerce', function() {
             product1,
             product2,
         ]);
-        var data = getEvent(mockServer.requests, 'eCommerce - Refund');
 
-        data.should.have.property('pd');
-        data.pd.should.have.property('an', ProductActionType.Refund);
-        data.pd.should.have.property('pl').with.lengthOf(2);
-        data.pd.pl[0].should.have.property('nm', 'iPhone');
-        data.pd.pl[1].should.have.property('nm', 'Android');
+        var refundEvent = findEventFromRequest(window.fetchMock._calls, 'refund');
+
+        refundEvent.data.should.have.property('product_action');
+        refundEvent.data.product_action.should.have.property('products').with.lengthOf(2);
+        refundEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
+        refundEvent.data.product_action.products[1].should.have.property('name', 'Android');
 
         done();
     });
@@ -325,18 +326,16 @@ describe('eCommerce', function() {
             promotion
         );
 
-        var event = getEvent(mockServer.requests, 'eCommerce - PromotionClick');
+        var promotionEvent = findEventFromRequest(window.fetchMock._calls, 'click');
 
-        Should(event).be.ok();
+        Should(promotionEvent).be.ok();
 
-        event.should.have.property('et', CommerceEventType.PromotionClick);
-        event.should.have.property('pm');
-        event.pm.should.have.property('an', PromotionActionType.PromotionClick);
-        event.pm.should.have.property('pl');
-        event.pm.pl[0].should.have.property('id', '12345');
-        event.pm.pl[0].should.have.property('nm', 'creative-name');
-        event.pm.pl[0].should.have.property('cr', 'my-creative');
-        event.pm.pl[0].should.have.property('ps', 1);
+        promotionEvent.data.promotion_action.should.have.property('action', PromotionActionType.PromotionClick);
+        promotionEvent.data.promotion_action.should.have.property('promotions');
+        promotionEvent.data.promotion_action.promotions[0].should.have.property('id', '12345');
+        promotionEvent.data.promotion_action.promotions[0].should.have.property('name', 'creative-name');
+        promotionEvent.data.promotion_action.promotions[0].should.have.property('creative', 'my-creative');
+        promotionEvent.data.promotion_action.promotions[0].should.have.property('position', 1);
 
         done();
     });
@@ -361,22 +360,21 @@ describe('eCommerce', function() {
             [promotion1, promotion2]
         );
 
-        var event = getEvent(mockServer.requests, 'eCommerce - PromotionClick');
+        var promotionEvent = findEventFromRequest(window.fetchMock._calls, 'click');
 
-        Should(event).be.ok();
+        Should(promotionEvent).be.ok();
 
-        event.should.have.property('et', CommerceEventType.PromotionClick);
-        event.should.have.property('pm');
-        event.pm.should.have.property('an', PromotionActionType.PromotionClick);
-        event.pm.should.have.property('pl');
-        event.pm.pl[0].should.have.property('id', '12345');
-        event.pm.pl[0].should.have.property('nm', 'creative-name1');
-        event.pm.pl[0].should.have.property('cr', 'my-creative1');
-        event.pm.pl[0].should.have.property('ps', 1);
-        event.pm.pl[1].should.have.property('id', '67890');
-        event.pm.pl[1].should.have.property('nm', 'creative-name2');
-        event.pm.pl[1].should.have.property('cr', 'my-creative2');
-        event.pm.pl[1].should.have.property('ps', 2);
+        promotionEvent.data.promotion_action.should.have.property('action', PromotionActionType.PromotionClick);
+        promotionEvent.data.promotion_action.should.have.property('promotions');
+        promotionEvent.data.promotion_action.promotions.length.should.equal(2);
+        promotionEvent.data.promotion_action.promotions[0].should.have.property('id', '12345');
+        promotionEvent.data.promotion_action.promotions[0].should.have.property('name', 'creative-name1');
+        promotionEvent.data.promotion_action.promotions[0].should.have.property('creative', 'my-creative1');
+        promotionEvent.data.promotion_action.promotions[0].should.have.property('position', 1);
+        promotionEvent.data.promotion_action.promotions[1].should.have.property('id', '67890');
+        promotionEvent.data.promotion_action.promotions[1].should.have.property('name', 'creative-name2');
+        promotionEvent.data.promotion_action.promotions[1].should.have.property('creative', 'my-creative2');
+        promotionEvent.data.promotion_action.promotions[1].should.have.property('position', 2);
 
         done();
     });
@@ -396,9 +394,8 @@ describe('eCommerce', function() {
             { shouldUploadEvent: false }
         );
 
-        var event = getEvent(mockServer.requests, 'eCommerce - PromotionClick');
-
-        Should(event).not.be.ok();
+        var promotionEvent = findEventFromRequest(window.fetchMock._calls, 'click');
+        Should(promotionEvent).not.be.ok();
 
         done();
     });
@@ -425,15 +422,14 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logImpression(impression);
+        var impressionEvent = findEventFromRequest(window.fetchMock._calls, 'impression');
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Impression');
+        Should(impressionEvent).be.ok();
 
-        Should(event).be.ok();
-
-        event.should.have.property('pi').with.lengthOf(1);
-        event.pi[0].should.have.property('pil', 'impression-name');
-        event.pi[0].should.have.property('pl').with.lengthOf(1);
-        event.pi[0].pl[0].should.have.property('id', '12345');
+        impressionEvent.data.should.have.property('product_impressions').with.lengthOf(1);
+        impressionEvent.data.product_impressions[0].should.have.property('product_impression_list', 'impression-name');
+        impressionEvent.data.product_impressions[0].should.have.property('products').with.lengthOf(1);
+        impressionEvent.data.product_impressions[0].products[0].should.have.property('id', '12345');
 
         done();
     });
@@ -448,9 +444,9 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logImpression(impression, null, null, { shouldUploadEvent: false });
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Impression');
+        var impressionEvent = findEventFromRequest(window.fetchMock._calls, 'impression');
 
-        Should(event).not.be.ok();
+        Should(impressionEvent).not.be.ok();
 
         done();
     });
@@ -473,16 +469,19 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logImpression([impression, impression2]);
 
-        var event1 = getEvent(mockServer.requests, 'eCommerce - Impression');
+        var impressionEvent = findEventFromRequest(window.fetchMock._calls, 'impression');
 
-        event1.should.have.property('pi').with.lengthOf(2);
-        event1.pi[0].should.have.property('pil', 'impression-name1');
-        event1.pi[0].should.have.property('pl').with.lengthOf(1);
-        event1.pi[0].pl[0].should.have.property('id', '12345');
+        Should(impressionEvent).be.ok();
 
-        event1.pi[1].should.have.property('pil', 'impression-name2');
-        event1.pi[1].should.have.property('pl').with.lengthOf(1);
-        event1.pi[1].pl[0].should.have.property('id', '23456');
+        impressionEvent.data.should.have.property('product_impressions').with.lengthOf(2);
+
+        impressionEvent.data.product_impressions[0].should.have.property('product_impression_list', 'impression-name1');
+        impressionEvent.data.product_impressions[0].should.have.property('products').with.lengthOf(1);
+        impressionEvent.data.product_impressions[0].products[0].should.have.property('id', '12345');
+
+        impressionEvent.data.product_impressions[1].should.have.property('product_impression_list', 'impression-name2');
+        impressionEvent.data.product_impressions[1].should.have.property('products').with.lengthOf(1);
+        impressionEvent.data.product_impressions[1].products[0].should.have.property('id', '23456');
 
         done();
     });
@@ -508,27 +507,29 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logRefund(transactionAttributes, product);
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Refund');
-        Should(event).be.ok();
 
-        event.should.have.property('pd');
+        var refundEvent = findEventFromRequest(window.fetchMock._calls, 'refund');
 
-        event.pd.should.have.property('an', ProductActionType.Refund);
-        event.pd.should.have.property('ti', '12345');
-        event.pd.should.have.property('ta', 'test-affiliation');
-        event.pd.should.have.property('tcc', 'coupon-code');
-        event.pd.should.have.property('tr', 44334);
-        event.pd.should.have.property('ts', 600);
-        event.pd.should.have.property('tt', 200);
-        event.pd.pl.should.have.length(1);
-        event.pd.pl[0].should.have.property('id', '12345')
-        event.pd.pl[0].should.have.property('nm', 'iPhone')
-        event.pd.pl[0].should.have.property('pr', 400)
-        event.pd.pl[0].should.have.property('qt', 2)
-        event.pd.pl[0].should.have.property('br', 'Phones')
-        event.pd.pl[0].should.have.property('va', 'Apple')
-        event.pd.pl[0].should.have.property('ca', 'Plus')
-        event.pd.pl[0].should.have.property('tpa', 800)
+        Should(refundEvent).be.ok();
+
+        refundEvent.data.should.have.property('product_action');
+
+        refundEvent.data.product_action.should.have.property('action', 'refund');
+        refundEvent.data.product_action.should.have.property('transaction_id', '12345');
+        refundEvent.data.product_action.should.have.property('affiliation', 'test-affiliation');
+        refundEvent.data.product_action.should.have.property('coupon_code', 'coupon-code');
+        refundEvent.data.product_action.should.have.property('total_amount', 44334);
+        refundEvent.data.product_action.should.have.property('shipping_amount', 600);
+        refundEvent.data.product_action.should.have.property('tax_amount', 200);
+        refundEvent.data.product_action.products.should.have.length(1);
+        refundEvent.data.product_action.products[0].should.have.property('id', '12345')
+        refundEvent.data.product_action.products[0].should.have.property('name', 'iPhone')
+        refundEvent.data.product_action.products[0].should.have.property('price', 400)
+        refundEvent.data.product_action.products[0].should.have.property('quantity', 2)
+        refundEvent.data.product_action.products[0].should.have.property('brand', 'Phones')
+        refundEvent.data.product_action.products[0].should.have.property('variant', 'Apple')
+        refundEvent.data.product_action.products[0].should.have.property('category', 'Plus')
+        refundEvent.data.product_action.products[0].should.have.property('total_product_amount', 800)
 
         done();
     });
@@ -557,32 +558,33 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logRefund(transactionAttributes, product);
         
-        var data = getEvent(mockServer.requests, 'eCommerce - Refund');
-        
-        mockServer.requests = [];
+        var refundEvent1 = findEventFromRequest(window.fetchMock._calls, 'refund');
+
+        window.fetchMock._calls = [];
         
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Refund, product, null, null, transactionAttributes)
 
-        var data2 = getEvent(mockServer.requests, 'eCommerce - Refund');
+        var refundEvent2 = findEventFromRequest(window.fetchMock._calls, 'refund');
 
-        Should(data2).be.ok();
+        Should(refundEvent1).be.ok();
+        Should(refundEvent2).be.ok();
 
-        data.pd.an.should.equal(data2.pd.an);
-        data.pd.ti.should.equal(data2.pd.ti);
-        data.pd.ta.should.equal(data2.pd.ta);
-        data.pd.tcc.should.equal(data2.pd.tcc);
-        data.pd.tr.should.equal(data2.pd.tr);
-        data.pd.ts.should.equal(data2.pd.ts);
-        data.pd.tt.should.equal(data2.pd.tt);
-        data.pd.pl.length.should.equal(data2.pd.pl.length)
+        refundEvent1.data.product_action.action.should.equal(refundEvent2.data.product_action.action);
+        refundEvent1.data.product_action.transaction_id.should.equal(refundEvent2.data.product_action.transaction_id);
+        refundEvent1.data.product_action.affiliation.should.equal(refundEvent2.data.product_action.affiliation);
+        refundEvent1.data.product_action.coupon_code.should.equal(refundEvent2.data.product_action.coupon_code);
+        refundEvent1.data.product_action.total_amount.should.equal(refundEvent2.data.product_action.total_amount);
+        refundEvent1.data.product_action.shipping_amount.should.equal(refundEvent2.data.product_action.shipping_amount);
+        refundEvent1.data.product_action.tax_amount.should.equal(refundEvent2.data.product_action.tax_amount);
+        refundEvent1.data.product_action.products.length.should.equal(refundEvent2.data.product_action.products.length)
 
-        data.pd.pl[0].id.should.equal(data2.pd.pl[0].id)
-        data.pd.pl[0].pr.should.equal(data2.pd.pl[0].pr)
-        data.pd.pl[0].qt.should.equal(data2.pd.pl[0].qt)
-        data.pd.pl[0].br.should.equal(data2.pd.pl[0].br)
-        data.pd.pl[0].va.should.equal(data2.pd.pl[0].va)
-        data.pd.pl[0].ca.should.equal(data2.pd.pl[0].ca)
-        data.pd.pl[0].ps.should.equal(data2.pd.pl[0].ps)
+        refundEvent1.data.product_action.products[0].id.should.equal(refundEvent2.data.product_action.products[0].id)
+        refundEvent1.data.product_action.products[0].price.should.equal(refundEvent2.data.product_action.products[0].price)
+        refundEvent1.data.product_action.products[0].quantity.should.equal(refundEvent2.data.product_action.products[0].quantity)
+        refundEvent1.data.product_action.products[0].brand.should.equal(refundEvent2.data.product_action.products[0].brand)
+        refundEvent1.data.product_action.products[0].variant.should.equal(refundEvent2.data.product_action.products[0].variant)
+        refundEvent1.data.product_action.products[0].category.should.equal(refundEvent2.data.product_action.products[0].category)
+        refundEvent1.data.product_action.products[0].position.should.equal(refundEvent2.data.product_action.products[0].position)
 
         done();
     });
@@ -618,7 +620,7 @@ describe('eCommerce', function() {
             { shouldUploadEvent: false}
         );
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Purchase');
+        var event = findEventFromRequest(window.fetchMock._calls, 'purchase');
 
         Should(event).not.be.ok();
         done();
@@ -629,12 +631,12 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add(product, true);
 
-        var data = getEvent(mockServer.requests, 'eCommerce - AddToCart');
-
-        data.should.have.property('pd');
-        data.pd.should.have.property('an', ProductActionType.AddToCart);
-        data.pd.should.have.property('pl').with.lengthOf(1);
-        data.pd.pl[0].should.have.property('id', '12345');
+        var addToCartEvent = findEventFromRequest(window.fetchMock._calls, 'add_to_cart');
+        
+        addToCartEvent.data.should.have.property('product_action');
+        addToCartEvent.data.product_action.should.have.property('action', 'add_to_cart');
+        addToCartEvent.data.product_action.should.have.property('products').with.lengthOf(1);
+        addToCartEvent.data.product_action.products[0].should.have.property('id', '12345');
 
         done();
     });
@@ -645,12 +647,12 @@ describe('eCommerce', function() {
         mParticle.eCommerce.Cart.add(product);
         mParticle.eCommerce.Cart.remove({ Sku: '12345' }, true);
 
-        var data = getEvent(mockServer.requests, 'eCommerce - RemoveFromCart');
-
-        data.should.have.property('pd');
-        data.pd.should.have.property('an', ProductActionType.RemoveFromCart);
-        data.pd.should.have.property('pl').with.lengthOf(1);
-        data.pd.pl[0].should.have.property('id', '12345');
+        var removeFromCartEvent = findEventFromRequest(window.fetchMock._calls, 'remove_from_cart');
+        
+        removeFromCartEvent.data.should.have.property('product_action');
+        removeFromCartEvent.data.product_action.should.have.property('action', 'remove_from_cart');
+        removeFromCartEvent.data.product_action.should.have.property('products').with.lengthOf(1);
+        removeFromCartEvent.data.product_action.products[0].should.have.property('id', '12345');
 
         done();
     });
@@ -722,21 +724,21 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logCheckout(1, 'Visa');
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
+        var checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
 
-        Should(event).be.ok();
+        Should(checkoutEvent).be.ok();
 
         bond.called.should.eql(true);
         bond.getCalls()[0].args[0].should.eql(
             'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
         );
 
-        event.should.have.property('et', CommerceEventType.ProductCheckout);
-        event.should.have.property('pd');
+        checkoutEvent.should.have.property('event_type', 'commerce_event');
+        checkoutEvent.data.should.have.property('product_action');
 
-        event.pd.should.have.property('an', ProductActionType.Checkout);
-        event.pd.should.have.property('cs', 1);
-        event.pd.should.have.property('co', 'Visa');
+        checkoutEvent.data.product_action.should.have.property('action', 'checkout');
+        checkoutEvent.data.product_action.should.have.property('checkout_step', 1);
+        checkoutEvent.data.product_action.should.have.property('checkout_options', 'Visa');
 
         done();
     });
@@ -747,17 +749,18 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product1, product2], null, null, {Step: 4, Option: 'Visa'});
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
+        var checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
 
-        Should(event).be.ok();
+        Should(checkoutEvent).be.ok();
 
-        event.should.have.property('et', CommerceEventType.ProductCheckout);
-        event.should.have.property('pd');
-        event.pd.pl[0].id.should.equal('iphoneSKU')
-        event.pd.pl[1].id.should.equal('galaxySKU')
-        event.pd.should.have.property('an', ProductActionType.Checkout);
-        event.pd.should.have.property('cs', 4);
-        event.pd.should.have.property('co', 'Visa');
+        checkoutEvent.should.have.property('event_type', 'commerce_event');
+        checkoutEvent.data.should.have.property('product_action');
+
+        checkoutEvent.data.product_action.should.have.property('action', 'checkout');
+        checkoutEvent.data.product_action.should.have.property('checkout_step', 4);
+        checkoutEvent.data.product_action.should.have.property('checkout_options', 'Visa');
+        checkoutEvent.data.product_action.products[0].should.have.property('id', 'iphoneSKU');
+        checkoutEvent.data.product_action.products[1].should.have.property('id', 'galaxySKU');
 
         done();
     });
@@ -771,18 +774,19 @@ describe('eCommerce', function() {
             { color: 'blue' }
         );
 
-        var event = getEvent(mockServer.requests, 'eCommerce - CheckoutOption');
+        var checkoutOptionEvent = findEventFromRequest(window.fetchMock._calls, 'checkout_option');
 
-        Should(event).be.ok();
 
-        event.should.have.property(
-            'et',
-            CommerceEventType.ProductCheckoutOption
+        Should(checkoutOptionEvent).be.ok();
+
+        checkoutOptionEvent.should.have.property(
+            'event_type',
+            'commerce_event'
         );
-        event.should.have.property('pd');
+        checkoutOptionEvent.data.should.have.property('product_action');
 
-        event.pd.should.have.property('an', ProductActionType.CheckoutOption);
-        event.attrs.should.have.property('color', 'blue');
+        checkoutOptionEvent.data.product_action.should.have.property('action', 'checkout_option');
+        checkoutOptionEvent.data.custom_attributes.should.have.property('color', 'blue');
         done();
     });
 
@@ -794,15 +798,15 @@ describe('eCommerce', function() {
             product
         );
 
-        var event = getEvent(mockServer.requests, 'eCommerce - ViewDetail');
+        var viewDetailEvent = findEventFromRequest(window.fetchMock._calls, 'view_detail');
+        Should(viewDetailEvent).be.ok();
+    
+        viewDetailEvent.should.have.property('event_type', 'commerce_event');
+        viewDetailEvent.data.should.have.property('product_action');
+        viewDetailEvent.data.product_action.should.have.property('action', 'view_detail');
+        viewDetailEvent.data.product_action.should.have.property('products').with.lengthOf(1);
+        viewDetailEvent.data.product_action.products[0].should.have.property('id', '12345');
 
-        event.should.have.property('et', CommerceEventType.ProductViewDetail);
-        event.should.have.property('pd');
-        event.pd.should.have.property('an', ProductActionType.ViewDetail);
-        event.pd.should.have.property('pl').with.lengthOf(1);
-        event.pd.pl[0].should.have.property('id', '12345');
-
-        Should(event).be.ok();
 
         done();
     });
@@ -889,9 +893,10 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var data = getEvent(mockServer.requests, 'eCommerce - Purchase');
+        var purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
 
-        data.pd.pl[0].should.have.property('ps', 0);
+        purchaseEvent.data.product_action.products[0].should.not.have.property('position');
+
 
         done();
     });
@@ -912,19 +917,19 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add([product1, product2], true);
 
-        var event = getEvent(mockServer.requests, 'eCommerce - AddToCart');
+        var addToCartEvent = findEventFromRequest(window.fetchMock._calls, 'add_to_cart');
 
-        Should(event).be.ok();
+        Should(addToCartEvent).be.ok();
 
-        event.should.have.property('pd');
-        event.pd.should.have.property('an', ProductActionType.AddToCart);
-        event.pd.should.have.property('pl').with.lengthOf(2);
+        addToCartEvent.data.should.have.property('product_action');
+        addToCartEvent.data.product_action.should.have.property('action', 'add_to_cart');
+        addToCartEvent.data.product_action.should.have.property('products').with.lengthOf(2);
 
-        event.pd.pl[0].should.have.property('id', '12345');
-        event.pd.pl[0].should.have.property('nm', 'iPhone');
+        addToCartEvent.data.product_action.products[0].should.have.property('id', '12345');
+        addToCartEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
 
-        event.pd.pl[1].should.have.property('id', '67890');
-        event.pd.pl[1].should.have.property('nm', 'Nexus');
+        addToCartEvent.data.product_action.products[1].should.have.property('id', '67890');
+        addToCartEvent.data.product_action.products[1].should.have.property('name', 'Nexus');
 
         done();
     });
@@ -939,16 +944,16 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add(product1, true);
 
-        var event = getEvent(mockServer.requests, 'eCommerce - AddToCart');
+        var addToCartEvent = findEventFromRequest(window.fetchMock._calls, 'add_to_cart');
 
-        Should(event).be.ok();
+        Should(addToCartEvent).be.ok();
 
-        event.should.have.property('pd');
-        event.pd.should.have.property('an', ProductActionType.AddToCart);
-        event.pd.should.have.property('pl').with.lengthOf(1);
+        addToCartEvent.data.should.have.property('product_action');
+        addToCartEvent.data.product_action.should.have.property('action', 'add_to_cart');
+        addToCartEvent.data.product_action.should.have.property('products').with.lengthOf(1);
 
-        event.pd.pl[0].should.have.property('id', '12345');
-        event.pd.pl[0].should.have.property('nm', 'iPhone');
+        addToCartEvent.data.product_action.products[0].should.have.property('id', '12345');
+        addToCartEvent.data.product_action.products[0].should.have.property('name', 'iPhone');
 
         done();
     });
@@ -1412,9 +1417,9 @@ describe('eCommerce', function() {
 
     it('should add customFlags to logCheckout events', function(done) {
         mParticle.eCommerce.logCheckout(1, {}, {}, { interactionEvent: true });
-        var event = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        Array.isArray(event.flags.interactionEvent).should.equal(true);
-        event.flags.interactionEvent[0].should.equal('true');
+
+        var checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+        checkoutEvent.data.custom_flags.interactionEvent.should.equal(true);
 
         done();
     });
@@ -1427,10 +1432,9 @@ describe('eCommerce', function() {
             { price: 5 },
             { interactionEvent: true }
         );
+        var unknownEvent = findEventFromRequest(window.fetchMock._calls, 'unknown');
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Unknown');
-        Array.isArray(event.flags.interactionEvent).should.equal(true);
-        event.flags.interactionEvent[0].should.equal('true');
+        unknownEvent.data.custom_flags.interactionEvent.should.equal(true);
 
         done();
     });
@@ -1449,9 +1453,10 @@ describe('eCommerce', function() {
             { shipping: 5 },
             { interactionEvent: true }
         );
-        var event = getEvent(mockServer.requests, 'eCommerce - Purchase');
-        Array.isArray(event.flags.interactionEvent).should.equal(true);
-        event.flags.interactionEvent[0].should.equal('true');
+
+        var purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
+
+        purchaseEvent.data.custom_flags.interactionEvent.should.equal(true);
 
         done();
     });
@@ -1470,9 +1475,10 @@ describe('eCommerce', function() {
             { interactionEvent: true }
         );
 
-        var event = getEvent(mockServer.requests, 'eCommerce - Unknown');
-        Array.isArray(event.flags.interactionEvent).should.equal(true);
-        event.flags.interactionEvent[0].should.equal('true');
+
+        var promotionEvent = findEventFromRequest(window.fetchMock._calls, 'click');
+
+        promotionEvent.data.custom_flags.interactionEvent.should.equal(true);
 
         done();
     });
@@ -1488,9 +1494,9 @@ describe('eCommerce', function() {
             { shipping: 5 },
             { interactionEvent: true }
         );
-        var event = getEvent(mockServer.requests, 'eCommerce - Impression');
-        Array.isArray(event.flags.interactionEvent).should.equal(true);
-        event.flags.interactionEvent[0].should.equal('true');
+
+        var impressionEvent = findEventFromRequest(window.fetchMock._calls, 'impression');
+        impressionEvent.data.custom_flags.interactionEvent.should.equal(true);
 
         done();
     });
@@ -1509,9 +1515,9 @@ describe('eCommerce', function() {
             { shipping: 5 },
             { interactionEvent: true }
         );
-        var event = getEvent(mockServer.requests, 'eCommerce - Refund');
-        Array.isArray(event.flags.interactionEvent).should.equal(true);
-        event.flags.interactionEvent[0].should.equal('true');
+        var refundEvent = findEventFromRequest(window.fetchMock._calls, 'refund');
+
+        refundEvent.data.custom_flags.interactionEvent.should.equal(true);
 
         done();
     });
