@@ -1907,7 +1907,7 @@ describe('migrations and persistence-related', () => {
         done();
     });
 
-    it('should save to persistance a device id set with setDeviceId', done => {
+    it('should save to persistence a device id set with setDeviceId', done => {
         mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, mParticle.config);
