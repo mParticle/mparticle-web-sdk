@@ -28,7 +28,6 @@ import Store from './store';
 import Logger from './logger';
 import Persistence from './persistence';
 import Events from './events';
-import Migrations from './migrations';
 import Forwarders from './forwarders';
 import ServerModel from './serverModel';
 import ForwardingStatsUploader from './forwardingStatsUploader';
@@ -59,7 +58,6 @@ export default function mParticleInstance(instanceName) {
     // These classes are for internal use only. Not documented for public consumption
     this._instanceName = instanceName;
     this._NativeSdkHelpers = new NativeSdkHelpers(this);
-    this._Migrations = new Migrations(this);
     this._SessionManager = new SessionManager(this);
     this._Persistence = new Persistence(this);
     this._Helpers = new Helpers(this);
@@ -1345,9 +1343,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     mpInstance._Store.configurationLoaded = true;
 
     if (!mpInstance._Store.webviewBridgeEnabled) {
-        // Migrate any cookies from previous versions to current cookie version
-        mpInstance._Migrations.migrate();
-
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
     }
@@ -1396,15 +1391,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._Store.SDKConfig.identifyRequest = {
                 userIdentities: modifiedUIforIdentityRequest,
             };
-        }
-
-        // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
-        if (mpInstance._Store.migratingToIDSyncCookies) {
-            mpInstance.Identity.identify(
-                mpInstance._Store.SDKConfig.identifyRequest,
-                mpInstance._Store.SDKConfig.identityCallback
-            );
-            mpInstance._Store.migratingToIDSyncCookies = false;
         }
 
         currentUser = mpInstance.Identity.getCurrentUser();
@@ -1556,7 +1542,9 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
         Messages.InformationMessages.StartingInitialization
     );
 
-    //check to see if localStorage is available for migrating purposes
+    // Check to see if localStorage is available before main configuration runs
+    // since we will need this for the current implementation of user persistence
+    // TODO: Refactor this when we refactor User Identity Persistence
     try {
         mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(
             window.localStorage

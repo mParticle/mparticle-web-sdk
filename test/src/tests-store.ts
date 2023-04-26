@@ -44,7 +44,6 @@ describe('Store', () => {
         expect(store.clientId, 'clientId').to.eq(null);
         expect(store.deviceId, 'deviceId').to.eq(null);
         expect(store.devToken, 'devToken').to.eq(null);
-        expect(store.migrationData, 'migrationData').to.be.ok;
         expect(store.serverSettings, 'serverSettings').to.be.ok;
         expect(store.dateLastEventSent, 'dateLastEventSent').to.eq(null);
         expect(store.sessionStartDate, 'sessionStartDate').to.eq(null);
@@ -58,10 +57,6 @@ describe('Store', () => {
         expect(store.context, 'context').to.eq(null);
         expect(store.configurationLoaded, 'configurationLoaded').to.eq(false);
         expect(store.identityCallInFlight, 'identityCallInFlight').to.eq(false);
-        expect(
-            store.migratingToIDSyncCookies,
-            'migratingToIDSyncCookies'
-        ).to.eq(false);
         expect(store.nonCurrentUserMPIDs, 'nonCurrentUserMPIDs').to.be.ok;
         expect(store.identifyCalled, 'identifyCalled').to.eq(false);
         expect(store.isLoggedIn, 'isLoggedIn').to.eq(false);

@@ -6,7 +6,7 @@ import { convertEvents } from './sdkToEventsApiConverter';
 import * as EventsApi from '@mparticle/event-models';
 import { Batch } from '@mparticle/event-models';
 
-const mockFunction = function () {
+const mockFunction = function() {
     return null;
 };
 export default class _BatchValidator {
@@ -14,12 +14,12 @@ export default class _BatchValidator {
         return {
             // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
             _Helpers: {
-                sanitizeAttributes:
-                    window.mParticle.getInstance()._Helpers.sanitizeAttributes,
-                generateHash: function () {
+                sanitizeAttributes: window.mParticle.getInstance()._Helpers
+                    .sanitizeAttributes,
+                generateHash: function() {
                     return 'mockHash';
                 },
-                generateUniqueId: function () {
+                generateUniqueId: function() {
                     return 'mockId';
                 },
                 extend: window.mParticle.getInstance()._Helpers.extend,
@@ -50,7 +50,6 @@ export default class _BatchValidator {
                 consentState: null,
                 clientId: null,
                 deviceId: null,
-                migrationData: {},
                 serverSettings: {},
                 dateLastEventSent: null,
                 sessionStartDate: null,
@@ -64,7 +63,6 @@ export default class _BatchValidator {
                 context: null,
                 configurationLoaded: false,
                 identityCallInFlight: false,
-                migratingToIDSyncCookies: false,
                 nonCurrentUserMPIDs: {},
                 identifyCalled: false,
                 isLoggedIn: false,
@@ -128,7 +126,7 @@ export default class _BatchValidator {
         const mpInstance = this.getMPInstance();
 
         const sdkEvents: SDKEvent[] = Array.isArray(events)
-            ? events.map((event) => this.createSDKEventFunction(event))
+            ? events.map(event => this.createSDKEventFunction(event))
             : [this.createSDKEventFunction(events)];
 
         const batch: Batch = convertEvents('0', sdkEvents, mpInstance as any);

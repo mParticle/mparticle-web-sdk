@@ -637,7 +637,6 @@ describe('core SDK', function() {
         var mp = new Store(config, mParticle.getInstance());
         mp.isEnabled.should.equal(true);
         Object.keys(mp.sessionAttributes).length.should.equal(0);
-        Object.keys(mp.migrationData).length.should.equal(0);
         Object.keys(mp.serverSettings).length.should.equal(0);
         Object.keys(mp.nonCurrentUserMPIDs).length.should.equal(0);
         Object.keys(mp.integrationAttributes).length.should.equal(0);
@@ -647,7 +646,6 @@ describe('core SDK', function() {
         mp.cartProducts.length.should.equal(0);
         mp.eventQueue.length.should.equal(0);
         mp.identityCallInFlight.should.equal(false);
-        mp.migratingToIDSyncCookies.should.equal(false);
         mp.identifyCalled.should.equal(false);
         mp.isLoggedIn.should.equal(false);
         mp.requireDelay.should.equal(true);
