@@ -11,6 +11,21 @@ export enum EventTypeEnum {
     Media,
 }
 
+export enum MessageType {
+    SessionStart = 1,
+    SessionEnd = 2,
+    PageView = 3,
+    PageEvent = 4,
+    CrashReport = 5,
+    OptOut = 6,
+    AppStateTransition = 10,
+    Profile = 14,
+    Commerce = 16,
+    Media = 20,
+    UserAttributeChange = 17,
+    UserIdentityChange = 18,
+};
+
 export enum IdentityType {
     Other = 0,
     CustomerId = 1,
