@@ -669,60 +669,6 @@ describe('migrations and persistence-related', () => {
         done();
     });
 
-    it('should replace commas with pipes, and pipes with commas', done => {
-        const pipes =
-            '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
-        const commas =
-            '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
-
-        mParticle
-            .getInstance()
-            ._Persistence.replaceCommasWithPipes(commas)
-            .should.equal(pipes);
-        mParticle
-            .getInstance()
-            ._Persistence.replacePipesWithCommas(pipes)
-            .should.equal(commas);
-
-        done();
-    });
-
-    it('should replace apostrophes with quotes and quotes with apostrophes', done => {
-        const quotes =
-            '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
-        const apostrophes =
-            "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
-
-        mParticle
-            .getInstance()
-            ._Persistence.replaceQuotesWithApostrophes(quotes)
-            .should.equal(apostrophes);
-        mParticle
-            .getInstance()
-            ._Persistence.replaceApostrophesWithQuotes(apostrophes)
-            .should.equal(quotes);
-
-        done();
-    });
-
-    it('should create valid cookie string and revert cookie string', done => {
-        const before =
-            '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
-        const after =
-            "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
-
-        mParticle
-            .getInstance()
-            ._Persistence.createCookieString(before)
-            .should.equal(after);
-        mParticle
-            .getInstance()
-            ._Persistence.revertCookieString(after)
-            .should.equal(before);
-
-        done();
-    });
-
     it('should remove MPID as keys if the cookie size is beyond the setting', done => {
         mParticle._resetForTests(MPConfig);
         mParticle.config.maxCookieSize = 700;
