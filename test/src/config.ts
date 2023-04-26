@@ -12,6 +12,8 @@ export const urls = {
     forwarding: 'https://jssdks.mparticle.com/v1/JS/test_key/Forwarding'
 };
 
+export const mParticle = window.mParticle;
+
 export const apiKey = 'test_key';
 export const testMPID = 'testMPID';
 export const v3CookieKey = 'mprtcl-v3';
