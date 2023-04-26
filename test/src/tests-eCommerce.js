@@ -219,34 +219,37 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        var purchaseEvent1 = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const purchaseEvent1 = findEventFromRequest(window.fetchMock._calls, 'purchase');
 
         window.fetchMock._calls = [];
 
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Purchase, product, null, null, transactionAttributes)
-        var purchaseEvent2 = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const purchaseEvent2 = findEventFromRequest(window.fetchMock._calls, 'purchase');
 
-        purchaseEvent1.data.product_action.action.should.equal(purchaseEvent2.data.product_action.action);
-        purchaseEvent1.data.product_action.transaction_id.should.equal(purchaseEvent2.data.product_action.transaction_id);
-        purchaseEvent1.data.product_action.affiliation.should.equal(purchaseEvent2.data.product_action.affiliation);
-        purchaseEvent1.data.product_action.coupon_code.should.equal(purchaseEvent2.data.product_action.coupon_code);
-        purchaseEvent1.data.product_action.total_amount.should.equal(purchaseEvent2.data.product_action.total_amount);
-        purchaseEvent1.data.product_action.shipping_amount.should.equal(purchaseEvent2.data.product_action.shipping_amount);
-        purchaseEvent1.data.product_action.tax_amount.should.equal(purchaseEvent2.data.product_action.tax_amount);
-        purchaseEvent1.data.product_action.products.length.should.equal(purchaseEvent2.data.product_action.products.length);
+        const { product_action: productAction1 } = purchaseEvent1.data;
+        const { product_action: productAction2 } = purchaseEvent2.data
 
-        purchaseEvent1.data.product_action.products[0].name.should.equal(purchaseEvent2.data.product_action.products[0].name);
-        purchaseEvent1.data.product_action.products[0].id.should.equal(purchaseEvent2.data.product_action.products[0].id);
-        purchaseEvent1.data.product_action.products[0].price.should.equal(purchaseEvent2.data.product_action.products[0].price);
-        purchaseEvent1.data.product_action.products[0].quantity.should.equal(purchaseEvent2.data.product_action.products[0].quantity);
-        purchaseEvent1.data.product_action.products[0].brand.should.equal(purchaseEvent2.data.product_action.products[0].brand);
-        purchaseEvent1.data.product_action.products[0].variant.should.equal(purchaseEvent2.data.product_action.products[0].variant);
-        purchaseEvent1.data.product_action.products[0].category.should.equal(purchaseEvent2.data.product_action.products[0].category);
-        purchaseEvent1.data.product_action.products[0].position.should.equal(purchaseEvent2.data.product_action.products[0].position);
+        productAction1.action.should.equal(productAction2.action);
+        productAction1.transaction_id.should.equal(productAction2.transaction_id);
+        productAction1.affiliation.should.equal(productAction2.affiliation);
+        productAction1.coupon_code.should.equal(productAction2.coupon_code);
+        productAction1.total_amount.should.equal(productAction2.total_amount);
+        productAction1.shipping_amount.should.equal(productAction2.shipping_amount);
+        productAction1.tax_amount.should.equal(productAction2.tax_amount);
+        productAction1.products.length.should.equal(productAction2.products.length);
+
+        productAction1.products[0].name.should.equal(productAction2.products[0].name);
+        productAction1.products[0].id.should.equal(productAction2.products[0].id);
+        productAction1.products[0].price.should.equal(productAction2.products[0].price);
+        productAction1.products[0].quantity.should.equal(productAction2.products[0].quantity);
+        productAction1.products[0].brand.should.equal(productAction2.products[0].brand);
+        productAction1.products[0].variant.should.equal(productAction2.products[0].variant);
+        productAction1.products[0].category.should.equal(productAction2.products[0].category);
+        productAction1.products[0].position.should.equal(productAction2.products[0].position);
         
-        purchaseEvent1.data.product_action.products[0].coupon_code.should.equal(purchaseEvent2.data.product_action.products[0].coupon_code);
-        purchaseEvent1.data.product_action.products[0].total_product_amount.should.equal(purchaseEvent2.data.product_action.products[0].total_product_amount);
-        purchaseEvent1.data.product_action.products[0].custom_attributes.customkey.should.equal(purchaseEvent2.data.product_action.products[0].custom_attributes.customkey);
+        productAction1.products[0].coupon_code.should.equal(productAction2.products[0].coupon_code);
+        productAction1.products[0].total_product_amount.should.equal(productAction2.products[0].total_product_amount);
+        productAction1.products[0].custom_attributes.customkey.should.equal(productAction2.products[0].custom_attributes.customkey);
 
         done();
     });
