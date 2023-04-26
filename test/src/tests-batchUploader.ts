@@ -863,7 +863,7 @@ describe('batch uploader', () => {
 
             // First upload is successful
             window.fetchMock.post(urls.eventsV3, 200, {
-                overwriteRoutes: true,
+                overwriteRoutes: false,
                 repeat: 1,
             });
 
