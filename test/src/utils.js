@@ -1,4 +1,14 @@
-import { apiKey, testMPID, v3CookieKey, v4CookieKey, v4LSKey, workspaceToken, workspaceCookieName, das } from './config';
+import * as Utils from '../../src/utils';
+import {
+    apiKey,
+    testMPID,
+    v3CookieKey,
+    v4CookieKey,
+    v4LSKey,
+    workspaceToken,
+    workspaceCookieName,
+    das,
+} from './config';
 
 var pluses = /\+/g,
     getLocalStorageProducts = function getLocalStorageProducts() {
@@ -58,9 +68,7 @@ var pluses = /\+/g,
             cookie = mParticle.getInstance()._Persistence.getCookie();
         } else if (cookieName === v3CookieKey) {
             cookie = JSON.parse(
-                mParticle
-                    .getInstance()
-                    ._Persistence.replacePipesWithCommas(
+                Utils.replacePipesWithCommas(
                         findEncodedCookie(cookieName)
                     )
             );
@@ -80,9 +88,7 @@ var pluses = /\+/g,
             var name = decoded(parts.shift());
             var cookie = decoded(parts.join('='));
             if (cookieName === name) {
-                return mParticle
-                    .getInstance()
-                    ._Persistence.replacePipesWithCommas(converted(cookie));
+                return Utils.replacePipesWithCommas(converted(cookie));
             }
         }
     },
@@ -95,9 +101,7 @@ var pluses = /\+/g,
             cookieDomain,
             value;
         if (cname === v4CookieKey || cname === workspaceCookieName) {
-            value = mParticle
-                .getInstance()
-                ._Persistence.replaceCommasWithPipes(data);
+            value = Utils.replaceCommasWithPipes(data);
         } else if (cname === v3CookieKey) {
             value = data;
         } else {
@@ -148,15 +152,11 @@ var pluses = /\+/g,
                     csd: btoa(JSON.stringify({ 5: 500 })),
                 },
             };
-            value = mParticle
-                .getInstance()
-                ._Persistence.createCookieString(JSON.stringify(data));
+            value = Utils.createCookieString(JSON.stringify(data));
             name = workspaceCookieName;
         } else {
             if (name === v4LSKey) {
-                value = mParticle
-                    .getInstance()
-                    ._Persistence.createCookieString(JSON.stringify(data));
+                value = Utils.createCookieString(JSON.stringify(data));
             }
 
             if (raw) {

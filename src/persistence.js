@@ -1,5 +1,6 @@
 import Constants from './constants';
 import Polyfill from './polyfill';
+import * as Utils from './utils';
 
 var Base64 = Polyfill.Base64,
     Messages = Constants.Messages,
@@ -760,7 +761,7 @@ export default function _Persistence(mpInstance) {
             }
         }
 
-        return self.createCookieString(JSON.stringify(persistence));
+        return Utils.createCookieString(JSON.stringify(persistence));
     };
 
     // TODO: This should actually be decodePersistenceString or
@@ -768,7 +769,7 @@ export default function _Persistence(mpInstance) {
     this.decodePersistence = function(persistence) {
         try {
             if (persistence) {
-                persistence = JSON.parse(self.revertCookieString(persistence));
+                persistence = JSON.parse(Utils.revertCookieString(persistence));
                 if (
                     mpInstance._Helpers.isObject(persistence) &&
                     Object.keys(persistence).length
@@ -817,34 +818,6 @@ export default function _Persistence(mpInstance) {
         } catch (e) {
             mpInstance.Logger.error('Problem with decoding cookie', e);
         }
-    };
-
-    this.replaceCommasWithPipes = function(string) {
-        return string.replace(/,/g, '|');
-    };
-
-    this.replacePipesWithCommas = function(string) {
-        return string.replace(/\|/g, ',');
-    };
-
-    this.replaceApostrophesWithQuotes = function(string) {
-        return string.replace(/\'/g, '"');
-    };
-
-    this.replaceQuotesWithApostrophes = function(string) {
-        return string.replace(/\"/g, "'");
-    };
-
-    this.createCookieString = function(string) {
-        return self.replaceCommasWithPipes(
-            self.replaceQuotesWithApostrophes(string)
-        );
-    };
-
-    this.revertCookieString = function(string) {
-        return self.replacePipesWithCommas(
-            self.replaceApostrophesWithQuotes(string)
-        );
     };
 
     this.getCookieDomain = function() {

@@ -5,6 +5,12 @@ type valueof<T> = T[keyof T];
 // Placeholder for Dictionary-like Types
 export type Dictionary<V = any> = Record<string, V>;
 
+const createCookieString = (value: string): string =>
+    replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
+
+const revertCookieString = (value: string): string =>
+    replacePipesWithCommas(replaceApostrophesWithQuotes(value));
+
 const inArray = (items: any[], name: string): boolean => {
     let i = 0;
 
@@ -134,6 +140,16 @@ const parseStringOrNumber = (
     }
 };
 
+const replaceCommasWithPipes = (value: string): string => value.replace(/,/g, '|');
+
+const replacePipesWithCommas = (value: string): string => value.replace(/\|/g, ',');
+
+const replaceApostrophesWithQuotes = (value: string): string =>
+    value.replace(/\'/g, '"');
+
+const replaceQuotesWithApostrophes = (value: string): string =>
+    value.replace(/\"/g, "'");
+
 // FIXME: REFACTOR for V3
 // only used in store.js to sanitize server-side formatting of
 // booleans when checking for `isDevelopmentMode`
@@ -172,6 +188,8 @@ const isEmpty = (value: Dictionary<any> | null | undefined): boolean =>
     value == null || !(Object.keys(value) || value).length;
 
 export {
+    createCookieString,
+    revertCookieString,
     valueof,
     converted,
     decoded,
@@ -184,6 +202,10 @@ export {
     isStringOrNumber,
     parseNumber,
     parseStringOrNumber,
+    replaceCommasWithPipes,
+    replacePipesWithCommas,
+    replaceApostrophesWithQuotes,
+    replaceQuotesWithApostrophes,
     returnConvertedBoolean,
     isString,
     isNumber,

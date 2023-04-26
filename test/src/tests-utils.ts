@@ -1,5 +1,6 @@
 import {
     converted,
+    createCookieString,
     decoded,
     findKeyInObject,
     generateHash,
@@ -12,11 +13,35 @@ import {
     isStringOrNumber,
     parseNumber,
     parseStringOrNumber,
+    replaceApostrophesWithQuotes,
+    replaceCommasWithPipes,
+    replacePipesWithCommas,
+    replaceQuotesWithApostrophes,
     returnConvertedBoolean,
+    revertCookieString,
 } from '../../src/utils';
 import { expect } from 'chai';
 
 describe('Utils', () => {
+    describe('#createCookieString', () => {
+        it('should create a valid cookie string', () => {
+            const before =
+                '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+            const after =
+                "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+            expect(createCookieString(before)).to.equal(after);
+        });
+    });
+    describe('#revertCookieString', () => {
+        it('should create a revert cookie string', () => {
+            const before =
+                '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+            const after =
+                "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+            expect(revertCookieString(after)).to.equal(before);
+        });
+    });
+
     describe('#generateHash', () => {
         it('should a hash number with a valid input', () => {
             expect(generateHash('A'), 'A').to.equal(97);
@@ -99,7 +124,6 @@ describe('Utils', () => {
             expect(isObject(false)).to.eq(false);
             expect(isObject(true)).to.eq(false);
         });
-
     });
 
     describe('#isStringOrNumber', () => {
@@ -127,14 +151,60 @@ describe('Utils', () => {
         });
     });
 
-    describe('#parseStringOrNumber', ()=> {
-        it('should correctly parse string or number', ()=> {
+    describe('#parseStringOrNumber', () => {
+        it('should correctly parse string or number', () => {
             expect(parseStringOrNumber('abc')).to.eq('abc');
             expect(parseStringOrNumber(123)).to.eq(123);
-            expect(parseStringOrNumber({} as unknown as string)).to.eq(null);
-            expect(parseStringOrNumber([] as unknown as string)).to.eq(null);
-            expect(parseStringOrNumber(null as unknown as string)).to.eq(null);
-        })
+            expect(parseStringOrNumber(({} as unknown) as string)).to.eq(null);
+            expect(parseStringOrNumber(([] as unknown) as string)).to.eq(null);
+            expect(parseStringOrNumber((null as unknown) as string)).to.eq(
+                null
+            );
+        });
+    });
+
+    describe('#replaceCommasWithPipes', () => {
+        it('should replace commas with pipes', () => {
+            const pipes =
+                '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+            const commas =
+                '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+
+            expect(replaceCommasWithPipes(commas)).to.equal(pipes);
+        });
+    });
+
+    describe('#replacePipesWithCommas', () => {
+        it('should replace pipes with commas', () => {
+            const pipes =
+                '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+            const commas =
+                '{"cgid":"abc","das":"def","dt":"hij","ie":true,"les":1505932333024,"sid":"klm"}';
+
+            expect(replacePipesWithCommas(pipes)).to.equal(commas);
+        });
+    });
+
+    describe('#replaceApostrophesWithQuotes', () => {
+        it('should replace apostrophes with quotes', () => {
+            const quotes =
+                '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+            const apostrophes =
+                "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+
+            expect(replaceApostrophesWithQuotes(apostrophes)).to.equal(quotes);
+        });
+    });
+
+    describe('#replaceQuotesWithApostrophes', () => {
+        it('should replace quotes with apostrophes', () => {
+            const quotes =
+                '{"cgid":"abc"|"das":"def"|"dt":"hij"|"ie":true|"les":1505932333024|"sid":"klm"}';
+            const apostrophes =
+                "{'cgid':'abc'|'das':'def'|'dt':'hij'|'ie':true|'les':1505932333024|'sid':'klm'}";
+
+            expect(replaceQuotesWithApostrophes(quotes)).to.equal(apostrophes);
+        });
     });
 
     describe('#returnConvertedBoolean', () => {
