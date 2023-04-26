@@ -672,7 +672,7 @@ describe('batch uploader', () => {
             done();
         });
 
-         it('should purge events from Session Storage upon Batch Creation', (done) => {
+        it('should purge events from Session Storage upon Batch Creation', (done) => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
 
             window.mParticle._resetForTests(MPConfig);
