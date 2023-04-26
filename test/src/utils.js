@@ -68,9 +68,7 @@ var pluses = /\+/g,
             cookie = mParticle.getInstance()._Persistence.getCookie();
         } else if (cookieName === v3CookieKey) {
             cookie = JSON.parse(
-                mParticle
-                    .getInstance()
-                    ._Persistence.replacePipesWithCommas(
+                Utils.replacePipesWithCommas(
                         findEncodedCookie(cookieName)
                     )
             );
@@ -90,9 +88,7 @@ var pluses = /\+/g,
             var name = decoded(parts.shift());
             var cookie = decoded(parts.join('='));
             if (cookieName === name) {
-                return mParticle
-                    .getInstance()
-                    ._Persistence.replacePipesWithCommas(converted(cookie));
+                return Utils.replacePipesWithCommas(converted(cookie));
             }
         }
     },
@@ -156,15 +152,11 @@ var pluses = /\+/g,
                     csd: btoa(JSON.stringify({ 5: 500 })),
                 },
             };
-            value = mParticle
-                .getInstance()
-                ._Persistence.createCookieString(JSON.stringify(data));
+            value = Utils.createCookieString(JSON.stringify(data));
             name = workspaceCookieName;
         } else {
             if (name === v4LSKey) {
-                value = mParticle
-                    .getInstance()
-                    ._Persistence.createCookieString(JSON.stringify(data));
+                value = Utils.createCookieString(JSON.stringify(data));
             }
 
             if (raw) {
