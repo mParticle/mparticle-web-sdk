@@ -1,6 +1,7 @@
 import sinon from 'sinon';
 import { urls, MPConfig } from './config';
 import Utils from './utils';
+
 var findEventFromRequest = Utils.findEventFromRequest;
 var mockServer;
 
