@@ -140,14 +140,14 @@ const parseStringOrNumber = (
     }
 };
 
-const replaceCommasWithPipes = (value: string) => value.replace(/,/g, '|');
+const replaceCommasWithPipes = (value: string): string => value.replace(/,/g, '|');
 
-const replacePipesWithCommas = (value: string) => value.replace(/\|/g, ',');
+const replacePipesWithCommas = (value: string): string => value.replace(/\|/g, ',');
 
-const replaceApostrophesWithQuotes = (value: string) =>
+const replaceApostrophesWithQuotes = (value: string): string =>
     value.replace(/\'/g, '"');
 
-const replaceQuotesWithApostrophes = (value: string) =>
+const replaceQuotesWithApostrophes = (value: string): string =>
     value.replace(/\"/g, "'");
 
 // FIXME: REFACTOR for V3
