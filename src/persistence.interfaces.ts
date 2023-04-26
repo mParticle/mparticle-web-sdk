@@ -100,7 +100,7 @@ export interface IPersistence {
         maxCookieSize: number
     ): string;
     findPrevCookiesBasedOnUI(identityApiData: IdentityApiData): void;
-    encodePersistence(persistance: IPersistenceMinified): string;
+    encodePersistence(persistence: IPersistenceMinified): string;
     decodePersistence(persistanceString: string): string;
     replaceCommasWithPipes(string: string): string;
     replacePipesWithCommas(string: string): string;
