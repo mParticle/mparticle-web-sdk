@@ -107,7 +107,6 @@ describe('Store', () => {
             store.SDKConfig.flags.eventBatchingIntervalMillis,
             'flags.eventBatchingIntervalMillis'
         ).to.eq(0);
-        expect(store.SDKConfig.flags.eventsV3, 'flags.eventsV3').to.eq(0);
         expect(
             store.SDKConfig.flags.reportBatching,
             'flags.reportBatching'

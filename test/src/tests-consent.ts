@@ -28,7 +28,7 @@ const mParticle = window.mParticle;
 
 describe('Consent', function() {
     beforeEach(function() {
-        window.fetchMock.post(urls.eventsV3, 200);
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 

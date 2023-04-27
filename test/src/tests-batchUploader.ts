@@ -105,7 +105,6 @@ const event3: SDKEvent = {
 };
 
 const enableBatchingConfigFlags = {
-    eventsV3: '100',
     eventBatchingIntervalMillis: 1000,
 };
 
@@ -204,7 +203,6 @@ describe('batch uploader', () => {
         describe('#uploadBatches', () => {
             beforeEach(() => {
                 window.mParticle.config.flags = {
-                    eventsV3: '100',
                     eventBatchingIntervalMillis: 1000,
                 };
 
@@ -218,7 +216,7 @@ describe('batch uploader', () => {
             });
 
             it('should reject batches without events', async () => {
-                window.fetchMock.post(urls.eventsV3, 200);
+                window.fetchMock.post(urls.events, 200);
 
                 const newLogger = new Logger(window.mParticle.config);
                 const mpInstance = window.mParticle.getInstance();
@@ -254,7 +252,7 @@ describe('batch uploader', () => {
             });
 
             it('should return batches that fail to upload with 500 errors', async () => {
-                window.fetchMock.post(urls.eventsV3, 500);
+                window.fetchMock.post(urls.events, 500);
 
                 const newLogger = new Logger(window.mParticle.config);
                 const mpInstance = window.mParticle.getInstance();
@@ -301,7 +299,7 @@ describe('batch uploader', () => {
             });
 
             it('should return batches that fail to upload with 429 errors', async () => {
-                window.fetchMock.post(urls.eventsV3,  429);
+                window.fetchMock.post(urls.events,  429);
 
                 const newLogger = new Logger(window.mParticle.config);
                 const mpInstance = window.mParticle.getInstance();
@@ -348,7 +346,7 @@ describe('batch uploader', () => {
             });
 
             it('should return null if batches fail to upload with 401 errors', async () => {
-                window.fetchMock.post(urls.eventsV3, 401);
+                window.fetchMock.post(urls.events, 401);
 
                 const newLogger = new Logger(window.mParticle.config);
                 const mpInstance = window.mParticle.getInstance();
@@ -382,7 +380,7 @@ describe('batch uploader', () => {
             });
 
             it('should return batches that fail to unknown HTTP errors', async () => {
-                window.fetchMock.post(urls.eventsV3, 400);
+                window.fetchMock.post(urls.events, 400);
 
                 const newLogger = new Logger(window.mParticle.config);
                 const mpInstance = window.mParticle.getInstance();
@@ -714,7 +712,7 @@ describe('batch uploader', () => {
         it('should save batches in sequence to Local Storage when an HTTP 500 error is encountered', (done) => {
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
-            window.fetchMock.post(urls.eventsV3, 500);
+            window.fetchMock.post(urls.events, 500);
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -771,7 +769,7 @@ describe('batch uploader', () => {
         it('should save batches in sequence to Local Storage when an HTTP 429 error is encountered', (done) => {
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
-            window.fetchMock.post(urls.eventsV3, 429);
+            window.fetchMock.post(urls.events, 429);
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -826,7 +824,7 @@ describe('batch uploader', () => {
             // Offline Storage afterwards
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
-            window.fetchMock.post(urls.eventsV3, 401);
+            window.fetchMock.post(urls.events, 401);
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -862,13 +860,13 @@ describe('batch uploader', () => {
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
             // First upload is successful
-            window.fetchMock.post(urls.eventsV3, 200, {
+            window.fetchMock.post(urls.events, 200, {
                 overwriteRoutes: false,
                 repeat: 1,
             });
 
             // Second upload is rate limited
-            window.fetchMock.post(urls.eventsV3, 429, {
+            window.fetchMock.post(urls.events, 429, {
                 overwriteRoutes: false,
             });
 
@@ -1007,7 +1005,7 @@ describe('batch uploader', () => {
 
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
 
-            window.fetchMock.post(urls.eventsV3, 200);
+            window.fetchMock.post(urls.events, 200);
 
             // Set up SDK and Uploader
             window.mParticle._resetForTests(MPConfig);
@@ -1162,7 +1160,7 @@ describe('batch uploader', () => {
             // Batches should be uploaded in the order they were created to prevent
             // any potential corruption.
 
-            window.fetchMock.post(urls.eventsV3, 200);
+            window.fetchMock.post(urls.events, 200);
             window.fetchMock.config.overwriteRoutes = true;
 
             window.mParticle.config.flags = {
@@ -1232,7 +1230,7 @@ describe('batch uploader', () => {
             // If batches cannot upload, they should be added back to the Batch Queue
             // in the order they were created so they can be retransmitted.
 
-            window.fetchMock.post(urls.eventsV3, 500);
+            window.fetchMock.post(urls.events, 500);
 
             window.mParticle.config.flags = {
                 ...enableBatchingConfigFlags,
@@ -1326,12 +1324,12 @@ describe('batch uploader', () => {
         // https://go.mparticle.com/work/SQDSDKS-5165
         it.skip('should keep and retry batches in sequence if the transmission fails midway', (done) => {
             // First request is successful, subsequent requests fail
-            window.fetchMock.post(urls.eventsV3, 200, {
+            window.fetchMock.post(urls.events, 200, {
                 overwriteRoutes: false,
                 repeat: 1,
             });
 
-            window.fetchMock.post(urls.eventsV3, 429, {
+            window.fetchMock.post(urls.events, 429, {
                 overwriteRoutes: false,
             });
 
@@ -1406,7 +1404,7 @@ describe('batch uploader', () => {
 
     describe('batching via window.fetch', () => {
         beforeEach(() => {
-            window.fetchMock.post(urls.eventsV3, 200);
+            window.fetchMock.post(urls.events, 200);
             window.fetchMock.config.overwriteRoutes = true;
             clock = sinon.useFakeTimers({now: new Date().getTime()});
 
@@ -1438,7 +1436,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
@@ -1459,7 +1457,7 @@ describe('batch uploader', () => {
             const lastCall = window.fetchMock.lastCall();
             const endpoint = lastCall[0];
             const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[2].data.location.should.have.property('latitude', 100)
             batch.events[2].data.location.should.have.property('longitude', 100)
     
@@ -1486,7 +1484,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
@@ -1511,7 +1509,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
@@ -1526,7 +1524,7 @@ describe('batch uploader', () => {
             window.mParticle._resetForTests(MPConfig);
             var clock = sinon.useFakeTimers();
 
-            window.fetchMock.post(urls.eventsV3, 500);
+            window.fetchMock.post(urls.events, 500);
             
             window.mParticle.init(apiKey, window.mParticle.config);
             window.mParticle.logEvent('Test Event');
@@ -1538,7 +1536,7 @@ describe('batch uploader', () => {
             pendingEvents[1].EventName.should.equal(10);
             pendingEvents[2].EventName.should.equal('Test Event');
 
-            window.fetchMock.post(urls.eventsV3, 200);
+            window.fetchMock.post(urls.events, 200);
             
             (window.fetchMock.lastCall() === undefined).should.equal(true);
             clock.tick(1000);
@@ -1568,7 +1566,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             batch.events[0].data.should.have.property('source_message_id')
 
             done();
@@ -1598,7 +1596,7 @@ describe('batch uploader', () => {
             const endpoint = lastCall[0];
             const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
-            endpoint.should.equal(urls.eventsV3);
+            endpoint.should.equal(urls.events);
             // event batch includes session start, ast, then last event is Test Event
             batch.events[batch.events.length-1].data.should.have.property('source_message_id', 'abcdefg')
 
@@ -1848,10 +1846,9 @@ describe('batch uploader', () => {
         beforeEach(() => {
             delete window.fetch
             window.mParticle.config.flags = {
-                eventsV3: '100',
                 eventBatchingIntervalMillis: 1000,
             }
-            mockServer.respondWith(urls.eventsV3, [
+            mockServer.respondWith(urls.events, [
                 200,
                 {},
                 JSON.stringify({ mpid: testMPID, Store: {}})
@@ -1996,7 +1993,7 @@ describe('batch uploader', () => {
             window.mParticle._resetForTests(MPConfig);
             var clock = sinon.useFakeTimers();
 
-            mockServer.respondWith(urls.eventsV3, [
+            mockServer.respondWith(urls.events, [
                 500,
                 {},
                 JSON.stringify({ mpid: testMPID, Store: {}})
