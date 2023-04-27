@@ -43,7 +43,7 @@
         "test:integrations:cjs:browserfy": "npm run build:browserify:cjs && npm run test:karma:browserify:cjs",
         "test:integrations:cjs:webpack": "npm run build:webpack:cjs && npm run test:karma:webpack:cjs",
         "test:integrations:cjs:rollup": "npm run build:rollup:cjs && npm run test:karma:rollup:cjs",
-        "test:integrations:module": "npm run build:webpack:module && npm run build:rollup:module",
+        "test:integrations:module": "npm run test:integrations:module:webpack && npm run test:integrations:module:rollup",
         "test:integrations:module:webpack": "npm run build:webpack:module && npm run test:karma:webpack:module",
         "test:integrations:module:rollup": "npm run build:rollup:module && npm run test:karma:rollup:module",
         "test:requirejs": "npm run test:requirejs:before && npm run test:requirejs:after",
