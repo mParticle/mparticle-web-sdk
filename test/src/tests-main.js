@@ -20,7 +20,6 @@ beforeEach(function() {
         isDevelopmentMode: false,
         flags: {
             eventBatchingIntervalMillis: 0,
-            eventsV3: 100
         }
     };
 
@@ -33,7 +32,6 @@ afterEach(function() {
 });
 
 import './tests-core-sdk';
-import './tests-temp-session-bug-fix';
 import './tests-batchUploader';
 import './tests-beaconUpload';
 import './tests-kit-blocking';

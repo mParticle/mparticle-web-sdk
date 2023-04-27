@@ -15,7 +15,7 @@ let mockServer;
 
 describe('core SDK', function() {
     beforeEach(function() {
-        window.fetchMock.post(urls.eventsV3, 200);
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -192,7 +192,6 @@ describe('core SDK', function() {
 
     it('should send new appName via event payload', function (done) {
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
 
@@ -550,9 +549,7 @@ describe('core SDK', function() {
         mParticle.logEvent('Test Event1');
 
         const testEvent1URL = findRequest(window.fetchMock._calls, 'Test Event1')[0];
-        testEvent1URL.should.equal(
-            urls.eventsV3
-        );
+        testEvent1URL.should.equal(urls.events);
 
         window.fetchMock.post(
             'https://jssdks.mparticle.com/v3/JS/new-api-key/events',
@@ -867,7 +864,6 @@ describe('core SDK', function() {
         mParticle.config.v3SecureServiceUrl = 'def-v3SecureServiceUrl/v3/JS/';
 
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
 

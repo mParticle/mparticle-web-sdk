@@ -9,7 +9,7 @@ let mockServer;
 // Calls to /config are specific to only the self hosting environment
 describe('/config self-hosting integration tests', function() {
     beforeEach(function() {
-        window.fetchMock.post(urls.eventsV3, 200);
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
     });
 

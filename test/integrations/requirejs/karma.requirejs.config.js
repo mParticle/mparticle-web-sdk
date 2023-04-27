@@ -5,6 +5,7 @@ switch (FILE_ORDER) {
     case 'before_mp':
         files = [
             '../../lib/mockhttprequest.js',
+            '../../../node_modules/fetch-mock/dist/es5/client-bundle.js',
             '../../lib/require.2.3.6.min.js',
             '../../../dist/mparticle.js',
             'test-requirejs.js',
@@ -13,6 +14,7 @@ switch (FILE_ORDER) {
     case 'after_mp':
         files = [
             '../../lib/mockhttprequest.js',
+            '../../../node_modules/fetch-mock/dist/es5/client-bundle.js',
             '../../../dist/mparticle.js',
             '../../lib/require.2.3.6.min.js',
             'test-requirejs.js',

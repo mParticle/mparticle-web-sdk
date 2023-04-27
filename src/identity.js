@@ -1058,42 +1058,36 @@ export default function Identity(mpInstance) {
                         mpInstance._Persistence.savePersistence(cookies, mpid);
                     }
 
-                    if (mpInstance._APIClient.shouldEnableBatching()) {
-                        // If the new attributeList length is different previous, then there is a change event.
-                        // Loop through new attributes list, see if they are all in the same index as previous user attributes list
-                        // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
-                        if (
-                            !previousUserAttributeValue ||
-                            !Array.isArray(previousUserAttributeValue)
-                        ) {
-                            userAttributeChange = true;
-                        } else if (
-                            newValue.length !==
-                            previousUserAttributeValue.length
-                        ) {
-                            userAttributeChange = true;
-                        } else {
-                            for (var i = 0; i < newValue.length; i++) {
-                                if (
-                                    previousUserAttributeValue[i] !==
-                                    newValue[i]
-                                ) {
-                                    userAttributeChange = true;
-                                    break;
-                                }
+                    // If the new attributeList length is different previous, then there is a change event.
+                    // Loop through new attributes list, see if they are all in the same index as previous user attributes list
+                    // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
+                    if (
+                        !previousUserAttributeValue ||
+                        !Array.isArray(previousUserAttributeValue)
+                    ) {
+                        userAttributeChange = true;
+                    } else if (
+                        newValue.length !== previousUserAttributeValue.length
+                    ) {
+                        userAttributeChange = true;
+                    } else {
+                        for (var i = 0; i < newValue.length; i++) {
+                            if (previousUserAttributeValue[i] !== newValue[i]) {
+                                userAttributeChange = true;
+                                break;
                             }
                         }
+                    }
 
-                        if (userAttributeChange) {
-                            self.sendUserAttributeChangeEvent(
-                                key,
-                                newValue,
-                                previousUserAttributeValue,
-                                isNewAttribute,
-                                false,
-                                this
-                            );
-                        }
+                    if (userAttributeChange) {
+                        self.sendUserAttributeChangeEvent(
+                            key,
+                            newValue,
+                            previousUserAttributeValue,
+                            isNewAttribute,
+                            false,
+                            this
+                        );
                     }
 
                     mpInstance._Forwarders.initForwarders(
@@ -1730,10 +1724,6 @@ export default function Identity(mpInstance) {
     ) {
         var currentUserInMemory, userIdentityChangeEvent;
 
-        if (!mpInstance._APIClient.shouldEnableBatching()) {
-            return;
-        }
-
         if (!mpid) {
             if (method !== 'modify') {
                 return;
@@ -1799,9 +1789,6 @@ export default function Identity(mpInstance) {
         deleted,
         user
     ) {
-        if (!mpInstance._APIClient.shouldEnableBatching()) {
-            return;
-        }
         var userAttributeChangeEvent = self.createUserAttributeChange(
             attributeKey,
             newUserAttributeValue,

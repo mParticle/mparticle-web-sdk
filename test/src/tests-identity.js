@@ -22,7 +22,7 @@ let mockServer;
 describe('identity', function() {
     beforeEach(function() {
         delete mParticle.config.useCookieStorage;
-        window.fetchMock.post(urls.eventsV3, 200);
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
