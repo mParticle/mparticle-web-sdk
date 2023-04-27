@@ -44,7 +44,7 @@ describe('Beacon Upload', () => {
     it('should trigger beacon on page visibilitychange events', function(done) {
         window.mParticle._resetForTests(MPConfig);
 
-        var bond = sinon.spy(navigator, 'sendBeacon');
+        const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
 
         // visibility change is a document property, not window
@@ -59,7 +59,7 @@ describe('Beacon Upload', () => {
     it('should trigger beacon on page beforeunload events', function(done) {
         window.mParticle._resetForTests(MPConfig);
 
-        var bond = sinon.spy(navigator, 'sendBeacon');
+        const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
 
         // karma fails if onbeforeunload is not set to null
@@ -75,7 +75,7 @@ describe('Beacon Upload', () => {
     it('should trigger beacon on pagehide events', function(done) {
         window.mParticle._resetForTests(MPConfig);
 
-        var bond = sinon.spy(navigator, 'sendBeacon');
+        const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
 
         window.dispatchEvent(new Event('pagehide'));

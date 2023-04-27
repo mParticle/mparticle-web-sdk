@@ -256,14 +256,14 @@ describe('Queue Public Methods', function () {
 
         describe('#logProductAction', function () {
             it('should queue if not initialized', function () {
-                var product = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
+                const product = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
                 mParticle.eCommerce.logProductAction(SDKProductActionType.Purchase, product);
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
             });
 
             it('should process queue after initialization', function () {
-                var product = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
+                const product = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
                 mParticle.eCommerce.logProductAction(SDKProductActionType.Purchase, product);
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
@@ -290,16 +290,16 @@ describe('Queue Public Methods', function () {
 
         describe('#logImpression', function () {
             it('should queue if not initialized', function () {
-                var product = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
-                var impression = window.mParticle.eCommerce.createImpression('iphone impression', product);
+                const product = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
+                const impression = window.mParticle.eCommerce.createImpression('iphone impression', product);
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
                 mParticle.eCommerce.logImpression(impression);
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);
             });
 
             it('should process queue after initialization', function () {
-                var product = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
-                var impression = window.mParticle.eCommerce.createImpression('iphone impression', product);
+                const product = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
+                const impression = window.mParticle.eCommerce.createImpression('iphone impression', product);
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(0);
                 mParticle.eCommerce.logImpression(impression);
                 mParticle.getInstance()._preInit.readyQueue.length.should.equal(1);

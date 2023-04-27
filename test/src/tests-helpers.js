@@ -7,22 +7,22 @@ describe('helpers', function() {
     });
 
     it('should correctly validate an attribute value', function(done) {
-        var validatedString = mParticle
+        const validatedString = mParticle
             .getInstance()
             ._Helpers.Validators.isValidAttributeValue('testValue1');
-        var validatedNumber = mParticle
+        const validatedNumber = mParticle
             .getInstance()
             ._Helpers.Validators.isValidAttributeValue(1);
-        var validatedNull = mParticle
+        const validatedNull = mParticle
             .getInstance()
             ._Helpers.Validators.isValidAttributeValue(null);
-        var validatedObject = mParticle
+        const validatedObject = mParticle
             .getInstance()
             ._Helpers.Validators.isValidAttributeValue({});
-        var validatedArray = mParticle
+        const validatedArray = mParticle
             .getInstance()
             ._Helpers.Validators.isValidAttributeValue([]);
-        var validatedUndefined = mParticle
+        const validatedUndefined = mParticle
             .getInstance()
             ._Helpers.Validators.isValidAttributeValue(undefined);
 
@@ -37,7 +37,7 @@ describe('helpers', function() {
     });
 
     it('should return event name in warning when sanitizing invalid attributes', function(done) {
-        var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+        const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.logEvent('eventName', mParticle.EventType.Location, {invalidValue: {}});
 
         bond.called.should.eql(true);
@@ -51,7 +51,7 @@ describe('helpers', function() {
     });
 
     it('should return product name in warning when sanitizing invalid attributes', function(done) {
-        var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+        const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
         mParticle.eCommerce.createProduct(
             'productName',
             'sku',
@@ -75,12 +75,12 @@ describe('helpers', function() {
     });
 
     it('should return commerce event name in warning when sanitizing invalid attributes', function(done) {
-        var bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
+        const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
-        var product1 = mParticle.eCommerce.createProduct('prod1', 'prod1sku', 999);
-        var product2 = mParticle.eCommerce.createProduct('prod2', 'prod2sku', 799);
+        const product1 = mParticle.eCommerce.createProduct('prod1', 'prod1sku', 999);
+        const product2 = mParticle.eCommerce.createProduct('prod2', 'prod2sku', 799);
 
-        var customAttributes = {invalidValue: {}};
+        const customAttributes = {invalidValue: {}};
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, [product1, product2], customAttributes);
 
         bond.called.should.eql(true);
@@ -94,22 +94,22 @@ describe('helpers', function() {
     });
 
     it('should correctly validate an identity request with copyUserAttribute as a key using any identify method', function(done) {
-        var identityApiData = {
+        const identityApiData = {
             userIdentities: {
                 customerid: '123',
             },
             copyUserAttributes: true,
         };
-        var identifyResult = mParticle
+        const identifyResult = mParticle
             .getInstance()
             ._Helpers.Validators.validateIdentities(identityApiData, 'identify');
-        var logoutResult = mParticle
+        const logoutResult = mParticle
             .getInstance()
             ._Helpers.Validators.validateIdentities(identityApiData, 'logout');
-        var loginResult = mParticle
+        const loginResult = mParticle
             .getInstance()
             ._Helpers.Validators.validateIdentities(identityApiData, 'login');
-        var modifyResult = mParticle
+        const modifyResult = mParticle
             .getInstance()
             ._Helpers.Validators.validateIdentities(identityApiData, 'modify');
 
@@ -122,24 +122,24 @@ describe('helpers', function() {
     });
 
     it('should correctly parse string or number', function(done) {
-        var string = 'abc';
-        var number = 123;
-        var object = {};
-        var array = [];
+        const string = 'abc';
+        const number = 123;
+        const object = {};
+        const array = [];
 
-        var stringResult = mParticle
+        const stringResult = mParticle
             .getInstance()
             ._Helpers.parseStringOrNumber(string);
-        var numberResult = mParticle
+        const numberResult = mParticle
             .getInstance()
             ._Helpers.parseStringOrNumber(number);
-        var objectResult = mParticle
+        const objectResult = mParticle
             .getInstance()
             ._Helpers.parseStringOrNumber(object);
-        var arrayResult = mParticle
+        const arrayResult = mParticle
             .getInstance()
             ._Helpers.parseStringOrNumber(array);
-        var nullResult = mParticle
+        const nullResult = mParticle
             .getInstance()
             ._Helpers.parseStringOrNumber(null);
 
@@ -153,8 +153,8 @@ describe('helpers', function() {
     });
 
     it('should filterUserIdentities and include customerId as first in the array', function(done) {
-        var filterList = [2, 4, 6, 8];
-        var userIdentitiesObject = {
+        const filterList = [2, 4, 6, 8];
+        const userIdentitiesObject = {
             email: 'test@gmail.com',
             other: 'abc',
             customerid: '123',
@@ -163,7 +163,7 @@ describe('helpers', function() {
             yahoo: 'yahoo123',
         };
 
-        var filteredIdentities = mParticle
+        const filteredIdentities = mParticle
             .getInstance()
             ._Helpers.filterUserIdentities(userIdentitiesObject, filterList);
         filteredIdentities.length.should.equal(3);
@@ -181,34 +181,34 @@ describe('helpers', function() {
     });
 
     it('should return the appropriate boolean for if events should be delayed by an integration', function(done) {
-        var integrationDelays1 = {
+        const integrationDelays1 = {
             128: false,
             20: false,
             10: true,
         };
-        var integrationDelays2 = {
+        const integrationDelays2 = {
             128: true,
         };
-        var integrationDelays3 = {
+        const integrationDelays3 = {
             128: false,
         };
 
-        var integrationDelays4 = {
+        const integrationDelays4 = {
             128: false,
             20: false,
             10: false,
         };
 
-        var result1 = mParticle
+        const result1 = mParticle
             .getInstance()
             ._Helpers.isDelayedByIntegration(integrationDelays1);
-        var result2 = mParticle
+        const result2 = mParticle
             .getInstance()
             ._Helpers.isDelayedByIntegration(integrationDelays2);
-        var result3 = mParticle
+        const result3 = mParticle
             .getInstance()
             ._Helpers.isDelayedByIntegration(integrationDelays3);
-        var result4 = mParticle
+        const result4 = mParticle
             .getInstance()
             ._Helpers.isDelayedByIntegration(integrationDelays4);
 
@@ -221,8 +221,8 @@ describe('helpers', function() {
     });
 
     it('should return false if integration delay object is empty', function(done) {
-        var emptyIntegrationDelays = {};
-        var result1 = mParticle
+        const emptyIntegrationDelays = {};
+        const result1 = mParticle
             .getInstance()
             ._Helpers.isDelayedByIntegration(emptyIntegrationDelays);
 
@@ -297,7 +297,7 @@ describe('helpers', function() {
     });
 
     it('should generate random value', function(done) {
-        var randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
+        let randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
         randomValue.should.be.ok();
         window.crypto.getRandomValues = undefined;
         randomValue = mParticle.getInstance()._Helpers.generateUniqueId();
@@ -315,7 +315,7 @@ describe('helpers', function() {
     });
 
     it('should create a storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
-        var cookieName = mParticle
+        const cookieName = mParticle
             .getInstance()
             ._Helpers.createMainStorageName(apiKey);
         cookieName.should.equal('mprtcl-v4_test_key');
@@ -324,7 +324,7 @@ describe('helpers', function() {
     });
 
     it('should create a storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
-        var cookieName = mParticle
+        const cookieName = mParticle
             .getInstance()
             ._Helpers.createMainStorageName();
         cookieName.should.equal('mprtcl-v4');
@@ -333,7 +333,7 @@ describe('helpers', function() {
     });
 
     it('should create a product storage name based on default mParticle storage version + apiKey if apiKey is passed in', function(done) {
-        var cookieName = mParticle
+        const cookieName = mParticle
             .getInstance()
             ._Helpers.createProductStorageName(apiKey);
         cookieName.should.equal('mprtcl-prodv4_test_key');
@@ -341,7 +341,7 @@ describe('helpers', function() {
         done();
     });
     it('should create a product storage name based on default mParticle storage version if no apiKey is passed in', function(done) {
-        var cookieName = mParticle
+        const cookieName = mParticle
             .getInstance()
             ._Helpers.createProductStorageName();
         cookieName.should.equal('mprtcl-prodv4');
