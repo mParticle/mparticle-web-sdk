@@ -1098,8 +1098,8 @@ describe('identity', function() {
         const users = mParticle.Identity.getUsers();
         //this includes the original, starting user, in addition to the 3 added above
         Should(users).have.length(4);
-        for (let i = 0; i < users.length; i++) {
-            Should.exist(mParticle.Identity.getUser(users[i].getMPID()));
+        for (let i of users) {
+            Should.exist(mParticle.Identity.getUser(i.getMPID()));
         }
         Should.not.exist(mParticle.Identity.getUser('gs'));
         Should.not.exist(mParticle.Identity.getUser('cu'));
