@@ -15,7 +15,7 @@ describe('identities and attributes', function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        window.fetchMock.post(urls.eventsV3, 200);
+        window.fetchMock.post(urls.events, 200);
         mockServer.respondWith(urls.identify, [
             200,
             {},
@@ -989,7 +989,6 @@ describe('identities and attributes', function() {
         };
 
         window.mParticle.config.flags = {
-            eventsV3: 100,
             EventBatchingIntervalMillis: 0,
         };
 
@@ -1061,7 +1060,6 @@ describe('identities and attributes', function() {
         mParticle._resetForTests(MPConfig);
 
         window.mParticle.config.flags = {
-            eventsV3: 100,
             EventBatchingIntervalMillis: 0,
         };
 
@@ -1148,7 +1146,6 @@ describe('identities and attributes', function() {
         mParticle._resetForTests(MPConfig);
 
         window.mParticle.config.flags = {
-            eventsV3: 100,
             EventBatchingIntervalMillis: 0,
         };
 

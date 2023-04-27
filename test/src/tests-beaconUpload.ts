@@ -30,7 +30,6 @@ describe('Beacon Upload', () => {
         ]);
 
         window.mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 1000,
         };
     });
@@ -51,7 +50,7 @@ describe('Beacon Upload', () => {
         document.dispatchEvent(new Event('visibilitychange'));
 
         bond.called.should.eql(true);
-        bond.lastCall.args[0].should.eql(urls.eventsV3);
+        bond.lastCall.args[0].should.eql(urls.events);
 
         done();
     });
@@ -67,7 +66,7 @@ describe('Beacon Upload', () => {
         window.dispatchEvent(new Event('beforeunload'));
 
         bond.called.should.eql(true);
-        bond.getCalls()[0].args[0].should.eql(urls.eventsV3);
+        bond.getCalls()[0].args[0].should.eql(urls.events);
 
         done();
     });
@@ -81,7 +80,7 @@ describe('Beacon Upload', () => {
         window.dispatchEvent(new Event('pagehide'));
 
         bond.called.should.eql(true);
-        bond.getCalls()[0].args[0].should.eql(urls.eventsV3);
+        bond.getCalls()[0].args[0].should.eql(urls.events);
 
         (typeof bond.getCalls()[0].args[1]).should.eql('object');
 
