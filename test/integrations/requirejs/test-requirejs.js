@@ -2,6 +2,7 @@ describe('Require.JS Pages', function() {
     it('loads mParticle properly', function() {
         var server = new MockHttpServer();
         server.start();
+        // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5314
         window.fetchMock.post('https://jssdks.mparticle.com/v3/JS/test_key/events', 200);
         window.mParticle = window.mParticle || {};
         window.mParticle.config = {
