@@ -11,7 +11,8 @@ var getLocalStorage = Utils.getLocalStorage,
     findCookie = Utils.findCookie,
     forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     getLocalStorageProducts = Utils.getLocalStorageProducts,
-    getEvent = Utils.getEvent,
+    findEventFromRequest = Utils.findEventFromRequest,
+    findBatch = Utils.findBatch,
     getIdentityEvent = Utils.getIdentityEvent,
     setCookie = Utils.setCookie,
     MockForwarder = Utils.MockForwarder,
@@ -21,14 +22,9 @@ var getLocalStorage = Utils.getLocalStorage,
 describe('identity', function() {
     beforeEach(function() {
         delete mParticle.config.useCookieStorage;
+        window.fetchMock.post(urls.eventsV3, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
-
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ]);
 
         mockServer.respondWith(urls.identify, [
             200,
@@ -40,6 +36,7 @@ describe('identity', function() {
 
     afterEach(function() {
         mockServer.restore();
+        window.fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 
@@ -168,12 +165,6 @@ describe('identity', function() {
             ._Persistence.getLocalStorage();
 
         localStorageDataBeforeSessionEnd.gs.csm.length.should.equal(2);
-
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'otherMPID', Store: {}})
-        ]);
 
         mParticle.endSession();
         var localStorageDataAfterSessionEnd1 = mParticle
@@ -728,8 +719,6 @@ describe('identity', function() {
     });
 
     it('should not make a request when an invalid request is sent to login', function(done) {
-        mockServer.requests = [];
-
         var identityAPIRequest1 = {
             userIdentities: 'badUserIdentitiesString',
         };
@@ -766,7 +755,6 @@ describe('identity', function() {
     });
 
     it('should not make a request when an invalid request is sent to logout', function(done) {
-        mockServer.requests = [];
         var identityAPIRequest1 = {
             userIdentities: 'badUserIdentitiesString',
         };
@@ -803,7 +791,6 @@ describe('identity', function() {
     });
 
     it('should not make a request when an invalid request is sent to modify', function(done) {
-        mockServer.requests = [];
         var identityAPIRequest1 = {
             userIdentities: 'badUserIdentitiesString',
         };
@@ -1016,12 +1003,6 @@ describe('identity', function() {
     it('queue events when MPID is 0, and then flush events once MPID changes', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({})
-        ]);
-
         mockServer.respondWith(urls.identify, [
             0,
             {},
@@ -1030,32 +1011,35 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        mockServer.requests = [];
-        mParticle.logEvent('Test1');
-        var event1 = getEvent(mockServer.requests, 'Test1');
-        Should(event1).not.be.ok();
+        window.fetchMock._calls = [];
+        mParticle.logEvent('Test Event1');
 
+        let testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
+        
+        Should(testEvent1).not.be.ok();
+        
         mockServer.respondWith(urls.login, [
             200,
             {},
             JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
         ]);
 
-        mParticle.logEvent('Test2');
+        mParticle.logEvent('Test Event2');
         mParticle.Identity.login();
-
         // server requests will have AST, sessionStart, Test1, Test2, and login
-        mockServer.requests.length.should.equal(5);
-        event1 = getEvent(mockServer.requests, 'Test1');
-        var event2 = getEvent(mockServer.requests, 'Test2');
-        var event3 = getEvent(mockServer.requests, 10);
-        var event4 = getEvent(mockServer.requests, 1);
-        var event5 = getIdentityEvent(mockServer.requests, 'login');
-        Should(event1).be.ok();
-        Should(event2).be.ok();
-        Should(event3).be.ok();
-        Should(event4).be.ok();
-        Should(event5).be.ok();
+        testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
+        window.fetchMock._calls.length.should.equal(4);
+        
+        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+        const ASTEvent = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
+        const sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
+        const loginEvent = getIdentityEvent(mockServer.requests, 'login');
+
+        Should(testEvent1).be.ok();
+        Should(testEvent2).be.ok();
+        Should(ASTEvent).be.ok();
+        Should(sessionStartEvent).be.ok();
+        Should(loginEvent).be.ok();
 
         done();
     });
@@ -1236,19 +1220,6 @@ describe('identity', function() {
         done();
     });
 
-    it('should convert user identities object to an array if no identityRequest is passed through', function(done) {
-        mParticle._resetForTests(MPConfig);
-        mockServer.requests = [];
-
-        mParticle.identifyRequest = null;
-        mParticle.init(apiKey, window.mParticle.config);
-
-        var data = getEvent(mockServer.requests, 1);
-
-        Array.isArray(data.ui).should.equal(true);
-        done();
-    });
-
     it('should reject a callback that is not a function', function(done) {
         var identityRequest = {
             userIdentities: {
@@ -1303,14 +1274,13 @@ describe('identity', function() {
         );
         mParticle.eCommerce.Cart.add(product1);
 
-        mParticle.logEvent('test event1');
-        var event1 = getEvent(mockServer.requests, 'test event1');
+        mParticle.logEvent('Test Event1');
 
-        event1.ua.should.have.property('foo1', 'bar1');
-        event1.ui[0].should.have.property('Type', 1);
-        event1.ui[0].should.have.property('Identity', 'customerid1');
-        event1.ui[1].should.have.property('Type', 7);
-        event1.ui[1].should.have.property('Identity', 'email2@test.com');
+        const testEvent1Batch = findBatch(window.fetchMock._calls, 'Test Event1');
+
+        testEvent1Batch.user_attributes.should.have.property('foo1', 'bar1');
+        testEvent1Batch.user_identities.should.have.property('customer_id', 'customerid1');
+        testEvent1Batch.user_identities.should.have.property('email', 'email2@test.com');
 
         var products = getLocalStorageProducts();
 
@@ -1337,12 +1307,12 @@ describe('identity', function() {
         ]);
 
         mParticle.Identity.logout(user2);
-        mParticle.logEvent('test event 2');
-        var event2 = getEvent(mockServer.requests, 'test event 2');
+        mParticle.logEvent('Test Event2');
 
-        Object.keys(event2.ua).length.should.equal(0);
-        event2.ui[0].should.have.property('Type', 1);
-        event2.ui[0].should.have.property('Identity', 'customerid2');
+        const testEvent2Batch = findBatch(window.fetchMock._calls, 'Test Event2');
+
+        Object.keys(testEvent2Batch.user_attributes).length.should.equal(0);
+        testEvent2Batch.user_identities.should.have.property('customer_id', 'customerid2');
 
         mockServer.respondWith(urls.login, [
             200,
@@ -1351,15 +1321,13 @@ describe('identity', function() {
         ]);
 
         mParticle.Identity.login(user1);
-        mParticle.logEvent('test event3');
-        var event3 = getEvent(mockServer.requests, 'test event3');
+        mParticle.logEvent('Test Event3');
+        const testEvent3Batch = findBatch(window.fetchMock._calls, 'Test Event3');
 
-        event3.ua.should.have.property('foo1', 'bar1');
-        event3.ui.length.should.equal(2);
-        event3.ui[0].should.have.property('Type', 1);
-        event3.ui[0].should.have.property('Identity', 'customerid1');
-        event3.ui[1].should.have.property('Type', 7);
-        event3.ui[1].should.have.property('Identity', 'email2@test.com');
+        testEvent3Batch.user_attributes.should.have.property('foo1', 'bar1');
+        Object.keys(testEvent3Batch.user_identities).length.should.equal(2);
+        testEvent3Batch.user_identities.should.have.property('customer_id', 'customerid1');
+        testEvent3Batch.user_identities.should.have.property('email', 'email2@test.com');
 
         var products2 = getLocalStorageProducts();
 
@@ -1719,8 +1687,10 @@ describe('identity', function() {
         cartProducts2[1].Name.should.equal('HTC');
 
         mParticle.eCommerce.logCheckout(1);
-        var commerceEventUser2 = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        commerceEventUser2.sc.pl.length.should.equal(0)
+
+        const checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+
+        checkoutEvent.data.product_action.should.have.property('products', null)
 
         mockServer.respondWith(urls.login, [
             200,
@@ -1729,13 +1699,15 @@ describe('identity', function() {
         ]);
 
         mParticle.Identity.login(identityAPIRequest1);
-        mockServer.requests = [];
+        window.fetchMock._calls = [];
         mParticle.eCommerce.logCheckout(1);
 
-        var commerceEventUser1 = getEvent(mockServer.requests, 'eCommerce - Checkout');
-        commerceEventUser1.sc.pl.length.should.equal(0);
+        var checkoutEvent2 = findEventFromRequest(window.fetchMock._calls, 'checkout');
+
+        checkoutEvent2.data.product_action.should.have.property('products', null);
 
         done();
+    
     });
 
     it('should update cookies after modifying identities', function(done) {
@@ -2051,16 +2023,17 @@ describe('identity', function() {
             mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'bar');
         };
 
-        mockServer.requests = [];
+        window.fetchMock._calls = [];
         mParticle.init(apiKey, window.mParticle.config);
 
-        (mockServer.requests.length === 0).should.equal.true
+        (window.fetchMock._calls.length === 0).should.equal.true
         clock.tick(1000);
-        
-        var sessionStart = getEvent(mockServer.requests, 1);
-        var ASTEvent = getEvent(mockServer.requests, 10);
-        sessionStart.ua.should.have.property('foo', 'bar');
-        ASTEvent.ua.should.have.property('foo', 'bar');
+
+        const sessionStartEventBatch = findBatch(window.fetchMock._calls, 'session_start');
+        const ASTEventBatch = findBatch(window.fetchMock._calls, 'application_state_transition');
+
+        sessionStartEventBatch.user_attributes.should.have.property('foo', 'bar');
+        ASTEventBatch.user_attributes.should.have.property('foo', 'bar');
         clock.restore();
 
         done();
@@ -2091,10 +2064,10 @@ describe('identity', function() {
             JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
         ]);
 
-        mockServer.requests = [];
+        window.fetchMock._calls = [];
         mParticle.init(apiKey, window.mParticle.config);
         //the only server request is the AST, there is no request to Identity
-        mockServer.requests.length.should.equal(1);
+        window.fetchMock._calls.length.should.equal(1);
         result.should.have.properties('body', 'httpCode', 'getUser');
 
         result.httpCode.should.equal(-3);
@@ -2914,7 +2887,7 @@ describe('identity', function() {
         done();
     });
 
-    it('Should warn if legal aliasRequest cannot be created with MParticleUser', function(done) {
+    it('should warn if legal aliasRequest cannot be created with MParticleUser', function(done) {
         var millisPerDay = 24 * 60 * 60 * 1000;
 
         mParticle.config.logLevel = 'verbose';

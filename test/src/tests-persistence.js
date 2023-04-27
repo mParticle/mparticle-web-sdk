@@ -3,24 +3,24 @@ import sinon from 'sinon';
 import { urls, apiKey, testMPID, MPConfig,localStorageProductsV4, LocalStorageProductsV4WithWorkSpaceName, workspaceCookieName, v4LSKey } from './config';
 
 /* eslint-disable quotes*/
-var findCookie = Utils.findCookie,
-    getLocalStorage = Utils.getLocalStorage,
-    getLocalStorageProducts = Utils.getLocalStorageProducts,
-    setCookie = Utils.setCookie,
-    setLocalStorage = Utils.setLocalStorage,
-    getEvent = Utils.getEvent,
-    mockServer;
+const {
+    findCookie,
+    getLocalStorage,
+    getLocalStorageProducts,
+    setCookie,
+    setLocalStorage,
+    findBatch,
+} = Utils;
 
-describe('migrations and persistence-related', function() {
-    beforeEach(function() {
+let mockServer;
+
+describe('migrations and persistence-related', () => {
+    beforeEach(() => {
+        window.fetchMock.post(urls.eventsV3, 200);
+
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ])
         mockServer.respondWith(urls.identify, [
             200,
             {},
@@ -31,6 +31,7 @@ describe('migrations and persistence-related', function() {
 
     afterEach(function() {
         mockServer.restore();
+        window.fetchMock.restore();
     });
 
     it('should move new schema from cookies to localStorage with useCookieStorage = false', function(done) {
@@ -413,9 +414,9 @@ describe('migrations and persistence-related', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.logEvent('Test Event');
-        var data = getEvent(mockServer.requests, 'Test Event');
-        data.ia.should.have.property('128');
-        data.ia['128'].should.have.property('MCID', 'abcedfg');
+        const testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        testEvent.integration_attributes.should.have.property('128');
+        testEvent.integration_attributes['128'].should.have.property('MCID', 'abcedfg');
 
         done();
     });
