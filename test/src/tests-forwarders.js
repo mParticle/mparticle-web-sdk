@@ -4,8 +4,7 @@ import { urls } from './config';
 import { apiKey, MPConfig, testMPID, MessageType } from './config';
 import { expect } from 'chai';
 
-
-var getEvent = Utils.getEvent,
+var findEventFromRequest = Utils.findEventFromRequest,
     getForwarderEvent = Utils.getForwarderEvent,
     setLocalStorage = Utils.setLocalStorage,
     forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
@@ -17,14 +16,9 @@ describe('forwarders', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];
+        window.fetchMock.post(urls.eventsV3, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
-
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {}})
-        ]);
 
         mockServer.respondWith(urls.identify, [
             200,
@@ -59,6 +53,7 @@ describe('forwarders', function() {
     });
 
     afterEach(function() {
+        window.fetchMock.restore();
         delete window.MockForwarder1;
         mockServer.restore();
     });
@@ -1027,7 +1022,7 @@ describe('forwarders', function() {
             { 'my-key': 'my-value' }
         );
 
-        var event = getEvent(mockServer.requests, 'send this event to forwarder', true);
+        var event = findEventFromRequest(window.fetchMock._calls, 'send this event to forwarder', true);
 
         Should(event).should.not.have.property('n');
 
@@ -2042,12 +2037,6 @@ describe('forwarders', function() {
             JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
         ]);
 
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-        ]);
-
         mParticle.init(apiKey, window.mParticle.config);
 
         var activeForwarders = mParticle.getInstance()._getActiveForwarders();
@@ -2227,23 +2216,24 @@ describe('forwarders', function() {
         mParticle._setIntegrationDelay(10, true);
 
         mParticle.init(apiKey, window.mParticle.config);
-        mockServer.requests = [];
-        mParticle.logEvent('test1');
-        mockServer.requests.length.should.equal(0);
+        window.fetchMock._calls = [];
+        mParticle.logEvent('Test Event1');
+        window.fetchMock._calls.length.should.equal(0);
 
         mParticle._setIntegrationDelay(10, false);
         mParticle._setIntegrationDelay(128, false);
-        mParticle.logEvent('test2');
-        mockServer.requests.length.should.equal(4);
-        var sessionStartEvent = getEvent(mockServer.requests, 1);
-        var astEvent = getEvent(mockServer.requests, 10);
-        var test1 = getEvent(mockServer.requests, 'test1');
-        var test2 = getEvent(mockServer.requests, 'test2');
+        mParticle.logEvent('Test Event2');
+        window.fetchMock._calls.length.should.equal(4);
 
-        (typeof sessionStartEvent === 'object').should.equal(true);
-        (typeof astEvent === 'object').should.equal(true);
-        (typeof test1 === 'object').should.equal(true);
-        (typeof test2 === 'object').should.equal(true);
+        var sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
+        var ASTEvent = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
+        var testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
+        var testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+
+        sessionStartEvent.should.be.ok();
+        ASTEvent.should.be.ok();
+        testEvent1.should.be.ok();
+        testEvent2.should.be.ok();
 
         done();
     });
@@ -2269,23 +2259,24 @@ describe('forwarders', function() {
                 .length
         ).equal(3);
         mParticle.init(apiKey, window.mParticle.config);
-        mockServer.requests = [];
-        mParticle.logEvent('test1');
-        mockServer.requests.length.should.equal(0);
+        window.fetchMock._calls = [];
+        mParticle.logEvent('Test Event1');
+        window.fetchMock._calls.length.should.equal(0);
 
         clock.tick(5001);
 
-        mParticle.logEvent('test2');
-        mockServer.requests.length.should.equal(4);
-        var sessionStartEvent = getEvent(mockServer.requests, 1);
-        var astEvent = getEvent(mockServer.requests, 10);
-        var test1 = getEvent(mockServer.requests, 'test1');
-        var test2 = getEvent(mockServer.requests, 'test2');
+        mParticle.logEvent('Test Event2');
+        window.fetchMock._calls.length.should.equal(4);
 
-        (typeof sessionStartEvent === 'object').should.equal(true);
-        (typeof astEvent === 'object').should.equal(true);
-        (typeof test1 === 'object').should.equal(true);
-        (typeof test2 === 'object').should.equal(true);
+        var sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
+        var ASTEvent = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
+        var testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
+        var testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+
+        sessionStartEvent.should.be.ok();
+        ASTEvent.should.be.ok();
+        testEvent1.should.be.ok();
+        testEvent2.should.be.ok();
         clock.restore();
 
         // testing user-configured integrationDelayTimeout
@@ -2296,23 +2287,24 @@ describe('forwarders', function() {
         mParticle._setIntegrationDelay(24, false);
         mParticle._setIntegrationDelay(10, true);
         mParticle.init(apiKey, window.mParticle.config);
-        mockServer.requests = [];
-        mParticle.logEvent('test1');
-        mockServer.requests.length.should.equal(0);
+        window.fetchMock._calls = [];
+        mParticle.logEvent('Test Event3');
+        window.fetchMock._calls.length.should.equal(0);
 
         clock.tick(1001);
 
-        mParticle.logEvent('test2');
-        mockServer.requests.length.should.equal(4);
-        sessionStartEvent = getEvent(mockServer.requests, 1);
-        astEvent = getEvent(mockServer.requests, 10);
-        test1 = getEvent(mockServer.requests, 'test1');
-        test2 = getEvent(mockServer.requests, 'test2');
+        mParticle.logEvent('Test Event4');
+        window.fetchMock._calls.length.should.equal(4);
 
-        (typeof sessionStartEvent === 'object').should.equal(true);
-        (typeof astEvent === 'object').should.equal(true);
-        (typeof test1 === 'object').should.equal(true);
-        (typeof test2 === 'object').should.equal(true);
+        var sessionStartEvent2 = findEventFromRequest(window.fetchMock._calls, 'session_start');
+        var ASTEvent2 = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
+        var testEvent3 = findEventFromRequest(window.fetchMock._calls, 'Test Event3');
+        var testEvent4 = findEventFromRequest(window.fetchMock._calls, 'Test Event4');
+
+        sessionStartEvent2.should.be.ok();
+        ASTEvent2.should.be.ok();
+        testEvent3.should.be.ok();
+        testEvent4.should.be.ok();
         clock.restore();
 
         done();
@@ -2325,16 +2317,15 @@ describe('forwarders', function() {
         mParticle._setIntegrationDelay(128, true);
         mParticle._setIntegrationDelay(24, false);
         mParticle.init(apiKey, window.mParticle.config);
-        mockServer.requests = [];
+        window.fetchMock._calls = [];
         mParticle.logEvent('test1');
-        mockServer.requests.length.should.equal(0);
-
+        window.fetchMock._calls.length.should.equal(0);
         // now that we set all integrations to false, the SDK should process queued events
         mParticle._setIntegrationDelay(128, false);
 
         clock.tick(5001);
 
-        mockServer.requests.length.should.equal(3);
+        window.fetchMock._calls.length.should.equal(3);
         clock.restore();
 
         done();

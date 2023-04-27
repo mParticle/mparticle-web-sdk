@@ -18,6 +18,10 @@ beforeEach(function() {
         kitConfigs: [],
         requestConfig: false,
         isDevelopmentMode: false,
+        flags: {
+            eventBatchingIntervalMillis: 0,
+            eventsV3: 100
+        }
     };
 
     mParticle._resetForTests(MPConfig);

@@ -26,21 +26,17 @@ const {
     getLocalStorageProducts,
     setCookie,
     setLocalStorage,
-    getEvent,
+    findBatch,
 } = Utils;
 
 let mockServer;
 
 describe('migrations and persistence-related', () => {
     beforeEach(() => {
+        window.fetchMock.post(urls.eventsV3, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.eventsV2, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, Store: {} }),
-        ]);
         mockServer.respondWith(urls.identify, [
             200,
             {},
@@ -51,6 +47,7 @@ describe('migrations and persistence-related', () => {
 
     afterEach(() => {
         mockServer.restore();
+        window.fetchMock.restore();
     });
 
     it('should move new schema from cookies to localStorage with useCookieStorage = false', done => {
@@ -436,9 +433,9 @@ describe('migrations and persistence-related', () => {
         mParticle.init(apiKey, mParticle.config);
 
         mParticle.logEvent('Test Event');
-        const data = getEvent(mockServer.requests, 'Test Event');
-        data.ia.should.have.property('128');
-        data.ia['128'].should.have.property('MCID', 'abcedfg');
+        const testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        testEvent.integration_attributes.should.have.property('128');
+        testEvent.integration_attributes['128'].should.have.property('MCID', 'abcedfg');
 
         done();
     });
