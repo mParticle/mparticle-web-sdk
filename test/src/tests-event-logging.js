@@ -13,7 +13,7 @@ let mockServer;
 describe('event logging', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
-        window.fetchMock.post(urls.eventsV3, 200);
+        window.fetchMock.post(urls.events, 200);
         delete mParticle._instances['default_instance'];
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
@@ -734,7 +734,6 @@ describe('event logging', function() {
     it('should log appName in the payload on v3 endpoint when set on config prior to init', function (done) {
         mParticle.config.appName = 'a name';
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
 
@@ -772,7 +771,6 @@ describe('event logging', function() {
         mParticle._resetForTests(MPConfig);
 
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
 
@@ -789,7 +787,6 @@ describe('event logging', function() {
 
     it('should log appName in the payload on v3 endpoint when set on config prior to init', function (done) {
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
 
@@ -809,7 +806,6 @@ describe('event logging', function() {
     it('should log a batch to v3 with data planning in the payload', function (done) {
         mParticle.config.logLevel = 'verbose';
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
@@ -835,7 +831,6 @@ describe('event logging', function() {
 
     it('should log a batch to v3 with no version if no version is passed', function (done) {
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
@@ -860,7 +855,6 @@ describe('event logging', function() {
 
     it('should log a batch to v3 with no context if no data plan is passed', function (done) {
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
@@ -892,7 +886,6 @@ describe('event logging', function() {
             }
         }
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
@@ -914,7 +907,6 @@ describe('event logging', function() {
 
     it('should log consent properly to v3 endpoint ', function (done) {
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
@@ -974,7 +966,6 @@ describe('event logging', function() {
 
     it('should sanitize transaction attributes in the payload on v3 endpoint', function (done) {
         mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
 
@@ -1013,7 +1004,6 @@ describe('event logging', function() {
 
     it('should sanitize product attributes in the payload on v3 endpoint', function (done) {
        mParticle.config.flags = {
-            eventsV3: '100',
             eventBatchingIntervalMillis: 0,
         }
 

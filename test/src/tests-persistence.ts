@@ -33,7 +33,7 @@ let mockServer;
 
 describe('migrations and persistence-related', () => {
     beforeEach(() => {
-        window.fetchMock.post(urls.eventsV3, 200);
+        window.fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
