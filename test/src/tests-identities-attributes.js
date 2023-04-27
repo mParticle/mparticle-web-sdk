@@ -4,11 +4,11 @@ import { urls, apiKey,
     testMPID,
     MPConfig } from './config';
 
-var findEventFromRequest = Utils.findEventFromRequest,
+const findEventFromRequest = Utils.findEventFromRequest,
     findBatch = Utils.findBatch,
     getLocalStorage = Utils.getLocalStorage, 
-    MockForwarder = Utils.MockForwarder,
-    mockServer;
+    MockForwarder = Utils.MockForwarder;
+let mockServer;
 
 describe('identities and attributes', function() {
     beforeEach(function() {
@@ -31,7 +31,7 @@ describe('identities and attributes', function() {
 
     it('should set user attribute', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
@@ -39,12 +39,12 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes');
 
-        var event = findBatch(window.fetchMock._calls, 'test user attributes');
+        const event = findBatch(window.fetchMock._calls, 'test user attributes');
 
         event.should.have.property('user_attributes');
         event.user_attributes.should.have.property('gender', 'male');
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
         cookies[testMPID].ua.should.have.property('gender', 'male');
 
         done();
@@ -52,7 +52,7 @@ describe('identities and attributes', function() {
 
     it('should set user attribute be case insensitive', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
@@ -64,9 +64,9 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes');
 
-        var event = findBatch(window.fetchMock._calls, 'test user attributes');
+        const event = findBatch(window.fetchMock._calls, 'test user attributes');
 
-        var cookies = getLocalStorage();
+        let cookies = getLocalStorage();
         cookies[testMPID].ua.should.have.property('gender', 'female');
 
         event.should.have.property('user_attributes');
@@ -76,7 +76,7 @@ describe('identities and attributes', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
 
         mParticle.logEvent('test user attributes2');
-        var event2 = findBatch(window.fetchMock._calls, 'test user attributes2');
+        const event2 = findBatch(window.fetchMock._calls, 'test user attributes2');
         event2.user_attributes.should.have.property('Gender', 'male');
         event2.user_attributes.should.not.have.property('gender');
 
@@ -88,7 +88,7 @@ describe('identities and attributes', function() {
 
     it('should set multiple user attributes with setUserAttributes', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
@@ -99,9 +99,9 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes');
 
-        var event = findBatch(window.fetchMock._calls, 'test user attributes');
+        const event = findBatch(window.fetchMock._calls, 'test user attributes');
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
         cookies[testMPID].ua.should.have.property('gender', 'male');
         cookies[testMPID].ua.should.have.property('age', 21);
 
@@ -114,7 +114,7 @@ describe('identities and attributes', function() {
 
     it('should remove user attribute', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
@@ -123,10 +123,10 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes');
 
-        var event = findBatch(window.fetchMock._calls, 'test user attributes');
+        const event = findBatch(window.fetchMock._calls, 'test user attributes');
         event.user_attributes.should.not.have.property('gender');
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
         Should(cookies[testMPID].ua).not.be.ok();
 
         done();
@@ -134,7 +134,7 @@ describe('identities and attributes', function() {
 
     it('should remove user attribute case insensitive', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
         mParticle.init(apiKey, window.mParticle.config);
@@ -143,10 +143,10 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes');
 
-        var event = findBatch(window.fetchMock._calls, 'test user attributes');
+        const event = findBatch(window.fetchMock._calls, 'test user attributes');
         event.user_attributes.should.not.have.property('Gender');
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
         Should(cookies[testMPID].ua).not.be.ok();
 
         done();
@@ -157,12 +157,12 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test event');
 
-        var event = findEventFromRequest(window.fetchMock._calls, 'test event');
+        const event = findEventFromRequest(window.fetchMock._calls, 'test event');
 
         Should(event.data.custom_attributes).equal(null);
 
         mParticle.endSession();
-        var sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        const sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
         sessionEndEvent.data.custom_attributes.should.have.property('name', 'test');
 
@@ -175,7 +175,7 @@ describe('identities and attributes', function() {
 
         mParticle.endSession();
 
-        var sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        const sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
         sessionEndEvent.data.custom_attributes.should.have.property('name', 'test1');
         sessionEndEvent.data.custom_attributes.should.not.have.property('Name');
@@ -186,13 +186,13 @@ describe('identities and attributes', function() {
     it("should not set a session attribute's key as an object or array)", function(done) {
         mParticle.setSessionAttribute({ key: 'value' }, 'test');
         mParticle.endSession();
-        var sessionEndEvent1 = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        const sessionEndEvent1 = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
         mParticle.startNewSession();
         window.fetchMock._calls = [];
         mParticle.setSessionAttribute(['test'], 'test');
         mParticle.endSession();
-        var sessionEndEvent2 = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        const sessionEndEvent2 = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
         Object.keys(sessionEndEvent1.data.custom_attributes).length.should.equal(0);
         Object.keys(sessionEndEvent2.data.custom_attributes).length.should.equal(0);
@@ -209,7 +209,7 @@ describe('identities and attributes', function() {
         mParticle.startNewSession();
         mParticle.endSession();
 
-        var sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        const sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
         sessionEndEvent.data.custom_attributes.should.not.have.property('name');
 
@@ -220,7 +220,7 @@ describe('identities and attributes', function() {
         mParticle.setPosition(34.134103, -118.321694);
         mParticle.logEvent('Test Event');
 
-        var event = findEventFromRequest(window.fetchMock._calls, 'Test Event');
+        const event = findEventFromRequest(window.fetchMock._calls, 'Test Event');
 
         event.data.should.have.property('location');
         event.data.location.should.have.property('latitude', 34.134103);
@@ -234,12 +234,12 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('Test Event');
 
-        var event = findBatch(window.fetchMock._calls, 'Test Event');
+        const event = findBatch(window.fetchMock._calls, 'Test Event');
 
         event.should.have.property('user_attributes');
         event.user_attributes.should.have.property('test', null);
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
         cookies[testMPID].ua.should.have.property('test');
 
         done();
@@ -251,13 +251,13 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('Test Event');
 
-        var event = findBatch(window.fetchMock._calls, 'Test Event');
+        const event = findBatch(window.fetchMock._calls, 'Test Event');
 
         event.should.have.property('user_attributes');
         event.user_attributes.should.not.have.property('Test');
         event.user_attributes.should.have.property('test');
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
         cookies[testMPID].ua.should.have.property('test');
 
         done();
@@ -269,12 +269,12 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test event');
 
-        var event = findBatch(window.fetchMock._calls, 'test event');
+        const event = findBatch(window.fetchMock._calls, 'test event');
 
         event.should.have.property('user_attributes');
         event.user_attributes.should.not.have.property('test');
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
         Should(cookies[testMPID].ua).not.be.ok();
 
         done();
@@ -286,12 +286,12 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test event');
 
-        var event = findBatch(window.fetchMock._calls, 'test event');
+        const event = findBatch(window.fetchMock._calls, 'test event');
 
         event.should.have.property('user_attributes');
         event.user_attributes.should.not.have.property('Test');
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
         Should(cookies[testMPID].ua).not.be.ok();
 
         done();
@@ -311,12 +311,12 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes');
 
-        var event = findBatch(window.fetchMock._calls, 'test user attributes');
+        const event = findBatch(window.fetchMock._calls, 'test user attributes');
 
         event.should.have.property('user_attributes');
         event.user_attributes.should.have.property('numbers', [1, 2, 3, 4, 5]);
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
         cookies[testMPID].ua.numbers.length.should.equal(5);
 
         done();
@@ -344,8 +344,8 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes');
 
-        var event = findBatch(window.fetchMock._calls, 'test user attributes');
-        var cookies = getLocalStorage();
+        const event = findBatch(window.fetchMock._calls, 'test user attributes');
+        const cookies = getLocalStorage();
 
         event.should.have.property('user_attributes');
         event.user_attributes.should.have.property('Numbers', [1, 2, 3, 4, 5, 6]);
@@ -361,8 +361,8 @@ describe('identities and attributes', function() {
         ]);
 
         mParticle.logEvent('test user attributes2');
-        var event2 = findBatch(window.fetchMock._calls, 'test user attributes2');
-        var cookies3 = getLocalStorage();
+        const event2 = findBatch(window.fetchMock._calls, 'test user attributes2');
+        const cookies3 = getLocalStorage();
 
         event2.user_attributes.should.have.property('numbers', [1, 2, 3, 4, 5]);
         event2.user_attributes.should.not.have.property('Numbers');
@@ -372,7 +372,7 @@ describe('identities and attributes', function() {
     });
 
     it('should make a copy of user attribute list', function(done) {
-        var list = [1, 2, 3, 4, 5];
+        const list = [1, 2, 3, 4, 5];
 
         mParticle._resetForTests(MPConfig);
 
@@ -387,9 +387,9 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes');
 
-        var event = findBatch(window.fetchMock._calls, 'test user attributes');
+        const event = findBatch(window.fetchMock._calls, 'test user attributes');
 
-        var cookies = getLocalStorage();
+        const cookies = getLocalStorage();
 
         cookies[testMPID].ua.numbers.length.should.equal(5);
 
@@ -414,8 +414,8 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('test user attributes');
 
-        var event = findBatch(window.fetchMock._calls, 'test user attributes');
-        var cookies = getLocalStorage();
+        const event = findBatch(window.fetchMock._calls, 'test user attributes');
+        const cookies = getLocalStorage();
 
         event.should.have.property('user_attributes', {});
         Should(cookies[testMPID].ua).not.be.ok();
@@ -437,7 +437,7 @@ describe('identities and attributes', function() {
             5,
         ]);
 
-        var userAttributes = mParticle.Identity.getCurrentUser().getUserAttributesLists();
+        const userAttributes = mParticle.Identity.getCurrentUser().getUserAttributesLists();
 
         userAttributes.should.have.property('numbers');
         userAttributes.should.not.have.property('gender');
@@ -458,11 +458,11 @@ describe('identities and attributes', function() {
             5,
         ]);
 
-        var userAttributes = mParticle.Identity.getCurrentUser().getUserAttributesLists();
+        const userAttributes = mParticle.Identity.getCurrentUser().getUserAttributesLists();
 
         userAttributes['numbers'].push(6);
 
-        var userAttributes1 = mParticle.Identity.getCurrentUser().getUserAttributesLists();
+        const userAttributes1 = mParticle.Identity.getCurrentUser().getUserAttributesLists();
         userAttributes1['numbers'].should.have.lengthOf(5);
 
         done();
@@ -481,12 +481,12 @@ describe('identities and attributes', function() {
             5,
         ]);
 
-        var userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+        const userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
         userAttributes.blah = 'test';
         userAttributes['numbers'].push(6);
 
-        var userAttributes1 = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+        const userAttributes1 = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
         userAttributes1['numbers'].should.have.lengthOf(5);
         userAttributes1.should.not.have.property('blah');
@@ -505,7 +505,7 @@ describe('identities and attributes', function() {
             'blah'
         );
 
-        var attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+        const attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
         attrs.should.have.property('test', '123');
         attrs.should.have.property('another test', 'blah');
@@ -519,7 +519,7 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.getCurrentUser().setUserAttributeList('mykey', 1234);
 
-        var attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+        const attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
         attrs.should.not.have.property('mykey');
 
@@ -531,7 +531,7 @@ describe('identities and attributes', function() {
 
         mParticle.endSession();
 
-        var sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        const sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
         sessionEndEvent.data.custom_attributes.should.not.have.property('name');
 
@@ -543,7 +543,7 @@ describe('identities and attributes', function() {
             bad: 'bad',
         });
         mParticle.logEvent('test bad user attributes1');
-        var event1 = findBatch(window.fetchMock._calls, 'test bad user attributes1');
+        const event1 = findBatch(window.fetchMock._calls, 'test bad user attributes1');
 
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', [
             'bad',
@@ -551,32 +551,32 @@ describe('identities and attributes', function() {
             'bad',
         ]);
         mParticle.logEvent('test bad user attributes2');
-        var event2 = findBatch(window.fetchMock._calls, 'test bad user attributes2');
+        const event2 = findBatch(window.fetchMock._calls, 'test bad user attributes2');
 
         mParticle.Identity.getCurrentUser().setUserAttribute(
             { bad: 'bad' },
             'male'
         );
         mParticle.logEvent('test bad user attributes3');
-        var event3 = findBatch(window.fetchMock._calls, 'test bad user attributes3');
+        const event3 = findBatch(window.fetchMock._calls, 'test bad user attributes3');
 
         mParticle.Identity.getCurrentUser().setUserAttribute(
             ['bad', 'bad', 'bad'],
             'female'
         );
         mParticle.logEvent('test bad user attributes4');
-        var event4 = findBatch(window.fetchMock._calls, 'test bad user attributes4');
+        const event4 = findBatch(window.fetchMock._calls, 'test bad user attributes4');
 
         mParticle.Identity.getCurrentUser().setUserAttribute(null, 'female');
         mParticle.logEvent('test bad user attributes5');
-        var event5 = findBatch(window.fetchMock._calls, 'test bad user attributes5');
+        const event5 = findBatch(window.fetchMock._calls, 'test bad user attributes5');
 
         mParticle.Identity.getCurrentUser().setUserAttribute(
             undefined,
             'female'
         );
         mParticle.logEvent('test bad user attributes6');
-        var event6 = findBatch(window.fetchMock._calls, 'test bad user attributes6');
+        const event6 = findBatch(window.fetchMock._calls, 'test bad user attributes6');
 
         event1.should.have.property('user_attributes');
         event1.user_attributes.should.not.have.property('gender');
@@ -600,12 +600,12 @@ describe('identities and attributes', function() {
     });
 
     it('should get cart products', function(done) {
-        var product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
+        const product1 = mParticle.eCommerce.createProduct('iPhone', 'SKU1', 1),
             product2 = mParticle.eCommerce.createProduct('Android', 'SKU2', 1);
 
         mParticle.eCommerce.Cart.add([product1, product2]);
 
-        var cartProducts = mParticle.Identity.getCurrentUser()
+        const cartProducts = mParticle.Identity.getCurrentUser()
             .getCart()
             .getCartProducts();
 
@@ -625,9 +625,9 @@ describe('identities and attributes', function() {
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
 
-        var body = JSON.parse(window.fetchMock.lastOptions().body)
+        let body = JSON.parse(window.fetchMock.lastOptions().body)
         body.user_attributes.should.have.property('age', '25')
-        var event = body.events[0];
+        let event = body.events[0];
         event.should.be.ok();
         event.event_type.should.equal('user_attribute_change');
         event.data.new.should.equal('25');
@@ -675,7 +675,7 @@ describe('identities and attributes', function() {
         body.user_attributes.age[1].should.equal('test2');
         event = body.events[0];
         event.event_type.should.equal('user_attribute_change');
-        var obj = {
+        let obj = {
             test1: true,
             test2: true,
         };
@@ -724,10 +724,10 @@ describe('identities and attributes', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
-        var testMPID = mParticle.Identity.getCurrentUser().getMPID();
-        var body = JSON.parse(window.fetchMock.lastOptions().body)
+        const testMPID = mParticle.Identity.getCurrentUser().getMPID();
+        let body = JSON.parse(window.fetchMock.lastOptions().body)
         body.mpid.should.equal(testMPID);
-        var event = body.events[0]
+        let event = body.events[0]
         event.event_type.should.equal('user_attribute_change');
         event.data.new.should.equal('25');
         Should(event.data.old).equal(null);
@@ -737,7 +737,7 @@ describe('identities and attributes', function() {
 
 
         // new user logs in
-        var loginUser = {
+        const loginUser = {
             userIdentities: {
                 customerid: 'customerid1',
             },
@@ -751,11 +751,11 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.login(loginUser);
 
-        var users = mParticle.Identity.getUsers();
+        const users = mParticle.Identity.getUsers();
         users.length.should.equal(2);
 
-        var anotherMPIDUser = users[0];
-        var testMPIDUser = users[1];
+        const anotherMPIDUser = users[0];
+        const testMPIDUser = users[1];
 
         anotherMPIDUser.getMPID().should.equal('anotherMPID');
         testMPIDUser.getMPID().should.equal('testMPID');
@@ -846,21 +846,21 @@ describe('identities and attributes', function() {
         window.fetchMock._calls = [];
 
         // anonymous user is in storage, new user logs in
-        var loginUser = {
+        const loginUser = {
             userIdentities: {
                 customerid: 'customerid1',
             },
         };
         mParticle.Identity.login(loginUser);
         
-        var body = JSON.parse(window.fetchMock.lastOptions().body);
+        let body = JSON.parse(window.fetchMock.lastOptions().body);
         // should be the new MPID
 
         body.mpid.should.equal('anotherMPID');
         body.user_identities.should.have.property('customer_id', 'customerid1');
         body.user_identities.should.not.have.property('email');
 
-        var event = body.events[0];
+        const event = body.events[0];
         event.should.be.ok();
         event.event_type.should.equal('user_identity_change');
         event.data.new.identity_type.should.equal('customer_id');
@@ -879,7 +879,7 @@ describe('identities and attributes', function() {
         body.user_identities.should.not.have.property('email');
 
         // change customerid creates an identity change event
-        var modifyUser = {
+        const modifyUser = {
             userIdentities: {
                 customerid: 'customerid2',
             },
@@ -891,12 +891,12 @@ describe('identities and attributes', function() {
         ]);
 
         mParticle.Identity.modify(modifyUser);
-        var body2 = JSON.parse(window.fetchMock.lastOptions().body);
+        const body2 = JSON.parse(window.fetchMock.lastOptions().body);
         body2.mpid.should.equal('anotherMPID');
         body2.user_identities.should.have.property('customer_id', 'customerid2');
         body2.user_identities.should.not.have.property('email');
 
-        var event2 = body2.events[0];
+        const event2 = body2.events[0];
         event2.should.be.ok();
         event2.event_type.should.equal('user_identity_change');
         event2.data.new.identity_type.should.equal('customer_id');
@@ -909,7 +909,7 @@ describe('identities and attributes', function() {
         event2.data.old.created_this_batch.should.equal(false);
 
         // Adding a new identity to the current user will create an identity change event
-        var modifyUser2 = {
+        const modifyUser2 = {
             userIdentities: {
                 customerid: 'customerid2',
                 email: 'test@test.com',
@@ -920,10 +920,10 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.modify(modifyUser2);
 
-        var body3 = JSON.parse(window.fetchMock.lastOptions().body);
+        const body3 = JSON.parse(window.fetchMock.lastOptions().body);
         body3.mpid.should.equal('anotherMPID');
 
-        var event3 = body3.events[0];
+        const event3 = body3.events[0];
         event3.should.be.ok();
         event3.event_type.should.equal('user_identity_change');
         event3.data.new.identity_type.should.equal('email');
@@ -937,7 +937,7 @@ describe('identities and attributes', function() {
         event3.data.old.created_this_batch.should.equal(false);
 
         // logout with an other will create only a change event for the other
-        var logoutUser = {
+        const logoutUser = {
             userIdentities: {
                 other: 'other1',
             },
@@ -953,10 +953,10 @@ describe('identities and attributes', function() {
         mParticle.Identity.logout(logoutUser);
         //only call is for `other` change event, not for previous ID types of email and customerid
         window.fetchMock._calls.length.should.equal(1);
-        var body4 = JSON.parse(window.fetchMock.lastOptions().body);
+        const body4 = JSON.parse(window.fetchMock.lastOptions().body);
         body4.mpid.should.equal('mpid2');
 
-        var event4 = body4.events[0];
+        const event4 = body4.events[0];
         event4.should.be.ok();
         event4.event_type.should.equal('user_identity_change');
         event4.data.new.identity_type.should.equal('other');
@@ -971,7 +971,7 @@ describe('identities and attributes', function() {
 
         mParticle.logEvent('testAfterLogout');
 
-        var body5 = JSON.parse(window.fetchMock.lastOptions().body);
+        const body5 = JSON.parse(window.fetchMock.lastOptions().body);
         body5.mpid.should.equal('mpid2');
         Object.keys(body5.user_identities).length.should.equal(1);
         body5.user_identities.should.have.property('other', 'other1');
@@ -1002,7 +1002,7 @@ describe('identities and attributes', function() {
         ]);
 
         // on identity strategy where MPID remains the same from anonymous to login
-        var loginUser = {
+        const loginUser = {
             userIdentities: {
                 customerid: 'customerid1',
             },
@@ -1010,12 +1010,12 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.login(loginUser);
 
-        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        let batch = JSON.parse(window.fetchMock.lastOptions().body);
         batch.mpid.should.equal(testMPID);
         batch.user_identities.should.have.property('email', 'initial@gmail.com');
         batch.user_identities.should.have.property('customer_id', 'customerid1');
 
-        var logoutUser = {
+        const logoutUser = {
             userIdentities: {
                 other: 'other1',
             },
@@ -1070,9 +1070,9 @@ describe('identities and attributes', function() {
         // set a new attribute, age
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
-        var body1 = JSON.parse(window.fetchMock.lastOptions().body)
+        const body1 = JSON.parse(window.fetchMock.lastOptions().body)
         body1.user_attributes.should.have.property('age', '25')
-        var event1 = body1.events[0];
+        const event1 = body1.events[0];
         event1.should.be.ok();
         event1.event_type.should.equal('user_attribute_change');
         event1.data.new.should.equal('25');
@@ -1086,9 +1086,9 @@ describe('identities and attributes', function() {
         // check for UAC event for testFalse: fasle when set for first time
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalse', false);
-        var body2 = JSON.parse(window.fetchMock.lastOptions().body)
+        const body2 = JSON.parse(window.fetchMock.lastOptions().body)
         body2.user_attributes.should.have.property('testFalse', false)
-        var event2 = body2.events[0];
+        const event2 = body2.events[0];
         event2.should.be.ok();
         event2.event_type.should.equal('user_attribute_change');
         event2.data.new.should.equal(false);
@@ -1100,9 +1100,9 @@ describe('identities and attributes', function() {
         // check for UAC event for testEmptyString: '' when set for first time
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testEmptyString', '');
-        var body3 = JSON.parse(window.fetchMock.lastOptions().body)
+        const body3 = JSON.parse(window.fetchMock.lastOptions().body)
         body3.user_attributes.should.have.property('testEmptyString', '')
-        var event3 = body3.events[0];
+        const event3 = body3.events[0];
         event3.should.be.ok();
         event3.event_type.should.equal('user_attribute_change');
         event3.data.new.should.equal('');
@@ -1114,9 +1114,9 @@ describe('identities and attributes', function() {
         // check for UAC event for testZero: 0 when set for first time
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testZero', 0);
-        var body4 = JSON.parse(window.fetchMock.lastOptions().body)
+        const body4 = JSON.parse(window.fetchMock.lastOptions().body)
         body4.user_attributes.should.have.property('testZero', 0)
-        var event4 = body4.events[0];
+        const event4 = body4.events[0];
         event4.should.be.ok();
         event4.event_type.should.equal('user_attribute_change');
         event4.data.new.should.equal(0);
@@ -1126,7 +1126,7 @@ describe('identities and attributes', function() {
         event4.data.is_new_attribute.should.equal(true);
         
         // confirm user attributes previously set already exist for user
-        var userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
+        const userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
         userAttributes.should.have.property('age');
         userAttributes.should.have.property('testFalse');
         userAttributes.should.have.property('testEmptyString');
@@ -1157,9 +1157,9 @@ describe('identities and attributes', function() {
         // set initial test attribute with 'falsey' value to 0 
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', 0);
-        var body1 = JSON.parse(window.fetchMock.lastOptions().body)
+        const body1 = JSON.parse(window.fetchMock.lastOptions().body)
         body1.user_attributes.should.have.property('testFalsey', 0)
-        var event1 = body1.events[0];
+        const event1 = body1.events[0];
         event1.should.be.ok();
         event1.event_type.should.equal('user_attribute_change');
         event1.data.new.should.equal(0);
@@ -1171,9 +1171,9 @@ describe('identities and attributes', function() {
         // re-set same test attribute with 'falsey' value to ''
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', '');
-        var body2 = JSON.parse(window.fetchMock.lastOptions().body)
+        const body2 = JSON.parse(window.fetchMock.lastOptions().body)
         body2.user_attributes.should.have.property('testFalsey', '')
-        var event2 = body2.events[0];
+        const event2 = body2.events[0];
         event2.should.be.ok();
         event2.event_type.should.equal('user_attribute_change');
         event2.data.new.should.equal('');
@@ -1185,9 +1185,9 @@ describe('identities and attributes', function() {
         // re-set same test attribute with 'falsey' value to false
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', false);
-        var body3 = JSON.parse(window.fetchMock.lastOptions().body)
+        const body3 = JSON.parse(window.fetchMock.lastOptions().body)
         body3.user_attributes.should.have.property('testFalsey', false)
-        var event3 = body3.events[0];
+        const event3 = body3.events[0];
         event3.should.be.ok();
         event3.event_type.should.equal('user_attribute_change');
         event3.data.new.should.equal(false);
@@ -1199,9 +1199,9 @@ describe('identities and attributes', function() {
         // re-set same test attribute with 'falsey' value to original value 0
         window.fetchMock._calls = [];
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', 0);
-        var body4 = JSON.parse(window.fetchMock.lastOptions().body)
+        const body4 = JSON.parse(window.fetchMock.lastOptions().body)
         body4.user_attributes.should.have.property('testFalsey', 0)
-        var event4 = body4.events[0];
+        const event4 = body4.events[0];
         event4.should.be.ok();
         event4.event_type.should.equal('user_attribute_change');
         event4.data.new.should.equal(0);

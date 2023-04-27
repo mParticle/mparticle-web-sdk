@@ -5,13 +5,13 @@ import sinon from 'sinon';
 import { urls } from './config';
 import { apiKey, das, MPConfig, testMPID, workspaceCookieName } from './config';
 
-var DefaultConfig = Constants.DefaultConfig,
+const DefaultConfig = Constants.DefaultConfig,
     setLocalStorage = Utils.setLocalStorage,
     findRequest = Utils.findRequest,
     findRequestURL = Utils.findRequestURL,
     findEventFromRequest = Utils.findEventFromRequest,
-    findBatch = Utils.findBatch,
-    mockServer;
+    findBatch = Utils.findBatch;
+let mockServer;
 
 describe('core SDK', function() {
     beforeEach(function() {
@@ -37,7 +37,7 @@ describe('core SDK', function() {
     it('starts new session', function(done) {
         mParticle.startNewSession();
 
-        var sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
+        const sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
 
         sessionStartEvent.should.be.ok();
         sessionStartEvent.data.should.have.property('session_uuid');
@@ -46,7 +46,7 @@ describe('core SDK', function() {
     });
 
     it('sessionIds are all capital letters', function(done) {
-        var lowercaseLetters = [
+        const lowercaseLetters = [
             'a',
             'b',
             'c',
@@ -73,8 +73,8 @@ describe('core SDK', function() {
             'y',
             'z',
         ];
-        var sessionId = mParticle.sessionManager.getSession();
-        var lowercaseLetterExists;
+        const sessionId = mParticle.sessionManager.getSession();
+        let lowercaseLetterExists;
         sessionId.split('').forEach(function(letter) {
             if (lowercaseLetters.indexOf(letter) > -1) {
                 lowercaseLetterExists = true;
@@ -90,7 +90,7 @@ describe('core SDK', function() {
         mParticle.startNewSession();
         mParticle.endSession();
 
-        var sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+        const sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
         sessionEndEvent.should.be.ok();
 
@@ -101,17 +101,17 @@ describe('core SDK', function() {
 
     it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', function(done) {
         mParticle.logEvent('Test Event1');
-        var testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
+        const testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
 
         setTimeout(function() {
             mParticle.logEvent('Test Event2');
-            var testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+            const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
 
             mParticle.endSession();
-            var sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
+            const sessionEndEvent = findEventFromRequest(window.fetchMock._calls, 'session_end');
 
-            var result1 = testEvent1.data.timestamp_unixtime_ms === testEvent2.data.timestamp_unixtime_ms;
-            var result2 = testEvent2.data.timestamp_unixtime_ms === sessionEndEvent.data.timestamp_unixtime_ms;
+            const result1 = testEvent1.data.timestamp_unixtime_ms === testEvent2.data.timestamp_unixtime_ms;
+            const result2 = testEvent2.data.timestamp_unixtime_ms === sessionEndEvent.data.timestamp_unixtime_ms;
 
             Should(result1).not.be.ok();
             Should(result2).be.ok();
@@ -121,7 +121,7 @@ describe('core SDK', function() {
     });
 
     it('should process ready queue when initialized', function(done) {
-        var readyFuncCalled = false;
+        let readyFuncCalled = false;
 
         mParticle._resetForTests(MPConfig);
 
@@ -148,7 +148,7 @@ describe('core SDK', function() {
     it('should get app version', function(done) {
         mParticle.setAppVersion('2.0');
 
-        var appVersion = mParticle.getAppVersion();
+        const appVersion = mParticle.getAppVersion();
 
         appVersion.should.equal('2.0');
 
@@ -184,7 +184,7 @@ describe('core SDK', function() {
         window.mParticle.config.appName = "testAppName";
         mParticle.init(apiKey, window.mParticle.config);
 
-        var appName = mParticle.getAppName();
+        const appName = mParticle.getAppName();
         appName.should.equal('testAppName');
 
         done();
@@ -202,7 +202,7 @@ describe('core SDK', function() {
 
         window.mParticle.logEvent('Test Event');
 
-        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        const batch = JSON.parse(window.fetchMock.lastOptions().body);
 
         batch.application_info.should.have.property('application_name', 'newAppName');
         
@@ -216,7 +216,7 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, newConfig);
 
-        var appName = mParticle.getAppName();
+        const appName = mParticle.getAppName();
         appName.should.equal('OverrideTestName');
 
 
@@ -230,7 +230,7 @@ describe('core SDK', function() {
 
         window.mParticle.logEvent('Test Event');
         
-        var batch = JSON.parse(window.fetchMock.lastOptions().body);
+        const batch = JSON.parse(window.fetchMock.lastOptions().body);
         
         batch.should.have.property('application_info');
         batch.application_info.should.have.property('package', 'my-web-package');
@@ -260,12 +260,12 @@ describe('core SDK', function() {
     });
 
     it('sanitizes attributes when attrs are provided', function(done) {
-        var attrs = {
+        const attrs = {
             valid: '123',
             invalid: ['123', '345'],
         };
 
-        var product = mParticle.eCommerce.createProduct(
+        const product = mParticle.eCommerce.createProduct(
             'name',
             'sku',
             100,
@@ -292,7 +292,7 @@ describe('core SDK', function() {
         addToCartEvent.data.custom_attributes.should.not.have.property('invalid');
         addToCartEvent.data.custom_attributes.should.have.property('valid');
 
-        var transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+        const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
             '12345',
             'test-affiliation',
             'coupon-code',
@@ -312,7 +312,7 @@ describe('core SDK', function() {
         purchaseEvent.data.custom_attributes.should.not.have.property('invalid');
         purchaseEvent.data.custom_attributes.should.have.property('valid');
 
-        var promotion = mParticle.eCommerce.createPromotion(
+        const promotion = mParticle.eCommerce.createPromotion(
             'id',
             'creative',
             'name',
@@ -346,14 +346,14 @@ describe('core SDK', function() {
         setLocalStorage();
         mParticle.init(apiKey, window.mParticle.config);
 
-        var deviceId = mParticle.getDeviceId();
+        const deviceId = mParticle.getDeviceId();
 
         deviceId.should.equal(das);
         done();
     });
 
     it('should return the deviceId when requested', function(done) {
-        var deviceId = mParticle.getDeviceId();
+        const deviceId = mParticle.getDeviceId();
 
         Should(deviceId).be.ok();
         deviceId.length.should.equal(36);
@@ -368,7 +368,7 @@ describe('core SDK', function() {
         mParticle.getInstance()._Persistence.initializeStorage();
         mParticle.getInstance()._Persistence.update();
 
-        var cookieData = mParticle.getInstance()._Persistence.getLocalStorage();
+        const cookieData = mParticle.getInstance()._Persistence.getLocalStorage();
 
         cookieData.gs.should.have.properties(['cgid']);
         cookieData.gs.should.not.have.property('sid');
@@ -378,7 +378,7 @@ describe('core SDK', function() {
 
     it('creates a new session when elapsed time between actions is greater than session timeout', function(done) {
         mParticle._resetForTests(MPConfig);
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
         clock.tick(100);
@@ -397,7 +397,7 @@ describe('core SDK', function() {
 
     it('should end session when last event sent is outside of sessionTimeout', function(done) {
         mParticle._resetForTests(MPConfig);
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
         clock.tick(100);
@@ -424,7 +424,7 @@ describe('core SDK', function() {
     it('should not end session when end session is called within sessionTimeout timeframe', function(done) {
         // This test mimics if another tab is open and events are sent, but previous tab's sessionTimeout is still ongoing
         mParticle._resetForTests(MPConfig);
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -443,9 +443,9 @@ describe('core SDK', function() {
 
         mParticle.logEvent('Test Event2');
 
-        var sid = mParticle.getInstance()._Persistence.getLocalStorage().gs.sid;
+        const sid = mParticle.getInstance()._Persistence.getLocalStorage().gs.sid;
 
-        var new_Persistence = {
+        const new_Persistence = {
             gs: {
                 sid: sid,
                 ie: 1,
@@ -473,7 +473,7 @@ describe('core SDK', function() {
         mParticle.logEvent('Test Event');
         const testEvent = findEventFromRequest(window.fetchMock._calls, 'Test Event');
 
-        var sessionId = mParticle.getInstance()._SessionManager.getSession();
+        const sessionId = mParticle.getInstance()._SessionManager.getSession();
 
         testEvent.data.session_uuid.should.equal(sessionId);
 
@@ -516,7 +516,7 @@ describe('core SDK', function() {
         mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
 
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.init(apiKey, mParticle.config);
 
         clock.tick(10);
@@ -571,13 +571,13 @@ describe('core SDK', function() {
     });
 
     it('should have default options as well as configured options on configuration object, overwriting when appropriate', function(done) {
-        var defaults = new Store({}, mParticle.getInstance());
+        const defaults = new Store({}, mParticle.getInstance());
         // all items here should be the default values
-        for (var key in DefaultConfig) {
+        for (const key in DefaultConfig) {
             defaults.SDKConfig.should.have.property(key, DefaultConfig[key]);
         }
 
-        var config = {
+        const config = {
             useCookieStorage: true,
             logLevel: 'abc',
             useNativeSdk: true,
@@ -604,7 +604,7 @@ describe('core SDK', function() {
             aliasMaxWindow: 3,
         };
 
-        var mp = new Store(config, mParticle.getInstance());
+        const mp = new Store(config, mParticle.getInstance());
         mp.isEnabled.should.equal(true);
         Object.keys(mp.sessionAttributes).length.should.equal(0);
         Object.keys(mp.migrationData).length.should.equal(0);
@@ -672,9 +672,9 @@ describe('core SDK', function() {
 
     it('should use custom loggers when provided', function(done) {
         mParticle.config.logLevel = 'verbose';
-        var errorMessage;
-        var warnMessage;
-        var infoMessage;
+        let errorMessage;
+        let warnMessage;
+        let infoMessage;
 
         mParticle.config.logger = {
             error: function(msg) {
@@ -705,7 +705,7 @@ describe('core SDK', function() {
     });
 
     it('should be able to change logLevel on the fly, postuse custom loggers when provided', function(done) {
-        var infoMessages = [];
+        const infoMessages = [];
 
         mParticle.config.logger = {
             verbose: function(msg) {
@@ -726,9 +726,9 @@ describe('core SDK', function() {
     });
 
     it("should not log anything to console when logLevel = 'none'", function(done) {
-        var infoMessages = [];
-        var warnMessages = [];
-        var errorMessages = [];
+        const infoMessages = [];
+        const warnMessages = [];
+        const errorMessages = [];
 
         mParticle.config.logger = {
             error: function(msg) {
@@ -769,7 +769,7 @@ describe('core SDK', function() {
         mParticle.config.logLevel = 'verbose';
         delete mParticle.config.workspaceToken; // no workspace token would previously make the Store fail to Log this fact
 
-        var warnMessage;
+        let warnMessage;
 
         mParticle.config.logger = {
             warning: function(msg) {
@@ -819,7 +819,7 @@ describe('core SDK', function() {
         // test events endpoint
         mParticle.logEvent('Test Event');
 
-        var testEventURL = findRequestURL(window.fetchMock._calls, 'Test Event');
+        const testEventURL = findRequestURL(window.fetchMock._calls, 'Test Event');
         testEventURL.should.equal(
             'https://' +
                 window.mParticle.config.v3SecureServiceUrl +
@@ -929,7 +929,7 @@ describe('core SDK', function() {
     // TODO - there are no actual tests here....what's going on?
     it('should fetch from /config and keep everything properly on the store', function(done) {
         mParticle._resetForTests(MPConfig);
-        var config = {
+        const config = {
             appName: 'appNameTest',
             minWebviewBridgeVersion: 1,
             workspaceToken: 'token1',
@@ -1002,9 +1002,9 @@ describe('core SDK', function() {
     });
 
     it('should generate hash both on the mparticle instance and the mparticle instance manager', function(done) {
-        var hashValue = -1146196832;
-        var hash1 = mParticle.generateHash('TestHash');
-        var hash2 = mParticle.getInstance().generateHash('TestHash');
+        const hashValue = -1146196832;
+        const hash1 = mParticle.generateHash('TestHash');
+        const hash2 = mParticle.getInstance().generateHash('TestHash');
 
         hash1.should.equal(hashValue);
         hash2.should.equal(hashValue);
@@ -1017,7 +1017,7 @@ describe('core SDK', function() {
 
         window.mParticle.config.workspaceToken = 'defghi';
         mParticle.init(apiKey, window.mParticle.config)
-        var ls = localStorage.getItem('mprtcl-v4_defghi');
+        let ls = localStorage.getItem('mprtcl-v4_defghi');
 
         ls.should.be.ok();
         mParticle.reset();
@@ -1035,7 +1035,7 @@ describe('core SDK', function() {
         window.mParticle.config.workspaceToken = 'defghi';
         mParticle.init(apiKey, window.mParticle.config)
 
-        var cookie = document.cookie;
+        let cookie = document.cookie;
         cookie.includes('mprtcl-v4_defghi').should.equal(true);
         mParticle.reset();
 

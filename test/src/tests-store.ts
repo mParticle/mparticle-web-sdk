@@ -183,9 +183,9 @@ describe('Store', () => {
     });
 
     it('should assign expected values to side loaded kits', () => {
-        var sideloadedKit1 = new MockSideloadedKit();
-        var sideloadedKit2 = new MockSideloadedKit();
-        var sideloadedKits = [sideloadedKit1, sideloadedKit2];
+        const sideloadedKit1 = new MockSideloadedKit();
+        const sideloadedKit2 = new MockSideloadedKit();
+        const sideloadedKits = [sideloadedKit1, sideloadedKit2];
 
         const config = {
             ...sampleConfig,

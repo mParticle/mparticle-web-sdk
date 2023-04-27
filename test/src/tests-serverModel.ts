@@ -1284,7 +1284,7 @@ describe('ServerModel', () => {
     });
 
     describe('Integration Tests', function() {
-        var event = {
+        const event = {
             messageType: Types.MessageType.PageEvent,
             name: 'foo page',
             data: { 'foo-attr': 'foo-val' },
@@ -1381,7 +1381,7 @@ describe('ServerModel', () => {
         });
 
         it('Should convert complete consent object', function(done) {
-            var consentState = mParticle
+            const consentState = mParticle
                 .getInstance()
                 ._Consent.createConsentState();
 
@@ -1400,7 +1400,7 @@ describe('ServerModel', () => {
 
             // TODO: Resolve differences between SDKConsentState and ConsentState
             // TODO: verify this tests passes
-            var consent = mParticle
+            const consent = mParticle
                 .getInstance()
                 ._ServerModel.convertToConsentStateV2DTO(
                     (consentState as unknown) as SDKConsentState
@@ -1434,7 +1434,7 @@ describe('ServerModel', () => {
 
         it('Should append all user info when user is present', function(done) {
             mParticle.getInstance()._Store.should.be.ok;
-            var consentState = mParticle
+            const consentState = mParticle
                 .getInstance()
                 ._Consent.createConsentState();
             consentState.addGDPRConsentState(
@@ -1513,7 +1513,7 @@ describe('ServerModel', () => {
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserIdentities).to.eql([]);
 
-            var user = {
+            const user = {
                 getUserIdentities: () => {
                     return {
                         userIdentities: {
@@ -1538,7 +1538,7 @@ describe('ServerModel', () => {
                 },
             };
 
-            var identityMapping = {};
+            const identityMapping = {};
             identityMapping[Types.IdentityType.CustomerId] = '1234567';
             identityMapping[Types.IdentityType.Email] = 'foo-email';
             identityMapping[Types.IdentityType.Other] = 'foo-other';
@@ -1551,8 +1551,8 @@ describe('ServerModel', () => {
             sdkEvent.UserIdentities.length.should.equal(6);
 
             sdkEvent.UserIdentities.forEach(function(id) {
-                var type = id.Type;
-                var value = id.Identity;
+                const type = id.Type;
+                const value = id.Identity;
                 identityMapping[type].should.equal(value);
             });
 
@@ -1566,8 +1566,8 @@ describe('ServerModel', () => {
 
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserAttributes).to.eql({});
-            var attributes = { foo: 'bar', 'foo-arr': ['bar1', 'bar2'] };
-            var user: MParticleUser = {
+            const attributes = { foo: 'bar', 'foo-arr': ['bar1', 'bar2'] };
+            const user: MParticleUser = {
                 getUserIdentities: (): IdentityApiData => ({
                     userIdentities: {},
                 }),
@@ -1600,7 +1600,7 @@ describe('ServerModel', () => {
             expect(sdkEvent.MPID).to.equal('testMPID');
 
             // TODO: this makes the compiler angry unless we make it hacky
-            var user: MParticleUser = {
+            const user: MParticleUser = {
                 getUserIdentities: () => {
                     return ({
                         userIdentites: {},
@@ -1622,7 +1622,7 @@ describe('ServerModel', () => {
         });
 
         it('convertEventToDTO should contain launch referral', function(done) {
-            var event = ({
+            const event = ({
                 EventName: 10,
                 EventAttributes: null,
                 SourceMessageId: '7efa0811-c716-4a1d-b8bf-dae90242849c',
@@ -1650,7 +1650,7 @@ describe('ServerModel', () => {
                 Timestamp: 1630528218899,
             } as unknown) as IUploadObject;
 
-            var upload = mParticle
+            const upload = mParticle
                 .getInstance()
                 ._ServerModel.convertEventToV2DTO(event);
 

@@ -2,9 +2,9 @@ import Utils from './utils';
 import sinon from 'sinon';
 import { urls, apiKey, MPConfig } from './config';
 
-var forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
-    MockForwarder = Utils.MockForwarder,
-    mockServer;
+const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
+    MockForwarder = Utils.MockForwarder;
+let mockServer;
 
 describe('mParticleUser', function() {
     beforeEach(function() {
@@ -49,17 +49,17 @@ describe('mParticleUser', function() {
 
     it('should call forwarder onUserIdentified method with a filtered user identity list', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
 
-        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         (config1.userIdentityFilters = [4]),
             window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var userIdentityRequest = {
+        const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
                 customerid: 'id1',
@@ -84,10 +84,10 @@ describe('mParticleUser', function() {
 
     it('should call forwarder onUserIdentified method with a filtered user attributes list', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
-        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         config1.userAttributeFilters = [
             mParticle.generateHash('gender'),
         ];
@@ -95,7 +95,7 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var userIdentityRequest = {
+        const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
                 customerid: 'id1',
@@ -119,10 +119,10 @@ describe('mParticleUser', function() {
 
     it('should call forwarder onIdentifyComplete/onLoginComplete/onLogoutComplete/onModifyComplete method with the proper identity method passed through', function(done) {
         mParticle._resetForTests(MPConfig);
-        var mockForwarder = new MockForwarder();
+        const mockForwarder = new MockForwarder();
 
         mockForwarder.register(window.mParticle.config);
-        var config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
         (config1.userAttributeFilters = [
             mParticle.generateHash('gender'),
         ]),
@@ -130,7 +130,7 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        var userIdentityRequest = {
+        const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
                 customerid: 'id1',
