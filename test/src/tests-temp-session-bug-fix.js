@@ -3,8 +3,8 @@ import sinon from 'sinon';
 import { urls, workspaceToken } from './config';
 import { apiKey, MPConfig, testMPID, workspaceCookieName } from './config';
 
-var setLocalStorage = Utils.setLocalStorage,
-    mockServer;
+const setLocalStorage = Utils.setLocalStorage;
+let mockServer;
 
     function findEventFromBatchTemp(batch, eventName) {
         if (batch.events.length) {
@@ -36,11 +36,11 @@ var setLocalStorage = Utils.setLocalStorage,
     }
 
     function findRequestTemp(requests, eventName) {
-        var matchingRequest;
+        let matchingRequest;
         requests.forEach(function(request) {
-            var batch = JSON.parse(request[1].body);
-            for (var i = 0; i<batch.events.length; i++) {
-                var foundEventFromBatch = findEventFromBatchTemp(batch, eventName);
+            const batch = JSON.parse(request[1].body);
+            for (let i = 0; i<batch.events.length; i++) {
+                const foundEventFromBatch = findEventFromBatchTemp(batch, eventName);
                 if (foundEventFromBatch) {
                     matchingRequest = request;
                     break;
@@ -52,7 +52,7 @@ var setLocalStorage = Utils.setLocalStorage,
     }
 
     function findBatchTemp(requests, eventName) {
-        var request = findRequestTemp(requests, eventName);
+        const request = findRequestTemp(requests, eventName);
         if (request) {
             return JSON.parse(findRequestTemp(requests, eventName)[1].body);
         } else {
@@ -62,7 +62,7 @@ var setLocalStorage = Utils.setLocalStorage,
     }
 
     function findEventFromRequestTemp(requests, eventName) {
-        var batch = findBatchTemp(requests, eventName);
+        const batch = findBatchTemp(requests, eventName);
         if (batch) {
             return findEventFromBatchTemp(batch, eventName);
         } else {
@@ -104,18 +104,18 @@ describe('session bug fix test', function() {
 
     it('creates a new session when elapsed time between actions is greater than session timeout', function(done) {
         mParticle._resetForTests(MPConfig);
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
         clock.tick(100);
 
         mParticle.logEvent('Test Event');
-        var testEvent = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event');
 
         clock.tick(70000);
 
         mParticle.logEvent('Test Event2');
-        var testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
+        const testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
         testEvent.data.session_uuid.should.not.equal(testEvent2.data.session_uuid);
         mParticle.getInstance()._SessionManager.clearSessionTimeout(); clock.restore();
 
@@ -124,7 +124,7 @@ describe('session bug fix test', function() {
 
     it('should end session when last event sent is outside of sessionTimeout', function(done) {
         mParticle._resetForTests(MPConfig);
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
         clock.tick(100);
@@ -138,9 +138,9 @@ describe('session bug fix test', function() {
 
         clock.tick(150000);
 
-        var testEvent = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event');
-        var testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
-        var testEvent3 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event3');
+        const testEvent = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event');
+        const testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
+        const testEvent3 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event3');
         
         testEvent2.data.session_uuid.should.equal(testEvent.data.session_uuid);
         testEvent3.data.session_uuid.should.not.equal(testEvent.data.session_uuid);
@@ -152,7 +152,7 @@ describe('session bug fix test', function() {
     it('should not end session when end session is called within sessionTimeout timeframe', function(done) {
        // This test mimics if another tab is open and events are sent, but previous tab's sessionTimeout is still ongoing
         mParticle._resetForTests(MPConfig);
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.config.sessionTimeout = 1;
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -162,16 +162,16 @@ describe('session bug fix test', function() {
         // This clock tick initiates a session end event that is successful
         clock.tick(70000);
 
-        var sessionEndEvent = findEventFromRequestTemp(window.fetchMock._calls, 'session_end');
+        let sessionEndEvent = findEventFromRequestTemp(window.fetchMock._calls, 'session_end');
         Should(sessionEndEvent).be.ok();
 
         window.fetchMock._calls = [];
         clock.tick(100);
         mParticle.logEvent('Test Event2');
 
-        var sid = mParticle.getInstance()._Persistence.getLocalStorage().gs.sid;
+        const sid = mParticle.getInstance()._Persistence.getLocalStorage().gs.sid;
 
-        var new_Persistence = {
+        const new_Persistence = {
             gs: {
                 sid: sid,
                 ie: 1,
@@ -185,11 +185,11 @@ describe('session bug fix test', function() {
         sessionEndEvent = findEventFromRequestTemp(window.fetchMock._calls, 'session_end');
 
         Should(sessionEndEvent).not.be.ok();
-        var testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
+        const testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
 
         mParticle.logEvent('Test Event3');
 
-        var testEvent3 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event3');
+        const testEvent3 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event3');
 
         testEvent3.data.session_uuid.should.equal(testEvent2.data.session_uuid);
 
@@ -200,20 +200,20 @@ describe('session bug fix test', function() {
     it('should update session start date when manually ending session then starting a new one', function(done) {
         mParticle.logEvent('Test Event');
 
-        var testEvent = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event');
-        var testEventSessionStartTime = testEvent.data.session_start_unixtime_ms;
+        const testEvent = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event');
+        const testEventSessionStartTime = testEvent.data.session_start_unixtime_ms;
 
         mParticle.endSession();
 
-        var sessionEndEvent = findEventFromRequestTemp(window.fetchMock._calls, 'session_end');
-        var sessionEndEventSessionStartDate = sessionEndEvent.data.session_start_unixtime_ms;
+        const sessionEndEvent = findEventFromRequestTemp(window.fetchMock._calls, 'session_end');
+        const sessionEndEventSessionStartDate = sessionEndEvent.data.session_start_unixtime_ms;
         sessionEndEventSessionStartDate.should.equal(testEventSessionStartTime);
 
         mParticle.logEvent('Test Event2');
 
-        var testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
+        const testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
 
-        var testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
+        const testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
         testEvent2SessionStartDate.should.be.above(sessionEndEventSessionStartDate);
 
         done();
@@ -224,29 +224,29 @@ describe('session bug fix test', function() {
         mParticle._resetForTests(MPConfig);
         mParticle.config.sessionTimeout = 1;
 
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.init(apiKey, mParticle.config);
 
         clock.tick(10);
 
         mParticle.logEvent('Test Event');
-        var testEvent = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event');
-        var testEventSessionStartDate = testEvent.data.session_start_unixtime_ms;
+        const testEvent = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event');
+        const testEventSessionStartDate = testEvent.data.session_start_unixtime_ms;
 
         // trigger session timeout which ends session automatically
         clock.tick(60000);
 
         // note to self - session end event not being triggered, could be the same bug
-        var sessionEndEvent = findEventFromRequestTemp(window.fetchMock._calls, 'session_end');
-        var sessionEndEventSessionStartDate = sessionEndEvent.data.session_start_unixtime_ms;
+        const sessionEndEvent = findEventFromRequestTemp(window.fetchMock._calls, 'session_end');
+        const sessionEndEventSessionStartDate = sessionEndEvent.data.session_start_unixtime_ms;
         sessionEndEventSessionStartDate.should.equal(testEventSessionStartDate);
 
         clock.tick(100);
 
         mParticle.logEvent('Test Event2');
-        var testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
+        const testEvent2 = findEventFromRequestTemp(window.fetchMock._calls, 'Test Event2');
 
-        var testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
+        const testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
         testEvent2SessionStartDate.should.be.above(sessionEndEventSessionStartDate);
 
         clock.restore();
@@ -261,7 +261,7 @@ describe('session bug fix test', function() {
         window.mParticle.config.workspaceToken = 'defghi';
         mParticle.init(apiKey, window.mParticle.config)
 
-        var cookie = document.cookie;
+        let cookie = document.cookie;
         cookie.includes('mprtcl-v4_defghi').should.equal(true);
         mParticle.reset();
 
@@ -281,14 +281,14 @@ describe('session bug fix test', function() {
         ]);
 
         mParticle.Identity.login();
-        var localStorageDataBeforeSessionEnd = mParticle
+        const localStorageDataBeforeSessionEnd = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
 
         localStorageDataBeforeSessionEnd.gs.csm.length.should.equal(2);
 
         mParticle.endSession();
-        var localStorageDataAfterSessionEnd1 = mParticle
+        const localStorageDataAfterSessionEnd1 = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
         localStorageDataAfterSessionEnd1.gs.should.not.have.property('csm');
@@ -296,7 +296,7 @@ describe('session bug fix test', function() {
         mParticle.logEvent('hi');
         mParticle.Identity.login();
 
-        var localStorageAfterLoggingEvent = mParticle
+        const localStorageAfterLoggingEvent = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
         localStorageAfterLoggingEvent.gs.csm.length.should.equal(1);

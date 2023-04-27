@@ -3,12 +3,12 @@ import { expect } from 'chai';
 
 describe('Validators', () => {
     it('#isValidAttributeValue should correctly validate an attribute value', ()=> {
-        var validatedString = Validators.isValidAttributeValue('testValue1');
-        var validatedNumber = Validators.isValidAttributeValue(1);
-        var validatedNull = Validators.isValidAttributeValue(null);
-        var validatedObject = Validators.isValidAttributeValue({});
-        var validatedArray = Validators.isValidAttributeValue([]);
-        var validatedUndefined = Validators.isValidAttributeValue(undefined);
+        const validatedString = Validators.isValidAttributeValue('testValue1');
+        const validatedNumber = Validators.isValidAttributeValue(1);
+        const validatedNull = Validators.isValidAttributeValue(null);
+        const validatedObject = Validators.isValidAttributeValue({});
+        const validatedArray = Validators.isValidAttributeValue([]);
+        const validatedUndefined = Validators.isValidAttributeValue(undefined);
 
         expect(validatedString).to.eq(true);
         expect(validatedNumber).to.eq(true);

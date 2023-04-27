@@ -2,7 +2,7 @@ import Utils from './utils';
 import { apiKey, MPConfig } from './config';
 import Constants from '../../src/constants';
 
-var getLocalStorage = Utils.getLocalStorage,
+const getLocalStorage = Utils.getLocalStorage,
     mParticleIOS = Utils.mParticleIOS,
     mParticleAndroid = Utils.mParticleAndroid,
     HTTPCodes = Constants.HTTPCodes;
@@ -469,13 +469,13 @@ describe('native-sdk methods', function() {
 
         // TBD _ ask will/peter about add to cart array vs product?
         it('should invoke native sdk method addToCart', function(done) {
-            var product = mParticle.eCommerce.createProduct(
+            const product = mParticle.eCommerce.createProduct(
                 'name',
                 'sku',
                 10,
                 1
             );
-            var product2 = mParticle.eCommerce.createProduct(
+            const product2 = mParticle.eCommerce.createProduct(
                 'name',
                 'sku',
                 10,
@@ -503,7 +503,7 @@ describe('native-sdk methods', function() {
         });
 
         it('should invoke native sdk method removeFromCart', function(done) {
-            var product = mParticle.eCommerce.createProduct(
+            const product = mParticle.eCommerce.createProduct(
                 'name',
                 'sku',
                 10,
@@ -536,7 +536,7 @@ describe('native-sdk methods', function() {
         });
 
         it('should not sync cookies when in a mobile web view for Android', function(done) {
-            var pixelSettings = {
+            const pixelSettings = {
                 name: 'AdobeEventForwarder',
                 moduleId: 5,
                 esId: 24053,
@@ -550,14 +550,14 @@ describe('native-sdk methods', function() {
             mParticle.configurePixel(pixelSettings);
 
             mParticle.init(apiKey, window.mParticle.config);
-            var data = getLocalStorage();
+            const data = getLocalStorage();
 
             Should(data).not.be.ok();
             done();
         });
 
         it('should send a JSON object to the native SDK\'s Identity methods', function(done) {
-            var result,
+            let result,
                 identityAPIRequest = {
                     userIdentities: {
                         customerid: '123',
@@ -565,7 +565,7 @@ describe('native-sdk methods', function() {
                     },
                 };
 
-            var callback = function(resp) {
+            const callback = function(resp) {
                 result = resp;
             };
 
@@ -588,7 +588,7 @@ describe('native-sdk methods', function() {
             result.body.should.equal('Identify request sent to native sdk');
             result.httpCode.should.equal(-5);
 
-            var JSONData = JSON.stringify(
+            const JSONData = JSON.stringify(
                 mParticle
                     .getInstance()
                     ._Identity.IdentityRequest.convertToNative(
@@ -619,7 +619,7 @@ describe('native-sdk methods', function() {
 
     describe('bridge version 2', function() {
         describe('android', function() {
-            var mParticleAndroidV2Bridge;
+            let mParticleAndroidV2Bridge;
             beforeEach(function() {
                 window.mParticleAndroid = null;
                 window.mParticle.isIOS = null;
@@ -724,13 +724,13 @@ describe('native-sdk methods', function() {
             });
 
             it('should invoke Android method addToCart', function(done) {
-                var product = mParticle.eCommerce.createProduct(
+                const product = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
                     10,
                     1
                 );
-                var product2 = mParticle.eCommerce.createProduct(
+                const product2 = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
                     10,
@@ -759,7 +759,7 @@ describe('native-sdk methods', function() {
             });
 
             it('should invoke Android method removeFromCart', function(done) {
-                var product = mParticle.eCommerce.createProduct(
+                const product = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
                     10,
@@ -797,7 +797,7 @@ describe('native-sdk methods', function() {
             });
 
             it('should not sync cookies when in a mobile web view for Android', function(done) {
-                var pixelSettings = {
+                const pixelSettings = {
                     name: 'AdobeEventForwarder',
                     moduleId: 5,
                     esId: 24053,
@@ -810,14 +810,14 @@ describe('native-sdk methods', function() {
                 };
                 mParticle.configurePixel(pixelSettings);
 
-                var data = getLocalStorage();
+                const data = getLocalStorage();
 
                 Should(data).not.be.ok();
                 done();
             });
 
             it('should send a JSON object to the Android\'s Identity methods', function(done) {
-                var result,
+                let result,
                     identityAPIRequest = {
                         userIdentities: {
                             customerid: '123',
@@ -825,7 +825,7 @@ describe('native-sdk methods', function() {
                         },
                     };
 
-                var callback = function(resp) {
+                const callback = function(resp) {
                     result = resp;
                 };
 
@@ -848,7 +848,7 @@ describe('native-sdk methods', function() {
                 result.body.should.equal('Identify request sent to native sdk');
                 result.httpCode.should.equal(-5);
 
-                var JSONData = JSON.stringify(
+                const JSONData = JSON.stringify(
                     mParticle
                         .getInstance()
                         ._Identity.IdentityRequest.convertToNative(
@@ -864,8 +864,8 @@ describe('native-sdk methods', function() {
             });
 
             it('should send a JSON object to the Android\'s Alias method', function(done) {
-                var callbackResult;
-                var aliasRequest = {
+                let callbackResult;
+                const aliasRequest = {
                     destinationMpid: '101',
                     sourceMpid: '202',
                     startTime: 300,
@@ -903,13 +903,13 @@ describe('native-sdk methods', function() {
             });
 
             it('should send an event with a product list when calling logPurchase', function(done) {
-                var product = mParticle.eCommerce.createProduct(
+                const product = mParticle.eCommerce.createProduct(
                     'product1',
                     'sku',
                     10,
                     1
                 );
-                var product2 = mParticle.eCommerce.createProduct(
+                const product2 = mParticle.eCommerce.createProduct(
                     'product2',
                     'sku',
                     10,
@@ -918,7 +918,7 @@ describe('native-sdk methods', function() {
 
                 mParticle.eCommerce.Cart.add([product, product2]);
 
-                var transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
                     'TAid1',
                     'aff1',
                     'coupon',
@@ -926,9 +926,9 @@ describe('native-sdk methods', function() {
                     10,
                     5
                 );
-                var clearCartBoolean = true;
-                var customAttributes = { value: 10 };
-                var customFlags = { foo: 'bar' };
+                const clearCartBoolean = true;
+                const customAttributes = { value: 10 };
+                const customFlags = { foo: 'bar' };
                 mParticleAndroidV2Bridge.data = [];
                 mParticle.eCommerce.logPurchase(
                     transactionAttributes,
@@ -958,7 +958,7 @@ describe('native-sdk methods', function() {
         });
 
         describe('iOS', function() {
-            var mParticleIOSV2Bridge;
+            let mParticleIOSV2Bridge;
             beforeEach(function() {
                 window.mParticleAndroid = null;
                 window.mParticle.isIOS = null;
@@ -1118,13 +1118,13 @@ describe('native-sdk methods', function() {
             });
 
             it('should invoke ios sdk method addToCart', function(done) {
-                var product = mParticle.eCommerce.createProduct(
+                const product = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
                     10,
                     1
                 );
-                var product2 = mParticle.eCommerce.createProduct(
+                const product2 = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
                     10,
@@ -1159,7 +1159,7 @@ describe('native-sdk methods', function() {
             });
 
             it('should invoke ios sdk method removeFromCart', function(done) {
-                var product = mParticle.eCommerce.createProduct(
+                const product = mParticle.eCommerce.createProduct(
                     'name',
                     'sku',
                     10,
@@ -1195,7 +1195,7 @@ describe('native-sdk methods', function() {
             });
 
             it('should not sync cookies when in a mobile web view', function(done) {
-                var pixelSettings = {
+                const pixelSettings = {
                     name: 'AdobeEventForwarder',
                     moduleId: 5,
                     esId: 24053,
@@ -1208,14 +1208,14 @@ describe('native-sdk methods', function() {
                 };
                 mParticle.configurePixel(pixelSettings);
 
-                var data = getLocalStorage();
+                const data = getLocalStorage();
 
                 Should(data).not.be.ok();
                 done();
             });
 
             it('should send a JSON object to the ios SDK\'s Identity methods', function(done) {
-                var result,
+                let result,
                     identityAPIRequest = {
                         userIdentities: {
                             customerid: '123',
@@ -1223,11 +1223,11 @@ describe('native-sdk methods', function() {
                         },
                     };
 
-                var callback = function(resp) {
+                const callback = function(resp) {
                     result = resp;
                 };
 
-                var JSONData = JSON.stringify(
+                const JSONData = JSON.stringify(
                     mParticle
                         .getInstance()
                         ._Identity.IdentityRequest.convertToNative(
@@ -1274,8 +1274,8 @@ describe('native-sdk methods', function() {
             });
 
             it('should send a JSON object to the iOS SDK\'s Alias method', function(done) {
-                var callbackResult;
-                var aliasRequest = {
+                let callbackResult;
+                const aliasRequest = {
                     destinationMpid: '101',
                     sourceMpid: '202',
                     startTime: 300,
@@ -1324,13 +1324,13 @@ describe('native-sdk methods', function() {
             });
 
             it('should send an event with a product list when calling logPurchase', function(done) {
-                var product = mParticle.eCommerce.createProduct(
+                const product = mParticle.eCommerce.createProduct(
                     'product1',
                     'sku',
                     10,
                     1
                 );
-                var product2 = mParticle.eCommerce.createProduct(
+                const product2 = mParticle.eCommerce.createProduct(
                     'product2',
                     'sku',
                     10,
@@ -1348,7 +1348,7 @@ describe('native-sdk methods', function() {
                     JSON.parse(mParticleIOSV2Bridge.data[0]).value
                 ).should.equal(JSON.stringify([product, product2]));
 
-                var transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                const transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
                     'TAid1',
                     'aff1',
                     'coupon',
@@ -1356,9 +1356,9 @@ describe('native-sdk methods', function() {
                     10,
                     5
                 );
-                var clearCartBoolean = true;
-                var customAttributes = { value: 10 };
-                var customFlags = { foo: 'bar' };
+                const clearCartBoolean = true;
+                const customAttributes = { value: 10 };
+                const customFlags = { foo: 'bar' };
                 mParticleIOSV2Bridge.data = [];
                 mParticle.eCommerce.logPurchase(
                     transactionAttributes,

@@ -1436,7 +1436,7 @@ describe('batch uploader', () => {
 
             const lastCall = window.fetchMock.lastCall();
             const endpoint = lastCall[0];
-            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+            const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
             endpoint.should.equal(urls.eventsV3);
             batch.events[0].event_type.should.equal('session_start');
@@ -1458,7 +1458,7 @@ describe('batch uploader', () => {
             // Tick forward 1000 ms to hit upload interval and force an upload
             const lastCall = window.fetchMock.lastCall();
             const endpoint = lastCall[0];
-            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+            const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
             endpoint.should.equal(urls.eventsV3);
             batch.events[2].data.location.should.have.property('latitude', 100)
             batch.events[2].data.location.should.have.property('longitude', 100)
@@ -1484,7 +1484,7 @@ describe('batch uploader', () => {
 
             const lastCall = window.fetchMock.lastCall();
             const endpoint = lastCall[0];
-            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+            const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
             endpoint.should.equal(urls.eventsV3);
             batch.events[0].event_type.should.equal('session_start');
@@ -1509,7 +1509,7 @@ describe('batch uploader', () => {
 
             const lastCall = window.fetchMock.lastCall();
             const endpoint = lastCall[0];
-            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+            const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
             endpoint.should.equal(urls.eventsV3);
             batch.events[0].event_type.should.equal('session_start');
@@ -1546,7 +1546,7 @@ describe('batch uploader', () => {
             let nowPendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
             nowPendingEvents.length.should.equal(0);
 
-            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+            const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
@@ -1566,7 +1566,7 @@ describe('batch uploader', () => {
 
             const lastCall = window.fetchMock.lastCall();
             const endpoint = lastCall[0];
-            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+            const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
             endpoint.should.equal(urls.eventsV3);
             batch.events[0].data.should.have.property('source_message_id')
@@ -1596,7 +1596,7 @@ describe('batch uploader', () => {
 
             const lastCall = window.fetchMock.lastCall();
             const endpoint = lastCall[0];
-            var batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+            const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
 
             endpoint.should.equal(urls.eventsV3);
             // event batch includes session start, ast, then last event is Test Event
@@ -1653,11 +1653,11 @@ describe('batch uploader', () => {
             clock.restore();
 
             setTimeout(function() {
-                var batch1 = JSON.parse(window.fetchMock._calls[0][1].body);
-                var batch2 = JSON.parse(window.fetchMock._calls[1][1].body);
-                var batch3 = JSON.parse(window.fetchMock._calls[2][1].body);
-                var batch4 = JSON.parse(window.fetchMock._calls[3][1].body);
-                var batch5 = JSON.parse(window.fetchMock._calls[4][1].body);
+                const batch1 = JSON.parse(window.fetchMock._calls[0][1].body);
+                const batch2 = JSON.parse(window.fetchMock._calls[1][1].body);
+                const batch3 = JSON.parse(window.fetchMock._calls[2][1].body);
+                const batch4 = JSON.parse(window.fetchMock._calls[3][1].body);
+                const batch5 = JSON.parse(window.fetchMock._calls[4][1].body);
 
                 // UAC event
                 expect(batch1.events.length, 'Batch 1: UAC event').to.equal(1);
@@ -1682,17 +1682,17 @@ describe('batch uploader', () => {
                 // session start, AST
                 expect(batch5.events.length, 'Batch 4: UAC event').to.equal(1);
 
-                var batch1UAC = Utils.findEventFromBatch(
+                const batch1UAC = Utils.findEventFromBatch(
                     batch1,
                     'user_attribute_change'
                 );
                 batch1UAC.should.be.ok();
 
-                var batch2SessionStart = Utils.findEventFromBatch(
+                const batch2SessionStart = Utils.findEventFromBatch(
                     batch2,
                     'session_start'
                 );
-                var batch2AST = Utils.findEventFromBatch(
+                const batch2AST = Utils.findEventFromBatch(
                     batch2,
                     'application_state_transition'
                 );
@@ -1700,17 +1700,17 @@ describe('batch uploader', () => {
                 batch2SessionStart.should.be.ok();
                 batch2AST.should.be.ok();
 
-                var batch3SessionEnd = Utils.findEventFromBatch(
+                const batch3SessionEnd = Utils.findEventFromBatch(
                     batch3,
                     'session_end'
                 );
                 batch3SessionEnd.should.be.ok();
 
-                var batch4SessionStart = Utils.findEventFromBatch(
+                const batch4SessionStart = Utils.findEventFromBatch(
                     batch4,
                     'session_start'
                 );
-                var batch4AST = Utils.findEventFromBatch(
+                const batch4AST = Utils.findEventFromBatch(
                     batch4,
                     'application_state_transition'
                 );
@@ -1718,7 +1718,7 @@ describe('batch uploader', () => {
                 batch4SessionStart.should.be.ok();
                 batch4AST.should.be.ok();
 
-                var batch5UAC = Utils.findEventFromBatch(
+                const batch5UAC = Utils.findEventFromBatch(
                     batch5,
                     'user_attribute_change'
                 );
@@ -1881,7 +1881,7 @@ describe('batch uploader', () => {
             clock.tick(1000);
 
             // 1st request is /Identity call, 2nd request is /Event call
-            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            const batch = JSON.parse(mockServer.secondRequest.requestBody);
             
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
@@ -1905,7 +1905,7 @@ describe('batch uploader', () => {
             clock.tick(1000);
             window.mParticle.upload();
             // 1st request is /Identity call, 2nd request is /Event call
-            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            const batch = JSON.parse(mockServer.secondRequest.requestBody);
 
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
@@ -1928,7 +1928,7 @@ describe('batch uploader', () => {
             var product1 = window.mParticle.eCommerce.createProduct('iphone', 'iphoneSKU', 999);
             window.mParticle.eCommerce.logProductAction(SDKProductActionType.AddToCart, product1);
             // 1st request is /Identity call, 2nd request is /Event call
-            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            const batch = JSON.parse(mockServer.secondRequest.requestBody);
 
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
@@ -1957,13 +1957,13 @@ describe('batch uploader', () => {
             mockServer.requests.length.should.equal(2);
 
             // 1st request is /Identity call, 2nd request is UIC call
-            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            const batch = JSON.parse(mockServer.secondRequest.requestBody);
             
             batch.events[0].event_type.should.equal('user_identity_change');
 
             // force upload of other events
             window.mParticle.upload()
-            var batch2 = JSON.parse(mockServer.thirdRequest.requestBody);
+            const batch2 = JSON.parse(mockServer.thirdRequest.requestBody);
 
             batch2.events[0].event_type.should.equal('session_start');
             batch2.events[1].event_type.should.equal('application_state_transition');
@@ -1983,7 +1983,7 @@ describe('batch uploader', () => {
             // a request for session start, AST, and UAC
             mockServer.requests.length.should.equal(2);
             // 1st request is /Identity call, 2nd request is UIC call
-            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            const batch = JSON.parse(mockServer.secondRequest.requestBody);
             
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
@@ -2017,7 +2017,7 @@ describe('batch uploader', () => {
             const nowPendingEvents = window.mParticle.getInstance()._APIClient.uploader.eventsQueuedForProcessing;
             nowPendingEvents.length.should.equal(0);
 
-            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            const batch = JSON.parse(mockServer.secondRequest.requestBody);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('custom_event');
@@ -2038,7 +2038,7 @@ describe('batch uploader', () => {
             
             clock.tick(1000);
             
-            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            const batch = JSON.parse(mockServer.secondRequest.requestBody);
             batch.modified.should.equal(true);
             done();
         });
@@ -2061,7 +2061,7 @@ describe('batch uploader', () => {
             
             clock.tick(1000);
 
-            var batch = JSON.parse(mockServer.secondRequest.requestBody);
+            const batch = JSON.parse(mockServer.secondRequest.requestBody);
             batch.events.length.should.equal(3);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');

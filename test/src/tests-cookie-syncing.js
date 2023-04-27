@@ -2,16 +2,16 @@ import Utils from './utils';
 import sinon from 'sinon';
 import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config';
 
-var setLocalStorage = Utils.setLocalStorage,
+const setLocalStorage = Utils.setLocalStorage,
     MockForwarder = Utils.MockForwarder,
-    getLocalStorage = Utils.getLocalStorage,
-    mockServer;
+    getLocalStorage = Utils.getLocalStorage;
+let mockServer;
 
 // single pixel to load
-var pixelUrl = 'https://i.imgur.com/fvfcfpZ_d.webp';
+const pixelUrl = 'https://i.imgur.com/fvfcfpZ_d.webp';
 
 describe('cookie syncing', function() {
-    var timeout = 500;
+    const timeout = 500;
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
@@ -31,7 +31,7 @@ describe('cookie syncing', function() {
 
     it('should sync cookies when there was not a previous cookie-sync', function(done) {
         mParticle._resetForTests(MPConfig);
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -47,7 +47,7 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
         setTimeout(function() {
             Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(1);
-            var data = mParticle.getInstance()._Persistence.getLocalStorage();
+            const data = mParticle.getInstance()._Persistence.getLocalStorage();
             data[testMPID].csd.should.have.property('5');
 
             done();        
@@ -57,7 +57,7 @@ describe('cookie syncing', function() {
 
     it('should sync cookies when current date is beyond the frequency cap and the MPID has not changed', function(done) {
         mParticle._resetForTests(MPConfig);
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -82,8 +82,8 @@ describe('cookie syncing', function() {
         setTimeout(function() {
             Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(1);
     
-            var data = mParticle.getInstance()._Persistence.getLocalStorage();
-            var updated = data[testMPID].csd['5'] > 500;
+            const data = mParticle.getInstance()._Persistence.getLocalStorage();
+            const updated = data[testMPID].csd['5'] > 500;
     
             Should(updated).be.ok();
     
@@ -93,7 +93,7 @@ describe('cookie syncing', function() {
 
     it('should not sync cookies when last date is within frequencyCap', function(done) {
         mParticle._resetForTests(MPConfig);
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -111,7 +111,7 @@ describe('cookie syncing', function() {
         setTimeout(function() {
             mockServer.requests = [];
     
-            var data = mParticle.getInstance()._Persistence.getLocalStorage();
+            const data = mParticle.getInstance()._Persistence.getLocalStorage();
     
             
             data[testMPID].csd.should.have.property(
@@ -129,7 +129,7 @@ describe('cookie syncing', function() {
     });
 
     it('should sync cookies when mpid changes', function(done) {
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -145,7 +145,7 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         setTimeout(function() {
-            var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
+            const data1 = mParticle.getInstance()._Persistence.getLocalStorage();
 
             mockServer.respondWith(urls.login, [
                 200,
@@ -155,7 +155,7 @@ describe('cookie syncing', function() {
 
             mParticle.Identity.login();
             setTimeout(function() {
-                var data2 = mParticle.getInstance()._Persistence.getLocalStorage();
+                const data2 = mParticle.getInstance()._Persistence.getLocalStorage();
                 data1[testMPID].csd[5].should.be.ok();
                 data2['otherMPID'].csd[5].should.be.ok();
                 Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
@@ -168,7 +168,7 @@ describe('cookie syncing', function() {
     });
 
     it('should not sync cookies when pixelSettings.isDebug is false, pixelSettings.isProduction is true, and mParticle.config.isDevelopmentMode is true', function(done) {
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -186,7 +186,7 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
+            const data1 = mParticle.getInstance()._Persistence.getLocalStorage();
 
             Object.keys(data1[testMPID]).should.not.have.property('csd');
             Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
@@ -198,7 +198,7 @@ describe('cookie syncing', function() {
     });
 
     it('should not sync cookies when pixelSettings.isDebug is true, pixelSettings.isProduction is false, and mParticle.config.isDevelopmentMode is false', function(done) {
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -216,7 +216,7 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            var data1 = mParticle.getInstance()._Persistence.getLocalStorage();
+            const data1 = mParticle.getInstance()._Persistence.getLocalStorage();
             data1[testMPID].should.not.have.property('csd');
             Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(
                 0
@@ -227,7 +227,7 @@ describe('cookie syncing', function() {
     });
 
     it('should replace mpID properly', function(done) {
-        var result = mParticle
+        const result = mParticle
             .getInstance()
             ._CookieSyncManager.replaceMPID(
                 'www.google.com?mpid=%%mpid%%?foo=bar',
@@ -240,7 +240,7 @@ describe('cookie syncing', function() {
     });
 
     it("should remove 'amp;' from the URLs", function(done) {
-        var result = mParticle
+        const result = mParticle
             .getInstance()
             ._CookieSyncManager.replaceAmp(
                 'www.google.com?mpid=%%mpid%%&amp;foo=bar'
@@ -257,13 +257,13 @@ describe('cookie syncing', function() {
         // create some cookies
         mParticle.init(apiKey, window.mParticle.config);
 
-        var mockForwarder = new MockForwarder('DynamicYield', 128);
-        var mockForwarder2 = new MockForwarder('Adobe', 124);
+        const mockForwarder = new MockForwarder('DynamicYield', 128);
+        const mockForwarder2 = new MockForwarder('Adobe', 124);
 
         mockForwarder.register(window.mParticle.config);
         mockForwarder2.register(window.mParticle.config);
 
-        var forwarderConfigurationResult = {
+        const forwarderConfigurationResult = {
             pixelConfigs: [
                 {
                     name: 'TestPixel',
@@ -304,7 +304,7 @@ describe('cookie syncing', function() {
             mParticle.Identity.login({ userIdentities: { customerid: 'abc' } });
             
             setTimeout(function() {
-                var cookies = getLocalStorage();
+                const cookies = getLocalStorage();
                 Object.keys(cookies['MPID1'].csd).length.should.equal(1);
 
                 done();
@@ -313,8 +313,8 @@ describe('cookie syncing', function() {
         }, timeout);
     });
 
-    var MockUser = function() {
-        var consentState = null;
+    const MockUser = function() {
+        let consentState = null;
         return {
             setConsentState: function(state) {
                 consentState = state;
@@ -328,7 +328,7 @@ describe('cookie syncing', function() {
     it('should perform a cookiesync when consent is not configured on the cookiesync setting', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -347,7 +347,7 @@ describe('cookie syncing', function() {
 
         setTimeout(function() {
             Should(mParticle.getInstance()._Store.pixelConfigurations.length).equal(1);
-            var data = mParticle.getInstance()._Persistence.getLocalStorage();
+            const data = mParticle.getInstance()._Persistence.getLocalStorage();
             data[testMPID].csd.should.have.property('5');
 
             done();
@@ -357,10 +357,10 @@ describe('cookie syncing', function() {
     it('should return false for isEnabledForUserConsent when consent is configured but no user is passed', function(done) {
         mParticle._resetForTests(MPConfig);
         
-        var enableCookieSync = true;
-        var consented = false;
+        const enableCookieSync = true;
+        const consented = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: enableCookieSync,
             values: [
                 {
@@ -370,7 +370,7 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(filteringConsentRuleValues, null);
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(filteringConsentRuleValues, null);
 
         enabled.should.not.be.ok();
 
@@ -378,13 +378,13 @@ describe('cookie syncing', function() {
     });
 
     it('should disable cookie sync if \'Do Not Forward\' when \'Consent Rejected\' is selected and user consent is rejected', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = false;
-        var userConsent = false;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = false;
+        const userConsent = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -396,16 +396,16 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsent)
             );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -414,12 +414,12 @@ describe('cookie syncing', function() {
     });
 
     it('should disable cookie sync if \'Do Not Forward\' when \'Consent Accepted\' is selected and user consent is given', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
-        var userConsent = true;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
+        const userConsent = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -431,16 +431,16 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsent)
             );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -451,13 +451,13 @@ describe('cookie syncing', function() {
     });
 
     it('should enable cookie sync if \'Only Forward\' when \'Consent Rejected\' is selected and user consent is rejected', function(done) {
-        var includeOnMatch = true;   // 'Only Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = false;
-        var userConsent = false;
+        const includeOnMatch = true;   // 'Only Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = false;
+        const userConsent = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -469,17 +469,17 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsent)
             );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
 
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -489,13 +489,13 @@ describe('cookie syncing', function() {
     });
 
     it('should enable cookie sync if \'Only Forward\' when \'Consent Given\'is selected and user consent is given', function(done) {
-        var includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
-        var userConsent = true;
+        const includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
+        const userConsent = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -507,16 +507,16 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsent)
             );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -526,13 +526,13 @@ describe('cookie syncing', function() {
     });
 
     it('should disable cookie sync if \'Only Forward\' on \'Consent Given\' is selected and user consent is not given', function(done) {
-        var includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
-        var userConsented = false;
+        const includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
+        const userConsented = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -544,16 +544,16 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsented)
             );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -563,13 +563,13 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync if \'Do Not Forward\' when \'Consent Rejected\' is selected and user consent is given', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = false;
-        var userConsented = true;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = false;
+        const userConsented = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -581,16 +581,16 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsented)
             );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -600,13 +600,13 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync if \'Do Not Forward\' when \'Consent Given\' is selected and user consent is rejected', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
-        var userConsented = false;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
+        const userConsented = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -618,16 +618,16 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsented)
             );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -637,13 +637,13 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync if \'Do Not Forward\' when \'Consent Rejected\' is selected and user consent is given', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = false;
-        var userConsented = true;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = false;
+        const userConsented = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -655,16 +655,16 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
                 'foo purpose 1',
                 mParticle.getInstance().Consent.createGDPRConsent(userConsented)
             );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -679,13 +679,13 @@ describe('cookie syncing', function() {
 
 
     it('should not perform a cookie sync if \'Do Not Forward\' if CCPA is \'Not Present\' is selected and user CCPA is not present', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = false;
-        var ccpaPresent = false;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = false;
+        const ccpaPresent = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -697,15 +697,15 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
         );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -715,13 +715,13 @@ describe('cookie syncing', function() {
     });
 
     it('should not perform a cookie sync if \'Do Not Forward\' if CCPA is \'Present\' is selected and user CCPA is present', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
-        var ccpaPresent = true;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
+        const ccpaPresent = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -733,15 +733,15 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
         );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -751,13 +751,13 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync if \'Only Forward\' if CCPA is \'Not Present\' is selected and user CCPA is not present', function(done) {
-        var includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = false;
-        var ccpaPresent = false;
+        const includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = false;
+        const ccpaPresent = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -769,15 +769,15 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
         );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -787,13 +787,13 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync if \'Only Forward\' when CCPA is \'Present\' is selected and user CCPA is present', function(done) {
-        var includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
-        var ccpaPresent = true;
+        const includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
+        const ccpaPresent = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -805,15 +805,15 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
         );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -823,13 +823,13 @@ describe('cookie syncing', function() {
     });
 
     it('should not perform a cookie sync if \'Only Forward\' when CCPA is \'Present\' is selected and CCPA is not present', function(done) {
-        var includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
-        var ccpaPresent = false;
+        const includeOnMatch = true;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
+        const ccpaPresent = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -841,15 +841,15 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
         );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -859,13 +859,13 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync if \'Do Not Forward\' if CCPA is \'Present\' is selected and user CCPA is not present', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
-        var ccpaPresent = false;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
+        const ccpaPresent = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -877,15 +877,15 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
         );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -895,13 +895,13 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync if \'Do Not Forward\' if CCPA is \'Not Present\' is selected and user CCPA is present', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = false;
-        var ccpaPresent = true;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = false;
+        const ccpaPresent = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var filteringConsentRuleValues = {
+        const filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
             values: [
                 {
@@ -913,15 +913,15 @@ describe('cookie syncing', function() {
             ],
         };
 
-        var consentState = mParticle
+        const consentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .setCCPAConsentState(
                 mParticle.getInstance().Consent.createCCPAConsent(ccpaPresent)
         );
-        var user = MockUser();
+        const user = MockUser();
         user.setConsentState(consentState);
-        var enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
+        const enabled = mParticle.getInstance()._Consent.isEnabledForUserConsent(
                 filteringConsentRuleValues,
                 user
             );
@@ -931,12 +931,12 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync only after GDPR consent is given when consent is required - perform a cookie sync when accepting consent is required', function(done) {
-        var includeOnMatch = true;   // 'Only Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
+        const includeOnMatch = true;   // 'Only Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -964,10 +964,10 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            const localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
             localStorage.testMPID.should.not.have.property('csd')
     
-            var falseConsentState = mParticle
+            const falseConsentState = mParticle
                 .getInstance()
                 .Consent.createConsentState()
                 .addGDPRConsentState(
@@ -977,10 +977,10 @@ describe('cookie syncing', function() {
         
             mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
             setTimeout(function() {
-                var noCookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
+                const noCookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
                 noCookieSyncLS.testMPID.should.not.have.property('csd');
         
-                var trueConsentState = mParticle
+                const trueConsentState = mParticle
                     .getInstance()
                     .Consent.createConsentState()
                     .addGDPRConsentState(
@@ -991,7 +991,7 @@ describe('cookie syncing', function() {
                 mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
         
                 setTimeout(function() {
-                    var cookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
+                    const cookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
                     cookieSyncLS.testMPID.should.have.property('csd');
                     cookieSyncLS.testMPID.csd.should.have.property(5);
             
@@ -1003,12 +1003,12 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync only after GDPR consent is given when consent is required - perform a cookie sync when consent is rejected', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = false;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -1036,9 +1036,9 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            const localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
             localStorage.testMPID.should.not.have.property('csd')
-            var falseConsentState = mParticle
+            const falseConsentState = mParticle
             .getInstance()
             .Consent.createConsentState()
             .addGDPRConsentState(
@@ -1049,10 +1049,10 @@ describe('cookie syncing', function() {
             mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
 
             setTimeout(function() {
-                var newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+                let newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
                 newLocalStorage.testMPID.should.not.have.property('csd')
 
-                var trueConsentState = mParticle
+                const trueConsentState = mParticle
                     .getInstance()
                     .Consent.createConsentState()
                     .addGDPRConsentState(
@@ -1072,12 +1072,12 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync only after CCPA consent is given when consent is required - perform a cookie sync when accepting consent is required', function(done) {
-        var includeOnMatch = true;   // 'Only Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
+        const includeOnMatch = true;   // 'Only Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -1105,9 +1105,9 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            const localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
             localStorage.testMPID.should.not.have.property('csd')
-            var falseConsentState = mParticle
+            const falseConsentState = mParticle
                 .getInstance()
                 .Consent.createConsentState()
                 .setCCPAConsentState(
@@ -1118,10 +1118,10 @@ describe('cookie syncing', function() {
             mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
 
             setTimeout(function() {
-                var noCookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
+                const noCookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
                 noCookieSyncLS.testMPID.should.not.have.property('csd');
     
-                var trueConsentState = mParticle
+                const trueConsentState = mParticle
                     .getInstance()
                     .Consent.createConsentState()
                     .setCCPAConsentState(
@@ -1132,7 +1132,7 @@ describe('cookie syncing', function() {
                 mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
 
                 setTimeout(function() {
-                    var cookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
+                    const cookieSyncLS = mParticle.getInstance()._Persistence.getLocalStorage();
                     cookieSyncLS.testMPID.should.have.property('csd');
                     cookieSyncLS.testMPID.csd.should.have.property(5);
         
@@ -1143,12 +1143,12 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync only after CCPA consent is given when consent is required - perform a cookie sync when consent is rejected', function(done) {
-        var includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = false;
+        const includeOnMatch = false;   // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = false;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        var pixelSettings = {
+        const pixelSettings = {
             name: 'TestPixel',
             moduleId: 5,
             esId: 24053,
@@ -1175,9 +1175,9 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
         setTimeout(function() {
-            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            const localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
             localStorage.testMPID.should.not.have.property('csd')
-            var falseConsentState = mParticle
+            const falseConsentState = mParticle
                 .getInstance()
                 .Consent.createConsentState()
                 .setCCPAConsentState(
@@ -1187,10 +1187,10 @@ describe('cookie syncing', function() {
             mParticle.Identity.getCurrentUser().setConsentState(falseConsentState);
 
             setTimeout(function() {
-                var newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+                let newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
                 newLocalStorage.testMPID.should.not.have.property('csd')
                 
-                var trueConsentState = mParticle
+                const trueConsentState = mParticle
                 .getInstance()
                 .Consent.createConsentState()
                     .setCCPAConsentState(
@@ -1214,13 +1214,13 @@ describe('cookie syncing', function() {
         // This test has 2 pixelSettings. pixelSettings1 requires consent pixelSettings2 does not.  When mparticle initializes, the pixelSettings2 should fire and pixelSettings1 shouldn't.
         // After the appropriate consent is saved to the huser, pixelSettings1 will fire.
 
-        var includeOnMatch = true;   // 'Only Forward' chosen in UI, 'includeOnMatch' in config
-        var consented = true;
+        const includeOnMatch = true;   // 'Only Forward' chosen in UI, 'includeOnMatch' in config
+        const consented = true;
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
         //  pixelSetting1 has consent required, and so should only perform a cookiesync after consent is saved to the user
-        var pixelSettings1 = {
+        const pixelSettings1 = {
             name: 'TestPixel',
             moduleId: 1,
             esId: 24053,
@@ -1245,7 +1245,7 @@ describe('cookie syncing', function() {
         };
 
         //  pixelSetting2 does not have any consent required, and so should always perform a cookiesync
-        var pixelSettings2 = {
+        const pixelSettings2 = {
             name: 'TestPixel2',
             moduleId: 2,
             esId: 24053,
@@ -1262,14 +1262,14 @@ describe('cookie syncing', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         setTimeout(function() {
-            var localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+            const localStorage = mParticle.getInstance()._Persistence.getLocalStorage();
             localStorage.testMPID.should.have.property('csd')
     
             // Performs a cookie sync for 2 but not 1
             localStorage.testMPID.csd.should.not.have.property(1);
             localStorage.testMPID.csd.should.have.property(2);
     
-            var trueConsentState = mParticle
+            const trueConsentState = mParticle
                 .getInstance()
                 .Consent.createConsentState()
                 .setCCPAConsentState(
@@ -1278,7 +1278,7 @@ describe('cookie syncing', function() {
         
             mParticle.Identity.getCurrentUser().setConsentState(trueConsentState);
             setTimeout(function() {
-                var newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
+                const newLocalStorage = mParticle.getInstance()._Persistence.getLocalStorage();
                 newLocalStorage.testMPID.should.have.property('csd')
                 // Now has both cookie syncs because the appropriate consent was added
                 newLocalStorage.testMPID.csd.should.have.property(2)

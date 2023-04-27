@@ -4,7 +4,7 @@ import { urls, apiKey, MPConfig } from './config';
 
 const { findEventFromRequest, findBatch } = Utils;
 
-var mockServer;
+let mockServer;
 
 // Calls to /config are specific to only the self hosting environment
 describe('/config self-hosting integration tests', function() {
@@ -29,7 +29,7 @@ describe('/config self-hosting integration tests', function() {
         };
 
         // start fake timer and mock server in order to mock when certain events happen
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mockServer.autoRespond = true;
         mockServer.autoRespondAfter = 100;
 
@@ -64,7 +64,7 @@ describe('/config self-hosting integration tests', function() {
     });
 
     it('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
-        var messages = [];
+        const messages = [];
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
         window.mParticle.config.logLevel = 'verbose';
@@ -85,7 +85,7 @@ describe('/config self-hosting integration tests', function() {
         };
 
         // start fake timer and mock server
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mockServer.autoRespond = true;
         mockServer.autoRespondAfter = 100;
 
@@ -141,7 +141,7 @@ describe('/config self-hosting integration tests', function() {
         delete window.mParticle.config.workspaceToken;
 
         // start fake timer and mock server
-        var clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mockServer.autoRespond = true;
         mockServer.autoRespondAfter = 100;
 
@@ -153,7 +153,7 @@ describe('/config self-hosting integration tests', function() {
         mParticle.init(apiKey, window.mParticle.config);
         clock.tick(300);
 
-        var data = window.localStorage.getItem('mprtcl-v4_wtTest');
+        const data = window.localStorage.getItem('mprtcl-v4_wtTest');
         (typeof data === 'string').should.equal(true);
 
         mockServer.restore();
