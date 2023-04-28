@@ -2,6 +2,7 @@ import Types from './types';
 import Constants from './constants';
 import * as utils from './utils';
 import Validators from './validators';
+import FilterHashingUtilities from './hashingFilter';
 
 var StorageNames = Constants.StorageNames;
 
@@ -331,7 +332,9 @@ export default function Helpers(mpInstance) {
         if (userAttributes && Object.keys(userAttributes).length) {
             for (var userAttribute in userAttributes) {
                 if (userAttributes.hasOwnProperty(userAttribute)) {
-                    var hashedUserAttribute = self.generateHash(userAttribute);
+                    var hashedUserAttribute = FilterHashingUtilities.hashUserAttributeKey(
+                        userAttribute
+                    );
                     if (!self.inArray(filterList, hashedUserAttribute)) {
                         filteredUserAttributes[userAttribute] =
                             userAttributes[userAttribute];
@@ -344,7 +347,9 @@ export default function Helpers(mpInstance) {
     };
 
     this.isFilteredUserAttribute = function(userAttributeKey, filterList) {
-        const hashedUserAttribute = self.generateHash(userAttributeKey);
+        const hashedUserAttribute = FilterHashingUtilities.hashUserAttributeKey(
+            userAttributeKey
+        );
         return filterList && self.inArray(filterList, hashedUserAttribute);
     };
 
@@ -437,7 +442,7 @@ export default function Helpers(mpInstance) {
     this.decoded = utils.decoded;
     this.returnConvertedBoolean = utils.returnConvertedBoolean;
     this.parseStringOrNumber = utils.parseStringOrNumber;
-    this.generateHash = utils.generateHash;
+    this.generateHash = utils.generateHash; //TODO: REMOVE THIS BUT UPDATE ALL TESTS TOO
     this.generateUniqueId = utils.generateUniqueId;
 
     // Imported Validators

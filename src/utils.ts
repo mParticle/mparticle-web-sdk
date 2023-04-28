@@ -1,3 +1,4 @@
+import { EventTypeEnum } from "./types.interfaces";
 import slugify from 'slugify';
 
 type valueof<T> = T[keyof T];
@@ -42,7 +43,7 @@ const findKeyInObject = (obj: any, key: string): string => {
     return null;
 };
 
-function generateHash(name: string): number {
+function generateHash(name: string | EventTypeEnum): number {
     let hash: number = 0;
     let character: number;
 
