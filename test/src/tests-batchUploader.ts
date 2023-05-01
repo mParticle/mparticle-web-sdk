@@ -24,7 +24,7 @@ declare global {
 // several of our batch uploader tests. Having this at 0 previously produced
 // several flakey tests.  
 
-const timeout = 500;
+const timeout = 2000;
 
 const event0: SDKEvent = {
     EventName: 'Test Event 0',
@@ -115,6 +115,9 @@ const enableBatchingConfigFlags = {
 };
 
 describe('batch uploader', () => {
+    //@ts-ignore
+    this.timeout(1000);
+
     let mockServer;
     let clock;
 
