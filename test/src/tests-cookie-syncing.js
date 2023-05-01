@@ -8,7 +8,7 @@ const setLocalStorage = Utils.setLocalStorage,
 let mockServer;
 
 // single pixel to load
-const pixelUrl = 'https://i.imgur.com/fvfcfpZ_d.webp';
+const pixelUrl = 'https://upload.wikimedia.org/wikipedia/commons/c/ca/1x1.png';
 
 describe('cookie syncing', function() {
     const timeout = 500;
