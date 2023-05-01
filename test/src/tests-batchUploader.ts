@@ -20,6 +20,8 @@ declare global {
     }
 }
 
+const timeout = 500;
+
 const event0: SDKEvent = {
     EventName: 'Test Event 0',
     EventAttributes: null,
@@ -763,7 +765,7 @@ describe('batch uploader', () => {
                 ).to.equal('Test Event 0');
 
                 done();
-            }, 0);
+            }, 500);
         });
 
         it('should save batches in sequence to Local Storage when an HTTP 429 error is encountered', (done) => {
@@ -815,7 +817,7 @@ describe('batch uploader', () => {
                 ).to.equal('Test Event 0');
 
                 done();
-            }, 0);
+            }, 500);
         });
 
         it('should NOT save any batches to Local Storage when an HTTP 401 error is encountered', (done) => {
@@ -848,7 +850,7 @@ describe('batch uploader', () => {
                 );
 
                 done();
-            }, 0);
+            }, 500);
         });
 
         it('should save batches in sequence to Local Storage when upload is interrupted', (done) => {
@@ -996,7 +998,7 @@ describe('batch uploader', () => {
                 ).to.equal('application_state_transition');
 
                 done();
-            }, 0);
+            }, 500);
         });
 
         it('should attempt to upload batches from Offline Storage before new batches', (done) => {
@@ -1140,7 +1142,7 @@ describe('batch uploader', () => {
                 ).to.equal('application_state_transition');
 
                 done();
-            }, 0);
+            }, 500);
         });
     });
 
@@ -1317,7 +1319,7 @@ describe('batch uploader', () => {
                 );
 
                 done();
-            }, 0);
+            }, 500);
         });
 
         // TODO: Investigate workflow with unshift vs push
@@ -1398,7 +1400,7 @@ describe('batch uploader', () => {
                 );
 
                 done();
-            }, 0);
+            }, 500);
         });
     });
 
