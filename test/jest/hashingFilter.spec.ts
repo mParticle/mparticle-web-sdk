@@ -37,11 +37,11 @@ describe('FilterHashingUtilities', () => {
             expect(eventTypeOtherHash).toBe(expectedOthernHash);
             expect(eventTypeMediaHash).toBe(expectedMediaHash);
         });
-    })
+    });
 
     describe('#hashEventName', () => {
-        it('should has event name', () => {
-            const eventName = 'foo-event-name'
+        it('should hash event name', () => {
+            const eventName = 'foo-event-name';
 
             const eventTypeUnknownHash = FilterHashingUtilities.hashEventName(eventName, EventTypeEnum.Unknown);
             const eventTypeNavigationHash = FilterHashingUtilities.hashEventName(eventName, EventTypeEnum.Navigation);
@@ -76,5 +76,43 @@ describe('FilterHashingUtilities', () => {
             expect(eventTypeOtherHash).toBe(expectedOthernHash);
             expect(eventTypeMediaHash).toBe(expectedMediaHash);
         });
-    })
+    });
+
+    describe('#hashEventAttributeKey', () => {
+        it('should hash event attribute key', () => {
+            const eventType:EventTypeEnum = EventTypeEnum.Navigation;
+            const eventName:string = 'foo-event-name';
+            const customAttributeName: string = 'event-attribute-key';
+
+            const resultHash = FilterHashingUtilities.hashEventAttributeKey(eventType, eventName, customAttributeName);
+
+            const expectedHash = 683216453;
+
+            expect(resultHash).toBe(expectedHash);
+        });
+    });
+
+    describe('#hashUserAttributeKey', () => {
+        it('should hash user attribute key', () => {
+            const userAttributeKey:string = 'foo-value';
+
+            const resultHash = FilterHashingUtilities.hashUserAttributeValue(userAttributeKey);
+
+            const expectedHash = 1630602666;
+
+            expect(resultHash).toBe(expectedHash);
+        });
+    });
+
+    describe('#hashUserAttributeValue', () => {
+        it('should hash user attribute value', () => {
+            const userAttributeValue:string = 'foo-value';
+
+            const resultHash = FilterHashingUtilities.hashUserAttributeValue(userAttributeValue);
+
+            const expectedHash = 1630602666;
+
+            expect(resultHash).toBe(expectedHash);
+        });
+    });
 });

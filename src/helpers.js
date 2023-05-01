@@ -442,7 +442,7 @@ export default function Helpers(mpInstance) {
     this.decoded = utils.decoded;
     this.returnConvertedBoolean = utils.returnConvertedBoolean;
     this.parseStringOrNumber = utils.parseStringOrNumber;
-    this.generateHash = utils.generateHash; //TODO: REMOVE THIS BUT UPDATE ALL TESTS TOO
+    this.generateHash = utils.generateHash;
     this.generateUniqueId = utils.generateUniqueId;
 
     // Imported Validators

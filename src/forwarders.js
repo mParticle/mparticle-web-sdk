@@ -204,6 +204,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
                             event.EventName,
                             attrName
                         );
+                        console.log('hash');
+                        console.log(hash);
 
                         if (mpInstance._Helpers.inArray(filterList, hash)) {
                             delete event.EventAttributes[attrName];
