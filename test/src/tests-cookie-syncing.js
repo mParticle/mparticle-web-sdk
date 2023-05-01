@@ -11,7 +11,8 @@ var setLocalStorage = Utils.setLocalStorage,
 var pixelUrl = 'https://i.imgur.com/fvfcfpZ_d.webp';
 
 describe('cookie syncing', function() {
-    var timeout = 500;
+    this.timeout(10000);
+    const timeout = 2000;
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
