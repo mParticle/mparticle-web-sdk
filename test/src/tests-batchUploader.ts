@@ -20,6 +20,10 @@ declare global {
     }
 }
 
+// Due to the async nature of the batch uploader, we need a setTimeout for 
+// several of our batch uploader tests. Having this at 0 previously produced
+// several flakey tests.  
+
 const timeout = 500;
 
 const event0: SDKEvent = {
@@ -765,7 +769,7 @@ describe('batch uploader', () => {
                 ).to.equal('Test Event 0');
 
                 done();
-            }, 500);
+            }, timeout);
         });
 
         it('should save batches in sequence to Local Storage when an HTTP 429 error is encountered', (done) => {
@@ -817,7 +821,7 @@ describe('batch uploader', () => {
                 ).to.equal('Test Event 0');
 
                 done();
-            }, 500);
+            }, timeout);
         });
 
         it('should NOT save any batches to Local Storage when an HTTP 401 error is encountered', (done) => {
@@ -850,7 +854,7 @@ describe('batch uploader', () => {
                 );
 
                 done();
-            }, 500);
+            }, timeout);
         });
 
         it('should save batches in sequence to Local Storage when upload is interrupted', (done) => {
@@ -998,7 +1002,7 @@ describe('batch uploader', () => {
                 ).to.equal('application_state_transition');
 
                 done();
-            }, 500);
+            }, timeout);
         });
 
         it('should attempt to upload batches from Offline Storage before new batches', (done) => {
@@ -1142,7 +1146,7 @@ describe('batch uploader', () => {
                 ).to.equal('application_state_transition');
 
                 done();
-            }, 500);
+            }, timeout);
         });
     });
 
@@ -1319,7 +1323,7 @@ describe('batch uploader', () => {
                 );
 
                 done();
-            }, 500);
+            }, timeout);
         });
 
         // TODO: Investigate workflow with unshift vs push
@@ -1400,7 +1404,7 @@ describe('batch uploader', () => {
                 );
 
                 done();
-            }, 500);
+            }, timeout);
         });
     });
 
