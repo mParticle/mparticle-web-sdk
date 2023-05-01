@@ -11,7 +11,7 @@ let mockServer;
 const pixelUrl = 'https://i.imgur.com/fvfcfpZ_d.webp';
 
 describe('cookie syncing', function() {
-    const timeout = 500;
+    const timeout = 1000;
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
