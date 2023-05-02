@@ -57,4 +57,3 @@ import './tests-validators';
 import './tests-utils';
 import './tests-store';
 import './tests-config-api-client';
-import './tests-vault';
