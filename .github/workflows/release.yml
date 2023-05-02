@@ -202,7 +202,7 @@ jobs:
             test_command_label: webpack Module Test
             test_command: npm run test:integrations:module:webpack
             branch_name: ${{ vars.GITHUB_SHA }}
-            build_command: npm run build:npm && npm run build:test-bundle
+            build_command: npm run build:esm && npm run build:test-bundle
 
     test-integrations-module-js-rollup:
         name: 'Integration Tests: Rollup Module JS'
