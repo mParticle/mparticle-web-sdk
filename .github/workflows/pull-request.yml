@@ -48,43 +48,8 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
-    # Only Core test requires bundle, but we want to make sure
-    # that tests only run when the bundle is successfully built
-    test-core:
-        name: Test Core
-        runs-on: ubuntu-latest
-        needs: build-bundle
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-
-            - name: NPM install
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 16.x
-
-            - name: Run NPM CI
-              run: npm ci
-
-            - name: Build Files
-              run: npm run build:iife
-
-            - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
-
-            - name: Log Firefox Version
-              run: firefox --version
-
-            - name: Run Core tests
-              run: npm run test
-
-            - name: Archive npm failure logs
-              uses: actions/upload-artifact@v3
-              if: failure()
-              with:
-                  name: npm-logs
-                  path: ~/.npm/_logs
-
+    # Currently, we're only using Jest to test TypeScript modules
+    # and they do not require any built files
     test-jest:
         name: 'Test Jest'
         runs-on: 'ubuntu-latest'
@@ -113,10 +78,28 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
+    # Only Core test requires bundle, but we want to make sure
+    # that tests only run when the bundle is successfully built
+    test-core:
+        name: Core Tests
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        needs:
+            - test-jest
+            - build-bundle
+        with:
+            test_command_label: Core SDK Tests
+            test_command: npm run test
+            build_command: npm run build:iife
+            branch_name: ${{ vars.GITHUB_SHA }}
+
+    # Test Stub can be run independent of other tests
     test-stub:
         name: 'Test Stub'
         runs-on: ubuntu-latest
-        needs: build-bundle
+        needs:
+            - test-core
+            - test-jest
+            - build-bundle
         steps:
             - name: Checkout
               uses: actions/checkout@v3
@@ -145,227 +128,85 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
+    # Integration Tests run the same suite of tests against various build systems
+    # to make sure our SDK will run in different environments
+
     test-integrations-require-js:
         name: 'Integration Tests: Require JS'
-        runs-on: ubuntu-latest
-        needs: build-bundle
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-
-            - name: NPM install
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 16.x
-
-            - name: Run NPM CI
-              run: npm ci
-
-            - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
-
-            - name: Log Firefox Version
-              run: firefox --version
-
-            - name: Run Require JS Tests
-              run: npm run test:requirejs
-
-            - name: Archive npm failure logs
-              uses: actions/upload-artifact@v3
-              if: failure()
-              with:
-                  name: npm-logs
-                  path: ~/.npm/_logs
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        needs:
+            - test-core
+            - test-jest
+            - build-bundle
+        with:
+            test_command_label: Require JS Test
+            test_command: npm run test:requirejs
+            branch_name: ${{ vars.GITHUB_SHA }}
 
     test-integrations-common-js-browserfy:
         name: 'Integration Tests: Browserfy Common JS'
-        runs-on: ubuntu-latest
-        needs: build-bundle
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-
-            - name: NPM install
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 16.x
-
-            - name: Run NPM CI
-              run: npm ci
-
-            - name: Build Files
-              run: npm run build:npm
-
-            - name: Build Test Bundle
-              run: npm run build:test-bundle
-
-            - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
-
-            - name: Log Firefox Version
-              run: firefox --version
-
-            - name: Run Common JS Browserfy Tests
-              run: npm run test:integrations:cjs:browserfy
-
-            - name: Archive npm failure logs
-              uses: actions/upload-artifact@v3
-              if: failure()
-              with:
-                  name: npm-logs
-                  path: ~/.npm/_logs
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        needs:
+            - test-core
+            - test-jest
+            - build-bundle
+        with:
+            test_command_label: Browserfy CJS Test
+            test_command: npm run test:integrations:cjs:browserfy
+            branch_name: ${{ vars.GITHUB_SHA }}
+            build_command: npm run build:npm && npm run build:test-bundle
 
     test-integrations-common-js-webpack:
         name: 'Integration Tests: webpack Common JS'
-        runs-on: ubuntu-latest
-        needs: build-bundle
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-
-            - name: NPM install
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 16.x
-
-            - name: Run NPM CI
-              run: npm ci
-
-            - name: Build Files
-              run: npm run build:npm
-
-            - name: Build Test Bundle
-              run: npm run build:test-bundle
-
-            - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
-
-            - name: Log Firefox Version
-              run: firefox --version
-
-            - name: Run Common JS webpack Tests
-              run: npm run test:integrations:cjs:webpack
-
-            - name: Archive npm failure logs
-              uses: actions/upload-artifact@v3
-              if: failure()
-              with:
-                  name: npm-logs
-                  path: ~/.npm/_logs
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        needs:
+            - test-core
+            - test-jest
+            - build-bundle
+        with:
+            test_command_label: webpack CJS Test
+            test_command: npm run test:integrations:cjs:webpack
+            branch_name: ${{ vars.GITHUB_SHA }}
+            build_command: npm run build:npm && npm run build:test-bundle
 
     test-integrations-common-js-rollup:
         name: 'Integration Tests: Rollup Common JS'
-        runs-on: ubuntu-latest
-        needs: build-bundle
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-
-            - name: NPM install
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 16.x
-
-            - name: Run NPM CI
-              run: npm ci
-
-            - name: Build Files
-              run: npm run build:npm
-
-            - name: Build Test Bundle
-              run: npm run build:test-bundle
-
-            - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
-
-            - name: Log Firefox Version
-              run: firefox --version
-
-            - name: Run Common JS Rollup Tests
-              run: npm run test:integrations:cjs:rollup
-
-            - name: Archive npm failure logs
-              uses: actions/upload-artifact@v3
-              if: failure()
-              with:
-                  name: npm-logs
-                  path: ~/.npm/_logs
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        needs:
+            - test-core
+            - test-jest
+            - build-bundle
+        with:
+            test_command_label: Rollup CJS Test
+            test_command: npm run test:integrations:cjs:rollup
+            branch_name: ${{ vars.GITHUB_SHA }}
+            build_command: npm run build:npm && npm run build:test-bundle
 
     test-integrations-module-js-webpack:
         name: 'Integration Tests: webpack Module JS'
-        runs-on: ubuntu-latest
-        needs: build-bundle
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-
-            - name: NPM install
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 16.x
-
-            - name: Run NPM CI
-              run: npm ci
-
-            - name: Build Files
-              run: npm run build:esm
-
-            - name: Build Test Bundle
-              run: npm run build:test-bundle
-
-            - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
-
-            - name: Log Firefox Version
-              run: firefox --version
-
-            - name: Run Module JS Tests
-              run: npm run test:integrations:module:webpack
-
-            - name: Archive npm failure logs
-              uses: actions/upload-artifact@v3
-              if: failure()
-              with:
-                  name: npm-logs
-                  path: ~/.npm/_logs
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        needs:
+            - test-core
+            - test-jest
+            - build-bundle
+        with:
+            test_command_label: webpack Module Test
+            test_command: npm run test:integrations:module:webpack
+            branch_name: ${{ vars.GITHUB_SHA }}
+            build_command: npm run build:esm && npm run build:test-bundle
 
     test-integrations-module-js-rollup:
         name: 'Integration Tests: Rollup Module JS'
-        runs-on: ubuntu-latest
-        needs: build-bundle
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v3
-
-            - name: NPM install
-              uses: actions/setup-node@v3
-              with:
-                  node-version: 16.x
-
-            - name: Run NPM CI
-              run: npm ci
-
-            - name: Build Files
-              run: npm run build:esm
-
-            - name: Build Test Bundle
-              run: npm run build:test-bundle
-
-            - name: Install Firefox Latest
-              uses: browser-actions/setup-firefox@latest
-
-            - name: Log Firefox Version
-              run: firefox --version
-
-            - name: Run Module JS Tests
-              run: npm run test:integrations:module:rollup
-
-            - name: Archive npm failure logs
-              uses: actions/upload-artifact@v3
-              if: failure()
-              with:
-                  name: npm-logs
-                  path: ~/.npm/_logs
+        uses: mParticle/mparticle-workflows/.github/workflows/web-run-test.yml@main
+        needs:
+            - test-core
+            - test-jest
+            - build-bundle
+        with:
+            test_command_label: Rollup Module Test
+            test_command: npm run test:integrations:module:rollup
+            branch_name: ${{ vars.GITHUB_SHA }}
+            build_command: npm run build:esm && npm run build:test-bundle
 
     build-local:
         name: Get Bundle Size from Current Branch
