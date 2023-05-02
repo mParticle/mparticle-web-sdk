@@ -92,7 +92,7 @@ jobs:
             build_command: npm run build:iife
             branch_name: ${{ vars.GITHUB_SHA }}
 
-    # Test Sub can be run independent of other tests
+    # Test Stub can be run independent of other tests
     test-stub:
         name: 'Test Stub'
         runs-on: ubuntu-latest
