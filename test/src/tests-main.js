@@ -31,8 +31,8 @@ afterEach(function() {
     window.fetchMock.restore();
 });
 
-import './tests-core-sdk';
 import './tests-batchUploader';
+import './tests-core-sdk';
 import './tests-beaconUpload';
 import './tests-kit-blocking';
 import './tests-persistence';
