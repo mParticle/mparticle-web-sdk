@@ -1,7 +1,7 @@
 var mParticle = (function () {
 
     // Base64 encoder/decoder - http://www.webtoolkit.info/javascript_base64.html
-    var Base64$2 = {
+    var Base64$1 = {
       _keyStr: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=',
       // Input must be a string
       encode: function encode(input) {
@@ -32,7 +32,7 @@ var mParticle = (function () {
           } else if (isNaN(chr3)) {
             enc4 = 64;
           }
-          output = output + Base64$2._keyStr.charAt(enc1) + Base64$2._keyStr.charAt(enc2) + Base64$2._keyStr.charAt(enc3) + Base64$2._keyStr.charAt(enc4);
+          output = output + Base64$1._keyStr.charAt(enc1) + Base64$1._keyStr.charAt(enc2) + Base64$1._keyStr.charAt(enc3) + Base64$1._keyStr.charAt(enc4);
         }
         return output;
       },
@@ -44,7 +44,7 @@ var mParticle = (function () {
         } catch (e) {
           //log(e);
         }
-        return Base64$2._decode(input);
+        return Base64$1._decode(input);
       },
       _decode: function _decode(input) {
         var output = '';
@@ -53,10 +53,10 @@ var mParticle = (function () {
         var i = 0;
         input = input.replace(/[^A-Za-z0-9\+\/\=]/g, '');
         while (i < input.length) {
-          enc1 = Base64$2._keyStr.indexOf(input.charAt(i++));
-          enc2 = Base64$2._keyStr.indexOf(input.charAt(i++));
-          enc3 = Base64$2._keyStr.indexOf(input.charAt(i++));
-          enc4 = Base64$2._keyStr.indexOf(input.charAt(i++));
+          enc1 = Base64$1._keyStr.indexOf(input.charAt(i++));
+          enc2 = Base64$1._keyStr.indexOf(input.charAt(i++));
+          enc3 = Base64$1._keyStr.indexOf(input.charAt(i++));
+          enc4 = Base64$1._keyStr.indexOf(input.charAt(i++));
           chr1 = enc1 << 2 | enc2 >> 4;
           chr2 = (enc2 & 15) << 4 | enc3 >> 2;
           chr3 = (enc3 & 3) << 6 | enc4;
@@ -200,7 +200,7 @@ var mParticle = (function () {
       isArray: function isArray(arg) {
         return Object.prototype.toString.call(arg) === '[object Array]';
       },
-      Base64: Base64$2
+      Base64: Base64$1
     };
 
     function _defineProperty(obj, key, value) {
@@ -582,7 +582,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.21.0";
+    var version = "2.21.1";
 
     var Constants = {
       sdkVersion: version,
@@ -1167,6 +1167,12 @@ var mParticle = (function () {
 
     var slugify = slugify$1.exports;
 
+    var createCookieString = function createCookieString(value) {
+      return replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
+    };
+    var revertCookieString = function revertCookieString(value) {
+      return replacePipesWithCommas(replaceApostrophesWithQuotes(value));
+    };
     var inArray = function inArray(items, name) {
       var i = 0;
       if (Array.prototype.indexOf) {
@@ -1273,6 +1279,18 @@ var mParticle = (function () {
       } else {
         return null;
       }
+    };
+    var replaceCommasWithPipes = function replaceCommasWithPipes(value) {
+      return value.replace(/,/g, '|');
+    };
+    var replacePipesWithCommas = function replacePipesWithCommas(value) {
+      return value.replace(/\|/g, ',');
+    };
+    var replaceApostrophesWithQuotes = function replaceApostrophesWithQuotes(value) {
+      return value.replace(/\'/g, '"');
+    };
+    var replaceQuotesWithApostrophes = function replaceQuotesWithApostrophes(value) {
+      return value.replace(/\"/g, "'");
     };
     // FIXME: REFACTOR for V3
     // only used in store.js to sanitize server-side formatting of
@@ -2640,7 +2658,7 @@ var mParticle = (function () {
       }
     };
 
-    var StorageNames$2 = Constants.StorageNames;
+    var StorageNames$1 = Constants.StorageNames;
     function Helpers(mpInstance) {
       var self = this;
       this.canLog = function () {
@@ -2936,16 +2954,16 @@ var mParticle = (function () {
       };
       this.createMainStorageName = function (workspaceToken) {
         if (workspaceToken) {
-          return StorageNames$2.currentStorageName + '_' + workspaceToken;
+          return StorageNames$1.currentStorageName + '_' + workspaceToken;
         } else {
-          return StorageNames$2.currentStorageName;
+          return StorageNames$1.currentStorageName;
         }
       };
       this.createProductStorageName = function (workspaceToken) {
         if (workspaceToken) {
-          return StorageNames$2.currentStorageProductsName + '_' + workspaceToken;
+          return StorageNames$1.currentStorageProductsName + '_' + workspaceToken;
         } else {
-          return StorageNames$2.currentStorageProductsName;
+          return StorageNames$1.currentStorageProductsName;
         }
       };
 
@@ -3763,7 +3781,6 @@ var mParticle = (function () {
         clientId: null,
         deviceId: null,
         devToken: null,
-        migrationData: {},
         serverSettings: {},
         dateLastEventSent: null,
         sessionStartDate: null,
@@ -3778,7 +3795,6 @@ var mParticle = (function () {
         configurationLoaded: false,
         identityCallInFlight: false,
         SDKConfig: {},
-        migratingToIDSyncCookies: false,
         nonCurrentUserMPIDs: {},
         identifyCalled: false,
         isLoggedIn: false,
@@ -4013,11 +4029,11 @@ var mParticle = (function () {
       };
     }
 
-    var Base64$1 = Polyfill.Base64,
+    var Base64 = Polyfill.Base64,
       Messages$4 = Constants.Messages,
       Base64CookieKeys = Constants.Base64CookieKeys,
       SDKv2NonMPIDCookieKeys = Constants.SDKv2NonMPIDCookieKeys,
-      StorageNames$1 = Constants.StorageNames;
+      StorageNames = Constants.StorageNames;
     function _Persistence(mpInstance) {
       var self = this;
       this.useLocalStorage = function () {
@@ -4078,7 +4094,7 @@ var mParticle = (function () {
             if (mpInstance._Store.isLocalStorageAvailable) {
               var encodedProducts = localStorage.getItem(mpInstance._Store.prodStorageName);
               if (encodedProducts) {
-                var decodedProducts = JSON.parse(Base64$1.decode(encodedProducts));
+                var decodedProducts = JSON.parse(Base64.decode(encodedProducts));
               }
               if (mpInstance._Store.mpid) {
                 self.storeProductsInMemory(decodedProducts, mpInstance._Store.mpid);
@@ -4192,7 +4208,7 @@ var mParticle = (function () {
           parsedProducts,
           encodedProducts = localStorage.getItem(mpInstance._Store.prodStorageName);
         if (encodedProducts) {
-          decodedProducts = Base64$1.decode(encodedProducts);
+          decodedProducts = Base64.decode(encodedProducts);
         }
         // if there is an MPID, we are retrieving the user's products, which is an array
         if (mpid) {
@@ -4218,7 +4234,7 @@ var mParticle = (function () {
           encodedProducts = localStorage.getItem(mpInstance._Store.prodStorageName),
           parsedDecodedProducts;
         if (encodedProducts) {
-          decodedProducts = Base64$1.decode(encodedProducts);
+          decodedProducts = Base64.decode(encodedProducts);
         }
         // returns an object with keys of MPID and values of array of products
         try {
@@ -4244,7 +4260,7 @@ var mParticle = (function () {
           allLocalStorageProducts = allLocalStorageProducts || {};
           allLocalStorageProducts[mpid] = currentUserProducts;
           try {
-            window.localStorage.setItem(encodeURIComponent(mpInstance._Store.prodStorageName), Base64$1.encode(JSON.stringify(allLocalStorageProducts)));
+            window.localStorage.setItem(encodeURIComponent(mpInstance._Store.prodStorageName), Base64.encode(JSON.stringify(allLocalStorageProducts)));
           } catch (e) {
             mpInstance.Logger.error('Error with setting products on localStorage.');
           }
@@ -4502,7 +4518,7 @@ var mParticle = (function () {
               if (persistence.gs[key]) {
                 // base64 encode any value that is an object or Array in globalSettings
                 if (Array.isArray(persistence.gs[key]) && persistence.gs[key].length || mpInstance._Helpers.isObject(persistence.gs[key]) && Object.keys(persistence.gs[key]).length) {
-                  persistence.gs[key] = Base64$1.encode(JSON.stringify(persistence.gs[key]));
+                  persistence.gs[key] = Base64.encode(JSON.stringify(persistence.gs[key]));
                 } else {
                   delete persistence.gs[key];
                 }
@@ -4523,7 +4539,7 @@ var mParticle = (function () {
                 if (persistence[mpid].hasOwnProperty(key)) {
                   if (Base64CookieKeys[key]) {
                     if (mpInstance._Helpers.isObject(persistence[mpid][key]) && Object.keys(persistence[mpid][key]).length) {
-                      persistence[mpid][key] = Base64$1.encode(JSON.stringify(persistence[mpid][key]));
+                      persistence[mpid][key] = Base64.encode(JSON.stringify(persistence[mpid][key]));
                     } else {
                       delete persistence[mpid][key];
                     }
@@ -4533,17 +4549,20 @@ var mParticle = (function () {
             }
           }
         }
-        return self.createCookieString(JSON.stringify(persistence));
+        return createCookieString(JSON.stringify(persistence));
       };
+
+      // TODO: This should actually be decodePersistenceString or
+      //       we should refactor this to take a string and return an object
       this.decodePersistence = function (persistence) {
         try {
           if (persistence) {
-            persistence = JSON.parse(self.revertCookieString(persistence));
+            persistence = JSON.parse(revertCookieString(persistence));
             if (mpInstance._Helpers.isObject(persistence) && Object.keys(persistence).length) {
               for (var key in persistence.gs) {
                 if (persistence.gs.hasOwnProperty(key)) {
                   if (Base64CookieKeys[key]) {
-                    persistence.gs[key] = JSON.parse(Base64$1.decode(persistence.gs[key]));
+                    persistence.gs[key] = JSON.parse(Base64.decode(persistence.gs[key]));
                   } else if (key === 'ie') {
                     persistence.gs[key] = Boolean(persistence.gs[key]);
                   }
@@ -4556,7 +4575,7 @@ var mParticle = (function () {
                       if (persistence[mpid].hasOwnProperty(key)) {
                         if (Base64CookieKeys[key]) {
                           if (persistence[mpid][key].length) {
-                            persistence[mpid][key] = JSON.parse(Base64$1.decode(persistence[mpid][key]));
+                            persistence[mpid][key] = JSON.parse(Base64.decode(persistence[mpid][key]));
                           }
                         }
                       }
@@ -4572,24 +4591,6 @@ var mParticle = (function () {
         } catch (e) {
           mpInstance.Logger.error('Problem with decoding cookie', e);
         }
-      };
-      this.replaceCommasWithPipes = function (string) {
-        return string.replace(/,/g, '|');
-      };
-      this.replacePipesWithCommas = function (string) {
-        return string.replace(/\|/g, ',');
-      };
-      this.replaceApostrophesWithQuotes = function (string) {
-        return string.replace(/\'/g, '"');
-      };
-      this.replaceQuotesWithApostrophes = function (string) {
-        return string.replace(/\"/g, "'");
-      };
-      this.createCookieString = function (string) {
-        return self.replaceCommasWithPipes(self.replaceQuotesWithApostrophes(string));
-      };
-      this.revertCookieString = function (string) {
-        return self.replacePipesWithCommas(self.replaceApostrophesWithQuotes(string));
       };
       this.getCookieDomain = function () {
         if (mpInstance._Store.SDKConfig.cookieDomain) {
@@ -4644,7 +4645,7 @@ var mParticle = (function () {
         var allCartProducts,
           cartProductsString = localStorage.getItem(mpInstance._Store.prodStorageName);
         if (cartProductsString) {
-          allCartProducts = JSON.parse(Base64$1.decode(cartProductsString));
+          allCartProducts = JSON.parse(Base64.decode(cartProductsString));
           if (allCartProducts && allCartProducts[mpid] && allCartProducts[mpid].cp) {
             return allCartProducts[mpid].cp;
           }
@@ -4656,7 +4657,7 @@ var mParticle = (function () {
           return;
         }
         try {
-          window.localStorage.setItem(encodeURIComponent(mpInstance._Store.prodStorageName), Base64$1.encode(JSON.stringify(allProducts)));
+          window.localStorage.setItem(encodeURIComponent(mpInstance._Store.prodStorageName), Base64.encode(JSON.stringify(allProducts)));
         } catch (e) {
           mpInstance.Logger.error('Error with setting products on localStorage.');
         }
@@ -4835,16 +4836,16 @@ var mParticle = (function () {
         self.update();
       };
       this.resetPersistence = function () {
-        removeLocalStorage(StorageNames$1.localStorageName);
-        removeLocalStorage(StorageNames$1.localStorageNameV3);
-        removeLocalStorage(StorageNames$1.localStorageNameV4);
+        removeLocalStorage(StorageNames.localStorageName);
+        removeLocalStorage(StorageNames.localStorageNameV3);
+        removeLocalStorage(StorageNames.localStorageNameV4);
         removeLocalStorage(mpInstance._Store.prodStorageName);
         removeLocalStorage(mpInstance._Store.storageName);
-        removeLocalStorage(StorageNames$1.localStorageProductsV4);
-        self.expireCookies(StorageNames$1.cookieName);
-        self.expireCookies(StorageNames$1.cookieNameV2);
-        self.expireCookies(StorageNames$1.cookieNameV3);
-        self.expireCookies(StorageNames$1.cookieNameV4);
+        removeLocalStorage(StorageNames.localStorageProductsV4);
+        self.expireCookies(StorageNames.cookieName);
+        self.expireCookies(StorageNames.cookieNameV2);
+        self.expireCookies(StorageNames.cookieNameV3);
+        self.expireCookies(StorageNames.cookieNameV4);
         self.expireCookies(mpInstance._Store.prodStorageName);
         self.expireCookies(mpInstance._Store.storageName);
         if (mParticle._isTestEnv) {
@@ -5128,208 +5129,6 @@ var mParticle = (function () {
           mpInstance.Logger.verbose('No elements found');
         }
       };
-    }
-
-    var StorageNames = Constants.StorageNames,
-      Base64 = Polyfill.Base64,
-      CookiesGlobalSettingsKeys = {
-        das: 1
-      },
-      MPIDKeys = {
-        ui: 1
-      };
-    function Migrations(mpInstance) {
-      var self = this;
-      //  if there is a cookie or localStorage:
-      //  1. determine which version it is ('mprtcl-api', 'mprtcl-v2', 'mprtcl-v3', 'mprtcl-v4')
-      //  2. return if 'mprtcl-v4', otherwise migrate to mprtclv4 schema
-      // 3. if 'mprtcl-api', could be JSSDKv2 or JSSDKv1. JSSDKv2 cookie has a 'globalSettings' key on it
-      this.migrate = function () {
-        try {
-          migrateCookies();
-        } catch (e) {
-          mpInstance._Persistence.expireCookies(StorageNames.cookieNameV3);
-          mpInstance._Persistence.expireCookies(StorageNames.cookieNameV4);
-          mpInstance.Logger.error('Error migrating cookie: ' + e);
-        }
-        if (mpInstance._Store.isLocalStorageAvailable) {
-          try {
-            migrateLocalStorage();
-          } catch (e) {
-            localStorage.removeItem(StorageNames.localStorageNameV3);
-            localStorage.removeItem(StorageNames.localStorageNameV4);
-            mpInstance.Logger.error('Error migrating localStorage: ' + e);
-          }
-        }
-      };
-      function migrateCookies() {
-        var cookies = window.document.cookie.split('; '),
-          foundCookie,
-          i,
-          l,
-          parts,
-          name,
-          cookie;
-        mpInstance.Logger.verbose(Constants.Messages.InformationMessages.CookieSearch);
-        for (i = 0, l = cookies.length; i < l; i++) {
-          try {
-            parts = cookies[i].split('=');
-            name = mpInstance._Helpers.decoded(parts.shift());
-            cookie = mpInstance._Helpers.decoded(parts.join('='));
-          } catch (e) {
-            mpInstance.Logger.verbose('Unable to parse cookie: ' + name + '. Skipping.');
-          }
-
-          //most recent version needs no migration
-          if (name === mpInstance._Store.storageName) {
-            return;
-          }
-          if (name === StorageNames.cookieNameV4) {
-            // adds cookies to new namespace, removes previous cookie
-            finishCookieMigration(cookie, StorageNames.cookieNameV4);
-            if (mpInstance._Store.isLocalStorageAvailable) {
-              migrateProductsToNameSpace();
-            }
-            return;
-            // migration path for SDKv1CookiesV3, doesn't need to be encoded
-          }
-
-          if (name === StorageNames.cookieNameV3) {
-            foundCookie = self.convertSDKv1CookiesV3ToSDKv2CookiesV4(cookie);
-            finishCookieMigration(foundCookie, StorageNames.cookieNameV3);
-            break;
-          }
-        }
-      }
-      function finishCookieMigration(cookie, cookieName) {
-        var date = new Date(),
-          cookieDomain = mpInstance._Persistence.getCookieDomain(),
-          expires,
-          domain;
-        expires = new Date(date.getTime() + StorageNames.CookieExpiration * 24 * 60 * 60 * 1000).toGMTString();
-        if (cookieDomain === '') {
-          domain = '';
-        } else {
-          domain = ';domain=' + cookieDomain;
-        }
-        mpInstance.Logger.verbose(Constants.Messages.InformationMessages.CookieSet);
-        window.document.cookie = encodeURIComponent(mpInstance._Store.storageName) + '=' + cookie + ';expires=' + expires + ';path=/' + domain;
-        mpInstance._Persistence.expireCookies(cookieName);
-        mpInstance._Store.migratingToIDSyncCookies = true;
-      }
-      this.convertSDKv1CookiesV3ToSDKv2CookiesV4 = function (SDKv1CookiesV3) {
-        SDKv1CookiesV3 = mpInstance._Persistence.replacePipesWithCommas(mpInstance._Persistence.replaceApostrophesWithQuotes(SDKv1CookiesV3));
-        var parsedSDKv1CookiesV3 = JSON.parse(SDKv1CookiesV3);
-        var parsedCookiesV4 = JSON.parse(restructureToV4Cookie(SDKv1CookiesV3));
-        if (parsedSDKv1CookiesV3.mpid) {
-          parsedCookiesV4.gs.csm.push(parsedSDKv1CookiesV3.mpid);
-          // all other values are already encoded, so we have to encode any new values
-          parsedCookiesV4.gs.csm = Base64.encode(JSON.stringify(parsedCookiesV4.gs.csm));
-          migrateProductsFromSDKv1ToSDKv2CookiesV4(parsedSDKv1CookiesV3, parsedSDKv1CookiesV3.mpid);
-        }
-        return JSON.stringify(parsedCookiesV4);
-      };
-      function restructureToV4Cookie(cookies) {
-        try {
-          var cookiesV4Schema = {
-            gs: {
-              csm: []
-            }
-          };
-          cookies = JSON.parse(cookies);
-          for (var key in cookies) {
-            if (cookies.hasOwnProperty(key)) {
-              if (CookiesGlobalSettingsKeys[key]) {
-                cookiesV4Schema.gs[key] = cookies[key];
-              } else if (key === 'mpid') {
-                cookiesV4Schema.cu = cookies[key];
-              } else if (cookies.mpid) {
-                cookiesV4Schema[cookies.mpid] = cookiesV4Schema[cookies.mpid] || {};
-                if (MPIDKeys[key]) {
-                  cookiesV4Schema[cookies.mpid][key] = cookies[key];
-                }
-              }
-            }
-          }
-          return JSON.stringify(cookiesV4Schema);
-        } catch (e) {
-          mpInstance.Logger.error('Failed to restructure previous cookie into most current cookie schema');
-        }
-      }
-      function migrateProductsToNameSpace() {
-        var lsProdV4Name = StorageNames.localStorageProductsV4;
-        var products = localStorage.getItem(StorageNames.localStorageProductsV4);
-        localStorage.setItem(mpInstance._Store.prodStorageName, products);
-        localStorage.removeItem(lsProdV4Name);
-      }
-      function migrateProductsFromSDKv1ToSDKv2CookiesV4(cookies, mpid) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
-          return;
-        }
-        var localStorageProducts = {};
-        localStorageProducts[mpid] = {};
-        if (cookies.cp) {
-          try {
-            localStorageProducts[mpid].cp = JSON.parse(Base64.decode(cookies.cp));
-          } catch (e) {
-            localStorageProducts[mpid].cp = cookies.cp;
-          }
-          if (!Array.isArray(localStorageProducts[mpid].cp)) {
-            localStorageProducts[mpid].cp = [];
-          }
-        }
-        localStorage.setItem(mpInstance._Store.prodStorageName, Base64.encode(JSON.stringify(localStorageProducts)));
-      }
-      function migrateLocalStorage() {
-        var cookies,
-          v3LSName = StorageNames.localStorageNameV3,
-          v4LSName = StorageNames.localStorageNameV4,
-          currentVersionLSData = window.localStorage.getItem(mpInstance._Store.storageName),
-          v4LSData,
-          v3LSData,
-          v3LSDataStringCopy;
-        if (currentVersionLSData) {
-          return;
-        }
-        v4LSData = window.localStorage.getItem(v4LSName);
-        if (v4LSData) {
-          finishLSMigration(v4LSData, v4LSName);
-          migrateProductsToNameSpace();
-          return;
-        }
-        v3LSData = window.localStorage.getItem(v3LSName);
-        if (v3LSData) {
-          mpInstance._Store.migratingToIDSyncCookies = true;
-          v3LSDataStringCopy = v3LSData.slice();
-          v3LSData = JSON.parse(mpInstance._Persistence.replacePipesWithCommas(mpInstance._Persistence.replaceApostrophesWithQuotes(v3LSData)));
-          // localStorage may contain only products, or the full persistence
-          // when there is an MPID on the cookie, it is the full persistence
-          if (v3LSData.mpid) {
-            v3LSData = JSON.parse(self.convertSDKv1CookiesV3ToSDKv2CookiesV4(v3LSDataStringCopy));
-            finishLSMigration(JSON.stringify(v3LSData), v3LSName);
-            return;
-            // if no MPID, it is only the products
-          } else if ((v3LSData.cp || v3LSData.pb) && !v3LSData.mpid) {
-            cookies = mpInstance._Persistence.getCookie();
-            if (cookies) {
-              migrateProductsFromSDKv1ToSDKv2CookiesV4(v3LSData, cookies.cu);
-              localStorage.removeItem(StorageNames.localStorageNameV3);
-              return;
-            } else {
-              localStorage.removeItem(StorageNames.localStorageNameV3);
-              return;
-            }
-          }
-        }
-        function finishLSMigration(data, lsName) {
-          try {
-            window.localStorage.setItem(encodeURIComponent(mpInstance._Store.storageName), data);
-          } catch (e) {
-            mpInstance.Logger.error('Error with setting localStorage item.');
-          }
-          window.localStorage.removeItem(encodeURIComponent(lsName));
-        }
-      }
     }
 
     function filteredMparticleUser(mpid, forwarder, mpInstance, kitBlocker) {
@@ -7111,16 +6910,8 @@ var mParticle = (function () {
               }
               mpInstance._CookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid, mpidIsNotInCookies);
               self.checkIdentitySwap(previousMPID, identityApiResult.mpid, mpInstance._Store.currentSessionMPIDs);
-
-              //if there is any previous migration data
-              if (Object.keys(mpInstance._Store.migrationData).length) {
-                newIdentitiesByType = mpInstance._Store.migrationData.userIdentities || {};
-                var userAttributes = mpInstance._Store.migrationData.userAttributes || {};
-                mpInstance._Persistence.saveUserAttributesToPersistence(identityApiResult.mpid, userAttributes);
-              } else {
-                if (identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length) {
-                  newIdentitiesByType = self.IdentityRequest.combineUserIdentities(incomingMpidUIByName, identityApiData.userIdentities);
-                }
+              if (identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length) {
+                newIdentitiesByType = self.IdentityRequest.combineUserIdentities(incomingMpidUIByName, identityApiData.userIdentities);
               }
               mpInstance._Persistence.saveUserIdentitiesToPersistence(identityApiResult.mpid, newIdentitiesByType);
               mpInstance._Persistence.update();
@@ -8138,7 +7929,6 @@ var mParticle = (function () {
       // These classes are for internal use only. Not documented for public consumption
       this._instanceName = instanceName;
       this._NativeSdkHelpers = new NativeSdkHelpers(this);
-      this._Migrations = new Migrations(this);
       this._SessionManager = new SessionManager(this);
       this._Persistence = new _Persistence(this);
       this._Helpers = new Helpers(this);
@@ -9087,9 +8877,6 @@ var mParticle = (function () {
       mpInstance._Store.webviewBridgeEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled(mpInstance._Store.SDKConfig.requiredWebviewBridgeName, mpInstance._Store.SDKConfig.minWebviewBridgeVersion);
       mpInstance._Store.configurationLoaded = true;
       if (!mpInstance._Store.webviewBridgeEnabled) {
-        // Migrate any cookies from previous versions to current cookie version
-        mpInstance._Migrations.migrate();
-
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
       }
@@ -9122,12 +8909,6 @@ var mParticle = (function () {
           mpInstance._Store.SDKConfig.identifyRequest = {
             userIdentities: modifiedUIforIdentityRequest
           };
-        }
-
-        // If migrating from pre-IDSync to IDSync, a sessionID will exist and an identify request will not have been fired, so we need this check
-        if (mpInstance._Store.migratingToIDSyncCookies) {
-          mpInstance.Identity.identify(mpInstance._Store.SDKConfig.identifyRequest, mpInstance._Store.SDKConfig.identityCallback);
-          mpInstance._Store.migratingToIDSyncCookies = false;
         }
         currentUser = mpInstance.Identity.getCurrentUser();
         if (mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)) {
@@ -9243,7 +9024,9 @@ var mParticle = (function () {
       mpInstance._Store.devToken = apiKey || null;
       mpInstance.Logger.verbose(Messages.InformationMessages.StartingInitialization);
 
-      //check to see if localStorage is available for migrating purposes
+      // Check to see if localStorage is available before main configuration runs
+      // since we will need this for the current implementation of user persistence
+      // TODO: Refactor this when we refactor User Identity Persistence
       try {
         mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(window.localStorage);
       } catch (e) {
@@ -9327,7 +9110,6 @@ var mParticle = (function () {
             consentState: null,
             clientId: null,
             deviceId: null,
-            migrationData: {},
             serverSettings: {},
             dateLastEventSent: null,
             sessionStartDate: null,
@@ -9341,7 +9123,6 @@ var mParticle = (function () {
             context: null,
             configurationLoaded: false,
             identityCallInFlight: false,
-            migratingToIDSyncCookies: false,
             nonCurrentUserMPIDs: {},
             identifyCalled: false,
             isLoggedIn: false,
