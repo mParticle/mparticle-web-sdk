@@ -1,3 +1,10 @@
+## [2.21.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.21.0...v2.21.1) (2023-05-02)
+
+
+### Bug Fixes
+
+* Remove legacy migrations module ([#500](https://github.com/mParticle/mparticle-web-sdk/issues/500)) ([3132563](https://github.com/mParticle/mparticle-web-sdk/commit/313256321d1c71bade1741830f28be943f8ae669))
+
 # [2.21.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.20.3...v2.21.0) (2023-04-18)
 
 
