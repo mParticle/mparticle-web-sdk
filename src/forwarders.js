@@ -1,7 +1,7 @@
 import Types from './types';
 import filteredMparticleUser from './filteredMparticleUser';
 import { isEmpty } from './utils';
-import FilterHashingUtilities from './hashingFilter';
+import FilterUtilities from './kitFilterHelpers';
 
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
@@ -111,10 +111,10 @@ export default function Forwarders(mpInstance, kitBlocker) {
             ) {
                 for (var attrName in userAttributes) {
                     if (userAttributes.hasOwnProperty(attrName)) {
-                        attrHash = FilterHashingUtilities.hashUserAttributeKey(
+                        attrHash = FilterUtilities.hashUserAttributeKey(
                             attrName
                         ).toString();
-                        valueHash = FilterHashingUtilities.hashUserAttributeValue(
+                        valueHash = FilterUtilities.hashUserAttributeValue(
                             userAttributes[attrName]
                         ).toString();
 
@@ -178,7 +178,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         if (
                             mpInstance._Helpers.inArray(
                                 filterList,
-                                userIdentity.Type
+                                FilterUtilities.hashUserIdentity(
+                                    userIdentity.Type
+                                )
                             )
                         ) {
                             event.UserIdentities.splice(i, 1);
@@ -199,7 +201,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
                 for (var attrName in event.EventAttributes) {
                     if (event.EventAttributes.hasOwnProperty(attrName)) {
-                        hash = FilterHashingUtilities.hashEventAttributeKey(
+                        hash = FilterUtilities.hashEventAttributeKey(
                             event.EventCategory,
                             event.EventName,
                             attrName
@@ -232,11 +234,11 @@ export default function Forwarders(mpInstance, kitBlocker) {
             !mpInstance._Store.webviewBridgeEnabled &&
             mpInstance._Store.activeForwarders
         ) {
-            hashedEventName = FilterHashingUtilities.hashEventName(
+            hashedEventName = FilterUtilities.hashEventName(
                 event.EventName,
                 event.EventCategory
             );
-            hashedEventType = FilterHashingUtilities.hashEventType(
+            hashedEventType = FilterUtilities.hashEventType(
                 event.EventCategory
             );
 
@@ -267,7 +269,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     if (event.EventAttributes) {
                         for (var prop in event.EventAttributes) {
                             var hashedEventAttributeName;
-                            hashedEventAttributeName = FilterHashingUtilities.hashEventAttributeKeyForForwarding(
+                            hashedEventAttributeName = FilterUtilities.hashEventAttributeKeyForForwarding(
                                 prop
                             ).toString();
 
@@ -279,7 +281,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                             ) {
                                 foundProp = {
                                     name: hashedEventAttributeName,
-                                    value: FilterHashingUtilities.hashEventAttributeValueForForwarding(
+                                    value: FilterUtilities.hashEventAttributeValueForForwarding(
                                         event.EventAttributes[prop]
                                     ).toString(),
                                 };

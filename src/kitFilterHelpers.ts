@@ -1,9 +1,12 @@
 import { generateHash } from "./utils";
 // TODO: EventType/EventTypeEnum exists in differnet forms between @types/eventmodel/dataplanningnode.  determine the differences and consolidate if possible
 import { EventTypeEnum } from "./types.interfaces";
+import { UserIdentityType } from "./forwarders.interfaces";
+import { IdentityType } from "@mparticle/web-sdk";
 
-export default class FilterHashingUtilities {
-    // add generateHash function as a private member
+
+export default class KitFilterHelpers {
+    // add generateHash function as a private member?
     static hashEventType(eventType: EventTypeEnum): number {
         return generateHash(eventType);
     };
@@ -24,16 +27,24 @@ export default class FilterHashingUtilities {
         return generateHash(userAttributeValue);
     }
 
-    static hashUserIdentity(userIdentity): number {
+    // User Identities are not actually hashed, this method is named this way to
+    // be consistent with the filter class. UserIdentityType is also a number
+    static hashUserIdentity(userIdentity: IdentityType): IdentityType {
         return userIdentity;
     }
 
-    // 
-    // static hashScreenAttribute(screenName: string, customAttributeKey: string): number {}
-    // static hashScreenName(screenName: string): number {}
-    // static hashCommerceEventAttribute(eventType, eventAttributeKey: string): number {}
-    // static hashCommerceEventEntityType(commerceEventKind): number {}
-    // static hashCommerceEventAppFamilyAttribute(attributeKey: string): number {}
+    static hashGDPRPurpose(purpose: string): number {
+        const GDPRConsentHashPrefix = '1';
+
+        return generateHash(GDPRConsentHashPrefix + purpose)
+    }
+
+    static hashCCPAPurpose(){
+        const CCPAPurpose = 'data_sale_opt_out' as const;
+        const CCPAHashPrefix = '2';
+
+        return generateHash(CCPAHashPrefix + CCPAPurpose);
+    }
 
     // Forwarding filters
     static hashEventAttributeKeyForForwarding(eventName: string): number {

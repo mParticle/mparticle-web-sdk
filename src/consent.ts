@@ -6,6 +6,7 @@ import {
 } from '@mparticle/web-sdk';
 import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
 import { Dictionary, isObject } from './utils';
+import KitFilterHelpers from './kitFilterHelpers';
 
 // Specifies to compiler that CCPAPurpose can only be one specific value
 export const CCPAPurpose = 'data_sale_opt_out' as const;
@@ -150,8 +151,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             if (gdprConsentState) {
                 for (const purpose in gdprConsentState) {
                     if (gdprConsentState.hasOwnProperty(purpose)) {
-                        purposeHash = mpInstance._Helpers
-                            .generateHash(GDPRConsentHashPrefix + purpose)
+                        purposeHash = KitFilterHelpers.hashGDPRPurpose(purpose)
                             .toString();
                         purposeHashes[purposeHash] =
                             gdprConsentState[purpose].Consented;
@@ -160,9 +160,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             }
             const CCPAConsentState = consentState.getCCPAConsentState();
             if (CCPAConsentState) {
-                purposeHash = mpInstance._Helpers
-                    .generateHash(CCPAHashString)
-                    .toString();
+                purposeHash = KitFilterHelpers.hashCCPAPurpose().toString();
                 purposeHashes[purposeHash] = CCPAConsentState.Consented;
             }
         }

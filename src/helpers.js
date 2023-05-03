@@ -2,7 +2,7 @@ import Types from './types';
 import Constants from './constants';
 import * as utils from './utils';
 import Validators from './validators';
-import FilterHashingUtilities from './hashingFilter';
+import FilterUtilities from './kitFilterHelpers';
 
 var StorageNames = Constants.StorageNames;
 
@@ -332,7 +332,7 @@ export default function Helpers(mpInstance) {
         if (userAttributes && Object.keys(userAttributes).length) {
             for (var userAttribute in userAttributes) {
                 if (userAttributes.hasOwnProperty(userAttribute)) {
-                    var hashedUserAttribute = FilterHashingUtilities.hashUserAttributeKey(
+                    var hashedUserAttribute = FilterUtilities.hashUserAttributeKey(
                         userAttribute
                     );
                     if (!self.inArray(filterList, hashedUserAttribute)) {
@@ -347,7 +347,7 @@ export default function Helpers(mpInstance) {
     };
 
     this.isFilteredUserAttribute = function(userAttributeKey, filterList) {
-        const hashedUserAttribute = FilterHashingUtilities.hashUserAttributeKey(
+        const hashedUserAttribute = FilterUtilities.hashUserAttributeKey(
             userAttributeKey
         );
         return filterList && self.inArray(filterList, hashedUserAttribute);
