@@ -332,7 +332,7 @@ export default function Helpers(mpInstance) {
         if (userAttributes && Object.keys(userAttributes).length) {
             for (var userAttribute in userAttributes) {
                 if (userAttributes.hasOwnProperty(userAttribute)) {
-                    var hashedUserAttribute = FilterUtilities.hashUserAttributeKey(
+                    const hashedUserAttribute = FilterUtilities.hashUserAttributeKey(
                         userAttribute
                     );
                     if (!self.inArray(filterList, hashedUserAttribute)) {
