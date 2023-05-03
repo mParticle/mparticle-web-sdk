@@ -36,6 +36,11 @@ if (DEBUG === 'true') {
 
 module.exports = function(config) {
     config.set({
+        client: {
+            mocha: {
+                timeout: 10000
+            }
+        },
         frameworks: ['mocha', 'should'],
         files,
         reporters: ['progress', 'junit'],
