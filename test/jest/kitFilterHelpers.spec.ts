@@ -1,6 +1,5 @@
 import FilterUtilities from "../../src/kitFilterHelpers";
-import { EventTypeEnum } from "../../src/types.interfaces";
-import { IdentityType } from "@mparticle/web-sdk";
+import { EventTypeEnum, IdentityType } from "../../src/types.interfaces";
 
 describe('FilterHashingUtilities', () => {
     describe('#hashEventType', () => {

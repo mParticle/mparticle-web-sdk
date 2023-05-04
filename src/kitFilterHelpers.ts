@@ -1,8 +1,7 @@
 import { generateHash } from "./utils";
 // TODO: EventType/EventTypeEnum exists in differnet forms between @types/eventmodel/dataplanningnode.  determine the differences and consolidate if possible
-import { EventTypeEnum } from "./types.interfaces";
+import { EventTypeEnum, IdentityType } from "./types.interfaces";
 import { UserIdentityType } from "./forwarders.interfaces";
-import { IdentityType } from "@mparticle/web-sdk";
 
 
 export default class KitFilterHelpers {
