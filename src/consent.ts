@@ -160,7 +160,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             }
             const CCPAConsentState = consentState.getCCPAConsentState();
             if (CCPAConsentState) {
-                purposeHash = KitFilterHelpers.hashCCPAPurpose().toString();
+                purposeHash = KitFilterHelpers.hashCCPA().toString();
                 purposeHashes[purposeHash] = CCPAConsentState.Consented;
             }
         }

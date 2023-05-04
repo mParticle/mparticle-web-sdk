@@ -346,7 +346,7 @@ describe('FilterHashingUtilities', () => {
 
     describe('#hashCCPAPurpose', () => {
         it('should hash CCPA Purpose', () => {
-            const resultHash = FilterUtilities.hashCCPAPurpose();
+            const resultHash = FilterUtilities.hashCCPA();
             const expectedHash = -575335347;
 
             expect(resultHash).toBe(expectedHash);

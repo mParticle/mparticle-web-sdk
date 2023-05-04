@@ -39,7 +39,7 @@ export default class KitFilterHelpers {
         return generateHash(GDPRConsentHashPrefix + purpose)
     }
 
-    static hashCCPAPurpose(){
+    static hashCCPA(){
         const CCPAHashPrefix = '2';
         return generateHash(CCPAHashPrefix + CCPAPurpose);
     }
