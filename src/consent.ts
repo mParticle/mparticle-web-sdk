@@ -7,9 +7,9 @@ import {
 import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
 import { Dictionary, isObject } from './utils';
 import KitFilterHelpers from './kitFilterHelpers';
+import Constants from './constants';
 
-// Specifies to compiler that CCPAPurpose can only be one specific value
-export const CCPAPurpose = 'data_sale_opt_out' as const;
+const { CCPAPurpose } = Constants;
 
 export interface IMinifiedConsentJSONObject {
     gdpr?: Dictionary<IPrivacyV2DTO>;

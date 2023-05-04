@@ -1,11 +1,12 @@
 import { generateHash } from "./utils";
-// TODO: EventType/EventTypeEnum exists in differnet forms between @types/eventmodel/dataplanningnode.  determine the differences and consolidate if possible
+// TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5381
 import { EventTypeEnum, IdentityType } from "./types.interfaces";
-import { UserIdentityType } from "./forwarders.interfaces";
+import Constants from './constants';
+
+const { CCPAPurpose } = Constants;
 
 
 export default class KitFilterHelpers {
-    // add generateHash function as a private member?
     static hashEventType(eventType: EventTypeEnum): number {
         return generateHash(eventType);
     };
@@ -39,9 +40,7 @@ export default class KitFilterHelpers {
     }
 
     static hashCCPAPurpose(){
-        const CCPAPurpose = 'data_sale_opt_out' as const;
         const CCPAHashPrefix = '2';
-
         return generateHash(CCPAHashPrefix + CCPAPurpose);
     }
 
