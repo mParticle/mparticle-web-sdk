@@ -330,11 +330,4 @@ describe('Utils', () => {
             expect(isEmpty(undefined)).to.equal(true);
         });
     });
-
-    describe('hashing', () => {
-        it('hashing utility class should have certain functions on it', () => {
-            
-            
-        });
-    });
 });

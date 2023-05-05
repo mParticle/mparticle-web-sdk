@@ -43,7 +43,7 @@ const findKeyInObject = (obj: any, key: string): string => {
     return null;
 };
 
-function generateHash(name: string | EventTypeEnum): number {
+function generateHash(name: string): number {
     let hash: number = 0;
     let character: number;
 

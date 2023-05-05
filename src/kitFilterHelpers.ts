@@ -8,7 +8,7 @@ const { CCPAPurpose } = Constants;
 
 export default class KitFilterHelpers {
     static hashEventType(eventType: EventTypeEnum): number {
-        return generateHash(eventType);
+        return generateHash(eventType as unknown as string);
     };
 
     static hashEventName(eventName: string, eventType: EventTypeEnum): number {
@@ -48,6 +48,7 @@ export default class KitFilterHelpers {
     static hashEventAttributeKeyForForwarding(eventName: string): number {
         return generateHash(eventName);
     }
+
     static hashEventAttributeValueForForwarding(customAttributeName: string): number {
         return generateHash(customAttributeName);
     }
