@@ -145,14 +145,13 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             // GDPR - '1' + purpose name
             // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
             const GDPRConsentHashPrefix = '1';
-            const CCPAHashString = '2' + CCPAPurpose;
+            const CCPAHashPrefix = '2';
 
             const gdprConsentState = consentState.getGDPRConsentState();
             if (gdprConsentState) {
                 for (const purpose in gdprConsentState) {
                     if (gdprConsentState.hasOwnProperty(purpose)) {
-                        purposeHash = KitFilterHelpers.hashGDPRPurpose(purpose)
-                            .toString();
+                        purposeHash = KitFilterHelpers.hashConsentPurposeConditionalForwarding(GDPRConsentHashPrefix, purpose);
                         purposeHashes[purposeHash] =
                             gdprConsentState[purpose].Consented;
                     }
@@ -160,7 +159,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             }
             const CCPAConsentState = consentState.getCCPAConsentState();
             if (CCPAConsentState) {
-                purposeHash = KitFilterHelpers.hashCCPA().toString();
+                purposeHash = KitFilterHelpers.hashConsentPurposeConditionalForwarding(CCPAHashPrefix, CCPAPurpose);
                 purposeHashes[purposeHash] = CCPAConsentState.Consented;
             }
         }

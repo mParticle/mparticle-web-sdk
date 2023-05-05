@@ -3,9 +3,6 @@ import { generateHash } from "./utils";
 import { EventTypeEnum, IdentityType } from "./types.interfaces";
 import Constants from './constants';
 
-const { CCPAPurpose } = Constants;
-
-
 export default class KitFilterHelpers {
     static hashEventType(eventType: EventTypeEnum): number {
         return generateHash(eventType as unknown as string);
@@ -19,12 +16,8 @@ export default class KitFilterHelpers {
         return generateHash(eventType + eventName + customAttributeName);
     }
     
-    static hashUserAttributeKey(userAttributeKey: string): number {
+    static hashUserAttribute(userAttributeKey: string): number {
         return generateHash(userAttributeKey);
-    }
-
-    static hashUserAttributeValue(userAttributeValue: string): number {
-        return generateHash(userAttributeValue);
     }
 
     // User Identities are not actually hashed, this method is named this way to
@@ -33,23 +26,22 @@ export default class KitFilterHelpers {
         return userIdentity;
     }
 
-    static hashGDPRPurpose(purpose: string): number {
-        const GDPRConsentHashPrefix = '1';
+    static hashConsentPurpose(prefix: string, purpose: string){
+        return generateHash(prefix + purpose)
 
-        return generateHash(GDPRConsentHashPrefix + purpose)
     }
 
-    static hashCCPA(){
-        const CCPAHashPrefix = '2';
-        return generateHash(CCPAHashPrefix + CCPAPurpose);
+    // The methods below are for conditional forwarding, a type of filter
+    // hashAttributeCondiitonalForwarding is used for both User and Event
+    // attribute keys and attribute values
+    // The backend returns the hashes as strings for conditional forwarding
+    // but returns "regular" filters as arrays of numbers
+    // See IFilteringEventAttributeValue in configApiClient.ts as an example
+    static hashAttributeConditionalForwarding(attribute: string): string {
+        return generateHash(attribute).toString();
     }
 
-    // Forwarding filters
-    static hashEventAttributeKeyForForwarding(eventName: string): number {
-        return generateHash(eventName);
-    }
-
-    static hashEventAttributeValueForForwarding(customAttributeName: string): number {
-        return generateHash(customAttributeName);
+    static hashConsentPurposeConditionalForwarding(prefix: string, purpose: string): string {
+        return this.hashConsentPurpose(prefix, purpose).toString();
     }
 }

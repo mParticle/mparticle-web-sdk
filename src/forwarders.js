@@ -111,12 +111,12 @@ export default function Forwarders(mpInstance, kitBlocker) {
             ) {
                 for (var attrName in userAttributes) {
                     if (userAttributes.hasOwnProperty(attrName)) {
-                        attrHash = FilterUtilities.hashUserAttributeKey(
+                        attrHash = FilterUtilities.hashAttributeConditionalForwarding(
                             attrName
-                        ).toString();
-                        valueHash = FilterUtilities.hashUserAttributeValue(
+                        );
+                        valueHash = FilterUtilities.hashAttributeConditionalForwarding(
                             userAttributes[attrName]
-                        ).toString();
+                        );
 
                         if (
                             attrHash === filterObject.userAttributeName &&
@@ -206,8 +206,6 @@ export default function Forwarders(mpInstance, kitBlocker) {
                             event.EventName,
                             attrName
                         );
-                        console.log('hash');
-                        console.log(hash);
 
                         if (mpInstance._Helpers.inArray(filterList, hash)) {
                             delete event.EventAttributes[attrName];
@@ -269,9 +267,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     if (event.EventAttributes) {
                         for (var prop in event.EventAttributes) {
                             var hashedEventAttributeName;
-                            hashedEventAttributeName = FilterUtilities.hashEventAttributeKeyForForwarding(
+                            hashedEventAttributeName = FilterUtilities.hashAttributeConditionalForwarding(
                                 prop
-                            ).toString();
+                            );
 
                             if (
                                 hashedEventAttributeName ===
@@ -281,9 +279,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
                             ) {
                                 foundProp = {
                                     name: hashedEventAttributeName,
-                                    value: FilterUtilities.hashEventAttributeValueForForwarding(
+                                    value: FilterUtilities.hashAttributeConditionalForwarding(
                                         event.EventAttributes[prop]
-                                    ).toString(),
+                                    ),
                                 };
                             }
 

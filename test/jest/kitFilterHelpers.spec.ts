@@ -1,5 +1,8 @@
 import FilterUtilities from "../../src/kitFilterHelpers";
 import { EventTypeEnum, IdentityType } from "../../src/types.interfaces";
+import Constants from '../../src/constants';
+const { CCPAPurpose } = Constants;
+
 
 describe('FilterHashingUtilities', () => {
     describe('#hashEventType', () => {
@@ -179,23 +182,11 @@ describe('FilterHashingUtilities', () => {
         });
     });
 
-    describe('#hashUserAttributeKey', () => {
-        it('should hash user attribute key', () => {
-            const userAttributeKey :string = 'foo-value';
+    describe('#hashUserAttribute', () => {
+        it('should hash user attributey', () => {
+            const userAttribute :string = 'foo-value';
 
-            const resultHash = FilterUtilities.hashUserAttributeKey(userAttributeKey);
-
-            const expectedHash = 1630602666;
-
-            expect(resultHash).toBe(expectedHash);
-        });
-    });
-
-    describe('#hashUserAttributeValue', () => {
-        it('should hash user attribute value', () => {
-            const userAttributeValue :string = 'foo-value';
-
-            const resultHash = FilterUtilities.hashUserAttributeValue(userAttributeValue);
+            const resultHash = FilterUtilities.hashUserAttribute(userAttribute);
 
             const expectedHash = 1630602666;
 
@@ -336,42 +327,61 @@ describe('FilterHashingUtilities', () => {
 
     describe('#hashGDPRPurpose', () => {
         it('should hash GDPR Purpose', () => {
+            const GDPRConsentHashPrefix: string = '1';
             const GDPRPurpose = 'Marketing';
-            const resultHash = FilterUtilities.hashGDPRPurpose(GDPRPurpose);
+            const resultHash = FilterUtilities.hashConsentPurpose(GDPRConsentHashPrefix, GDPRPurpose);
             const expectedHash = -1972997867;
 
             expect(resultHash).toBe(expectedHash);
         });
     });
 
-    describe('#hashCCPAPurpose', () => {
-        it('should hash CCPA Purpose', () => {
-            const resultHash = FilterUtilities.hashCCPA();
+    describe('#hashCCPA', () => {
+        it('should hash CCPA', () => {
+            const CCPAHashPrefix: string = '2';
+            const resultHash = FilterUtilities.hashConsentPurpose(CCPAHashPrefix, CCPAPurpose);
             const expectedHash = -575335347;
 
             expect(resultHash).toBe(expectedHash);
         });
     });
 
-    describe('#hashEventAttributeKeyForForwarding', () => {
+    describe('#hashAttributeConditionalForwarding', () => {
         it('should hash event attribute key for forwarding', () => {
             const eventAttributeKey :string = 'foo-key';
 
-            const resultHash = FilterUtilities.hashEventAttributeKeyForForwarding(eventAttributeKey);
+            const resultHash = FilterUtilities.hashAttributeConditionalForwarding(eventAttributeKey);
 
-            const expectedHash = -682111784;
+            const expectedHash = "-682111784";
+
+            expect(resultHash).toBe(expectedHash);
+        });
+
+        it('should hash user attribute key for forwarding', () => {
+            const userAttributeKey :string = 'foo-key';
+
+            const resultHash = FilterUtilities.hashAttributeConditionalForwarding(userAttributeKey);
+
+            const expectedHash = "-682111784";
 
             expect(resultHash).toBe(expectedHash);
         });
     });
 
-    describe('#hashEventAttributeValueForForwarding', () => {
-        it('should hash event attribute value for forwarding', () => {
-            const eventAttributeKey :string = 'foo-value';
+    describe('#hashConsentPurposeConditionalForwarding', () => {
+        it('should hash GDPR consent for conditional forwarding', () => {
+            const GDPRConsentHashPrefix: string = '1';
+            const GDPRPurpose = 'Marketing';
+            const resultHash = FilterUtilities.hashConsentPurposeConditionalForwarding(GDPRConsentHashPrefix, GDPRPurpose);
+            const expectedHash = "-1972997867";
+            
+            expect(resultHash).toBe(expectedHash);
+        });
 
-            const resultHash = FilterUtilities.hashEventAttributeValueForForwarding(eventAttributeKey);
-
-            const expectedHash =  1630602666;
+        it('should hash CCPA for conditional forwarding', () => {
+            const CCPAHashPrefix: string = '2';
+            const resultHash = FilterUtilities.hashConsentPurposeConditionalForwarding(CCPAHashPrefix, CCPAPurpose);
+            const expectedHash = "-575335347";
 
             expect(resultHash).toBe(expectedHash);
         });

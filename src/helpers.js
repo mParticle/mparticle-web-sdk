@@ -312,8 +312,8 @@ export default function Helpers(mpInstance) {
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
             for (var userIdentityName in userIdentitiesObject) {
                 if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-                    var userIdentityType = Types.IdentityType.getIdentityType(
-                        userIdentityName
+                    var userIdentityType = FilterUtilities.hashUserIdentity(
+                        Types.IdentityType.getIdentityType(userIdentityName)
                     );
                     if (!self.inArray(filterList, userIdentityType)) {
                         filteredUserIdentities[userIdentityName] =
@@ -332,7 +332,7 @@ export default function Helpers(mpInstance) {
         if (userAttributes && Object.keys(userAttributes).length) {
             for (var userAttribute in userAttributes) {
                 if (userAttributes.hasOwnProperty(userAttribute)) {
-                    const hashedUserAttribute = FilterUtilities.hashUserAttributeKey(
+                    const hashedUserAttribute = FilterUtilities.hashUserAttribute(
                         userAttribute
                     );
                     if (!self.inArray(filterList, hashedUserAttribute)) {
@@ -347,7 +347,7 @@ export default function Helpers(mpInstance) {
     };
 
     this.isFilteredUserAttribute = function(userAttributeKey, filterList) {
-        const hashedUserAttribute = FilterUtilities.hashUserAttributeKey(
+        const hashedUserAttribute = FilterUtilities.hashUserAttribute(
             userAttributeKey
         );
         return filterList && self.inArray(filterList, hashedUserAttribute);

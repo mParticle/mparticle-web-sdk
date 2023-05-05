@@ -1,4 +1,3 @@
-import { EventTypeEnum } from "./types.interfaces";
 import slugify from 'slugify';
 
 type valueof<T> = T[keyof T];
