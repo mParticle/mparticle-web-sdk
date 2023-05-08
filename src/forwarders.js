@@ -1,7 +1,7 @@
 import Types from './types';
 import filteredMparticleUser from './filteredMparticleUser';
 import { isEmpty } from './utils';
-import FilterUtilities from './kitFilterHelpers';
+import FilterUtilities from './kitFilterHelper';
 
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
