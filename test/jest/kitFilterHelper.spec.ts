@@ -1,4 +1,4 @@
-import FilterUtilities from "../../src/kitFilterHelpers";
+import FilterUtilities from "../../src/kitFilterHelper";
 import { EventTypeEnum, IdentityType } from "../../src/types.interfaces";
 import Constants from '../../src/constants';
 const { CCPAPurpose } = Constants;

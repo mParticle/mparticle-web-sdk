@@ -6,7 +6,7 @@ import {
 } from '@mparticle/web-sdk';
 import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
 import { Dictionary, isObject } from './utils';
-import KitFilterHelpers from './kitFilterHelpers';
+import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 
 const { CCPAPurpose } = Constants;
@@ -151,7 +151,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             if (gdprConsentState) {
                 for (const purpose in gdprConsentState) {
                     if (gdprConsentState.hasOwnProperty(purpose)) {
-                        purposeHash = KitFilterHelpers.hashConsentPurposeConditionalForwarding(GDPRConsentHashPrefix, purpose);
+                        purposeHash = KitFilterHelper.hashConsentPurposeConditionalForwarding(GDPRConsentHashPrefix, purpose);
                         purposeHashes[purposeHash] =
                             gdprConsentState[purpose].Consented;
                     }
@@ -159,7 +159,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             }
             const CCPAConsentState = consentState.getCCPAConsentState();
             if (CCPAConsentState) {
-                purposeHash = KitFilterHelpers.hashConsentPurposeConditionalForwarding(CCPAHashPrefix, CCPAPurpose);
+                purposeHash = KitFilterHelper.hashConsentPurposeConditionalForwarding(CCPAHashPrefix, CCPAPurpose);
                 purposeHashes[purposeHash] = CCPAConsentState.Consented;
             }
         }

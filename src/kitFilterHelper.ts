@@ -3,7 +3,7 @@ import { generateHash } from "./utils";
 import { EventTypeEnum, IdentityType } from "./types.interfaces";
 import Constants from './constants';
 
-export default class KitFilterHelpers {
+export default class KitFilterHelper {
     static hashEventType(eventType: EventTypeEnum): number {
         return generateHash(eventType as unknown as string);
     };

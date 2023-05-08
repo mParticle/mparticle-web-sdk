@@ -307,12 +307,12 @@ export default function Helpers(mpInstance) {
         userIdentitiesObject,
         filterList
     ) {
-        var filteredUserIdentities = {};
+        const filteredUserIdentities = {};
 
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-            for (var userIdentityName in userIdentitiesObject) {
+            for (const userIdentityName in userIdentitiesObject) {
                 if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-                    var userIdentityType = FilterUtilities.hashUserIdentity(
+                    const userIdentityType = FilterUtilities.hashUserIdentity(
                         Types.IdentityType.getIdentityType(userIdentityName)
                     );
                     if (!self.inArray(filterList, userIdentityType)) {
