@@ -2,7 +2,7 @@ import Types from './types';
 import Constants from './constants';
 import * as utils from './utils';
 import Validators from './validators';
-import FilterUtilities from './kitFilterHelpers';
+import FilterUtilities from './kitFilterHelper';
 
 var StorageNames = Constants.StorageNames;
 
