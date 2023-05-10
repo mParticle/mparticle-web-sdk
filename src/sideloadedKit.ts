@@ -6,7 +6,6 @@ import { EventTypeEnum, IdentityType } from './types.interfaces';
 /**
  */
 export class MPSideloadedKit {
-    public readonly CONTENT_TYPE: string = 'text/plain;charset=UTF-8';
     public kitInstance: UnregisteredKit;
     public filterDictionary: IKitFilterSettings = {
         eventTypeFilters: [],
