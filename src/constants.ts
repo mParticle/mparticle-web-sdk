@@ -163,6 +163,7 @@ const Constants = {
         OfflineStorage: 'offlineStorage',
     },
     DefaultInstance: 'default_instance',
+    CCPAPurpose: 'data_sale_opt_out'
 } as const;
 
 export default Constants;

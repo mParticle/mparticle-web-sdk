@@ -2,6 +2,7 @@ import Types from './types';
 import Constants from './constants';
 import * as utils from './utils';
 import Validators from './validators';
+import KitFilterHelper from './kitFilterHelper';
 
 var StorageNames = Constants.StorageNames;
 
@@ -306,13 +307,13 @@ export default function Helpers(mpInstance) {
         userIdentitiesObject,
         filterList
     ) {
-        var filteredUserIdentities = {};
+        const filteredUserIdentities = {};
 
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
-            for (var userIdentityName in userIdentitiesObject) {
+            for (const userIdentityName in userIdentitiesObject) {
                 if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-                    var userIdentityType = Types.IdentityType.getIdentityType(
-                        userIdentityName
+                    const userIdentityType = KitFilterHelper.hashUserIdentity(
+                        Types.IdentityType.getIdentityType(userIdentityName)
                     );
                     if (!self.inArray(filterList, userIdentityType)) {
                         filteredUserIdentities[userIdentityName] =
@@ -331,7 +332,9 @@ export default function Helpers(mpInstance) {
         if (userAttributes && Object.keys(userAttributes).length) {
             for (var userAttribute in userAttributes) {
                 if (userAttributes.hasOwnProperty(userAttribute)) {
-                    var hashedUserAttribute = self.generateHash(userAttribute);
+                    const hashedUserAttribute = KitFilterHelper.hashUserAttribute(
+                        userAttribute
+                    );
                     if (!self.inArray(filterList, hashedUserAttribute)) {
                         filteredUserAttributes[userAttribute] =
                             userAttributes[userAttribute];
@@ -344,7 +347,9 @@ export default function Helpers(mpInstance) {
     };
 
     this.isFilteredUserAttribute = function(userAttributeKey, filterList) {
-        const hashedUserAttribute = self.generateHash(userAttributeKey);
+        const hashedUserAttribute = KitFilterHelper.hashUserAttribute(
+            userAttributeKey
+        );
         return filterList && self.inArray(filterList, hashedUserAttribute);
     };
 
