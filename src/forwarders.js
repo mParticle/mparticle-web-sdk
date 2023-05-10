@@ -1,6 +1,7 @@
 import Types from './types';
 import filteredMparticleUser from './filteredMparticleUser';
 import { isEmpty } from './utils';
+import KitFilterHelper from './kitFilterHelper';
 
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
@@ -110,12 +111,12 @@ export default function Forwarders(mpInstance, kitBlocker) {
             ) {
                 for (var attrName in userAttributes) {
                     if (userAttributes.hasOwnProperty(attrName)) {
-                        attrHash = mpInstance._Helpers
-                            .generateHash(attrName)
-                            .toString();
-                        valueHash = mpInstance._Helpers
-                            .generateHash(userAttributes[attrName])
-                            .toString();
+                        attrHash = KitFilterHelper.hashAttributeConditionalForwarding(
+                            attrName
+                        );
+                        valueHash = KitFilterHelper.hashAttributeConditionalForwarding(
+                            userAttributes[attrName]
+                        );
 
                         if (
                             attrHash === filterObject.userAttributeName &&
@@ -177,7 +178,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         if (
                             mpInstance._Helpers.inArray(
                                 filterList,
-                                userIdentity.Type
+                                KitFilterHelper.hashUserIdentity(
+                                    userIdentity.Type
+                                )
                             )
                         ) {
                             event.UserIdentities.splice(i, 1);
@@ -198,8 +201,10 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
                 for (var attrName in event.EventAttributes) {
                     if (event.EventAttributes.hasOwnProperty(attrName)) {
-                        hash = mpInstance._Helpers.generateHash(
-                            event.EventCategory + event.EventName + attrName
+                        hash = KitFilterHelper.hashEventAttributeKey(
+                            event.EventCategory,
+                            event.EventName,
+                            attrName
                         );
 
                         if (mpInstance._Helpers.inArray(filterList, hash)) {
@@ -227,10 +232,11 @@ export default function Forwarders(mpInstance, kitBlocker) {
             !mpInstance._Store.webviewBridgeEnabled &&
             mpInstance._Store.activeForwarders
         ) {
-            hashedEventName = mpInstance._Helpers.generateHash(
-                event.EventCategory + event.EventName
+            hashedEventName = KitFilterHelper.hashEventName(
+                event.EventName,
+                event.EventCategory
             );
-            hashedEventType = mpInstance._Helpers.generateHash(
+            hashedEventType = KitFilterHelper.hashEventType(
                 event.EventCategory
             );
 
@@ -261,9 +267,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
                     if (event.EventAttributes) {
                         for (var prop in event.EventAttributes) {
                             var hashedEventAttributeName;
-                            hashedEventAttributeName = mpInstance._Helpers
-                                .generateHash(prop)
-                                .toString();
+                            hashedEventAttributeName = KitFilterHelper.hashAttributeConditionalForwarding(
+                                prop
+                            );
 
                             if (
                                 hashedEventAttributeName ===
@@ -273,11 +279,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
                             ) {
                                 foundProp = {
                                     name: hashedEventAttributeName,
-                                    value: mpInstance._Helpers
-                                        .generateHash(
-                                            event.EventAttributes[prop]
-                                        )
-                                        .toString(),
+                                    value: KitFilterHelper.hashAttributeConditionalForwarding(
+                                        event.EventAttributes[prop]
+                                    ),
                                 };
                             }
 

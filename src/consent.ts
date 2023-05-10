@@ -6,9 +6,10 @@ import {
 } from '@mparticle/web-sdk';
 import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
 import { Dictionary, isObject } from './utils';
+import KitFilterHelper from './kitFilterHelper';
+import Constants from './constants';
 
-// Specifies to compiler that CCPAPurpose can only be one specific value
-export const CCPAPurpose = 'data_sale_opt_out' as const;
+const { CCPAPurpose } = Constants;
 
 export interface IMinifiedConsentJSONObject {
     gdpr?: Dictionary<IPrivacyV2DTO>;
@@ -144,15 +145,13 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             // GDPR - '1' + purpose name
             // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
             const GDPRConsentHashPrefix = '1';
-            const CCPAHashString = '2' + CCPAPurpose;
+            const CCPAHashPrefix = '2';
 
             const gdprConsentState = consentState.getGDPRConsentState();
             if (gdprConsentState) {
                 for (const purpose in gdprConsentState) {
                     if (gdprConsentState.hasOwnProperty(purpose)) {
-                        purposeHash = mpInstance._Helpers
-                            .generateHash(GDPRConsentHashPrefix + purpose)
-                            .toString();
+                        purposeHash = KitFilterHelper.hashConsentPurposeConditionalForwarding(GDPRConsentHashPrefix, purpose);
                         purposeHashes[purposeHash] =
                             gdprConsentState[purpose].Consented;
                     }
@@ -160,9 +159,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
             }
             const CCPAConsentState = consentState.getCCPAConsentState();
             if (CCPAConsentState) {
-                purposeHash = mpInstance._Helpers
-                    .generateHash(CCPAHashString)
-                    .toString();
+                purposeHash = KitFilterHelper.hashConsentPurposeConditionalForwarding(CCPAHashPrefix, CCPAPurpose);
                 purposeHashes[purposeHash] = CCPAConsentState.Consented;
             }
         }
