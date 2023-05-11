@@ -11,6 +11,7 @@ export enum EventTypeEnum {
     Media,
 }
 
+// TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5403
 export enum MessageType {
     SessionStart = 1,
     SessionEnd = 2,
@@ -21,9 +22,9 @@ export enum MessageType {
     AppStateTransition = 10,
     Profile = 14,
     Commerce = 16,
-    Media = 20,
     UserAttributeChange = 17,
     UserIdentityChange = 18,
+    Media = 20,
 };
 
 export enum IdentityType {
