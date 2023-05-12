@@ -1,10 +1,9 @@
-import { MPSideloadedKit } from "../../src/sideloadedKit";
+import MPSideloadedKit, { IMPSideloadedKit } from "../../src/sideloadedKit";
+import { IMPSideloadedKitConstructor } from "../../src/sideloadedKit";
 import { EventTypeEnum, IdentityType } from "../../src/types.interfaces";
-import Constants from '../../src/constants';
 import { UnregisteredKit } from '../../src/forwarders.interfaces';
 import { IKitFilterSettings } from '../../src/configAPIClient';
-const { CCPAPurpose } = Constants;
-
+import { mParticle } from "../src/config";
 
 const mockKitInstance: UnregisteredKit = {
     register: function() {}
@@ -84,6 +83,30 @@ describe('MPSideloadedKit', () => {
             const expectedResult = [-682111784];
             mpSideloadedKit.addUserAttributeFilter(userAttributeKey);
             expect(filterDictionary.userAttributeFilters).toEqual(expectedResult);
+        });
+    });
+
+    describe('#MPSideloadedKit Integration Tests', () => {
+        it('should create a new MPSideloadedKit instance from the global mParticle object', () => {
+            const mpSideloadedKitConstructor: IMPSideloadedKit = mParticle.MPSideloadedKit;
+
+            // https://stackoverflow.com/questions/13407036/how-does-interfaces-with-construct-signatures-work
+            function makeMPSideloadedKit(n: IMPSideloadedKitConstructor) {
+                return new n(mockKitInstance);
+            }
+
+            const sampleSideloadedKit = makeMPSideloadedKit(MPSideloadedKit);
+
+            expect(sampleSideloadedKit).toHaveProperty('addEventAttributeFilter');
+            expect(sampleSideloadedKit).toHaveProperty('addEventTypeFilter');
+            expect(sampleSideloadedKit).toHaveProperty('addEventNameFilter');
+            expect(sampleSideloadedKit).toHaveProperty('addEventAttributeFilter');
+            expect(sampleSideloadedKit).toHaveProperty('addScreenNameFilter');
+            expect(sampleSideloadedKit).toHaveProperty('addScreenAttributeFilter');
+            expect(sampleSideloadedKit).toHaveProperty('addUserIdentityFilter');
+            expect(sampleSideloadedKit).toHaveProperty('addUserAttributeFilter');
+            expect(sampleSideloadedKit).toHaveProperty('filterDictionary');
+            expect(sampleSideloadedKit).toHaveProperty('kitInstance');
         });
     });
 });
