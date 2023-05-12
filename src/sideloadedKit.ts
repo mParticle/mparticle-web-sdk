@@ -24,8 +24,8 @@ export interface IMPSideloadedKit {
 // https://stackoverflow.com/questions/13407036/how-does-interfaces-with-construct-signatures-work
 export interface IMPSideloadedKitConstructor {
     new(unregisteredKitInstance: UnregisteredKit): IMPSideloadedKit;
-
 }
+
 export default class MPSideloadedKit implements IMPSideloadedKit{
     public kitInstance: UnregisteredKit;
     public filterDictionary: IKitFilterSettings = {

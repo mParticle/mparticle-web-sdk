@@ -3,4 +3,5 @@ module.exports = {
     testEnvironment: 'jsdom',
     setupFiles: ['./dist/mparticle.js'],
     setupFilesAfterEnv: ['jest-expect-message'],
+    transform: {},
 };

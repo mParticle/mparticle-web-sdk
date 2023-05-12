@@ -624,7 +624,14 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 // which is typed { kits: Dictionary<constructor> }.
                 // The constructors are keyed by the name of the kit.
                 config.sideloadedKits.forEach(function(sideloadedKit) {
-                    sideloadedKit.register(sideloadedKits);
+                    try {
+                        sideloadedKit.kitInstance.register(sideloadedKits);
+                    } catch (e) {
+                        console.error(
+                            'Error registering sideloaded kit ' +
+                                sideloadedKit.kitInstance.name
+                        );
+                    }
                 });
 
                 // Then configure each kit

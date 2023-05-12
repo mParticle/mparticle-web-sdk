@@ -117,7 +117,8 @@ export default class _BatchValidator {
             logLevel: 'none',
             setPosition: mockFunction,
             upload: mockFunction,
-        } as MParticleWebSDK;
+
+        } as unknown as MParticleWebSDK;
     }
 
     private createSDKEventFunction(event): SDKEvent {

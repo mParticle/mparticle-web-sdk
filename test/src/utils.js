@@ -325,7 +325,6 @@ var pluses = /\+/g,
             this.reportingService = null;
             this.name = forwarderName || 'MockForwarder';
             this.userAttributeFilters = [];
-            this.setUserIdentityCalled = false;
             this.removeUserAttributeCalled = false;
             this.receivedEvent = null;
             this.isVisible = false;

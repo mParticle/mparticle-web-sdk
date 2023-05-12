@@ -6,7 +6,8 @@ import { IKitFilterSettings } from '../../src/configAPIClient';
 import { mParticle } from "../src/config";
 
 const mockKitInstance: UnregisteredKit = {
-    register: function() {}
+    register: function() {},
+    name: 'foo-unregistered-kit'
 };
 
 describe('MPSideloadedKit', () => {
@@ -87,14 +88,11 @@ describe('MPSideloadedKit', () => {
     });
 
     describe('#MPSideloadedKit Integration Tests', () => {
+        // https://stackoverflow.com/questions/13407036/how-does-interfaces-with-construct-signatures-work
+        function makeMPSideloadedKit(n: IMPSideloadedKitConstructor) {
+            return new n(mockKitInstance);
+        }
         it('should create a new MPSideloadedKit instance from the global mParticle object', () => {
-            const mpSideloadedKitConstructor: IMPSideloadedKit = mParticle.MPSideloadedKit;
-
-            // https://stackoverflow.com/questions/13407036/how-does-interfaces-with-construct-signatures-work
-            function makeMPSideloadedKit(n: IMPSideloadedKitConstructor) {
-                return new n(mockKitInstance);
-            }
-
             const sampleSideloadedKit = makeMPSideloadedKit(MPSideloadedKit);
 
             expect(sampleSideloadedKit).toHaveProperty('addEventAttributeFilter');
@@ -108,5 +106,25 @@ describe('MPSideloadedKit', () => {
             expect(sampleSideloadedKit).toHaveProperty('filterDictionary');
             expect(sampleSideloadedKit).toHaveProperty('kitInstance');
         });
+
+        // For this test to pass, we need to mock http requests in jest
+        // it.only('should add sideloaded kits to the active forwarders', function() {
+        //     const unregisteredSideloadedKitInstance1: IMockSideloadedKit = new MockSideloadedKit('SideloadedKit1', 1);
+        //     const unregisteredSideloadedKitInstance2: IMockSideloadedKit = new MockSideloadedKit('SideloadedKit2', 2);
+
+        //     const mpsideloadedKit1 = new MPSideloadedKit(unregisteredSideloadedKitInstance1);
+        //     const mpsideloadedKit2 = new MPSideloadedKit(unregisteredSideloadedKitInstance2);
+        //     const sideloadedKits = [mpsideloadedKit1, mpsideloadedKit2];
+        //     window.mParticle.config.sideloadedKits = sideloadedKits;
+        //     // console.log(window.mParticle.config.sideloadedKits);
+        //     window.mParticle.config.requestConfig = false;
+        //     mParticle.init(apiKey, window.mParticle.config);
+
+        //     const activeForwarders: MPForwarder = mParticle.getInstance()._getActiveForwarders();
+            
+        //     expect(activeForwarders.length, 'active forwarders length').toEqual(sideloadedKits.length);
+        //     expect(activeForwarders[0].name, '1st active forwarder ').toEqual(mpsideloadedKit1.kitInstance.name);
+        //     expect(activeForwarders[0].name, '1st active forwarder ').toEqual(mpsideloadedKit2.kitInstance.name);
+        // });
     });
 });
