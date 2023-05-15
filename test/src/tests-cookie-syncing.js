@@ -9,6 +9,17 @@ let mockServer;
 
 describe('cookie syncing', function() {
     const timeout = 25;
+    const pixelSettings = {
+        name: 'TestPixel',
+        moduleId: 5,
+        esId: 24053,
+        isDebug: true,
+        isProduction: true,
+        settings: {},
+        frequencyCap: 14,
+        pixelUrl: '',
+        redirectUrl: '',
+    };
     // Have a reference to createElement function to reset after all cookie sync
     // tests have run
     const originalCreateElementFunction = window.document.createElement;
@@ -57,17 +68,6 @@ describe('cookie syncing', function() {
 
     it('should sync cookies when there was not a previous cookie-sync', function(done) {
         mParticle._resetForTests(MPConfig);
-        const pixelSettings = {
-            name: 'TestPixel',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
-        };
 
         window.mParticle.config.pixelConfigs = [pixelSettings];
         mParticle.init(apiKey, window.mParticle.config);
@@ -83,17 +83,7 @@ describe('cookie syncing', function() {
 
     it('should sync cookies when current date is beyond the frequency cap and the MPID has not changed', function(done) {
         mParticle._resetForTests(MPConfig);
-        const pixelSettings = {
-            name: 'TestPixel',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
-        };
+
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         setLocalStorage(v4LSKey, {
@@ -119,17 +109,7 @@ describe('cookie syncing', function() {
 
     it('should not sync cookies when last date is within frequencyCap', function(done) {
         mParticle._resetForTests(MPConfig);
-        const pixelSettings = {
-            name: 'TestPixel',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
-        };
+
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         setLocalStorage();
@@ -155,17 +135,7 @@ describe('cookie syncing', function() {
     });
 
     it('should sync cookies when mpid changes', function(done) {
-        const pixelSettings = {
-            name: 'TestPixel',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
-        };
+
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
@@ -354,17 +324,7 @@ describe('cookie syncing', function() {
     it('should perform a cookiesync when consent is not configured on the cookiesync setting', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        const pixelSettings = {
-            name: 'TestPixel',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
-        };
+
 
         pixelSettings.filteringConsentRuleValues = {};
         window.mParticle.config.pixelConfigs = [pixelSettings];
@@ -962,17 +922,7 @@ describe('cookie syncing', function() {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        const pixelSettings = {
-            name: 'TestPixel',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
-        };
+
 
         pixelSettings.filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
@@ -1034,17 +984,7 @@ describe('cookie syncing', function() {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        const pixelSettings = {
-            name: 'TestPixel',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
-        };
+
 
         pixelSettings.filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
@@ -1103,17 +1043,7 @@ describe('cookie syncing', function() {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        const pixelSettings = {
-            name: 'TestPixel',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
-        };
+
 
         pixelSettings.filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
@@ -1174,17 +1104,7 @@ describe('cookie syncing', function() {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
 
-        const pixelSettings = {
-            name: 'TestPixel',
-            moduleId: 5,
-            esId: 24053,
-            isDebug: true,
-            isProduction: true,
-            settings: {},
-            frequencyCap: 14,
-            pixelUrl: '',
-            redirectUrl: '',
-        };
+
 
         pixelSettings.filteringConsentRuleValues = {
             includeOnMatch: includeOnMatch,
