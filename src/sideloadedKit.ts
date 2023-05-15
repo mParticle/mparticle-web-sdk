@@ -62,7 +62,4 @@ export class MPSideloadedKit {
         const hashedUserAttributeKey = KitFilterHelper.hashUserAttribute(userAttributeKey);
         this.filterDictionary.userAttributeFilters.push(hashedUserAttributeKey);
     }
-
-    // public addCommerceEventAttributeFilter() {
-    // }
 }
