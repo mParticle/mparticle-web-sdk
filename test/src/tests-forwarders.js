@@ -2573,7 +2573,7 @@ describe('forwarders', function() {
         done();
     });
 
-    describe.only('side loaded kits', function() {
+    describe('side loaded kits', function() {
         describe('initialization', function() {
             beforeEach(function() {
                 mParticle._resetForTests(MPConfig);

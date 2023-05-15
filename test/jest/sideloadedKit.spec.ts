@@ -1,13 +1,12 @@
 import MPSideloadedKit, { IMPSideloadedKit } from "../../src/sideloadedKit";
 import { IMPSideloadedKitConstructor } from "../../src/sideloadedKit";
 import { EventTypeEnum, IdentityType } from "../../src/types.interfaces";
-import { UnregisteredKit } from '../../src/forwarders.interfaces';
+import { UnregisteredKit } from '../../src/forwarders.interfaces';          
 import { IKitFilterSettings } from '../../src/configAPIClient';
 import { mParticle } from "../src/config";
 
 const mockKitInstance: UnregisteredKit = {
-    register: function() {},
-    name: 'foo-unregistered-kit'
+    register: function() {}
 };
 
 describe('MPSideloadedKit', () => {
@@ -106,25 +105,5 @@ describe('MPSideloadedKit', () => {
             expect(sampleSideloadedKit).toHaveProperty('filterDictionary');
             expect(sampleSideloadedKit).toHaveProperty('kitInstance');
         });
-
-        // For this test to pass, we need to mock http requests in jest
-        // it.only('should add sideloaded kits to the active forwarders', function() {
-        //     const unregisteredSideloadedKitInstance1: IMockSideloadedKit = new MockSideloadedKit('SideloadedKit1', 1);
-        //     const unregisteredSideloadedKitInstance2: IMockSideloadedKit = new MockSideloadedKit('SideloadedKit2', 2);
-
-        //     const mpsideloadedKit1 = new MPSideloadedKit(unregisteredSideloadedKitInstance1);
-        //     const mpsideloadedKit2 = new MPSideloadedKit(unregisteredSideloadedKitInstance2);
-        //     const sideloadedKits = [mpsideloadedKit1, mpsideloadedKit2];
-        //     window.mParticle.config.sideloadedKits = sideloadedKits;
-        //     // console.log(window.mParticle.config.sideloadedKits);
-        //     window.mParticle.config.requestConfig = false;
-        //     mParticle.init(apiKey, window.mParticle.config);
-
-        //     const activeForwarders: MPForwarder = mParticle.getInstance()._getActiveForwarders();
-            
-        //     expect(activeForwarders.length, 'active forwarders length').toEqual(sideloadedKits.length);
-        //     expect(activeForwarders[0].name, '1st active forwarder ').toEqual(mpsideloadedKit1.kitInstance.name);
-        //     expect(activeForwarders[0].name, '1st active forwarder ').toEqual(mpsideloadedKit2.kitInstance.name);
-        // });
     });
 });
