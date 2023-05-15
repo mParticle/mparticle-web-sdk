@@ -38,11 +38,11 @@ jobs:
             - name: Lint with Prettier
               run: npm run prettier
 
-            - name: Build Files
-              run: npm run build
+            - name: Run Build IIFE
+              run: npm run build:iife
 
-            - name: Run Core tests
-              run: npm run test
+            - name: Display Bundle Diff, but Fancy!
+              run: git diff --unified=3 dist/mparticle.js | npx diff-so-fancy
 
             - name: Run Integration
               run: npm run test:integrations
