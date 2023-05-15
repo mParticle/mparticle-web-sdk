@@ -7,11 +7,33 @@ const setLocalStorage = Utils.setLocalStorage,
     getLocalStorage = Utils.getLocalStorage;
 let mockServer;
 
-// single pixel to load
-const pixelUrl = 'https://upload.wikimedia.org/wikipedia/commons/c/ca/1x1.png';
-
 describe('cookie syncing', function() {
-    const timeout = 500;
+    const timeout = 25;
+    // Have a reference to createElement function to reset after all cookie sync
+    // tests have run
+    const originalCreateElementFunction = window.document.createElement;
+
+    before(function() {
+        // Mock the img create onload method
+        window.document.createElement = (function (create) {
+            return function () {
+                const element = create.apply(this, arguments)
+    
+                if (element.tagName === 'IMG') {
+                    setTimeout(() => {
+                        element.onload(new Event('load'))
+                    }, 10)
+                }
+                return element
+            }
+        })(document.createElement)
+    });
+
+    after(function() {
+        // Reset the mock
+        window.document.createElement = originalCreateElementFunction;
+    });
+
     beforeEach(function() {
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
@@ -21,6 +43,9 @@ describe('cookie syncing', function() {
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
+
+        window.fetchMock.post(urls.events, 200);
+
         mParticle.init(apiKey, window.mParticle.config);
     });
 
@@ -39,7 +64,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
 
@@ -65,7 +90,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
         window.mParticle.config.pixelConfigs = [pixelSettings];
@@ -101,7 +126,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
         window.mParticle.config.pixelConfigs = [pixelSettings];
@@ -137,7 +162,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
         mParticle._resetForTests(MPConfig);
@@ -176,7 +201,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
         mParticle._resetForTests(MPConfig);
@@ -206,7 +231,7 @@ describe('cookie syncing', function() {
             isProduction: false,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
         mParticle._resetForTests(MPConfig);
@@ -273,7 +298,7 @@ describe('cookie syncing', function() {
                     isProduction: true,
                     settings: {},
                     frequencyCap: 14,
-                    pixelUrl: pixelUrl,
+                    pixelUrl: '',
                     redirectUrl: '',
                 },
             ],
@@ -336,7 +361,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
 
@@ -944,7 +969,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
 
@@ -1016,7 +1041,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
 
@@ -1085,7 +1110,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
 
@@ -1156,7 +1181,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
 
@@ -1228,7 +1253,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
 
@@ -1253,7 +1278,7 @@ describe('cookie syncing', function() {
             isProduction: true,
             settings: {},
             frequencyCap: 14,
-            pixelUrl: pixelUrl,
+            pixelUrl: '',
             redirectUrl: '',
         };
 
