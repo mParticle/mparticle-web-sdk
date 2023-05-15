@@ -582,7 +582,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.21.1";
+    var version = "2.21.2";
 
     var Constants = {
       sdkVersion: version,
@@ -730,7 +730,6 @@ var mParticle = (function () {
       },
       FeatureFlags: {
         ReportBatching: 'reportBatching',
-        EventsV3: 'eventsV3',
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
         OfflineStorage: 'offlineStorage'
       },
@@ -2391,7 +2390,6 @@ var mParticle = (function () {
       return XHRUploader;
     }(AsyncUploader);
 
-    var Messages$9 = Constants.Messages;
     function APIClient(mpInstance, kitBlocker) {
       this.uploader = null;
       var self = this;
@@ -2402,16 +2400,6 @@ var mParticle = (function () {
         }
         this.uploader.queueEvent(event);
         mpInstance._Persistence.update();
-      };
-      this.shouldEnableBatching = function () {
-        // Returns a string of a number that must be parsed
-        // Invalid strings will be parsed to NaN which is falsey
-        var eventsV3Percentage = parseInt(mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.EventsV3), 10);
-        if (!eventsV3Percentage) {
-          return false;
-        }
-        var rampNumber = getRampNumber(mpInstance._Store.deviceId);
-        return eventsV3Percentage >= rampNumber;
       };
       this.processQueuedEvents = function () {
         var mpid,
@@ -2458,14 +2446,13 @@ var mParticle = (function () {
           return;
         }
         this.processQueuedEvents();
-        if (event && options.shouldUploadEvent) {
-          if (this.shouldEnableBatching()) {
-            this.queueEventForBatchUpload(event);
-          } else {
-            this.sendSingleEventToServer(event);
-          }
+        if (isEmpty(event)) {
+          return;
         }
-        if (event && event.EventName !== Types.MessageType.AppStateTransition) {
+        if (options.shouldUploadEvent) {
+          this.queueEventForBatchUpload(event);
+        }
+        if (event.EventName !== Types.MessageType.AppStateTransition) {
           if (kitBlocker && kitBlocker.kitBlockingEnabled) {
             event = kitBlocker.createBlockedEvent(event);
           }
@@ -2473,32 +2460,6 @@ var mParticle = (function () {
           // can nullify the event
           if (event) {
             mpInstance._Forwarders.sendEventToForwarders(event);
-          }
-        }
-      };
-      this.sendSingleEventToServer = function (event) {
-        if (event.EventDataType === Types.MessageType.Media) {
-          return;
-        }
-        var xhr,
-          xhrCallback = function xhrCallback() {
-            if (xhr.readyState === 4) {
-              mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server');
-              mpInstance._Persistence.update();
-            }
-          };
-        if (!event) {
-          mpInstance.Logger.error(Messages$9.ErrorMessages.EventEmpty);
-          return;
-        }
-        mpInstance.Logger.verbose(Messages$9.InformationMessages.SendHttp);
-        xhr = mpInstance._Helpers.createXHR(xhrCallback);
-        if (xhr) {
-          try {
-            xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.v2SecureServiceUrl, mpInstance._Store.devToken) + '/Events');
-            xhr.send(JSON.stringify(mpInstance._ServerModel.convertEventToV2DTO(event)));
-          } catch (e) {
-            mpInstance.Logger.error('Error sending event to mParticle servers. ' + e);
           }
         }
       };
@@ -3962,9 +3923,6 @@ var mParticle = (function () {
         }
         if (!config.hasOwnProperty('flags')) {
           this.SDKConfig.flags = {};
-        }
-        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventsV3)) {
-          this.SDKConfig.flags[Constants.FeatureFlags.EventsV3] = 0;
         }
         if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventBatchingIntervalMillis)) {
           this.SDKConfig.flags[Constants.FeatureFlags.EventBatchingIntervalMillis] = Constants.DefaultConfig.uploadInterval;
@@ -6617,25 +6575,24 @@ var mParticle = (function () {
                 cookies[mpid].ua = userAttributes;
                 mpInstance._Persistence.savePersistence(cookies, mpid);
               }
-              if (mpInstance._APIClient.shouldEnableBatching()) {
-                // If the new attributeList length is different previous, then there is a change event.
-                // Loop through new attributes list, see if they are all in the same index as previous user attributes list
-                // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
-                if (!previousUserAttributeValue || !Array.isArray(previousUserAttributeValue)) {
-                  userAttributeChange = true;
-                } else if (newValue.length !== previousUserAttributeValue.length) {
-                  userAttributeChange = true;
-                } else {
-                  for (var i = 0; i < newValue.length; i++) {
-                    if (previousUserAttributeValue[i] !== newValue[i]) {
-                      userAttributeChange = true;
-                      break;
-                    }
+
+              // If the new attributeList length is different previous, then there is a change event.
+              // Loop through new attributes list, see if they are all in the same index as previous user attributes list
+              // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
+              if (!previousUserAttributeValue || !Array.isArray(previousUserAttributeValue)) {
+                userAttributeChange = true;
+              } else if (newValue.length !== previousUserAttributeValue.length) {
+                userAttributeChange = true;
+              } else {
+                for (var i = 0; i < newValue.length; i++) {
+                  if (previousUserAttributeValue[i] !== newValue[i]) {
+                    userAttributeChange = true;
+                    break;
                   }
                 }
-                if (userAttributeChange) {
-                  self.sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false, this);
-                }
+              }
+              if (userAttributeChange) {
+                self.sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false, this);
               }
               mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
               mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, arrayCopy);
@@ -6969,9 +6926,6 @@ var mParticle = (function () {
 
       this.sendUserIdentityChangeEvent = function (newUserIdentities, method, mpid, prevUserIdentities) {
         var currentUserInMemory, userIdentityChangeEvent;
-        if (!mpInstance._APIClient.shouldEnableBatching()) {
-          return;
-        }
         if (!mpid) {
           if (method !== 'modify') {
             return;
@@ -7007,9 +6961,6 @@ var mParticle = (function () {
         return userIdentityChangeEvent;
       };
       this.sendUserAttributeChangeEvent = function (attributeKey, newUserAttributeValue, previousUserAttributeValue, isNewAttribute, deleted, user) {
-        if (!mpInstance._APIClient.shouldEnableBatching()) {
-          return;
-        }
         var userAttributeChangeEvent = self.createUserAttributeChange(attributeKey, newUserAttributeValue, previousUserAttributeValue, isNewAttribute, deleted, user);
         if (userAttributeChangeEvent) {
           mpInstance._APIClient.sendEventToServer(userAttributeChangeEvent);
@@ -8850,14 +8801,6 @@ var mParticle = (function () {
       mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
       mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
       if (config.flags) {
-        if (config.flags.hasOwnProperty(Constants.FeatureFlags.EventsV3)) {
-          // TODO: Remove this after 8/12/2022
-          if (config.flags[Constants.FeatureFlags.EventsV3] !== '100') {
-            var message = 'mParticle will be enabling Event Batching for all customers on July 12, 2022. ' + 'For more details, please see our docs: https://docs.mparticle.com/developers/sdk/web/getting-started/';
-            mpInstance.Logger.warning(message);
-          }
-          mpInstance._Store.SDKConfig.flags[Constants.FeatureFlags.EventsV3] = config.flags[Constants.FeatureFlags.EventsV3];
-        }
         if (config.flags.hasOwnProperty(Constants.FeatureFlags.EventBatchingIntervalMillis)) {
           mpInstance._Store.SDKConfig.flags[Constants.FeatureFlags.EventBatchingIntervalMillis] = config.flags[Constants.FeatureFlags.EventBatchingIntervalMillis];
         }
