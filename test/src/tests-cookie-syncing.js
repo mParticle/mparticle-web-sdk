@@ -15,6 +15,7 @@ describe('cookie syncing', function() {
 
     before(function() {
         // Mock the img create onload method
+        // https://raminmousavi.medium.com/mock-img-element-in-jest-3341c495ca8b
         window.document.createElement = (function (create) {
             return function () {
                 const element = create.apply(this, arguments)
