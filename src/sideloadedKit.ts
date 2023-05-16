@@ -8,7 +8,30 @@ import {
 import { UnregisteredKit } from './forwarders.interfaces';
 import { EventTypeEnum, IdentityType } from './types.interfaces';
 
-export class MPSideloadedKit {
+export interface IMPSideloadedKit {
+    kitInstance: UnregisteredKit;
+    filterDictionary: IKitFilterSettings;
+
+    addEventTypeFilter(eventType: EventTypeEnum): void;
+    addEventNameFilter(eventType: EventTypeEnum, eventName: string): void;
+    addEventAttributeFilter(
+        eventType: EventTypeEnum,
+        eventName: string,
+        customAttributeKey: string
+    ): void;
+    addScreenNameFilter(screenName: string): void;
+    addScreenAttributeFilter(screenName: string, screenAttribute: string): void;
+    addUserIdentityFilter(userIdentity: IdentityType): void;
+    addUserAttributeFilter(userAttributeKey: string): void;
+}
+
+// This constructor is necessary to be able ot call new on mParticle.SideloadedKit
+// https://stackoverflow.com/questions/13407036/how-does-interfaces-with-construct-signatures-work
+export interface IMPSideloadedKitConstructor {
+    new(unregisteredKitInstance: UnregisteredKit): IMPSideloadedKit;
+}
+
+export default class MPSideloadedKit implements IMPSideloadedKit{
     public kitInstance: UnregisteredKit;
     public filterDictionary: IKitFilterSettings = {
         eventTypeFilters: [],

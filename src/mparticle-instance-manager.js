@@ -3,6 +3,7 @@ import Types from './types';
 import Constants from './constants';
 import mParticleInstance from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
+import MPSideloadedKit from './sideloadedKit';
 
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = Polyfill.forEach;
@@ -30,6 +31,8 @@ function mParticle() {
     this.CommerceEventType = Types.CommerceEventType;
     this.PromotionType = Types.PromotionActionType;
     this.ProductActionType = Types.ProductActionType;
+    this.MPSideloadedKit = MPSideloadedKit;
+
     if (typeof window !== 'undefined') {
         this.isIOS =
             window.mParticle && window.mParticle.isIOS
