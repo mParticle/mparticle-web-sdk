@@ -14,7 +14,7 @@ export type SDKCompleteInitCallback = (
     mpInstance: MParticleWebSDK
 ) => void;
 
-export interface IKitConfigs {
+export interface IKitConfigs extends IKitFilterSettings {
     name: string;
     moduleId: number;
     isDebug: boolean;
@@ -22,22 +22,25 @@ export interface IKitConfigs {
     isDebugString: BooleanStringLowerCase;
     hasDebugString: BooleanStringLowerCase;
     settings: Dictionary;
+    eventSubscriptionId: number;
+    excludeAnonymousUser: boolean;
+}
+
+export interface IKitFilterSettings {
+    eventTypeFilters: number[];
+    eventNameFilters: number[];
     screenNameFilters: number[];
     screenAttributeFilters: number[];
     userIdentityFilters: number[];
     userAttributeFilters: number[];
-    eventNameFilters: number[];
-    eventTypeFilters: number[];
     attributeFilters: number[];
-    filteringEventAttributeValue: IFilteringEventAttributeValue;
-    filteringUserAttributeValue: IFilteringUserAttributeValue;
-    filteringConsentRuleValues: IFilteringConsentRuleValues;
+    filteringEventAttributeValue?: IFilteringEventAttributeValue;
+    filteringUserAttributeValue?: IFilteringUserAttributeValue;
+    filteringConsentRuleValues?: IFilteringConsentRuleValues;
     consentRegulationFilters: number[];
     consentRegulationPurposeFilters: number[];
     messageTypeFilters: number[];
     messageTypeStateFilters: number[];
-    eventSubscriptionId: number;
-    excludeAnonymousUser: boolean;
 }
 
 export interface IFilteringEventAttributeValue {
