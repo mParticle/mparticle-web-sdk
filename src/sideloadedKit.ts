@@ -11,9 +11,14 @@ import { EventTypeEnum, IdentityType } from './types.interfaces';
 export interface IMPSideloadedKit {
     kitInstance: UnregisteredKit;
     filterDictionary: IKitFilterSettings;
+
     addEventTypeFilter(eventType: EventTypeEnum): void;
     addEventNameFilter(eventType: EventTypeEnum, eventName: string): void;
-    addEventAttributeFilter(eventType: EventTypeEnum, eventName: string, customAttributeKey: string): void;
+    addEventAttributeFilter(
+        eventType: EventTypeEnum,
+        eventName: string,
+        customAttributeKey: string
+    ): void;
     addScreenNameFilter(screenName: string): void;
     addScreenAttributeFilter(screenName: string, screenAttribute: string): void;
     addUserIdentityFilter(userIdentity: IdentityType): void;

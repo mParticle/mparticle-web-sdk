@@ -86,7 +86,8 @@ describe('MPSideloadedKit', () => {
         });
     });
 
-    describe('#MPSideloadedKit Integration Tests', () => {
+    // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5424
+    describe('MPSideloadedKit Integration Tests', () => {
         // https://stackoverflow.com/questions/13407036/how-does-interfaces-with-construct-signatures-work
         function makeMPSideloadedKit(n: IMPSideloadedKitConstructor) {
             return new n(mockKitInstance);
@@ -94,16 +95,17 @@ describe('MPSideloadedKit', () => {
         it('should create a new MPSideloadedKit instance from the global mParticle object', () => {
             const sampleSideloadedKit = makeMPSideloadedKit(MPSideloadedKit);
 
-            expect(sampleSideloadedKit).toHaveProperty('addEventAttributeFilter');
-            expect(sampleSideloadedKit).toHaveProperty('addEventTypeFilter');
-            expect(sampleSideloadedKit).toHaveProperty('addEventNameFilter');
-            expect(sampleSideloadedKit).toHaveProperty('addEventAttributeFilter');
-            expect(sampleSideloadedKit).toHaveProperty('addScreenNameFilter');
-            expect(sampleSideloadedKit).toHaveProperty('addScreenAttributeFilter');
-            expect(sampleSideloadedKit).toHaveProperty('addUserIdentityFilter');
-            expect(sampleSideloadedKit).toHaveProperty('addUserAttributeFilter');
             expect(sampleSideloadedKit).toHaveProperty('filterDictionary');
             expect(sampleSideloadedKit).toHaveProperty('kitInstance');
+
+            expect(sampleSideloadedKit.addEventAttributeFilter).toBeInstanceOf(Function);
+            expect(sampleSideloadedKit.addEventTypeFilter).toBeInstanceOf(Function);
+            expect(sampleSideloadedKit.addEventNameFilter).toBeInstanceOf(Function);
+            expect(sampleSideloadedKit.addEventAttributeFilter).toBeInstanceOf(Function);
+            expect(sampleSideloadedKit.addScreenNameFilter).toBeInstanceOf(Function);
+            expect(sampleSideloadedKit.addScreenAttributeFilter).toBeInstanceOf(Function);
+            expect(sampleSideloadedKit.addUserIdentityFilter).toBeInstanceOf(Function);
+            expect(sampleSideloadedKit.addUserAttributeFilter).toBeInstanceOf(Function);
         });
     });
 });

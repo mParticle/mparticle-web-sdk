@@ -32,7 +32,7 @@ export default class _BatchValidator {
             },
             _resetForTests: mockFunction,
             _APIClient: null,
-            MPSideloadedKit: {} as IMPSideloadedKit,
+            MPSideloadedKit: null,
             _Consent: null,
             _Forwarders: null,
             _NativeSdkHelpers: null,
@@ -117,8 +117,7 @@ export default class _BatchValidator {
             logLevel: 'none',
             setPosition: mockFunction,
             upload: mockFunction,
-
-        } as unknown as MParticleWebSDK;
+        } as MParticleWebSDK;
     }
 
     private createSDKEventFunction(event): SDKEvent {
