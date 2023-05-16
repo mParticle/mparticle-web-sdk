@@ -7,6 +7,7 @@ import {
 } from './configAPIClient';
 import { UnregisteredKit } from './forwarders.interfaces';
 import { EventTypeEnum, IdentityType } from './types.interfaces';
+
 export class MPSideloadedKit {
     public kitInstance: UnregisteredKit;
     public filterDictionary: IKitFilterSettings = {
