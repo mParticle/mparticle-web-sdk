@@ -4,7 +4,7 @@ import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config';
 
 const { setLocalStorage, MockForwarder, getLocalStorage } = Utils;
 
-const pixelSettings = {
+let pixelSettings = {
     name: 'TestPixel',
     moduleId: 5,
     esId: 24053,
@@ -168,6 +168,18 @@ describe('cookie syncing', function() {
     });
 
     it('should not sync cookies when pixelSettings.isDebug is false, pixelSettings.isProduction is true, and mParticle.config.isDevelopmentMode is true', function(done) {
+        const pixelSettings = {
+            name: 'TestPixel',
+            moduleId: 5,
+            esId: 24053,
+            isDebug: false,
+            isProduction: true,
+            settings: {},
+            frequencyCap: 14,
+            pixelUrl: '',
+            redirectUrl: '',
+        };
+
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         window.mParticle.config.pixelConfigs = [pixelSettings];
@@ -189,6 +201,18 @@ describe('cookie syncing', function() {
     });
 
     it('should not sync cookies when pixelSettings.isDebug is true, pixelSettings.isProduction is false, and mParticle.config.isDevelopmentMode is false', function(done) {
+        const pixelSettings = {
+            name: 'TestPixel',
+            moduleId: 5,
+            esId: 24053,
+            isDebug: true,
+            isProduction: false,
+            settings: {},
+            frequencyCap: 14,
+            pixelUrl: '',
+            redirectUrl: '',
+        };
+
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         window.mParticle.config.pixelConfigs = [pixelSettings];
