@@ -88,11 +88,11 @@ describe('MPSideloadedKit', () => {
 
     // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5424
     describe('MPSideloadedKit Integration Tests', () => {
-        // https://stackoverflow.com/questions/13407036/how-does-interfaces-with-construct-signatures-work
-        function makeMPSideloadedKit(n: IMPSideloadedKitConstructor) {
-            return new n(mockKitInstance);
-        }
         it('should create a new MPSideloadedKit instance from the global mParticle object', () => {
+            // https://stackoverflow.com/questions/13407036/how-does-interfaces-with-construct-signatures-work
+            function makeMPSideloadedKit(n: IMPSideloadedKitConstructor) {
+                return new n(mockKitInstance);
+            }
             const sampleSideloadedKit = makeMPSideloadedKit(MPSideloadedKit);
 
             expect(sampleSideloadedKit).toHaveProperty('filterDictionary');
