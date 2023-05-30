@@ -1,4 +1,8 @@
-import { Batch, BatchEnvironmentEnum } from '@mparticle/event-models';
+import {
+    BaseEvent,
+    Batch,
+    BatchEnvironmentEnum,
+} from '@mparticle/event-models';
 import BatchManager, {
     IMpApiClientImplementation,
 } from '../../../src/NextGen/batchManager';
