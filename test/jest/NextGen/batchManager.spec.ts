@@ -16,6 +16,7 @@ describe('Next Gen', () => {
                 const expectedBatch: Batch = {
                     environment: BatchEnvironmentEnum.unknown,
                     mpid: 'test-mpid',
+                    events: (sampleMessages as unknown) as BaseEvent[],
                 };
 
                 const mockApiClient: IMpApiClientImplementation = {
