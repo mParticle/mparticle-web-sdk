@@ -1,8 +1,10 @@
-import { BatchEnvironmentEnum } from '@mparticle/event-models';
-import { Batch } from '@mparticle/event-models';
+import {
+    Batch,
+    BatchEnvironmentEnum,
+    BaseEvent,
+} from '@mparticle/event-models';
 import { BaseMPMessage } from './core/baseMPMessage';
 import { isEmpty } from '../utils';
-import { BaseEvent } from '../sdkRuntimeModels';
 
 // TODO: Sync this with existing API Client(s)
 export interface IMpApiClientImplementation {
@@ -24,6 +26,7 @@ export default class BatchManager {
             return {
                 environment: BatchEnvironmentEnum.unknown,
                 mpid: 'test-mpid',
+                events: (events as unknown) as BaseEvent[],
             };
         } else {
             return null;
