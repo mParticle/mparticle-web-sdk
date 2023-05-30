@@ -1,6 +1,7 @@
 import { MPID, User } from '@mparticle/web-sdk';
 import { IMParticleComponent } from '../core/component';
 import { Context } from '@mparticle/event-models';
+import { Mediator } from '../core/mediator';
 
 export interface IdentityApiResult {
     user: User;
@@ -96,7 +97,11 @@ export interface InternalIdentity extends IMParticleIdentity {
 export interface IdentityListener {}
 
 export class IdentityImplementation implements InternalIdentity {
-    constructor() {}
+    private mediator: Mediator = null;
+
+    constructor(mediator: Mediator) {
+        this.mediator = mediator;
+    }
 
     // TODO: Temporary implementation to test signature
     private generateFakeAPIResult = (): IMPIdentityApiResponse => ({
