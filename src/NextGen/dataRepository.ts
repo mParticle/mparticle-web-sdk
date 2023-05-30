@@ -13,7 +13,7 @@ export class MParticleDataRepository {
     }
 
     public getEventsByType(): BaseMPMessage[] {
-        return [];
+        return this.internalState;
     }
 
     public getBatch(source_request_id: string): Batch {
