@@ -3,7 +3,7 @@ import { BaseMPMessage } from '../core/baseMPMessage';
 import { DataHandlerType } from './dataHandlerType';
 
 export interface IMParticleDataHandlerStrategy<Input, Output> {
-    saveData(data: Input, immediateUpload: boolean): void;
+    saveData(data: Input, immediateUpload?: boolean): void;
     retrieveData(): Output[];
 
     // QUESTION: What is this trying to do?
@@ -30,7 +30,7 @@ export abstract class BaseMparticleDataHandlerStrategy<Input, Output>
     }
 
     // QUESTION: Shouldn't data be of type Input?
-    abstract saveData(data: Input, immediateUpload: boolean): void;
+    abstract saveData(data: Input, immediateUpload?: boolean): void;
     abstract retrieveData(): Output[];
     abstract type(): DataHandlerType;
 }

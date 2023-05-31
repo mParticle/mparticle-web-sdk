@@ -27,7 +27,7 @@ describe('Next Gen', () => {
                     null
                 );
 
-                commerceHandler.saveData(event, false);
+                commerceHandler.saveData(event);
                 expect(mockDataRepo.internalState).toEqual([event]);
             });
 
@@ -59,6 +59,32 @@ describe('Next Gen', () => {
                     environment: 'unknown',
                     events: [event],
                 });
+            });
+
+            it('should NOT immediately upload if immediateUpload is false (default)', () => {
+                const event: CommerceEvent = {
+                    event_type: EventTypeEnum.commerceEvent,
+                    data: {
+                        product_action: {
+                            action: ProductActionActionEnum.addToCart,
+                        },
+                    },
+                };
+
+                const batchManager = new BatchManager(null);
+                const batchSpy = jest
+                    .spyOn(batchManager, 'uploadBatch')
+                    .mockReturnValue(); // Prevent calling actual api request
+
+                const mockDataRepo = new MParticleDataRepository();
+                const commerceHandler = new MParticleCommerceHandler(
+                    mockDataRepo,
+                    batchManager
+                );
+
+                commerceHandler.saveData(event);
+
+                expect(batchSpy).not.toHaveBeenCalled();
             });
         });
 

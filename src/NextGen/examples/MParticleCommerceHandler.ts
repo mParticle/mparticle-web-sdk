@@ -21,7 +21,7 @@ export default class MParticleCommerceHandler extends BaseMparticleDataHandlerSt
 
     // QUESTION: Should we make immideateUpload optional with a default of false?
     // QUESTION: Why should data be any rather than an actual commerce vent?
-    public saveData(data: any, immediateUpload: boolean): void {
+    public saveData(data: any, immediateUpload: boolean = false): void {
         this.dataRepository.insertCommerceEvent(data);
 
         if (immediateUpload) {
