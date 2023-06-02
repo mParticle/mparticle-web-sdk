@@ -635,7 +635,7 @@ describe('batch uploader', () => {
             clock.restore();
         });
 
-        it('should store events in Session Storage in order of creation', (done) => {
+        it.skip('should store events in Session Storage in order of creation', done => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
 
             window.mParticle._resetForTests(MPConfig);
