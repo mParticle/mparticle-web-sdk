@@ -635,7 +635,7 @@ describe('batch uploader', () => {
             clock.restore();
         });
 
-        it.skip('should store events in Session Storage in order of creation', done => {
+        it('should store events in Session Storage in order of creation', done => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
 
             window.mParticle._resetForTests(MPConfig);
@@ -673,6 +673,8 @@ describe('batch uploader', () => {
         it('should purge events from Session Storage upon Batch Creation', (done) => {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
 
+            window.fetchMock.post(urls.events, 200);
+
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
 
@@ -706,7 +708,15 @@ describe('batch uploader', () => {
             // Batch Queue should be empty because batch successfully uploaded
             expect(uploader.batchesQueuedForProcessing.length).to.equal(0);
 
-            done();
+            clock.restore();
+
+            // Call a set timeout to catch the upload so that it does not
+            // collide with other tests. Unfortunately our setup/teardown
+            // does not catch async upload attempts
+            setTimeout(() => {
+                console.warn('test 2 end');
+                done();
+            }, 0);
         });
 
         it('should save batches in sequence to Local Storage when an HTTP 500 error is encountered', (done) => {
