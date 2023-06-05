@@ -219,7 +219,7 @@ var mParticle = (function () {
     }
 
     var _TriggerUploadType;
-    var MessageType$1 = {
+    var MessageType$2 = {
       SessionStart: 1,
       SessionEnd: 2,
       PageView: 3,
@@ -236,7 +236,7 @@ var mParticle = (function () {
 
     // Dictionary that contains MessageTypes that will
     // trigger an immediate upload.
-    var TriggerUploadType = (_TriggerUploadType = {}, _defineProperty(_TriggerUploadType, MessageType$1.Commerce, 1), _defineProperty(_TriggerUploadType, MessageType$1.UserAttributeChange, 1), _defineProperty(_TriggerUploadType, MessageType$1.UserIdentityChange, 1), _TriggerUploadType);
+    var TriggerUploadType = (_TriggerUploadType = {}, _defineProperty(_TriggerUploadType, MessageType$2.Commerce, 1), _defineProperty(_TriggerUploadType, MessageType$2.UserAttributeChange, 1), _defineProperty(_TriggerUploadType, MessageType$2.UserIdentityChange, 1), _TriggerUploadType);
     var EventType = {
       Unknown: 0,
       Navigation: 1,
@@ -314,7 +314,7 @@ var mParticle = (function () {
       ProductRemoveFromWishlist: 21,
       ProductImpression: 22
     };
-    var IdentityType = {
+    var IdentityType$1 = {
       Other: 0,
       CustomerId: 1,
       Facebook: 2,
@@ -337,11 +337,11 @@ var mParticle = (function () {
       PhoneNumber2: 20,
       PhoneNumber3: 21
     };
-    IdentityType.isValid = function (identityType) {
+    IdentityType$1.isValid = function (identityType) {
       if (typeof identityType === 'number') {
-        for (var prop in IdentityType) {
-          if (IdentityType.hasOwnProperty(prop)) {
-            if (IdentityType[prop] === identityType) {
+        for (var prop in IdentityType$1) {
+          if (IdentityType$1.hasOwnProperty(prop)) {
+            if (IdentityType$1[prop] === identityType) {
               return true;
             }
           }
@@ -349,7 +349,7 @@ var mParticle = (function () {
       }
       return false;
     };
-    IdentityType.getName = function (identityType) {
+    IdentityType$1.getName = function (identityType) {
       switch (identityType) {
         case window.mParticle.IdentityType.CustomerId:
           return 'Customer ID';
@@ -371,97 +371,97 @@ var mParticle = (function () {
           return 'Other ID';
       }
     };
-    IdentityType.getIdentityType = function (identityName) {
+    IdentityType$1.getIdentityType = function (identityName) {
       switch (identityName) {
         case 'other':
-          return IdentityType.Other;
+          return IdentityType$1.Other;
         case 'customerid':
-          return IdentityType.CustomerId;
+          return IdentityType$1.CustomerId;
         case 'facebook':
-          return IdentityType.Facebook;
+          return IdentityType$1.Facebook;
         case 'twitter':
-          return IdentityType.Twitter;
+          return IdentityType$1.Twitter;
         case 'google':
-          return IdentityType.Google;
+          return IdentityType$1.Google;
         case 'microsoft':
-          return IdentityType.Microsoft;
+          return IdentityType$1.Microsoft;
         case 'yahoo':
-          return IdentityType.Yahoo;
+          return IdentityType$1.Yahoo;
         case 'email':
-          return IdentityType.Email;
+          return IdentityType$1.Email;
         case 'facebookcustomaudienceid':
-          return IdentityType.FacebookCustomAudienceId;
+          return IdentityType$1.FacebookCustomAudienceId;
         case 'other2':
-          return IdentityType.Other2;
+          return IdentityType$1.Other2;
         case 'other3':
-          return IdentityType.Other3;
+          return IdentityType$1.Other3;
         case 'other4':
-          return IdentityType.Other4;
+          return IdentityType$1.Other4;
         case 'other5':
-          return IdentityType.Other5;
+          return IdentityType$1.Other5;
         case 'other6':
-          return IdentityType.Other6;
+          return IdentityType$1.Other6;
         case 'other7':
-          return IdentityType.Other7;
+          return IdentityType$1.Other7;
         case 'other8':
-          return IdentityType.Other8;
+          return IdentityType$1.Other8;
         case 'other9':
-          return IdentityType.Other9;
+          return IdentityType$1.Other9;
         case 'other10':
-          return IdentityType.Other10;
+          return IdentityType$1.Other10;
         case 'mobile_number':
-          return IdentityType.MobileNumber;
+          return IdentityType$1.MobileNumber;
         case 'phone_number_2':
-          return IdentityType.PhoneNumber2;
+          return IdentityType$1.PhoneNumber2;
         case 'phone_number_3':
-          return IdentityType.PhoneNumber3;
+          return IdentityType$1.PhoneNumber3;
         default:
           return false;
       }
     };
-    IdentityType.getIdentityName = function (identityType) {
+    IdentityType$1.getIdentityName = function (identityType) {
       switch (identityType) {
-        case IdentityType.Other:
+        case IdentityType$1.Other:
           return 'other';
-        case IdentityType.CustomerId:
+        case IdentityType$1.CustomerId:
           return 'customerid';
-        case IdentityType.Facebook:
+        case IdentityType$1.Facebook:
           return 'facebook';
-        case IdentityType.Twitter:
+        case IdentityType$1.Twitter:
           return 'twitter';
-        case IdentityType.Google:
+        case IdentityType$1.Google:
           return 'google';
-        case IdentityType.Microsoft:
+        case IdentityType$1.Microsoft:
           return 'microsoft';
-        case IdentityType.Yahoo:
+        case IdentityType$1.Yahoo:
           return 'yahoo';
-        case IdentityType.Email:
+        case IdentityType$1.Email:
           return 'email';
-        case IdentityType.FacebookCustomAudienceId:
+        case IdentityType$1.FacebookCustomAudienceId:
           return 'facebookcustomaudienceid';
-        case IdentityType.Other2:
+        case IdentityType$1.Other2:
           return 'other2';
-        case IdentityType.Other3:
+        case IdentityType$1.Other3:
           return 'other3';
-        case IdentityType.Other4:
+        case IdentityType$1.Other4:
           return 'other4';
-        case IdentityType.Other5:
+        case IdentityType$1.Other5:
           return 'other5';
-        case IdentityType.Other6:
+        case IdentityType$1.Other6:
           return 'other6';
-        case IdentityType.Other7:
+        case IdentityType$1.Other7:
           return 'other7';
-        case IdentityType.Other8:
+        case IdentityType$1.Other8:
           return 'other8';
-        case IdentityType.Other9:
+        case IdentityType$1.Other9:
           return 'other9';
-        case IdentityType.Other10:
+        case IdentityType$1.Other10:
           return 'other10';
-        case IdentityType.MobileNumber:
+        case IdentityType$1.MobileNumber:
           return 'mobile_number';
-        case IdentityType.PhoneNumber2:
+        case IdentityType$1.PhoneNumber2:
           return 'phone_number_2';
-        case IdentityType.PhoneNumber3:
+        case IdentityType$1.PhoneNumber3:
           return 'phone_number_3';
       }
     };
@@ -570,10 +570,10 @@ var mParticle = (function () {
       Development: 'development'
     };
     var Types = {
-      MessageType: MessageType$1,
+      MessageType: MessageType$2,
       EventType: EventType,
       CommerceEventType: CommerceEventType,
-      IdentityType: IdentityType,
+      IdentityType: IdentityType$1,
       ProfileMessageType: ProfileMessageType,
       ApplicationTransitionType: ApplicationTransitionType$1,
       ProductActionType: ProductActionType,
@@ -582,7 +582,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.21.2";
+    var version = "2.22.0";
 
     var Constants = {
       sdkVersion: version,
@@ -733,7 +733,8 @@ var mParticle = (function () {
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
         OfflineStorage: 'offlineStorage'
       },
-      DefaultInstance: 'default_instance'
+      DefaultInstance: 'default_instance',
+      CCPAPurpose: 'data_sale_opt_out'
     };
 
     function _typeof(obj) {
@@ -2619,6 +2620,43 @@ var mParticle = (function () {
       }
     };
 
+    var KitFilterHelper = /** @class */function () {
+      function KitFilterHelper() {}
+      KitFilterHelper.hashEventType = function (eventType) {
+        return generateHash(eventType);
+      };
+      KitFilterHelper.hashEventName = function (eventName, eventType) {
+        return generateHash(eventType + eventName);
+      };
+      KitFilterHelper.hashEventAttributeKey = function (eventType, eventName, customAttributeName) {
+        return generateHash(eventType + eventName + customAttributeName);
+      };
+      KitFilterHelper.hashUserAttribute = function (userAttributeKey) {
+        return generateHash(userAttributeKey);
+      };
+      // User Identities are not actually hashed, this method is named this way to
+      // be consistent with the filter class. UserIdentityType is also a number
+      KitFilterHelper.hashUserIdentity = function (userIdentity) {
+        return userIdentity;
+      };
+      KitFilterHelper.hashConsentPurpose = function (prefix, purpose) {
+        return generateHash(prefix + purpose);
+      };
+      // The methods below are for conditional forwarding, a type of filter
+      // hashAttributeCondiitonalForwarding is used for both User and Event
+      // attribute keys and attribute values
+      // The backend returns the hashes as strings for conditional forwarding
+      // but returns "regular" filters as arrays of numbers
+      // See IFilteringEventAttributeValue in configApiClient.ts as an example
+      KitFilterHelper.hashAttributeConditionalForwarding = function (attribute) {
+        return generateHash(attribute).toString();
+      };
+      KitFilterHelper.hashConsentPurposeConditionalForwarding = function (prefix, purpose) {
+        return this.hashConsentPurpose(prefix, purpose).toString();
+      };
+      return KitFilterHelper;
+    }();
+
     var StorageNames$1 = Constants.StorageNames;
     function Helpers(mpInstance) {
       var self = this;
@@ -2848,7 +2886,7 @@ var mParticle = (function () {
         if (userIdentitiesObject && Object.keys(userIdentitiesObject).length) {
           for (var userIdentityName in userIdentitiesObject) {
             if (userIdentitiesObject.hasOwnProperty(userIdentityName)) {
-              var userIdentityType = Types.IdentityType.getIdentityType(userIdentityName);
+              var userIdentityType = KitFilterHelper.hashUserIdentity(Types.IdentityType.getIdentityType(userIdentityName));
               if (!self.inArray(filterList, userIdentityType)) {
                 filteredUserIdentities[userIdentityName] = userIdentitiesObject[userIdentityName];
               }
@@ -2862,7 +2900,7 @@ var mParticle = (function () {
         if (userAttributes && Object.keys(userAttributes).length) {
           for (var userAttribute in userAttributes) {
             if (userAttributes.hasOwnProperty(userAttribute)) {
-              var hashedUserAttribute = self.generateHash(userAttribute);
+              var hashedUserAttribute = KitFilterHelper.hashUserAttribute(userAttribute);
               if (!self.inArray(filterList, hashedUserAttribute)) {
                 filteredUserAttributes[userAttribute] = userAttributes[userAttribute];
               }
@@ -2872,7 +2910,7 @@ var mParticle = (function () {
         return filteredUserAttributes;
       };
       this.isFilteredUserAttribute = function (userAttributeKey, filterList) {
-        var hashedUserAttribute = self.generateHash(userAttributeKey);
+        var hashedUserAttribute = KitFilterHelper.hashUserAttribute(userAttributeKey);
         return filterList && self.inArray(filterList, hashedUserAttribute);
       };
       this.isEventType = function (type) {
@@ -5198,8 +5236,8 @@ var mParticle = (function () {
           if (userAttributes && mpInstance._Helpers.isObject(userAttributes) && Object.keys(userAttributes).length) {
             for (var attrName in userAttributes) {
               if (userAttributes.hasOwnProperty(attrName)) {
-                attrHash = mpInstance._Helpers.generateHash(attrName).toString();
-                valueHash = mpInstance._Helpers.generateHash(userAttributes[attrName]).toString();
+                attrHash = KitFilterHelper.hashAttributeConditionalForwarding(attrName);
+                valueHash = KitFilterHelper.hashAttributeConditionalForwarding(userAttributes[attrName]);
                 if (attrHash === filterObject.userAttributeName && valueHash === filterObject.userAttributeValue) {
                   isMatch = true;
                   break;
@@ -5249,7 +5287,7 @@ var mParticle = (function () {
           filterUserIdentities = function filterUserIdentities(event, filterList) {
             if (event.UserIdentities && event.UserIdentities.length) {
               event.UserIdentities.forEach(function (userIdentity, i) {
-                if (mpInstance._Helpers.inArray(filterList, userIdentity.Type)) {
+                if (mpInstance._Helpers.inArray(filterList, KitFilterHelper.hashUserIdentity(userIdentity.Type))) {
                   event.UserIdentities.splice(i, 1);
                   if (i > 0) {
                     i--;
@@ -5265,7 +5303,7 @@ var mParticle = (function () {
             }
             for (var attrName in event.EventAttributes) {
               if (event.EventAttributes.hasOwnProperty(attrName)) {
-                hash = mpInstance._Helpers.generateHash(event.EventCategory + event.EventName + attrName);
+                hash = KitFilterHelper.hashEventAttributeKey(event.EventCategory, event.EventName, attrName);
                 if (mpInstance._Helpers.inArray(filterList, hash)) {
                   delete event.EventAttributes[attrName];
                 }
@@ -5282,8 +5320,8 @@ var mParticle = (function () {
           },
           forwardingRuleMessageTypes = [Types.MessageType.PageEvent, Types.MessageType.PageView, Types.MessageType.Commerce];
         if (!mpInstance._Store.webviewBridgeEnabled && mpInstance._Store.activeForwarders) {
-          hashedEventName = mpInstance._Helpers.generateHash(event.EventCategory + event.EventName);
-          hashedEventType = mpInstance._Helpers.generateHash(event.EventCategory);
+          hashedEventName = KitFilterHelper.hashEventName(event.EventName, event.EventCategory);
+          hashedEventType = KitFilterHelper.hashEventType(event.EventCategory);
           for (var i = 0; i < mpInstance._Store.activeForwarders.length; i++) {
             // Check attribute forwarding rule. This rule allows users to only forward an event if a
             // specific attribute exists and has a specific value. Alternatively, they can specify
@@ -5298,11 +5336,11 @@ var mParticle = (function () {
               if (event.EventAttributes) {
                 for (var prop in event.EventAttributes) {
                   var hashedEventAttributeName;
-                  hashedEventAttributeName = mpInstance._Helpers.generateHash(prop).toString();
+                  hashedEventAttributeName = KitFilterHelper.hashAttributeConditionalForwarding(prop);
                   if (hashedEventAttributeName === mpInstance._Store.activeForwarders[i].filteringEventAttributeValue.eventAttributeName) {
                     foundProp = {
                       name: hashedEventAttributeName,
-                      value: mpInstance._Helpers.generateHash(event.EventAttributes[prop]).toString()
+                      value: KitFilterHelper.hashAttributeConditionalForwarding(event.EventAttributes[prop])
                     };
                   }
                   if (foundProp) {
@@ -5519,7 +5557,11 @@ var mParticle = (function () {
             // which is typed { kits: Dictionary<constructor> }.
             // The constructors are keyed by the name of the kit.
             config.sideloadedKits.forEach(function (sideloadedKit) {
-              sideloadedKit.register(sideloadedKits);
+              try {
+                sideloadedKit.kitInstance.register(sideloadedKits);
+              } catch (e) {
+                console.error('Error registering sideloaded kit ' + sideloadedKit.kitInstance.name);
+              }
             });
 
             // Then configure each kit
@@ -5583,7 +5625,7 @@ var mParticle = (function () {
     }
 
     // TODO: This file is no longer the server model because the web SDK payload
-    var MessageType = Types.MessageType;
+    var MessageType$1 = Types.MessageType;
     var ApplicationTransitionType = Types.ApplicationTransitionType;
     // TODO: Make this a pure function that returns a new object
     function convertCustomFlags(event, dto) {
@@ -5769,7 +5811,7 @@ var mParticle = (function () {
             CurrencyCode: mpInstance._Store.currencyCode,
             DataPlan: mpInstance._Store.SDKConfig.dataPlan ? mpInstance._Store.SDKConfig.dataPlan : {}
           };
-          if (eventObject.EventDataType === MessageType.AppStateTransition) {
+          if (eventObject.EventDataType === MessageType$1.AppStateTransition) {
             eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
             eventObject.LaunchReferral = window.location.href || null;
           }
@@ -5829,7 +5871,7 @@ var mParticle = (function () {
         if (consent) {
           dto.con = consent;
         }
-        if (event.EventDataType === MessageType.AppStateTransition) {
+        if (event.EventDataType === MessageType$1.AppStateTransition) {
           dto.fr = event.IsFirstRun;
           dto.iu = false;
           dto.at = ApplicationTransitionType.AppInit;
@@ -5841,7 +5883,7 @@ var mParticle = (function () {
         if (event.CustomFlags) {
           convertCustomFlags(event, dto);
         }
-        if (event.EventDataType === MessageType.Commerce) {
+        if (event.EventDataType === MessageType$1.Commerce) {
           dto.cu = event.CurrencyCode;
           // TODO: If Cart is deprecated, we should deprecate this too
           if (event.ShoppingCart) {
@@ -5882,7 +5924,7 @@ var mParticle = (function () {
               };
             });
           }
-        } else if (event.EventDataType === MessageType.Profile) {
+        } else if (event.EventDataType === MessageType$1.Profile) {
           dto.pet = event.ProfileMessageType;
         }
         return dto;
@@ -6987,8 +7029,7 @@ var mParticle = (function () {
       };
     }
 
-    // Specifies to compiler that CCPAPurpose can only be one specific value
-    var CCPAPurpose = 'data_sale_opt_out';
+    var CCPAPurpose = Constants.CCPAPurpose;
     function Consent(mpInstance) {
       var self = this;
       // this function is called when consent is required to
@@ -7009,19 +7050,19 @@ var mParticle = (function () {
           // GDPR - '1' + purpose name
           // CCPA - '2data_sale_opt_out' (there is only 1 purpose of data_sale_opt_out for CCPA)
           var GDPRConsentHashPrefix = '1';
-          var CCPAHashString = '2' + CCPAPurpose;
+          var CCPAHashPrefix = '2';
           var gdprConsentState = consentState.getGDPRConsentState();
           if (gdprConsentState) {
             for (var purpose in gdprConsentState) {
               if (gdprConsentState.hasOwnProperty(purpose)) {
-                purposeHash = mpInstance._Helpers.generateHash(GDPRConsentHashPrefix + purpose).toString();
+                purposeHash = KitFilterHelper.hashConsentPurposeConditionalForwarding(GDPRConsentHashPrefix, purpose);
                 purposeHashes[purposeHash] = gdprConsentState[purpose].Consented;
               }
             }
           }
           var CCPAConsentState = consentState.getCCPAConsentState();
           if (CCPAConsentState) {
-            purposeHash = mpInstance._Helpers.generateHash(CCPAHashString).toString();
+            purposeHash = KitFilterHelper.hashConsentPurposeConditionalForwarding(CCPAHashPrefix, CCPAPurpose);
             purposeHashes[purposeHash] = CCPAConsentState.Consented;
           }
         }
@@ -9034,6 +9075,7 @@ var mParticle = (function () {
           },
           _resetForTests: mockFunction,
           _APIClient: null,
+          MPSideloadedKit: null,
           _Consent: null,
           _Forwarders: null,
           _NativeSdkHelpers: null,
@@ -9135,6 +9177,113 @@ var mParticle = (function () {
       return _BatchValidator;
     }();
 
+    var EventTypeEnum;
+    (function (EventTypeEnum) {
+      EventTypeEnum[EventTypeEnum["Unknown"] = 0] = "Unknown";
+      EventTypeEnum[EventTypeEnum["Navigation"] = 1] = "Navigation";
+      EventTypeEnum[EventTypeEnum["Location"] = 2] = "Location";
+      EventTypeEnum[EventTypeEnum["Search"] = 3] = "Search";
+      EventTypeEnum[EventTypeEnum["Transaction"] = 4] = "Transaction";
+      EventTypeEnum[EventTypeEnum["UserContent"] = 5] = "UserContent";
+      EventTypeEnum[EventTypeEnum["UserPreference"] = 6] = "UserPreference";
+      EventTypeEnum[EventTypeEnum["Social"] = 7] = "Social";
+      EventTypeEnum[EventTypeEnum["Other"] = 8] = "Other";
+      EventTypeEnum[EventTypeEnum["Media"] = 9] = "Media";
+    })(EventTypeEnum || (EventTypeEnum = {}));
+    // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5403
+    var MessageType;
+    (function (MessageType) {
+      MessageType[MessageType["SessionStart"] = 1] = "SessionStart";
+      MessageType[MessageType["SessionEnd"] = 2] = "SessionEnd";
+      MessageType[MessageType["PageView"] = 3] = "PageView";
+      MessageType[MessageType["PageEvent"] = 4] = "PageEvent";
+      MessageType[MessageType["CrashReport"] = 5] = "CrashReport";
+      MessageType[MessageType["OptOut"] = 6] = "OptOut";
+      MessageType[MessageType["AppStateTransition"] = 10] = "AppStateTransition";
+      MessageType[MessageType["Profile"] = 14] = "Profile";
+      MessageType[MessageType["Commerce"] = 16] = "Commerce";
+      MessageType[MessageType["UserAttributeChange"] = 17] = "UserAttributeChange";
+      MessageType[MessageType["UserIdentityChange"] = 18] = "UserIdentityChange";
+      MessageType[MessageType["Media"] = 20] = "Media";
+    })(MessageType || (MessageType = {}));
+    var IdentityType;
+    (function (IdentityType) {
+      IdentityType[IdentityType["Other"] = 0] = "Other";
+      IdentityType[IdentityType["CustomerId"] = 1] = "CustomerId";
+      IdentityType[IdentityType["Facebook"] = 2] = "Facebook";
+      IdentityType[IdentityType["Twitter"] = 3] = "Twitter";
+      IdentityType[IdentityType["Google"] = 4] = "Google";
+      IdentityType[IdentityType["Microsoft"] = 5] = "Microsoft";
+      IdentityType[IdentityType["Yahoo"] = 6] = "Yahoo";
+      IdentityType[IdentityType["Email"] = 7] = "Email";
+      IdentityType[IdentityType["FacebookCustomAudienceId"] = 9] = "FacebookCustomAudienceId";
+      IdentityType[IdentityType["Other2"] = 10] = "Other2";
+      IdentityType[IdentityType["Other3"] = 11] = "Other3";
+      IdentityType[IdentityType["Other4"] = 12] = "Other4";
+      IdentityType[IdentityType["Other5"] = 13] = "Other5";
+      IdentityType[IdentityType["Other6"] = 14] = "Other6";
+      IdentityType[IdentityType["Other7"] = 15] = "Other7";
+      IdentityType[IdentityType["Other8"] = 16] = "Other8";
+      IdentityType[IdentityType["Other9"] = 17] = "Other9";
+      IdentityType[IdentityType["Other10"] = 18] = "Other10";
+      IdentityType[IdentityType["MobileNumber"] = 19] = "MobileNumber";
+      IdentityType[IdentityType["PhoneNumber2"] = 20] = "PhoneNumber2";
+      IdentityType[IdentityType["PhoneNumber3"] = 21] = "PhoneNumber3";
+    })(IdentityType || (IdentityType = {}));
+
+    var MPSideloadedKit = /** @class */function () {
+      function MPSideloadedKit(unregisteredKitInstance) {
+        this.filterDictionary = {
+          eventTypeFilters: [],
+          eventNameFilters: [],
+          screenNameFilters: [],
+          screenAttributeFilters: [],
+          userIdentityFilters: [],
+          userAttributeFilters: [],
+          attributeFilters: [],
+          consentRegulationFilters: [],
+          consentRegulationPurposeFilters: [],
+          messageTypeFilters: [],
+          messageTypeStateFilters: [],
+          // The below filtering members are optional, but we instantiate them
+          // to simplify public method assignment
+          filteringEventAttributeValue: {},
+          filteringUserAttributeValue: {},
+          filteringConsentRuleValues: {}
+        };
+        this.kitInstance = unregisteredKitInstance;
+      }
+      MPSideloadedKit.prototype.addEventTypeFilter = function (eventType) {
+        var hashedEventType = KitFilterHelper.hashEventType(eventType);
+        this.filterDictionary.eventTypeFilters.push(hashedEventType);
+      };
+      MPSideloadedKit.prototype.addEventNameFilter = function (eventType, eventName) {
+        var hashedEventName = KitFilterHelper.hashEventName(eventName, eventType);
+        this.filterDictionary.eventNameFilters.push(hashedEventName);
+      };
+      MPSideloadedKit.prototype.addEventAttributeFilter = function (eventType, eventName, customAttributeKey) {
+        var hashedEventAttribute = KitFilterHelper.hashEventAttributeKey(eventType, eventName, customAttributeKey);
+        this.filterDictionary.attributeFilters.push(hashedEventAttribute);
+      };
+      MPSideloadedKit.prototype.addScreenNameFilter = function (screenName) {
+        var hashedScreenName = KitFilterHelper.hashEventName(screenName, EventTypeEnum.Unknown);
+        this.filterDictionary.screenNameFilters.push(hashedScreenName);
+      };
+      MPSideloadedKit.prototype.addScreenAttributeFilter = function (screenName, screenAttribute) {
+        var hashedScreenAttribute = KitFilterHelper.hashEventAttributeKey(EventTypeEnum.Unknown, screenName, screenAttribute);
+        this.filterDictionary.screenAttributeFilters.push(hashedScreenAttribute);
+      };
+      MPSideloadedKit.prototype.addUserIdentityFilter = function (userIdentity) {
+        var hashedIdentityType = KitFilterHelper.hashUserIdentity(userIdentity);
+        this.filterDictionary.userIdentityFilters.push(hashedIdentityType);
+      };
+      MPSideloadedKit.prototype.addUserAttributeFilter = function (userAttributeKey) {
+        var hashedUserAttributeKey = KitFilterHelper.hashUserAttribute(userAttributeKey);
+        this.filterDictionary.userAttributeFilters.push(hashedUserAttributeKey);
+      };
+      return MPSideloadedKit;
+    }();
+
     if (!Array.prototype.forEach) {
       Array.prototype.forEach = Polyfill.forEach;
     }
@@ -9157,6 +9306,7 @@ var mParticle = (function () {
       this.CommerceEventType = Types.CommerceEventType;
       this.PromotionType = Types.PromotionActionType;
       this.ProductActionType = Types.ProductActionType;
+      this.MPSideloadedKit = MPSideloadedKit;
       if (typeof window !== 'undefined') {
         this.isIOS = window.mParticle && window.mParticle.isIOS ? window.mParticle.isIOS : false;
         this.config = window.mParticle && window.mParticle.config ? window.mParticle.config : {};
