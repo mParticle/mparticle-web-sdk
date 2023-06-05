@@ -1,3 +1,16 @@
+# [2.22.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.21.2...v2.22.0) (2023-06-05)
+
+
+### Bug Fixes
+
+* Resolve flakey cookie sync tests ([#572](https://github.com/mParticle/mparticle-web-sdk/issues/572)) ([8f2b750](https://github.com/mParticle/mparticle-web-sdk/commit/8f2b750d77b833b64e1323db84bf764b2420d15f))
+
+
+### Features
+
+* Add MPSideloadedKit class ([#564](https://github.com/mParticle/mparticle-web-sdk/issues/564)) ([252a2ce](https://github.com/mParticle/mparticle-web-sdk/commit/252a2ceba00f72690abe4809e572c06be7fd330c))
+* Expose MPSideloadedKit class to public API ([#568](https://github.com/mParticle/mparticle-web-sdk/issues/568)) ([47a9186](https://github.com/mParticle/mparticle-web-sdk/commit/47a9186d38a99e2821e00bdf8eeab5121b2211f1))
+
 ## [2.21.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.21.1...v2.21.2) (2023-05-15)
 
 ## [2.21.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.21.0...v2.21.1) (2023-05-02)
