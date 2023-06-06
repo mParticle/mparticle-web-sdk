@@ -3,10 +3,10 @@ import {
     EventTypeEnum,
     ProductActionActionEnum,
 } from '@mparticle/event-models';
-import { BaseMPMessage } from '../../../src/NextGen/core/baseMPMessage';
-import { MParticleDataRepository } from '../../../src/NextGen/data/dataRepository';
-import MParticleCommerceHandler from '../../../src/NextGen/examples/MParticleCommerceHandler';
-import BatchManager from '../../../src/NextGen/batchManager';
+import { BaseMPMessage } from '../../../../src/NextGen/core/baseMPMessage';
+import { MParticleDataRepository } from '../../../../src/NextGen/data/dataRepository';
+import MParticleCommerceHandler from '../../../../src/NextGen/examples/MParticleCommerceHandler';
+import BatchManager from '../../../../src/NextGen/batchManager';
 
 describe('Next Gen', () => {
     describe('mParticle Commerce Handler', () => {

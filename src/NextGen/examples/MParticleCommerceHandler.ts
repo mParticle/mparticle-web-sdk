@@ -1,7 +1,7 @@
 import { CommerceEvent } from '@mparticle/event-models';
 import { BaseMparticleDataHandlerStrategy } from '../dataHandler/dataHandlerStrategy';
 import { BaseMPMessage } from '../core/baseMPMessage';
-import { MParticleDataRepository } from '../dataRepository';
+import { MParticleDataRepository } from '../data/dataRepository';
 import BatchManager from '../batchManager';
 import { DataHandlerType } from '../dataHandler/dataHandlerType';
 
@@ -19,7 +19,6 @@ export default class MParticleCommerceHandler extends BaseMparticleDataHandlerSt
         this.batchManager = batchManager;
     }
 
-    // QUESTION: Should we make immideateUpload optional with a default of false?
     // QUESTION: Why should data be any rather than an actual commerce vent?
     public saveData(data: any, immediateUpload: boolean = false): void {
         this.dataRepository.insertCommerceEvent(data);

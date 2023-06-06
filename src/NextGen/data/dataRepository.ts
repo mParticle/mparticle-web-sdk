@@ -1,5 +1,5 @@
 import { Batch } from '@mparticle/event-models';
-import { BaseMPMessage } from './core/baseMPMessage';
+import { BaseMPMessage } from '../core/baseMPMessage';
 
 export class MParticleDataRepository {
     public internalState: BaseMPMessage[] = [];
