@@ -2629,6 +2629,68 @@ describe('forwarders', function() {
                 expect(activeForwarders[1].name, '2nd active forwarder ').to.deep.equal(sideloadedKit1.name);
                 expect(activeForwarders[2].name, '3rd active forwarder').to.deep.equal(sideloadedKit2.name);
             });
+
+            it('should add a flag in batches for reporting if sideloaded kits are used', function() {
+                const sideloadedKit1 = new MockSideloadedKit(
+                    'SideloadedKit1',
+                    1
+                );
+                const sideloadedKit2 = new MockSideloadedKit(
+                    'SideloadedKit2',
+                    2
+                );
+
+                const mpSideloadedKit1 = new mParticle.MPSideloadedKit(
+                    sideloadedKit1
+                );
+                const mpSideloadedKit2 = new mParticle.MPSideloadedKit(
+                    sideloadedKit2
+                );
+
+                const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
+
+                window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                // This mockForwarder simulates a server configured forwarder
+                const mockForwarder = new MockForwarder('fooForwarder', 1);
+                mParticle.addForwarder(mockForwarder);
+
+                window.mParticle.config.kitConfigs.push(
+                    forwarderDefaultConfiguration('fooForwarder', 1)
+                );
+
+                mParticle.init(apiKey, window.mParticle.config);
+
+                const mpInstance = window.mParticle.getInstance();
+
+                expect(mpInstance._Store.isUsingSideloadedKits).to.be.true;
+
+                mParticle.logEvent('foo', mParticle.EventType.Navigation);
+
+                const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+
+                expect(batch).to.have.property('application_info');
+                expect(batch.application_info).to.have.property(
+                    'is_using_sideloaded_kits'
+                );
+            });
+
+            it('should NOT add a flag in batches for reporting if sideloaded kits are not used', function() {
+                mParticle.init(apiKey, window.mParticle.config);
+
+                const mpInstance = window.mParticle.getInstance();
+
+                expect(mpInstance._Store.isUsingSideloadedKits).to.be.undefined;
+
+                mParticle.logEvent('foo', mParticle.EventType.Navigation);
+
+                const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+
+                expect(batch).to.have.property('application_info');
+                expect(batch.application_info).not.to.have.property(
+                    'is_using_sideloaded_kits'
+                );
+            });
         });
 
         describe('forwarding', function() {
