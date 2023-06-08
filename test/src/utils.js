@@ -283,9 +283,11 @@ var pluses = /\+/g,
     forwarderDefaultConfiguration = function(
         forwarderName,
         forwarderId,
+        suffix,
     ) {
         var config = {
             name: forwarderName || 'MockForwarder',
+            suffix: suffix || null,
             moduleId: forwarderId || 1,
             isDebug: false,
             isVisible: true,
@@ -312,7 +314,7 @@ var pluses = /\+/g,
 
         return config;
     },
-    MockForwarder = function(forwarderName, forwarderId) {
+    MockForwarder = function(forwarderName, forwarderId, suffix) {
         var constructor = function() {
             var self = this;
             this.id = forwarderId || 1;
@@ -329,7 +331,6 @@ var pluses = /\+/g,
             this.receivedEvent = null;
             this.isVisible = false;
             this.logOutCalled = false;
-
             this.trackerId = null;
             this.userAttributes = {};
             this.userIdentities = null;
@@ -426,6 +427,7 @@ var pluses = /\+/g,
         };
 
         this.name = forwarderName || 'MockForwarder';
+        this.suffix = suffix || null;
         this.moduleId = forwarderId || 1;
         this.constructor = constructor;
 
@@ -446,6 +448,7 @@ var pluses = /\+/g,
             getId: getId,
             constructor: constructor,
             name: this.name,
+            suffix: this.suffix
         };
     },
     MockSideloadedKit = MockForwarder,
