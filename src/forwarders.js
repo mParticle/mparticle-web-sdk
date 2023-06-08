@@ -557,10 +557,12 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // if there is a match before being initialized.
     // Only kits that are configured properly can be active and used for kit forwarding.
     this.processUIEnabledKits = function(config) {
+        let kits = this.returnKitConstructors();
+
         try {
             if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
                 config.kitConfigs.forEach(function(kitConfig) {
-                    self.configureUIEnabledKit(kitConfig);
+                    self.configureUIEnabledKit(kitConfig, kits);
                 });
             }
         } catch (e) {
@@ -571,11 +573,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.configureUIEnabledKit = function(configuration) {
-        let newKit = null;
+    this.returnKitConstructors = function() {
         let kits = {};
-        const config = configuration;
-
         // If there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
         if (!isEmpty(mpInstance._Store.SDKConfig.kits)) {
             kits = mpInstance._Store.SDKConfig.kits;
@@ -599,6 +598,12 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 }
             });
         }
+        return kits;
+    };
+
+    this.configureUIEnabledKit = function(configuration, kits) {
+        let newKit = null;
+        const config = configuration;
 
         for (let name in kits) {
             // Configs are returned with suffixes also. We need to consider the
