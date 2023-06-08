@@ -1877,6 +1877,25 @@ describe('migrations and persistence-related', () => {
         done();
     });
 
+    it('should prioritize device id set via mParticle.config instead of local storage', done => {
+        mParticle._resetForTests(MPConfig);
+
+        setLocalStorage();
+
+        mParticle.config.deviceId = 'guid-via-config';
+
+        mParticle.init(apiKey, mParticle.config);
+
+        mParticle.getInstance().getDeviceId().should.equal('guid-via-config');
+
+        mParticle
+            .getInstance()
+            ._Persistence.getLocalStorage()
+            .gs.das.should.equal('guid-via-config');
+
+        done();
+    });
+
     // this test confirms a bug has been fixed where setting a user attribute, then user attribute list
     // with a special character in it results in a cookie decode error, which only happened
     // when config.useCookieStorage was true

@@ -194,10 +194,16 @@ export default function _Persistence(mpInstance) {
                     obj.gs.cgid ||
                     mpInstance._Store.clientId ||
                     mpInstance._Helpers.generateUniqueId();
+
+                // For most persitence value, we prioritize localstorage/cookie values over
+                // Store. However, we allow device ID to be overriden via a config value and
+                // thus if it has been set before we "store in memory", we should prioritize
+                // the existing value. If neither value exist, we generate a new guid.
                 mpInstance._Store.deviceId =
-                    obj.gs.das ||
                     mpInstance._Store.deviceId ||
+                    obj.gs.das ||
                     mpInstance._Helpers.generateUniqueId();
+
                 mpInstance._Store.integrationAttributes = obj.gs.ia || {};
                 mpInstance._Store.context =
                     obj.gs.c || mpInstance._Store.context;
