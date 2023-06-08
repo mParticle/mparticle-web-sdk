@@ -640,6 +640,12 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         sideloadedKits.kits[registeredKitKey];
                     self.configureSideloadedKit(kitConstructor);
                 }
+
+                // If Sideloaded Kits are successfully registered,
+                // record this in the Store.
+                if (!isEmpty(sideloadedKits.kits)) {
+                    mpInstance._Store.isUsingSideloadedKits = true;
+                }
             }
         } catch (e) {
             mpInstance.Logger.error(

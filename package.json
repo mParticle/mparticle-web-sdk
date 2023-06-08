@@ -82,7 +82,7 @@
         "@babel/preset-env": "^7.6.0",
         "@babel/preset-typescript": "^7.6.0",
         "@mparticle/data-planning-models": "^0.1.0",
-        "@mparticle/event-models": "^1.1.6",
+        "@mparticle/event-models": "^1.1.7",
         "@rollup/plugin-babel": "6.0.3",
         "@rollup/plugin-commonjs": "22.0.2",
         "@rollup/plugin-json": "^4.1.0",

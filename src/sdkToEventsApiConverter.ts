@@ -66,11 +66,16 @@ export function convertEvents(
         events: uploadEvents,
         mp_deviceid: lastEvent.DeviceId,
         sdk_version: lastEvent.SDKVersion,
+
+        // TODO: Refactor this to read from _Store or a global config
         application_info: {
             application_version: lastEvent.AppVersion,
             application_name: lastEvent.AppName,
             package: lastEvent.Package,
+            is_using_sideloaded_kits:
+                mpInstance._Store.isUsingSideloadedKits || undefined,
         },
+
         device_info: {
             platform: EventsApi.DeviceInformationPlatformEnum.web,
             screen_width: window.screen.width,
