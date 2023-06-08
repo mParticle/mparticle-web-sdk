@@ -572,9 +572,9 @@ export default function Forwarders(mpInstance, kitBlocker) {
     };
 
     this.configureUIEnabledKit = function(configuration) {
-        var newKit = null,
-            config = configuration,
-            kits = {};
+        let newKit = null;
+        let kits = {};
+        const config = configuration;
 
         // If there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
         if (!isEmpty(mpInstance._Store.SDKConfig.kits)) {
@@ -592,7 +592,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 // If a customer wanted simultaneous GA4 client and server connections,
                 // a suffix allows the SDK to distinguish the two.
                 if (kitConstructor.suffix) {
-                    var kitNameWithConstructorSuffix = `${kitConstructor.name}-${kitConstructor.suffix}`;
+                    const kitNameWithConstructorSuffix = `${kitConstructor.name}-${kitConstructor.suffix}`;
                     kits[kitNameWithConstructorSuffix] = kitConstructor;
                 } else {
                     kits[kitConstructor.name] = kitConstructor;
@@ -600,10 +600,10 @@ export default function Forwarders(mpInstance, kitBlocker) {
             });
         }
 
-        for (var name in kits) {
+        for (let name in kits) {
             // Configs are returned with suffixes also. We need to consider the
             // config suffix here to match the constructor suffix
-            var kitNameWithConfigSuffix;
+            let kitNameWithConfigSuffix;
             if (config.suffix) {
                 kitNameWithConfigSuffix = `${config.name}-${config.suffix}`;
             }
