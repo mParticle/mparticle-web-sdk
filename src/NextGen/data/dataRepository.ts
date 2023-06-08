@@ -4,6 +4,7 @@ import { BaseMPMessage } from '../core/baseMPMessage';
 export class MParticleDataRepository {
     public internalState: BaseMPMessage[] = [];
 
+    // QUESTION: Shouldn't this be of type
     public insertCommerceEvent(data: BaseMPMessage): void {
         this.internalState.push(data);
     }

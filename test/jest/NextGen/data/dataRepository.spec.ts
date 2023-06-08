@@ -1,5 +1,5 @@
-import { BaseMPMessage } from '../../../src/NextGen/core/baseMPMessage';
-import { MParticleDataRepository } from '../../../src/NextGen/data/dataRepository';
+import { BaseMPMessage } from '../../../../src/NextGen/core/baseMPMessage';
+import { MParticleDataRepository } from '../../../../src/NextGen/data/dataRepository';
 
 describe('Next Gen', () => {
     describe('Data Repository', () => {
