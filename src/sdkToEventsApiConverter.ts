@@ -56,13 +56,6 @@ export function convertEvents(
         currentConsentState = user.getConsentState();
     }
 
-    // TODO: Apply this new attribute to event-models
-    // https://go.mparticle.com/work/SQDSDKS-5458
-    interface AppInfoWithSideLoadedKitBool
-        extends EventsApi.ApplicationInformation {
-        is_using_sideloaded_kits: boolean;
-    }
-
     const upload: EventsApi.Batch = {
         source_request_id: mpInstance._Helpers.generateUniqueId(),
         mpid,
@@ -81,9 +74,7 @@ export function convertEvents(
             package: lastEvent.Package,
             is_using_sideloaded_kits:
                 mpInstance._Store.isUsingSideloadedKits || undefined,
-            // TODO: Remove this after update to event-models
-            // https://go.mparticle.com/work/SQDSDKS-5458
-        } as AppInfoWithSideLoadedKitBool,
+        },
 
         device_info: {
             platform: EventsApi.DeviceInformationPlatformEnum.web,
