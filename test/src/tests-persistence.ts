@@ -1878,20 +1878,24 @@ describe('migrations and persistence-related', () => {
     });
 
     it('should prioritize device id set via mParticle.config instead of local storage', done => {
+        const expectedDeviceId = 'guid-via-config';
+
         mParticle._resetForTests(MPConfig);
 
         setLocalStorage();
 
-        mParticle.config.deviceId = 'guid-via-config';
+        expect(mParticle.getInstance().getDeviceId()).should.be.null;
+
+        mParticle.config.deviceId = expectedDeviceId;
 
         mParticle.init(apiKey, mParticle.config);
 
-        mParticle.getInstance().getDeviceId().should.equal('guid-via-config');
+        mParticle.getInstance().getDeviceId().should.equal(expectedDeviceId);
 
         mParticle
             .getInstance()
             ._Persistence.getLocalStorage()
-            .gs.das.should.equal('guid-via-config');
+            .gs.das.should.equal(expectedDeviceId);
 
         done();
     });
