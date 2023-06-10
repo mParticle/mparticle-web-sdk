@@ -1877,6 +1877,39 @@ describe('migrations and persistence-related', () => {
         done();
     });
 
+    it('should prioritize device id set via mParticle.config instead of local storage', done => {
+        mParticle._resetForTests(MPConfig);
+
+        mParticle.init(apiKey, mParticle.config);
+
+        const initialDeviceId = mParticle.getInstance().getDeviceId();
+
+        expect(initialDeviceId).to.not.be.null;
+
+        const expectedDeviceId = 'guid-via-config';
+
+        mParticle.config.deviceId = expectedDeviceId;
+
+        mParticle.init(apiKey, mParticle.config);
+
+        expect(
+            mParticle.getInstance().getDeviceId(),
+            'Device ID should match guid passed in via config'
+        ).to.equal(expectedDeviceId);
+
+        expect(
+            initialDeviceId,
+            'New Device ID should not match Old Device Id'
+        ).to.not.equal(expectedDeviceId);
+
+        expect(
+            mParticle.getInstance()._Persistence.getLocalStorage().gs.das,
+            'Device ID stored in Local Storage should be the new Device ID'
+        ).to.equal(expectedDeviceId);
+
+        done();
+    });
+
     // this test confirms a bug has been fixed where setting a user attribute, then user attribute list
     // with a special character in it results in a cookie decode error, which only happened
     // when config.useCookieStorage was true

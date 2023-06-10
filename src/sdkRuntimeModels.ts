@@ -151,6 +151,7 @@ export interface MParticleWebSDK {
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
     getAppName(): string;
     getAppVersion(): string;
+    getDeviceId(): string;
     getInstance(): MParticleWebSDK; // TODO: Create a new type for MParticleWebSDKInstance
     ServerModel();
     upload();

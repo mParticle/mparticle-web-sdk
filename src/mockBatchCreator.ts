@@ -111,6 +111,7 @@ export default class _BatchValidator {
             getAppVersion: mockFunction,
             getAppName: mockFunction,
             getInstance: mockFunction,
+            getDeviceId: mockFunction,
             init: mockFunction,
             logBaseEvent: mockFunction,
             logEvent: mockFunction,
