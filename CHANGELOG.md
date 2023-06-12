@@ -1,3 +1,11 @@
+## [2.22.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.22.0...v2.22.1) (2023-06-12)
+
+
+### Bug Fixes
+
+* Add Sideloaded Kit flag to Batches ([#613](https://github.com/mParticle/mparticle-web-sdk/issues/613)) ([13a113b](https://github.com/mParticle/mparticle-web-sdk/commit/13a113b8e35ea0b43e4b352b3853f8a4156eb0c9))
+* Revise priority of device id when initializing state ([#618](https://github.com/mParticle/mparticle-web-sdk/issues/618)) ([b71f746](https://github.com/mParticle/mparticle-web-sdk/commit/b71f746532ed542df6bb109e329ad63e5b96bf27))
+
 # [2.22.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.21.2...v2.22.0) (2023-06-05)
 
 
