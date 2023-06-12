@@ -203,7 +203,34 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
+    function _typeof(obj) {
+      "@babel/helpers - typeof";
+
+      return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
+        return typeof obj;
+      } : function (obj) {
+        return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+      }, _typeof(obj);
+    }
+
+    function _toPrimitive(input, hint) {
+      if (_typeof(input) !== "object" || input === null) return input;
+      var prim = input[Symbol.toPrimitive];
+      if (prim !== undefined) {
+        var res = prim.call(input, hint || "default");
+        if (_typeof(res) !== "object") return res;
+        throw new TypeError("@@toPrimitive must return a primitive value.");
+      }
+      return (hint === "string" ? String : Number)(input);
+    }
+
+    function _toPropertyKey(arg) {
+      var key = _toPrimitive(arg, "string");
+      return _typeof(key) === "symbol" ? key : String(key);
+    }
+
     function _defineProperty(obj, key, value) {
+      key = _toPropertyKey(key);
       if (key in obj) {
         Object.defineProperty(obj, key, {
           value: value,
@@ -214,7 +241,6 @@ var mParticle = (function () {
       } else {
         obj[key] = value;
       }
-
       return obj;
     }
 
@@ -582,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.22.0";
+    var version = "2.22.1";
 
     var Constants = {
       sdkVersion: version,
@@ -737,16 +763,6 @@ var mParticle = (function () {
       CCPAPurpose: 'data_sale_opt_out'
     };
 
-    function _typeof(obj) {
-      "@babel/helpers - typeof";
-
-      return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
-        return typeof obj;
-      } : function (obj) {
-        return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
-      }, _typeof(obj);
-    }
-
     /******************************************************************************
     Copyright (c) Microsoft Corporation.
 
@@ -868,6 +884,10 @@ var mParticle = (function () {
     })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
     var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
+
+    function getDefaultExportFromCjs (x) {
+    	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+    }
 
     var dist = {};
 
@@ -1096,10 +1116,12 @@ var mParticle = (function () {
     	})(exports.UserAttributeChangeEventEventTypeEnum || (exports.UserAttributeChangeEventEventTypeEnum = {}));
     	(function (UserIdentityChangeEventEventTypeEnum) {
     	    UserIdentityChangeEventEventTypeEnum["userIdentityChange"] = "user_identity_change";
-    	})(exports.UserIdentityChangeEventEventTypeEnum || (exports.UserIdentityChangeEventEventTypeEnum = {}));
+    	})(exports.UserIdentityChangeEventEventTypeEnum || (exports.UserIdentityChangeEventEventTypeEnum = {})); 
     } (dist));
 
     var slugify$1 = {exports: {}};
+
+    slugify$1.exports;
 
     (function (module, exports) {
     (function (name, root, factory) {
@@ -1162,10 +1184,11 @@ var mParticle = (function () {
     	  };
 
     	  return replace
-    	}));
-    } (slugify$1));
+    	})); 
+    } (slugify$1, slugify$1.exports));
 
-    var slugify = slugify$1.exports;
+    var slugifyExports = slugify$1.exports;
+    var slugify = /*@__PURE__*/getDefaultExportFromCjs(slugifyExports);
 
     var createCookieString = function createCookieString(value) {
       return replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
@@ -1370,10 +1393,12 @@ var mParticle = (function () {
         events: uploadEvents,
         mp_deviceid: lastEvent.DeviceId,
         sdk_version: lastEvent.SDKVersion,
+        // TODO: Refactor this to read from _Store or a global config
         application_info: {
           application_version: lastEvent.AppVersion,
           application_name: lastEvent.AppName,
-          "package": lastEvent.Package
+          "package": lastEvent.Package,
+          is_using_sideloaded_kits: mpInstance._Store.isUsingSideloadedKits || undefined
         },
         device_info: {
           platform: dist.DeviceInformationPlatformEnum.web,
@@ -4158,7 +4183,14 @@ var mParticle = (function () {
             mpInstance._Store.devToken = mpInstance._Store.devToken || obj.gs.dt;
             mpInstance._Store.SDKConfig.appVersion = mpInstance._Store.SDKConfig.appVersion || obj.gs.av;
             mpInstance._Store.clientId = obj.gs.cgid || mpInstance._Store.clientId || mpInstance._Helpers.generateUniqueId();
-            mpInstance._Store.deviceId = obj.gs.das || mpInstance._Store.deviceId || mpInstance._Helpers.generateUniqueId();
+
+            // For most persistence values, we prioritize localstorage/cookie values over
+            // Store. However, we allow device ID to be overriden via a config value and
+            // thus the priority of the deviceId value is
+            // 1. value passed via config.deviceId
+            // 2. previous value in persistence
+            // 3. generate new guid
+            mpInstance._Store.deviceId = mpInstance._Store.deviceId || obj.gs.das || mpInstance._Helpers.generateUniqueId();
             mpInstance._Store.integrationAttributes = obj.gs.ia || {};
             mpInstance._Store.context = obj.gs.c || mpInstance._Store.context;
             mpInstance._Store.currentSessionMPIDs = obj.gs.csm || mpInstance._Store.currentSessionMPIDs;
@@ -5568,6 +5600,12 @@ var mParticle = (function () {
             for (var registeredKitKey in sideloadedKits.kits) {
               var kitConstructor = sideloadedKits.kits[registeredKitKey];
               self.configureSideloadedKit(kitConstructor);
+            }
+
+            // If Sideloaded Kits are successfully registered,
+            // record this in the Store.
+            if (!isEmpty(sideloadedKits.kits)) {
+              mpInstance._Store.isUsingSideloadedKits = true;
             }
           }
         } catch (e) {
@@ -9154,6 +9192,7 @@ var mParticle = (function () {
           getAppVersion: mockFunction,
           getAppName: mockFunction,
           getInstance: mockFunction,
+          getDeviceId: mockFunction,
           init: mockFunction,
           logBaseEvent: mockFunction,
           logEvent: mockFunction,
