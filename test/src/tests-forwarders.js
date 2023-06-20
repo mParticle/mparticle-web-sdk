@@ -2573,6 +2573,53 @@ describe('forwarders', function() {
         done();
     });
 
+    describe('kits with suffixes', function() {
+        it('should add forwarders with suffixes and initialize them accordingly if there is a coresponding kit config with the same suffix', function(done) {
+            mParticle._resetForTests(MPConfig);
+
+            const mockForwarder = new MockForwarder('ForwarderWithSuffixV3', 1, 'v3');
+            const mockForwarder2 = new MockForwarder('ForwarderWithSuffixV4', 1, 'v4');
+            mParticle.addForwarder(mockForwarder);
+            mParticle.addForwarder(mockForwarder2);
+
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('ForwarderWithSuffixV3', 1, 'v3')
+            );
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('ForwarderWithSuffixV4', 1, 'v4')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            mParticle
+                .getInstance()
+                ._getActiveForwarders()
+                .length.should.equal(2);
+
+            done();
+        });
+
+        it('should not add a forwarder with suffix if there is not a corresponding kit config with the same suffix', function(done) {
+            mParticle._resetForTests(MPConfig);
+
+            const mockForwarder = new MockForwarder('ForwarderWithSuffix', 1, 'v3');
+            mParticle.addForwarder(mockForwarder);
+
+            window.mParticle.config.kitConfigs.push(
+                forwarderDefaultConfiguration('ForwarderWithSuffix', 1, 'v4')
+            );
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            mParticle
+                .getInstance()
+                ._getActiveForwarders()
+                .length.should.equal(0);
+
+            done();
+        });
+    })
+
     describe('side loaded kits', function() {
         describe('initialization', function() {
             beforeEach(function() {

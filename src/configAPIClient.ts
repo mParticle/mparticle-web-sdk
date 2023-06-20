@@ -16,6 +16,7 @@ export type SDKCompleteInitCallback = (
 
 export interface IKitConfigs extends IKitFilterSettings {
     name: string;
+    suffix?: string;
     moduleId: number;
     isDebug: boolean;
     isVisible: boolean;

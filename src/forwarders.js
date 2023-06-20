@@ -557,10 +557,12 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // if there is a match before being initialized.
     // Only kits that are configured properly can be active and used for kit forwarding.
     this.processUIEnabledKits = function(config) {
+        let kits = this.returnKitConstructors();
+
         try {
             if (Array.isArray(config.kitConfigs) && config.kitConfigs.length) {
                 config.kitConfigs.forEach(function(kitConfig) {
-                    self.configureUIEnabledKit(kitConfig);
+                    self.configureUIEnabledKit(kitConfig, kits);
                 });
             }
         } catch (e) {
@@ -571,37 +573,56 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    this.configureUIEnabledKit = function(configuration) {
-        var newForwarder = null,
-            config = configuration,
-            forwarders = {};
-
+    this.returnKitConstructors = function() {
+        let kits = {};
         // If there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
         if (!isEmpty(mpInstance._Store.SDKConfig.kits)) {
-            forwarders = mpInstance._Store.SDKConfig.kits;
+            kits = mpInstance._Store.SDKConfig.kits;
             // otherwise mParticle is loaded via script tag
         } else if (!isEmpty(mpInstance._preInit.forwarderConstructors)) {
             mpInstance._preInit.forwarderConstructors.forEach(function(
-                forwarder
+                kitConstructor
             ) {
-                forwarders[forwarder.name] = forwarder;
+                // A suffix is added to a kitConstructor and kit config if there are multiple different
+                // versions of a client kit.  This matches the suffix in the DB.  As an example
+                // the GA4 kit has a client kit and a server side kit which has a client side
+                // component.  They share the same name/module ID in the DB, so we include a
+                // suffix to distinguish them in the kits object.
+                // If a customer wanted simultaneous GA4 client and server connections,
+                // a suffix allows the SDK to distinguish the two.
+                if (kitConstructor.suffix) {
+                    const kitNameWithConstructorSuffix = `${kitConstructor.name}-${kitConstructor.suffix}`;
+                    kits[kitNameWithConstructorSuffix] = kitConstructor;
+                } else {
+                    kits[kitConstructor.name] = kitConstructor;
+                }
             });
         }
+        return kits;
+    };
 
-        for (var name in forwarders) {
-            if (name === config.name) {
+    this.configureUIEnabledKit = function(configuration, kits) {
+        let newKit = null;
+        const config = configuration;
+
+        for (let name in kits) {
+            // Configs are returned with suffixes also. We need to consider the
+            // config suffix here to match the constructor suffix
+            let kitNameWithConfigSuffix;
+            if (config.suffix) {
+                kitNameWithConfigSuffix = `${config.name}-${config.suffix}`;
+            }
+
+            if (name === kitNameWithConfigSuffix || name === config.name) {
                 if (
                     config.isDebug ===
                         mpInstance._Store.SDKConfig.isDevelopmentMode ||
                     config.isSandbox ===
                         mpInstance._Store.SDKConfig.isDevelopmentMode
                 ) {
-                    newForwarder = this.returnConfiguredKit(
-                        forwarders[name],
-                        config
-                    );
+                    newKit = this.returnConfiguredKit(kits[name], config);
 
-                    mpInstance._Store.configuredForwarders.push(newForwarder);
+                    mpInstance._Store.configuredForwarders.push(newKit);
                     break;
                 }
             }
