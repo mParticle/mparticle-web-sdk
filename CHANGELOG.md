@@ -1,3 +1,10 @@
+# [2.23.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.22.1...v2.23.0) (2023-06-26)
+
+
+### Features
+
+* Support config-provided suffix in kit initialization ([#617](https://github.com/mParticle/mparticle-web-sdk/issues/617)) ([1052f51](https://github.com/mParticle/mparticle-web-sdk/commit/1052f517f35ff7312c3195e52129c8ab05467783))
+
 ## [2.22.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.22.0...v2.22.1) (2023-06-12)
 
 
