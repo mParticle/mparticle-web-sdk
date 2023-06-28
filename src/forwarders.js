@@ -665,7 +665,8 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 // If Sideloaded Kits are successfully registered,
                 // record this in the Store.
                 if (!isEmpty(sideloadedKits.kits)) {
-                    mpInstance._Store.isUsingSideloadedKits = true;
+                    const kitKeys = Object.keys(sideloadedKits.kits);
+                    mpInstance._Store.sideloadedKitsCount = kitKeys.length;
                 }
             }
         } catch (e) {

@@ -2710,7 +2710,7 @@ describe('forwarders', function() {
 
                 const mpInstance = window.mParticle.getInstance();
 
-                expect(mpInstance._Store.isUsingSideloadedKits).to.be.true;
+                expect(mpInstance._Store.sideloadedKitsCount).to.equal(2);
 
                 mParticle.logEvent('foo', mParticle.EventType.Navigation);
 
@@ -2718,8 +2718,8 @@ describe('forwarders', function() {
 
                 expect(batch).to.have.property('application_info');
                 expect(batch.application_info).to.have.property(
-                    'is_using_sideloaded_kits'
-                );
+                    'sideloaded_kits_count'
+                , 2);
             });
 
             it('should NOT add a flag in batches for reporting if sideloaded kits are not used', function() {
@@ -2735,7 +2735,7 @@ describe('forwarders', function() {
 
                 expect(batch).to.have.property('application_info');
                 expect(batch.application_info).not.to.have.property(
-                    'is_using_sideloaded_kits'
+                    'sideloaded_kits_count'
                 );
             });
         });
