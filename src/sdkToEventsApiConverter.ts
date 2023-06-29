@@ -72,8 +72,7 @@ export function convertEvents(
             application_version: lastEvent.AppVersion,
             application_name: lastEvent.AppName,
             package: lastEvent.Package,
-            is_using_sideloaded_kits:
-                mpInstance._Store.isUsingSideloadedKits || undefined,
+            sideloaded_kits_count: mpInstance._Store.sideloadedKitsCount,
         },
 
         device_info: {

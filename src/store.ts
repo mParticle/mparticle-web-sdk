@@ -139,7 +139,7 @@ export interface IStore {
     nonCurrentUserMPIDs: Record<MPID, Dictionary>;
     identifyCalled: boolean;
     isLoggedIn: boolean;
-    isUsingSideloadedKits?: boolean;
+    sideloadedKitsCount?: number;
     cookieSyncDates: Dictionary<number>;
     integrationAttributes: IntegrationAttributes;
     requireDelay: boolean;
