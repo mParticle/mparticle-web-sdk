@@ -1,3 +1,10 @@
+## [2.23.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.0...v2.23.1) (2023-07-10)
+
+
+### Bug Fixes
+
+* Rename is_using_sideloaded_kits to sideloaded_kits_count ([#646](https://github.com/mParticle/mparticle-web-sdk/issues/646)) ([98d868c](https://github.com/mParticle/mparticle-web-sdk/commit/98d868c8b91cc3ca39cf399098428542bb6e0768))
+
 # [2.23.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.22.1...v2.23.0) (2023-06-26)
 
 
