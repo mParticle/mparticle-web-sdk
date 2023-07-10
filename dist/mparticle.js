@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.23.0";
+    var version = "2.23.1";
 
     var Constants = {
       sdkVersion: version,
@@ -777,7 +777,7 @@ var mParticle = (function () {
     OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
     PERFORMANCE OF THIS SOFTWARE.
     ***************************************************************************** */
-    /* global Reflect, Promise */
+    /* global Reflect, Promise, SuppressedError, Symbol */
 
     var extendStatics = function(d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -842,6 +842,11 @@ var mParticle = (function () {
             if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
         }
     }
+
+    typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+        var e = new Error(message);
+        return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+    };
 
     var SDKProductActionType;
     (function (SDKProductActionType) {
@@ -1398,7 +1403,7 @@ var mParticle = (function () {
           application_version: lastEvent.AppVersion,
           application_name: lastEvent.AppName,
           "package": lastEvent.Package,
-          is_using_sideloaded_kits: mpInstance._Store.isUsingSideloadedKits || undefined
+          sideloaded_kits_count: mpInstance._Store.sideloadedKitsCount
         },
         device_info: {
           platform: dist.DeviceInformationPlatformEnum.web,
@@ -5626,7 +5631,8 @@ var mParticle = (function () {
             // If Sideloaded Kits are successfully registered,
             // record this in the Store.
             if (!isEmpty(sideloadedKits.kits)) {
-              mpInstance._Store.isUsingSideloadedKits = true;
+              var kitKeys = Object.keys(sideloadedKits.kits);
+              mpInstance._Store.sideloadedKitsCount = kitKeys.length;
             }
           }
         } catch (e) {
