@@ -129,4 +129,23 @@ describe('Validators', () => {
         expect(Validators.isFunction(function (){})).to.eq(true);
         expect(Validators.isFunction(() => {})).to.eq(true);
     });
+
+    it('#containsValidCustomFlags should correctly validate Custom Flags', () => {
+        expect(
+            Validators.containsValidCustomFlags({
+                'Foo.Bar': 'foobar',
+                BizzBuzz: 'fizzybubbly',
+                iamastring: 'iamalso a string',
+            })
+        ).to.eq(true);
+
+        expect(
+            Validators.containsValidCustomFlags({
+                'GoogleAds.ECData': {
+                    email: 'john@example.com',
+                    phone: '+1234567890',
+                },
+            })
+        ).to.eq(false);
+    });
 });

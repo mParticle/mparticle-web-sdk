@@ -1,11 +1,18 @@
 import Types from './types';
 import Constants from './constants';
+import Validators from './validators';
+import * as Utils from './utils';
+
+const isEmpty = Utils.isEmpty;
 
 var Messages = Constants.Messages;
 
 export default function Events(mpInstance) {
     var self = this;
     this.logEvent = function(event, options) {
+        if (!validateCustomFlags(event.customFlags)) {
+            return;
+        }
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingLogEvent + ': ' + event.name
         );
@@ -100,6 +107,10 @@ export default function Events(mpInstance) {
     };
 
     this.logCheckoutEvent = function(step, option, attrs, customFlags) {
+        if (!validateCustomFlags(customFlags)) {
+            return;
+        }
+
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -128,6 +139,10 @@ export default function Events(mpInstance) {
         transactionAttributes,
         options
     ) {
+        if (!validateCustomFlags(customFlags)) {
+            return;
+        }
+
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -190,6 +205,10 @@ export default function Events(mpInstance) {
         attrs,
         customFlags
     ) {
+        if (!validateCustomFlags(event.customFlags)) {
+            return;
+        }
+
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -227,6 +246,10 @@ export default function Events(mpInstance) {
             return;
         }
 
+        if (!validateCustomFlags(customFlags)) {
+            return;
+        }
+
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -260,6 +283,10 @@ export default function Events(mpInstance) {
         customFlags,
         eventOptions
     ) {
+        if (!validateCustomFlags(customFlags)) {
+            return;
+        }
+
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -288,6 +315,10 @@ export default function Events(mpInstance) {
         customFlags,
         options
     ) {
+        if (!validateCustomFlags(customFlags)) {
+            return;
+        }
+
         var event = mpInstance._Ecommerce.createCommerceEventObject(
             customFlags
         );
@@ -446,4 +477,19 @@ export default function Events(mpInstance) {
             mpInstance.Logger.verbose('No elements found');
         }
     };
+
+    function validateCustomFlags(customFlags) {
+        if (
+            !isEmpty(customFlags) &&
+            !Validators.containsValidCustomFlags(customFlags)
+        ) {
+            mpInstance.Logger.error(
+                'Error: ' + Messages.ValidationMessages.InvalidCustomFlags
+            );
+
+            return false;
+        }
+
+        return true;
+    }
 }

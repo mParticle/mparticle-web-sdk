@@ -324,6 +324,18 @@ describe('event logging', function() {
         done();
     });
 
+    it('should reject invalid custom flags', function (done) {
+        mParticle.logPageView('test', null, {
+            'MyCustom.Flag': ['this', 'is', 'not', 'valid'],
+        });
+
+        const pageViewEvent = findEventFromRequest(window.fetchMock._calls, 'screen_view');
+
+        Should(pageViewEvent).not.be.ok();
+
+        done();
+    });
+
     it('should allow a page view to bypass server upload', function (done) {
         mParticle.logPageView(
             'test bypass',

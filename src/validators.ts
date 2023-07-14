@@ -1,5 +1,13 @@
 import Types from './types';
-import { isFunction, isNumber, isObject, isStringOrNumber, valueof } from './utils';
+import {
+    Dictionary,
+    isFunction,
+    isNumber,
+    isObject,
+    isString,
+    isStringOrNumber,
+    valueof,
+} from './utils';
 import Constants from './constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
 
@@ -31,6 +39,10 @@ const Validators = {
                 !Array.isArray(key) &&
                 !this.isFunction(key)
         );
+    },
+
+    containsValidCustomFlags: function(customFlags: Dictionary<any>): Boolean {
+        return Object.values(customFlags).some(item => isString(item));
     },
 
     validateIdentities: function(

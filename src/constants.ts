@@ -74,6 +74,8 @@ const Constants = {
                 'Alias Request must have both a startTime and an endTime',
             AliasStartBeforeEndTime:
                 "Alias Request's endTime must be later than its startTime",
+            InvalidCustomFlags:
+                'There is an invalid Custom Flag in your Event. Each Custom Flag must contain a key/value pair of strings only.',
         },
     },
     NativeSdkPaths: {
