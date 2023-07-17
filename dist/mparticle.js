@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.23.1";
+    var version = "2.23.2";
 
     var Constants = {
       sdkVersion: version,
