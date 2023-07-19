@@ -85,7 +85,7 @@
         "@mparticle/event-models": "^1.1.8",
         "@rollup/plugin-babel": "6.0.3",
         "@rollup/plugin-commonjs": "25.0.2",
-        "@rollup/plugin-json": "^4.1.0",
+        "@rollup/plugin-json": "^5.0.2",
         "@rollup/plugin-node-resolve": "15.1.0",
         "@rollup/plugin-typescript": "^11.1.0",
         "@semantic-release/changelog": "^5.0.1",
