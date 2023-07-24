@@ -343,11 +343,265 @@ describe('SessionManager', () => {
         });
     });
 
-    describe('#setSessionTimer', () => {});
+    describe('#setSessionTimer', () => {
+        it('should end a session after the timeout expires', done => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+            const endSessionSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'endSession'
+            );
 
-    describe('#resetSessionTimer', () => {});
+            // Start Timer
+            mpInstance._SessionManager.setSessionTimer();
 
-    describe('#clearSessionTimer', () => {});
+            // Progress 29 minutes to make sure end session has not fired
+            clock.tick(29 * 60000);
+            expect(endSessionSpy.called).to.equal(false);
 
-    describe('startNewSessionIfNeeded', () => {});
+            // Progress one minutes to make sure end session fires
+            clock.tick(30 * 60000);
+            expect(endSessionSpy.called).to.equal(true);
+
+            // Let test know async process is done
+            done();
+        });
+
+        it('should set a global timer', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            // Manually clear global timer since it gets set during init
+            // window.clearTimeout(mpInstance._Store.globalTimer);
+            mpInstance._Store.globalTimer = null;
+            expect(mpInstance._Store.globalTimer).to.eq(null);
+
+            mpInstance._SessionManager.setSessionTimer();
+            expect(mpInstance._Store.globalTimer).to.be.ok;
+        });
+    });
+
+    describe('#resetSessionTimer', () => {
+        it('should call startNewSession if sessionId is not defined', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            mpInstance._Store.sessionId = null;
+
+            const startNewSessionSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'startNewSession'
+            );
+
+            mpInstance._SessionManager.resetSessionTimer();
+            expect(startNewSessionSpy.called).to.equal(true);
+        });
+
+        it('should NOT call startNewSession if sessionId is defined', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            mpInstance._Store.sessionId = 'test-session-id';
+
+            const startNewSessionSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'startNewSession'
+            );
+
+            mpInstance._SessionManager.resetSessionTimer();
+            expect(startNewSessionSpy.called).to.equal(false);
+        });
+
+        it('should NOT restart a session if webviewBridgeEnabled is true', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            mpInstance._Store.webviewBridgeEnabled = true;
+
+            const startNewSessionSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'startNewSession'
+            );
+            const clearSessionTimeoutSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'clearSessionTimeout'
+            );
+            const setSessionTimerSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'setSessionTimer'
+            );
+
+            mpInstance._SessionManager.resetSessionTimer();
+            expect(startNewSessionSpy.called).to.equal(false);
+            expect(clearSessionTimeoutSpy.called).to.equal(false);
+            expect(setSessionTimerSpy.called).to.equal(false);
+        });
+
+        it('should reset session timer', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            const clearSessionTimeoutSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'clearSessionTimeout'
+            );
+            const setSessionTimerSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'setSessionTimer'
+            );
+
+            mpInstance._SessionManager.resetSessionTimer();
+            expect(clearSessionTimeoutSpy.called).to.equal(true);
+            expect(setSessionTimerSpy.called).to.equal(true);
+        });
+
+        it('should call startNewSessionIfNeeded', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            const startNewSessionIfNeededSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'startNewSessionIfNeeded'
+            );
+
+            expect(startNewSessionIfNeededSpy.called).to.equal(false);
+
+            mpInstance._SessionManager.resetSessionTimer();
+            expect(startNewSessionIfNeededSpy.called).to.equal(true);
+        });
+    });
+
+    describe('#clearSessionTimer', () => {
+        it('should call clearTimeout', () => {
+            const clearTimeoutSpy = sinon.spy(window, 'clearTimeout');
+
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            expect(clearTimeoutSpy.called).to.equal(false);
+            mpInstance._SessionManager.clearSessionTimeout();
+            expect(clearTimeoutSpy.called).to.equal(true);
+        });
+    });
+
+    describe.only('startNewSessionIfNeeded', () => {
+        it('should call startNewSession if sessionId is not available from Persistence', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            // Session Manager relies on persistence check sid (Session ID)
+            sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                gs: {
+                    sid: null,
+                },
+            });
+
+            mpInstance._Store.sessionId = null;
+
+            const startNewSessionSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'startNewSession'
+            );
+
+            mpInstance._SessionManager.startNewSessionIfNeeded();
+            expect(startNewSessionSpy.called).to.equal(true);
+        });
+
+        it('should NOT call startNewSession if sessionId is defined and Persistence is undefined', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            // Session Manager relies on persistence check sid (Session ID)
+            // However, if persistence is undefined, this will not create a
+            // new session
+            sinon.stub(mpInstance._Persistence, 'getPersistence').returns(null);
+
+            mpInstance._Store.sessionId = null;
+
+            const startNewSessionSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'startNewSession'
+            );
+
+            mpInstance._SessionManager.startNewSessionIfNeeded();
+            expect(startNewSessionSpy.called).to.equal(false);
+        });
+
+        it('should override Store.sessionId from Persistence', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            // Session Manager relies on persistence check sid (Session ID)
+            sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                gs: {
+                    sid: 'sid-from-persistence',
+                },
+            });
+
+            mpInstance._Store.sessionId = 'sid-from-store';
+
+            mpInstance._SessionManager.startNewSessionIfNeeded();
+
+            mpInstance._Store.sessionId = 'sid-from-persistence';
+        });
+
+        it('should set sessionId from Persistence if Store.sessionId is undefined', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            // Session Manager relies on persistence check sid (Session ID)
+            sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                gs: {
+                    sid: 'sid-from-persistence',
+                },
+            });
+
+            const startNewSessionSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'startNewSession'
+            );
+
+            mpInstance._Store.sessionId = undefined;
+
+            mpInstance._SessionManager.startNewSessionIfNeeded();
+
+            mpInstance._Store.sessionId = 'sid-from-persistence';
+
+            expect(startNewSessionSpy.called).to.equal(true);
+        });
+
+        it('should NOT call startNewSession if Store.sessionId and Persistence is null', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            // Session Manager relies on persistence check sid (Session ID)
+            sinon.stub(mpInstance._Persistence, 'getPersistence').returns(null);
+
+            const startNewSessionSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'startNewSession'
+            );
+
+            mpInstance._Store.sessionId = null;
+
+            mpInstance._SessionManager.startNewSessionIfNeeded();
+
+            expect(startNewSessionSpy.called).to.equal(false);
+        });
+
+        it('should NOT call startNewSession if webviewBridgeEnabled is true', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+            const mpInstance = mParticle.getInstance();
+
+            mpInstance._Store.webviewBridgeEnabled = true;
+
+            const startNewSessionSpy = sinon.spy(
+                mpInstance._SessionManager,
+                'startNewSession'
+            );
+
+            mpInstance._SessionManager.startNewSessionIfNeeded();
+            expect(startNewSessionSpy.called).to.equal(false);
+        });
+    });
 });

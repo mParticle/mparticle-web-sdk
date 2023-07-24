@@ -6,6 +6,6 @@ export interface ISessionManager {
     setSessionTimer: () => void;
     resetSessionTimer: () => void;
 
-    clearSessionTimout: () => void;
+    clearSessionTimeout: () => void;
     startNewSessionIfNeeded: () => void;
 }
