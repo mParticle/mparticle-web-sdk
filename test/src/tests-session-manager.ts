@@ -484,7 +484,7 @@ describe('SessionManager', () => {
         });
     });
 
-    describe.only('startNewSessionIfNeeded', () => {
+    describe('startNewSessionIfNeeded', () => {
         it('should call startNewSession if sessionId is not available from Persistence', () => {
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
