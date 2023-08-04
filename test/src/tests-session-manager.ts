@@ -128,6 +128,32 @@ describe('SessionManager', () => {
 
                 expect(sessionId).to.equal('foo');
             });
+
+            it('should log a deprecation message', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+
+                const mpInstance = mParticle.getInstance();
+                const consoleSpy = sinon.spy(mpInstance.Logger, 'warning');
+
+                mpInstance._SessionManager.getSession();
+
+                expect(consoleSpy.lastCall.firstArg).to.equal(
+                    'SessionManager.getSession() is a deprecated method and will be removed in future releases SessionManager.getSessionId() is a deprecated method and will be removed in future releases'
+                );
+            });
+        });
+
+        describe('#getSessionId', () => {
+            it('returns a Session ID from the Store', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.getInstance()._Store.sessionId = 'foo';
+
+                const sessionId: string = mParticle
+                    .getInstance()
+                    ._SessionManager.getSessionId();
+
+                expect(sessionId).to.equal('foo');
+            });
         });
 
         describe('#startNewSession', () => {

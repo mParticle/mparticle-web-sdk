@@ -1,10 +1,32 @@
 import Constants from './constants';
+import { MParticleWebSDK } from './sdkRuntimeModels';
 import Types from './types';
+import { generateDeprecationMessage } from './utils';
 
-var Messages = Constants.Messages;
+const { Messages } = Constants;
 
-function SessionManager(mpInstance) {
-    var self = this;
+export interface ISessionManager {
+    initialize: () => void;
+    getSessionId: () => string;
+    startNewSession: () => void;
+    endSession: (override?: boolean) => void;
+    setSessionTimer: () => void;
+    resetSessionTimer: () => void;
+    clearSessionTimeout: () => void;
+    startNewSessionIfNeeded: () => void;
+
+    /**
+     * @deprecated
+     */
+    getSession: () => string;
+}
+
+export default function SessionManager(
+    this: ISessionManager,
+    mpInstance: MParticleWebSDK
+) {
+    const self = this;
+
     this.initialize = function() {
         if (mpInstance._Store.sessionId) {
             var sessionTimeoutInMilliseconds =
@@ -35,8 +57,18 @@ function SessionManager(mpInstance) {
         }
     };
 
-    // TODO: Rename to getSessionId
     this.getSession = function() {
+        mpInstance.Logger.warning(
+            generateDeprecationMessage(
+                'SessionManager.getSession()',
+
+                'SessionManager.getSessionId()'
+            )
+        );
+        return this.getSessionId();
+    };
+
+    this.getSessionId = function() {
         return mpInstance._Store.sessionId;
     };
 
@@ -190,5 +222,3 @@ function SessionManager(mpInstance) {
         }
     };
 }
-
-export default SessionManager;

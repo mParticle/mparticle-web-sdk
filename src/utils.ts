@@ -1,4 +1,7 @@
 import slugify from 'slugify';
+import Constants from './constants';
+
+const { Messages } = Constants;
 
 type valueof<T> = T[keyof T];
 
@@ -42,6 +45,25 @@ const findKeyInObject = (obj: any, key: string): string => {
     return null;
 };
 
+const generateDeprecationMessage = (
+    methodName: string,
+    alternateMethod: string
+): string => {
+    const messageArray: string[] = [
+        methodName,
+        Messages.DeprecationMessages.MethodIsDeprecatedPostfix,
+    ];
+
+    if (alternateMethod) {
+        messageArray.push(alternateMethod);
+        messageArray.push(
+            Messages.DeprecationMessages.MethodIsDeprecatedPostfix
+        );
+    }
+
+    return messageArray.join(' ');
+};
+
 function generateHash(name: string): number {
     let hash: number = 0;
     let character: number;
@@ -53,7 +75,7 @@ function generateHash(name: string): number {
     name = name.toString().toLowerCase();
 
     if (Array.prototype.reduce) {
-        return name.split('').reduce(function (a: number, b: string) {
+        return name.split('').reduce(function(a: number, b: string) {
             a = (a << 5) - a + b.charCodeAt(0);
             return a & a;
         }, 0);
@@ -140,9 +162,11 @@ const parseStringOrNumber = (
     }
 };
 
-const replaceCommasWithPipes = (value: string): string => value.replace(/,/g, '|');
+const replaceCommasWithPipes = (value: string): string =>
+    value.replace(/,/g, '|');
 
-const replacePipesWithCommas = (value: string): string => value.replace(/\|/g, ',');
+const replacePipesWithCommas = (value: string): string =>
+    value.replace(/\|/g, ',');
 
 const replaceApostrophesWithQuotes = (value: string): string =>
     value.replace(/\'/g, '"');
@@ -167,7 +191,10 @@ const decoded = (s: string): string =>
 
 const converted = (s: string): string => {
     if (s.indexOf('"') === 0) {
-        s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        s = s
+            .slice(1, -1)
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, '\\');
     }
 
     return s;
@@ -194,6 +221,7 @@ export {
     converted,
     decoded,
     findKeyInObject,
+    generateDeprecationMessage,
     generateHash,
     generateUniqueId,
     getRampNumber,

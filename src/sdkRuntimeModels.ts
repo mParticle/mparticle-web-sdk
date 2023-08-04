@@ -9,7 +9,7 @@ import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import { IPersistence } from './persistence.interfaces';
 import { IMPSideloadedKit } from './sideloadedKit';
-import { ISessionManager } from './session.interfaces';
+import { ISessionManager } from './sessionManager';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -128,7 +128,7 @@ export interface SDKProduct {
     Attributes?: { [key: string]: string };
 }
 
-// Temporary Interface for Events Module
+// Temporary Interfaces for Events Module
 interface IEvents {
     logEvent?(event: BaseEvent): void;
 }
@@ -239,6 +239,7 @@ export interface SDKIdentityApi {
 }
 
 export interface SDKHelpersApi {
+    canLog?(): boolean;
     createServiceUrl(arg0: string, arg1: string): void;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);
@@ -314,7 +315,7 @@ export interface SDKUserAttributeChangeData {
 
 export interface BaseEvent {
     messageType: number;
-    name: string;
+    name?: string;
     eventType?: number;
     data?: { [key: string]: string };
     customFlags?: { [key: string]: string };

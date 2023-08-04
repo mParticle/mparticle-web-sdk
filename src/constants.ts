@@ -5,6 +5,11 @@ const Constants = {
     sdkVendor: 'mparticle',
     platform: 'web',
     Messages: {
+        DeprecationMessages: {
+            MethodIsDeprecatedPostfix:
+                'is a deprecated method and will be removed in future releases',
+            AlternativeMethodPrefix: 'Please use the alternate method:',
+        },
         ErrorMessages: {
             NoToken: 'A token must be specified.',
             EventNameInvalidType: 'Event name must be a valid string value.',
@@ -163,7 +168,7 @@ const Constants = {
         OfflineStorage: 'offlineStorage',
     },
     DefaultInstance: 'default_instance',
-    CCPAPurpose: 'data_sale_opt_out'
+    CCPAPurpose: 'data_sale_opt_out',
 } as const;
 
 export default Constants;
