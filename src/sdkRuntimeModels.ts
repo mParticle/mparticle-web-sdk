@@ -128,7 +128,7 @@ export interface SDKProduct {
     Attributes?: { [key: string]: string };
 }
 
-// Temporary Interfaced for Events Module
+// Temporary Interface for Events Module
 interface IEvents {
     logEvent?(event: BaseEvent): void;
 }
