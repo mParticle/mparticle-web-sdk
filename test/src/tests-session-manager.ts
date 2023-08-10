@@ -213,7 +213,7 @@ describe('SessionManager', () => {
         });
 
         it('should call Identity.identify if Store.identifyCalled is false', () => {
-            // Init already an identify request and resets the identiy callback,
+            // `init` already sends an identify request and resets the identity callback,
             // To test this feature in isolation we will "reset" the identify
             // request and callback after init so we can test startNewSession
             // in isolation.
@@ -233,7 +233,6 @@ describe('SessionManager', () => {
             mpInstance._Store.SDKConfig.identifyRequest = identityApiData;
             mpInstance._Store.SDKConfig.identityCallback = callbackSpy;
             mpInstance._Store.identifyCalled = false;
-            //
             mpInstance._SessionManager.startNewSession();
 
             expect(identifySpy.getCall(0).args[0]).to.eql(identityApiData);
