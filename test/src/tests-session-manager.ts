@@ -14,7 +14,7 @@ declare global {
 let mockServer;
 const mParticle = window.mParticle;
 
-describe.only('SessionManager', () => {
+describe('SessionManager', () => {
     const now = new Date();
     let clock;
     let sandbox;
@@ -317,13 +317,24 @@ describe.only('SessionManager', () => {
             expect(timerSpy.getCalls().length).to.equal(1);
         });
 
-        it('should end session if session times out', () => {
+            const generateUniqueIdSpy = sinon.stub(
+                mParticle.getInstance()._Helpers,
+                'generateUniqueId'
+            );
+            generateUniqueIdSpy.returns('test-unique-id');
+
             const now = new Date();
             const hourAgo = new Date();
             hourAgo.setMinutes(now.getMinutes() - 60);
 
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
+
+            expect(mpInstance._Store.sessionId).to.equal('TEST-UNIQUE-ID');
+            // Init will set dateLastEventSent to now, but endSession relies on the persistence layer
+            expect(mpInstance._Store.dateLastEventSent).to.eql(now);
+            expect(mpInstance._Store.sessionAttributes).to.eql({});
+
             const persistenceSpy = sinon.spy(mpInstance._Persistence, 'update');
 
             // Session Manager relies on persistence to determine last time seen (LES)
@@ -335,7 +346,7 @@ describe.only('SessionManager', () => {
                 },
             });
 
-            mpInstance._SessionManager.endSession(true);
+            mpInstance._SessionManager.endSession();
 
             expect(mpInstance._Store.sessionId).to.equal(null);
             expect(mpInstance._Store.dateLastEventSent).to.equal(null);
@@ -511,7 +522,7 @@ describe.only('SessionManager', () => {
             expect(startNewSessionSpy.called).to.equal(true);
         });
 
-        it('should NOT call startNewSession if sessionId is defined and Persistence is undefined', () => {
+        it('should NOT call startNewSession if sessionId is undefined and Persistence is undefined', () => {
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
 
