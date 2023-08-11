@@ -1,7 +1,7 @@
 import sinon from 'sinon';
 import { expect } from 'chai';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
-import { apiKey, MPConfig, testMPID, urls, MessageType } from './config';
+import { apiKey, MPConfig, testMPID, urls, MessageType, MILLISECONDS_IN_ONE_MINUTE } from './config';
 import { IdentityApiData } from '@mparticle/web-sdk';
 
 declare global {
@@ -14,7 +14,7 @@ declare global {
 let mockServer;
 const mParticle = window.mParticle;
 
-describe('SessionManager', () => {
+describe.only('SessionManager', () => {
     const now = new Date();
     let clock;
     let sandbox;
@@ -64,7 +64,7 @@ describe('SessionManager', () => {
         });
 
         it('ends the previous session and creates a new session if Store contains a sessionId and dateLastEventSent beyond the timeout window', () => {
-            const sessionTimeoutInMilliseconds = 11 * 60000; // 11 minutes
+            const timePassed = 11 * MILLISECONDS_IN_ONE_MINUTE;
 
             const generateUniqueIdSpy = sinon.stub(
                 mParticle.getInstance()._Helpers,
@@ -79,7 +79,7 @@ describe('SessionManager', () => {
 
             const timeLastEventSent = mpInstance._Store.dateLastEventSent.getTime();
             mpInstance._Store.dateLastEventSent = new Date(
-                timeLastEventSent - sessionTimeoutInMilliseconds
+                timeLastEventSent - timePassed
             );
 
             mpInstance._SessionManager.initialize();
@@ -87,7 +87,7 @@ describe('SessionManager', () => {
         });
 
         it('resumes the previous session if session ID exists and dateLastSent is within the timeout window', () => {
-            const sessionTimeoutInMilliseconds = 8 * 60000; // 11 minutes
+            const timePassed = 8 * MILLISECONDS_IN_ONE_MINUTE;
 
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
@@ -96,7 +96,7 @@ describe('SessionManager', () => {
 
             const timeLastEventSent = mpInstance._Store.dateLastEventSent.getTime();
             mpInstance._Store.dateLastEventSent = new Date(
-                timeLastEventSent - sessionTimeoutInMilliseconds
+                timeLastEventSent - timePassed
             );
 
             mParticle.getInstance()._SessionManager.initialize();
@@ -132,8 +132,8 @@ describe('SessionManager', () => {
             mpInstance._SessionManager.startNewSession();
 
             expect(mpInstance._Store.sessionId).to.equal('NEW-SESSION-ID');
-            expect(mpInstance._Store.sessionStartDate).to.eql(new Date());
-            expect(mpInstance._Store.dateLastEventSent).to.eql(new Date());
+            expect(mpInstance._Store.sessionStartDate).to.eql(now);
+            expect(mpInstance._Store.dateLastEventSent).to.eql(now);
         });
 
         it('should log a session start event', () => {
@@ -207,6 +207,9 @@ describe('SessionManager', () => {
             const mpInstance = mParticle.getInstance();
 
             mpInstance._Store.sessionStartDate = dateInThePast;
+
+            expect(mpInstance._Store.dateLastEventSent).to.eql(now);
+
             mpInstance._SessionManager.startNewSession();
 
             expect(mpInstance._Store.dateLastEventSent).to.eql(now);
@@ -244,12 +247,12 @@ describe('SessionManager', () => {
     });
 
     describe('#endSession', () => {
-        // TODO: Set up scaffolding for session
-        it.skip('should end a session', () => {
+        it('should end a session', () => {
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
             const persistenceSpy = sinon.spy(mpInstance._Persistence, 'update');
 
+            clock.tick(31 * MILLISECONDS_IN_ONE_MINUTE);
             mpInstance._SessionManager.endSession();
 
             expect(mpInstance._Store.sessionId).to.equal(null);
@@ -280,6 +283,7 @@ describe('SessionManager', () => {
         it('should do nothing when a session does not exist', () => {});
         it('should do nothing when persistence cookies are missing', () => {});
         it('should nullify session attributes when override is used', () => {});
+        it('should nullify session attributes when sesison has ended', () => {});
         it('should use the cookie sessionId over Store.sessionId', () => {});
 
         it('should NOT end session if session has not timed out', () => {
@@ -355,11 +359,11 @@ describe('SessionManager', () => {
             mpInstance._SessionManager.setSessionTimer();
 
             // Progress 29 minutes to make sure end session has not fired
-            clock.tick(29 * 60000);
+            clock.tick(29 * MILLISECONDS_IN_ONE_MINUTE);
             expect(endSessionSpy.called).to.equal(false);
 
             // Progress one minutes to make sure end session fires
-            clock.tick(30 * 60000);
+            clock.tick(30 * MILLISECONDS_IN_ONE_MINUTE);
             expect(endSessionSpy.called).to.equal(true);
 
             // Let test know async process is done
