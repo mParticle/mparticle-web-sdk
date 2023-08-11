@@ -387,7 +387,6 @@ describe('SessionManager', () => {
             const mpInstance = mParticle.getInstance();
 
             // Manually clear global timer since it gets set during init
-            // window.clearTimeout(mpInstance._Store.globalTimer);
             mpInstance._Store.globalTimer = null;
             expect(mpInstance._Store.globalTimer).to.eq(null);
 
