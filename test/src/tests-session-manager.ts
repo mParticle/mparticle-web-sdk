@@ -86,7 +86,7 @@ describe('SessionManager', () => {
             expect(mpInstance._Store.sessionId).to.equal('TEST-UNIQUE-ID');
         });
 
-        it('resumes the previous session if session ID exists and dateLastSent is within the timeoutWindow', () => {
+        it('resumes the previous session if session ID exists and dateLastSent is within the timeout window', () => {
             const sessionTimeoutInMilliseconds = 8 * 60000; // 11 minutes
 
             mParticle.init(apiKey, window.mParticle.config);
