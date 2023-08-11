@@ -288,6 +288,7 @@ describe.only('SessionManager', () => {
 
         it('should NOT end session if session has not timed out', () => {
             const now = new Date();
+            // The default timeout limit is 30 minutes.
             const twentyMinutesAgo = new Date();
             twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
 
@@ -440,7 +441,7 @@ describe.only('SessionManager', () => {
             expect(setSessionTimerSpy.called).to.equal(false);
         });
 
-        it('should reset session timer', () => {
+        it('should reset session timer by calling clearSessionTimeout and setSessionTimer', () => {
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
 
