@@ -574,7 +574,7 @@ describe.only('SessionManager', () => {
             expect(startNewSessionSpy.called).to.equal(true);
         });
 
-        it('should NOT call startNewSession if Store.sessionId and Persistence is null', () => {
+        it('should NOT call startNewSession if Store.sessionId and Persistence are null', () => {
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
 
