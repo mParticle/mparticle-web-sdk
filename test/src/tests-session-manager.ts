@@ -317,6 +317,7 @@ describe('SessionManager', () => {
             expect(timerSpy.getCalls().length).to.equal(1);
         });
 
+        it('should end session if session times out', () => {
             const generateUniqueIdSpy = sinon.stub(
                 mParticle.getInstance()._Helpers,
                 'generateUniqueId'
