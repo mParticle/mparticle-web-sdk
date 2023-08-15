@@ -376,7 +376,7 @@ describe('SessionManager', () => {
             expect(endSessionSpy.called).to.equal(false);
 
             // Progress one minutes to make sure end session fires
-            clock.tick(30 * MILLISECONDS_IN_ONE_MINUTE);
+            clock.tick(1 * MILLISECONDS_IN_ONE_MINUTE);
             expect(endSessionSpy.called).to.equal(true);
 
             // Let test know async process is done
