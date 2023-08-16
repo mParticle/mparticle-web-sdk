@@ -1,8 +1,18 @@
 import sinon from 'sinon';
 import { expect } from 'chai';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
-import { apiKey, MPConfig, testMPID, urls, MessageType, MILLISECONDS_IN_ONE_MINUTE } from './config';
+import {
+    apiKey,
+    MPConfig,
+    testMPID,
+    urls,
+    MessageType,
+    MILLISECONDS_IN_ONE_MINUTE,
+} from './config';
 import { IdentityApiData } from '@mparticle/web-sdk';
+import Constants from '../../src/constants';
+
+const { Messages } = Constants;
 
 declare global {
     interface Window {
@@ -280,8 +290,28 @@ describe('SessionManager', () => {
             expect(persistenceSpy.called).to.equal(true);
         });
 
-        it('should do nothing when a session does not exist', () => {});
-        it('should do nothing when persistence cookies are missing', () => {});
+        it('should return undefined if persistence returns undefined', () => {});
+
+        it('should log a message saying session does not exist if persistence does not have an sid', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+
+            const mpInstance = mParticle.getInstance();
+            const persistenceSpy = sinon
+                .stub(mpInstance._Persistence, 'getPersistence')
+                .returns(null);
+
+            const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+            mpInstance._SessionManager.endSession();
+
+            // TODO: This path currently goes through the !cookies path, which doesn't really return anything
+            expect(consoleSpy.getCall(0).firstArg).to.equal(
+                Messages.InformationMessages.NoSessionToEnd
+            );
+        });
+
+        it('should log an abandoned end session message if session is abandoned', () => {});
+
         it('should nullify session attributes when override is used', () => {});
         it('should nullify session attributes when sesison has ended', () => {});
         it('should use the cookie sessionId over Store.sessionId', () => {});
