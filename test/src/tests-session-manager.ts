@@ -9,7 +9,7 @@ import {
     MessageType,
     MILLISECONDS_IN_ONE_MINUTE,
 } from './config';
-import { IdentityApiData } from '@mparticle/web-sdk';
+import { IdentityApiData, endSession } from '@mparticle/web-sdk';
 import Constants from '../../src/constants';
 
 const { Messages } = Constants;
@@ -43,7 +43,7 @@ describe('SessionManager', () => {
         ]);
     });
 
-    afterEach(function() {
+    afterEach(function () {
         sandbox.restore();
         clock.restore();
         mockServer.restore();
@@ -290,31 +290,155 @@ describe('SessionManager', () => {
             expect(persistenceSpy.called).to.equal(true);
         });
 
-        it('should return undefined if persistence returns undefined', () => {});
-
-        it('should log a message saying session does not exist if persistence does not have an sid', () => {
+        it('should end log StartingEndSession message and return early if Persistence is undefined', () => {
             mParticle.init(apiKey, window.mParticle.config);
 
             const mpInstance = mParticle.getInstance();
-            const persistenceSpy = sinon
-                .stub(mpInstance._Persistence, 'getPersistence')
-                .returns(null);
+            sinon.stub(mpInstance._Persistence, 'getPersistence').returns(null);
 
             const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
 
             mpInstance._SessionManager.endSession();
 
-            // TODO: This path currently goes through the !cookies path, which doesn't really return anything
+            // This path currently goes through the !cookies path,
+            // which doesn't really return anything except for logging the
+            // initial StartingEndSession message
             expect(consoleSpy.getCall(0).firstArg).to.equal(
+                Messages.InformationMessages.StartingEndSession
+            );
+
+            // Should only log a single verbose log
+            expect(consoleSpy.getCalls().length).to.equal(1);
+        });
+
+        it('should log a NoSessionToEnd Message if Persistence Exists but does not return an sid', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+
+            const mpInstance = mParticle.getInstance();
+            sinon
+                .stub(mpInstance._Persistence, 'getPersistence')
+                .returns({ gs: {} });
+
+            const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+            mpInstance._SessionManager.endSession();
+
+            // Should log initial StartingEndSession and NoSessionToEnd messagesk
+            expect(consoleSpy.getCalls().length).to.equal(2);
+            expect(consoleSpy.lastCall.firstArg).to.equal(
                 Messages.InformationMessages.NoSessionToEnd
             );
         });
 
-        it('should log an abandoned end session message if session is abandoned', () => {});
+        it('should log an AbandonedEndSession message if unable to log', () => {
+            mParticle.init(apiKey, window.mParticle.config);
 
-        it('should nullify session attributes when override is used', () => {});
-        it('should nullify session attributes when sesison has ended', () => {});
-        it('should use the cookie sessionId over Store.sessionId', () => {});
+            const mpInstance = mParticle.getInstance();
+            sinon
+                .stub(mpInstance._Persistence, 'getPersistence')
+                .returns({ gs: {} });
+
+            sinon.stub(mpInstance._Helpers, 'canLog').returns(false);
+
+            const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+            mpInstance._SessionManager.endSession();
+
+            // Should log initial StartingEndSession and AbandonEndSession messagesk
+            expect(consoleSpy.getCalls().length).to.equal(2);
+            expect(consoleSpy.lastCall.firstArg).to.equal(
+                Messages.InformationMessages.AbandonEndSession
+            );
+        });
+
+        it('should log an AbandonedEndSession message if Store is not enabled', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+
+            const mpInstance = mParticle.getInstance();
+            sinon
+                .stub(mpInstance._Persistence, 'getPersistence')
+                .returns({ gs: {} });
+
+            const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+            mpInstance._Store.isEnabled = false;
+
+            mpInstance._SessionManager.endSession();
+
+            // Should log initial StartingEndSession and AbandonEndSession messagesk
+            expect(consoleSpy.getCalls().length).to.equal(2);
+            expect(consoleSpy.lastCall.firstArg).to.equal(
+                Messages.InformationMessages.AbandonEndSession
+            );
+        });
+
+        // QUESTION: What exactly defines an "AbandonedEndSession"?
+        // FIXME: Test only passes if specific cases are set
+        it.skip('should log an AbandonedEndSession message if webviewBridgeEnabled is not enabled', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+
+            const mpInstance = mParticle.getInstance();
+            sinon
+                .stub(mpInstance._Persistence, 'getPersistence')
+                .returns({ gs: {} });
+
+            const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+            // FIXME: This test only passes if devToken is undefined
+            //        If it is set, webviewBridgeEnabled is ignored
+            mpInstance._Store.webviewBridgeEnabled = false;
+            mpInstance._Store.devToken = undefined;
+
+            mpInstance._SessionManager.endSession();
+
+            // Should log initial StartingEndSession and AbandonEndSession messagesk
+            expect(consoleSpy.getCalls().length).to.equal(2);
+            expect(consoleSpy.lastCall.firstArg).to.equal(
+                Messages.InformationMessages.AbandonEndSession
+            );
+        });
+
+        // QUESTION: What exactly defines an "AbandonedEndSession"?
+        // FIXME: Test only passes if specific cases are set
+        it.skip('should log an AbandonedEndSession message if devToken is not set', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+
+            const mpInstance = mParticle.getInstance();
+            sinon
+                .stub(mpInstance._Persistence, 'getPersistence')
+                .returns({ gs: {} });
+
+            const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+            // FIXME: Test only passes if devToken is undefined and webviewBridgeEnabled is false
+            mpInstance._Store.devToken = undefined;
+            mpInstance._Store.webviewBridgeEnabled = false;
+
+            mpInstance._SessionManager.endSession();
+
+            // Should log initial StartingEndSession and AbandonEndSession messagesk
+            expect(consoleSpy.getCalls().length).to.equal(2);
+            expect(consoleSpy.lastCall.firstArg).to.equal(
+                Messages.InformationMessages.AbandonEndSession
+            );
+        });
+
+        it('should priortize cookie sessionId over Store.sessionId', () => {
+            mParticle.init(apiKey, window.mParticle.config);
+
+            const mpInstance = mParticle.getInstance();
+            sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                gs: {
+                    sid: 'cookie-session-id',
+                },
+            });
+
+            mpInstance._Store.sessionId = 'store-session-id';
+
+            mpInstance._SessionManager.endSession();
+
+            expect(mpInstance._Store.sessionId).to.equal('cookie-session-id');
+        });
 
         it('should NOT end session if session has not timed out', () => {
             const now = new Date();
@@ -390,7 +514,7 @@ describe('SessionManager', () => {
     });
 
     describe('#setSessionTimer', () => {
-        it('should end a session after the timeout expires', done => {
+        it('should end a session after the timeout expires', (done) => {
             mParticle.init(apiKey, window.mParticle.config);
             const mpInstance = mParticle.getInstance();
             const endSessionSpy = sinon.spy(
@@ -561,7 +685,7 @@ describe('SessionManager', () => {
             // new session
             sinon.stub(mpInstance._Persistence, 'getPersistence').returns(null);
 
-            mpInstance._Store.sessionId = null;
+            mpInstance._Store.sessionId = undefined;
 
             const startNewSessionSpy = sinon.spy(
                 mpInstance._SessionManager,
