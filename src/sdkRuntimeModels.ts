@@ -1,6 +1,10 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import { MPConfiguration, IdentityApiData } from '@mparticle/web-sdk';
+import {
+    MPConfiguration,
+    IdentityApiData,
+    TransactionAttributes,
+} from '@mparticle/web-sdk';
 import { IStore } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
@@ -9,6 +13,11 @@ import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import { IPersistence } from './persistence.interfaces';
 import { IMPSideloadedKit } from './sideloadedKit';
+import {
+    CommerceEventType,
+    ProductActionType,
+    PromotionActionType,
+} from './types.interfaces';
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
 
@@ -133,6 +142,7 @@ export interface MParticleWebSDK {
     MPSideloadedKit: IMPSideloadedKit;
     _APIClient: any; // TODO: Set up API Client
     _Store: IStore;
+    _Ecommerce: SDKEcommerceAPI;
     _Forwarders: any;
     _Helpers: SDKHelpersApi;
     config: SDKInitConfig;
@@ -230,7 +240,26 @@ export interface SDKIdentityApi {
     modify;
 }
 
+export interface SDKEcommerceAPI {
+    convertTransactionAttributesToProductAction?(
+        transactionAttributes: TransactionAttributes,
+        productAction: SDKProductAction
+    ): void;
+
+    // TODO: Refactor this to be a type of ProductAction
+    getProductActionEventName?(productActionType: string): string;
+    getPromotionActionEventName?(promotionActionType: string): string;
+    convertProductActionToEventType?(
+        productActionType: string
+    ): CommerceEventType | null;
+    convertPromotionActionToEventType?(
+        promotionActionType: string
+    ): PromotionActionType | null;
+    createCommerceEventObject?(customFlags: SDKEventCustomFlags): SDKEvent;
+}
+
 export interface SDKHelpersApi {
+    canLog?(): boolean;
     createServiceUrl(arg0: string, arg1: string): void;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);

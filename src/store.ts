@@ -154,6 +154,8 @@ export interface IStore {
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
+
+    canLog?(): boolean;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -441,4 +443,8 @@ export default function Store(
             this.SDKConfig.flags[Constants.FeatureFlags.OfflineStorage] = 0;
         }
     }
+
+    this.canLog = (): boolean =>
+        this.isEnabled &&
+        ((this.devToken || this.webviewBridgeEnabled) as boolean);
 }

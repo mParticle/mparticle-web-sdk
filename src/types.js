@@ -21,6 +21,8 @@ var TriggerUploadType = {
     [MessageType.UserIdentityChange]: 1,
 };
 
+// FIXME: Break up Enums and Reverse Lookup Objects
+// https://go.mparticle.com/work/SQDSDKS-5677
 var EventType = {
     Unknown: 0,
     Navigation: 1,

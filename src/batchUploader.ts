@@ -7,9 +7,9 @@ import {
     SDKLoggerApi,
 } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
-import Types from './types';
 import { getRampNumber, isEmpty } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
+import { TriggerUploadType } from './types.interfaces';
 
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
@@ -180,7 +180,7 @@ export class BatchUploader {
             //       https://go.mparticle.com/work/SQDSDKS-3720
             if (
                 !this.batchingEnabled ||
-                Types.TriggerUploadType[event.EventDataType]
+                TriggerUploadType[event.EventDataType]
             ) {
                 this.prepareAndUpload(false, false);
             }

@@ -8,18 +8,14 @@ var StorageNames = Constants.StorageNames;
 
 export default function Helpers(mpInstance) {
     var self = this;
-    this.canLog = function() {
-        if (
-            mpInstance._Store.isEnabled &&
-            (mpInstance._Store.devToken ||
-                mpInstance._Store.webviewBridgeEnabled)
-        ) {
-            return true;
-        }
 
-        return false;
+    // TOOD: Update references to `canLog` using Store method
+    // QUESTION: Can we move this into Store?
+    this.canLog = function() {
+        return mpInstance._Store.canLog();
     };
 
+    // QUESTION: Can we move this into Store?
     this.getFeatureFlag = function(feature) {
         if (mpInstance._Store.SDKConfig.flags.hasOwnProperty(feature)) {
             return mpInstance._Store.SDKConfig.flags[feature];
