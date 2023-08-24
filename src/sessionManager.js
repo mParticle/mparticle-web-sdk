@@ -5,7 +5,7 @@ var Messages = Constants.Messages;
 
 function SessionManager(mpInstance) {
     var self = this;
-    this.initialize = function() {
+    this.initialize = function () {
         if (mpInstance._Store.sessionId) {
             var sessionTimeoutInMilliseconds =
                 mpInstance._Store.SDKConfig.sessionTimeout * 60000;
@@ -35,11 +35,11 @@ function SessionManager(mpInstance) {
         }
     };
 
-    this.getSession = function() {
+    this.getSession = function () {
         return mpInstance._Store.sessionId;
     };
 
-    this.startNewSession = function() {
+    this.startNewSession = function () {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingNewSession
         );
@@ -71,7 +71,7 @@ function SessionManager(mpInstance) {
                 mpInstance._Store.SDKConfig.identityCallback = null;
             }
 
-            mpInstance._Events.logEvent({
+            mpInstance.mediator.eventLogging.logEvent({
                 messageType: Types.MessageType.SessionStart,
             });
         } else {
@@ -81,13 +81,13 @@ function SessionManager(mpInstance) {
         }
     };
 
-    this.endSession = function(override) {
+    this.endSession = function (override) {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingEndSession
         );
 
         if (override) {
-            mpInstance._Events.logEvent({
+            mpInstance.mediator.eventLogging.logEvent({
                 messageType: Types.MessageType.SessionEnd,
             });
 
@@ -128,7 +128,7 @@ function SessionManager(mpInstance) {
                 if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
                     self.setSessionTimer();
                 } else {
-                    mpInstance._Events.logEvent({
+                    mpInstance.mediator.eventLogging.logEvent({
                         messageType: Types.MessageType.SessionEnd,
                     });
 
@@ -146,16 +146,16 @@ function SessionManager(mpInstance) {
         }
     };
 
-    this.setSessionTimer = function() {
+    this.setSessionTimer = function () {
         var sessionTimeoutInMilliseconds =
             mpInstance._Store.SDKConfig.sessionTimeout * 60000;
 
-        mpInstance._Store.globalTimer = window.setTimeout(function() {
+        mpInstance._Store.globalTimer = window.setTimeout(function () {
             self.endSession();
         }, sessionTimeoutInMilliseconds);
     };
 
-    this.resetSessionTimer = function() {
+    this.resetSessionTimer = function () {
         if (!mpInstance._Store.webviewBridgeEnabled) {
             if (!mpInstance._Store.sessionId) {
                 self.startNewSession();
@@ -166,11 +166,11 @@ function SessionManager(mpInstance) {
         self.startNewSessionIfNeeded();
     };
 
-    this.clearSessionTimeout = function() {
+    this.clearSessionTimeout = function () {
         clearTimeout(mpInstance._Store.globalTimer);
     };
 
-    this.startNewSessionIfNeeded = function() {
+    this.startNewSessionIfNeeded = function () {
         if (!mpInstance._Store.webviewBridgeEnabled) {
             var persistence = mpInstance._Persistence.getPersistence();
 

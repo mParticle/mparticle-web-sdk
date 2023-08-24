@@ -25,7 +25,7 @@ export enum MessageType {
     UserAttributeChange = 17,
     UserIdentityChange = 18,
     Media = 20,
-};
+}
 
 export enum IdentityType {
     Other = 0,
@@ -50,3 +50,45 @@ export enum IdentityType {
     PhoneNumber2 = 20,
     PhoneNumber3 = 21,
 }
+
+export enum CommerceEventType {
+    ProductAddToCart = 10,
+    ProductRemoveFromCart = 11,
+    ProductCheckout = 12,
+    ProductCheckoutOption = 13,
+    ProductClick = 14,
+    ProductViewDetail = 15,
+    ProductPurchase = 16,
+    ProductRefund = 17,
+    PromotionView = 18,
+    PromotionClick = 19,
+    ProductAddToWishlist = 20,
+    ProductRemoveFromWishlist = 21,
+    ProductImpression = 22,
+}
+
+export enum ProductActionType {
+    Unknown = 0,
+    AddToCart = 1,
+    RemoveFromCart = 2,
+    Checkout = 3,
+    CheckoutOption = 4,
+    Click = 5,
+    ViewDetail = 6,
+    Purchase = 7,
+    Refund = 8,
+    AddToWishlist = 9,
+    RemoveFromWishlist = 10,
+}
+
+export enum PromotionActionType {
+    Unknown = 0,
+    PromotionView = 1,
+    PromotionClick = 2,
+}
+
+export const TriggerUploadType = {
+    [MessageType.Commerce]: 1,
+    [MessageType.UserAttributeChange]: 1,
+    [MessageType.UserIdentityChange]: 1,
+};

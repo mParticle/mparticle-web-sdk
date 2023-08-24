@@ -1,5 +1,5 @@
 import Constants from './constants';
-import Types from './types';
+import { MessageType } from './types.interfaces';
 import { BatchUploader } from './batchUploader';
 import {
     MParticleUser,
@@ -124,7 +124,7 @@ export default function APIClient(
             this.queueEventForBatchUpload(event);
         }
 
-        if (event.EventName !== Types.MessageType.AppStateTransition) {
+        if (event.EventName !== MessageType.AppStateTransition.toString()) {
             if (kitBlocker && kitBlocker.kitBlockingEnabled) {
                 event = kitBlocker.createBlockedEvent(event);
             }

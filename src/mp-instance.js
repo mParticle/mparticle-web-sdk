@@ -27,7 +27,6 @@ import Ecommerce from './ecommerce';
 import Store from './store';
 import Logger from './logger';
 import Persistence from './persistence';
-import Events from './events';
 import Forwarders from './forwarders';
 import ServerModel from './serverModel';
 import ForwardingStatsUploader from './forwardingStatsUploader';
@@ -36,6 +35,9 @@ import Consent from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
+
+import Mediator from './NextGen/Mediator';
+import EventLogging from './NextGen/EventLogging';
 
 var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
@@ -61,7 +63,10 @@ export default function mParticleInstance(instanceName) {
     this._SessionManager = new SessionManager(this);
     this._Persistence = new Persistence(this);
     this._Helpers = new Helpers(this);
-    this._Events = new Events(this);
+
+    // TODO: Safely delete this
+    // this._Events = new Events(this);
+
     this._CookieSyncManager = new CookieSyncManager(this);
     this._ServerModel = new ServerModel(this);
     this._Ecommerce = new Ecommerce(this);
@@ -85,6 +90,14 @@ export default function mParticleInstance(instanceName) {
     this.Identity = this._Identity.IdentityAPI;
     this.generateHash = this._Helpers.generateHash;
     this.getDeviceId = this._Persistence.getDeviceId;
+
+    // QUESTION: Should we only init the mediator here or in init?
+    this.mediator = new Mediator(null, this._Store, this.Logger, this);
+
+    // // QUESTION: will this cause some sort of cyclical dependency?
+    // const eventLogging = new EventLogging(this.mediator);
+    // this.mediator.eventLogging = eventLogging;
+    // this.mediator.serverModel = this._ServerModel;
 
     if (typeof window !== 'undefined') {
         if (window.mParticle && window.mParticle.config) {
@@ -119,6 +132,37 @@ export default function mParticleInstance(instanceName) {
             } else {
                 completeSDKInitialization(apiKey, config, this);
             }
+
+            // // QUESTION: When should we load mediator?
+            // // In some cases, sdk init is "completed" a synchronousely, so we
+            // // may need to backfil mediator after this completes.
+
+            // // Mediator acts as a conduit for the SDK core to send messages
+            // // back and forth between components, while allowing our code to be
+            // // modular
+            // // TODO: Maybe we make a separate initMediator function?
+            // this.mediator = new Mediator(null, this._Store, this.Logger, this);
+
+            // // QUESTION: Should we add mediator to the instance?
+
+            // const eventLogging = new EventLogging(this.mediator);
+            // this.mediator.eventLogging = eventLogging;
+            // this.mediator.serverModel = this._ServerModel;
+
+            // debugger;
+            // // TODO: When should this be set?
+            // this.mediator.eventApiClient = this._APIClient;
+
+            // debugger;
+
+            // processReadyQueue(this);
+
+            // debugger;
+
+            // QUESTION: can we make this a store function?
+            // if (this._Store.isFirstRun) {
+            //     this._Store.isFirstRun = false;
+            // }
         } else {
             console.error(
                 'No config available on the window, please pass a config object to mParticle.init()'
@@ -152,7 +196,8 @@ export default function mParticleInstance(instanceName) {
         }
     };
 
-    this._resetForTests = function(config, keepPersistence, instance) {
+    this._resetForTests = function (config, keepPersistence, instance) {
+        // QUESTION: Should we clear out mediator here?
         if (instance._Store) {
             delete instance._Store;
         }
@@ -160,7 +205,10 @@ export default function mParticleInstance(instanceName) {
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
         );
-        instance._Events.stopTracking();
+
+        // FIXME: This breaks a before/each for several tests
+        // instance._Events.stopTracking();
+
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
         }
@@ -173,6 +221,12 @@ export default function mParticleInstance(instanceName) {
             forwarderConstructors: [],
             isDevelopmentMode: false,
         };
+
+        if (instance.mediator) {
+            delete instance.mediator;
+        }
+
+        initializeMediator(instance);
     };
     /**
      * A callback method that is invoked after mParticle is initialized.
@@ -276,7 +330,7 @@ export default function mParticleInstance(instanceName) {
      */
     this.stopTrackingLocation = function() {
         self._SessionManager.resetSessionTimer();
-        self._Events.stopTracking();
+        self.mediator.eventLogging.stopTracking();
     };
     /**
      * Starts tracking the location of the user
@@ -291,7 +345,7 @@ export default function mParticleInstance(instanceName) {
         }
 
         self._SessionManager.resetSessionTimer();
-        self._Events.startTracking(callback);
+        self.mediator.eventLogging.startTracking(callback);
     };
     /**
      * Sets the position of the user
@@ -361,7 +415,7 @@ export default function mParticleInstance(instanceName) {
             return;
         }
 
-        self._Events.logEvent(event, eventOptions);
+        self.mediator.eventLogging.logEvent(event, eventOptions);
     };
     /**
      * Logs an event to mParticle's servers
@@ -416,7 +470,7 @@ export default function mParticleInstance(instanceName) {
             return;
         }
 
-        self._Events.logEvent(
+        self.mediator.eventLogging.logEvent(
             {
                 messageType: Types.MessageType.PageEvent,
                 name: eventName,
@@ -465,13 +519,16 @@ export default function mParticleInstance(instanceName) {
             }
         }
 
-        self._Events.logEvent({
+        self.mediator.eventLogging.logEvent({
             messageType: Types.MessageType.CrashReport,
             name: error.name ? error.name : 'Error',
             data: data,
             eventType: Types.EventType.Other,
         });
     };
+    // FIXME: Docs link is broke
+    // Should be: https://docs.mparticle.com/developers/sdk/web/event-tracking/#event-type
+    // https://go.mparticle.com/work/SQDSDKS-5676
     /**
      * Logs `click` events
      * @method logLink
@@ -481,7 +538,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [eventInfo] Attributes for the event
      */
     this.logLink = function(selector, eventName, eventType, eventInfo) {
-        self._Events.addEventHandler(
+        self.mediator.eventLogging.addEventHandler(
             'click',
             selector,
             eventName,
@@ -498,7 +555,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [eventInfo] Attributes for the event
      */
     this.logForm = function(selector, eventName, eventType, eventInfo) {
-        self._Events.addEventHandler(
+        self.mediator.eventLogging.addEventHandler(
             'submit',
             selector,
             eventName,
@@ -550,7 +607,7 @@ export default function mParticleInstance(instanceName) {
             }
         }
 
-        self._Events.logEvent(
+        self.mediator.eventLogging.logEvent(
             {
                 messageType: Types.MessageType.PageView,
                 name: eventName,
@@ -829,7 +886,12 @@ export default function mParticleInstance(instanceName) {
             }
 
             self._SessionManager.resetSessionTimer();
-            self._Events.logCheckoutEvent(step, option, attrs, customFlags);
+            self.mediator.eventLogging.logCheckoutEvent(
+                step,
+                option,
+                attrs,
+                customFlags
+            );
         },
         /**
          * Logs a product action
@@ -864,7 +926,7 @@ export default function mParticleInstance(instanceName) {
             if (queued) return;
 
             self._SessionManager.resetSessionTimer();
-            self._Events.logProductActionEvent(
+            self.mediator.eventLogging.logProductActionEvent(
                 productActionType,
                 product,
                 attrs,
@@ -911,7 +973,7 @@ export default function mParticleInstance(instanceName) {
                 return;
             }
             self._SessionManager.resetSessionTimer();
-            self._Events.logPurchaseEvent(
+            self.mediator.eventLogging.logPurchaseEvent(
                 transactionAttributes,
                 product,
                 attrs,
@@ -978,7 +1040,7 @@ export default function mParticleInstance(instanceName) {
             if (queued) return;
 
             self._SessionManager.resetSessionTimer();
-            self._Events.logImpressionEvent(
+            self.mediator.eventLogging.logImpressionEvent(
                 impression,
                 attrs,
                 customFlags,
@@ -1019,7 +1081,7 @@ export default function mParticleInstance(instanceName) {
                 return;
             }
             self._SessionManager.resetSessionTimer();
-            self._Events.logRefundEvent(
+            self.mediator.eventLogging.logRefundEvent(
                 transactionAttributes,
                 product,
                 attrs,
@@ -1097,7 +1159,7 @@ export default function mParticleInstance(instanceName) {
         self._SessionManager.resetSessionTimer();
         self._Store.isEnabled = !isOptingOut;
 
-        self._Events.logOptOut();
+        self.mediator.eventLogging.logOptOut();
         self._Persistence.update();
 
         if (self._Store.activeForwarders.length) {
@@ -1285,7 +1347,24 @@ export default function mParticleInstance(instanceName) {
 function completeSDKInitialization(apiKey, config, mpInstance) {
     var kitBlocker = createKitBlocker(config, mpInstance);
 
+    // mpInstance.mediator = new Mediator(
+    //     null,
+    //     mpInstance._Store,
+    //     mpInstance.Logger,
+    //     mpInstance
+    // );
+
+    // QUESTION: When should we do this?
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
+
+    // TODO: Can we move this elsewhere?
+    mpInstance.mediator.eventApiClient = mpInstance._APIClient;
+
+    const eventLogging = new EventLogging(mpInstance.mediator);
+
+    mpInstance.mediator.eventLogging = eventLogging;
+    mpInstance.mediator.serverModel = mpInstance._ServerModel;
+
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
     if (config.flags) {
         if (
@@ -1397,8 +1476,13 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
         mpInstance._Forwarders.processPixelConfigs(config);
 
+        // debugger;
         mpInstance._SessionManager.initialize();
-        mpInstance._Events.logAST();
+
+        // debugger;
+        // FIXME: Needs to use mediator but might have to fire before mediator?
+        // mpInstance._Events.logAST();
+        mpInstance.mediator.eventLogging.logAST();
 
         // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
         if (
@@ -1438,26 +1522,69 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         }
     }
 
+    // debugger;
+
     mpInstance._Store.isInitialized = true;
+
+    // debugger;
+
+    // initializeMediator(mpInstance);
+
+    // FIXME: Is this safe?
+    // mpInstance.mediator.eventLogging.logAST();
+
+    // TODO: why are we doing this twice?
+    processReadyQueue(mpInstance);
+
     // Call any functions that are waiting for the library to be initialized
-    if (
-        mpInstance._preInit.readyQueue &&
-        mpInstance._preInit.readyQueue.length
-    ) {
-        mpInstance._preInit.readyQueue.forEach(function(readyQueueItem) {
-            if (mpInstance._Helpers.Validators.isFunction(readyQueueItem)) {
-                readyQueueItem();
-            } else if (Array.isArray(readyQueueItem)) {
-                processPreloadedItem(readyQueueItem, mpInstance);
-            }
-        });
+    // if (
+    //     mpInstance._preInit.readyQueue &&
+    //     mpInstance._preInit.readyQueue.length
+    // ) {
+    //     mpInstance._preInit.readyQueue.forEach(function(readyQueueItem) {
+    //         if (mpInstance._Helpers.Validators.isFunction(readyQueueItem)) {
+    //             readyQueueItem();
+    //         } else if (Array.isArray(readyQueueItem)) {
+    //             processPreloadedItem(readyQueueItem, mpInstance);
+    //         }
+    //     });
 
-        mpInstance._preInit.readyQueue = [];
-    }
+    //     mpInstance._preInit.readyQueue = [];
+    // }
 
+    // QUESTION: Can we move this into the store?
     if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;
     }
+}
+
+// TODO: We should have this return a mediator, rather than take it as a param
+function initializeMediator(mpInstance) {
+    // QUESTION: When should we load mediator?
+    // In some cases, sdk init is "completed" a synchronousely, so we
+    // may need to backfil mediator after this completes.
+
+    // Mediator acts as a conduit for the SDK core to send messages
+    // back and forth between components, while allowing our code to be
+    // modular
+    // TODO: Maybe we make a separate initMediator function?
+    mpInstance.mediator = new Mediator(
+        null,
+        mpInstance._Store,
+        mpInstance.Logger,
+
+        // TODO: Can we remove the need for mpInstance?
+        mpInstance
+    );
+    const eventLogging = new EventLogging(mpInstance.mediator);
+
+    mpInstance.mediator.eventLogging = eventLogging;
+    mpInstance.mediator.serverModel = mpInstance._ServerModel;
+
+    // debugger;
+
+    // TODO: When should this be set?
+    mpInstance.mediator.eventApiClient = mpInstance._APIClient;
 }
 
 function createKitBlocker(config, mpInstance) {
@@ -1524,6 +1651,14 @@ function createKitBlocker(config, mpInstance) {
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger = new Logger(config);
     mpInstance._Store = new Store(config, mpInstance);
+
+    // debugger;
+
+    // TODO: Maybe create setters/getters?
+    // TODO: Maybe move this to after completeinit?
+    mpInstance.mediator.logger = mpInstance.Logger.logger;
+    mpInstance.mediator.store = mpInstance._Store;
+
     window.mParticle.Store = mpInstance._Store;
     mpInstance._Store.devToken = apiKey || null;
     mpInstance.Logger.verbose(
@@ -1566,6 +1701,24 @@ function processPreloadedItem(readyQueueItem, mpInstance) {
                 'Unable to compute proper mParticle function ' + e
             );
         }
+    }
+}
+
+function processReadyQueue(mpInstance) {
+    // debugger;
+    if (
+        mpInstance._preInit.readyQueue &&
+        mpInstance._preInit.readyQueue.length
+    ) {
+        mpInstance._preInit.readyQueue.forEach(function (readyQueueItem) {
+            if (mpInstance._Helpers.Validators.isFunction(readyQueueItem)) {
+                readyQueueItem();
+            } else if (Array.isArray(readyQueueItem)) {
+                processPreloadedItem(readyQueueItem, mpInstance);
+            }
+        });
+
+        mpInstance._preInit.readyQueue = [];
     }
 }
 
