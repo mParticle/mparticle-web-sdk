@@ -25,6 +25,7 @@ let mockServer;
 const mParticle = window.mParticle;
 
 describe('SessionManager', () => {
+    const now = new Date();
     let clock;
     let sandbox;
 
