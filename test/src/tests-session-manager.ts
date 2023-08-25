@@ -387,9 +387,7 @@ describe('SessionManager', () => {
                 );
             });
 
-            // QUESTION: What exactly defines an "AbandonedEndSession"?
-            // FIXME: Test only passes if specific cases are set
-            it.skip('should log an AbandonedEndSession message if webviewBridgeEnabled is not enabled', () => {
+            it('should log AbandonEndSession message if webviewBridgeEnabled is false but Store.isEnabled is true and devToken is undefined', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -399,23 +397,20 @@ describe('SessionManager', () => {
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
 
-                // FIXME: This test only passes if devToken is undefined
-                //        If it is set, webviewBridgeEnabled is ignored
+                mpInstance._Store.isEnabled = true;
                 mpInstance._Store.webviewBridgeEnabled = false;
                 mpInstance._Store.devToken = undefined;
 
                 mpInstance._SessionManager.endSession();
 
-                // Should log initial StartingEndSession and AbandonEndSession messagesk
+                // Should log initial StartingEndSession and AbandonEndSession messages
                 expect(consoleSpy.getCalls().length).to.equal(2);
                 expect(consoleSpy.lastCall.firstArg).to.equal(
                     Messages.InformationMessages.AbandonEndSession
                 );
             });
 
-            // QUESTION: What exactly defines an "AbandonedEndSession"?
-            // FIXME: Test only passes if specific cases are set
-            it.skip('should log an AbandonedEndSession message if devToken is not set', () => {
+            it('should log NoSessionToEnd message if webviewBridgeEnabled and Store.isEnabled are true but devToken is undefined', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -425,20 +420,20 @@ describe('SessionManager', () => {
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
 
-                // FIXME: Test only passes if devToken is undefined and webviewBridgeEnabled is false
+                mpInstance._Store.isEnabled = true;
                 mpInstance._Store.devToken = undefined;
-                mpInstance._Store.webviewBridgeEnabled = false;
+                mpInstance._Store.webviewBridgeEnabled = true;
 
                 mpInstance._SessionManager.endSession();
 
-                // Should log initial StartingEndSession and AbandonEndSession messagesk
+                // Should log initial StartingEndSession and NoSessionToEnd messages
                 expect(consoleSpy.getCalls().length).to.equal(2);
                 expect(consoleSpy.lastCall.firstArg).to.equal(
-                    Messages.InformationMessages.AbandonEndSession
+                    Messages.InformationMessages.NoSessionToEnd
                 );
             });
 
-            it('should priortize cookie sessionId over Store.sessionId', () => {
+            it('should prioritize cookie sessionId over Store.sessionId', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -481,6 +476,9 @@ describe('SessionManager', () => {
 
                 mpInstance._SessionManager.endSession();
 
+                // We are verifying that the session has not ended, and therefore the
+                // session ID should still be the same, as opposed to null, which
+                // is assigned when the session actually ends
                 expect(mpInstance._Store.sessionId).to.equal('fake-session-id');
 
                 // When session is not timed out, setSessionTimer is called to keep track
