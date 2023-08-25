@@ -303,7 +303,7 @@ describe('SessionManager', () => {
                 expect(persistenceSpy.called).to.equal(true);
             });
 
-            it('should end log StartingEndSession message and return early if Persistence is undefined', () => {
+            it('should log StartingEndSession message and return early if Persistence is null', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -338,14 +338,14 @@ describe('SessionManager', () => {
 
                 mpInstance._SessionManager.endSession();
 
-                // Should log initial StartingEndSession and NoSessionToEnd messagesk
+                // Should log initial StartingEndSession and NoSessionToEnd messages
                 expect(consoleSpy.getCalls().length).to.equal(2);
                 expect(consoleSpy.lastCall.firstArg).to.equal(
                     Messages.InformationMessages.NoSessionToEnd
                 );
             });
 
-            it('should log an AbandonedEndSession message if unable to log', () => {
+            it('should log an AbandonedEndSession message if SDK canLog() returns false', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -359,14 +359,14 @@ describe('SessionManager', () => {
 
                 mpInstance._SessionManager.endSession();
 
-                // Should log initial StartingEndSession and AbandonEndSession messagesk
+                // Should log initial StartingEndSession and AbandonEndSession messages
                 expect(consoleSpy.getCalls().length).to.equal(2);
                 expect(consoleSpy.lastCall.firstArg).to.equal(
                     Messages.InformationMessages.AbandonEndSession
                 );
             });
 
-            it('should log an AbandonedEndSession message if Store is not enabled', () => {
+            it('should log an AbandonedEndSession message if Store.isEnabled is false', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -470,7 +470,7 @@ describe('SessionManager', () => {
                     'setSessionTimer'
                 );
 
-                // Session Manager relies on persistence to determine last time seen (LES)
+                // Session Manager relies on persistence to determine last event sent (LES) time
                 // Also requires sid to verify session exists
                 sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
                     gs: {
@@ -514,7 +514,7 @@ describe('SessionManager', () => {
                     'update'
                 );
 
-                // Session Manager relies on persistence to determine last time seen (LES)
+                // Session Manager relies on persistence to determine last event seen (LES) time
                 // Also requires sid to verify session exists
                 const persistenceGetterStub = sinon
                     .stub(mpInstance._Persistence, 'getPersistence')
@@ -570,7 +570,7 @@ describe('SessionManager', () => {
                 clock.tick(29 * MILLISECONDS_IN_ONE_MINUTE);
                 expect(endSessionSpy.called).to.equal(false);
 
-                // Progress one minutes to make sure end session fires
+                // Progress one minute to make sure end session fires
                 clock.tick(1 * MILLISECONDS_IN_ONE_MINUTE);
                 expect(endSessionSpy.called).to.equal(true);
             });
@@ -816,6 +816,7 @@ describe('SessionManager', () => {
             });
         });
     });
+
     describe('Integration Tests', () => {
         it('should end a session if the session timeout expires', () => {
             const generateUniqueIdSpy = sinon.stub(
