@@ -101,6 +101,7 @@ function SessionManager(mpInstance) {
 
             cookies = mpInstance._Persistence.getPersistence();
 
+            // TODO: https://go.mparticle.com/work/SQDSDKS-5684
             if (!cookies) {
                 return;
             }
