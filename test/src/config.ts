@@ -11,6 +11,8 @@ export const urls = {
     forwarding: 'https://jssdks.mparticle.com/v1/JS/test_key/Forwarding'
 };
 
+export const MILLISECONDS_IN_ONE_MINUTE = 60000;
+
 export const mParticle = window.mParticle;
 
 export const apiKey = 'test_key';

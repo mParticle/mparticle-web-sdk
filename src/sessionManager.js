@@ -35,6 +35,7 @@ function SessionManager(mpInstance) {
         }
     };
 
+    // TODO: Rename to getSessionId
     this.getSession = function() {
         return mpInstance._Store.sessionId;
     };
@@ -100,6 +101,7 @@ function SessionManager(mpInstance) {
 
             cookies = mpInstance._Persistence.getPersistence();
 
+            // TODO: https://go.mparticle.com/work/SQDSDKS-5684
             if (!cookies) {
                 return;
             }
@@ -140,6 +142,10 @@ function SessionManager(mpInstance) {
                 }
             }
         } else {
+            // At this moment, an AbandonedEndSession is defined when on of three things occurs:
+            // - the SDK's store is not enabled because mParticle.setOptOut was called
+            // - the devToken is undefined
+            // - webviewBridgeEnabled is set to false
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.AbandonEndSession
             );

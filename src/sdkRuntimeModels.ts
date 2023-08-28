@@ -9,6 +9,8 @@ import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import { IPersistence } from './persistence.interfaces';
 import { IMPSideloadedKit } from './sideloadedKit';
+import { ISessionManager } from './session.interfaces';
+
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
 
@@ -126,6 +128,11 @@ export interface SDKProduct {
     Attributes?: { [key: string]: string };
 }
 
+// Temporary Interface for Events Module
+interface IEvents {
+    logEvent?(event: BaseEvent): void;
+}
+
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     Identity: SDKIdentityApi;
@@ -135,9 +142,10 @@ export interface MParticleWebSDK {
     _Store: IStore;
     _Forwarders: any;
     _Helpers: SDKHelpersApi;
+    _Events: IEvents;
     config: SDKInitConfig;
     _ServerModel: IServerModel;
-    _SessionManager: any; // TODO: Set up Session Manager
+    _SessionManager: ISessionManager;
     _Consent: SDKConsentApi;
     Consent: SDKConsentApi;
     _NativeSdkHelpers: any; // TODO: Set up API
