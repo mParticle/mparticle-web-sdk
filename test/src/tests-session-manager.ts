@@ -9,7 +9,7 @@ import {
     MessageType,
     MILLISECONDS_IN_ONE_MINUTE,
 } from './config';
-import { IdentityApiData, endSession } from '@mparticle/web-sdk';
+import { IdentityApiData } from '@mparticle/web-sdk';
 import Constants from '../../src/constants';
 
 const { Messages } = Constants;
