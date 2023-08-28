@@ -27,9 +27,9 @@ export default function SessionManager(
 ) {
     const self = this;
 
-    this.initialize = function() {
+    this.initialize = function () {
         if (mpInstance._Store.sessionId) {
-            var sessionTimeoutInMilliseconds =
+            const sessionTimeoutInMilliseconds =
                 mpInstance._Store.SDKConfig.sessionTimeout * 60000;
 
             if (
@@ -42,7 +42,7 @@ export default function SessionManager(
                 self.endSession();
                 self.startNewSession();
             } else {
-                var persistence = mpInstance._Persistence.getPersistence();
+                const persistence = mpInstance._Persistence.getPersistence();
                 if (persistence && !persistence.cu) {
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
@@ -57,7 +57,7 @@ export default function SessionManager(
         }
     };
 
-    this.getSession = function() {
+    this.getSession = function () {
         mpInstance.Logger.warning(
             generateDeprecationMessage(
                 'SessionManager.getSession()',
@@ -68,11 +68,11 @@ export default function SessionManager(
         return this.getSessionId();
     };
 
-    this.getSessionId = function() {
+    this.getSessionId = function () {
         return mpInstance._Store.sessionId;
     };
 
-    this.startNewSession = function() {
+    this.startNewSession = function () {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingNewSession
         );
@@ -81,14 +81,14 @@ export default function SessionManager(
             mpInstance._Store.sessionId = mpInstance._Helpers
                 .generateUniqueId()
                 .toUpperCase();
-            var currentUser = mpInstance.Identity.getCurrentUser(),
+            const currentUser = mpInstance.Identity.getCurrentUser(),
                 mpid = currentUser ? currentUser.getMPID() : null;
             if (mpid) {
                 mpInstance._Store.currentSessionMPIDs = [mpid];
             }
 
             if (!mpInstance._Store.sessionStartDate) {
-                var date = new Date();
+                const date = new Date();
                 mpInstance._Store.sessionStartDate = date;
                 mpInstance._Store.dateLastEventSent = date;
             }
@@ -114,7 +114,7 @@ export default function SessionManager(
         }
     };
 
-    this.endSession = function(override) {
+    this.endSession = function (override) {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingEndSession
         );
@@ -124,56 +124,11 @@ export default function SessionManager(
                 messageType: Types.MessageType.SessionEnd,
             });
 
-            mpInstance._Store.sessionId = null;
-            mpInstance._Store.dateLastEventSent = null;
-            mpInstance._Store.sessionAttributes = {};
-            mpInstance._Persistence.update();
-        } else if (mpInstance._Helpers.canLog()) {
-            var sessionTimeoutInMilliseconds, cookies, timeSinceLastEventSent;
+            nulifySession();
+            return;
+        }
 
-            cookies = mpInstance._Persistence.getPersistence();
-
-            // TODO: https://go.mparticle.com/work/SQDSDKS-5684
-            if (!cookies) {
-                return;
-            }
-
-            if (cookies.gs && !cookies.gs.sid) {
-                mpInstance.Logger.verbose(
-                    Messages.InformationMessages.NoSessionToEnd
-                );
-                return;
-            }
-
-            // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
-            if (
-                cookies.gs.sid &&
-                mpInstance._Store.sessionId !== cookies.gs.sid
-            ) {
-                mpInstance._Store.sessionId = cookies.gs.sid;
-            }
-
-            if (cookies.gs && cookies.gs.les) {
-                sessionTimeoutInMilliseconds =
-                    mpInstance._Store.SDKConfig.sessionTimeout * 60000;
-                var newDate = new Date().getTime();
-                timeSinceLastEventSent = newDate - cookies.gs.les;
-
-                if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
-                    self.setSessionTimer();
-                } else {
-                    mpInstance._Events.logEvent({
-                        messageType: Types.MessageType.SessionEnd,
-                    });
-
-                    mpInstance._Store.sessionId = null;
-                    mpInstance._Store.dateLastEventSent = null;
-                    mpInstance._Store.sessionStartDate = null;
-                    mpInstance._Store.sessionAttributes = {};
-                    mpInstance._Persistence.update();
-                }
-            }
-        } else {
+        if (!mpInstance._Helpers.canLog()) {
             // At this moment, an AbandonedEndSession is defined when on of three things occurs:
             // - the SDK's store is not enabled because mParticle.setOptOut was called
             // - the devToken is undefined
@@ -181,19 +136,60 @@ export default function SessionManager(
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.AbandonEndSession
             );
+            return;
+        }
+
+        let sessionTimeoutInMilliseconds;
+        let timeSinceLastEventSent;
+
+        const cookies = mpInstance._Persistence.getPersistence();
+
+        // TODO: https://go.mparticle.com/work/SQDSDKS-5684
+        if (!cookies) {
+            return;
+        }
+
+        if (cookies.gs && !cookies.gs.sid) {
+            mpInstance.Logger.verbose(
+                Messages.InformationMessages.NoSessionToEnd
+            );
+            return;
+        }
+
+        // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
+        if (cookies.gs.sid && mpInstance._Store.sessionId !== cookies.gs.sid) {
+            mpInstance._Store.sessionId = cookies.gs.sid;
+        }
+
+        if (cookies?.gs?.les) {
+            sessionTimeoutInMilliseconds =
+                mpInstance._Store.SDKConfig.sessionTimeout * 60000;
+            const newDate = new Date().getTime();
+            timeSinceLastEventSent = newDate - cookies.gs.les;
+
+            if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
+                self.setSessionTimer();
+            } else {
+                mpInstance._Events.logEvent({
+                    messageType: Types.MessageType.SessionEnd,
+                });
+
+                mpInstance._Store.sessionStartDate = null;
+                nulifySession();
+            }
         }
     };
 
-    this.setSessionTimer = function() {
-        var sessionTimeoutInMilliseconds =
+    this.setSessionTimer = function () {
+        const sessionTimeoutInMilliseconds =
             mpInstance._Store.SDKConfig.sessionTimeout * 60000;
 
-        mpInstance._Store.globalTimer = window.setTimeout(function() {
+        mpInstance._Store.globalTimer = window.setTimeout(function () {
             self.endSession();
         }, sessionTimeoutInMilliseconds);
     };
 
-    this.resetSessionTimer = function() {
+    this.resetSessionTimer = function () {
         if (!mpInstance._Store.webviewBridgeEnabled) {
             if (!mpInstance._Store.sessionId) {
                 self.startNewSession();
@@ -204,13 +200,13 @@ export default function SessionManager(
         self.startNewSessionIfNeeded();
     };
 
-    this.clearSessionTimeout = function() {
+    this.clearSessionTimeout = function () {
         clearTimeout(mpInstance._Store.globalTimer);
     };
 
-    this.startNewSessionIfNeeded = function() {
+    this.startNewSessionIfNeeded = function () {
         if (!mpInstance._Store.webviewBridgeEnabled) {
-            var persistence = mpInstance._Persistence.getPersistence();
+            const persistence = mpInstance._Persistence.getPersistence();
 
             if (!mpInstance._Store.sessionId && persistence) {
                 if (persistence.sid) {
@@ -221,4 +217,11 @@ export default function SessionManager(
             }
         }
     };
+
+    function nulifySession() {
+        mpInstance._Store.sessionId = null;
+        mpInstance._Store.dateLastEventSent = null;
+        mpInstance._Store.sessionAttributes = {};
+        mpInstance._Persistence.update();
+    }
 }
