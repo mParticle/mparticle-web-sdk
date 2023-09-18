@@ -1,5 +1,7 @@
+import { MPID } from '@mparticle/web-sdk';
 import Constants from './constants';
-import { MParticleWebSDK } from './sdkRuntimeModels';
+import { IPersistenceMinified } from './persistence.interfaces';
+import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
 import Types from './types';
 import { generateDeprecationMessage } from './utils';
 
@@ -27,9 +29,9 @@ export default function SessionManager(
 ) {
     const self = this;
 
-    this.initialize = function () {
+    this.initialize = function(): void {
         if (mpInstance._Store.sessionId) {
-            const sessionTimeoutInMilliseconds =
+            const sessionTimeoutInMilliseconds: number =
                 mpInstance._Store.SDKConfig.sessionTimeout * 60000;
 
             if (
@@ -42,7 +44,7 @@ export default function SessionManager(
                 self.endSession();
                 self.startNewSession();
             } else {
-                const persistence = mpInstance._Persistence.getPersistence();
+                const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
                 if (persistence && !persistence.cu) {
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
@@ -57,7 +59,7 @@ export default function SessionManager(
         }
     };
 
-    this.getSession = function () {
+    this.getSession = function(): string {
         mpInstance.Logger.warning(
             generateDeprecationMessage(
                 'SessionManager.getSession()',
@@ -68,11 +70,11 @@ export default function SessionManager(
         return this.getSessionId();
     };
 
-    this.getSessionId = function () {
+    this.getSessionId = function(): string {
         return mpInstance._Store.sessionId;
     };
 
-    this.startNewSession = function () {
+    this.startNewSession = function(): void {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingNewSession
         );
@@ -81,14 +83,16 @@ export default function SessionManager(
             mpInstance._Store.sessionId = mpInstance._Helpers
                 .generateUniqueId()
                 .toUpperCase();
-            const currentUser = mpInstance.Identity.getCurrentUser(),
-                mpid = currentUser ? currentUser.getMPID() : null;
+
+            const currentUser: MParticleUser = mpInstance.Identity.getCurrentUser();
+            const mpid: MPID = currentUser ? currentUser.getMPID() : null;
+
             if (mpid) {
                 mpInstance._Store.currentSessionMPIDs = [mpid];
             }
 
             if (!mpInstance._Store.sessionStartDate) {
-                const date = new Date();
+                const date: Date = new Date();
                 mpInstance._Store.sessionStartDate = date;
                 mpInstance._Store.dateLastEventSent = date;
             }
@@ -114,7 +118,7 @@ export default function SessionManager(
         }
     };
 
-    this.endSession = function (override) {
+    this.endSession = function(override: boolean): void {
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingEndSession
         );
@@ -139,10 +143,10 @@ export default function SessionManager(
             return;
         }
 
-        let sessionTimeoutInMilliseconds;
-        let timeSinceLastEventSent;
+        let sessionTimeoutInMilliseconds: number;
+        let timeSinceLastEventSent: number;
 
-        const cookies = mpInstance._Persistence.getPersistence();
+        const cookies: IPersistenceMinified = mpInstance._Persistence.getPersistence();
 
         // TODO: https://go.mparticle.com/work/SQDSDKS-5684
         if (!cookies) {
@@ -164,7 +168,7 @@ export default function SessionManager(
         if (cookies?.gs?.les) {
             sessionTimeoutInMilliseconds =
                 mpInstance._Store.SDKConfig.sessionTimeout * 60000;
-            const newDate = new Date().getTime();
+            const newDate: number = new Date().getTime();
             timeSinceLastEventSent = newDate - cookies.gs.les;
 
             if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
@@ -180,16 +184,16 @@ export default function SessionManager(
         }
     };
 
-    this.setSessionTimer = function () {
-        const sessionTimeoutInMilliseconds =
+    this.setSessionTimer = function(): void {
+        const sessionTimeoutInMilliseconds: number =
             mpInstance._Store.SDKConfig.sessionTimeout * 60000;
 
-        mpInstance._Store.globalTimer = window.setTimeout(function () {
+        mpInstance._Store.globalTimer = window.setTimeout(function() {
             self.endSession();
         }, sessionTimeoutInMilliseconds);
     };
 
-    this.resetSessionTimer = function () {
+    this.resetSessionTimer = function(): void {
         if (!mpInstance._Store.webviewBridgeEnabled) {
             if (!mpInstance._Store.sessionId) {
                 self.startNewSession();
@@ -200,11 +204,11 @@ export default function SessionManager(
         self.startNewSessionIfNeeded();
     };
 
-    this.clearSessionTimeout = function () {
+    this.clearSessionTimeout = function(): void {
         clearTimeout(mpInstance._Store.globalTimer);
     };
 
-    this.startNewSessionIfNeeded = function () {
+    this.startNewSessionIfNeeded = function(): void {
         if (!mpInstance._Store.webviewBridgeEnabled) {
             const persistence = mpInstance._Persistence.getPersistence();
 
@@ -218,7 +222,7 @@ export default function SessionManager(
         }
     };
 
-    function nulifySession() {
+    function nulifySession(): void {
         mpInstance._Store.sessionId = null;
         mpInstance._Store.dateLastEventSent = null;
         mpInstance._Store.sessionAttributes = {};
