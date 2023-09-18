@@ -128,7 +128,7 @@ export default function SessionManager(
                 messageType: Types.MessageType.SessionEnd,
             });
 
-            nulifySession();
+            nullifySession();
             return;
         }
 
@@ -179,7 +179,7 @@ export default function SessionManager(
                 });
 
                 mpInstance._Store.sessionStartDate = null;
-                nulifySession();
+                nullifySession();
             }
         }
     };
@@ -222,7 +222,7 @@ export default function SessionManager(
         }
     };
 
-    function nulifySession(): void {
+    function nullifySession(): void {
         mpInstance._Store.sessionId = null;
         mpInstance._Store.dateLastEventSent = null;
         mpInstance._Store.sessionAttributes = {};
