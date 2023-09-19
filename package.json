@@ -27,7 +27,7 @@
         "build:npm": "cross-env ENVIRONMENT=prod BUILD=cjs rollup --config rollup.config.js",
         "build:esm": "cross-env ENVIRONMENT=prod BUILD=esm rollup --config rollup.config.js",
         "build:stub": "cross-env ENVIRONMENT=prod BUILD=stub rollup --config rollup.config.js",
-        "build:snippet": "uglifyjs snippet.js -nm -o snippet.min.js",
+        "build:snippet": "uglifyjs snippet.js -m -o snippet.min.js",
         "build:test-bundle": "cross-env TESTTYPE=main ENVIRONMENT=prod rollup --config rollup.test.config.js",
         "build:browserify:cjs": "browserify test/integrations/cjs/browserify/index.js -o test/integrations/cjs/dist/browserify-output.js",
         "build:rollup:cjs": "rollup --config test/integrations/cjs/rollup/rollup.config.js",

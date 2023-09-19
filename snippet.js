@@ -90,6 +90,15 @@
         }
     }
 
+    // set version query parameters
+    var versions = window.mParticle.config.versions;
+    if (versions) {
+        var versionQueryArray = [];
+        Object.keys(versions).forEach(function(name) {
+            versionQueryArray.push(name + '=' + versions[name]);
+        });
+    }
+
     // add mParticle script dynamically to the page, insert before the first script tag
     var mp = document.createElement('script');
     mp.type = 'text/javascript';
@@ -101,7 +110,9 @@
         '.mparticle.com/js/v2/' +
         apiKey +
         '/mparticle.js' +
-        dbUrl;
+        dbUrl +
+        '&' +
+        versionQueryArray.join('&');
     var s = document.getElementsByTagName('script')[0];
     s.parentNode.insertBefore(mp, s);
 })('REPLACE WITH API KEY');
