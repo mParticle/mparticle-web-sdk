@@ -203,14 +203,14 @@ var mParticle = (function () {
       Base64: Base64$1
     };
 
-    function _typeof(obj) {
+    function _typeof(o) {
       "@babel/helpers - typeof";
 
-      return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
-        return typeof obj;
-      } : function (obj) {
-        return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
-      }, _typeof(obj);
+      return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
+        return typeof o;
+      } : function (o) {
+        return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
+      }, _typeof(o);
     }
 
     function _toPrimitive(input, hint) {
@@ -608,13 +608,17 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.23.2";
+    var version = "2.23.3";
 
     var Constants = {
       sdkVersion: version,
       sdkVendor: 'mparticle',
       platform: 'web',
       Messages: {
+        DeprecationMessages: {
+          MethodIsDeprecatedPostfix: 'is a deprecated method and will be removed in future releases',
+          AlternativeMethodPrefix: 'Please use the alternate method:'
+        },
         ErrorMessages: {
           NoToken: 'A token must be specified.',
           EventNameInvalidType: 'Event name must be a valid string value.',
@@ -1195,6 +1199,7 @@ var mParticle = (function () {
     var slugifyExports = slugify$1.exports;
     var slugify = /*@__PURE__*/getDefaultExportFromCjs(slugifyExports);
 
+    var Messages$9 = Constants.Messages;
     var createCookieString = function createCookieString(value) {
       return replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
     };
@@ -1223,6 +1228,14 @@ var mParticle = (function () {
         }
       }
       return null;
+    };
+    var generateDeprecationMessage = function generateDeprecationMessage(methodName, alternateMethod) {
+      var messageArray = [methodName, Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix];
+      if (alternateMethod) {
+        messageArray.push(alternateMethod);
+        messageArray.push(Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix);
+      }
+      return messageArray.join(' ');
     };
     function generateHash(name) {
       var hash = 0;
@@ -2043,7 +2056,7 @@ var mParticle = (function () {
        * @param {number} uploadInterval - the desired upload interval in milliseconds
        */
       function BatchUploader(mpInstance, uploadInterval) {
-        var _a, _b;
+        var _a;
         this.offlineStorageEnabled = false;
         this.mpInstance = mpInstance;
         this.uploadIntervalMillis = uploadInterval;
@@ -2070,7 +2083,8 @@ var mParticle = (function () {
           // Load Events from Session Storage in case we have any in storage
           (_a = this.eventsQueuedForProcessing).push.apply(_a, this.eventVault.retrieve());
         }
-        var SDKConfig = (_b = this.mpInstance._Store, _b.SDKConfig),
+        var _b = this.mpInstance._Store,
+          SDKConfig = _b.SDKConfig,
           devToken = _b.devToken;
         var baseUrl = this.mpInstance._Helpers.createServiceUrl(SDKConfig.v3SecureServiceUrl, devToken);
         this.uploadUrl = "".concat(baseUrl, "/events");
@@ -2079,8 +2093,8 @@ var mParticle = (function () {
         this.addEventListeners();
       }
       BatchUploader.prototype.isOfflineStorageAvailable = function () {
-        var _a;
-        var getFeatureFlag = (_a = this.mpInstance, _a._Helpers.getFeatureFlag),
+        var _a = this.mpInstance,
+          getFeatureFlag = _a._Helpers.getFeatureFlag,
           deviceId = _a._Store.deviceId;
         var offlineStorageFeatureFlagValue = getFeatureFlag(Constants.FeatureFlags.OfflineStorage);
         var offlineStoragePercentage = parseInt(offlineStorageFeatureFlagValue, 10);
@@ -3269,14 +3283,18 @@ var mParticle = (function () {
         }
       };
       this.getSession = function () {
+        mpInstance.Logger.warning(generateDeprecationMessage('SessionManager.getSession()', 'SessionManager.getSessionId()'));
+        return this.getSessionId();
+      };
+      this.getSessionId = function () {
         return mpInstance._Store.sessionId;
       };
       this.startNewSession = function () {
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingNewSession);
         if (mpInstance._Helpers.canLog()) {
           mpInstance._Store.sessionId = mpInstance._Helpers.generateUniqueId().toUpperCase();
-          var currentUser = mpInstance.Identity.getCurrentUser(),
-            mpid = currentUser ? currentUser.getMPID() : null;
+          var currentUser = mpInstance.Identity.getCurrentUser();
+          var mpid = currentUser ? currentUser.getMPID() : null;
           if (mpid) {
             mpInstance._Store.currentSessionMPIDs = [mpid];
           }
@@ -3299,49 +3317,51 @@ var mParticle = (function () {
         }
       };
       this.endSession = function (override) {
+        var _a;
         mpInstance.Logger.verbose(Messages$6.InformationMessages.StartingEndSession);
         if (override) {
           mpInstance._Events.logEvent({
             messageType: Types.MessageType.SessionEnd
           });
-          mpInstance._Store.sessionId = null;
-          mpInstance._Store.dateLastEventSent = null;
-          mpInstance._Store.sessionAttributes = {};
-          mpInstance._Persistence.update();
-        } else if (mpInstance._Helpers.canLog()) {
-          var sessionTimeoutInMilliseconds, cookies, timeSinceLastEventSent;
-          cookies = mpInstance._Persistence.getPersistence();
-          if (!cookies) {
-            return;
-          }
-          if (cookies.gs && !cookies.gs.sid) {
-            mpInstance.Logger.verbose(Messages$6.InformationMessages.NoSessionToEnd);
-            return;
-          }
-
-          // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
-          if (cookies.gs.sid && mpInstance._Store.sessionId !== cookies.gs.sid) {
-            mpInstance._Store.sessionId = cookies.gs.sid;
-          }
-          if (cookies.gs && cookies.gs.les) {
-            sessionTimeoutInMilliseconds = mpInstance._Store.SDKConfig.sessionTimeout * 60000;
-            var newDate = new Date().getTime();
-            timeSinceLastEventSent = newDate - cookies.gs.les;
-            if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
-              self.setSessionTimer();
-            } else {
-              mpInstance._Events.logEvent({
-                messageType: Types.MessageType.SessionEnd
-              });
-              mpInstance._Store.sessionId = null;
-              mpInstance._Store.dateLastEventSent = null;
-              mpInstance._Store.sessionStartDate = null;
-              mpInstance._Store.sessionAttributes = {};
-              mpInstance._Persistence.update();
-            }
-          }
-        } else {
+          nullifySession();
+          return;
+        }
+        if (!mpInstance._Helpers.canLog()) {
+          // At this moment, an AbandonedEndSession is defined when on of three things occurs:
+          // - the SDK's store is not enabled because mParticle.setOptOut was called
+          // - the devToken is undefined
+          // - webviewBridgeEnabled is set to false
           mpInstance.Logger.verbose(Messages$6.InformationMessages.AbandonEndSession);
+          return;
+        }
+        var sessionTimeoutInMilliseconds;
+        var timeSinceLastEventSent;
+        var cookies = mpInstance._Persistence.getPersistence();
+        // TODO: https://go.mparticle.com/work/SQDSDKS-5684
+        if (!cookies) {
+          return;
+        }
+        if (cookies.gs && !cookies.gs.sid) {
+          mpInstance.Logger.verbose(Messages$6.InformationMessages.NoSessionToEnd);
+          return;
+        }
+        // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
+        if (cookies.gs.sid && mpInstance._Store.sessionId !== cookies.gs.sid) {
+          mpInstance._Store.sessionId = cookies.gs.sid;
+        }
+        if ((_a = cookies === null || cookies === void 0 ? void 0 : cookies.gs) === null || _a === void 0 ? void 0 : _a.les) {
+          sessionTimeoutInMilliseconds = mpInstance._Store.SDKConfig.sessionTimeout * 60000;
+          var newDate = new Date().getTime();
+          timeSinceLastEventSent = newDate - cookies.gs.les;
+          if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
+            self.setSessionTimer();
+          } else {
+            mpInstance._Events.logEvent({
+              messageType: Types.MessageType.SessionEnd
+            });
+            mpInstance._Store.sessionStartDate = null;
+            nullifySession();
+          }
         }
       };
       this.setSessionTimer = function () {
@@ -3375,6 +3395,12 @@ var mParticle = (function () {
           }
         }
       };
+      function nullifySession() {
+        mpInstance._Store.sessionId = null;
+        mpInstance._Store.dateLastEventSent = null;
+        mpInstance._Store.sessionAttributes = {};
+        mpInstance._Persistence.update();
+      }
     }
 
     var Messages$5 = Constants.Messages;
@@ -9142,6 +9168,7 @@ var mParticle = (function () {
           _APIClient: null,
           MPSideloadedKit: null,
           _Consent: null,
+          _Events: null,
           _Forwarders: null,
           _NativeSdkHelpers: null,
           _Persistence: null,
