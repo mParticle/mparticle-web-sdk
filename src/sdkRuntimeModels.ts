@@ -1,6 +1,10 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import { MPConfiguration, IdentityApiData } from '@mparticle/web-sdk';
+import {
+    MPConfiguration,
+    IdentityApiData,
+    IdentifyRequest,
+} from '@mparticle/web-sdk';
 import { IStore } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
@@ -8,7 +12,7 @@ import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
 import { IPersistence } from './persistence.interfaces';
-import { IMPSideloadedKit } from './sideloadedKit';
+import MPSideloadedKit from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
@@ -137,7 +141,7 @@ export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
-    MPSideloadedKit: IMPSideloadedKit;
+    MPSideloadedKit: MPSideloadedKit;
     _APIClient: any; // TODO: Set up API Client
     _Store: IStore;
     _Forwarders: any;
@@ -176,6 +180,15 @@ export interface MParticleWebSDK {
     ProductActionType: SDKProductActionType;
     generateHash(value: string): string;
     isIOS?: boolean;
+
+    // QUESTION: should this be undefined/null or an empty object?
+    identifyRequest?: IdentifyRequest | {};
+    _setIntegrationDelay?(
+        module: number,
+        shouldDelayIntegration: boolean
+    ): void;
+    _getIntegrationDelays(): Dictionary<boolean>;
+    _instances: MParticleWebSDK[];
 }
 
 // Used in cases where server requires booleans as strings
@@ -291,6 +304,7 @@ export interface MParticleUser {
     getConsentState(): SDKConsentState;
     getAllUserAttributes(): any; // FIXME;
     getUserIdentities(): IdentityApiData; // FIXME: Is this correct?
+    setConsentState(state: SDKConsentState): void;
 }
 
 export interface SDKUserIdentityChangeData {
