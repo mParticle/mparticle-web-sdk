@@ -92,8 +92,8 @@
 
     // set version query parameters
     var versions = window.mParticle.config.versions;
+    var versionQueryArray = [];
     if (versions) {
-        var versionQueryArray = [];
         Object.keys(versions).forEach(function(name) {
             versionQueryArray.push(name + '=' + versions[name]);
         });
