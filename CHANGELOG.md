@@ -1,3 +1,10 @@
+## [2.23.4](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.3...v2.23.4) (2023-09-25)
+
+
+### Bug Fixes
+
+* Update snippet to support snippet version pinning ([#778](https://github.com/mParticle/mparticle-web-sdk/issues/778)) ([1152cf5](https://github.com/mParticle/mparticle-web-sdk/commit/1152cf5efbdaee3d141af786c32dbcaa0c886e70))
+
 ## [2.23.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.2...v2.23.3) (2023-09-19)
 
 ## [2.23.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.1...v2.23.2) (2023-07-17)
