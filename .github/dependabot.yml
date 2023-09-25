@@ -3,11 +3,12 @@ updates:
     - package-ecosystem: npm
       directory: '/'
       schedule:
-          interval: daily
+          interval: weekly
+          day: 'sunday'
       target-branch: 'chore/dependabot'
       labels: ['dependabot', 'dependencies']
       open-pull-requests-limit: 10
       commit-message:
-          prefix: "chore"
+          prefix: 'chore'
       allow:
-          - dependency-type: "direct"
+          - dependency-type: 'production'
