@@ -12,11 +12,8 @@ const files = [
 
 const singleRun = true;
 
-let browserConsoleLogOptions = {
-    terminal: false,
-};
-
 let captureConsole = false;
+let browserConsoleLogOptions = {};
 
 // Allows console logs to appear when doing npm run test:debug
 if (DEBUG === 'true') {
@@ -26,6 +23,10 @@ if (DEBUG === 'true') {
         terminal: true,
     };
     captureConsole = true;
+} else {
+    browserConsoleLogOptions = {
+        terminal: false,
+    };
 }
 
 module.exports = function(config) {
