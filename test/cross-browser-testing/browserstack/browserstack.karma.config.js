@@ -1,6 +1,6 @@
 const { DEBUG } = process.env;
 
-let files = [
+const files = [
     '../../lib/mockhttprequest.js',
     '../../lib/geomock.js',
     '../../../node_modules/fetch-mock/dist/es5/client-bundle.js',
@@ -10,7 +10,7 @@ let files = [
     '../../test-bundle.js'
 ];
 
-let singleRun = true;
+const singleRun = true;
 
 let browserConsoleLogOptions = {
     terminal: false,
