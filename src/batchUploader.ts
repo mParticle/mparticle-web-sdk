@@ -313,13 +313,6 @@ export class BatchUploader {
         const batchesToUpload = this.batchesQueuedForProcessing;
         this.batchesQueuedForProcessing = [];
 
-        // If `useBeacon` is true, the browser has been closed suddently
-        // so we should save `batchesToUpload` to Offline Storage before
-        // an upload is attempted.
-        if (useBeacon && this.offlineStorageEnabled && this.batchVault) {
-            this.batchVault.store(batchesToUpload);
-        }
-
         const batchesThatDidNotUpload = await this.uploadBatches(
             this.mpInstance.Logger,
             batchesToUpload,
@@ -334,13 +327,8 @@ export class BatchUploader {
             this.batchesQueuedForProcessing.unshift(...batchesThatDidNotUpload);
         }
 
-        // Update Offline Storage with current state of batch queue
-        if (!useBeacon && this.offlineStorageEnabled && this.batchVault) {
-            // Note: since beacon is "Fire and forget" it will empty `batchesThatDidNotUplod`
-            // regardless of whether the batches were successfully uploaded or not. We should
-            // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
-            // uploading saved batches at a later time. Batches should only be removed from
-            // Local Storage once we can confirm they are successfully uploaded.
+        if (this.offlineStorageEnabled && this.batchVault) {
+            // Store current queue in case there is anything that hasn't uploaded yet
             this.batchVault.store(this.batchesQueuedForProcessing);
 
             // Clear batch queue since everything should be in Offline Storage
