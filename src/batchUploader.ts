@@ -333,8 +333,7 @@ export class BatchUploader {
             // regardless of whether the batches were successfully uploaded or not. We should
             // therefore NOT overwrite Offline Storage when beacon returns, so that we can retry
             // uploading saved batches at a later time. Batches should only be removed from
-            // Local Storage once we can confirm they are successfully uploaded
-            // Store current queue in case there is anything that hasn't uploaded yet
+            // Local Storage once we can confirm they are successfully uploaded.
             this.batchVault.store(this.batchesQueuedForProcessing);
 
             // Clear batch queue since everything should be in Offline Storage
