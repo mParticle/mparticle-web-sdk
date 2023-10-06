@@ -128,8 +128,6 @@ describe('Beacon Upload', () => {
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
-            debugger;
-
             // Add batches to queue so we can confirm they are purged later
             uploader.batchesQueuedForProcessing.push(batch1);
             uploader.batchesQueuedForProcessing.push(batch2);
@@ -154,7 +152,8 @@ describe('Beacon Upload', () => {
             ).to.equal(3);
 
             // Dispatching event will trigger upload process
-            window.dispatchEvent(new Event('visibilitychange'));
+            // visibility change is a document property, not window
+            document.dispatchEvent(new Event('visibilitychange'));
 
             expect(
                 window.sessionStorage.getItem(eventStorageKey),
