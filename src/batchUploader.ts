@@ -313,13 +313,6 @@ export class BatchUploader {
         const batchesToUpload = this.batchesQueuedForProcessing;
         this.batchesQueuedForProcessing = [];
 
-        // If `useBeacon` is true, the browser has been closed suddently
-        // so we should save `batchesToUpload` to Offline Storage before
-        // an upload is attempted.
-        if (useBeacon && this.offlineStorageEnabled && this.batchVault) {
-            this.batchVault.store(batchesToUpload);
-        }
-
         const batchesThatDidNotUpload = await this.uploadBatches(
             this.mpInstance.Logger,
             batchesToUpload,

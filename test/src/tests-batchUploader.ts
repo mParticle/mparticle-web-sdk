@@ -13,96 +13,13 @@ import { BatchUploader } from '../../src/batchUploader';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';
 import Logger from '../../src/logger.js';
+import { event0, event1, event2, event3 } from '../fixtures/events';
 declare global {
     interface Window {
         mParticle: MParticleWebSDK;
         fetchMock: any;
     }
 }
-
-const event0: SDKEvent = {
-    EventName: 'Test Event 0',
-    EventAttributes: null,
-    SourceMessageId: 'test-smid',
-    EventDataType: 4,
-    EventCategory: 1,
-    CustomFlags: {},
-    IsFirstRun: false,
-    CurrencyCode: null,
-    MPID: 'testMPID',
-    ConsentState: null,
-    UserAttributes: {},
-    UserIdentities: [],
-    SDKVersion: 'X.XX.XX',
-    SessionId: 'test-session-id',
-    SessionStartDate: 0,
-    Debug: false,
-    DeviceId: 'test-device',
-    Timestamp: 0,
-};
-
-const event1: SDKEvent = {
-    EventName: 'Test Event 1',
-    EventAttributes: null,
-    SourceMessageId: 'test-smid',
-    EventDataType: 4,
-    EventCategory: 1,
-    CustomFlags: {},
-    IsFirstRun: false,
-    CurrencyCode: null,
-    MPID: 'testMPID',
-    ConsentState: null,
-    UserAttributes: {},
-    UserIdentities: [],
-    SDKVersion: 'X.XX.XX',
-    SessionId: 'test-session-id',
-    SessionStartDate: 0,
-    Debug: false,
-    DeviceId: 'test-device',
-    Timestamp: 0,
-};
-
-const event2: SDKEvent = {
-    EventName: 'Test Event 2',
-    EventAttributes: null,
-    SourceMessageId: 'test-smid',
-    EventDataType: 4,
-    EventCategory: 1,
-    CustomFlags: {},
-    IsFirstRun: false,
-    CurrencyCode: null,
-    MPID: 'testMPID',
-    ConsentState: null,
-    UserAttributes: {},
-    UserIdentities: [],
-    SDKVersion: 'X.XX.XX',
-    SessionId: 'test-session-id',
-    SessionStartDate: 0,
-    Debug: false,
-    DeviceId: 'test-device',
-    Timestamp: 0,
-};
-
-const event3: SDKEvent = {
-    EventName: 'Test Event 3',
-    EventAttributes: null,
-    SourceMessageId: 'test-smid',
-    EventDataType: 4,
-    EventCategory: 1,
-    CustomFlags: {},
-    IsFirstRun: false,
-    CurrencyCode: null,
-    MPID: 'testMPID',
-    ConsentState: null,
-    UserAttributes: {},
-    UserIdentities: [],
-    SDKVersion: 'X.XX.XX',
-    SessionId: 'test-session-id',
-    SessionStartDate: 0,
-    Debug: false,
-    DeviceId: 'test-device',
-    Timestamp: 0,
-};
 
 const enableBatchingConfigFlags = {
     eventBatchingIntervalMillis: 1000,
