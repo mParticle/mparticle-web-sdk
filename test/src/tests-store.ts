@@ -164,14 +164,14 @@ describe('Store', () => {
         const dataPlanConfig = {
             ...sampleConfig,
             dataPlan: {
-                planId: 'test-data-plan',
+                planId: 'test_data_plan',
                 planVersion: 3,
             },
         };
         const store: IStore = new Store(dataPlanConfig, window.mParticle);
 
         expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({
-            PlanId: 'test-data-plan',
+            PlanId: 'test_data_plan',
             PlanVersion: 3,
         });
     });

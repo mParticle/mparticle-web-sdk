@@ -1,4 +1,3 @@
-import slugify from 'slugify';
 import Constants from './constants';
 
 const { Messages } = Constants;
@@ -204,9 +203,16 @@ const isString = (value: any): boolean => typeof value === 'string';
 const isNumber = (value: any): boolean => typeof value === 'number';
 const isFunction = (fn: any): boolean => typeof fn === 'function';
 
-// TODO: Refactor this to a regex
-const isDataPlanSlug = (str: string): boolean =>
-    isString(str) && str === slugify(str);
+const toSlug = (value: any): string =>
+    // Make sure we are only acting on strings or numbers
+    isStringOrNumber(value)
+        ? value
+              .toString()
+              .toLowerCase()
+              .replace(/[^0-9a-zA-Z]+/g, '_')
+        : '';
+
+const isDataPlanSlug = (str: string): boolean => str === toSlug(str);
 
 const isStringOrNumber = (value: any): boolean =>
     isString(value) || isNumber(value);
@@ -235,6 +241,7 @@ export {
     replaceApostrophesWithQuotes,
     replaceQuotesWithApostrophes,
     returnConvertedBoolean,
+    toSlug,
     isString,
     isNumber,
     isFunction,

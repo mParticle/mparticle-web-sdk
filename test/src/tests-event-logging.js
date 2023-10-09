@@ -809,7 +809,7 @@ describe('event logging', function() {
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
-            planId: 'plan-slug',
+            planId: 'plan_slug',
             planVersion: 10,
         };
 
@@ -822,7 +822,7 @@ describe('event logging', function() {
         batch.should.have.property('context');
         batch.context.should.have.property('data_plan');
         batch.context.data_plan.should.have.property('plan_version', 10);
-        batch.context.data_plan.should.have.property('plan_id', 'plan-slug');
+        batch.context.data_plan.should.have.property('plan_id', 'plan_slug');
 
         delete window.mParticle.config.flags
 
@@ -834,7 +834,7 @@ describe('event logging', function() {
             eventBatchingIntervalMillis: 0,
         }
         mParticle.config.dataPlan = {
-            planId: 'plan-slug'
+            planId: 'plan_slug'
         };
 
         mParticle.init(apiKey, mParticle.config);
@@ -846,7 +846,7 @@ describe('event logging', function() {
         batch.should.have.property('context');
         batch.context.should.have.property('data_plan');
         batch.context.data_plan.should.not.have.property('plan_version');
-        batch.context.data_plan.should.have.property('plan_id', 'plan-slug');
+        batch.context.data_plan.should.have.property('plan_id', 'plan_slug');
 
         delete window.mParticle.config.flags
 

@@ -964,7 +964,7 @@ describe('forwarders', function() {
 
         window.mParticle.config.dataPlan = {
             planVersion: 10,
-            planId: 'plan-slug',
+            planId: 'plan_slug',
         };
 
         window.mParticle.config.flags = {
@@ -990,7 +990,7 @@ describe('forwarders', function() {
         event.should.have.property('attrs');
         event.should.have.property('dp');
         event.dp.should.have.property('PlanVersion', 10);
-        event.dp.should.have.property('PlanId', 'plan-slug');
+        event.dp.should.have.property('PlanId', 'plan_slug');
         event.should.have.property('dp');
         event.should.have.property('sdk', mParticle.getVersion());
         event.should.have.property('dt', MessageType.PageEvent);

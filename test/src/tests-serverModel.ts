@@ -1325,7 +1325,7 @@ describe('ServerModel', () => {
         it('Should convert data plan id to server DTO', function(done) {
             mParticle._resetForTests();
             mParticle.config.dataPlan = {
-                planId: 'plan-slug',
+                planId: 'plan_slug',
             };
 
             mParticle.init('foo', mParticle.config);
@@ -1336,7 +1336,7 @@ describe('ServerModel', () => {
                 .getInstance()
                 ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
-            upload.should.have.property('dp_id', 'plan-slug');
+            upload.should.have.property('dp_id', 'plan_slug');
             upload.should.not.have.property('dp_v');
             done();
         });
@@ -1363,7 +1363,7 @@ describe('ServerModel', () => {
         it('Should convert entire data plan object to server DTO', function(done) {
             mParticle._resetForTests();
             mParticle.config.dataPlan = {
-                planId: 'plan-slug',
+                planId: 'plan_slug',
                 planVersion: 10,
             };
 
@@ -1375,7 +1375,7 @@ describe('ServerModel', () => {
                 .getInstance()
                 ._ServerModel.convertEventToV2DTO(sdkEvent as IUploadObject);
 
-            upload.should.have.property('dp_id', 'plan-slug');
+            upload.should.have.property('dp_id', 'plan_slug');
             upload.should.have.property('dp_v', 10);
             done();
         });

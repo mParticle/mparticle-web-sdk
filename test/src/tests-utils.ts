@@ -19,6 +19,7 @@ import {
     replaceQuotesWithApostrophes,
     returnConvertedBoolean,
     revertCookieString,
+    toSlug,
 } from '../../src/utils';
 import { expect } from 'chai';
 
@@ -273,8 +274,31 @@ describe('Utils', () => {
         })
     });
 
+    describe('#isSlug', () => {
+        it('should convert a string to a slug', () => {
+            expect(toSlug('string')).to.equal('string');
+            expect(toSlug('42')).to.equal('42');
+            expect(toSlug(37)).to.equal('37');
+            expect(toSlug('string with spaces')).to.equal('string_with_spaces');
+            expect(toSlug('kabob-case-string')).to.equal('kabob_case_string');
+            expect(toSlug('PascalSlug')).to.equal('pascalslug');
+            expect(toSlug('under_score_slug')).to.equal('under_score_slug');
+        });
+
+        it('should convert non-strings to an empty string', () => {
+            expect(toSlug(true)).to.equal('');
+            expect(toSlug([])).to.equal('');
+            expect(toSlug({})).to.equal('');
+            expect(toSlug(null)).to.equal('');
+            expect(toSlug(undefined)).to.equal('');
+            expect(toSlug(()=>{})).to.equal('');
+        });
+    });
+
     describe('#isDataPlanSlug', function () {
         it('handles numbers', function () {
+            // Non-strings will be rejected. This is to simply validate
+            // that it returns false
             expect(isDataPlanSlug(35 as unknown as string)).to.equal(false);
         });
 
@@ -283,13 +307,11 @@ describe('Utils', () => {
         });
 
         it('handles PascalCase', function () {
-            // TODO: Remove support for kabob case once we remove slugify
-            expect(isDataPlanSlug('PascalSlug')).to.equal(true);
+            expect(isDataPlanSlug('PascalSlug')).to.equal(false);
         });
 
         it('handles kabob-case-slug', function () {
-            // TODO: Remove support for kabob case once we remove slugify
-            expect(isDataPlanSlug('kabob-case-slug')).to.equal(true);
+            expect(isDataPlanSlug('kabob-case-slug')).to.equal(false);
         });
 
         it('handles simple string', function () {
