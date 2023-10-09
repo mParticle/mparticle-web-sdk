@@ -1,3 +1,10 @@
+## [2.23.5](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.4...v2.23.5) (2023-10-09)
+
+
+### Bug Fixes
+
+* Prevent Batches from sendBeacon from being stored offline ([#784](https://github.com/mParticle/mparticle-web-sdk/issues/784)) ([defed0a](https://github.com/mParticle/mparticle-web-sdk/commit/defed0abab667a08b2834809f5a57efb3e3fcd76))
+
 ## [2.23.4](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.3...v2.23.4) (2023-09-25)
 
 
