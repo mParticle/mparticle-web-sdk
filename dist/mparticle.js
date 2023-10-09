@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.23.4";
+    var version = "2.23.5";
 
     var Constants = {
       sdkVersion: version,
@@ -2257,12 +2257,6 @@ var mParticle = (function () {
                 }
                 batchesToUpload = this.batchesQueuedForProcessing;
                 this.batchesQueuedForProcessing = [];
-                // If `useBeacon` is true, the browser has been closed suddently
-                // so we should save `batchesToUpload` to Offline Storage before
-                // an upload is attempted.
-                if (useBeacon && this.offlineStorageEnabled && this.batchVault) {
-                  this.batchVault.store(batchesToUpload);
-                }
                 return [4 /*yield*/, this.uploadBatches(this.mpInstance.Logger, batchesToUpload, useBeacon)];
               case 1:
                 batchesThatDidNotUpload = _d.sent();
