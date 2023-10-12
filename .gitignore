@@ -4,7 +4,9 @@ node_modules/
 test-bundle.js
 out/
 test/reports
+test/cross-browser-testing/reports
 test/test-bundle.js.map
 test/stub/test-stub-bundle.js
 **/dist
 test/cross-browser-testing/browserstack/reports
+browserstack.err
