@@ -477,7 +477,7 @@ export default function mParticleInstance(instanceName) {
      * @method logLink
      * @param {String} selector The selector to add a 'click' event to (ex. #purchase-event)
      * @param {String} [eventName] The name of the event
-     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
      * @param {Object} [eventInfo] Attributes for the event
      */
     this.logLink = function(selector, eventName, eventType, eventInfo) {
@@ -494,7 +494,7 @@ export default function mParticleInstance(instanceName) {
      * @method logForm
      * @param {String} selector The selector to add the event handler to (ex. #search-event)
      * @param {String} [eventName] The name of the event
-     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/javascript/event-tracking#event-type)
+     * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
      * @param {Object} [eventInfo] Attributes for the event
      */
     this.logForm = function(selector, eventName, eventType, eventInfo) {
