@@ -10,3 +10,4 @@ test/stub/test-stub-bundle.js
 **/dist
 test/cross-browser-testing/browserstack/reports
 browserstack.err
+local.log
