@@ -4,7 +4,10 @@ node_modules/
 test-bundle.js
 out/
 test/reports
+test/cross-browser-testing/reports
 test/test-bundle.js.map
 test/stub/test-stub-bundle.js
 **/dist
 test/integrations/requirejs/test-requirejs-bundle.js
+browserstack.err
+local.log
