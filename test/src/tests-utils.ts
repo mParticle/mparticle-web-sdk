@@ -19,6 +19,7 @@ import {
     replaceQuotesWithApostrophes,
     returnConvertedBoolean,
     revertCookieString,
+    toDataPlanSlug,
 } from '../../src/utils';
 import { expect } from 'chai';
 
@@ -273,8 +274,31 @@ describe('Utils', () => {
         })
     });
 
+    describe('#toDataPlanSlug', () => {
+        it('should convert a string to a slug', () => {
+            expect(toDataPlanSlug('string')).to.equal('string');
+            expect(toDataPlanSlug('42')).to.equal('42');
+            expect(toDataPlanSlug(37)).to.equal('37');
+            expect(toDataPlanSlug('string with spaces')).to.equal('string_with_spaces');
+            expect(toDataPlanSlug('kabob-case-string')).to.equal('kabob_case_string');
+            expect(toDataPlanSlug('PascalSlug')).to.equal('pascalslug');
+            expect(toDataPlanSlug('under_score_slug')).to.equal('under_score_slug');
+        });
+
+        it('should convert non-strings to an empty string', () => {
+            expect(toDataPlanSlug(true)).to.equal('');
+            expect(toDataPlanSlug([])).to.equal('');
+            expect(toDataPlanSlug({})).to.equal('');
+            expect(toDataPlanSlug(null)).to.equal('');
+            expect(toDataPlanSlug(undefined)).to.equal('');
+            expect(toDataPlanSlug(()=>{})).to.equal('');
+        });
+    });
+
     describe('#isDataPlanSlug', function () {
         it('handles numbers', function () {
+            // Non-strings will be rejected. This is to simply validate
+            // that it returns false
             expect(isDataPlanSlug(35 as unknown as string)).to.equal(false);
         });
 
@@ -283,13 +307,11 @@ describe('Utils', () => {
         });
 
         it('handles PascalCase', function () {
-            // TODO: Remove support for kabob case once we remove slugify
-            expect(isDataPlanSlug('PascalSlug')).to.equal(true);
+            expect(isDataPlanSlug('PascalSlug')).to.equal(false);
         });
 
         it('handles kabob-case-slug', function () {
-            // TODO: Remove support for kabob case once we remove slugify
-            expect(isDataPlanSlug('kabob-case-slug')).to.equal(true);
+            expect(isDataPlanSlug('kabob-case-slug')).to.equal(false);
         });
 
         it('handles simple string', function () {
