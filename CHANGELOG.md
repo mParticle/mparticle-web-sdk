@@ -1,3 +1,10 @@
+## [2.23.6](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.5...v2.23.6) (2023-10-17)
+
+
+### Bug Fixes
+
+* Remove slugify dependency ([#786](https://github.com/mParticle/mparticle-web-sdk/issues/786)) ([8346bdc](https://github.com/mParticle/mparticle-web-sdk/commit/8346bdc4f3f8e102011952fce89c89e72d6f30d7))
+
 ## [2.23.5](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.4...v2.23.5) (2023-10-09)
 
 
