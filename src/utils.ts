@@ -203,7 +203,7 @@ const isString = (value: any): boolean => typeof value === 'string';
 const isNumber = (value: any): boolean => typeof value === 'number';
 const isFunction = (fn: any): boolean => typeof fn === 'function';
 
-const toSlug = (value: any): string =>
+const toDataPlanSlug = (value: any): string =>
     // Make sure we are only acting on strings or numbers
     isStringOrNumber(value)
         ? value
@@ -212,7 +212,7 @@ const toSlug = (value: any): string =>
               .replace(/[^0-9a-zA-Z]+/g, '_')
         : '';
 
-const isDataPlanSlug = (str: string): boolean => str === toSlug(str);
+const isDataPlanSlug = (str: string): boolean => str === toDataPlanSlug(str);
 
 const isStringOrNumber = (value: any): boolean =>
     isString(value) || isNumber(value);
@@ -241,7 +241,7 @@ export {
     replaceApostrophesWithQuotes,
     replaceQuotesWithApostrophes,
     returnConvertedBoolean,
-    toSlug,
+    toDataPlanSlug,
     isString,
     isNumber,
     isFunction,

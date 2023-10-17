@@ -19,7 +19,7 @@ import {
     replaceQuotesWithApostrophes,
     returnConvertedBoolean,
     revertCookieString,
-    toSlug,
+    toDataPlanSlug,
 } from '../../src/utils';
 import { expect } from 'chai';
 
@@ -274,24 +274,24 @@ describe('Utils', () => {
         })
     });
 
-    describe('#isSlug', () => {
+    describe('#toDataPlanSlug', () => {
         it('should convert a string to a slug', () => {
-            expect(toSlug('string')).to.equal('string');
-            expect(toSlug('42')).to.equal('42');
-            expect(toSlug(37)).to.equal('37');
-            expect(toSlug('string with spaces')).to.equal('string_with_spaces');
-            expect(toSlug('kabob-case-string')).to.equal('kabob_case_string');
-            expect(toSlug('PascalSlug')).to.equal('pascalslug');
-            expect(toSlug('under_score_slug')).to.equal('under_score_slug');
+            expect(toDataPlanSlug('string')).to.equal('string');
+            expect(toDataPlanSlug('42')).to.equal('42');
+            expect(toDataPlanSlug(37)).to.equal('37');
+            expect(toDataPlanSlug('string with spaces')).to.equal('string_with_spaces');
+            expect(toDataPlanSlug('kabob-case-string')).to.equal('kabob_case_string');
+            expect(toDataPlanSlug('PascalSlug')).to.equal('pascalslug');
+            expect(toDataPlanSlug('under_score_slug')).to.equal('under_score_slug');
         });
 
         it('should convert non-strings to an empty string', () => {
-            expect(toSlug(true)).to.equal('');
-            expect(toSlug([])).to.equal('');
-            expect(toSlug({})).to.equal('');
-            expect(toSlug(null)).to.equal('');
-            expect(toSlug(undefined)).to.equal('');
-            expect(toSlug(()=>{})).to.equal('');
+            expect(toDataPlanSlug(true)).to.equal('');
+            expect(toDataPlanSlug([])).to.equal('');
+            expect(toDataPlanSlug({})).to.equal('');
+            expect(toDataPlanSlug(null)).to.equal('');
+            expect(toDataPlanSlug(undefined)).to.equal('');
+            expect(toDataPlanSlug(()=>{})).to.equal('');
         });
     });
 
