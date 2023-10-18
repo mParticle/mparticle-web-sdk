@@ -1895,7 +1895,12 @@ describe('batch uploader', () => {
             done();
         });
 
-        it('should trigger an upload of batch when a UAC occurs', function(done) {
+        // Originally, we had the Batch uploader set to force an upload when a UAC event
+        // was triggered. This feature was removed and we are including this test to
+        // make sure the Web SDK does not regress. This test will be removed in a future
+        // Web SDK update
+        // TODO: https://go.mparticle.com/work/SQDSDKS-5891 
+        it('should NOT trigger an upload of batch when a UAC occurs', function(done) {
             window.mParticle._resetForTests(MPConfig);
 
             window.mParticle.init(apiKey, window.mParticle.config);
@@ -1903,12 +1908,25 @@ describe('batch uploader', () => {
             // Set a user attribute to trigger a UAC event
             window.mParticle.Identity.getCurrentUser().setUserAttribute('age', 25);
 
-            // Requests sent should be identify call, then
-            // a request for session start, AST, and UAC
-            mockServer.requests.length.should.equal(2);
-            // 1st request is /Identity call, 2nd request is UIC call
+            // Requests sent should be identify call
+            // Since we no longer force an upload for UAC,
+            // This request will contain a /Identity Call
+            // a future request will contain session start, AST, and UAC
+            mockServer.requests.length.should.equal(1);
+
+            // Verifies that adding a UAC does not trigger an upload
+            expect(mockServer.secondRequest).to.equal(null);
+
+            // Manually force an upload
+            window.mParticle.upload();
+
+            // Second request has now been made
+            expect(mockServer.secondRequest).to.be.ok;
+            
             const batch = JSON.parse(mockServer.secondRequest.requestBody);
             
+            // Batch should now contain the 3 events we expect
+            mockServer.requests.length.should.equal(2);
             batch.events[0].event_type.should.equal('session_start');
             batch.events[1].event_type.should.equal('application_state_transition');
             batch.events[2].event_type.should.equal('user_attribute_change');
