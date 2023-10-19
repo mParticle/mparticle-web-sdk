@@ -646,7 +646,25 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 // The constructors are keyed by the name of the kit.
                 config.sideloadedKits.forEach(function(sideloadedKit) {
                     try {
+                        // The name of a kit exists only inside each kit when the constructor
+                        // is invoked, and the name gets set on the sideloadedKits.kits object
+                        // We cannot determine the name of it unless we compare what the
+                        // sideloadedkit object looks like before and after a kit is registered
+                        const previousKitNames = Object.keys(
+                            sideloadedKits.kits
+                        );
+                        let currentKitName = null;
                         sideloadedKit.kitInstance.register(sideloadedKits);
+                        const newKitNames = Object.keys(sideloadedKits.kits);
+
+                        newKitNames.forEach(function(newKitName) {
+                            if (previousKitNames.indexOf(newKitName) === -1) {
+                                currentKitName = newKitName;
+                            }
+                        });
+
+                        sideloadedKits.kits[currentKitName].config =
+                            sideloadedKit.filterDictionary;
                     } catch (e) {
                         console.error(
                             'Error registering sideloaded kit ' +
@@ -680,7 +698,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // kits can be included via mParticle UI, or via sideloaded kit config API
     this.configureSideloadedKit = function(kitConstructor) {
         mpInstance._Store.configuredForwarders.push(
-            this.returnConfiguredKit(kitConstructor)
+            this.returnConfiguredKit(kitConstructor, kitConstructor.config)
         );
     };
 

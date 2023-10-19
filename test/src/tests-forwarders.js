@@ -2738,6 +2738,209 @@ describe('forwarders', function() {
                     'sideloaded_kits_count'
                 );
             });
+
+            describe('filter dictionary integration tests', function() {
+                let sideloadedKit1;
+                let sideloadedKit2;
+                let mpSideloadedKit1;
+                let mpSideloadedKit2;
+                
+                beforeEach(function() {
+                    sideloadedKit1 = new MockSideloadedKit(
+                        'SideloadedKit1',
+                        1
+                    );
+                    sideloadedKit2 = new MockSideloadedKit(
+                        'SideloadedKit2',
+                        2
+                    );
+    
+                    mpSideloadedKit1 = new mParticle.MPSideloadedKit(
+                        sideloadedKit1
+                    );
+                    mpSideloadedKit2 = new mParticle.MPSideloadedKit(
+                        sideloadedKit2
+                    );
+                    mParticle._resetForTests(MPConfig);
+                    delete mParticle._instances['default_instance'];
+                });
+
+                afterEach(function() {
+                    delete window.MockForwarder1;
+                    mockServer.restore();
+                });
+
+                it('should filter event names out properly when set', function() {
+                    mpSideloadedKit1.addEventNameFilter(mParticle.EventType.Unknown, 'Test Event');
+                    mpSideloadedKit2.addEventNameFilter(mParticle.EventType.Unknown, 'Test Event2');
+
+                    const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
+
+                    window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                    mParticle.init(apiKey, window.mParticle.config);
+                    mParticle.logEvent('Test Event');
+
+                    // The received event gets replaced by the last event sent to the forwarder
+                    // SideloadedKit11 has received the session start event, but not the Test Event
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal('Test Event');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.equal('Test Event');
+
+                    mParticle.logEvent('Test Event2');
+
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.equal('Test Event2');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.not.equal('Test Event2');
+                });
+
+                it('should filter event types out properly when set', function() {
+                    mpSideloadedKit1.addEventTypeFilter(mParticle.EventType.Unknown);
+                    mpSideloadedKit2.addEventTypeFilter(mParticle.EventType.Navigation);
+
+                    const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
+
+                    window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                    mParticle.init(apiKey, window.mParticle.config);
+                    mParticle.logEvent('Test Event', mParticle.EventType.Unknown);
+
+                    // The received event gets replaced by the last event sent to the forwarder
+                    // SideloadedKit11 has received the session start event, but not the Test Event
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal('Test Event');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.equal('Test Event');
+
+                    mParticle.logEvent('Test Event2', mParticle.EventType.Navigation);
+
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.equal('Test Event2');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.not.equal('Test Event2');
+                });
+
+                it('should filter event attribute out properly when set', function() {
+                    mpSideloadedKit1.addEventAttributeFilter(mParticle.EventType.Navigation, 'Test Event', 'testAttr1');
+                    mpSideloadedKit2.addEventAttributeFilter(mParticle.EventType.Navigation, 'Test Event', 'testAttr2');
+
+                    const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
+
+                    window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                    mParticle.init(apiKey, window.mParticle.config);
+
+                    const attrs = {
+                        testAttr1: 'foo',
+                        testAttr2: 'bar'
+                    }
+
+                    mParticle.logEvent('Test Event', mParticle.EventType.Navigation, attrs);
+
+                    // The received event gets replaced by the last event sent to the forwarder
+                    // SideloadedKit11 has received the session start event, but not the Test Event
+                    window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.have.property('testAttr2', 'bar');
+                    window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.not.property('testAttr1');
+                    window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.have.property('testAttr1', 'foo');
+                    window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.not.property('testAttr2');
+                });
+
+                it('should filter screen names out properly when set', function() {
+                    mpSideloadedKit1.addScreenNameFilter('Test Screen Name 1');
+                    mpSideloadedKit2.addScreenNameFilter('Test Screen Name 2');
+
+                    const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
+
+                    window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                    mParticle.init(apiKey, window.mParticle.config);
+
+                    mParticle.logPageView('Test Screen Name 1')
+
+                    // The received event gets replaced by the last event sent to the forwarder
+                    // SideloadedKit11 has received the session start event, but not the Test Event
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.not.equal('Test Screen Name 1');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.equal('Test Screen Name 1');
+
+                    mParticle.logPageView('Test Screen Name 2')
+
+                    // The received event gets replaced by the last event sent to the forwarder
+                    // SideloadedKit11 has received the session start event, but not the Test Event
+                    window.SideloadedKit11.instance.receivedEvent.EventName.should.equal('Test Screen Name 2');
+                    window.SideloadedKit22.instance.receivedEvent.EventName.should.not.equal('Test Screen Name 2');
+                });
+
+                it('should filter screen name attribute out properly when set', function() {
+                    mpSideloadedKit1.addScreenAttributeFilter('Test Screen Name 1', 'testAttr1');
+                    mpSideloadedKit2.addScreenAttributeFilter('Test Screen Name 1', 'testAttr2');
+
+                    const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
+
+                    window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                    mParticle.init(apiKey, window.mParticle.config);
+
+                    const attrs = {
+                        testAttr1: 'foo',
+                        testAttr2: 'bar'
+                    }
+
+                    mParticle.logPageView('Test Screen Name 1', attrs)
+
+                    // The received event gets replaced by the last event sent to the forwarder
+                    // SideloadedKit11 has received the session start event, but not the Test Event
+                    window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.have.property('testAttr2', 'bar');
+                    window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.not.property('testAttr1');
+                    window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.have.property('testAttr1', 'foo');
+                    window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.not.property('testAttr2');
+                });
+
+                it('should filter user identities out properly when set', function() {
+                    mpSideloadedKit1.addUserIdentityFilter(mParticle.IdentityType.Email);
+                    mpSideloadedKit2.addUserIdentityFilter(mParticle.IdentityType.Other);
+
+                    const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
+
+                    window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                    mParticle.init(apiKey, window.mParticle.config);
+
+                    mParticle.Identity.login({
+                        userIdentities: {
+                            email: 'test@gmail.com',
+                            other: 'test'
+                        }
+                    });
+
+                    mParticle.logPageView('Test Screen Name 1');
+
+                    // The received event gets replaced by the last event sent to the forwarder
+                    // SideloadedKit11 has received the session start event, but not the Test Event
+                    window.SideloadedKit11.instance.receivedEvent.UserIdentities.length.should.equal(1)
+                    window.SideloadedKit11.instance.receivedEvent.UserIdentities[0].Type.should.equal(0)
+                    window.SideloadedKit11.instance.receivedEvent.UserIdentities[0].Identity.should.equal('test')
+                    window.SideloadedKit22.instance.receivedEvent.UserIdentities.length.should.equal(1)
+                    window.SideloadedKit22.instance.receivedEvent.UserIdentities[0].Type.should.equal(7)
+                    window.SideloadedKit22.instance.receivedEvent.UserIdentities[0].Identity.should.equal('test@gmail.com')
+                });
+
+                it('should filter user attributes out properly when set', function() {
+                    mpSideloadedKit1.addUserAttributeFilter('testAttr1');
+                    mpSideloadedKit2.addUserAttributeFilter('testAttr2');
+
+                    const sideloadedKits = [mpSideloadedKit1, mpSideloadedKit2];
+
+                    window.mParticle.config.sideloadedKits = sideloadedKits;
+
+                    mParticle.init(apiKey, window.mParticle.config);
+
+                    mParticle.Identity.getCurrentUser().setUserAttribute('testAttr1', 'foo');
+                    mParticle.Identity.getCurrentUser().setUserAttribute('testAttr2', 'bar');
+
+                    mParticle.logPageView('Test Screen Name 1');
+
+                    // The received event gets replaced by the last event sent to the forwarder
+                    // SideloadedKit11 has received the session start event, but not the Test Event
+                    window.SideloadedKit11.instance.receivedEvent.UserAttributes.should.have.property('testAttr2', 'bar');
+                    window.SideloadedKit11.instance.receivedEvent.UserAttributes.should.not.have.property('testAttr1');
+                    window.SideloadedKit22.instance.receivedEvent.UserAttributes.should.have.property('testAttr1', 'foo');
+                    window.SideloadedKit22.instance.receivedEvent.UserAttributes.should.not.have.property('testAttr2');
+                });
+            });
         });
 
         describe('forwarding', function() {
