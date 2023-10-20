@@ -17,7 +17,6 @@ var MessageType = {
 // trigger an immediate upload.
 var TriggerUploadType = {
     [MessageType.Commerce]: 1,
-    [MessageType.UserAttributeChange]: 1,
     [MessageType.UserIdentityChange]: 1,
 };
 
