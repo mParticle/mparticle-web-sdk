@@ -2739,7 +2739,7 @@ describe('forwarders', function() {
                 );
             });
 
-            describe.only('filter dictionary integration tests', function() {
+            describe('filter dictionary integration tests', function() {
                 let sideloadedKit1;
                 let sideloadedKit2;
                 let mpSideloadedKit1;
@@ -2915,7 +2915,7 @@ describe('forwarders', function() {
                     window.SideloadedKit11.instance.receivedEvent.UserIdentities[0].Identity.should.equal('test')
                     // SideloadedKit22 will receive an event with only an Email identity type
                     window.SideloadedKit22.instance.receivedEvent.UserIdentities.length.should.equal(1)
-                    window.SideloadedKit22.instance.receivedEvent.UserIdentities[0].Type.should.equal(mParticle.IdentityType.Other)
+                    window.SideloadedKit22.instance.receivedEvent.UserIdentities[0].Type.should.equal(mParticle.IdentityType.Email)
                     window.SideloadedKit22.instance.receivedEvent.UserIdentities[0].Identity.should.equal('test@gmail.com')
                 });
 
