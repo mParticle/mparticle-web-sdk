@@ -2837,7 +2837,7 @@ describe('forwarders', function() {
 
                     window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.have.property('testAttr2', 'bar');
                     window.SideloadedKit11.instance.receivedEvent.EventAttributes.should.not.property('testAttr1');
-s
+
                     window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.have.property('testAttr1', 'foo');
                     window.SideloadedKit22.instance.receivedEvent.EventAttributes.should.not.property('testAttr2');
                 });
