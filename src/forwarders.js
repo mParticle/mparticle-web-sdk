@@ -641,6 +641,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
             if (Array.isArray(mpConfig.sideloadedKits)) {
                 const registeredSideloadedKits = { kits: {} };
                 const unregisteredSideloadedKits = mpConfig.sideloadedKits;
+
                 unregisteredSideloadedKits.forEach(function(unregisteredKit) {
                     try {
                         // Register each sideloaded kit, which adds a key of the sideloaded kit name
@@ -648,7 +649,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
                         unregisteredKit.kitInstance.register(
                             registeredSideloadedKits
                         );
-                        let kitName = unregisteredKit.kitInstance.name;
+                        const kitName = unregisteredKit.kitInstance.name;
                         // Then add the kit filters to each registered kit.
                         registeredSideloadedKits.kits[kitName].filters =
                             unregisteredKit.filterDictionary;
