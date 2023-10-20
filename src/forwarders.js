@@ -629,43 +629,49 @@ export default function Forwarders(mpInstance, kitBlocker) {
         }
     };
 
-    // Sideloaded kits are not configured in the UI and do not have kit configurations
-    // They are automatically added to active forwarders.
+    // Unlike UI enabled kits, sideloaded kits are always added to active forwarders.
 
-    // TODO: Sideloading kits currently requires the use of a register method
+    // TODO: Sideloading kits currently require the use of a register method
     // which requires an object on which to be registered.
-    // In the future, when all kits are moved to the config rather than
+    // In the future, when all kits are moved to the mpConfig rather than
     // there being a separate process for MP configured kits and
     // sideloaded kits, this will need to be refactored.
-    this.processSideloadedKits = function(config) {
+    this.processSideloadedKits = function(mpConfig) {
         try {
-            if (Array.isArray(config.sideloadedKits)) {
-                const sideloadedKits = { kits: {} };
-                // First register each kit's constructor onto sideloadedKits,
-                // which is typed { kits: Dictionary<constructor> }.
-                // The constructors are keyed by the name of the kit.
-                config.sideloadedKits.forEach(function(sideloadedKit) {
+            if (Array.isArray(mpConfig.sideloadedKits)) {
+                const registeredSideloadedKits = { kits: {} };
+                const unregisteredSideloadedKits = mpConfig.sideloadedKits;
+
+                unregisteredSideloadedKits.forEach(function(unregisteredKit) {
                     try {
-                        sideloadedKit.kitInstance.register(sideloadedKits);
+                        // Register each sideloaded kit, which adds a key of the sideloaded kit name
+                        // and a value of the sideloaded kit constructor.
+                        unregisteredKit.kitInstance.register(
+                            registeredSideloadedKits
+                        );
+                        const kitName = unregisteredKit.kitInstance.name;
+                        // Then add the kit filters to each registered kit.
+                        registeredSideloadedKits.kits[kitName].filters =
+                            unregisteredKit.filterDictionary;
                     } catch (e) {
                         console.error(
                             'Error registering sideloaded kit ' +
-                                sideloadedKit.kitInstance.name
+                                unregisteredKit.kitInstance.name
                         );
                     }
                 });
 
-                // Then configure each kit
-                for (const registeredKitKey in sideloadedKits.kits) {
-                    const kitConstructor =
-                        sideloadedKits.kits[registeredKitKey];
-                    self.configureSideloadedKit(kitConstructor);
+                // Then configure each registered kit
+                for (const registeredKitKey in registeredSideloadedKits.kits) {
+                    const registeredKit =
+                        registeredSideloadedKits.kits[registeredKitKey];
+                    self.configureSideloadedKit(registeredKit);
                 }
 
                 // If Sideloaded Kits are successfully registered,
                 // record this in the Store.
-                if (!isEmpty(sideloadedKits.kits)) {
-                    const kitKeys = Object.keys(sideloadedKits.kits);
+                if (!isEmpty(registeredSideloadedKits.kits)) {
+                    const kitKeys = Object.keys(registeredSideloadedKits.kits);
                     mpInstance._Store.sideloadedKitsCount = kitKeys.length;
                 }
             }
@@ -680,7 +686,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
     // kits can be included via mParticle UI, or via sideloaded kit config API
     this.configureSideloadedKit = function(kitConstructor) {
         mpInstance._Store.configuredForwarders.push(
-            this.returnConfiguredKit(kitConstructor)
+            this.returnConfiguredKit(kitConstructor, kitConstructor.filters)
         );
     };
 
