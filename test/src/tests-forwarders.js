@@ -1,5 +1,7 @@
 import Utils from './utils';
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
+
 import { urls } from './config';
 import { apiKey, MPConfig, testMPID, MessageType } from './config';
 import { expect } from 'chai';
@@ -16,7 +18,7 @@ describe('forwarders', function() {
     beforeEach(function() {
         mParticle._resetForTests(MPConfig);
         delete mParticle._instances['default_instance'];
-        window.fetchMock.post(urls.events, 200);
+        fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -53,7 +55,7 @@ describe('forwarders', function() {
     });
 
     afterEach(function() {
-        window.fetchMock.restore();
+        fetchMock.restore();
         delete window.MockForwarder1;
         mockServer.restore();
     });
@@ -1022,7 +1024,7 @@ describe('forwarders', function() {
             { 'my-key': 'my-value' }
         );
 
-        const event = findEventFromRequest(window.fetchMock._calls, 'send this event to forwarder', true);
+        const event = findEventFromRequest(fetchMock.calls(), 'send this event to forwarder', true);
 
         Should(event).should.not.have.property('n');
 
@@ -2216,19 +2218,19 @@ describe('forwarders', function() {
         mParticle._setIntegrationDelay(10, true);
 
         mParticle.init(apiKey, window.mParticle.config);
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         mParticle.logEvent('Test Event1');
-        window.fetchMock._calls.length.should.equal(0);
+        fetchMock.calls().length.should.equal(0);
 
         mParticle._setIntegrationDelay(10, false);
         mParticle._setIntegrationDelay(128, false);
         mParticle.logEvent('Test Event2');
-        window.fetchMock._calls.length.should.equal(4);
+        fetchMock.calls().length.should.equal(4);
 
-        const sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
-        const ASTEvent = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
-        const testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
-        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+        const sessionStartEvent = findEventFromRequest(fetchMock.calls(), 'session_start');
+        const ASTEvent = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
+        const testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
         sessionStartEvent.should.be.ok();
         ASTEvent.should.be.ok();
@@ -2259,19 +2261,19 @@ describe('forwarders', function() {
                 .length
         ).equal(3);
         mParticle.init(apiKey, window.mParticle.config);
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         mParticle.logEvent('Test Event1');
-        window.fetchMock._calls.length.should.equal(0);
+        fetchMock.calls().length.should.equal(0);
 
         clock.tick(5001);
 
         mParticle.logEvent('Test Event2');
-        window.fetchMock._calls.length.should.equal(4);
+        fetchMock.calls().length.should.equal(4);
 
-        const sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
-        const ASTEvent = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
-        const testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
-        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
+        const sessionStartEvent = findEventFromRequest(fetchMock.calls(), 'session_start');
+        const ASTEvent = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
+        const testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
         sessionStartEvent.should.be.ok();
         ASTEvent.should.be.ok();
@@ -2287,19 +2289,19 @@ describe('forwarders', function() {
         mParticle._setIntegrationDelay(24, false);
         mParticle._setIntegrationDelay(10, true);
         mParticle.init(apiKey, window.mParticle.config);
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         mParticle.logEvent('Test Event3');
-        window.fetchMock._calls.length.should.equal(0);
+        fetchMock.calls().length.should.equal(0);
 
         clock.tick(1001);
 
         mParticle.logEvent('Test Event4');
-        window.fetchMock._calls.length.should.equal(4);
+        fetchMock.calls().length.should.equal(4);
 
-        const sessionStartEvent2 = findEventFromRequest(window.fetchMock._calls, 'session_start');
-        const ASTEvent2 = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
-        const testEvent3 = findEventFromRequest(window.fetchMock._calls, 'Test Event3');
-        const testEvent4 = findEventFromRequest(window.fetchMock._calls, 'Test Event4');
+        const sessionStartEvent2 = findEventFromRequest(fetchMock.calls(), 'session_start');
+        const ASTEvent2 = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
+        const testEvent3 = findEventFromRequest(fetchMock.calls(), 'Test Event3');
+        const testEvent4 = findEventFromRequest(fetchMock.calls(), 'Test Event4');
 
         sessionStartEvent2.should.be.ok();
         ASTEvent2.should.be.ok();
@@ -2317,15 +2319,15 @@ describe('forwarders', function() {
         mParticle._setIntegrationDelay(128, true);
         mParticle._setIntegrationDelay(24, false);
         mParticle.init(apiKey, window.mParticle.config);
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         mParticle.logEvent('test1');
-        window.fetchMock._calls.length.should.equal(0);
+        fetchMock.calls().length.should.equal(0);
         // now that we set all integrations to false, the SDK should process queued events
         mParticle._setIntegrationDelay(128, false);
 
         clock.tick(5001);
 
-        window.fetchMock._calls.length.should.equal(3);
+        fetchMock.calls().length.should.equal(3);
         clock.restore();
 
         done();
@@ -2714,7 +2716,7 @@ describe('forwarders', function() {
 
                 mParticle.logEvent('foo', mParticle.EventType.Navigation);
 
-                const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+                const batch = JSON.parse(fetchMock.lastCall()[1].body);
 
                 expect(batch).to.have.property('application_info');
                 expect(batch.application_info).to.have.property(
@@ -2731,7 +2733,7 @@ describe('forwarders', function() {
 
                 mParticle.logEvent('foo', mParticle.EventType.Navigation);
 
-                const batch = JSON.parse(window.fetchMock.lastCall()[1].body);
+                const batch = JSON.parse(fetchMock.lastCall()[1].body);
 
                 expect(batch).to.have.property('application_info');
                 expect(batch.application_info).not.to.have.property(

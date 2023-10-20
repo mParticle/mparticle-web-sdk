@@ -8,7 +8,6 @@ import { apiKey, das, MPConfig, testMPID, workspaceCookieName } from './config';
 
 const DefaultConfig = Constants.DefaultConfig,
     setLocalStorage = Utils.setLocalStorage,
-    findRequest = Utils.findRequest,
     findRequestURL = Utils.findRequestURL,
     findEventFromRequest = Utils.findEventFromRequest,
     findBatch = Utils.findBatch;
@@ -38,7 +37,7 @@ describe('core SDK', function() {
     it('starts new session', function(done) {
         mParticle.startNewSession();
 
-        const sessionStartEvent = findEventFromRequest(fetchMock._calls, 'session_start');
+        const sessionStartEvent = findEventFromRequest(fetchMock.calls(), 'session_start');
 
         sessionStartEvent.should.be.ok();
         sessionStartEvent.data.should.have.property('session_uuid');
@@ -91,7 +90,7 @@ describe('core SDK', function() {
         mParticle.startNewSession();
         mParticle.endSession();
 
-        const sessionEndEvent = findEventFromRequest(fetchMock._calls, 'session_end');
+        const sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
 
         sessionEndEvent.should.be.ok();
 
@@ -102,14 +101,14 @@ describe('core SDK', function() {
 
     it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', function(done) {
         mParticle.logEvent('Test Event1');
-        const testEvent1 = findEventFromRequest(fetchMock._calls, 'Test Event1');
+        const testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
 
         setTimeout(function() {
             mParticle.logEvent('Test Event2');
-            const testEvent2 = findEventFromRequest(fetchMock._calls, 'Test Event2');
+            const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
             mParticle.endSession();
-            const sessionEndEvent = findEventFromRequest(fetchMock._calls, 'session_end');
+            const sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
 
             const result1 = testEvent1.data.timestamp_unixtime_ms === testEvent2.data.timestamp_unixtime_ms;
             const result2 = testEvent2.data.timestamp_unixtime_ms === sessionEndEvent.data.timestamp_unixtime_ms;
@@ -140,7 +139,7 @@ describe('core SDK', function() {
         mParticle.setAppVersion('1.0');
 
         window.mParticle.logEvent('Test Event', mParticle.EventType.Navigation);
-        const testEventBatch = findBatch(fetchMock._calls, 'Test Event');
+        const testEventBatch = findBatch(fetchMock.calls(), 'Test Event');
         testEventBatch.application_info.should.have.property('application_version', '1.0');
 
         done();
@@ -248,7 +247,7 @@ describe('core SDK', function() {
             removeme: new Error(),
         });
 
-        const sanitizedEvent = findEventFromRequest(fetchMock._calls, 'sanitized event');
+        const sanitizedEvent = findEventFromRequest(fetchMock.calls(), 'sanitized event');
 
         sanitizedEvent.data.custom_attributes.should.have.property('key1', 'value1');
         sanitizedEvent.data.custom_attributes.should.have.property('mydate');
@@ -281,13 +280,13 @@ describe('core SDK', function() {
         product.Attributes.should.have.property('valid');
 
         mParticle.eCommerce.logCheckout(1, 'visa', attrs);
-        const checkoutEvent = findEventFromRequest(fetchMock._calls, 'checkout');
+        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
 
         checkoutEvent.data.custom_attributes.should.not.have.property('invalid');
         checkoutEvent.data.custom_attributes.should.have.property('valid');
 
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.AddToCart, product, attrs);
-        const addToCartEvent = findEventFromRequest(fetchMock._calls, 'add_to_cart');
+        const addToCartEvent = findEventFromRequest(fetchMock.calls(), 'add_to_cart');
 
         addToCartEvent.data.custom_attributes.should.not.have.property('invalid');
         addToCartEvent.data.custom_attributes.should.have.property('valid');
@@ -308,7 +307,7 @@ describe('core SDK', function() {
             false,
             attrs
         );
-        const purchaseEvent = findEventFromRequest(fetchMock._calls, 'purchase');
+        const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
         purchaseEvent.data.custom_attributes.should.not.have.property('invalid');
         purchaseEvent.data.custom_attributes.should.have.property('valid');
 
@@ -321,7 +320,7 @@ describe('core SDK', function() {
 
         mockServer.requests = [];
         mParticle.eCommerce.logPromotion(1, promotion, attrs);
-        const promotionViewEvent = findEventFromRequest(fetchMock._calls, 'view');
+        const promotionViewEvent = findEventFromRequest(fetchMock.calls(), 'view');
         promotionViewEvent.data.custom_attributes.should.not.have.property('invalid');
         promotionViewEvent.data.custom_attributes.should.have.property('valid');
 
@@ -332,7 +331,7 @@ describe('core SDK', function() {
             false,
             attrs
         );
-        const refundEvent = findEventFromRequest(fetchMock._calls, 'refund');
+        const refundEvent = findEventFromRequest(fetchMock.calls(), 'refund');
 
         refundEvent.data.custom_attributes.should.not.have.property('invalid');
         refundEvent.data.custom_attributes.should.have.property('valid');
@@ -383,12 +382,12 @@ describe('core SDK', function() {
         mParticle.init(apiKey, window.mParticle.config);
         clock.tick(100);
         mParticle.logEvent('Test Event');
-        const testEvent = findEventFromRequest(fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
         clock.tick(70000);
 
         mParticle.logEvent('Test Event2');
-        const testEvent2 = findEventFromRequest(fetchMock._calls, 'Test Event2');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
         testEvent.data.session_uuid.should.not.equal(testEvent2.data.session_uuid);
         mParticle.getInstance()._SessionManager.clearSessionTimeout(); clock.restore();
 
@@ -411,9 +410,9 @@ describe('core SDK', function() {
 
         clock.tick(150000);
 
-        const testEvent = findEventFromRequest(fetchMock._calls, 'Test Event');
-        const testEvent2 = findEventFromRequest(fetchMock._calls, 'Test Event2');
-        const testEvent3 = findEventFromRequest(fetchMock._calls, 'Test Event3');
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
+        const testEvent3 = findEventFromRequest(fetchMock.calls(), 'Test Event3');
         
         testEvent2.data.session_uuid.should.equal(testEvent.data.session_uuid);
         testEvent3.data.session_uuid.should.not.equal(testEvent.data.session_uuid);
@@ -435,10 +434,10 @@ describe('core SDK', function() {
         // This clock tick initiates a session end event that is successful
         clock.tick(70000);
 
-        let sessionEndEvent = findEventFromRequest(fetchMock._calls, 'session_end');
+        let sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
         Should(sessionEndEvent).be.ok();
 
-        fetchMock._calls = [];
+        fetchMock.resetHistory();
         clock.tick(100);
 
         mParticle.logEvent('Test Event2');
@@ -455,14 +454,14 @@ describe('core SDK', function() {
         setLocalStorage(workspaceCookieName, new_Persistence);
         // // This clock tick initiates a session end event that is not successful
         clock.tick(70000);
-        sessionEndEvent = findEventFromRequest(fetchMock._calls, 'session_end');
+        sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
 
         Should(sessionEndEvent).not.be.ok();
-        const testEvent2 = findEventFromRequest(fetchMock._calls, 'Test Event2');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
         mParticle.logEvent('Test Event3');
 
-        const testEvent3 = findEventFromRequest(fetchMock._calls, 'Test Event3');
+        const testEvent3 = findEventFromRequest(fetchMock.calls(), 'Test Event3');
         testEvent3.data.session_uuid.should.equal(testEvent2.data.session_uuid);
 
         clock.restore();
@@ -471,7 +470,7 @@ describe('core SDK', function() {
 
     it('should get sessionId', function(done) {
         mParticle.logEvent('Test Event');
-        const testEvent = findEventFromRequest(fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
         const sessionId = mParticle.getInstance()._SessionManager.getSession();
 
@@ -483,7 +482,7 @@ describe('core SDK', function() {
     it('should set session start date in dto', function(done) {
         mParticle.logEvent('Test Event');
 
-        const testEvent = findEventFromRequest(fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
         testEvent.data.session_start_unixtime_ms.should.be.above(0);
 
@@ -493,18 +492,18 @@ describe('core SDK', function() {
     it('should update session start date when manually ending session then starting a new one', function(done) {
         mParticle.logEvent('Test Event');
 
-        const testEvent = findEventFromRequest(fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
         const testEventSessionStartTime = testEvent.data.session_start_unixtime_ms;
 
         mParticle.endSession();
 
-        const sessionEndEvent = findEventFromRequest(fetchMock._calls, 'session_end');
+        const sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
         const sessionEndEventSessionStartDate = sessionEndEvent.data.session_start_unixtime_ms;
         sessionEndEventSessionStartDate.should.equal(testEventSessionStartTime);
 
         mParticle.logEvent('Test Event2');
 
-        const testEvent2 = findEventFromRequest(fetchMock._calls, 'Test Event2');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
         const testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
         testEvent2SessionStartDate.should.be.above(sessionEndEventSessionStartDate);
@@ -522,21 +521,21 @@ describe('core SDK', function() {
         clock.tick(10);
 
         mParticle.logEvent('Test Event');
-        const testEvent = findEventFromRequest(fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
         const testEventSessionStartDate = testEvent.data.session_start_unixtime_ms;
 
         // trigger session timeout which ends session automatically
         clock.tick(60000);
 
         // note to self - session end event not being triggered, could be the same bug
-        const sessionEndEvent = findEventFromRequest(fetchMock._calls, 'session_end');
+        const sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
         const sessionEndEventSessionStartDate = sessionEndEvent.data.session_start_unixtime_ms;
         sessionEndEventSessionStartDate.should.equal(testEventSessionStartDate);
 
         clock.tick(100);
 
         mParticle.logEvent('Test Event2');
-        const testEvent2 = findEventFromRequest(fetchMock._calls, 'Test Event2');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
         const testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
         testEvent2SessionStartDate.should.be.above(sessionEndEventSessionStartDate);
@@ -549,7 +548,7 @@ describe('core SDK', function() {
     it('should load SDK with the included api on init and not send events to previous apikey in persistence', function(done) {
         mParticle.logEvent('Test Event1');
 
-        const testEvent1URL = findRequest(fetchMock._calls, 'Test Event1')[0];
+        const testEvent1URL = findRequestURL(fetchMock.calls(), 'Test Event1');
         testEvent1URL.should.equal(urls.events);
 
         fetchMock.post(
@@ -560,7 +559,7 @@ describe('core SDK', function() {
         mParticle.init('new-api-key', window.mParticle.config);
         mParticle.logEvent('Test Event2');
 
-        const testEvent2URL = findRequestURL(fetchMock._calls, 'Test Event2');
+        const testEvent2URL = findRequestURL(fetchMock.calls(), 'Test Event2');
         testEvent2URL.should.equal(
             'https://jssdks.mparticle.com/v3/JS/new-api-key/events'
         );
@@ -752,7 +751,7 @@ describe('core SDK', function() {
         warnMessages.length.should.equal(0);
         errorMessages.length.should.equal(0);
 
-        const testEvent = findEventFromRequest(fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
         Should(testEvent).be.ok();
 
         done();
@@ -805,6 +804,8 @@ describe('core SDK', function() {
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
         window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
 
+        fetchMock.post('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', 200)
+
         mParticle.init(apiKey, window.mParticle.config);
 
         mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
@@ -815,7 +816,7 @@ describe('core SDK', function() {
         // test events endpoint
         mParticle.logEvent('Test Event');
 
-        const testEventURL = findRequestURL(fetchMock._calls, 'Test Event');
+        const testEventURL = findRequestURL(fetchMock.calls(), 'Test Event');
         testEventURL.should.equal(
             'https://' +
                 window.mParticle.config.v3SecureServiceUrl +
@@ -978,7 +979,7 @@ describe('core SDK', function() {
 
         mParticle.Identity.identify({ userIdentities: { customerid: 'test' } });
         mParticle.logEvent('Test Event');
-        const testEvent = findEventFromRequest(fetchMock._calls, 'Test Event');
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
         testEvent.should.be.ok();
 

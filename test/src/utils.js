@@ -222,7 +222,7 @@ var pluses = /\+/g,
     findRequest = function(requests, eventName) {
         let matchingRequest;
         requests.forEach(function(request) {
-            var batch = JSON.parse(request.options.body);
+            var batch = JSON.parse(request[1].body);
             for (var i = 0; i<batch.events.length; i++) {
                 var foundEventFromBatch = findEventFromBatch(batch, eventName);
                 if (foundEventFromBatch) {
@@ -240,7 +240,7 @@ var pluses = /\+/g,
     findBatch = function(requests, eventName) {
         var request = findRequest(requests, eventName);
         if (request) {
-            return JSON.parse(findRequest(requests, eventName).options.body);
+            return JSON.parse(findRequest(requests, eventName)[1].body);
         } else {
             return null;
         }

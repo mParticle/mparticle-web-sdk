@@ -10,7 +10,9 @@
         "strictNullChecks": false,
         "target": "es5",
         "moduleResolution": "Node",
-        "resolveJsonModule": true
+        "resolveJsonModule": true,
+        // this is required for importing the 'fetch-mock/esm/client' module, otherwise it errors
+        "allowSyntheticDefaultImports": true
     },
     "include": ["src/**/*.ts", "test/**/*.ts"]
 }
