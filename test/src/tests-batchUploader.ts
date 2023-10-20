@@ -1557,8 +1557,7 @@ describe('batch uploader', () => {
 
             // Mock end session so that the SDK doesn't actually send it. We do this
             // to mimic a return to page behavior, below:
-            window.mParticle.getInstance()._SessionManager.endSession = function() {
-            }
+            window.mParticle.getInstance()._SessionManager.endSession = function() {}
 
             // Force 35 minutes to pass, so that when we return to the page, when
             // the SDK initializes it will know to end the session.
@@ -1581,79 +1580,68 @@ describe('batch uploader', () => {
                 const batch1 = JSON.parse(window.fetchMock._calls[0][1].body);
                 const batch2 = JSON.parse(window.fetchMock._calls[1][1].body);
                 const batch3 = JSON.parse(window.fetchMock._calls[2][1].body);
-                const batch4 = JSON.parse(window.fetchMock._calls[3][1].body);
-                const batch5 = JSON.parse(window.fetchMock._calls[4][1].body);
 
-                // UAC event
-                expect(batch1.events.length, 'Batch 1: UAC event').to.equal(1);
-
-                // session start, AST
+                // UAC, session start, AST
                 expect(
-                    batch2.events.length,
-                    'Batch 2: Session Start, AST'
-                ).to.equal(2);
+                    batch1.events.length,
+                    'Batch 1: UAC Event, Session Start, AST'
+                ).to.equal(3);
 
                 // session end
-                expect(batch3.events.length, 'Batch 3: Session End').to.equal(
+                expect(batch2.events.length, 'Batch 2: Session End').to.equal(
                     1
                 );
 
-                // UAC event
+                // UAC, session start, AST
                 expect(
-                    batch4.events.length,
-                    'Batch 5: Session Start, AST'
-                ).to.equal(2);
-
-                // session start, AST
-                expect(batch5.events.length, 'Batch 4: UAC event').to.equal(1);
+                    batch3.events.length,
+                    'Batch 3: UAC, Session Start, AST'
+                ).to.equal(3);
 
                 const batch1UAC = Utils.findEventFromBatch(
                     batch1,
                     'user_attribute_change'
                 );
-                batch1UAC.should.be.ok();
-
-                const batch2SessionStart = Utils.findEventFromBatch(
-                    batch2,
+                const batch1SessionStart = Utils.findEventFromBatch(
+                    batch1,
                     'session_start'
                 );
-                const batch2AST = Utils.findEventFromBatch(
-                    batch2,
+                const batch1AST = Utils.findEventFromBatch(
+                    batch1,
                     'application_state_transition'
                 );
 
-                batch2SessionStart.should.be.ok();
-                batch2AST.should.be.ok();
+                batch1UAC.should.be.ok();
+                batch1SessionStart.should.be.ok();
+                batch1AST.should.be.ok();
 
-                const batch3SessionEnd = Utils.findEventFromBatch(
-                    batch3,
+                const batch2SessionEnd = Utils.findEventFromBatch(
+                    batch2,
                     'session_end'
                 );
-                batch3SessionEnd.should.be.ok();
+                batch2SessionEnd.should.be.ok();
 
-                const batch4SessionStart = Utils.findEventFromBatch(
-                    batch4,
+                const batch3UAC = Utils.findEventFromBatch(
+                    batch3,
+                    'user_attribute_change'
+                );
+                const batch3SessionStart = Utils.findEventFromBatch(
+                    batch3,
                     'session_start'
                 );
-                const batch4AST = Utils.findEventFromBatch(
-                    batch4,
+                const batch3AST = Utils.findEventFromBatch(
+                    batch3,
                     'application_state_transition'
                 );
 
-                batch4SessionStart.should.be.ok();
-                batch4AST.should.be.ok();
+                batch3UAC.should.be.ok();
+                batch3SessionStart.should.be.ok();
+                batch3AST.should.be.ok();
 
-                const batch5UAC = Utils.findEventFromBatch(
-                    batch5,
-                    'user_attribute_change'
-                );
-                batch5UAC.should.be.ok();
 
                 (typeof batch1.source_request_id).should.equal('string');
                 (typeof batch2.source_request_id).should.equal('string');
                 (typeof batch3.source_request_id).should.equal('string');
-                (typeof batch4.source_request_id).should.equal('string');
-                (typeof batch5.source_request_id).should.equal('string');
 
                 batch1.source_request_id.should.not.equal(
                     batch2.source_request_id
@@ -1661,103 +1649,80 @@ describe('batch uploader', () => {
                 batch1.source_request_id.should.not.equal(
                     batch3.source_request_id
                 );
-                batch1.source_request_id.should.not.equal(
-                    batch4.source_request_id
-                );
-                batch1.source_request_id.should.not.equal(
-                    batch5.source_request_id
-                );
-
                 batch2.source_request_id.should.not.equal(
                     batch3.source_request_id
                 );
-                batch2.source_request_id.should.not.equal(
-                    batch4.source_request_id
-                );
-                batch2.source_request_id.should.not.equal(
-                    batch5.source_request_id
-                );
-
-                batch3.source_request_id.should.not.equal(
-                    batch4.source_request_id
-                );
-                batch3.source_request_id.should.not.equal(
-                    batch5.source_request_id
-                );
-                batch4.source_request_id.should.not.equal(
-                    batch5.source_request_id
-                );
 
                 batch1UAC.data.session_uuid.should.equal(
-                    batch2AST.data.session_uuid
+                    batch1AST.data.session_uuid
                 );
                 batch1UAC.data.session_uuid.should.equal(
-                    batch2SessionStart.data.session_uuid
+                    batch1SessionStart.data.session_uuid
                 );
                 batch1UAC.data.session_uuid.should.not.equal(
-                    batch5UAC.data.session_uuid
+                    batch3UAC.data.session_uuid
                 );
                 batch1UAC.data.session_uuid.should.not.equal(
-                    batch4SessionStart.data.session_uuid
+                    batch3SessionStart.data.session_uuid
                 );
                 batch1UAC.data.session_uuid.should.not.equal(
-                    batch4AST.data.session_uuid
+                    batch3AST.data.session_uuid
                 );
 
                 batch1UAC.data.session_start_unixtime_ms.should.equal(
-                    batch2AST.data.session_start_unixtime_ms
+                    batch1AST.data.session_start_unixtime_ms
                 );
                 batch1UAC.data.session_start_unixtime_ms.should.equal(
-                    batch2SessionStart.data.session_start_unixtime_ms
+                    batch1SessionStart.data.session_start_unixtime_ms
                 );
                 batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                    batch5UAC.data.session_start_unixtime_ms
+                    batch3UAC.data.session_start_unixtime_ms
                 );
                 batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                    batch4SessionStart.data.session_start_unixtime_ms
+                    batch3SessionStart.data.session_start_unixtime_ms
                 );
                 batch1UAC.data.session_start_unixtime_ms.should.not.equal(
-                    batch4AST.data.session_start_unixtime_ms
+                    batch3AST.data.session_start_unixtime_ms
                 );
 
-                batch2SessionStart.data.session_uuid.should.equal(
-                    batch2AST.data.session_uuid
+                batch1SessionStart.data.session_uuid.should.equal(
+                    batch1AST.data.session_uuid
                 );
-                batch2SessionStart.data.session_uuid.should.equal(
-                    batch3SessionEnd.data.session_uuid
+                batch1SessionStart.data.session_uuid.should.equal(
+                    batch2SessionEnd.data.session_uuid
                 );
-                batch2AST.data.session_uuid.should.equal(
-                    batch3SessionEnd.data.session_uuid
-                );
-
-                batch2SessionStart.data.session_start_unixtime_ms.should.equal(
-                    batch2AST.data.session_start_unixtime_ms
-                );
-                batch2SessionStart.data.session_start_unixtime_ms.should.equal(
-                    batch3SessionEnd.data.session_start_unixtime_ms
-                );
-                batch2AST.data.session_start_unixtime_ms.should.equal(
-                    batch3SessionEnd.data.session_start_unixtime_ms
+                batch1AST.data.session_uuid.should.equal(
+                    batch2SessionEnd.data.session_uuid
                 );
 
-                batch4AST.data.session_uuid.should.equal(
-                    batch5UAC.data.session_uuid
+                batch1SessionStart.data.session_start_unixtime_ms.should.equal(
+                    batch1AST.data.session_start_unixtime_ms
                 );
-                batch4SessionStart.data.session_uuid.should.equal(
-                    batch5UAC.data.session_uuid
+                batch1SessionStart.data.session_start_unixtime_ms.should.equal(
+                    batch2SessionEnd.data.session_start_unixtime_ms
                 );
-                batch4SessionStart.data.session_uuid.should.equal(
-                    batch4AST.data.session_uuid
+                batch1AST.data.session_start_unixtime_ms.should.equal(
+                    batch2SessionEnd.data.session_start_unixtime_ms
                 );
 
-                batch4AST.data.session_start_unixtime_ms.should.equal(
-                    batch5UAC.data.session_start_unixtime_ms
+                batch3AST.data.session_uuid.should.equal(
+                    batch3UAC.data.session_uuid
                 );
-                batch4SessionStart.data.session_start_unixtime_ms.should.equal(
-                    batch5UAC.data.session_start_unixtime_ms
+                batch3SessionStart.data.session_uuid.should.equal(
+                    batch3UAC.data.session_uuid
                 );
-                batch4SessionStart.data.session_start_unixtime_ms.should.equal(
-                    batch4AST.data.session_start_unixtime_ms
+                batch3SessionStart.data.session_uuid.should.equal(
+                    batch3AST.data.session_uuid
+                );
+
+                batch3AST.data.session_start_unixtime_ms.should.equal(
+                    batch3UAC.data.session_start_unixtime_ms
+                );
+                batch3SessionStart.data.session_start_unixtime_ms.should.equal(
+                    batch3UAC.data.session_start_unixtime_ms
+                );
+                batch3SessionStart.data.session_start_unixtime_ms.should.equal(
+                    batch3AST.data.session_start_unixtime_ms
                 );
 
                 done();
