@@ -643,12 +643,13 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 const unregisteredSideloadedKits = mpConfig.sideloadedKits;
                 unregisteredSideloadedKits.forEach(function(unregisteredKit) {
                     try {
-                        // Register each kit's constructor onto unregisteredKits.
-                        // Then add the kit filters.
-                        let kitName = unregisteredKit.kitInstance.name;
+                        // Register each sideloaded kit, which adds a key of the sideloaded kit name
+                        // and a value of the sideloaded kit constructor.
                         unregisteredKit.kitInstance.register(
                             registeredSideloadedKits
                         );
+                        let kitName = unregisteredKit.kitInstance.name;
+                        // Then add the kit filters to each registered kit.
                         registeredSideloadedKits.kits[kitName].filters =
                             unregisteredKit.filterDictionary;
                     } catch (e) {
