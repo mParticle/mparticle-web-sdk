@@ -1452,7 +1452,6 @@ describe('batch uploader', () => {
 
         it('should return pending uploads if a 500 is returned', function(done) {
             window.mParticle._resetForTests(MPConfig);
-            var clock = sinon.useFakeTimers();
 
             fetchMock.post(urls.events, 500);
             
@@ -1904,7 +1903,6 @@ describe('batch uploader', () => {
 
         it('should return pending uploads if a 500 is returned', function(done) {
             window.mParticle._resetForTests(MPConfig);
-            var clock = sinon.useFakeTimers();
 
             mockServer.respondWith(urls.events, [
                 500,
@@ -1937,7 +1935,6 @@ describe('batch uploader', () => {
 
         it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', function(done) {
             window.mParticle._resetForTests(MPConfig);
-            var clock = sinon.useFakeTimers();
 
             window.mParticle.config.onCreateBatch = function (batch: Batch) {
                 return batch
@@ -1955,7 +1952,6 @@ describe('batch uploader', () => {
 
         it('should respect rules for the batch modification', function(done) {
             window.mParticle._resetForTests(MPConfig);
-            var clock = sinon.useFakeTimers();
 
             window.mParticle.config.onCreateBatch = function (batch) {
                 batch.events.map(event => {
@@ -1982,7 +1978,6 @@ describe('batch uploader', () => {
 
         it('should add a modified boolean of true to a batch that has been modified via a config.onCreateBatch call', function(done) {
             window.mParticle._resetForTests(MPConfig);
-            var clock = sinon.useFakeTimers();
 
             window.mParticle.config.onCreateBatch = function (batch: Batch) {
                 return undefined;
