@@ -19,7 +19,6 @@ import fetchMock from 'fetch-mock/esm/client';
 declare global {
     interface Window {
         mParticle: MParticleWebSDK;
-        // fetchMock: any;
     }
 }
 
@@ -159,7 +158,6 @@ describe('batch uploader', () => {
                     [actualBatch, eventlessBatch],
                     false
                 );
-                    debugger;
                 expect(fetchMock.calls().length).to.equal(1);
 
                 const actualBatchResult = JSON.parse(
@@ -1349,7 +1347,6 @@ describe('batch uploader', () => {
         });
 
         it('should use custom v3 endpoint', function(done) {
-            // debugger;
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
     
