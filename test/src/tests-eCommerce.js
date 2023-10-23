@@ -1,5 +1,6 @@
 import Utils from './utils';
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, workspaceToken, MPConfig, testMPID, ProductActionType, PromotionActionType } from './config';
 
 const getLocalStorageProducts = Utils.getLocalStorageProducts,
@@ -14,7 +15,7 @@ describe('eCommerce', function() {
         delete mParticle._instances['default_instance'];
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
-        window.fetchMock.post(urls.events, 200);
+        fetchMock.post(urls.events, 200);
 
         mockServer.respondWith(urls.identify, [
             200,
@@ -27,7 +28,7 @@ describe('eCommerce', function() {
 
     afterEach(function() {
         mockServer.restore();
-        window.fetchMock.restore();
+        fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 
@@ -94,7 +95,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
 
-        const purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
 
         purchaseEvent.data.should.have.property('product_action');
         purchaseEvent.data.product_action.should.have.property('action', 'purchase');
@@ -125,7 +126,7 @@ describe('eCommerce', function() {
 
     it('should not log a ecommerce event if there is a typo in the product action type', function(done) {
         // fetchMock calls will have session start and AST events, we want to reset so that we can prove the product action type does not go through (length remains 0 after logging)
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         const product = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
@@ -138,7 +139,7 @@ describe('eCommerce', function() {
             mParticle.ProductActionType.Typo, // <------ will result in a null when converting the product action type as this is not a real value
             [product]
         );
-        window.fetchMock._calls.length.should.equal(0);
+        fetchMock.calls().length.should.equal(0);
 
         done();
     });
@@ -167,7 +168,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
 
-        const purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
         
         purchaseEvent.data.should.have.property('product_action');
         purchaseEvent.data.product_action.should.have.property('action', 'purchase');
@@ -219,12 +220,12 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        const purchaseEvent1 = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const purchaseEvent1 = findEventFromRequest(fetchMock.calls(), 'purchase');
 
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
 
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Purchase, product, null, null, transactionAttributes)
-        const purchaseEvent2 = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const purchaseEvent2 = findEventFromRequest(fetchMock.calls(), 'purchase');
 
         const { product_action: productAction1 } = purchaseEvent1.data;
         const { product_action: productAction2 } = purchaseEvent2.data
@@ -266,7 +267,7 @@ describe('eCommerce', function() {
             product2,
         ]);
 
-        const purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
 
         purchaseEvent.data.should.have.property('product_action');
         purchaseEvent.data.product_action.should.have.property('products').with.lengthOf(2);
@@ -288,7 +289,7 @@ describe('eCommerce', function() {
             product2,
         ]);
 
-        const refundEvent = findEventFromRequest(window.fetchMock._calls, 'refund');
+        const refundEvent = findEventFromRequest(fetchMock.calls(), 'refund');
 
         refundEvent.data.should.have.property('product_action');
         refundEvent.data.product_action.should.have.property('products').with.lengthOf(2);
@@ -329,7 +330,7 @@ describe('eCommerce', function() {
             promotion
         );
 
-        const promotionEvent = findEventFromRequest(window.fetchMock._calls, 'click');
+        const promotionEvent = findEventFromRequest(fetchMock.calls(), 'click');
 
         Should(promotionEvent).be.ok();
 
@@ -363,7 +364,7 @@ describe('eCommerce', function() {
             [promotion1, promotion2]
         );
 
-        const promotionEvent = findEventFromRequest(window.fetchMock._calls, 'click');
+        const promotionEvent = findEventFromRequest(fetchMock.calls(), 'click');
 
         Should(promotionEvent).be.ok();
 
@@ -397,7 +398,7 @@ describe('eCommerce', function() {
             { shouldUploadEvent: false }
         );
 
-        const promotionEvent = findEventFromRequest(window.fetchMock._calls, 'click');
+        const promotionEvent = findEventFromRequest(fetchMock.calls(), 'click');
         Should(promotionEvent).not.be.ok();
 
         done();
@@ -425,7 +426,7 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logImpression(impression);
-        const impressionEvent = findEventFromRequest(window.fetchMock._calls, 'impression');
+        const impressionEvent = findEventFromRequest(fetchMock.calls(), 'impression');
 
         Should(impressionEvent).be.ok();
 
@@ -447,7 +448,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logImpression(impression, null, null, { shouldUploadEvent: false });
 
-        const impressionEvent = findEventFromRequest(window.fetchMock._calls, 'impression');
+        const impressionEvent = findEventFromRequest(fetchMock.calls(), 'impression');
 
         Should(impressionEvent).not.be.ok();
 
@@ -472,7 +473,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logImpression([impression, impression2]);
 
-        const impressionEvent = findEventFromRequest(window.fetchMock._calls, 'impression');
+        const impressionEvent = findEventFromRequest(fetchMock.calls(), 'impression');
 
         Should(impressionEvent).be.ok();
 
@@ -511,7 +512,7 @@ describe('eCommerce', function() {
         mParticle.eCommerce.logRefund(transactionAttributes, product);
 
 
-        const refundEvent = findEventFromRequest(window.fetchMock._calls, 'refund');
+        const refundEvent = findEventFromRequest(fetchMock.calls(), 'refund');
 
         Should(refundEvent).be.ok();
 
@@ -561,13 +562,13 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logRefund(transactionAttributes, product);
         
-        const refundEvent1 = findEventFromRequest(window.fetchMock._calls, 'refund');
+        const refundEvent1 = findEventFromRequest(fetchMock.calls(), 'refund');
 
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Refund, product, null, null, transactionAttributes)
 
-        const refundEvent2 = findEventFromRequest(window.fetchMock._calls, 'refund');
+        const refundEvent2 = findEventFromRequest(fetchMock.calls(), 'refund');
 
         Should(refundEvent1).be.ok();
         Should(refundEvent2).be.ok();
@@ -623,7 +624,7 @@ describe('eCommerce', function() {
             { shouldUploadEvent: false}
         );
 
-        const event = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const event = findEventFromRequest(fetchMock.calls(), 'purchase');
 
         Should(event).not.be.ok();
         done();
@@ -634,7 +635,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add(product, true);
 
-        const addToCartEvent = findEventFromRequest(window.fetchMock._calls, 'add_to_cart');
+        const addToCartEvent = findEventFromRequest(fetchMock.calls(), 'add_to_cart');
         
         addToCartEvent.data.should.have.property('product_action');
         addToCartEvent.data.product_action.should.have.property('action', 'add_to_cart');
@@ -650,7 +651,7 @@ describe('eCommerce', function() {
         mParticle.eCommerce.Cart.add(product);
         mParticle.eCommerce.Cart.remove({ Sku: '12345' }, true);
 
-        const removeFromCartEvent = findEventFromRequest(window.fetchMock._calls, 'remove_from_cart');
+        const removeFromCartEvent = findEventFromRequest(fetchMock.calls(), 'remove_from_cart');
         
         removeFromCartEvent.data.should.have.property('product_action');
         removeFromCartEvent.data.product_action.should.have.property('action', 'remove_from_cart');
@@ -727,7 +728,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logCheckout(1, 'Visa');
 
-        const checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
 
         Should(checkoutEvent).be.ok();
 
@@ -752,7 +753,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.logProductAction(mParticle.ProductActionType.Checkout, [product1, product2], null, null, {Step: 4, Option: 'Visa'});
 
-        const checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
 
         Should(checkoutEvent).be.ok();
 
@@ -777,7 +778,7 @@ describe('eCommerce', function() {
             { color: 'blue' }
         );
 
-        const checkoutOptionEvent = findEventFromRequest(window.fetchMock._calls, 'checkout_option');
+        const checkoutOptionEvent = findEventFromRequest(fetchMock.calls(), 'checkout_option');
 
 
         Should(checkoutOptionEvent).be.ok();
@@ -801,7 +802,7 @@ describe('eCommerce', function() {
             product
         );
 
-        const viewDetailEvent = findEventFromRequest(window.fetchMock._calls, 'view_detail');
+        const viewDetailEvent = findEventFromRequest(fetchMock.calls(), 'view_detail');
         Should(viewDetailEvent).be.ok();
     
         viewDetailEvent.should.have.property('event_type', 'commerce_event');
@@ -896,7 +897,7 @@ describe('eCommerce', function() {
             );
 
         mParticle.eCommerce.logPurchase(transactionAttributes, product);
-        const purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
 
         purchaseEvent.data.product_action.products[0].should.not.have.property('position');
 
@@ -920,7 +921,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add([product1, product2], true);
 
-        const addToCartEvent = findEventFromRequest(window.fetchMock._calls, 'add_to_cart');
+        const addToCartEvent = findEventFromRequest(fetchMock.calls(), 'add_to_cart');
 
         Should(addToCartEvent).be.ok();
 
@@ -947,7 +948,7 @@ describe('eCommerce', function() {
 
         mParticle.eCommerce.Cart.add(product1, true);
 
-        const addToCartEvent = findEventFromRequest(window.fetchMock._calls, 'add_to_cart');
+        const addToCartEvent = findEventFromRequest(fetchMock.calls(), 'add_to_cart');
 
         Should(addToCartEvent).be.ok();
 
@@ -1421,7 +1422,7 @@ describe('eCommerce', function() {
     it('should add customFlags to logCheckout events', function(done) {
         mParticle.eCommerce.logCheckout(1, {}, {}, { interactionEvent: true });
 
-        const checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
         checkoutEvent.data.custom_flags.interactionEvent.should.equal(true);
 
         done();
@@ -1435,7 +1436,7 @@ describe('eCommerce', function() {
             { price: 5 },
             { interactionEvent: true }
         );
-        const unknownEvent = findEventFromRequest(window.fetchMock._calls, 'unknown');
+        const unknownEvent = findEventFromRequest(fetchMock.calls(), 'unknown');
 
         unknownEvent.data.custom_flags.interactionEvent.should.equal(true);
 
@@ -1457,7 +1458,7 @@ describe('eCommerce', function() {
             { interactionEvent: true }
         );
 
-        const purchaseEvent = findEventFromRequest(window.fetchMock._calls, 'purchase');
+        const purchaseEvent = findEventFromRequest(fetchMock.calls(), 'purchase');
 
         purchaseEvent.data.custom_flags.interactionEvent.should.equal(true);
 
@@ -1479,7 +1480,7 @@ describe('eCommerce', function() {
         );
 
 
-        const promotionEvent = findEventFromRequest(window.fetchMock._calls, 'click');
+        const promotionEvent = findEventFromRequest(fetchMock.calls(), 'click');
 
         promotionEvent.data.custom_flags.interactionEvent.should.equal(true);
 
@@ -1498,7 +1499,7 @@ describe('eCommerce', function() {
             { interactionEvent: true }
         );
 
-        const impressionEvent = findEventFromRequest(window.fetchMock._calls, 'impression');
+        const impressionEvent = findEventFromRequest(fetchMock.calls(), 'impression');
         impressionEvent.data.custom_flags.interactionEvent.should.equal(true);
 
         done();
@@ -1518,7 +1519,7 @@ describe('eCommerce', function() {
             { shipping: 5 },
             { interactionEvent: true }
         );
-        const refundEvent = findEventFromRequest(window.fetchMock._calls, 'refund');
+        const refundEvent = findEventFromRequest(fetchMock.calls(), 'refund');
 
         refundEvent.data.custom_flags.interactionEvent.should.equal(true);
 

@@ -1,5 +1,6 @@
 import Utils from './utils';
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, MPConfig } from './config';
 
 const { findEventFromRequest, findBatch } = Utils;
@@ -9,12 +10,12 @@ let mockServer;
 // Calls to /config are specific to only the self hosting environment
 describe('/config self-hosting integration tests', function() {
     beforeEach(function() {
-        window.fetchMock.post(urls.events, 200);
+        fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
     });
 
     afterEach(function() {
-        window.fetchMock.restore();
+        fetchMock.restore();
         sinon.restore();
     })
 
@@ -47,13 +48,13 @@ describe('/config self-hosting integration tests', function() {
 
         // log event before config and identify come back
         mParticle.logEvent('Test');
-        let event = findEventFromRequest(window.fetchMock._calls, 'Test');
+        let event = findEventFromRequest(fetchMock.calls(), 'Test');
         Should(event).not.be.ok();
 
         // config and identify now get triggered, which runs through the event queue
         clock.tick(300);
 
-        event = findBatch(window.fetchMock._calls, 'Test');
+        event = findBatch(fetchMock.calls(), 'Test');
         event.should.be.ok();
         event.mpid.should.equal('identifyMPID');
 
@@ -112,7 +113,7 @@ describe('/config self-hosting integration tests', function() {
         // config triggers, login triggers immediately before identify
         clock.tick(300);
 
-        const event1 = findBatch(window.fetchMock._calls, 'Test');
+        const event1 = findBatch(fetchMock.calls(), 'Test');
         event1.mpid.should.equal('loginMPID');
         messages
             .indexOf('Parsing "login" identity response from server')
@@ -122,7 +123,7 @@ describe('/config self-hosting integration tests', function() {
         messages
             .indexOf('Parsing "identify" identity response from server')
             .should.equal(-1);
-        const event2 = findBatch(window.fetchMock._calls, 'identify callback event', false, mockServer);
+        const event2 = findBatch(fetchMock.calls(), 'identify callback event', false, mockServer);
         event2.mpid.should.equal('loginMPID');
 
         mockServer.restore();

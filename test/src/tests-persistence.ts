@@ -1,5 +1,6 @@
 import Utils from './utils';
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 
 import {
     urls,
@@ -33,7 +34,7 @@ let mockServer;
 
 describe('migrations and persistence-related', () => {
     beforeEach(() => {
-        window.fetchMock.post(urls.events, 200);
+        fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -47,7 +48,7 @@ describe('migrations and persistence-related', () => {
 
     afterEach(() => {
         mockServer.restore();
-        window.fetchMock.restore();
+        fetchMock.restore();
     });
 
     it('should move new schema from cookies to localStorage with useCookieStorage = false', done => {
@@ -433,7 +434,7 @@ describe('migrations and persistence-related', () => {
         mParticle.init(apiKey, mParticle.config);
 
         mParticle.logEvent('Test Event');
-        const testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        const testEvent = findBatch(fetchMock.calls(), 'Test Event');
         testEvent.integration_attributes.should.have.property('128');
         testEvent.integration_attributes['128'].should.have.property('MCID', 'abcedfg');
 
