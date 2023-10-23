@@ -1,3 +1,11 @@
+## [2.23.7](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.6...v2.23.7) (2023-10-23)
+
+
+### Bug Fixes
+
+* Prevent immediate upload for UserAttributeChange Events ([#793](https://github.com/mParticle/mparticle-web-sdk/issues/793)) ([2f0c5ac](https://github.com/mParticle/mparticle-web-sdk/commit/2f0c5ac8af559bf4a15c984f981123358b8488d0))
+* Respect sideloaded kit filter dictionaries ([#792](https://github.com/mParticle/mparticle-web-sdk/issues/792)) ([91b6afa](https://github.com/mParticle/mparticle-web-sdk/commit/91b6afaa36644689dd19e0515701c87d1d8c2dbd))
+
 ## [2.23.6](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.5...v2.23.6) (2023-10-17)
 
 
