@@ -432,7 +432,7 @@ describe('migrations and persistence-related', () => {
     it('should save integration attributes properly on a page refresh', done => {
         mParticle.setIntegrationAttribute(128, { MCID: 'abcedfg' });
         mParticle.init(apiKey, mParticle.config);
-        debugger;
+
         mParticle.logEvent('Test Event');
         const testEvent = findBatch(fetchMock.calls(), 'Test Event');
         testEvent.integration_attributes.should.have.property('128');
