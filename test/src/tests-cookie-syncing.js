@@ -1,5 +1,6 @@
 import Utils from './utils';
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config';
 
 const { setLocalStorage, MockForwarder, getLocalStorage } = Utils;
@@ -56,7 +57,7 @@ describe('cookie syncing', function() {
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
 
-        window.fetchMock.post(urls.events, 200);
+        fetchMock.post(urls.events, 200);
 
         mParticle.init(apiKey, window.mParticle.config);
     });

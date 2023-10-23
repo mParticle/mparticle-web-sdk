@@ -1,4 +1,5 @@
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
@@ -23,12 +24,12 @@ let clock;
 describe('Beacon Upload', () => {
     let mockServer;
     before(function() {
-        window.fetchMock.restore();
+        fetchMock.restore();
         sinon.restore();
     });
 
     beforeEach(function() {
-        window.fetchMock.restore();
+        fetchMock.restore();
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -46,7 +47,7 @@ describe('Beacon Upload', () => {
     afterEach(() => {
         sinon.restore();
         mockServer.reset();
-        window.fetchMock.restore();
+        fetchMock.restore();
     });
 
     it('should trigger beacon on page visibilitychange events', function(done) {
@@ -106,7 +107,7 @@ describe('Beacon Upload', () => {
             clock = sinon.useFakeTimers({
                 now: new Date().getTime(),
             });
-            window.fetchMock.restore();
+            fetchMock.restore();
 
             window.sessionStorage.clear();
             window.localStorage.clear();
@@ -114,7 +115,7 @@ describe('Beacon Upload', () => {
 
         afterEach(() => {
             sinon.restore();
-            window.fetchMock.restore();
+            fetchMock.restore();
             clock.restore();
         });
 

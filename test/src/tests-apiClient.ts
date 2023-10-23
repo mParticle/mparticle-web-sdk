@@ -7,7 +7,6 @@ import { expect } from 'chai';
 declare global {
     interface Window {
         mParticle: MParticleWebSDK;
-        fetchMock: any;
     }
 }
 

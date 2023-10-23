@@ -1,4 +1,5 @@
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { urls, MPConfig } from './config';
 import Utils from './utils';
 const findEventFromRequest = Utils.findEventFromRequest;
@@ -205,15 +206,15 @@ describe('mParticle instance manager', function() {
             );
 
             // default instance event mock
-            window.fetchMock.post(
+            fetchMock.post(
                 'https://jssdks.mparticle.com/v3/JS/apiKey1/events',
                 200
             );
-            window.fetchMock.post(
+            fetchMock.post(
                 'https://jssdks.mparticle.com/v3/JS/apiKey2/events',
                 200
             );
-            window.fetchMock.post(
+            fetchMock.post(
                 'https://jssdks.mparticle.com/v3/JS/apiKey3/events',
                 200
             );
@@ -258,63 +259,63 @@ describe('mParticle instance manager', function() {
             mParticle.getInstance('instance3').logEvent('hi3');
 
             const instance1Event = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey1',
                 'hi1'
             );
             instance1Event.should.be.ok();
 
             const instance2Event = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey2',
                 'hi2'
             );
             instance2Event.should.be.ok();
 
             const instance3Event = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey3',
                 'hi3'
             );
             instance3Event.should.be.ok();
 
             const instance1EventsFail1 = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey1',
                 'hi2'
             );
             Should(instance1EventsFail1).not.be.ok();
 
             const instance1EventsFail2 = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey1',
                 'hi3'
             );
             Should(instance1EventsFail2).not.be.ok();
 
             const instance2EventsFail1 = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey2',
                 'hi1'
             );
             Should(instance2EventsFail1).not.be.ok();
 
             const instance2EventsFail2 = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey2',
                 'hi3'
             );
             Should(instance2EventsFail2).not.be.ok();
 
             const instance3EventsFail1 = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey3',
                 'hi1'
             );
             Should(instance3EventsFail1).not.be.ok();
 
             const instance3EventsFail2 = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey3',
                 'hi2'
             );
@@ -371,17 +372,17 @@ describe('mParticle instance manager', function() {
                 .eCommerce.logPurchase(ta, [product1, product2]);
 
             const instance1Event = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey1',
                 'purchase'
             );
             let instance2Event = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey2',
                 'purchase'
             );
             let instance3Event = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey3',
                 'purchase'
             );
@@ -394,12 +395,12 @@ describe('mParticle instance manager', function() {
                 .eCommerce.logPurchase(ta, [product1, product2]);
 
             instance2Event = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey2',
                 'purchase'
             );
             instance3Event = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey3',
                 'purchase'
             );
@@ -412,7 +413,7 @@ describe('mParticle instance manager', function() {
                 .eCommerce.logPurchase(ta, [product1, product2]);
 
             instance3Event = returnEventForMPInstance(
-                window.fetchMock._calls,
+                fetchMock.calls(),
                 'apiKey3',
                 'purchase'
             );

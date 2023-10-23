@@ -1,5 +1,6 @@
 import Utils from './utils';
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { urls } from './config';
 import { apiKey, MPConfig, testMPID } from './config';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
@@ -28,7 +29,7 @@ const mParticle = window.mParticle;
 
 describe('Consent', function() {
     beforeEach(function() {
-        window.fetchMock.post(urls.events, 200);
+        fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -42,7 +43,7 @@ describe('Consent', function() {
 
     afterEach(function() {
         mockServer.restore();
-        window.fetchMock.restore();
+        fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 
@@ -646,7 +647,7 @@ describe('Consent', function() {
         user.setConsentState(consentState);
 
         mParticle.logEvent('Test Event');
-        const testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        const testEvent = findBatch(fetchMock.calls(), 'Test Event');
 
         testEvent.should.have.property('consent_state');
         testEvent.consent_state.should.have.property('ccpa');
@@ -685,7 +686,7 @@ describe('Consent', function() {
 
         mParticle.logEvent('Test Event');
 
-        const testEvent = findBatch(window.fetchMock._calls, 'Test Event');
+        const testEvent = findBatch(fetchMock.calls(), 'Test Event');
 
         testEvent.should.have.property('consent_state');
         testEvent.consent_state.should.have.property('ccpa');

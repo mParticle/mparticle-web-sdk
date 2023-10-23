@@ -27,10 +27,6 @@ beforeEach(function() {
     delete mParticle._instances['default_instance'];
 });
 
-afterEach(function() {
-    window.fetchMock.restore();
-});
-
 import './tests-core-sdk';
 import './tests-batchUploader';
 import './tests-beaconUpload';

@@ -1,6 +1,7 @@
 import Constants from '../../src/constants';
 import Utils from './utils';
 import sinon from 'sinon';
+import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey,
     testMPID,
     MPConfig,
@@ -22,7 +23,7 @@ let mockServer;
 describe('identity', function() {
     beforeEach(function() {
         delete mParticle.config.useCookieStorage;
-        window.fetchMock.post(urls.events, 200);
+        fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
 
@@ -36,7 +37,7 @@ describe('identity', function() {
 
     afterEach(function() {
         mockServer.restore();
-        window.fetchMock.restore();
+        fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 
@@ -1011,10 +1012,10 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         mParticle.logEvent('Test Event1');
 
-        let testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
+        let testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
         
         Should(testEvent1).not.be.ok();
         
@@ -1027,12 +1028,12 @@ describe('identity', function() {
         mParticle.logEvent('Test Event2');
         mParticle.Identity.login();
         // server requests will have AST, sessionStart, Test1, Test2, and login
-        testEvent1 = findEventFromRequest(window.fetchMock._calls, 'Test Event1');
-        window.fetchMock._calls.length.should.equal(4);
+        testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
+        fetchMock.calls().length.should.equal(4);
         
-        const testEvent2 = findEventFromRequest(window.fetchMock._calls, 'Test Event2');
-        const ASTEvent = findEventFromRequest(window.fetchMock._calls, 'application_state_transition');
-        const sessionStartEvent = findEventFromRequest(window.fetchMock._calls, 'session_start');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
+        const ASTEvent = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
+        const sessionStartEvent = findEventFromRequest(fetchMock.calls(), 'session_start');
         const loginEvent = getIdentityEvent(mockServer.requests, 'login');
 
         Should(testEvent1).be.ok();
@@ -1276,7 +1277,7 @@ describe('identity', function() {
 
         mParticle.logEvent('Test Event1');
 
-        const testEvent1Batch = findBatch(window.fetchMock._calls, 'Test Event1');
+        const testEvent1Batch = findBatch(fetchMock.calls(), 'Test Event1');
 
         testEvent1Batch.user_attributes.should.have.property('foo1', 'bar1');
         testEvent1Batch.user_identities.should.have.property('customer_id', 'customerid1');
@@ -1309,7 +1310,7 @@ describe('identity', function() {
         mParticle.Identity.logout(user2);
         mParticle.logEvent('Test Event2');
 
-        const testEvent2Batch = findBatch(window.fetchMock._calls, 'Test Event2');
+        const testEvent2Batch = findBatch(fetchMock.calls(), 'Test Event2');
 
         Object.keys(testEvent2Batch.user_attributes).length.should.equal(0);
         testEvent2Batch.user_identities.should.have.property('customer_id', 'customerid2');
@@ -1322,7 +1323,7 @@ describe('identity', function() {
 
         mParticle.Identity.login(user1);
         mParticle.logEvent('Test Event3');
-        const testEvent3Batch = findBatch(window.fetchMock._calls, 'Test Event3');
+        const testEvent3Batch = findBatch(fetchMock.calls(), 'Test Event3');
 
         testEvent3Batch.user_attributes.should.have.property('foo1', 'bar1');
         Object.keys(testEvent3Batch.user_identities).length.should.equal(2);
@@ -1688,7 +1689,7 @@ describe('identity', function() {
 
         mParticle.eCommerce.logCheckout(1);
 
-        const checkoutEvent = findEventFromRequest(window.fetchMock._calls, 'checkout');
+        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
 
         checkoutEvent.data.product_action.should.have.property('products', null)
 
@@ -1699,10 +1700,10 @@ describe('identity', function() {
         ]);
 
         mParticle.Identity.login(identityAPIRequest1);
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         mParticle.eCommerce.logCheckout(1);
 
-        const checkoutEvent2 = findEventFromRequest(window.fetchMock._calls, 'checkout');
+        const checkoutEvent2 = findEventFromRequest(fetchMock.calls(), 'checkout');
 
         checkoutEvent2.data.product_action.should.have.property('products', null);
 
@@ -2023,14 +2024,14 @@ describe('identity', function() {
             mParticle.Identity.getCurrentUser().setUserAttribute('foo', 'bar');
         };
 
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
 
-        (window.fetchMock._calls.length === 0).should.equal.true
+        (fetchMock.calls().length === 0).should.equal.true
         clock.tick(1000);
 
-        const sessionStartEventBatch = findBatch(window.fetchMock._calls, 'session_start');
-        const ASTEventBatch = findBatch(window.fetchMock._calls, 'application_state_transition');
+        const sessionStartEventBatch = findBatch(fetchMock.calls(), 'session_start');
+        const ASTEventBatch = findBatch(fetchMock.calls(), 'application_state_transition');
 
         sessionStartEventBatch.user_attributes.should.have.property('foo', 'bar');
         ASTEventBatch.user_attributes.should.have.property('foo', 'bar');
@@ -2064,10 +2065,10 @@ describe('identity', function() {
             JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
         ]);
 
-        window.fetchMock._calls = [];
+        fetchMock.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
         //the only server request is the AST, there is no request to Identity
-        window.fetchMock._calls.length.should.equal(1);
+        fetchMock.calls().length.should.equal(1);
         result.should.have.properties('body', 'httpCode', 'getUser');
 
         result.httpCode.should.equal(-3);
