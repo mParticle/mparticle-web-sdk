@@ -2,12 +2,8 @@ const { DEBUG } = process.env;
 
 const files = [
   '../lib/geomock.js',
-  '../../node_modules/fetch-mock/dist/es5/client-bundle.js',
   '../../dist/mparticle.js',
-  // TODO: the current test suite includes modern syntax which run successfully
-  // on newer browsers.  We will need to transpile tests to work with older
-  // browsers - go.mparticle.com/work/SQDSDKS-5834
-  '../test-bundle.js',
+  './CBT-tests-es5.js',
 ];
 
 let captureConsole = false;
@@ -28,39 +24,22 @@ if (DEBUG === 'true') {
 }
 
 const customLaunchers = {
-    // These 2 browsers pass because they are capable of running ES6 syntax
-    // Our tests currently have ES6 syntax in them.  They need to be transpiled
-    bs_firefox_mac_100: {
-      base: 'BrowserStack',
-      browser: 'firefox',
-      browser_version: '100.0',
-      os: 'OS X',
-      os_version: 'Ventura'
-    },
-    bs_chrome_mac_100: {
+    // Fails a few tests related to setTimeout
+    bs_chrome_mac_48: {
       base: 'BrowserStack',
       browser: 'chrome',
-      browser_version: '100.0',
+      browser_version: '48.0',
       os: 'OS X',
-      os_version: 'Ventura'
+      os_version: 'Mojave'
     },
-    // These two browsers fail because they cannot run ES6 syntax.  
-    // Our tests have some ES6 syntax in them, so we need to transpile the tests
-    // to get them to run properly.
-    // bs_firefox_mac_21: {
-    //   base: 'BrowserStack',
-    //   browser: 'firefox',
-    //   browser_version: '21.0',
-    //   os: 'OS X',
-    //   os_version: 'Snow Leopard'
-    // },
-    // bs_chrome_mac_38: {
-    //   base: 'BrowserStack',
-    //   browser: 'chrome',
-    //   browser_version: '38.0',
-    //   os: 'OS X',
-    //   os_version: 'Mojave'
-    // },
+    // Oldest Chrome version to pass all tests
+    bs_chrome_mac_49: {
+      base: 'BrowserStack',
+      browser: 'chrome',
+      browser_version: '49.0',
+      os: 'OS X',
+      os_version: 'Mojave'
+    },
 }
 
 module.exports = function(config) {
