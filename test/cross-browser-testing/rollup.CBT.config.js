@@ -1,7 +1,7 @@
 import resolve from '@rollup/plugin-node-resolve';
 import babel from '@rollup/plugin-babel';
 import commonjs from '@rollup/plugin-commonjs';
-import babelSettings from './babel.config.js'
+import babelSettings from './babel.CBT.config.js'
 const extensions = ['.js', '.ts'];
 import typescript from '@rollup/plugin-typescript';
 import json from '@rollup/plugin-json';

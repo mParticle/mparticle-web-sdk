@@ -22,13 +22,14 @@
     "repository": "https://github.com/mParticle/mparticle-web-sdk",
     "scripts": {
         "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js",
+        "build:cbt": "rollup --config test/cross-browser-testing/rollup.CBT.config.js && rm test/cross-browser-testing/CBT-tests.js",
         "build:dev": "cross-env ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js",
         "build:iife": "cross-env ENVIRONMENT=prod BUILD=iife rollup --config rollup.config.js",
         "build:npm": "cross-env ENVIRONMENT=prod BUILD=cjs rollup --config rollup.config.js",
         "build:esm": "cross-env ENVIRONMENT=prod BUILD=esm rollup --config rollup.config.js",
         "build:stub": "cross-env ENVIRONMENT=prod BUILD=stub rollup --config rollup.config.js",
         "build:snippet": "uglifyjs snippet.js -m -o snippet.min.js",
-        "build:tests": "cross-env ENVIRONMENT=prod BUILD=tests rollup --config rollup.config.js",
+        "build:tests": "cross-env ENVIRONMENT=prod TESTTYPE=main rollup --config rollup.test.config.js",
         "build:test-bundle": "cross-env TESTTYPE=main ENVIRONMENT=prod rollup --config rollup.test.config.js",
         "build:browserify:cjs": "browserify test/integrations/cjs/browserify/index.js -o test/integrations/cjs/dist/browserify-output.js",
         "build:rollup:cjs": "rollup --config test/integrations/cjs/rollup/rollup.config.js",
@@ -40,7 +41,6 @@
         "test": "npm run build && npm run build:test-bundle && cross-env DEBUG=false karma start test/karma.config.js",
         "test:browserstack": "karma start test/cross-browser-testing/browserstack.karma.config.js",
         "test:browserstack:debug": "cross-env DEBUG=true karma start test/cross-browser-testing/browserstack.karma.config.js",
-        "build:CBT": "rollup --config test/cross-browser-testing/rollup.CBT.config.js && rm test/cross-browser-testing/CBT-tests.js",
         "test:debug": "cross-env DEBUG=true karma start test/karma.config.js",
         "test:stub": "cross-env TESTTYPE=stub ENVIRONMENT=prod rollup --config rollup.test.config.js && karma start test/stub/karma.stub.config.js",
         "test:integrations": "npm run test:requirejs && npm run test:integrations:cjs && npm run test:integrations:module",
@@ -106,6 +106,7 @@
         "browser-sync": "^2.26.3",
         "browserify": "^17.0.0",
         "chai": "^4.2.0",
+        "core-js": "^3.33.0",
         "cross-env": "^7.0.3",
         "eslint": "^8.36.0",
         "eslint-config-prettier": "9.0.0",
@@ -140,7 +141,6 @@
         "webpack-cli": "^5.0.2"
     },
     "dependencies": {
-        "@babel/runtime": "^7.23.2",
-        "core-js": "^3.33.0"
+        "@babel/runtime": "^7.23.2"
     }
 }

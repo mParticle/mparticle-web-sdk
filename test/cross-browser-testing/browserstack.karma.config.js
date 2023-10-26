@@ -24,6 +24,7 @@ if (DEBUG === 'true') {
 }
 
 const customLaunchers = {
+    // Full list of supported browsers - https://www.browserstack.com/list-of-browsers-and-platforms/live
     // Fails a few tests related to setTimeout
     bs_chrome_mac_48: {
       base: 'BrowserStack',
