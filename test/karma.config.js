@@ -2,7 +2,6 @@ const { DEBUG } = process.env;
 
 const files = [
     'lib/geomock.js',
-    'config.js',
     '../dist/mparticle.js',
     'test-bundle.js',
 ];
