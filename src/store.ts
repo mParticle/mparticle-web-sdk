@@ -25,6 +25,8 @@ import {
 import { isNumber, isDataPlanSlug, Dictionary } from './utils';
 import { SDKConsentState } from './consent';
 
+const FeatureFlags = Constants.FeatureFlags;
+
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
 // configurations have been stitched together.
@@ -44,7 +46,7 @@ export interface SDKConfig {
     appName?: string;
     appVersion?: string;
     package?: string;
-    flags?: { [key: string]: string | number | boolean };
+    flags?: IFeatureFlags;
     kitConfigs: IKitConfigs[];
     kits: Dictionary<Kit>;
     logLevel?: LogLevelType;
@@ -160,7 +162,8 @@ export interface IStore {
 export default function Store(
     this: IStore,
     config: SDKInitConfig,
-    mpInstance: MParticleWebSDK
+    mpInstance: MParticleWebSDK,
+    apiKey: string,
 ) {
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
@@ -210,12 +213,25 @@ export default function Store(
     for (var key in defaultStore) {
         this[key] = defaultStore[key];
     }
+    this.devToken = apiKey;
 
     this.integrationDelayTimeoutStart = Date.now();
 
-    this.SDKConfig = createSDKConfig(config);
     // Set configuration to default settings
+    this.SDKConfig = createSDKConfig(config);
+
     if (config) {
+        if (!config.hasOwnProperty('flags')) {
+            this.SDKConfig.flags = {};
+        }
+
+        const flags = processFlags(config, this.SDKConfig as SDKConfig);
+
+        this.SDKConfig.flags = mpInstance._Helpers.extend(
+            this.SDKConfig.flags,
+            flags
+        );
+
         if (config.deviceId) {
             this.deviceId = config.deviceId;
         }
@@ -227,28 +243,10 @@ export default function Store(
             this.SDKConfig.isDevelopmentMode = false;
         }
 
-        if (config.hasOwnProperty('v1SecureServiceUrl')) {
-            this.SDKConfig.v1SecureServiceUrl = config.v1SecureServiceUrl;
-        }
-
-        if (config.hasOwnProperty('v2SecureServiceUrl')) {
-            this.SDKConfig.v2SecureServiceUrl = config.v2SecureServiceUrl;
-        }
-
-        if (config.hasOwnProperty('v3SecureServiceUrl')) {
-            this.SDKConfig.v3SecureServiceUrl = config.v3SecureServiceUrl;
-        }
-
-        if (config.hasOwnProperty('identityUrl')) {
-            this.SDKConfig.identityUrl = config.identityUrl;
-        }
-
-        if (config.hasOwnProperty('aliasUrl')) {
-            this.SDKConfig.aliasUrl = config.aliasUrl;
-        }
-
-        if (config.hasOwnProperty('configUrl')) {
-            this.SDKConfig.configUrl = config.configUrl;
+        const endpoints: Dictionary = processEndpoints(config, flags, apiKey);
+        console.log(endpoints);
+        for (const endpointKey in endpoints) {
+            this.SDKConfig[endpointKey] = endpoints[endpointKey];
         }
 
         if (config.hasOwnProperty('logLevel')) {
@@ -413,32 +411,88 @@ export default function Store(
                 this.SDKConfig.onCreateBatch = undefined;
             }
         }
+    }
+}
 
-        if (!config.hasOwnProperty('flags')) {
-            this.SDKConfig.flags = {};
+interface IFeatureFlags {
+    reportBatching?: string;
+    eventBatchingIntervalMillis?: string;
+    offlineStorage?: string;
+    directURLRouting?: boolean;
+}
+
+function processFlags(
+    config: SDKInitConfig,
+    SDKConfig: SDKConfig
+): IFeatureFlags {
+    const flags: IFeatureFlags = {};
+    if (!config || !config.flags) {
+        return {};
+    }
+    if (
+        !SDKConfig.flags.hasOwnProperty(
+            FeatureFlags.EventBatchingIntervalMillis
+        )
+    ) {
+        flags[FeatureFlags.EventBatchingIntervalMillis] =
+            Constants.DefaultConfig.uploadInterval;
+    }
+    if (!SDKConfig.flags.hasOwnProperty(FeatureFlags.OfflineStorage)) {
+        flags[FeatureFlags.OfflineStorage] = '0';
+    }
+
+    flags[FeatureFlags.DirectUrlRouting] =
+        config.flags[FeatureFlags.DirectUrlRouting] === 'True';
+
+    return flags;
+}
+
+function processEndpoints(
+    config: SDKInitConfig,
+    flags: IFeatureFlags,
+    apiKey: string
+): Dictionary {
+    // an API key is not present in a webview only mode. In this case, no endpoints are needed
+    if (!apiKey) {
+        return {};
+    }
+
+    const endpoints: Dictionary = JSON.parse(
+        JSON.stringify(Constants.DefaultUrls)
+    );
+    // API keys are prefixed with the silo and a hyphen (ex. "us1-", "us2-", "eu1-").
+    // us1 was the first silo, and before other silos existed, there were no prefixes
+    // and all apiKeys were us1. As such, if we split on a '-' and the resulting array length
+    // is 1, then it is an older APIkey that should route to us1. Otherwise, route to the prefix.
+    const splitKey: Array<string> = apiKey.split('-');
+    let routingPrefix: string;
+    // debugger;
+    if (flags.directURLRouting) {
+        if (splitKey.length <= 1) {
+            routingPrefix = 'us1';
+        } else {
+            routingPrefix = splitKey[0];
         }
-        if (
-            !this.SDKConfig.flags.hasOwnProperty(
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            )
-        ) {
-            this.SDKConfig.flags[
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            ] = Constants.DefaultConfig.uploadInterval;
-        }
-        if (
-            !this.SDKConfig.flags.hasOwnProperty(
-                Constants.FeatureFlags.ReportBatching
-            )
-        ) {
-            this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching] = false;
-        }
-        if (
-            !this.SDKConfig.flags.hasOwnProperty(
-                Constants.FeatureFlags.OfflineStorage
-            )
-        ) {
-            this.SDKConfig.flags[Constants.FeatureFlags.OfflineStorage] = 0;
+        for (let endpoint in endpoints) {
+            if (config.hasOwnProperty(endpoint)) {
+                endpoints[endpoint] = config[endpoint];
+            } else {
+                var parts = endpoints[endpoint].split('.');
+
+                endpoints[endpoint] = [
+                    parts[0],
+                    routingPrefix,
+                    ...parts.slice(1, endpoint.length),
+                ].join('.');
+            }
         }
     }
+
+    for (let endpoint in endpoints) {
+        if (config.hasOwnProperty(endpoint)) {
+            endpoints[endpoint] = config[endpoint];
+        }
+    }
+
+    return endpoints;
 }

@@ -126,7 +126,7 @@ const Constants = {
         integrationDelayTimeout: 5000, // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
         maxCookieSize: 3000, // Number of bytes for cookie size to not exceed
         aliasMaxWindow: 90, // Max age of Alias request startTime, in days
-        uploadInterval: 0, // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload
+        uploadInterval: '0', // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload
     },
     DefaultUrls: {
         v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
@@ -166,6 +166,7 @@ const Constants = {
         ReportBatching: 'reportBatching',
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
         OfflineStorage: 'offlineStorage',
+        DirectUrlRouting: 'directURLRouting',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',

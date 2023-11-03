@@ -19,7 +19,7 @@ beforeEach(function() {
         requestConfig: false,
         isDevelopmentMode: false,
         flags: {
-            eventBatchingIntervalMillis: 0,
+            eventBatchingIntervalMillis: "0",
         }
     };
 

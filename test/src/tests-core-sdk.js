@@ -568,7 +568,7 @@ describe('core SDK', function() {
     });
 
     it('should have default options as well as configured options on configuration object, overwriting when appropriate', function(done) {
-        const defaults = new Store({}, mParticle.getInstance());
+        const defaults = new Store({}, mParticle.getInstance(), apiKey);
         // all items here should be the default values
         for (const key in DefaultConfig) {
             defaults.SDKConfig.should.have.property(key, DefaultConfig[key]);
@@ -624,7 +624,7 @@ describe('core SDK', function() {
         (mp.isFirstRun === null).should.equal(true);
         (mp.clientId === null).should.equal(true);
         (mp.deviceId === null).should.equal(true);
-        (mp.devToken === null).should.equal(true);
+        (mp.devToken === null).should.equal(false);
         (mp.dateLastEventSent === null).should.equal(true);
         (mp.sessionStartDate === null).should.equal(true);
         (mp.currentPosition === null).should.equal(true);
@@ -1133,5 +1133,144 @@ describe('core SDK', function() {
         mParticle.getInstance()._Store.wrapperSDKInfo.isInfoSet.should.equal(true);
 
         done();
+    });
+
+    describe('pod feature flag', function() {
+        const endpoints = JSON.parse(JSON.stringify(Constants.DefaultUrls));
+        // set up URLs object for each silo
+        let URLs = {
+            us1: {},
+            us2: {},
+            eu1: {},
+            au1: {},
+            st1: {},                
+        };
+
+        // The below function builds out the above URLs object to have silo-specific urls, ie:
+        // URLs.us1.aliasUrl = 'jssdks.us1.mparticle.com/v1/identity/';
+        // URLs.us2.aliasUrl = 'jssdks.us2.mparticle.com/v1/identity/';
+        // URLs.us1.configUrl = 'jssdkcdns.us1.mparticle.com/JS/v2/';
+        // URLs.us2.configUrl = 'jssdkcdns.us2.mparticle.com/JS/v2/';
+        // etc, etc for each silo, and each endpoint
+        Object.keys(URLs).forEach((key) => {
+            for (let endpointKey in endpoints) {
+                const endpointParts = endpoints[endpointKey].split('.');
+                URLs[key][endpointKey] = [endpointParts[0], key, ...endpointParts.slice(1)].join('.')
+            }
+        });
+
+        beforeEach(function() {
+            window.mParticle.config.flags = {
+                directURLRouting: 'True'
+            };
+        });
+
+        it('should use US1 endpoints for apiKeys that do not start with a prefix', function(done) {
+            let silo = 'us1';
+            let apiKey = 'noSiloPrefixApiKey';
+            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+
+            fetchMock.post(eventsEndpoint, 200);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
+            mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
+
+            done();
+        });
+
+        it('should use US1 endpoints for apiKeys with prefix `us1`', function(done) {
+            let silo = 'us1';
+            let apiKey = 'us1-apiKey';
+            let eventsEndpoint = `https://${URLs.us1.v3SecureServiceUrl}${apiKey}/events`;
+
+            fetchMock.post(eventsEndpoint, 200);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
+            mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
+
+            done();
+        });
+
+        it('should use US2 endpoints for apiKeys with prefix `us2`', function(done) {
+            let silo = 'us2';
+            let apiKey = 'us2-apiKey';
+            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+
+            fetchMock.post(eventsEndpoint, 200);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
+            mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
+
+            done();
+        });
+
+        it('should use EU1 endpoints for apiKeys with prefix `eu1`', function(done) {
+            let silo = 'eu1';
+            let apiKey = 'eu1-apiKey';
+            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+
+            fetchMock.post(eventsEndpoint, 200);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
+            mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
+
+            done();
+        });
+
+        it('should use AU1 endpoints for apiKeys with prefix `au1`', function(done) {
+            let silo = 'au1';
+            let apiKey = 'au1-apiKey';
+            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+
+            fetchMock.post(eventsEndpoint, 200);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
+            mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
+
+            done();
+        });
+
+        it('should use AU1 endpoints for apiKeys with prefix `st1`', function(done) {
+            let silo = 'st1';
+            let apiKey = 'st1-apiKey';
+            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+
+            fetchMock.post(eventsEndpoint, 200);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
+            mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
+
+            done();
+        });
     });
 });

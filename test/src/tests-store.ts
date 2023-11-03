@@ -15,6 +15,7 @@ describe('Store', () => {
         appName: 'Store Test',
         appVersion: '1.x',
         package: 'com.mparticle.test',
+        flags: {}
     } as SDKInitConfig;
 
     beforeEach(function() {
@@ -32,8 +33,7 @@ describe('Store', () => {
 
     it('should initialize Store with defaults', () => {
         // Use sample config to make sure our types are safe
-        const store: IStore = new Store(sampleConfig, window.mParticle);
-
+        const store: IStore = new Store(sampleConfig, window.mParticle.getInstance(), apiKey);
         expect(store).to.be.ok;
         expect(store.isEnabled, 'isEnabled').to.eq(true);
         expect(store.sessionAttributes, 'sessionAttributes').to.be.ok;
@@ -43,7 +43,7 @@ describe('Store', () => {
         expect(store.isFirstRun, 'isFirstRun').to.eq(null);
         expect(store.clientId, 'clientId').to.eq(null);
         expect(store.deviceId, 'deviceId').to.eq(null);
-        expect(store.devToken, 'devToken').to.eq(null);
+        expect(store.devToken, 'devToken').to.eq(apiKey);
         expect(store.serverSettings, 'serverSettings').to.be.ok;
         expect(store.dateLastEventSent, 'dateLastEventSent').to.eq(null);
         expect(store.sessionStartDate, 'sessionStartDate').to.eq(null);
@@ -82,7 +82,7 @@ describe('Store', () => {
     });
 
     it('should initialize store.SDKConfig with valid defaults', () => {
-        const store: IStore = new Store(sampleConfig, window.mParticle);
+        const store: IStore = new Store(sampleConfig, window.mParticle.getInstance(), apiKey);
 
         expect(store.SDKConfig.aliasMaxWindow, 'aliasMaxWindow').to.eq(90);
         expect(store.SDKConfig.aliasUrl, 'aliasUrl').to.eq(
@@ -104,13 +104,9 @@ describe('Store', () => {
             .undefined;
 
         expect(
-            store.SDKConfig.flags.eventBatchingIntervalMillis,
+            store.SDKConfig.flags?.eventBatchingIntervalMillis,
             'flags.eventBatchingIntervalMillis'
-        ).to.eq(0);
-        expect(
-            store.SDKConfig.flags.reportBatching,
-            'flags.reportBatching'
-        ).to.eq(false);
+        ).to.eq('0');
         expect(store.SDKConfig.forceHttps, 'forceHttps').to.eq(true);
 
         expect(store.SDKConfig.identityCallback, 'identityCallback').to.be
@@ -168,7 +164,7 @@ describe('Store', () => {
                 planVersion: 3,
             },
         };
-        const store: IStore = new Store(dataPlanConfig, window.mParticle);
+        const store: IStore = new Store(dataPlanConfig, window.mParticle.getInstance(), apiKey);
 
         expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({
             PlanId: 'test_data_plan',
@@ -185,7 +181,7 @@ describe('Store', () => {
             ...sampleConfig,
             sideloadedKits,
         };
-        const store: IStore = new Store(config, window.mParticle);
+        const store: IStore = new Store(config, window.mParticle.getInstance(), apiKey);
 
         expect(store.SDKConfig.sideloadedKits.length, 'side loaded kits').to.equal(sideloadedKits.length);
         expect(store.SDKConfig.sideloadedKits[0], 'side loaded kits').to.deep.equal(sideloadedKit1);
