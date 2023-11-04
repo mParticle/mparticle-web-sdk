@@ -1272,5 +1272,32 @@ describe('core SDK', function() {
 
             done();
         });
+
+        it('should prioritize configured URLs over direct URL mapping', function(done) {
+            window.mParticle.config.v3SecureServiceUrl = 'testtesttest-custom-v3secureserviceurl/v3/JS/';
+            window.mParticle.config.configUrl ='foo-custom-configUrl/v2/JS/';
+            window.mParticle.config.identityUrl = 'custom-identityUrl/';
+            window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
+
+            const {configUrl, v3SecureServiceUrl, identityUrl, aliasUrl} = window.mParticle.config
+
+            let silo = 'us1';
+            let apiKey = 'noSiloPrefixApiKey';
+            let eventsEndpoint = `https://${v3SecureServiceUrl}${apiKey}/events`;
+
+            fetchMock.post(eventsEndpoint, 200)
+
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(aliasUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(configUrl);
+            mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(identityUrl);
+            mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(v3SecureServiceUrl);
+
+            done();
+        });
+
+
     });
 });

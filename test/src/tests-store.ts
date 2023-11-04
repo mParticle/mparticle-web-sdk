@@ -1,9 +1,13 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
-import Store, { IStore } from '../../src/store';
+import Store, { IStore, SDKConfig } from '../../src/store';
+import {processFlags, processEndpoints, IFeatureFlags }  from  '../../src/store';
 import { MPConfig, apiKey } from './config';
 import Utils from './utils';
+import { Dictionary } from '../../src/utils';
+import Constants from '../../src/constants';
+
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
 describe('Store', () => {
@@ -186,5 +190,145 @@ describe('Store', () => {
         expect(store.SDKConfig.sideloadedKits.length, 'side loaded kits').to.equal(sideloadedKits.length);
         expect(store.SDKConfig.sideloadedKits[0], 'side loaded kits').to.deep.equal(sideloadedKit1);
         expect(store.SDKConfig.sideloadedKits[1], 'side loaded kits').to.deep.equal(sideloadedKit2);
+    });
+
+    describe('#processFlags', () => {
+        it('should return an empty object if no featureFlags are passed', () => {
+            const flags = processFlags({} as SDKInitConfig, {} as SDKConfig);
+            expect(Object.keys(flags).length).to.equal(0);
+        });
+
+        it('should return default featureFlags if no featureFlags are passed', () => {
+            const flags = processFlags({flags: {}} as SDKInitConfig, {} as SDKConfig);
+            const expectedResult = {
+                reportBatching: false,
+                eventBatchingIntervalMillis: '0',
+                offlineStorage: '0',
+                directURLRouting: false,
+            };
+
+            expect(flags).to.deep.equal(expectedResult);
+        });
+
+        it('should return featureFlags if featureFlags are passed in', () => {
+            const cutomizedFlags = {
+                reportBatching: true,
+                eventBatchingIntervalMillis: '5000',
+                offlineStorage: '100',
+                directURLRouting: 'True',
+            };
+
+            const flags = processFlags({flags: cutomizedFlags} as unknown as SDKInitConfig, {} as SDKConfig);
+
+            const expectedResult = {
+                reportBatching: true,
+                eventBatchingIntervalMillis: '5000',
+                offlineStorage: '100',
+                directURLRouting: true,
+            }
+
+            expect(flags).to.deep.equal(expectedResult);
+        });
+    });
+
+    describe('#processEndpoints', () => {
+        describe('directURLRouting === false', () => {
+            const featureFlags = { directURLRouting: false };
+
+            it('should return default endpoints if no endpoints are passed', () => {
+                const endpoints: Dictionary = JSON.parse(
+                    JSON.stringify(Constants.DefaultUrls)
+                );
+
+                const result = processEndpoints(
+                    {} as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
+                    'apikey'
+                );
+
+                expect(result).to.deep.equal(endpoints)
+            });
+
+            it('should return non-default endpoints for custom endpoints that are passed', () => {
+                const config = {
+                    v3SecureServiceUrl: 'testtesttest-custom-v3secureserviceurl/v3/JS/',
+                    configUrl: 'foo-custom-configUrl/v2/JS/',
+                    identityUrl: 'custom-identityUrl/',
+                    aliasUrl: 'custom-aliasUrl/',
+                };
+
+                const result = processEndpoints(
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    v3SecureServiceUrl: 'testtesttest-custom-v3secureserviceurl/v3/JS/',
+                    configUrl: 'foo-custom-configUrl/v2/JS/',
+                    identityUrl: 'custom-identityUrl/',
+                    aliasUrl: 'custom-aliasUrl/',
+                    v1SecureServiceUrl: "jssdks.mparticle.com/v1/JS/",
+                    v2SecureServiceUrl: "jssdks.mparticle.com/v2/JS/",
+                }
+                debugger
+
+                expect(result).to.deep.equal(expectedResult)
+            });
+        });
+
+        describe('directURLRouting === true', () => {
+            it('should return direct urls when no endpoints are passed ', () => {
+                const featureFlags = {directURLRouting: true};
+
+                const result = processEndpoints(
+                    {} as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    aliasUrl: "jssdks.us1.mparticle.com/v1/identity/",
+                    configUrl: "jssdkcdns.us1.mparticle.com/JS/v2/",
+                    identityUrl: "identity.us1.mparticle.com/v1/",
+                    v1SecureServiceUrl: "jssdks.us1.mparticle.com/v1/JS/",
+                    v2SecureServiceUrl: "jssdks.us1.mparticle.com/v2/JS/",
+                    v3SecureServiceUrl: "jssdks.us1.mparticle.com/v3/JS/",
+                };
+
+                expect(result.aliasUrl).to.equal(expectedResult.aliasUrl)
+                expect(result.configUrl).to.equal(expectedResult.configUrl)
+                expect(result.identityUrl).to.equal(expectedResult.identityUrl)
+                expect(result.v1SecureServiceUrl).to.equal(expectedResult.v1SecureServiceUrl)
+                expect(result.v2SecureServiceUrl).to.equal(expectedResult.v2SecureServiceUrl)
+                expect(result.v3SecureServiceUrl).to.equal(expectedResult.v3SecureServiceUrl)
+            });
+
+            it('should prioritize passed in endpoints over direct urls', () => {
+                const featureFlags = {directURLRouting: true};
+
+                const config = {
+                    v3SecureServiceUrl: 'testtesttest-custom-v3secureserviceurl/v3/JS/',
+                    configUrl: 'foo-custom-configUrl/v2/JS/',
+                    identityUrl: 'custom-identityUrl/',
+                    aliasUrl: 'custom-aliasUrl/',
+                };
+
+                const result = processEndpoints(
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    v3SecureServiceUrl: 'testtesttest-custom-v3secureserviceurl/v3/JS/',
+                    configUrl: 'foo-custom-configUrl/v2/JS/',
+                    identityUrl: 'custom-identityUrl/',
+                    aliasUrl: 'custom-aliasUrl/',
+                    v1SecureServiceUrl: "jssdks.us1.mparticle.com/v1/JS/",
+                    v2SecureServiceUrl: "jssdks.us1.mparticle.com/v2/JS/",
+                };
+            });
+        });
     });
 });

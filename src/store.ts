@@ -25,8 +25,6 @@ import {
 import { isNumber, isDataPlanSlug, Dictionary } from './utils';
 import { SDKConsentState } from './consent';
 
-const FeatureFlags = Constants.FeatureFlags;
-
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
 // configurations have been stitched together.
@@ -225,12 +223,8 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        const flags = processFlags(config, this.SDKConfig as SDKConfig);
-
-        this.SDKConfig.flags = mpInstance._Helpers.extend(
-            this.SDKConfig.flags,
-            flags
-        );
+        this.SDKConfig.flags = processFlags(config, this
+            .SDKConfig as SDKConfig);
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
@@ -243,7 +237,11 @@ export default function Store(
             this.SDKConfig.isDevelopmentMode = false;
         }
 
-        const endpoints: Dictionary = processEndpoints(config, flags, apiKey);
+        const endpoints: Dictionary = processEndpoints(
+            config,
+            this.SDKConfig.flags,
+            apiKey
+        );
         console.log(endpoints);
         for (const endpointKey in endpoints) {
             this.SDKConfig[endpointKey] = endpoints[endpointKey];
@@ -414,40 +412,44 @@ export default function Store(
     }
 }
 
-interface IFeatureFlags {
+export interface IFeatureFlags {
     reportBatching?: string;
     eventBatchingIntervalMillis?: string;
     offlineStorage?: string;
     directURLRouting?: boolean;
 }
 
-function processFlags(
+export function processFlags(
     config: SDKInitConfig,
     SDKConfig: SDKConfig
 ): IFeatureFlags {
     const flags: IFeatureFlags = {};
+    const {
+        ReportBatching,
+        EventBatchingIntervalMillis,
+        OfflineStorage,
+        DirectUrlRouting,
+    } = Constants.FeatureFlags;
+
     if (!config || !config.flags) {
         return {};
     }
-    if (
-        !SDKConfig.flags.hasOwnProperty(
-            FeatureFlags.EventBatchingIntervalMillis
-        )
-    ) {
-        flags[FeatureFlags.EventBatchingIntervalMillis] =
-            Constants.DefaultConfig.uploadInterval;
-    }
-    if (!SDKConfig.flags.hasOwnProperty(FeatureFlags.OfflineStorage)) {
-        flags[FeatureFlags.OfflineStorage] = '0';
-    }
 
-    flags[FeatureFlags.DirectUrlRouting] =
-        config.flags[FeatureFlags.DirectUrlRouting] === 'True';
+    // Passed in config flags take priority over defaults
+    flags[ReportBatching] =
+        config.flags[ReportBatching] || false;
+    flags[EventBatchingIntervalMillis] =
+        config.flags[EventBatchingIntervalMillis] ||
+        Constants.DefaultConfig.uploadInterval;
+    flags[OfflineStorage] =
+        config.flags[OfflineStorage] || '0';
+    flags[DirectUrlRouting] =
+        config.flags[DirectUrlRouting] === 'True';
 
     return flags;
 }
 
-function processEndpoints(
+export function processEndpoints(
     config: SDKInitConfig,
     flags: IFeatureFlags,
     apiKey: string
@@ -457,40 +459,51 @@ function processEndpoints(
         return {};
     }
 
+    // Set default endpoints
     const endpoints: Dictionary = JSON.parse(
         JSON.stringify(Constants.DefaultUrls)
     );
-    // API keys are prefixed with the silo and a hyphen (ex. "us1-", "us2-", "eu1-").
-    // us1 was the first silo, and before other silos existed, there were no prefixes
-    // and all apiKeys were us1. As such, if we split on a '-' and the resulting array length
-    // is 1, then it is an older APIkey that should route to us1. Otherwise, route to the prefix.
-    const splitKey: Array<string> = apiKey.split('-');
-    let routingPrefix: string;
-    // debugger;
-    if (flags.directURLRouting) {
-        if (splitKey.length <= 1) {
-            routingPrefix = 'us1';
-        } else {
-            routingPrefix = splitKey[0];
-        }
+
+    // When direct URL routing is false, update endpoints based custom urls
+    // passed to the config
+    if (!flags.directURLRouting) {
         for (let endpoint in endpoints) {
             if (config.hasOwnProperty(endpoint)) {
                 endpoints[endpoint] = config[endpoint];
-            } else {
-                var parts = endpoints[endpoint].split('.');
-
-                endpoints[endpoint] = [
-                    parts[0],
-                    routingPrefix,
-                    ...parts.slice(1, endpoint.length),
-                ].join('.');
             }
         }
+        return endpoints;
     }
 
-    for (let endpoint in endpoints) {
-        if (config.hasOwnProperty(endpoint)) {
-            endpoints[endpoint] = config[endpoint];
+    // When Direct URL Routing is true, we create a new set of endpoints that
+    // include the silo in the urls.  mParticle API keys are prefixed with the
+    // silo and a hyphen (ex. "us1-", "us2-", "eu1-").  us1 was the first silo,
+    // and before other silos existed, there were no prefixes and all apiKeys
+    // were us1. As such, if we split on a '-' and the resulting array length
+    // is 1, then it is an older APIkey that should route to us1.
+    const splitKey: Array<string> = apiKey.split('-');
+    let routingPrefix: string;
+
+    if (splitKey.length <= 1) {
+        routingPrefix = 'us1';
+    } else {
+        // splitKey[0] will be us1, us2, eu1, au1, or st1, etc as new silos are added
+        routingPrefix = splitKey[0];
+    }
+
+    for (let endpointKey in endpoints) {
+        // Any custom endpoints passed to config will take priority over direct
+        // mapping to the silo
+        if (config.hasOwnProperty(endpointKey)) {
+            endpoints[endpointKey] = config[endpointKey];
+        } else {
+            var urlparts = endpoints[endpointKey].split('.');
+
+            endpoints[endpointKey] = [
+                urlparts[0],
+                routingPrefix,
+                ...urlparts.slice(1),
+            ].join('.');
         }
     }
 
