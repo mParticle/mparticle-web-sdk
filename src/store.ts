@@ -431,20 +431,17 @@ export function processFlags(
         DirectUrlRouting,
     } = Constants.FeatureFlags;
 
-    if (!config || !config.flags) {
+    if (!config.flags) {
         return {};
     }
 
     // Passed in config flags take priority over defaults
-    flags[ReportBatching] =
-        config.flags[ReportBatching] || false;
+    flags[ReportBatching] = config.flags[ReportBatching] || false;
     flags[EventBatchingIntervalMillis] =
         config.flags[EventBatchingIntervalMillis] ||
         Constants.DefaultConfig.uploadInterval;
-    flags[OfflineStorage] =
-        config.flags[OfflineStorage] || '0';
-    flags[DirectUrlRouting] =
-        config.flags[DirectUrlRouting] === 'True';
+    flags[OfflineStorage] = config.flags[OfflineStorage] || '0';
+    flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
 
     return flags;
 }
@@ -460,21 +457,36 @@ export function processEndpoints(
     }
 
     // Set default endpoints
-    const endpoints: Dictionary = JSON.parse(
+    let endpoints: Dictionary = JSON.parse(
         JSON.stringify(Constants.DefaultUrls)
     );
 
     // When direct URL routing is false, update endpoints based custom urls
     // passed to the config
     if (!flags.directURLRouting) {
-        for (let endpoint in endpoints) {
-            if (config.hasOwnProperty(endpoint)) {
-                endpoints[endpoint] = config[endpoint];
-            }
-        }
-        return endpoints;
+        return processNonDirectEndpoints(endpoints, config);
+    } else {
+        return processDirectUrlEndpoints(endpoints, config, apiKey);
     }
+}
 
+function processNonDirectEndpoints(
+    endpoints: Dictionary,
+    config: SDKInitConfig
+): Dictionary {
+    for (let endpoint in endpoints) {
+        if (config.hasOwnProperty(endpoint)) {
+            endpoints[endpoint] = config[endpoint];
+        }
+    }
+    return endpoints;
+}
+
+function processDirectUrlEndpoints(
+    endpoints: Dictionary,
+    config: SDKInitConfig,
+    apiKey: string
+): Dictionary {
     // When Direct URL Routing is true, we create a new set of endpoints that
     // include the silo in the urls.  mParticle API keys are prefixed with the
     // silo and a hyphen (ex. "us1-", "us2-", "eu1-").  us1 was the first silo,
@@ -484,12 +496,9 @@ export function processEndpoints(
     const splitKey: Array<string> = apiKey.split('-');
     let routingPrefix: string;
 
-    if (splitKey.length <= 1) {
-        routingPrefix = 'us1';
-    } else {
-        // splitKey[0] will be us1, us2, eu1, au1, or st1, etc as new silos are added
-        routingPrefix = splitKey[0];
-    }
+    // when splitKey.length is greater than 1, then splitKey[0] will be
+    // us1, us2, eu1, au1, or st1, etc as new silos are added
+    routingPrefix = splitKey.length <= 1 ? 'us1' : splitKey[0];
 
     for (let endpointKey in endpoints) {
         // Any custom endpoints passed to config will take priority over direct
@@ -500,7 +509,7 @@ export function processEndpoints(
             if (endpointKey === 'configUrl') {
                 continue;
             }
-            var urlparts = endpoints[endpointKey].split('.');
+            const urlparts = endpoints[endpointKey].split('.');
 
             endpoints[endpointKey] = [
                 urlparts[0],

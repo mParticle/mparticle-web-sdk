@@ -1,8 +1,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
-import Store, { IStore, SDKConfig } from '../../src/store';
-import {processFlags, processEndpoints, IFeatureFlags }  from  '../../src/store';
+import Store, { IStore, SDKConfig, processFlags, processEndpoints, IFeatureFlags } from '../../src/store';
 import { MPConfig, apiKey } from './config';
 import Utils from './utils';
 import { Dictionary } from '../../src/utils';
@@ -328,6 +327,8 @@ describe('Store', () => {
                     v1SecureServiceUrl: "jssdks.us1.mparticle.com/v1/JS/",
                     v2SecureServiceUrl: "jssdks.us1.mparticle.com/v2/JS/",
                 };
+
+                expect(result).to.deep.equal(expectedResult)
             });
         });
     });
