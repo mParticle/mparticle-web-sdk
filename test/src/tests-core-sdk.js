@@ -1174,7 +1174,7 @@ describe('core SDK', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
             mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
-            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(Constants.DefaultUrls.configUrl);
             mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
@@ -1192,7 +1192,7 @@ describe('core SDK', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
             mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
-            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(Constants.DefaultUrls.configUrl);
             mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
@@ -1210,7 +1210,7 @@ describe('core SDK', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
             mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
-            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(Constants.DefaultUrls.configUrl);
             mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
@@ -1228,7 +1228,7 @@ describe('core SDK', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
             mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
-            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(Constants.DefaultUrls.configUrl);
             mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
@@ -1246,7 +1246,7 @@ describe('core SDK', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
             mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
-            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(Constants.DefaultUrls.configUrl);
             mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
@@ -1264,7 +1264,7 @@ describe('core SDK', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
             mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
-            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(URLs[silo].configUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(Constants.DefaultUrls.configUrl);
             mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
             mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
             mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);

@@ -288,8 +288,8 @@ describe('Store', () => {
                 );
 
                 const expectedResult = {
+                    configUrl: Constants.DefaultUrls.configUrl,
                     aliasUrl: "jssdks.us1.mparticle.com/v1/identity/",
-                    configUrl: "jssdkcdns.us1.mparticle.com/JS/v2/",
                     identityUrl: "identity.us1.mparticle.com/v1/",
                     v1SecureServiceUrl: "jssdks.us1.mparticle.com/v1/JS/",
                     v2SecureServiceUrl: "jssdks.us1.mparticle.com/v2/JS/",

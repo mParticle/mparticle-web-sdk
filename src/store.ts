@@ -497,6 +497,9 @@ export function processEndpoints(
         if (config.hasOwnProperty(endpointKey)) {
             endpoints[endpointKey] = config[endpointKey];
         } else {
+            if (endpointKey === 'configUrl') {
+                continue;
+            }
             var urlparts = endpoints[endpointKey].split('.');
 
             endpoints[endpointKey] = [
