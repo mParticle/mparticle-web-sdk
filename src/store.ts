@@ -237,7 +237,7 @@ export default function Store(
             this.SDKConfig.isDevelopmentMode = false;
         }
 
-        const endpoints: Dictionary = processEndpoints(
+        const endpoints: Dictionary<string> = processEndpoints(
             config,
             this.SDKConfig.flags,
             apiKey
