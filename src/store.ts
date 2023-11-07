@@ -450,7 +450,7 @@ export function processEndpoints(
     config: SDKInitConfig,
     flags: IFeatureFlags,
     apiKey: string
-): Dictionary {
+): Dictionary<string> {
     // an API key is not present in a webview only mode. In this case, no endpoints are needed
     if (!apiKey) {
         return {};
