@@ -111,6 +111,13 @@ interface WrapperSDKInfo {
     isInfoSet: boolean;
 }
 
+export interface IFeatureFlags {
+    reportBatching?: string;
+    eventBatchingIntervalMillis?: string;
+    offlineStorage?: string;
+    directURLRouting?: boolean;
+}
+
 // Temporary Interface until Store can be refactored as a class
 export interface IStore {
     isEnabled: boolean;
@@ -161,7 +168,7 @@ export default function Store(
     this: IStore,
     config: SDKInitConfig,
     mpInstance: MParticleWebSDK,
-    apiKey: string,
+    apiKey: string
 ) {
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
@@ -242,7 +249,7 @@ export default function Store(
             this.SDKConfig.flags,
             apiKey
         );
-        console.log(endpoints);
+
         for (const endpointKey in endpoints) {
             this.SDKConfig[endpointKey] = endpoints[endpointKey];
         }
@@ -255,7 +262,8 @@ export default function Store(
 
         this.SDKConfig.kits = config.kits || {};
 
-        this.SDKConfig.sideloadedKits = config.sideloadedKits || [];
+        this.SDKConfig.sideloadedKits =
+            config.sideloadedKits || [];
 
         if (config.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = config.isIOS;
@@ -267,7 +275,8 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('useCookieStorage')) {
-            this.SDKConfig.useCookieStorage = config.useCookieStorage;
+            this.SDKConfig.useCookieStorage =
+                config.useCookieStorage;
         } else {
             this.SDKConfig.useCookieStorage = false;
         }
@@ -275,7 +284,8 @@ export default function Store(
         if (config.hasOwnProperty('maxProducts')) {
             this.SDKConfig.maxProducts = config.maxProducts;
         } else {
-            this.SDKConfig.maxProducts = Constants.DefaultConfig.maxProducts;
+            this.SDKConfig.maxProducts =
+                Constants.DefaultConfig.maxProducts;
         }
 
         if (config.hasOwnProperty('maxCookieSize')) {
@@ -302,13 +312,19 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('identifyRequest')) {
-            this.SDKConfig.identifyRequest = config.identifyRequest;
+            this.SDKConfig.identifyRequest =
+                config.identifyRequest;
         }
 
         if (config.hasOwnProperty('identityCallback')) {
             var callback = config.identityCallback;
-            if (mpInstance._Helpers.Validators.isFunction(callback)) {
-                this.SDKConfig.identityCallback = config.identityCallback;
+            if (
+                mpInstance._Helpers.Validators.isFunction(
+                    callback
+                )
+            ) {
+                this.SDKConfig.identityCallback =
+                    config.identityCallback;
             } else {
                 mpInstance.Logger.warning(
                     'The optional callback must be a function. You tried entering a(n) ' +
@@ -327,7 +343,8 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('sessionTimeout')) {
-            this.SDKConfig.sessionTimeout = config.sessionTimeout;
+            this.SDKConfig.sessionTimeout =
+                config.sessionTimeout;
         }
 
         if (config.hasOwnProperty('dataPlan')) {
@@ -339,7 +356,8 @@ export default function Store(
             const dataPlan = config.dataPlan as DataPlanConfig;
             if (dataPlan.planId) {
                 if (isDataPlanSlug(dataPlan.planId)) {
-                    this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
+                    this.SDKConfig.dataPlan.PlanId =
+                        dataPlan.planId;
                 } else {
                     mpInstance.Logger.error(
                         'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
@@ -349,7 +367,8 @@ export default function Store(
 
             if (dataPlan.planVersion) {
                 if (isNumber(dataPlan.planVersion)) {
-                    this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
+                    this.SDKConfig.dataPlan.PlanVersion =
+                        dataPlan.planVersion;
                 } else {
                     mpInstance.Logger.error(
                         'Your data plan version must be a number'
@@ -377,7 +396,8 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('aliasMaxWindow')) {
-            this.SDKConfig.aliasMaxWindow = config.aliasMaxWindow;
+            this.SDKConfig.aliasMaxWindow =
+                config.aliasMaxWindow;
         } else {
             this.SDKConfig.aliasMaxWindow =
                 Constants.DefaultConfig.aliasMaxWindow;
@@ -386,11 +406,19 @@ export default function Store(
         if (config.hasOwnProperty('dataPlanOptions')) {
             const dataPlanOptions = config.dataPlanOptions;
             if (
-                !dataPlanOptions.hasOwnProperty('dataPlanVersion') ||
-                !dataPlanOptions.hasOwnProperty('blockUserAttributes') ||
-                !dataPlanOptions.hasOwnProperty('blockEventAttributes') ||
+                !dataPlanOptions.hasOwnProperty(
+                    'dataPlanVersion'
+                ) ||
+                !dataPlanOptions.hasOwnProperty(
+                    'blockUserAttributes'
+                ) ||
+                !dataPlanOptions.hasOwnProperty(
+                    'blockEventAttributes'
+                ) ||
                 !dataPlanOptions.hasOwnProperty('blockEvents') ||
-                !dataPlanOptions.hasOwnProperty('blockUserIdentities')
+                !dataPlanOptions.hasOwnProperty(
+                    'blockUserIdentities'
+                )
             ) {
                 mpInstance.Logger.error(
                     'Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans'
@@ -400,7 +428,8 @@ export default function Store(
 
         if (config.hasOwnProperty('onCreateBatch')) {
             if (typeof config.onCreateBatch === 'function') {
-                this.SDKConfig.onCreateBatch = config.onCreateBatch;
+                this.SDKConfig.onCreateBatch =
+                    config.onCreateBatch;
             } else {
                 mpInstance.Logger.error(
                     'config.onCreateBatch must be a function'
@@ -410,13 +439,6 @@ export default function Store(
             }
         }
     }
-}
-
-export interface IFeatureFlags {
-    reportBatching?: string;
-    eventBatchingIntervalMillis?: string;
-    offlineStorage?: string;
-    directURLRouting?: boolean;
 }
 
 export function processFlags(
@@ -449,7 +471,7 @@ export function processFlags(
 export function processEndpoints(
     config: SDKInitConfig,
     flags: IFeatureFlags,
-    apiKey: string
+    apiKey?: string
 ): Dictionary<string> {
     // an API key is not present in a webview only mode. In this case, no endpoints are needed
     if (!apiKey) {
@@ -457,61 +479,62 @@ export function processEndpoints(
     }
 
     // Set default endpoints
-    let endpoints: Dictionary = JSON.parse(
-        JSON.stringify(Constants.DefaultUrls)
-    );
+    let endpoints: Dictionary<string>;
 
     // When direct URL routing is false, update endpoints based custom urls
     // passed to the config
-    if (!flags.directURLRouting) {
-        return processNonDirectEndpoints(endpoints, config);
+    if (flags.directURLRouting) {
+        return processDirectUrlEndpoints(config, apiKey);
     } else {
-        return processDirectUrlEndpoints(endpoints, config, apiKey);
+        return processNonDirectEndpoints(config);
     }
 }
 
-function processNonDirectEndpoints(
-    endpoints: Dictionary,
-    config: SDKInitConfig
-): Dictionary {
-    for (let endpoint in endpoints) {
-        if (config.hasOwnProperty(endpoint)) {
-            endpoints[endpoint] = config[endpoint];
-        }
+function processNonDirectEndpoints(config: SDKInitConfig): Dictionary<string> {
+    let defaultBaseUrls: Dictionary<string> = Constants.DefaultUrls;
+    let newBaseUrls: Dictionary<string> = {};
+
+    for (let baseUrlKey in defaultBaseUrls) {
+        newBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
     }
-    return endpoints;
+
+    return newBaseUrls;
 }
 
 function processDirectUrlEndpoints(
-    endpoints: Dictionary,
     config: SDKInitConfig,
     apiKey: string
 ): Dictionary {
+    let defaultBaseUrls = Constants.DefaultUrls;
+    let directBaseUrls: Dictionary<string> = {};
     // When Direct URL Routing is true, we create a new set of endpoints that
     // include the silo in the urls.  mParticle API keys are prefixed with the
     // silo and a hyphen (ex. "us1-", "us2-", "eu1-").  us1 was the first silo,
     // and before other silos existed, there were no prefixes and all apiKeys
     // were us1. As such, if we split on a '-' and the resulting array length
     // is 1, then it is an older APIkey that should route to us1.
-    const splitKey: Array<string> = apiKey.split('-');
-    let routingPrefix: string;
-
-    // when splitKey.length is greater than 1, then splitKey[0] will be
+    // When splitKey.length is greater than 1, then splitKey[0] will be
     // us1, us2, eu1, au1, or st1, etc as new silos are added
-    routingPrefix = splitKey.length <= 1 ? 'us1' : splitKey[0];
+    const DEFAULT_SILO = 'us1';
+    const splitKey: Array<string> = apiKey.split('-');
+    const routingPrefix: string =
+        splitKey.length <= 1 ? DEFAULT_SILO : splitKey[0];
 
-    for (let endpointKey in endpoints) {
+    for (let baseUrlKey in defaultBaseUrls) {
         // Any custom endpoints passed to config will take priority over direct
         // mapping to the silo
-        if (config.hasOwnProperty(endpointKey)) {
-            endpoints[endpointKey] = config[endpointKey];
-        } else {
-            if (endpointKey === 'configUrl') {
-                continue;
-            }
-            const urlparts = endpoints[endpointKey].split('.');
+        if (baseUrlKey === 'configUrl') {
+            directBaseUrls[baseUrlKey] =
+                config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
+            continue;
+        }
 
-            endpoints[endpointKey] = [
+        if (config.hasOwnProperty(baseUrlKey)) {
+            directBaseUrls[baseUrlKey] = config[baseUrlKey];
+        } else {
+            const urlparts = defaultBaseUrls[baseUrlKey].split('.');
+
+            directBaseUrls[baseUrlKey] = [
                 urlparts[0],
                 routingPrefix,
                 ...urlparts.slice(1),
@@ -519,5 +542,5 @@ function processDirectUrlEndpoints(
         }
     }
 
-    return endpoints;
+    return directBaseUrls;
 }

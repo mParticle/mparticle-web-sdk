@@ -27,7 +27,6 @@ export default class _BatchValidator {
                 createServiceUrl: mockFunction,
                 parseNumber: mockFunction,
                 isObject: mockFunction,
-                getFeatureFlag: mockFunction,
                 returnConvertedBoolean: mockFunction,
                 Validators: null,
             },

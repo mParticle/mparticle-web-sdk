@@ -42,10 +42,10 @@ export default function APIClient(
     const self = this;
     this.queueEventForBatchUpload = function(event: SDKEvent) {
         if (!this.uploader) {
-            const millis: string = mpInstance._Helpers.getFeatureFlag(
+            const millis: number = parseNumber(mpInstance._Helpers.getFeatureFlag(
                 Constants.FeatureFlags.EventBatchingIntervalMillis
-            );
-            this.uploader = new BatchUploader(mpInstance, parseNumber(millis));
+            ));
+            this.uploader = new BatchUploader(mpInstance, millis);
         }
         this.uploader.queueEvent(event);
 

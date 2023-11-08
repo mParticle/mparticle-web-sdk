@@ -235,10 +235,7 @@ describe('Store', () => {
             const featureFlags = { directURLRouting: false };
 
             it('should return default endpoints if no endpoints are passed', () => {
-                const endpoints: Dictionary = JSON.parse(
-                    JSON.stringify(Constants.DefaultUrls)
-                );
-
+                const endpoints: Dictionary = Constants.DefaultUrls;
                 const result = processEndpoints(
                     {} as unknown as SDKInitConfig,
                     featureFlags as unknown as IFeatureFlags,
@@ -270,7 +267,6 @@ describe('Store', () => {
                     v1SecureServiceUrl: "jssdks.mparticle.com/v1/JS/",
                     v2SecureServiceUrl: "jssdks.mparticle.com/v2/JS/",
                 }
-                debugger
 
                 expect(result).to.deep.equal(expectedResult)
             });

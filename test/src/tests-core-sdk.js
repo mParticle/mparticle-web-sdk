@@ -876,7 +876,6 @@ describe('core SDK', function() {
 
         mockServer.requests = [];
         mParticle.init(apiKey, window.mParticle.config);
-
         window.mParticle.logEvent('Test Event');
 
         fetchMock.lastOptions().body.should.be.ok()
@@ -1136,7 +1135,7 @@ describe('core SDK', function() {
     });
 
     describe('pod feature flag', function() {
-        const endpoints = JSON.parse(JSON.stringify(Constants.DefaultUrls));
+        const endpoints = Constants.DefaultUrls;
         // set up URLs object for each silo
         let URLs = {
             us1: {},
@@ -1149,11 +1148,13 @@ describe('core SDK', function() {
         // The below function builds out the above URLs object to have silo-specific urls, ie:
         // URLs.us1.aliasUrl = 'jssdks.us1.mparticle.com/v1/identity/';
         // URLs.us2.aliasUrl = 'jssdks.us2.mparticle.com/v1/identity/';
-        // URLs.us1.configUrl = 'jssdkcdns.us1.mparticle.com/JS/v2/';
-        // URLs.us2.configUrl = 'jssdkcdns.us2.mparticle.com/JS/v2/';
         // etc, etc for each silo, and each endpoint
         Object.keys(URLs).forEach((key) => {
             for (let endpointKey in endpoints) {
+                if (endpointKey === 'configUrl') {
+                    // Do not route config url to silo, use the default instead
+                    URLs[key][endpointKey] = endpoints[endpointKey];
+                }
                 const endpointParts = endpoints[endpointKey].split('.');
                 URLs[key][endpointKey] = [endpointParts[0], key, ...endpointParts.slice(1)].join('.')
             }
