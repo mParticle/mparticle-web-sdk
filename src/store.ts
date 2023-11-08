@@ -244,14 +244,14 @@ export default function Store(
             this.SDKConfig.isDevelopmentMode = false;
         }
 
-        const endpoints: Dictionary<string> = processEndpoints(
+        const baseUrls: Dictionary<string> = processBaseUrls(
             config,
             this.SDKConfig.flags,
             apiKey
         );
 
-        for (const endpointKey in endpoints) {
-            this.SDKConfig[endpointKey] = endpoints[endpointKey];
+        for (const baseUrlKeys in baseUrls) {
+            this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
 
         if (config.hasOwnProperty('logLevel')) {
@@ -468,29 +468,29 @@ export function processFlags(
     return flags;
 }
 
-export function processEndpoints(
+export function processBaseUrls(
     config: SDKInitConfig,
     flags: IFeatureFlags,
     apiKey?: string
 ): Dictionary<string> {
-    // an API key is not present in a webview only mode. In this case, no endpoints are needed
+    // an API key is not present in a webview only mode. In this case, no baseUrls are needed
     if (!apiKey) {
         return {};
     }
 
-    // Set default endpoints
-    let endpoints: Dictionary<string>;
+    // Set default baseUrls
+    let baseUrls: Dictionary<string>;
 
-    // When direct URL routing is false, update endpoints based custom urls
+    // When direct URL routing is false, update baseUrls based custom urls
     // passed to the config
     if (flags.directURLRouting) {
-        return processDirectUrlEndpoints(config, apiKey);
+        return processDirectBaseUrls(config, apiKey);
     } else {
-        return processNonDirectEndpoints(config);
+        return processCustomBaseUrls(config);
     }
 }
 
-function processNonDirectEndpoints(config: SDKInitConfig): Dictionary<string> {
+function processCustomBaseUrls(config: SDKInitConfig): Dictionary<string> {
     let defaultBaseUrls: Dictionary<string> = Constants.DefaultUrls;
     let newBaseUrls: Dictionary<string> = {};
 
@@ -501,13 +501,13 @@ function processNonDirectEndpoints(config: SDKInitConfig): Dictionary<string> {
     return newBaseUrls;
 }
 
-function processDirectUrlEndpoints(
+function processDirectBaseUrls(
     config: SDKInitConfig,
     apiKey: string
 ): Dictionary {
     let defaultBaseUrls = Constants.DefaultUrls;
     let directBaseUrls: Dictionary<string> = {};
-    // When Direct URL Routing is true, we create a new set of endpoints that
+    // When Direct URL Routing is true, we create a new set of baseUrls that
     // include the silo in the urls.  mParticle API keys are prefixed with the
     // silo and a hyphen (ex. "us1-", "us2-", "eu1-").  us1 was the first silo,
     // and before other silos existed, there were no prefixes and all apiKeys
