@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
-import Store, { IStore, SDKConfig, processFlags, processEndpoints, IFeatureFlags } from '../../src/store';
+import Store, { IStore, SDKConfig, processFlags, processBaseUrls, IFeatureFlags } from '../../src/store';
 import { MPConfig, apiKey } from './config';
 import Utils from './utils';
 import { Dictionary } from '../../src/utils';
@@ -230,22 +230,22 @@ describe('Store', () => {
         });
     });
 
-    describe('#processEndpoints', () => {
+    describe('#processBaseUrls', () => {
         describe('directURLRouting === false', () => {
             const featureFlags = { directURLRouting: false };
 
-            it('should return default endpoints if no endpoints are passed', () => {
-                const endpoints: Dictionary = Constants.DefaultUrls;
-                const result = processEndpoints(
+            it('should return default baseUrls if no baseUrls are passed', () => {
+                const baseUrls: Dictionary = Constants.DefaultBaseUrls;
+                const result = processBaseUrls(
                     {} as unknown as SDKInitConfig,
                     featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 
-                expect(result).to.deep.equal(endpoints)
+                expect(result).to.deep.equal(baseUrls)
             });
 
-            it('should return non-default endpoints for custom endpoints that are passed', () => {
+            it('should return non-default baseUrls for custom baseUrls that are passed', () => {
                 const config = {
                     v3SecureServiceUrl: 'testtesttest-custom-v3secureserviceurl/v3/JS/',
                     configUrl: 'foo-custom-configUrl/v2/JS/',
@@ -253,7 +253,7 @@ describe('Store', () => {
                     aliasUrl: 'custom-aliasUrl/',
                 };
 
-                const result = processEndpoints(
+                const result = processBaseUrls(
                     config as unknown as SDKInitConfig,
                     featureFlags as unknown as IFeatureFlags,
                     'apikey'
@@ -273,17 +273,17 @@ describe('Store', () => {
         });
 
         describe('directURLRouting === true', () => {
-            it('should return direct urls when no endpoints are passed ', () => {
+            it('should return direct urls when no baseUrls are passed ', () => {
                 const featureFlags = {directURLRouting: true};
 
-                const result = processEndpoints(
+                const result = processBaseUrls(
                     {} as unknown as SDKInitConfig,
                     featureFlags as unknown as IFeatureFlags,
                     'apikey'
                 );
 
                 const expectedResult = {
-                    configUrl: Constants.DefaultUrls.configUrl,
+                    configUrl: Constants.DefaultBaseUrls.configUrl,
                     aliasUrl: "jssdks.us1.mparticle.com/v1/identity/",
                     identityUrl: "identity.us1.mparticle.com/v1/",
                     v1SecureServiceUrl: "jssdks.us1.mparticle.com/v1/JS/",
@@ -299,7 +299,7 @@ describe('Store', () => {
                 expect(result.v3SecureServiceUrl).to.equal(expectedResult.v3SecureServiceUrl)
             });
 
-            it('should prioritize passed in endpoints over direct urls', () => {
+            it('should prioritize passed in baseUrls over direct urls', () => {
                 const featureFlags = {directURLRouting: true};
 
                 const config = {
@@ -309,7 +309,7 @@ describe('Store', () => {
                     aliasUrl: 'custom-aliasUrl/',
                 };
 
-                const result = processEndpoints(
+                const result = processBaseUrls(
                     config as unknown as SDKInitConfig,
                     featureFlags as unknown as IFeatureFlags,
                     'apikey'

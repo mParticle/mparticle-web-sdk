@@ -128,7 +128,7 @@ const Constants = {
         aliasMaxWindow: 90, // Max age of Alias request startTime, in days
         uploadInterval: '0', // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload.  This is a string because that is how the server returns it
     },
-    DefaultUrls: {
+    DefaultBaseUrls: {
         v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
         v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
         v3SecureServiceUrl: 'jssdks.mparticle.com/v3/JS/',

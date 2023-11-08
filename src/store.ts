@@ -90,8 +90,8 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
         }
     }
 
-    for (const prop in Constants.DefaultUrls) {
-        sdkConfig[prop] = Constants.DefaultUrls[prop];
+    for (const prop in Constants.DefaultBaseUrls) {
+        sdkConfig[prop] = Constants.DefaultBaseUrls[prop];
     }
 
     return sdkConfig;
@@ -262,8 +262,7 @@ export default function Store(
 
         this.SDKConfig.kits = config.kits || {};
 
-        this.SDKConfig.sideloadedKits =
-            config.sideloadedKits || [];
+        this.SDKConfig.sideloadedKits = config.sideloadedKits || [];
 
         if (config.hasOwnProperty('isIOS')) {
             this.SDKConfig.isIOS = config.isIOS;
@@ -275,8 +274,7 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('useCookieStorage')) {
-            this.SDKConfig.useCookieStorage =
-                config.useCookieStorage;
+            this.SDKConfig.useCookieStorage = config.useCookieStorage;
         } else {
             this.SDKConfig.useCookieStorage = false;
         }
@@ -284,8 +282,7 @@ export default function Store(
         if (config.hasOwnProperty('maxProducts')) {
             this.SDKConfig.maxProducts = config.maxProducts;
         } else {
-            this.SDKConfig.maxProducts =
-                Constants.DefaultConfig.maxProducts;
+            this.SDKConfig.maxProducts = Constants.DefaultConfig.maxProducts;
         }
 
         if (config.hasOwnProperty('maxCookieSize')) {
@@ -312,19 +309,13 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('identifyRequest')) {
-            this.SDKConfig.identifyRequest =
-                config.identifyRequest;
+            this.SDKConfig.identifyRequest = config.identifyRequest;
         }
 
         if (config.hasOwnProperty('identityCallback')) {
             var callback = config.identityCallback;
-            if (
-                mpInstance._Helpers.Validators.isFunction(
-                    callback
-                )
-            ) {
-                this.SDKConfig.identityCallback =
-                    config.identityCallback;
+            if (mpInstance._Helpers.Validators.isFunction(callback)) {
+                this.SDKConfig.identityCallback = config.identityCallback;
             } else {
                 mpInstance.Logger.warning(
                     'The optional callback must be a function. You tried entering a(n) ' +
@@ -343,8 +334,7 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('sessionTimeout')) {
-            this.SDKConfig.sessionTimeout =
-                config.sessionTimeout;
+            this.SDKConfig.sessionTimeout = config.sessionTimeout;
         }
 
         if (config.hasOwnProperty('dataPlan')) {
@@ -356,8 +346,7 @@ export default function Store(
             const dataPlan = config.dataPlan as DataPlanConfig;
             if (dataPlan.planId) {
                 if (isDataPlanSlug(dataPlan.planId)) {
-                    this.SDKConfig.dataPlan.PlanId =
-                        dataPlan.planId;
+                    this.SDKConfig.dataPlan.PlanId = dataPlan.planId;
                 } else {
                     mpInstance.Logger.error(
                         'Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)'
@@ -367,8 +356,7 @@ export default function Store(
 
             if (dataPlan.planVersion) {
                 if (isNumber(dataPlan.planVersion)) {
-                    this.SDKConfig.dataPlan.PlanVersion =
-                        dataPlan.planVersion;
+                    this.SDKConfig.dataPlan.PlanVersion = dataPlan.planVersion;
                 } else {
                     mpInstance.Logger.error(
                         'Your data plan version must be a number'
@@ -396,8 +384,7 @@ export default function Store(
         }
 
         if (config.hasOwnProperty('aliasMaxWindow')) {
-            this.SDKConfig.aliasMaxWindow =
-                config.aliasMaxWindow;
+            this.SDKConfig.aliasMaxWindow = config.aliasMaxWindow;
         } else {
             this.SDKConfig.aliasMaxWindow =
                 Constants.DefaultConfig.aliasMaxWindow;
@@ -406,19 +393,11 @@ export default function Store(
         if (config.hasOwnProperty('dataPlanOptions')) {
             const dataPlanOptions = config.dataPlanOptions;
             if (
-                !dataPlanOptions.hasOwnProperty(
-                    'dataPlanVersion'
-                ) ||
-                !dataPlanOptions.hasOwnProperty(
-                    'blockUserAttributes'
-                ) ||
-                !dataPlanOptions.hasOwnProperty(
-                    'blockEventAttributes'
-                ) ||
+                !dataPlanOptions.hasOwnProperty('dataPlanVersion') ||
+                !dataPlanOptions.hasOwnProperty('blockUserAttributes') ||
+                !dataPlanOptions.hasOwnProperty('blockEventAttributes') ||
                 !dataPlanOptions.hasOwnProperty('blockEvents') ||
-                !dataPlanOptions.hasOwnProperty(
-                    'blockUserIdentities'
-                )
+                !dataPlanOptions.hasOwnProperty('blockUserIdentities')
             ) {
                 mpInstance.Logger.error(
                     'Ensure your config.dataPlanOptions object has the following keys: a "dataPlanVersion" object, and "blockUserAttributes", "blockEventAttributes", "blockEvents", "blockUserIdentities" booleans'
@@ -428,8 +407,7 @@ export default function Store(
 
         if (config.hasOwnProperty('onCreateBatch')) {
             if (typeof config.onCreateBatch === 'function') {
-                this.SDKConfig.onCreateBatch =
-                    config.onCreateBatch;
+                this.SDKConfig.onCreateBatch = config.onCreateBatch;
             } else {
                 mpInstance.Logger.error(
                     'config.onCreateBatch must be a function'
@@ -491,11 +469,13 @@ export function processBaseUrls(
 }
 
 function processCustomBaseUrls(config: SDKInitConfig): Dictionary<string> {
-    let defaultBaseUrls: Dictionary<string> = Constants.DefaultUrls;
+    let defaultBaseUrls: Dictionary<string> = Constants.DefaultBaseUrls;
     let newBaseUrls: Dictionary<string> = {};
 
+    // If there is no custo base url, we use the default base url
     for (let baseUrlKey in defaultBaseUrls) {
-        newBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
+        newBaseUrls[baseUrlKey] =
+            config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
     }
 
     return newBaseUrls;
@@ -505,7 +485,7 @@ function processDirectBaseUrls(
     config: SDKInitConfig,
     apiKey: string
 ): Dictionary {
-    let defaultBaseUrls = Constants.DefaultUrls;
+    let defaultBaseUrls = Constants.DefaultBaseUrls;
     let directBaseUrls: Dictionary<string> = {};
     // When Direct URL Routing is true, we create a new set of baseUrls that
     // include the silo in the urls.  mParticle API keys are prefixed with the
