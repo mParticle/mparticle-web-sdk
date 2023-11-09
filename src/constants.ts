@@ -126,7 +126,7 @@ const Constants = {
         integrationDelayTimeout: 5000, // Milliseconds for forcing the integration delay to un-suspend event queueing due to integration partner errors
         maxCookieSize: 3000, // Number of bytes for cookie size to not exceed
         aliasMaxWindow: 90, // Max age of Alias request startTime, in days
-        uploadInterval: '0', // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload.  This is a string because that is how the server returns it
+        uploadInterval: 0, // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload.  This is a string because that is how the server returns it
     },
     DefaultBaseUrls: {
         v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',

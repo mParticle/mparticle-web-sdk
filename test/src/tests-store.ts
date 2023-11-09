@@ -36,7 +36,7 @@ describe('Store', () => {
 
     it('should initialize Store with defaults', () => {
         // Use sample config to make sure our types are safe
-        const store: IStore = new Store(sampleConfig, window.mParticle.getInstance(), apiKey);
+        const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
         expect(store).to.be.ok;
         expect(store.isEnabled, 'isEnabled').to.eq(true);
         expect(store.sessionAttributes, 'sessionAttributes').to.be.ok;
@@ -46,7 +46,7 @@ describe('Store', () => {
         expect(store.isFirstRun, 'isFirstRun').to.eq(null);
         expect(store.clientId, 'clientId').to.eq(null);
         expect(store.deviceId, 'deviceId').to.eq(null);
-        expect(store.devToken, 'devToken').to.eq(apiKey);
+        expect(store.devToken, 'devToken').to.eq(null);
         expect(store.serverSettings, 'serverSettings').to.be.ok;
         expect(store.dateLastEventSent, 'dateLastEventSent').to.eq(null);
         expect(store.sessionStartDate, 'sessionStartDate').to.eq(null);
@@ -85,7 +85,7 @@ describe('Store', () => {
     });
 
     it('should initialize store.SDKConfig with valid defaults', () => {
-        const store: IStore = new Store(sampleConfig, window.mParticle.getInstance(), apiKey);
+        const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
         expect(store.SDKConfig.aliasMaxWindow, 'aliasMaxWindow').to.eq(90);
         expect(store.SDKConfig.aliasUrl, 'aliasUrl').to.eq(
@@ -109,7 +109,7 @@ describe('Store', () => {
         expect(
             store.SDKConfig.flags?.eventBatchingIntervalMillis,
             'flags.eventBatchingIntervalMillis'
-        ).to.eq('0');
+        ).to.eq(0);
         expect(store.SDKConfig.forceHttps, 'forceHttps').to.eq(true);
 
         expect(store.SDKConfig.identityCallback, 'identityCallback').to.be
@@ -167,7 +167,7 @@ describe('Store', () => {
                 planVersion: 3,
             },
         };
-        const store: IStore = new Store(dataPlanConfig, window.mParticle.getInstance(), apiKey);
+        const store: IStore = new Store(dataPlanConfig, window.mParticle.getInstance());
 
         expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({
             PlanId: 'test_data_plan',
@@ -184,11 +184,21 @@ describe('Store', () => {
             ...sampleConfig,
             sideloadedKits,
         };
-        const store: IStore = new Store(config, window.mParticle.getInstance(), apiKey);
+        const store: IStore = new Store(config, window.mParticle.getInstance());
 
         expect(store.SDKConfig.sideloadedKits.length, 'side loaded kits').to.equal(sideloadedKits.length);
         expect(store.SDKConfig.sideloadedKits[0], 'side loaded kits').to.deep.equal(sideloadedKit1);
         expect(store.SDKConfig.sideloadedKits[1], 'side loaded kits').to.deep.equal(sideloadedKit2);
+    });
+
+    it('should assign apiKey to devToken property', () => {
+        const config = { 
+            ...sampleConfig
+        };
+
+        const store: IStore = new Store(config, window.mParticle.getInstance(), apiKey);
+
+        expect(store.devToken, 'devToken').to.equal(apiKey);
     });
 
     describe('#processFlags', () => {
@@ -201,7 +211,7 @@ describe('Store', () => {
             const flags = processFlags({flags: {}} as SDKInitConfig, {} as SDKConfig);
             const expectedResult = {
                 reportBatching: false,
-                eventBatchingIntervalMillis: '0',
+                eventBatchingIntervalMillis: 0,
                 offlineStorage: '0',
                 directURLRouting: false,
             };
@@ -212,7 +222,7 @@ describe('Store', () => {
         it('should return featureFlags if featureFlags are passed in', () => {
             const cutomizedFlags = {
                 reportBatching: true,
-                eventBatchingIntervalMillis: '5000',
+                eventBatchingIntervalMillis: 5000,
                 offlineStorage: '100',
                 directURLRouting: 'True',
             };
@@ -221,7 +231,7 @@ describe('Store', () => {
 
             const expectedResult = {
                 reportBatching: true,
-                eventBatchingIntervalMillis: '5000',
+                eventBatchingIntervalMillis: 5000,
                 offlineStorage: '100',
                 directURLRouting: true,
             }

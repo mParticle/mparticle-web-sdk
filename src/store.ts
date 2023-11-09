@@ -22,7 +22,7 @@ import {
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
-import { isNumber, isDataPlanSlug, Dictionary } from './utils';
+import { isNumber, isDataPlanSlug, Dictionary, parseNumber } from './utils';
 import { SDKConsentState } from './consent';
 
 // This represents the runtime configuration of the SDK AFTER
@@ -111,9 +111,10 @@ interface WrapperSDKInfo {
     isInfoSet: boolean;
 }
 
+// TODO: https://go.mparticle.com/SQDSDKS-5954
 export interface IFeatureFlags {
     reportBatching?: string;
-    eventBatchingIntervalMillis?: string;
+    eventBatchingIntervalMillis?: number;
     offlineStorage?: string;
     directURLRouting?: boolean;
 }
@@ -168,7 +169,7 @@ export default function Store(
     this: IStore,
     config: SDKInitConfig,
     mpInstance: MParticleWebSDK,
-    apiKey: string
+    apiKey?: string
 ) {
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
@@ -218,7 +219,7 @@ export default function Store(
     for (var key in defaultStore) {
         this[key] = defaultStore[key];
     }
-    this.devToken = apiKey;
+    this.devToken = apiKey || null;
 
     this.integrationDelayTimeoutStart = Date.now();
 
@@ -437,8 +438,9 @@ export function processFlags(
 
     // Passed in config flags take priority over defaults
     flags[ReportBatching] = config.flags[ReportBatching] || false;
+    // The server returns stringified numbers, sowe need to parse
     flags[EventBatchingIntervalMillis] =
-        config.flags[EventBatchingIntervalMillis] ||
+        parseNumber(config.flags[EventBatchingIntervalMillis]) ||
         Constants.DefaultConfig.uploadInterval;
     flags[OfflineStorage] = config.flags[OfflineStorage] || '0';
     flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
