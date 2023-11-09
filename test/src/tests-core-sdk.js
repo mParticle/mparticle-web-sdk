@@ -624,7 +624,7 @@ describe('core SDK', function() {
         (mp.isFirstRun === null).should.equal(true);
         (mp.clientId === null).should.equal(true);
         (mp.deviceId === null).should.equal(true);
-        (mp.devToken === null).should.equal(false);
+        (mp.devToken === null).should.equal(true);
         (mp.dateLastEventSent === null).should.equal(true);
         (mp.sessionStartDate === null).should.equal(true);
         (mp.currentPosition === null).should.equal(true);
