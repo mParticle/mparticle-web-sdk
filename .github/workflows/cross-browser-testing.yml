@@ -29,7 +29,7 @@ jobs:
 
         # ensures the tests are es5 compatible
       - name: 'Run NPM build:cbt'
-        run: npm build:cbt
+        run: npm run build:cbt
 
       - name: 'Run Browserstack Tests'
         run: npm run test:browserstack
