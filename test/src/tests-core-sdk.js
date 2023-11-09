@@ -1137,7 +1137,7 @@ describe('core SDK', function() {
     describe('pod feature flag', function() {
         const endpoints = Constants.DefaultBaseUrls;
         // set up URLs object for each silo
-        let URLs = {
+        const URLs = {
             us1: {},
             us2: {},
             eu1: {},
@@ -1167,9 +1167,9 @@ describe('core SDK', function() {
         });
 
         it('should use US1 endpoints for apiKeys that do not start with a prefix', function(done) {
-            let silo = 'us1';
-            let apiKey = 'noSiloPrefixApiKey';
-            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+            const silo = 'us1';
+            const apiKey = 'noSiloPrefixApiKey';
+            const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
 
             fetchMock.post(eventsEndpoint, 200);
 
@@ -1185,9 +1185,9 @@ describe('core SDK', function() {
         });
 
         it('should use US1 endpoints for apiKeys with prefix `us1`', function(done) {
-            let silo = 'us1';
-            let apiKey = 'us1-apiKey';
-            let eventsEndpoint = `https://${URLs.us1.v3SecureServiceUrl}${apiKey}/events`;
+            const silo = 'us1';
+            const apiKey = 'us1-apiKey';
+            const eventsEndpoint = `https://${URLs.us1.v3SecureServiceUrl}${apiKey}/events`;
 
             fetchMock.post(eventsEndpoint, 200);
 
@@ -1203,9 +1203,9 @@ describe('core SDK', function() {
         });
 
         it('should use US2 endpoints for apiKeys with prefix `us2`', function(done) {
-            let silo = 'us2';
-            let apiKey = 'us2-apiKey';
-            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+            const silo = 'us2';
+            const apiKey = 'us2-apiKey';
+            const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
 
             fetchMock.post(eventsEndpoint, 200);
 
@@ -1221,9 +1221,9 @@ describe('core SDK', function() {
         });
 
         it('should use EU1 endpoints for apiKeys with prefix `eu1`', function(done) {
-            let silo = 'eu1';
-            let apiKey = 'eu1-apiKey';
-            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+            const silo = 'eu1';
+            const apiKey = 'eu1-apiKey';
+            const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
 
             fetchMock.post(eventsEndpoint, 200);
 
@@ -1239,9 +1239,9 @@ describe('core SDK', function() {
         });
 
         it('should use AU1 endpoints for apiKeys with prefix `au1`', function(done) {
-            let silo = 'au1';
-            let apiKey = 'au1-apiKey';
-            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+            const silo = 'au1';
+            const apiKey = 'au1-apiKey';
+            const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
 
             fetchMock.post(eventsEndpoint, 200);
 
@@ -1257,9 +1257,9 @@ describe('core SDK', function() {
         });
 
         it('should use AU1 endpoints for apiKeys with prefix `st1`', function(done) {
-            let silo = 'st1';
-            let apiKey = 'st1-apiKey';
-            let eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+            const silo = 'st1';
+            const apiKey = 'st1-apiKey';
+            const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
 
             fetchMock.post(eventsEndpoint, 200);
 
@@ -1282,9 +1282,9 @@ describe('core SDK', function() {
 
             const {configUrl, v3SecureServiceUrl, identityUrl, aliasUrl} = window.mParticle.config
 
-            let silo = 'us1';
-            let apiKey = 'noSiloPrefixApiKey';
-            let eventsEndpoint = `https://${v3SecureServiceUrl}${apiKey}/events`;
+            const silo = 'us1';
+            const apiKey = 'noSiloPrefixApiKey';
+            const eventsEndpoint = `https://${v3SecureServiceUrl}${apiKey}/events`;
 
             fetchMock.post(eventsEndpoint, 200)
 

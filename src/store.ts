@@ -469,8 +469,8 @@ export function processBaseUrls(
 }
 
 function processCustomBaseUrls(config: SDKInitConfig): Dictionary<string> {
-    let defaultBaseUrls: Dictionary<string> = Constants.DefaultBaseUrls;
-    let newBaseUrls: Dictionary<string> = {};
+    const defaultBaseUrls: Dictionary<string> = Constants.DefaultBaseUrls;
+    const newBaseUrls: Dictionary<string> = {};
 
     // If there is no custo base url, we use the default base url
     for (let baseUrlKey in defaultBaseUrls) {
@@ -485,8 +485,8 @@ function processDirectBaseUrls(
     config: SDKInitConfig,
     apiKey: string
 ): Dictionary {
-    let defaultBaseUrls = Constants.DefaultBaseUrls;
-    let directBaseUrls: Dictionary<string> = {};
+    const defaultBaseUrls = Constants.DefaultBaseUrls;
+    const directBaseUrls: Dictionary<string> = {};
     // When Direct URL Routing is true, we create a new set of baseUrls that
     // include the silo in the urls.  mParticle API keys are prefixed with the
     // silo and a hyphen (ex. "us1-", "us2-", "eu1-").  us1 was the first silo,
