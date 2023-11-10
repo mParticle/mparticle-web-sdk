@@ -111,7 +111,7 @@ interface WrapperSDKInfo {
     isInfoSet: boolean;
 }
 
-// TODO: https://go.mparticle.com/SQDSDKS-5954
+// TODO: https://go.mparticle.com/work/SQDSDKS-5954
 export interface IFeatureFlags {
     reportBatching?: string;
     eventBatchingIntervalMillis?: number;
