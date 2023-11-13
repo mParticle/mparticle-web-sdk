@@ -1142,7 +1142,8 @@ describe('core SDK', function() {
             us2: {},
             eu1: {},
             au1: {},
-            st1: {},                
+            st1: {},
+            xy1: {} // this is a fake silo used to show that there is no logic that is based on a pre-determined set of silos
         };
 
         // The below function builds out the above URLs object to have silo-specific urls, ie:
@@ -1256,9 +1257,27 @@ describe('core SDK', function() {
             done();
         });
 
-        it('should use AU1 endpoints for apiKeys with prefix `st1`', function(done) {
+        it('should use ST1 endpoints for apiKeys with prefix `st1`', function(done) {
             const silo = 'st1';
             const apiKey = 'st1-apiKey';
+            const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
+
+            fetchMock.post(eventsEndpoint, 200);
+
+            mParticle.init(apiKey, window.mParticle.config);
+            mParticle.getInstance()._Store.SDKConfig.aliasUrl.should.equal(URLs[silo].aliasUrl);
+            mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(Constants.DefaultBaseUrls.configUrl);
+            mParticle.getInstance()._Store.SDKConfig.identityUrl.should.equal(URLs[silo].identityUrl);
+            mParticle.getInstance()._Store.SDKConfig.v1SecureServiceUrl.should.equal(URLs[silo].v1SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v2SecureServiceUrl.should.equal(URLs[silo].v2SecureServiceUrl);
+            mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(URLs[silo].v3SecureServiceUrl);
+
+            done();
+        });
+
+        it('should use xy1 endpoints for apiKeys with prefix `xy1`', function(done) {
+            const silo = 'xy1';
+            const apiKey = 'xy1-apiKey';
             const eventsEndpoint = `https://${URLs[silo].v3SecureServiceUrl}${apiKey}/events`;
 
             fetchMock.post(eventsEndpoint, 200);

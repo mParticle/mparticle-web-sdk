@@ -111,7 +111,7 @@ interface WrapperSDKInfo {
     isInfoSet: boolean;
 }
 
-// TODO: https://go.mparticle.com/work/SQDSDKS-5954
+// https://go.mparticle.com/work/SQDSDKS-5954
 export interface IFeatureFlags {
     reportBatching?: string;
     eventBatchingIntervalMillis?: number;
@@ -503,8 +503,8 @@ function processDirectBaseUrls(
         splitKey.length <= 1 ? DEFAULT_SILO : splitKey[0];
 
     for (let baseUrlKey in defaultBaseUrls) {
-        // Any custom endpoints passed to config will take priority over direct
-        // mapping to the silo
+        // Any custom endpoints passed to mpConfig will take priority over direct
+        // mapping to the silo.  The most common use case is a customer provided CNAME.
         if (baseUrlKey === 'configUrl') {
             directBaseUrls[baseUrlKey] =
                 config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
