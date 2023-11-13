@@ -2,15 +2,16 @@ name: Pre-release SDK
 
 
 on:
-    workflow_dispatch:
-        inputs:
-            dryRun:
-                description: 'Do a dry run to preview instead of a real release [true/false]'
-                required: true
-                default: 'true'
-            release-order:
-                description: 'Which Phase are you releaseing? [release-order-a/release-order-b/release-order-c]'
-                required: true
+  pull_request
+    # workflow_dispatch:
+    #     inputs:
+    #         dryRun:
+    #             description: 'Do a dry run to preview instead of a real release [true/false]'
+    #             required: true
+    #             default: 'true'
+    #         release-order:
+    #             description: 'Which Phase are you releaseing? [release-order-a/release-order-b/release-order-c]'
+    #             required: true
 
 jobs:
     # SDK release is done from master branch.
