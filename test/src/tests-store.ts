@@ -1,9 +1,11 @@
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
-import Store, { IStore } from '../../src/store';
+import Store, { IStore, SDKConfig, processFlags, processBaseUrls, IFeatureFlags } from '../../src/store';
 import { MPConfig, apiKey } from './config/constants';
 import Utils from './config/utils';
+import { Dictionary } from '../../src/utils';
+import Constants from '../../src/constants';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
 describe('Store', () => {
@@ -15,6 +17,7 @@ describe('Store', () => {
         appName: 'Store Test',
         appVersion: '1.x',
         package: 'com.mparticle.test',
+        flags: {}
     } as SDKInitConfig;
 
     beforeEach(function() {
@@ -32,8 +35,7 @@ describe('Store', () => {
 
     it('should initialize Store with defaults', () => {
         // Use sample config to make sure our types are safe
-        const store: IStore = new Store(sampleConfig, window.mParticle);
-
+        const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
         expect(store).to.be.ok;
         expect(store.isEnabled, 'isEnabled').to.eq(true);
         expect(store.sessionAttributes, 'sessionAttributes').to.be.ok;
@@ -82,7 +84,7 @@ describe('Store', () => {
     });
 
     it('should initialize store.SDKConfig with valid defaults', () => {
-        const store: IStore = new Store(sampleConfig, window.mParticle);
+        const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
 
         expect(store.SDKConfig.aliasMaxWindow, 'aliasMaxWindow').to.eq(90);
         expect(store.SDKConfig.aliasUrl, 'aliasUrl').to.eq(
@@ -104,13 +106,9 @@ describe('Store', () => {
             .undefined;
 
         expect(
-            store.SDKConfig.flags.eventBatchingIntervalMillis,
+            store.SDKConfig.flags?.eventBatchingIntervalMillis,
             'flags.eventBatchingIntervalMillis'
         ).to.eq(0);
-        expect(
-            store.SDKConfig.flags.reportBatching,
-            'flags.reportBatching'
-        ).to.eq(false);
         expect(store.SDKConfig.forceHttps, 'forceHttps').to.eq(true);
 
         expect(store.SDKConfig.identityCallback, 'identityCallback').to.be
@@ -168,7 +166,7 @@ describe('Store', () => {
                 planVersion: 3,
             },
         };
-        const store: IStore = new Store(dataPlanConfig, window.mParticle);
+        const store: IStore = new Store(dataPlanConfig, window.mParticle.getInstance());
 
         expect(store.SDKConfig.dataPlan, 'dataPlan').to.deep.equal({
             PlanId: 'test_data_plan',
@@ -185,10 +183,158 @@ describe('Store', () => {
             ...sampleConfig,
             sideloadedKits,
         };
-        const store: IStore = new Store(config, window.mParticle);
+        const store: IStore = new Store(config, window.mParticle.getInstance());
 
         expect(store.SDKConfig.sideloadedKits.length, 'side loaded kits').to.equal(sideloadedKits.length);
         expect(store.SDKConfig.sideloadedKits[0], 'side loaded kits').to.deep.equal(sideloadedKit1);
         expect(store.SDKConfig.sideloadedKits[1], 'side loaded kits').to.deep.equal(sideloadedKit2);
+    });
+
+    it('should assign apiKey to devToken property', () => {
+        const config = { 
+            ...sampleConfig
+        };
+
+        const store: IStore = new Store(config, window.mParticle.getInstance(), apiKey);
+
+        expect(store.devToken, 'devToken').to.equal(apiKey);
+    });
+
+    describe('#processFlags', () => {
+        it('should return an empty object if no featureFlags are passed', () => {
+            const flags = processFlags({} as SDKInitConfig, {} as SDKConfig);
+            expect(Object.keys(flags).length).to.equal(0);
+        });
+
+        it('should return default featureFlags if no featureFlags are passed', () => {
+            const flags = processFlags({flags: {}} as SDKInitConfig, {} as SDKConfig);
+            const expectedResult = {
+                reportBatching: false,
+                eventBatchingIntervalMillis: 0,
+                offlineStorage: '0',
+                directURLRouting: false,
+            };
+
+            expect(flags).to.deep.equal(expectedResult);
+        });
+
+        it('should return featureFlags if featureFlags are passed in', () => {
+            const cutomizedFlags = {
+                reportBatching: true,
+                eventBatchingIntervalMillis: 5000,
+                offlineStorage: '100',
+                directURLRouting: 'True',
+            };
+
+            const flags = processFlags({flags: cutomizedFlags} as unknown as SDKInitConfig, {} as SDKConfig);
+
+            const expectedResult = {
+                reportBatching: true,
+                eventBatchingIntervalMillis: 5000,
+                offlineStorage: '100',
+                directURLRouting: true,
+            }
+
+            expect(flags).to.deep.equal(expectedResult);
+        });
+    });
+
+    describe('#processBaseUrls', () => {
+        describe('directURLRouting === false', () => {
+            const featureFlags = { directURLRouting: false };
+
+            it('should return default baseUrls if no baseUrls are passed', () => {
+                const baseUrls: Dictionary = Constants.DefaultBaseUrls;
+                const result = processBaseUrls(
+                    {} as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
+                    'apikey'
+                );
+
+                expect(result).to.deep.equal(baseUrls)
+            });
+
+            it('should return non-default baseUrls for custom baseUrls that are passed', () => {
+                const config = {
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
+                    identityUrl: 'foo-identity.customer.mp.com/',
+                    aliasUrl: 'foo-alias.customer.mp.com/',
+                };
+
+                const result = processBaseUrls(
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
+                    identityUrl: 'foo-identity.customer.mp.com/',
+                    aliasUrl: 'foo-alias.customer.mp.com/',
+                    v1SecureServiceUrl: "jssdks.mparticle.com/v1/JS/",
+                    v2SecureServiceUrl: "jssdks.mparticle.com/v2/JS/",
+                }
+
+                expect(result).to.deep.equal(expectedResult)
+            });
+        });
+
+        describe('directURLRouting === true', () => {
+            it('should return direct urls when no baseUrls are passed ', () => {
+                const featureFlags = {directURLRouting: true};
+
+                const result = processBaseUrls(
+                    {} as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    configUrl: Constants.DefaultBaseUrls.configUrl,
+                    aliasUrl: "jssdks.us1.mparticle.com/v1/identity/",
+                    identityUrl: "identity.us1.mparticle.com/v1/",
+                    v1SecureServiceUrl: "jssdks.us1.mparticle.com/v1/JS/",
+                    v2SecureServiceUrl: "jssdks.us1.mparticle.com/v2/JS/",
+                    v3SecureServiceUrl: "jssdks.us1.mparticle.com/v3/JS/",
+                };
+
+                expect(result.aliasUrl).to.equal(expectedResult.aliasUrl)
+                expect(result.configUrl).to.equal(expectedResult.configUrl)
+                expect(result.identityUrl).to.equal(expectedResult.identityUrl)
+                expect(result.v1SecureServiceUrl).to.equal(expectedResult.v1SecureServiceUrl)
+                expect(result.v2SecureServiceUrl).to.equal(expectedResult.v2SecureServiceUrl)
+                expect(result.v3SecureServiceUrl).to.equal(expectedResult.v3SecureServiceUrl)
+            });
+
+            it('should prioritize passed in baseUrls over direct urls', () => {
+                const featureFlags = {directURLRouting: true};
+
+                const config = {
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
+                    identityUrl: 'foo-identity.customer.mp.com/',
+                    aliasUrl: 'foo-alias.customer.mp.com/',
+                };
+
+                const result = processBaseUrls(
+                    config as unknown as SDKInitConfig,
+                    featureFlags as unknown as IFeatureFlags,
+                    'apikey'
+                );
+
+                const expectedResult = {
+                    v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
+                    configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
+                    identityUrl: 'foo-identity.customer.mp.com/',
+                    aliasUrl: 'foo-alias.customer.mp.com/',
+                    v1SecureServiceUrl: "jssdks.us1.mparticle.com/v1/JS/",
+                    v2SecureServiceUrl: "jssdks.us1.mparticle.com/v2/JS/",
+                };
+
+                expect(result).to.deep.equal(expectedResult)
+            });
+        });
     });
 });

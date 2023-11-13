@@ -1526,9 +1526,8 @@ function createKitBlocker(config, mpInstance) {
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger = new Logger(config);
-    mpInstance._Store = new Store(config, mpInstance);
+    mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
-    mpInstance._Store.devToken = apiKey || null;
     mpInstance.Logger.verbose(
         Messages.InformationMessages.StartingInitialization
     );

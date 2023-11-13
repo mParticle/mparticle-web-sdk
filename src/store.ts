@@ -20,7 +20,7 @@ import {
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
-import { isNumber, isDataPlanSlug, Dictionary } from './utils';
+import { isNumber, isDataPlanSlug, Dictionary, parseNumber } from './utils';
 import { SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
 
@@ -43,7 +43,7 @@ export interface SDKConfig {
     appName?: string;
     appVersion?: string;
     package?: string;
-    flags?: { [key: string]: string | number | boolean };
+    flags?: IFeatureFlags;
     kitConfigs: IKitConfigs[];
     kits: Dictionary<Kit>;
     logLevel?: LogLevelType;
@@ -89,8 +89,8 @@ function createSDKConfig(config: SDKInitConfig): SDKConfig {
         }
     }
 
-    for (const prop in Constants.DefaultUrls) {
-        sdkConfig[prop] = Constants.DefaultUrls[prop];
+    for (const prop in Constants.DefaultBaseUrls) {
+        sdkConfig[prop] = Constants.DefaultBaseUrls[prop];
     }
 
     return sdkConfig;
@@ -108,6 +108,14 @@ interface WrapperSDKInfo {
     name: WrapperSDKTypes;
     version: string | null;
     isInfoSet: boolean;
+}
+
+// https://go.mparticle.com/work/SQDSDKS-5954
+export interface IFeatureFlags {
+    reportBatching?: string;
+    eventBatchingIntervalMillis?: number;
+    offlineStorage?: string;
+    directURLRouting?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -159,7 +167,8 @@ export interface IStore {
 export default function Store(
     this: IStore,
     config: SDKInitConfig,
-    mpInstance: MParticleWebSDK
+    mpInstance: MParticleWebSDK,
+    apiKey?: string
 ) {
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
@@ -209,12 +218,21 @@ export default function Store(
     for (var key in defaultStore) {
         this[key] = defaultStore[key];
     }
+    this.devToken = apiKey || null;
 
     this.integrationDelayTimeoutStart = Date.now();
 
-    this.SDKConfig = createSDKConfig(config);
     // Set configuration to default settings
+    this.SDKConfig = createSDKConfig(config);
+
     if (config) {
+        if (!config.hasOwnProperty('flags')) {
+            this.SDKConfig.flags = {};
+        }
+
+        this.SDKConfig.flags = processFlags(config, this
+            .SDKConfig as SDKConfig);
+
         if (config.deviceId) {
             this.deviceId = config.deviceId;
         }
@@ -226,28 +244,14 @@ export default function Store(
             this.SDKConfig.isDevelopmentMode = false;
         }
 
-        if (config.hasOwnProperty('v1SecureServiceUrl')) {
-            this.SDKConfig.v1SecureServiceUrl = config.v1SecureServiceUrl;
-        }
+        const baseUrls: Dictionary<string> = processBaseUrls(
+            config,
+            this.SDKConfig.flags,
+            apiKey
+        );
 
-        if (config.hasOwnProperty('v2SecureServiceUrl')) {
-            this.SDKConfig.v2SecureServiceUrl = config.v2SecureServiceUrl;
-        }
-
-        if (config.hasOwnProperty('v3SecureServiceUrl')) {
-            this.SDKConfig.v3SecureServiceUrl = config.v3SecureServiceUrl;
-        }
-
-        if (config.hasOwnProperty('identityUrl')) {
-            this.SDKConfig.identityUrl = config.identityUrl;
-        }
-
-        if (config.hasOwnProperty('aliasUrl')) {
-            this.SDKConfig.aliasUrl = config.aliasUrl;
-        }
-
-        if (config.hasOwnProperty('configUrl')) {
-            this.SDKConfig.configUrl = config.configUrl;
+        for (const baseUrlKeys in baseUrls) {
+            this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
 
         if (config.hasOwnProperty('logLevel')) {
@@ -412,32 +416,112 @@ export default function Store(
                 this.SDKConfig.onCreateBatch = undefined;
             }
         }
+    }
+}
 
-        if (!config.hasOwnProperty('flags')) {
-            this.SDKConfig.flags = {};
+export function processFlags(
+    config: SDKInitConfig,
+    SDKConfig: SDKConfig
+): IFeatureFlags {
+    const flags: IFeatureFlags = {};
+    const {
+        ReportBatching,
+        EventBatchingIntervalMillis,
+        OfflineStorage,
+        DirectUrlRouting,
+    } = Constants.FeatureFlags;
+
+    if (!config.flags) {
+        return {};
+    }
+
+    // Passed in config flags take priority over defaults
+    flags[ReportBatching] = config.flags[ReportBatching] || false;
+    // The server returns stringified numbers, sowe need to parse
+    flags[EventBatchingIntervalMillis] =
+        parseNumber(config.flags[EventBatchingIntervalMillis]) ||
+        Constants.DefaultConfig.uploadInterval;
+    flags[OfflineStorage] = config.flags[OfflineStorage] || '0';
+    flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
+
+    return flags;
+}
+
+export function processBaseUrls(
+    config: SDKInitConfig,
+    flags: IFeatureFlags,
+    apiKey?: string
+): Dictionary<string> {
+    // an API key is not present in a webview only mode. In this case, no baseUrls are needed
+    if (!apiKey) {
+        return {};
+    }
+
+    // Set default baseUrls
+    let baseUrls: Dictionary<string>;
+
+    // When direct URL routing is false, update baseUrls based custom urls
+    // passed to the config
+    if (flags.directURLRouting) {
+        return processDirectBaseUrls(config, apiKey);
+    } else {
+        return processCustomBaseUrls(config);
+    }
+}
+
+function processCustomBaseUrls(config: SDKInitConfig): Dictionary<string> {
+    const defaultBaseUrls: Dictionary<string> = Constants.DefaultBaseUrls;
+    const newBaseUrls: Dictionary<string> = {};
+
+    // If there is no custo base url, we use the default base url
+    for (let baseUrlKey in defaultBaseUrls) {
+        newBaseUrls[baseUrlKey] =
+            config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
+    }
+
+    return newBaseUrls;
+}
+
+function processDirectBaseUrls(
+    config: SDKInitConfig,
+    apiKey: string
+): Dictionary {
+    const defaultBaseUrls = Constants.DefaultBaseUrls;
+    const directBaseUrls: Dictionary<string> = {};
+    // When Direct URL Routing is true, we create a new set of baseUrls that
+    // include the silo in the urls.  mParticle API keys are prefixed with the
+    // silo and a hyphen (ex. "us1-", "us2-", "eu1-").  us1 was the first silo,
+    // and before other silos existed, there were no prefixes and all apiKeys
+    // were us1. As such, if we split on a '-' and the resulting array length
+    // is 1, then it is an older APIkey that should route to us1.
+    // When splitKey.length is greater than 1, then splitKey[0] will be
+    // us1, us2, eu1, au1, or st1, etc as new silos are added
+    const DEFAULT_SILO = 'us1';
+    const splitKey: Array<string> = apiKey.split('-');
+    const routingPrefix: string =
+        splitKey.length <= 1 ? DEFAULT_SILO : splitKey[0];
+
+    for (let baseUrlKey in defaultBaseUrls) {
+        // Any custom endpoints passed to mpConfig will take priority over direct
+        // mapping to the silo.  The most common use case is a customer provided CNAME.
+        if (baseUrlKey === 'configUrl') {
+            directBaseUrls[baseUrlKey] =
+                config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
+            continue;
         }
-        if (
-            !this.SDKConfig.flags.hasOwnProperty(
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            )
-        ) {
-            this.SDKConfig.flags[
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            ] = Constants.DefaultConfig.uploadInterval;
-        }
-        if (
-            !this.SDKConfig.flags.hasOwnProperty(
-                Constants.FeatureFlags.ReportBatching
-            )
-        ) {
-            this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching] = false;
-        }
-        if (
-            !this.SDKConfig.flags.hasOwnProperty(
-                Constants.FeatureFlags.OfflineStorage
-            )
-        ) {
-            this.SDKConfig.flags[Constants.FeatureFlags.OfflineStorage] = 0;
+
+        if (config.hasOwnProperty(baseUrlKey)) {
+            directBaseUrls[baseUrlKey] = config[baseUrlKey];
+        } else {
+            const urlparts = defaultBaseUrls[baseUrlKey].split('.');
+
+            directBaseUrls[baseUrlKey] = [
+                urlparts[0],
+                routingPrefix,
+                ...urlparts.slice(1),
+            ].join('.');
         }
     }
+
+    return directBaseUrls;
 }
