@@ -100,24 +100,20 @@ describe('core SDK', function() {
     });
 
     it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', function(done) {
+        const clock = sinon.useFakeTimers();
         mParticle.logEvent('Test Event1');
         const testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
+        clock.tick(100);
 
-        setTimeout(function() {
-            mParticle.logEvent('Test Event2');
-            const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
+        mParticle.logEvent('Test Event2');
+        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
-            mParticle.endSession();
-            const sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
+        mParticle.endSession();
+        const sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
+        Should(testEvent1.data.timestamp_unixtime_ms).not.equal(testEvent2.data.timestamp_unixtime_ms);
+        Should(testEvent2.data.timestamp_unixtime_ms).equal(sessionEndEvent.data.timestamp_unixtime_ms);
 
-            const result1 = testEvent1.data.timestamp_unixtime_ms === testEvent2.data.timestamp_unixtime_ms;
-            const result2 = testEvent2.data.timestamp_unixtime_ms === sessionEndEvent.data.timestamp_unixtime_ms;
-
-            Should(result1).not.be.ok();
-            Should(result2).be.ok();
-
-            done();
-        }, 5);
+        done();
     });
 
     it('should process ready queue when initialized', function(done) {
