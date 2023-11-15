@@ -64,14 +64,6 @@ const customLaunchers = {
       os: 'OS X',
       os_version: 'Mojave'
     },
-    // Oldest Chrome version to pass all tests
-    // bs_chrome_mac_49: {
-    //   base: 'BrowserStack',
-    //   browser: 'chrome',
-    //   browser_version: '49.0',
-    //   os: 'OS X',
-    //   os_version: 'Mojave'
-    // },
 }
 
 module.exports = function(config) {
