@@ -100,7 +100,7 @@ describe('core SDK', function() {
     });
 
     it('creates a new dateLastEventSent when logging an event, and retains the previous one when ending session', function(done) {
-        let clock = sinon.useFakeTimers();
+        const clock = sinon.useFakeTimers();
         mParticle.logEvent('Test Event1');
         const testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
         clock.tick(100);
