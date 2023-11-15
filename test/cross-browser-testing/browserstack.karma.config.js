@@ -28,7 +28,7 @@ const customLaunchers = {
     // https://www.w3schools.com/js/js_versions.asp shows a list of browsers that support ES6.  
     // The below list is primarily the version just before that, or if that version was not available on Browserstack to test, the next version was
     // All versions below, including earlier versions of each browser, have a combined ~0.37% market share according to
-    // www.browserlist.dev.  Query for "opera < 38, safari < 12, chrome < 51, firefox <52, edge < 15"
+    // www.browserslist.dev.  Query for "opera < 38, safari < 12, chrome < 51, firefox <52, edge < 15"
     bs_chrome_mac_50: {
       base: 'BrowserStack',
       browser: 'chrome',
