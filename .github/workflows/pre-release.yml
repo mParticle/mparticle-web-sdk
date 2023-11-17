@@ -22,6 +22,9 @@ jobs:
         # TODO: Steps
         # 1. Check if input string for release order branch
         # 2. Check if input string for release/tag branch exists
+        - name: Git checkout
+          uses: actions/checkout@v3
+
         - name: Check if requested branch exists
           run: |
             export BRANCHES=$(git branch -r)
