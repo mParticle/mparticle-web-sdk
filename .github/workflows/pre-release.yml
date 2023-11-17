@@ -22,10 +22,10 @@ jobs:
         # TODO: Steps
         # 1. Check if input string for release order branch
         # 2. Check if input string for release/tag branch exists
-        - name: Git checkout (Release Order D - should fail)
+        - name: Git checkout (Release Order A - should pass)
           uses: actions/checkout@v3
           with:
-            ref: release-order-d
+            ref: release-order-a
 
         - name: Echo Branches
           run: 
