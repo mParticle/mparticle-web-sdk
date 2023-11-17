@@ -43,10 +43,6 @@ jobs:
             ref: release/2.23.7
         
 
-        - name: Check if requested branch exists
-          run: |
-            export BRANCHES=$(git branch -r)
-            echo $BRANCHES | grep relese-order-a
     # SDK release is done from master branch.
     # confirm-public-repo-master-branch:
     #     name: 'Confirm release is run from public/master branch'
