@@ -19,18 +19,33 @@ jobs:
       name: Verify Release Order Branch
       runs-on: ubuntu-latest
       steps:
-        # TODO: Steps
+  # TODO: Steps
         # 1. Check if input string for release order branch
         # 2. Check if input string for release/tag branch exists
-        - name: Git checkout (Release Order A - should pass)
+
+    # TODO: Maybe Refactor into reusable job
+    verify-release-order-branch:
+      name: Verify Requested Release Order Branch
+      runs-on: ubuntu-latest
+      steps:
+        # TODO: Replace with input string
+        - name: Git checkout Release Order Branch (<branch name>)
           uses: actions/checkout@v3
           with:
+            # TODO: Replace with input
             ref: release-order-a
 
-        - name: Echo Branches
-          run: 
-            export BRANCHES=$(git branch -r)
-            echo $BRANCHES
+    verify-sdk-version-branch:
+      name: Verify Requested SDK Version
+      runs-on: ubuntu-latest
+      steps:
+        # TODO: Replace with input string
+        - name: Git checkout Versioned Release Branch
+          uses: actions/checkout@v3
+          with:
+            # TODO: Replace with input
+            ref: release/2.23.7
+        
 
         - name: Check if requested branch exists
           run: |
