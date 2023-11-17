@@ -21,22 +21,22 @@ jobs:
 
     # TODO: Maybe Refactor into reusable job
     verify-release-order-branch:
-      name: Verify Requested Release Order Branch
+      name: Verify Release Order Branch
       runs-on: ubuntu-latest
       steps:
         # TODO: Replace with input string
-        - name: Git checkout Release Order Branch (<branch name>)
+        - name: Checkout Release Order (<branch name>)
           uses: actions/checkout@v3
           with:
             # TODO: Replace with input
             ref: release-order-a
 
     verify-sdk-version-branch:
-      name: Verify Requested SDK Version
+      name: Verify SDK Version
       runs-on: ubuntu-latest
       steps:
         # TODO: Replace with input string
-        - name: Git checkout Versioned Release Branch
+        - name: Checkout SKD Version (<version number>)
           uses: actions/checkout@v3
           with:
             # TODO: Replace with input
