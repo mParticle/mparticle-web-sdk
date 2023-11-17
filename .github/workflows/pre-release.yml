@@ -15,10 +15,6 @@ on:
 
 jobs:
 
-    verify-release-branch:
-      name: Verify Release Order Branch
-      runs-on: ubuntu-latest
-      steps:
   # TODO: Steps
         # 1. Check if input string for release order branch
         # 2. Check if input string for release/tag branch exists
