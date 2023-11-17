@@ -58,7 +58,7 @@ jobs:
 
       steps:
         # TODO: Replace with input string
-        - name: Checkout SKD Version (<version number>)
+        - name: Checkout SDK Version (<version number>)
           uses: actions/checkout@v3
           with:
             # TODO: Replace with input
