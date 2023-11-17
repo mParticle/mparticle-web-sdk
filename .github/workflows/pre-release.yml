@@ -1,4 +1,4 @@
-name: Release SDK
+name: Prepare CDN Pre-Release and NPM Publish
 
 on:
     workflow_dispatch:
@@ -211,7 +211,7 @@ jobs:
             branch_name: ${{ vars.GITHUB_SHA }}
             build_command: npm run build:esm && npm run build:test-bundle
 
-    create-release-branch:
+    create-pre-release-branch:
         name: Create release branch
         runs-on: ubuntu-latest
         needs:
@@ -233,14 +233,14 @@ jobs:
 
             - name: Create and push release branch
               run: |
-                  git checkout -b release/${{ github.run_number }}
-                  git push origin release/${{ github.run_number }}
+                  git checkout -b pre-release/${{ github.run_number }}
+                  git push origin pre-release/${{ github.run_number }}
 
-    release:
-        name: Perform Release
+    pre-release:
+        name: Perform Pre-Release
         runs-on: ubuntu-latest
         needs:
-            - create-release-branch
+            - create-pre-release-branch
         env:
             GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
             GIT_AUTHOR_NAME: mparticle-automation
@@ -264,7 +264,7 @@ jobs:
                   git_user_signingkey: true
                   git_commit_gpgsign: true
 
-            - name: Merge release branch into master branch
+            - name: Merge pre-release branch into master branch
               run: |
                   git pull origin release/${{ github.run_number }}
 
@@ -281,10 +281,15 @@ jobs:
               run: |
                   npx semantic-release --dry-run
 
+            # NPM Publish happens here
             - name: Release
               if: ${{ github.event.inputs.dryRun == 'false'}}
               run: |
                   npx semantic-release
+
+            - name: Get Package Version Number
+              uses: dutscher/read-package-json-endpoint-actions@v1.33.7
+              id: package-json-version
 
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v3
@@ -296,34 +301,9 @@ jobs:
             - name: Push automated release commits to release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
-                  git push origin HEAD:release/${{ github.run_number }}    
-
-    sync-repository:
-        name: Sync repositories
-        needs: release
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout master branch
-              uses: actions/checkout@v3
-              with:
-                  fetch-depth: 0
-                  repository: ${{ github.repository }}
-                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
-                  ref: master
-
-            - name: Merge release branch into master branch
+                  git push origin HEAD:release/${{ steps.package-json-version.outputs.version }}    
+            
+            - name: Delete pre-release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
-                  git pull origin release/${{ github.run_number }}
-
-            - name: Push release commits to main, master and development branches
-              if: ${{ github.event.inputs.dryRun == 'false' }}
-              run: |
-                  git push origin HEAD:development
-                  git push origin HEAD:master
-                  git push origin HEAD:main
-
-            - name: Delete release branch
-              if: ${{ github.event.inputs.dryRun == 'false' }}
-              run: |
-                  git push --delete origin release/${{ github.run_number }}
+                  git push --delete origin pre-release/${{ github.run_number }}
