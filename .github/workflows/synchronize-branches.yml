@@ -69,9 +69,9 @@ jobs:
           run: |
             git push origin HEAD:chore/dependabot
 
-        - name: Force Push release commits to Release Order Branches
+        - name: Push release commits to Release Order Branches
           if: ${{ github.event.inputs.dryRun }}
           run: |
-            git push origin HEAD:release-order-a -f
-            git push origin HEAD:release-order-b -f
-            git push origin HEAD:release-order-b -f
+            git push origin HEAD:release-order-a
+            git push origin HEAD:release-order-b
+            git push origin HEAD:release-order-c
