@@ -1,0 +1,84 @@
+name: Release - Step 2: Publish SDK Release to Release Order Branch
+
+on:
+    workflow_dispatch:
+        inputs:
+            dryRun:
+                description: 'Do a dry run to preview instead of a real release [true/false]'
+                required: true
+                type: boolean
+                default: true
+            versionNumber:
+                description: 'Which SDK version to publish? [X.XX.XX]'
+                required: true
+                type: string
+            releaseOrderBranch:
+                description: 'Which Release Order Branch are you targeting? [release-order-a/release-order-b/release-order-c]'
+                required: true
+                type: choice
+                options:
+                    - release-order-a
+                    - release-order-b
+                    - release-order-c
+
+jobs:
+    verify-version-number:
+        name: Verify SDK Version (${{ github.event.inputs.versionNumber}})
+        runs-on: ubuntu-latest
+        steps:
+            # As a safe guard, if a valid version number does not exist,
+            # this step will fail and throw an error
+            - name: Checkout SDK Version (${{ github.event.inputs.versionNumber}})
+              uses: actions/checkout@v3
+              with:
+                  ref: release/${{ github.event.inputs.versionNumber}}
+
+    verify-release-order-branch:
+        name: Verify Release Order Branch
+        runs-on: ubuntu-latest
+        steps:
+            # As a safe guard, if a valid release branch does not exist,
+            # this step will fail and throw an error
+            - name: Checkout Release Order (${{ github.event.inputs.releaseOrderBranch }})
+              uses: actions/checkout@v3
+              with:
+                  ref: ${{ github.event.inputs.releaseOrderBranch }}
+
+    push-release-branch:
+        name: Deploy v${{ github.event.inputs.versionNumber}} to ${{ github.event.inputs.releaseOrderBranch}}
+        needs:
+            - verify-version-number
+            - verify-release-order-branch
+        runs-on: ubuntu-latest
+        env:
+            GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+            GIT_AUTHOR_NAME: mparticle-automation
+            GIT_AUTHOR_EMAIL: developers@mparticle.com
+            GIT_COMMITTER_NAME: mparticle-automation
+            GIT_COMMITTER_EMAIL: developers@mparticle.com
+
+        steps:
+            - name: Checkout master branch
+              uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
+                  repository: ${{ github.repository }}
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  ref: master
+
+            - name: Import GPG Key
+              uses: crazy-max/ghaction-import-gpg@v4
+              with:
+                  gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+                  passphrase: ${{ secrets.GPG_PASSPHRASE }}
+                  git_user_signingkey: true
+                  git_commit_gpgsign: true
+
+            - name: Merge release/${{ github.event.inputs.versionNumber}} into master branch
+              if: ${{ github.event.inputs.dryRun == false }}
+              run: |
+                  git pull origin release/${{ github.event.inputs.versionNumber}}
+            - name: Push v${{ github.event.inputs.versionNumber}} to ${{ github.event.inputs.releaseOrderBranch }}
+              if: ${{ github.event.inputs.dryRun == false }}
+              run: |
+                  git push origin HEAD:${{ github.event.inputs.releaseOrderBranch }}
