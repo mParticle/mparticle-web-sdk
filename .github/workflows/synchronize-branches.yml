@@ -14,7 +14,9 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         # As a safe guard, if a valid release branch does not exist,
-        # this step will fail and throw an error
+        # this step will fail and throw an error.
+        # Pushing previous versions of the SDK will require manual intervention.
+        # This action is not used for rollbacks.
         - name: Checkout SDK Version (${{ github.event.inputs.versionNumber}})
           uses: actions/checkout@v3
           with:
