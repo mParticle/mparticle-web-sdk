@@ -1,4 +1,4 @@
-name: Publish SDK Release to Release Order Branch
+name: Release - Step 2: Publish SDK Release to Release Order Branch
 
 on:
     workflow_dispatch:
