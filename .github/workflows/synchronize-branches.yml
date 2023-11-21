@@ -3,11 +3,6 @@ name: Release - Step 3: Release to CDN and Synchronize Branches
 on:
     workflow_dispatch:
         inputs:
-            dryRun:
-                description: 'Do a dry run to preview instead of a real release [true/false]'
-                required: true
-                type: boolean
-                default: true
             versionNumber:
                 description: 'Which SDK version to syncronize? [X.XX.XX]'
                 required: true
@@ -48,29 +43,24 @@ jobs:
             ref: master
 
         - name: Merge release branch into master branch
-          if: ${{ github.event.inputs.dryRun == false }}
           run: |
             git pull origin release/${{ github.event.inputs.versionNumber}}
         
         # We will eventually replace master with main
         - name: Push release commits to main and master
-          if: ${{ github.event.inputs.dryRun == false }}
           run: |
                 git push origin HEAD:master
                 git push origin HEAD:main
 
         - name: Push release commits to development
-          if: ${{ github.event.inputs.dryRun == false }}
           run: |
             git push origin HEAD:development
 
         - name: Push release commits to chore/dependabot
-          if: ${{ github.event.inputs.dryRun == false }}
           run: |
             git push origin HEAD:chore/dependabot
 
         - name: Push release commits to Release Order Branches
-          if: ${{ github.event.inputs.dryRun == false }}
           run: |
             git push origin HEAD:release-order-a
             git push origin HEAD:release-order-b
