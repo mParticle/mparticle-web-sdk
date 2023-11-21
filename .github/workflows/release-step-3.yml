@@ -1,4 +1,4 @@
-name: Release - Step 3: Release to CDN and Synchronize Branches
+name: "Release - Step 3: Release to CDN and Synchronize Branches"
 
 on:
     workflow_dispatch:

@@ -1,4 +1,4 @@
-name: Release - Step 1: Prepare CDN Pre-Release, Publish NPM
+name: "Release - Step 1: Prepare CDN Pre-Release, Publish NPM"
 
 on:
     workflow_dispatch:
