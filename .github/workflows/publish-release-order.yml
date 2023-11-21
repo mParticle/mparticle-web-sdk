@@ -16,7 +16,6 @@ on:
                 description: 'Which Release Order Branch are you targeting? [release-order-a/release-order-b/release-order-c]'
                 required: true
                 type: choice
-                default: release-order-a
                 options:
                     - release-order-a
                     - release-order-b
