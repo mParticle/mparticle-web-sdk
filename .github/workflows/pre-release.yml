@@ -291,7 +291,7 @@ jobs:
                   npx semantic-release
 
             - name: Get Package Version Number
-              uses: dutscher/read-package-json-endpoint-actions@v1.33.7
+              uses: martinbeentjes/npm-get-version-action@v1.3.1
               id: packageJsonVersion
 
             - name: Archive npm failure logs
@@ -304,7 +304,7 @@ jobs:
             - name: Push automated release commits to release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
-                  git push origin HEAD:release/${{ steps.packageJsonVersion.outputs.version }}    
+                  git push origin HEAD:release/${{ steps.packageJsonVersion.outputs.current-version }}    
             
             - name: Delete pre-release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
