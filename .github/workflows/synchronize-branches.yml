@@ -23,7 +23,7 @@ jobs:
             ref: release/${{ github.event.inputs.versionNumber}}
 
 
-    synchronize-sdk:
+    synchronize-branches:
       name: Synchronize SDK to all branches
       runs-on: ubuntu-latest
       needs:
