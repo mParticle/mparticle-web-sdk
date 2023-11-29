@@ -1,7 +1,7 @@
-import Utils from './utils';
+import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config';
+import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
 
 const { setLocalStorage, MockForwarder, getLocalStorage } = Utils;
 

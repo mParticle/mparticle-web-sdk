@@ -1,5 +1,5 @@
 // Import set up logic
-import './_test.setup';
+import './config/setup';
 
 // Import each test module
 import './tests-core-sdk';

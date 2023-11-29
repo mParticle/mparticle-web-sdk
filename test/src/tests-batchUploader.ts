@@ -1,6 +1,6 @@
 import sinon from 'sinon';
-import { urls } from './config';
-import { apiKey, MPConfig, testMPID } from './config';
+import { urls } from './config/constants';
+import { apiKey, MPConfig, testMPID } from './config/constants';
 import {
     BaseEvent,
     MParticleWebSDK,
@@ -8,7 +8,7 @@ import {
     SDKProductActionType,
 } from '../../src/sdkRuntimeModels';
 import { Batch, CustomEventData } from '@mparticle/event-models';
-import Utils from './utils';
+import Utils from './config/utils';
 import { BatchUploader } from '../../src/batchUploader';
 import { expect } from 'chai';
 import _BatchValidator from '../../src/mockBatchCreator';

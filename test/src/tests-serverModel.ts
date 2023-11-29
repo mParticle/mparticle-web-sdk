@@ -1,6 +1,6 @@
 import Types from '../../src/types';
 import sinon from 'sinon';
-import { urls, testMPID, apiKey } from './config';
+import { urls, testMPID, apiKey } from './config/constants';
 import { expect } from 'chai';
 import { IUploadObject } from '../../src/serverModel';
 import { AllUserAttributes, IdentityApiData } from '@mparticle/web-sdk';

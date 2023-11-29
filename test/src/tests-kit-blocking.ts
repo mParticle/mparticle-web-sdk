@@ -1,9 +1,9 @@
 import sinon from 'sinon';
-import { urls } from './config';
-import { apiKey, MPConfig, testMPID } from './config';
+import { urls } from './config/constants';
+import { apiKey, MPConfig, testMPID } from './config/constants';
 import { MParticleWebSDK, SDKEvent, SDKProductActionType, DataPlanResult, KitBlockerDataPlan } from  '../../src/sdkRuntimeModels';
 import * as dataPlan from './dataPlan.json';
-import Utils from './utils';
+import Utils from './config/utils';
 import KitBlocker from '../../src/kitBlocking';
 import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';

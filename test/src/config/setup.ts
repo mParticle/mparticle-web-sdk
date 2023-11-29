@@ -1,5 +1,5 @@
-import { MPConfig, workspaceToken } from './config';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
+import { MPConfig, workspaceToken } from './constants';
+import { MParticleWebSDK } from '../../../src/sdkRuntimeModels';
 
 declare global {
     interface Window {
