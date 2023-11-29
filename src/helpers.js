@@ -232,6 +232,7 @@ export default function Helpers(mpInstance) {
         return target;
     };
 
+    // FIXME: Move this into Store
     this.createServiceUrl = function(secureServiceUrl, devToken) {
         var serviceScheme =
             window.mParticle && mpInstance._Store.SDKConfig.forceHttps

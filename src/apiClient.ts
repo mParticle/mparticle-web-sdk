@@ -6,12 +6,30 @@ import {
     MParticleWebSDK,
     MPForwarder,
     SDKEvent,
+    SDKEventAttributes,
+    SDKEventCategory,
+    SDKEventDataType,
+    SDKDataPlan,
 } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
-import { Dictionary, getRampNumber, isEmpty } from './utils';
+import { Dictionary, isEmpty } from './utils';
 import { IUploadObject } from './serverModel';
+import { XHRThingie } from './uploader';
 
-export type ForwardingStatsData = Dictionary<any>;
+// fIXME: Rename to "Minified"
+export type ForwardingStatsData = {
+    mid: string; // Module ID
+    esid: string; // Event Subscription Id
+    n: string; // Event Name
+    attrs?: SDKEventAttributes;
+    sdk: string; // SDK Version
+    dt: SDKEventDataType;
+    et: SDKEventCategory;
+    dbg: boolean; // "True" | "False", // Debug Boolean
+    ct: number; // Current Time
+    eec: number; // Expanded Event Count
+    dp: SDKDataPlan;
+};
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -38,6 +56,7 @@ export default function APIClient(
     mpInstance: MParticleWebSDK,
     kitBlocker: KitBlocker
 ) {
+    // FIXME: Rename this to Batch Uploader
     this.uploader = null;
     const self = this;
     this.queueEventForBatchUpload = function(event: SDKEvent) {
@@ -162,31 +181,44 @@ export default function APIClient(
     };
 
     this.sendSingleForwardingStatsToServer = function(forwardingStatsData) {
-        let url;
-        let data;
+        // let url;
+        // let data;
         try {
-            const xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 202) {
-                        mpInstance.Logger.verbose(
-                            'Successfully sent  ' +
-                                xhr.statusText +
-                                ' from server'
-                        );
-                    }
-                }
-            };
-            const xhr = mpInstance._Helpers.createXHR(xhrCallback);
-            url = mpInstance._Helpers.createServiceUrl(
+            //     const xhrCallback = function() {
+            //         if (xhr.readyState === 4) {
+            //             if (xhr.status === 202) {
+            //                 mpInstance.Logger.verbose(
+            //                     'Successfully sent  ' +
+            //                         xhr.statusText +
+            //                         ' from server'
+            //                 );
+            //             }
+            //         }
+            //     };
+            //     // FIXME: Can we move this url into a class attribute?
+            //     const xhr = mpInstance._Helpers.createXHR(xhrCallback);
+            //     url = mpInstance._Helpers.createServiceUrl(
+            //         mpInstance._Store.SDKConfig.v1SecureServiceUrl,
+            //         mpInstance._Store.devToken
+            //     );
+            //     data = forwardingStatsData;
+
+            //     if (xhr) {
+            //         // FIXME: Create Forwarding Url Helper
+            //         xhr.open('post', url + '/Forwarding');
+            //         xhr.send(JSON.stringify(data));
+            //     }
+
+            const url: string = mpInstance._Helpers.createServiceUrl(
                 mpInstance._Store.SDKConfig.v1SecureServiceUrl,
                 mpInstance._Store.devToken
             );
-            data = forwardingStatsData;
 
-            if (xhr) {
-                xhr.open('post', url + '/Forwarding');
-                xhr.send(JSON.stringify(data));
-            }
+            XHRThingie.send(url, forwardingStatsData, 'post', () => {
+                mpInstance.Logger.verbose(
+                    'Successfully sent XHR to from server'
+                );
+            });
         } catch (e) {
             mpInstance.Logger.error(
                 'Error sending forwarding stats to mParticle servers.'
@@ -195,7 +227,7 @@ export default function APIClient(
     };
 
     this.prepareForwardingStats = function(forwarder, event) {
-        let forwardingStatsData;
+        let forwardingStatsData: ForwardingStatsData;
         const queue = mpInstance._Forwarders.getForwarderStatsQueue();
 
         if (forwarder && forwarder.isVisible) {

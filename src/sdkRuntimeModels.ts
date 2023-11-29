@@ -14,6 +14,10 @@ import { ISessionManager } from './sessionManager';
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
 
+export type SDKEventAttributes = Dictionary<string>;
+export type SDKEventDataType = number;
+export type SDKEventCategory = number;
+
 export interface SDKEvent {
     DeviceId: string;
     IsFirstRun: boolean;
@@ -23,7 +27,7 @@ export interface SDKEvent {
     UserIdentities?: SDKUserIdentity[];
     SourceMessageId: string;
     MPID: string;
-    EventAttributes?: { [key: string]: string };
+    EventAttributes?: SDKEventAttributes;
     SDKVersion: string;
     SessionId: string;
     SessionStartDate: number;
@@ -240,7 +244,7 @@ export interface SDKIdentityApi {
 
 export interface SDKHelpersApi {
     canLog?(): boolean;
-    createServiceUrl(arg0: string, arg1: string): void;
+    createServiceUrl(arg0: string, arg1: string): string;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);
     parseNumber?(value: string | number): number;

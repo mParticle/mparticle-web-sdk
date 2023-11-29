@@ -7,6 +7,7 @@ import {
     SDKInitConfig,
 } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
+import { XHRThingie } from './uploader';
 
 export type SDKCompleteInitCallback = (
     apiKey: string,
@@ -47,13 +48,13 @@ export interface IKitFilterSettings {
 export interface IFilteringEventAttributeValue {
     eventAttributeName: string;
     eventAttributeValue: string;
-    includeOnMatch: boolean
+    includeOnMatch: boolean;
 }
 
 export interface IFilteringUserAttributeValue {
     userAttributeName: string;
     userAttributeValue: string;
-    includeOnMatch: boolean
+    includeOnMatch: boolean;
 }
 export interface IFilteringConsentRuleValues {
     includeOnMatch: boolean;
@@ -62,9 +63,8 @@ export interface IFilteringConsentRuleValues {
 
 export interface IConsentRuleValue {
     consentPurpose: string;
-    hasConsented: boolean
+    hasConsented: boolean;
 }
-
 
 export interface IPixelConfig {
     name: string;
@@ -108,41 +108,68 @@ export default function ConfigAPIClient(this: IConfigAPIClient) {
     ): void => {
         let url: string;
         try {
-            const xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
-                    if (xhr.status === 200) {
-                        config = mpInstance._Helpers.extend(
-                            {},
-                            config,
-                            JSON.parse(xhr.responseText)
-                        );
-                        completeSDKInitialization(apiKey, config, mpInstance);
-                        mpInstance.Logger.verbose(
-                            'Successfully received configuration from server'
-                        );
-                    } else {
-                        // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
-                        completeSDKInitialization(apiKey, config, mpInstance);
-                        mpInstance.Logger.verbose(
-                            'Issue with receiving configuration from server, received HTTP Code of ' +
-                                xhr.status
-                        );
-                    }
-                }
-            };
+            // const xhrCallback = function() {
+            //     if (xhr.readyState === 4) {
+            //         // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
+            //         if (xhr.status === 200) {
+            //             config = mpInstance._Helpers.extend(
+            //                 {},
+            //                 config,
+            //                 JSON.parse(xhr.responseText)
+            //             );
+            //             completeSDKInitialization(apiKey, config, mpInstance);
+            //             mpInstance.Logger.verbose(
+            //                 'Successfully received configuration from server'
+            //             );
+            //         } else {
+            //             // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
+            //             completeSDKInitialization(apiKey, config, mpInstance);
+            //             mpInstance.Logger.verbose(
+            //                 'Issue with receiving configuration from server, received HTTP Code of ' +
+            //                     xhr.status
+            //             );
+            //         }
+            //     }
+            // };
 
-            const xhr = mpInstance._Helpers.createXHR(xhrCallback);
-            url =
+            // const xhr = mpInstance._Helpers.createXHR(xhrCallback);
+
+            // // FIXME: Create Config URL Helper
+            // url =
+            //     'https://' +
+            //     mpInstance._Store.SDKConfig.configUrl +
+            //     apiKey +
+            //     '/config?env=';
+            // if (config.isDevelopmentMode) {
+            //     url = url + '1';
+            // } else {
+            //     url = url + '0';
+            // }
+
+            // const dataPlan = config.dataPlan as DataPlanConfig;
+            // if (dataPlan) {
+            //     if (dataPlan.planId) {
+            //         url = url + '&plan_id=' + dataPlan.planId || '';
+            //     }
+            //     if (dataPlan.planVersion) {
+            //         url = url + '&plan_version=' + dataPlan.planVersion || '';
+            //     }
+            // }
+
+            // if (xhr) {
+            //     xhr.open('get', url);
+            //     xhr.send(null);
+            // }
+
+            // // FIXME: Create Config URL Helper
+            let url =
                 'https://' +
                 mpInstance._Store.SDKConfig.configUrl +
                 apiKey +
-                '/config?env=';
-            if (config.isDevelopmentMode) {
-                url = url + '1';
-            } else {
-                url = url + '0';
-            }
+                '/config?env=' +
+                config.isDevelopmentMode
+                    ? '1'
+                    : '0';
 
             const dataPlan = config.dataPlan as DataPlanConfig;
             if (dataPlan) {
@@ -154,10 +181,8 @@ export default function ConfigAPIClient(this: IConfigAPIClient) {
                 }
             }
 
-            if (xhr) {
-                xhr.open('get', url);
-                xhr.send(null);
-            }
+            // FIXME: We need to collect the XHR.ResponseText to process things
+            XHRThingie.send(url, null, 'get', null);
         } catch (e) {
             completeSDKInitialization(apiKey, config, mpInstance);
             mpInstance.Logger.error(

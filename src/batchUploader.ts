@@ -9,6 +9,12 @@ import {
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
 import { getRampNumber, isEmpty } from './utils';
+import {
+    AsyncUploader,
+    FetchUploader,
+    XHRUploader,
+    fetchPayload,
+} from './uploader';
 import { SessionStorageVault, LocalStorageVault } from './vault';
 
 /**
@@ -88,6 +94,8 @@ export class BatchUploader {
         }
 
         const { SDKConfig, devToken } = this.mpInstance._Store;
+
+        // FIXME: Refactor into an Events Url Helper
         const baseUrl = this.mpInstance._Helpers.createServiceUrl(
             SDKConfig.v3SecureServiceUrl,
             devToken
@@ -244,8 +252,9 @@ export class BatchUploader {
                     mpInstance._Store.SDKConfig.onCreateBatch;
 
                 if (onCreateBatchCallback) {
-                    uploadBatchObject =
-                        onCreateBatchCallback(uploadBatchObject);
+                    uploadBatchObject = onCreateBatchCallback(
+                        uploadBatchObject
+                    );
                     if (uploadBatchObject) {
                         uploadBatchObject.modified = true;
                     } else {
@@ -353,7 +362,7 @@ export class BatchUploader {
         useBeacon: boolean
     ): Promise<Batch[] | null> {
         // Filter out any batches that don't have events
-        const uploads = batches.filter((batch) => !isEmpty(batch.events));
+        const uploads = batches.filter(batch => !isEmpty(batch.events));
 
         if (isEmpty(uploads)) {
             return null;
@@ -363,6 +372,7 @@ export class BatchUploader {
         logger.verbose(`Batch count: ${uploads.length}`);
 
         for (let i = 0; i < uploads.length; i++) {
+            // FIXME: Should we have a "createPayload" method?
             const fetchPayload: fetchPayload = {
                 method: 'POST',
                 headers: {
@@ -422,66 +432,4 @@ export class BatchUploader {
         }
         return null;
     }
-}
-
-abstract class AsyncUploader {
-    url: string;
-    public abstract upload(fetchPayload: fetchPayload): Promise<XHRResponse>;
-
-    constructor(url: string) {
-        this.url = url;
-    }
-}
-
-class FetchUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload): Promise<XHRResponse> {
-        const response: XHRResponse = await fetch(this.url, fetchPayload);
-        return response;
-    }
-}
-
-class XHRUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload): Promise<XHRResponse> {
-        const response: XHRResponse = await this.makeRequest(
-            this.url,
-            fetchPayload.body
-        );
-        return response;
-    }
-
-    private async makeRequest(
-        url: string,
-        data: string
-    ): Promise<XMLHttpRequest> {
-        const xhr: XMLHttpRequest = new XMLHttpRequest();
-        return new Promise((resolve, reject) => {
-            xhr.onreadystatechange = () => {
-                if (xhr.readyState !== 4) return;
-
-                // Process the response
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(xhr);
-                } else {
-                    reject(xhr);
-                }
-            };
-
-            xhr.open('post', url);
-            xhr.send(data);
-        });
-    }
-}
-
-interface XHRResponse {
-    status: number;
-    statusText?: string;
-}
-
-interface fetchPayload {
-    method: string;
-    headers: {
-        Accept: string;
-        'Content-Type': string;
-    };
-    body: string;
 }
