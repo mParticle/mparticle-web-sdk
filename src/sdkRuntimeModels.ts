@@ -151,6 +151,8 @@ export interface MParticleWebSDK {
     _NativeSdkHelpers: any; // TODO: Set up API
     _Persistence: IPersistence;
     _preInit: any; // TODO: Set up API
+    _instances: Dictionary<MParticleWebSDK>;
+    _isTestEnv: boolean;
     _resetForTests(
         MPConfig?: SDKInitConfig,
         keepPersistence?: boolean,

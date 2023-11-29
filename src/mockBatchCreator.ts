@@ -39,6 +39,8 @@ export default class _BatchValidator {
             _NativeSdkHelpers: null,
             _Persistence: null,
             _preInit: null,
+            _instances: {},
+            _isTestEnv: true,
             Consent: null,
             _ServerModel: null,
             _SessionManager: null,

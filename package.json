@@ -22,7 +22,7 @@
     "repository": "https://github.com/mParticle/mparticle-web-sdk",
     "scripts": {
         "build": "cross-env ENVIRONMENT=prod BUILDALL=true rollup --config rollup.config.js",
-        "build:cbt": "rollup --config test/cross-browser-testing/rollup.CBT.config.js && rm test/cross-browser-testing/CBT-tests.js",
+        "build:cbt": "rollup --config test/cross-browser-testing/rollup.CBT.config.js -w",
         "build:dev": "cross-env ENVIRONMENT=dev BUILD=iife rollup --config rollup.config.js",
         "build:iife": "cross-env ENVIRONMENT=prod BUILD=iife rollup --config rollup.config.js",
         "build:npm": "cross-env ENVIRONMENT=prod BUILD=cjs rollup --config rollup.config.js",
