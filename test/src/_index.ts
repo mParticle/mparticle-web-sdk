@@ -1,7 +1,7 @@
-// 
+// Import set up logic
 import './_test.setup';
 
-// 
+// Import each test module
 import './tests-core-sdk';
 import './tests-batchUploader';
 import './tests-beaconUpload';
