@@ -7,7 +7,7 @@ declare global {
     }
 }
 
-var userApi = null;
+let userApi = null;
 
 window.mParticle._isTestEnv = true;
 

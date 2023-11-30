@@ -1,6 +1,5 @@
 import sinon from 'sinon';
-import { urls } from './config/constants';
-import { apiKey, MPConfig, testMPID } from './config/constants';
+import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import {
     BaseEvent,
     MParticleWebSDK,

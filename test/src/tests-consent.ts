@@ -1,8 +1,7 @@
 import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls } from './config/constants';
-import { apiKey, MPConfig, testMPID } from './config/constants';
+import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 import { GDPRConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
