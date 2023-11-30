@@ -8,7 +8,7 @@ import json from '@rollup/plugin-json';
 
 export default [
     {
-        input: 'test/src/_index.ts',
+        input: 'test/src/_test.index.ts',
         output: {
             file: 'test/cross-browser-testing/CBT-tests.js',
             format: 'umd',
