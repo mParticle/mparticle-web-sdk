@@ -19,9 +19,7 @@ beforeEach(function() {
     } else {
         window.mParticle.getInstance().Identity.getCurrentUser = userApi;
     }
-    // @ts-ignore
-    window.mParticle = window.mParticle || {};
-    // @ts-ignore
+
     window.mParticle.config = {
         workspaceToken: workspaceToken,
         logLevel: 'none',
