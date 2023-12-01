@@ -12,3 +12,4 @@ test/integrations/requirejs/test-requirejs-bundle.js
 browserstack.err
 local.log
 test/cross-browser-testing/CBT-tests-es5.js
+test/cross-browser-testing/CBT-tests.js

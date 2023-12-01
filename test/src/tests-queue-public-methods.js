@@ -1,5 +1,5 @@
 import sinon from 'sinon';
-import { apiKey, MPConfig, testMPID, urls } from './config';
+import { apiKey, MPConfig, testMPID, urls } from './config/constants';
 import { SDKProductActionType } from  '../../src/sdkRuntimeModels';
 
 describe('Queue Public Methods', function () {

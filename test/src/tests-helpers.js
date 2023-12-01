@@ -1,4 +1,4 @@
-import { apiKey } from './config';
+import { apiKey } from './config/constants';
 import sinon from 'sinon';
 
 describe('helpers', function() {

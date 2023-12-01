@@ -152,6 +152,8 @@ export interface MParticleWebSDK {
     _NativeSdkHelpers: any; // TODO: Set up API
     _Persistence: IPersistence;
     _preInit: any; // TODO: Set up API
+    _instances?: Dictionary<MParticleWebSDK>;
+    _isTestEnv?: boolean;
     _resetForTests(
         MPConfig?: SDKInitConfig,
         keepPersistence?: boolean,
@@ -202,15 +204,15 @@ export interface SDKInitConfig
     dataPlanOptions?: KitBlockerOptions;
     flags?: Dictionary;
 
-    aliasMaxWindow: number;
+    aliasMaxWindow?: number;
     deviceId?: string;
     forceHttps?: boolean;
     aliasUrl?: string;
     configUrl?: string;
     identityUrl?: string;
-    integrationDelayTimeout: number;
+    integrationDelayTimeout?: number;
     isIOS?: boolean;
-    maxProducts: number;
+    maxProducts?: number;
     requestConfig?: boolean;
     sessionTimeout?: number;
     useNativeSdk?: boolean;
@@ -218,6 +220,9 @@ export interface SDKInitConfig
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
+
+    workspaceToken?: string;
+    isDevelopmentMode?: boolean;
 }
 
 export interface DataPlanConfig {
