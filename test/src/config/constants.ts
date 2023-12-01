@@ -1,4 +1,4 @@
-import { SDKInitConfig } from "../../src/sdkRuntimeModels";
+import { SDKInitConfig } from "../../../src/sdkRuntimeModels";
 
 export const urls = {
     events: 'https://jssdks.mparticle.com/v3/JS/test_key/events',

@@ -1,6 +1,6 @@
-import Utils from './utils';
+import Utils from './config/utils';
 import sinon from 'sinon';
-import { urls, apiKey, MPConfig } from './config';
+import { urls, apiKey, MPConfig } from './config/constants';
 
 const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;

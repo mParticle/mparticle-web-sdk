@@ -8,7 +8,7 @@ import {
     urls,
     MessageType,
     MILLISECONDS_IN_ONE_MINUTE,
-} from './config';
+} from './config/constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
 import Constants from '../../src/constants';
 

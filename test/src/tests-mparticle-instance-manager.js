@@ -1,7 +1,7 @@
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls, MPConfig } from './config';
-import Utils from './utils';
+import { urls, MPConfig } from './config/constants';
+import Utils from './config/utils';
 const findEventFromRequest = Utils.findEventFromRequest;
 let mockServer;
 
