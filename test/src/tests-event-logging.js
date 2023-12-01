@@ -1,10 +1,10 @@
-import Utils from './utils';
+import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey,
     testMPID,
     MPConfig,
-    MessageType } from './config';
+    MessageType } from './config/constants';
 
 const getIdentityEvent = Utils.getIdentityEvent,
     findEventFromRequest = Utils.findEventFromRequest,

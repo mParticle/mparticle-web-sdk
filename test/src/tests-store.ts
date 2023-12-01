@@ -2,8 +2,8 @@ import { expect } from 'chai';
 import sinon from 'sinon';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 import Store, { IStore } from '../../src/store';
-import { MPConfig, apiKey } from './config';
-import Utils from './utils';
+import { MPConfig, apiKey } from './config/constants';
+import Utils from './config/utils';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
 describe('Store', () => {

@@ -3,8 +3,8 @@ import { expect } from 'chai';
 import Types from '../../src/types';
 import { SDKEvent, MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
-import Utils from './utils';
-import { urls, MPConfig, apiKey } from './config';
+import Utils from './config/utils';
+import { urls, MPConfig, apiKey } from './config/constants';
 
 declare global {
     interface Window {

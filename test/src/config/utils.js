@@ -1,4 +1,4 @@
-import * as Utils from '../../src/utils';
+import * as Utils from '../../../src/utils';
 import {
     apiKey,
     testMPID,
@@ -8,7 +8,7 @@ import {
     workspaceToken,
     workspaceCookieName,
     das,
-} from './config';
+} from './constants';
 
 var pluses = /\+/g,
     getLocalStorageProducts = function getLocalStorageProducts() {

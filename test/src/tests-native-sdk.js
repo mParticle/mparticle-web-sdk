@@ -1,5 +1,5 @@
-import Utils from './utils';
-import { apiKey, MPConfig } from './config';
+import Utils from './config/utils';
+import { apiKey, MPConfig } from './config/constants';
 import Constants from '../../src/constants';
 
 const getLocalStorage = Utils.getLocalStorage,

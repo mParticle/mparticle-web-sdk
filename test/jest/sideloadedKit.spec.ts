@@ -3,7 +3,7 @@ import { IMPSideloadedKitConstructor } from "../../src/sideloadedKit";
 import { EventTypeEnum, IdentityType } from "../../src/types.interfaces";
 import { UnregisteredKit } from '../../src/forwarders.interfaces';          
 import { IKitFilterSettings } from '../../src/configAPIClient';
-import { mParticle } from "../src/config";
+import { mParticle } from "../src/config/constants";
 
 const mockKitInstance: UnregisteredKit = {
     register: function() {}

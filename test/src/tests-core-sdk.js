@@ -1,10 +1,9 @@
-import Utils from './utils';
+import Utils from './config/utils';
 import Store from '../../src/store';
 import Constants from '../../src/constants';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls } from './config';
-import { apiKey, das, MPConfig, testMPID, workspaceCookieName } from './config';
+import { urls, apiKey, das, MPConfig, testMPID, workspaceCookieName } from './config/constants';
 
 const DefaultConfig = Constants.DefaultConfig,
     setLocalStorage = Utils.setLocalStorage,

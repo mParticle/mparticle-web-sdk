@@ -1,6 +1,6 @@
 import Types from '../../src/types';
 import Constants from '../../src/constants';
-import { apiKey, MPConfig } from './config';
+import { apiKey, MPConfig } from './config/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 

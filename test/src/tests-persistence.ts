@@ -1,4 +1,4 @@
-import Utils from './utils';
+import Utils from './config/utils';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 
@@ -12,7 +12,7 @@ import {
     LocalStorageProductsV4WithWorkSpaceName,
     workspaceCookieName,
     v4LSKey,
-} from './config';
+} from './config/constants';
 import { expect } from 'chai';
 import {
     IGlobalStoreV2MinifiedKeys,

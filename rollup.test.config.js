@@ -10,7 +10,7 @@ const extensions = ['.js', '.ts'];
 
 const builds = {
     main: {
-        input: 'test/src/tests-main.js',
+        input: 'test/src/_test.index.ts',
         output: {
             file: 'test/test-bundle.js',
             format: 'iife',

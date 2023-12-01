@@ -1,6 +1,5 @@
 import sinon from 'sinon';
-import { urls } from './config';
-import { apiKey, MPConfig } from './config';
+import { urls, apiKey, MPConfig } from './config/constants';
 import { expect } from 'chai';
 import ConfigAPIClient, {
     IConfigAPIClient,
