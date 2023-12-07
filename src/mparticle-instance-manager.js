@@ -1,25 +1,8 @@
-import Polyfill from './polyfill';
 import Types from './types';
 import Constants from './constants';
 import mParticleInstance from './mp-instance.js';
 import _BatchValidator from './mockBatchCreator';
 import MPSideloadedKit from './sideloadedKit';
-
-if (!Array.prototype.forEach) {
-    Array.prototype.forEach = Polyfill.forEach;
-}
-
-if (!Array.prototype.map) {
-    Array.prototype.map = Polyfill.map;
-}
-
-if (!Array.prototype.filter) {
-    Array.prototype.filter = Polyfill.filter;
-}
-
-if (!Array.isArray) {
-    Array.prototype.isArray = Polyfill.isArray;
-}
 
 function mParticle() {
     var self = this;
