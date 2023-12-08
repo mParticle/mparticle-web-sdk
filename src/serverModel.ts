@@ -155,7 +155,7 @@ function convertCustomFlags(event: SDKEvent, dto: IServerV2DTO) {
                         valueArray.push(customFlagProperty.toString());
                     }
                 });
-            } else if (isValidCustomFlagProperty(convertCustomFlags)) {
+            } else if (isValidCustomFlagProperty(event.CustomFlags[prop])) {
                 valueArray.push(event.CustomFlags[prop].toString());
             }
 
