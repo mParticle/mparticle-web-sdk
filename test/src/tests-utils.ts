@@ -11,6 +11,7 @@ import {
     isEmpty,
     isObject,
     isStringOrNumber,
+    isValidCustomFlagProperty,
     parseNumber,
     parseStringOrNumber,
     replaceApostrophesWithQuotes,
@@ -350,6 +351,26 @@ describe('Utils', () => {
 
         it('returns true if object is undefined', () => {
             expect(isEmpty(undefined)).to.equal(true);
+        });
+    });
+    
+    describe('#isValidCustomFlagProperty', () => {
+        it('returns true if Custom Flag Property is a number', () => {
+            expect(isValidCustomFlagProperty(42)).to.equal(true);
+        });
+
+        it('returns true if Custom Flag Property is a string', () => {
+            expect(isValidCustomFlagProperty('custom_string')).to.equal(true);
+        });
+
+        it('returns true if Custom Flag Property is a boolean', () => {
+            expect(isValidCustomFlagProperty(true)).to.equal(true);
+        });
+
+        it('returns true if Custom Flag Property is not valid', () => {
+            expect(isValidCustomFlagProperty(null), 'null').to.equal(false);
+            expect(isValidCustomFlagProperty(function(){}), 'function').to.equal(false);
+            expect(isValidCustomFlagProperty(undefined), 'undefined').to.equal(false);
         });
     });
 });
