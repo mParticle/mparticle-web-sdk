@@ -355,7 +355,7 @@ function mParticle() {
     };
 
     this.Identity = {
-        HTTPCodes: self.getInstance().Identity.HTTPCodes,
+        HTTPCodes: Constants.HTTPCodes,
         aliasUsers: function(aliasRequest, callback) {
             self.getInstance().Identity.aliasUsers(aliasRequest, callback);
         },

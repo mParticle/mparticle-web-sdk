@@ -36,6 +36,7 @@ import Consent from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
+import { LocalStorageVault } from './vault';
 
 var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
@@ -1302,11 +1303,18 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         }
     }
 
+    // add a new function to apply items to the store that require config to be returned
     mpInstance._Store.storageName = mpInstance._Helpers.createMainStorageName(
         config.workspaceToken
     );
     mpInstance._Store.prodStorageName = mpInstance._Helpers.createProductStorageName(
         config.workspaceToken
+    );
+    mpInstance._Identity.idCache = new LocalStorageVault(
+        `${mpInstance._Store.storageName}-id-cache`,
+        {
+            logger: mpInstance.Logger,
+        }
     );
     if (config.hasOwnProperty('workspaceToken')) {
         mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;

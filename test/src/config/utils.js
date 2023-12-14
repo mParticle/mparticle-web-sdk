@@ -279,6 +279,7 @@ var pluses = /\+/g,
         if (returnedReqs[0] && returnedReqs[0].requestBody) {
             return JSON.parse(returnedReqs[0].requestBody);
         }
+        return null;
     },
     forwarderDefaultConfiguration = function(
         forwarderName,

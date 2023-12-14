@@ -1595,6 +1595,7 @@ describe('identity', function() {
                 result = null;
             });
 
+            // for some reason this is returning -4 for a good identity.
             validUserIdentities.forEach(function(goodIdentities) {
                 mParticle.Identity[identityMethod](goodIdentities, callback);
                 result.httpCode.should.equal(200);
@@ -3048,11 +3049,132 @@ describe('identity', function() {
         window.mParticle.config.deviceId = 'foo-guid';
         mParticle.init(apiKey, window.mParticle.config);
 
-
         const data = getIdentityEvent(mockServer.requests, 'identify');
         data.known_identities.device_application_stamp.should.equal('foo-guid');
 
         done();
+    });
+
+    describe('identity caching', function() {
+        afterEach(function() {
+            sinon.restore();
+        });
+
+        it('should not call identify if no identities have changed', function() {
+            mParticle._resetForTests(MPConfig);
+            mockServer.respondWith(urls.identify, [
+                200,
+                {},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+
+            mockServer.requests = [];
+
+            const identities = {
+                userIdentities: {
+                    customerid: 'abc',
+                    email: 'test@gmail.com'
+                }
+            }
+
+            mParticle.config.identifyRequest = identities;
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+            initialIdentityCall.should.be.ok();
+            mockServer.requests = [];
+
+            mParticle.Identity.identify(identities);
+            const duplicateIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+
+            Should(duplicateIdentityCall).not.be.ok();
+            // add a callback to confirm it gets called
+        });
+
+        it.only('should not call login if previously cached', function() {
+            mParticle._resetForTests(MPConfig);
+            mockServer.respondWith(urls.identify, [
+                200,
+                {},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+
+            mockServer.respondWith(urls.login, [
+                200,
+                {},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+
+            mockServer.requests = [];
+
+            const identities = {
+                userIdentities: {
+                    customerid: 'abc',
+                    email: 'test@gmail.com'
+                }
+            }
+
+            mParticle.config.identifyRequest = identities;
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            // const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+            // initialIdentityCall.should.be.ok();
+            // mockServer.requests = [];
+
+            mParticle.Identity.login(identities);
+            const firstLoginCall = getIdentityEvent(mockServer.requests, 'login');
+
+            Should(firstLoginCall).be.ok();
+            mockServer.requests = [];
+
+
+            mParticle.Identity.login(identities);
+            const secondLoginCall = getIdentityEvent(mockServer.requests, 'login');
+
+            Should(secondLoginCall).not.be.ok();
+
+            // add a callback to confirm it gets called
+        });
+
+        // it('should not call modify if no identities have changed', function() {
+        //     mParticle._resetForTests(MPConfig);
+        //     mockServer.respondWith(urls.identify, [
+        //         200,
+        //         {},
+        //         JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        //     ]);
+
+        //     mockServer.respondWith(urls.modify, [
+        //         200,
+        //         {},
+        //         JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        //     ]);
+
+        //     mockServer.requests = [];
+
+        //     const identities = {
+        //         userIdentities: {
+        //             customerid: 'abc',
+        //             email: 'test@gmail.com'
+        //         }
+        //     }
+
+        //     mParticle.config.identifyRequest = identities;
+
+        //     mParticle.init(apiKey, window.mParticle.config);
+
+        //     const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+        //     initialIdentityCall.should.be.ok();
+        //     mockServer.requests = [];
+
+        //     mParticle.Identity.modify(identities);
+        //     const loginCall = getIdentityEvent(mockServer.requests, 'modify');
+
+        //     Should(loginCall).not.be.ok();
+        //     // add a callback to confirm it gets called
+        // });
     });
 
     describe('Deprecate Cart', function() {

@@ -1,5 +1,10 @@
 import Constants from './constants';
 import Types from './types';
+import {
+    cacheIdentityRequest,
+    shouldCallIdentity,
+    createKnownIdentities,
+} from './identity-utils';
 
 var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
@@ -8,6 +13,8 @@ const { Identify, Modify } = Constants.IdentityMethods;
 
 export default function Identity(mpInstance) {
     var self = this;
+    this.idCache = null;
+
     this.checkIdentitySwap = function(
         previousMPID,
         currentMPID,
@@ -24,24 +31,6 @@ export default function Identity(mpInstance) {
     };
 
     this.IdentityRequest = {
-        createKnownIdentities: function(identityApiData, deviceId) {
-            var identitiesResult = {};
-
-            if (
-                identityApiData &&
-                identityApiData.userIdentities &&
-                mpInstance._Helpers.isObject(identityApiData.userIdentities)
-            ) {
-                for (var identity in identityApiData.userIdentities) {
-                    identitiesResult[identity] =
-                        identityApiData.userIdentities[identity];
-                }
-            }
-            identitiesResult.device_application_stamp = deviceId;
-
-            return identitiesResult;
-        },
-
         preProcessIdentityRequest: function(identityApiData, callback, method) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.StartingLogEvent + ': ' + method
@@ -103,7 +92,7 @@ export default function Identity(mpInstance) {
                 request_id: mpInstance._Helpers.generateUniqueId(),
                 request_timestamp_ms: new Date().getTime(),
                 previous_mpid: mpid || null,
-                known_identities: this.createKnownIdentities(
+                known_identities: createKnownIdentities(
                     identityApiData,
                     deviceId
                 ),
@@ -263,6 +252,23 @@ export default function Identity(mpInstance) {
                     mpid
                 );
 
+                let canCallIdentity = shouldCallIdentity(
+                    'identify',
+                    identityApiRequest.known_identities,
+                    self.idCache
+                );
+
+                if (!canCallIdentity) {
+                    // try to DRY up invoking callback
+                    mpInstance._Helpers.invokeCallback(
+                        callback,
+                        HTTPCodes.validationIssue,
+                        preProcessResult.error
+                    );
+                    mpInstance.Logger.verbose(preProcessResult);
+                    return;
+                }
+
                 if (mpInstance._Helpers.canLog()) {
                     if (mpInstance._Store.webviewBridgeEnabled) {
                         mpInstance._NativeSdkHelpers.sendToNative(
@@ -285,7 +291,8 @@ export default function Identity(mpInstance) {
                             callback,
                             identityApiData,
                             self.parseIdentityResponse,
-                            mpid
+                            mpid,
+                            identityApiRequest.known_identities
                         );
                     }
                 } else {
@@ -410,11 +417,24 @@ export default function Identity(mpInstance) {
                     callback,
                     'login'
                 );
+            // ,
+            // currentUserIdentities = {},
+            // makeIdentityRequest;
+
             if (currentUser) {
                 mpid = currentUser.getMPID();
+                // currentUserIdentities = currentUser.getUserIdentities();
+                // makeIdentityRequest = self.haveIdentitiesChanged(
+                //     currentUserIdentities,
+                //     identityApiData
+                // );
             }
+            //  else {
+            //     makeIdentityRequest = true;
+            // }
 
             if (preProcessResult.valid) {
+                // if (preProcessResult.valid && makeIdentityRequest) {
                 var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(
                     identityApiData,
                     Constants.platform,
@@ -447,7 +467,8 @@ export default function Identity(mpInstance) {
                             callback,
                             identityApiData,
                             self.parseIdentityResponse,
-                            mpid
+                            mpid,
+                            identityApiRequest.known_identities
                         );
                     }
                 } else {
@@ -524,7 +545,8 @@ export default function Identity(mpInstance) {
                             callback,
                             identityApiData,
                             self.parseIdentityResponse,
-                            mpid
+                            mpid,
+                            identityApiRequest.known_identities
                         );
                     }
                 } else {
@@ -1423,7 +1445,8 @@ export default function Identity(mpInstance) {
         previousMPID,
         callback,
         identityApiData,
-        method
+        method,
+        knownIdentities
     ) {
         var prevUser = mpInstance.Identity.getUser(previousMPID),
             newUser,
@@ -1478,6 +1501,22 @@ export default function Identity(mpInstance) {
             }
 
             if (xhr.status === 200) {
+                // const CACHE_HEADER = 'X-MP-Max-Age';
+                // const idCacheTimeout = xhr.getAllResponseHeaders();
+                // magic code to get CACHE_HEADER
+                const oneDayInMS = 86400 * 60 * 60 * 24;
+                const timeout = new Date().getTime() + oneDayInMS;
+
+                if (method === 'login' || method === 'identify') {
+                    cacheIdentityRequest(
+                        method,
+                        knownIdentities,
+                        identityApiResult.mpid,
+                        timeout,
+                        self.idCache
+                    );
+                }
+
                 if (method === Modify) {
                     newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(
                         previousUIByName,
