@@ -47,20 +47,16 @@ jobs:
         - name: Merge release branch into master branch
           run: |
             git pull origin release/${{ github.event.inputs.versionNumber}}
+            
+        - name: Push release commits to development
+          run: |
+            git push origin HEAD:development
         
         # We will eventually replace master with main
         - name: Push release commits to main and master
           run: |
-                git push origin HEAD:master
-                git push origin HEAD:main
-
-        - name: Push release commits to development
-          run: |
-            git push origin HEAD:development
-
-        - name: Push release commits to chore/dependabot
-          run: |
-            git push origin HEAD:chore/dependabot
+            git push origin HEAD:master
+            git push origin HEAD:main
 
         - name: Push release commits to Release Order Branches
           run: |

@@ -64,20 +64,8 @@ jobs:
                   fetch-depth: 0
                   repository: ${{ github.repository }}
                   token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
-                  ref: master
+                  ref: release/${{ github.event.inputs.versionNumber}}
 
-            - name: Import GPG Key
-              uses: crazy-max/ghaction-import-gpg@v4
-              with:
-                  gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-                  passphrase: ${{ secrets.GPG_PASSPHRASE }}
-                  git_user_signingkey: true
-                  git_commit_gpgsign: true
-
-            - name: Merge release/${{ github.event.inputs.versionNumber}} into master branch
-              if: ${{ github.event.inputs.dryRun == false }}
-              run: |
-                  git pull origin release/${{ github.event.inputs.versionNumber}}
             - name: Push v${{ github.event.inputs.versionNumber}} to ${{ github.event.inputs.releaseOrderBranch }}
               if: ${{ github.event.inputs.dryRun == false }}
               run: |
