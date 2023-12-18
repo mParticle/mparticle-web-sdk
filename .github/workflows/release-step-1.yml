@@ -291,7 +291,7 @@ jobs:
                   npx semantic-release
 
             - name: Get Package Version Number
-              uses: martinbeentjes/npm-get-version-action@v1.3.1
+              uses: martinbeentjes/npm-get-version-action@3cf273023a0dda27efcd3164bdfb51908dd46a5b #v1.3.1
               id: packageJsonVersion
 
             - name: Archive npm failure logs
