@@ -301,7 +301,7 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
-            - name: Push automated release commits to release branch
+            - name: Push automated release commits to pre-release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
                   git push origin HEAD:release/${{ steps.packageJsonVersion.outputs.current-version }}    
