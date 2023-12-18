@@ -12,6 +12,8 @@ export const urls = {
 };
 
 export const MILLISECONDS_IN_ONE_MINUTE = 60000;
+export const MILLISECONDS_IN_ONE_DAY = MILLISECONDS_IN_ONE_MINUTE * 60 * 24;
+export const MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND = MILLISECONDS_IN_ONE_DAY + 1;
 
 export const mParticle = window.mParticle;
 

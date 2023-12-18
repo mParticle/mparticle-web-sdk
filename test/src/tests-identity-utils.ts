@@ -3,11 +3,14 @@ import {
     concatenateIdentities,
     shouldCallIdentity,
     createKnownIdentities,
-    IKnownIdentities
+    IKnownIdentities,
+    ICachedIdentityCall
 } from "../../src/identity-utils";
 import { LocalStorageVault } from "../../src/vault";
 import { Dictionary } from "../../src/utils";
 import { expect } from 'chai';
+import { testMPID } from './config';
+
 import sinon from 'sinon';
 
 const DEVICE_ID = 'test-device-id'
@@ -25,41 +28,115 @@ describe('identity-utils', () => {
             
             const cacheVault = new LocalStorageVault<Dictionary>(mpLocalStorageKey);
             const knownIdentities: IKnownIdentities = createKnownIdentities({
-                userIdentities: {customerid: 'id1}'}},
+                userIdentities: {customerid: 'id1'}},
                 DEVICE_ID
             );
 
-            cacheIdentityRequest('identify', knownIdentities, 'testMpid', new Date().getTime(), cacheVault);
-            
+            const identifyResponse = {
+                context: null,
+                matched_identities: {
+                    device_application_stamp: "test-das"
+                },
+                is_ephemeral: false,
+                mpid: testMPID,
+                is_logged_in: false
+            };
+
+            const jsonString = JSON.stringify(identifyResponse);
+
+            const xhr: XMLHttpRequest = {
+                status: 200,
+                responseText: jsonString,
+            } as XMLHttpRequest;
+
+            const currentTime = new Date().getTime();
+
+            cacheIdentityRequest(
+                'identify',
+                knownIdentities,
+                currentTime,
+                cacheVault,
+                xhr
+            );
+
             const updatedMpIdCache = cacheVault.retrieve();
 
-            expect(Object.keys(updatedMpIdCache).length).to.equal(1)
-            const cachedKey = 'identify:device_application_stamp=test-das;';
+            expect(Object.keys(updatedMpIdCache!).length).to.equal(1);
+            const cachedKey =
+                'identify:device_application_stamp=test-device-id;customerid=id1;';
 
-            expect(updatedMpIdCache.hasOwnProperty(cachedKey)).to.equal(true);
-            expect(updatedMpIdCache[cachedKey]).hasOwnProperty('mpid');
-            expect(updatedMpIdCache[cachedKey]).hasOwnProperty('expireTimestamp');
+            expect(updatedMpIdCache!.hasOwnProperty(cachedKey)).to.equal(true);
+
+            const cachedIdentityCall: ICachedIdentityCall = updatedMpIdCache![cachedKey];
+
+            expect(cachedIdentityCall).hasOwnProperty('responseText');
+            expect(cachedIdentityCall).hasOwnProperty('status');
+            expect(cachedIdentityCall).hasOwnProperty('expireTimestamp');
+
+            expect(cachedIdentityCall.status).to.equal(200);
+            expect(cachedIdentityCall.expireTimestamp).to.equal(currentTime);
+
+            const responseText = JSON.parse(cachedIdentityCall.responseText);
+            expect(responseText).to.deep.equal(identifyResponse);
         });
 
-        it('should save an login request to local storage', () => {
+        it('should save a login request to local storage', () => {
+            debugger;
             const mpIdCache = window.localStorage.getItem(mpLocalStorageKey);
             expect(mpIdCache).to.equal(null);
             
             const cacheVault = new LocalStorageVault<Dictionary>(mpLocalStorageKey);
             const knownIdentities: IKnownIdentities = createKnownIdentities({
-                userIdentities: {customerid: 'id1}'}},
+                userIdentities: {customerid: 'id1'}},
                 DEVICE_ID
             );
-            cacheIdentityRequest('login', knownIdentities, 'testMpid', new Date().getTime(), cacheVault);
+
+            const loginResponse = {
+                context: null,
+                matched_identities: {
+                    device_application_stamp: 'test-das',
+                },
+                is_ephemeral: false,
+                mpid: testMPID,
+                is_logged_in: true,
+            };
+
+            const jsonString = JSON.stringify(loginResponse);
+
+            const xhr: XMLHttpRequest = {
+                status: 200,
+                responseText: jsonString,
+            } as XMLHttpRequest;
+
+            const currentTime = new Date().getTime();
+
+            cacheIdentityRequest(
+                'login',
+                knownIdentities,
+                currentTime,
+                cacheVault,
+                xhr
+            );
 
             const updatedMpIdCache = cacheVault.retrieve();
 
-            expect(Object.keys(updatedMpIdCache).length).to.equal(1);
-            const cachedKey = 'login:device_application_stamp=test-das;';
+            expect(Object.keys(updatedMpIdCache!).length).to.equal(1);
+            const cachedKey = 'login:device_application_stamp=test-device-id;customerid=id1;';
+            expect(updatedMpIdCache!.hasOwnProperty(cachedKey)).to.equal(true);
 
-            expect(updatedMpIdCache.hasOwnProperty(cachedKey)).to.equal(true);
-            expect(updatedMpIdCache[cachedKey]).hasOwnProperty('mpid');
-            expect(updatedMpIdCache[cachedKey]).hasOwnProperty('expireTimestamp');
+            const cachedLoginCall: ICachedIdentityCall = updatedMpIdCache![
+                cachedKey
+            ];
+
+            expect(cachedLoginCall).hasOwnProperty('responseText');
+            expect(cachedLoginCall).hasOwnProperty('status');
+            expect(cachedLoginCall).hasOwnProperty('expireTimestamp');
+
+            expect(cachedLoginCall.status).to.equal(200);
+            expect(cachedLoginCall.expireTimestamp).to.equal(currentTime);
+
+            const responseText = JSON.parse(cachedLoginCall.responseText);
+            expect(responseText).to.deep.equal(loginResponse);
         });
     });
 
@@ -108,7 +185,7 @@ describe('identity-utils', () => {
             clock.restore();
         });
 
-        const userIdentities = {
+        const userIdentities: IKnownIdentities = {
             device_application_stamp: 'first',
             customerid: '01',
             email: '07',
@@ -154,7 +231,32 @@ describe('identity-utils', () => {
 
             const oneDayInMS = 86400 * 60 * 60 * 24;
 
-            cacheIdentityRequest('identify', userIdentities, 'testMpid', new Date().getTime() + oneDayInMS, cacheVault);
+            const identifyResponse = {
+                context: null,
+                matched_identities: {
+                    device_application_stamp: 'test-das',
+                },
+                is_ephemeral: false,
+                mpid: testMPID,
+                is_logged_in: false,
+            };
+
+            const jsonString = JSON.stringify(identifyResponse);
+
+            const xhr: XMLHttpRequest = {
+                status: 200,
+                responseText: jsonString,
+            } as XMLHttpRequest;
+
+            const expireTime = new Date().getTime() + oneDayInMS;
+
+            cacheIdentityRequest(
+                'identify',
+                userIdentities,
+                expireTime,
+                cacheVault,
+                xhr
+            );
 
             clock.tick(5000);
             const result2 = shouldCallIdentity('identify', userIdentities, cacheVault);
@@ -168,7 +270,32 @@ describe('identity-utils', () => {
             const cacheVault = new LocalStorageVault<Dictionary>(mpLocalStorageKey);
 
             const oneDayInMS = 86400 * 60 * 60 * 24;
-            cacheIdentityRequest('identify', userIdentities, 'testMpid', new Date().getTime() + oneDayInMS, cacheVault);
+            const identifyResponse = {
+                context: null,
+                matched_identities: {
+                    device_application_stamp: 'test-das',
+                },
+                is_ephemeral: false,
+                mpid: testMPID,
+                is_logged_in: false,
+            };
+
+            const jsonString = JSON.stringify(identifyResponse);
+
+            const xhr: XMLHttpRequest = {
+                status: 200,
+                responseText: jsonString,
+            } as XMLHttpRequest;
+
+            const expireTime = new Date().getTime() + oneDayInMS;
+
+            cacheIdentityRequest(
+                'identify',
+                userIdentities,
+                expireTime,
+                cacheVault,
+                xhr
+            );
 
             clock.tick(oneDayInMS +1);
             const result3 = shouldCallIdentity('identify', userIdentities, cacheVault);

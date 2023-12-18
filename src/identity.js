@@ -258,7 +258,14 @@ export default function Identity(mpInstance) {
                     self.idCache
                 );
 
+                // not calling identity means that there is something in the cache
                 if (!canCallIdentity) {
+                    // const cachedIdentity = getCachedIdentity(
+                    //     'identify',
+                    //     identityApiRequest.known_identities,
+                    //     self.idCache
+                    // );
+                    // this.parseCachedIdentityResponse(cachedIdentity);
                     // try to DRY up invoking callback
                     mpInstance._Helpers.invokeCallback(
                         callback,
@@ -417,24 +424,12 @@ export default function Identity(mpInstance) {
                     callback,
                     'login'
                 );
-            // ,
-            // currentUserIdentities = {},
-            // makeIdentityRequest;
 
             if (currentUser) {
                 mpid = currentUser.getMPID();
-                // currentUserIdentities = currentUser.getUserIdentities();
-                // makeIdentityRequest = self.haveIdentitiesChanged(
-                //     currentUserIdentities,
-                //     identityApiData
-                // );
             }
-            //  else {
-            //     makeIdentityRequest = true;
-            // }
 
             if (preProcessResult.valid) {
-                // if (preProcessResult.valid && makeIdentityRequest) {
                 var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(
                     identityApiData,
                     Constants.platform,
@@ -444,6 +439,23 @@ export default function Identity(mpInstance) {
                     mpInstance._Store.context,
                     mpid
                 );
+
+                let canCallIdentity = shouldCallIdentity(
+                    'login',
+                    identityApiRequest.known_identities,
+                    self.idCache
+                );
+
+                if (!canCallIdentity) {
+                    // try to DRY up invoking callback
+                    mpInstance._Helpers.invokeCallback(
+                        callback,
+                        HTTPCodes.validationIssue,
+                        preProcessResult.error
+                    );
+                    mpInstance.Logger.verbose(preProcessResult);
+                    return;
+                }
 
                 if (mpInstance._Helpers.canLog()) {
                     if (mpInstance._Store.webviewBridgeEnabled) {
@@ -1504,16 +1516,16 @@ export default function Identity(mpInstance) {
                 // const CACHE_HEADER = 'X-MP-Max-Age';
                 // const idCacheTimeout = xhr.getAllResponseHeaders();
                 // magic code to get CACHE_HEADER
-                const oneDayInMS = 86400 * 60 * 60 * 24;
-                const timeout = new Date().getTime() + oneDayInMS;
+                const oneDayInMS = 1000 * 60 * 60 * 24;
+                const expireTimestamp = new Date().getTime() + oneDayInMS;
 
                 if (method === 'login' || method === 'identify') {
                     cacheIdentityRequest(
                         method,
                         knownIdentities,
-                        identityApiResult.mpid,
-                        timeout,
-                        self.idCache
+                        expireTimestamp,
+                        self.idCache,
+                        xhr
                     );
                 }
 

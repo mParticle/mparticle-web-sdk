@@ -3092,7 +3092,7 @@ describe('identity', function() {
             // add a callback to confirm it gets called
         });
 
-        it.only('should not call login if previously cached', function() {
+        it('should not call login if previously cached', function() {
             mParticle._resetForTests(MPConfig);
             mockServer.respondWith(urls.identify, [
                 200,
@@ -3118,10 +3118,6 @@ describe('identity', function() {
             mParticle.config.identifyRequest = identities;
 
             mParticle.init(apiKey, window.mParticle.config);
-
-            // const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
-            // initialIdentityCall.should.be.ok();
-            // mockServer.requests = [];
 
             mParticle.Identity.login(identities);
             const firstLoginCall = getIdentityEvent(mockServer.requests, 'login');
