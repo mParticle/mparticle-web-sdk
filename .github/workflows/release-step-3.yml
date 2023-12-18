@@ -4,7 +4,7 @@ on:
     workflow_dispatch:
         inputs:
             versionNumber:
-                description: 'Which SDK version to syncronize? [X.XX.XX]'
+                description: 'Which SDK version to synchronize? [X.XX.XX]'
                 required: true
                 type: string
 
