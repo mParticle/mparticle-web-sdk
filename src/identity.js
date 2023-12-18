@@ -1568,6 +1568,7 @@ export default function Identity(mpInstance) {
                         );
                     }
 
+                    // QUESTION: Is this function doing anything different than update is doing?
                     mpInstance._Persistence.saveUserIdentitiesToPersistence(
                         identityApiResult.mpid,
                         newIdentitiesByType

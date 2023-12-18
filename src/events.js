@@ -349,6 +349,8 @@ export default function Events(mpInstance) {
             }
 
             mpInstance._APIClient.sendEventToServer(commerceEvent, options);
+
+            // QUESTION: Can we remove this update in favor of using it within API Client or elsewhere?
             mpInstance._Persistence.update();
         } else {
             mpInstance.Logger.verbose(

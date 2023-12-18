@@ -44,6 +44,7 @@ export default function SessionManager(
                 self.endSession();
                 self.startNewSession();
             } else {
+                // QUESTION: Can we just grab cu from the store instead of persistence?
                 const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
                 if (persistence && !persistence.cu) {
                     mpInstance.Identity.identify(

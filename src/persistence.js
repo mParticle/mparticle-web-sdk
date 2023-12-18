@@ -10,6 +10,11 @@ var Base64 = Polyfill.Base64,
 
 export default function _Persistence(mpInstance) {
     var self = this;
+
+    // TODO: Refactor all the checks for Storage API and Cookie Settings
+    //       into a mechanism that can be the single source of truth
+    //       for browser features and persistence settings
+    //       Should be part of: https://go.mparticle.com/work/SQDSDKS-5022
     this.useLocalStorage = function() {
         return (
             !mpInstance._Store.SDKConfig.useCookieStorage &&
@@ -24,6 +29,7 @@ export default function _Persistence(mpInstance) {
                 cookies = self.getCookie(),
                 allData;
 
+            // QUESTION: Can we move store values into a Store Persistence?
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
             if (!localStorageData && !cookies) {
                 mpInstance._Store.isFirstRun = true;
@@ -32,10 +38,12 @@ export default function _Persistence(mpInstance) {
                 mpInstance._Store.isFirstRun = false;
             }
 
+            // TODO: We should not mutate a config setting here
             if (!mpInstance._Store.isLocalStorageAvailable) {
                 mpInstance._Store.SDKConfig.useCookieStorage = true;
             }
 
+            // TODO: Create a migration helper function that allows transferring between cookies and local storage
             if (mpInstance._Store.isLocalStorageAvailable) {
                 storage = window.localStorage;
                 if (mpInstance._Store.SDKConfig.useCookieStorage) {
@@ -43,6 +51,7 @@ export default function _Persistence(mpInstance) {
                     // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
                     if (localStorageData) {
                         if (cookies) {
+                            // TODO: Replace extend with an object merge function
                             allData = mpInstance._Helpers.extend(
                                 false,
                                 localStorageData,
@@ -61,6 +70,7 @@ export default function _Persistence(mpInstance) {
                     // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
                     if (cookies) {
                         if (localStorageData) {
+                            // TODO: Replace extend with an object merge function
                             allData = mpInstance._Helpers.extend(
                                 false,
                                 localStorageData,
@@ -79,6 +89,7 @@ export default function _Persistence(mpInstance) {
                 self.storeDataInMemory(cookies);
             }
 
+            // TODO: This code is deprecated and should be refactored and eventually removed
             try {
                 if (mpInstance._Store.isLocalStorageAvailable) {
                     var encodedProducts = localStorage.getItem(
@@ -107,6 +118,8 @@ export default function _Persistence(mpInstance) {
                 );
             }
 
+            // TODO: Move this into the Store as a function
+            // Stores all non-current user MPID information into the store
             for (var key in allData) {
                 if (allData.hasOwnProperty(key)) {
                     if (!SDKv2NonMPIDCookieKeys[key]) {
@@ -117,6 +130,8 @@ export default function _Persistence(mpInstance) {
             }
             self.update();
         } catch (e) {
+            // If cookies or local storage is corrupt, we want to remove it
+            // so that in the future, initializeStorage will work
             if (
                 self.useLocalStorage() &&
                 mpInstance._Store.isLocalStorageAvailable
@@ -154,6 +169,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // TODO: Move this into the Store
     this.storeDataInMemory = function(obj, currentMPID) {
         try {
             if (!obj) {
@@ -235,6 +251,8 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // TODO: Refactor this into a Storage API Helper
+    //       https://go.mparticle.com/work/SQDSDKS-5022
     this.determineLocalStorageAvailability = function(storage) {
         var result;
 
@@ -246,7 +264,7 @@ export default function _Persistence(mpInstance) {
             storage.setItem('mparticle', 'test');
             result = storage.getItem('mparticle') === 'test';
             storage.removeItem('mparticle');
-            return result && storage;
+            return result && storage; // This should return boolean but it doen't some times
         } catch (e) {
             return false;
         }
@@ -310,6 +328,7 @@ export default function _Persistence(mpInstance) {
         return parsedDecodedProducts;
     };
 
+    // TODO https://go.mparticle.com/work/SQDSDKS-6021
     this.setLocalStorage = function() {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
@@ -492,7 +511,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // TODO: When refactoring as part of https://go.mparticle.com/work/SQDSDKS-5022
+    //       a lot of this code should go into the Vault as a Cookie Vault
     // only used in persistence
+    // TODO https://go.mparticle.com/work/SQDSDKS-6021
     this.setCookie = function() {
         var mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
@@ -996,12 +1018,14 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // TODO https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
         var encodedPersistence = self.encodePersistence(
                 JSON.stringify(persistence)
             ),
             date = new Date(),
             key = mpInstance._Store.storageName,
+            // QUESTION: Should this code go below the `useCookieStorage` check?
             expires = new Date(
                 date.getTime() +
                     mpInstance._Store.SDKConfig.cookieExpiration *
@@ -1168,6 +1192,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // TODO: This should not live in Persistence
     // Forwarder Batching Code
     this.forwardingStatsBatches = {
         uploadsTable: {},

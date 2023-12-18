@@ -49,6 +49,7 @@ export default function APIClient(
         }
         this.uploader.queueEvent(event);
 
+        // This should should only be updating the dateLastEventSent value in persistence
         mpInstance._Persistence.update();
     };
 
@@ -120,6 +121,8 @@ export default function APIClient(
             return;
         }
 
+        // QUESTION: Is there a better place to update the dateLastEventSent given
+        // that a user can decide if an event should be sent or not?
         if (options.shouldUploadEvent) {
             this.queueEventForBatchUpload(event);
         }
