@@ -4,7 +4,7 @@ import { isEmpty } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
 
-const { Modify } = Constants.IdentityMethods;
+const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
