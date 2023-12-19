@@ -2,6 +2,9 @@ import Types from './types';
 import filteredMparticleUser from './filteredMparticleUser';
 import { isEmpty } from './utils';
 import KitFilterHelper from './kitFilterHelper';
+import Constants from './constants';
+
+const { Modify } = Constants.IdentityMethods;
 
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
@@ -440,6 +443,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         });
     };
 
+    // TODO: This is a v1 method, we should deprecate
     this.setForwarderUserIdentities = function(userIdentities) {
         mpInstance._Store.activeForwarders.forEach(function(forwarder) {
             var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(
@@ -487,28 +491,28 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 mpInstance,
                 kitBlocker
             );
-            if (identityMethod === 'identify') {
+            if (identityMethod === Identify) {
                 if (forwarder.onIdentifyComplete) {
                     result = forwarder.onIdentifyComplete(filteredUser);
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
-            } else if (identityMethod === 'login') {
+            } else if (identityMethod === Login) {
                 if (forwarder.onLoginComplete) {
                     result = forwarder.onLoginComplete(filteredUser);
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
-            } else if (identityMethod === 'logout') {
+            } else if (identityMethod === Logout) {
                 if (forwarder.onLogoutComplete) {
                     result = forwarder.onLogoutComplete(filteredUser);
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
-            } else if (identityMethod === 'modify') {
+            } else if (identityMethod === Modify) {
                 if (forwarder.onModifyComplete) {
                     result = forwarder.onModifyComplete(filteredUser);
                     if (result) {

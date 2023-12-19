@@ -3,6 +3,8 @@ import Constants from './constants';
 var HTTPCodes = Constants.HTTPCodes,
     Messages = Constants.Messages;
 
+const { Modify } = Constants.IdentityMethods;
+
 export default function IdentityAPIClient(mpInstance) {
     this.sendAliasRequest = function(aliasRequest, callback) {
         var xhr,
@@ -107,7 +109,7 @@ export default function IdentityAPIClient(mpInstance) {
                     );
                 } else {
                     previousMPID = mpid || null;
-                    if (method === 'modify') {
+                    if (method === Modify) {
                         xhr.open(
                             'post',
                             mpInstance._Helpers.createServiceUrl(

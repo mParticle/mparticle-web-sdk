@@ -169,6 +169,12 @@ const Constants = {
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',
+    IdentityMethods: {
+        Modify: 'modify',
+        Logout: 'logout',
+        Login: 'login',
+        Identify: 'identify',
+    },
 } as const;
 
 export default Constants;
