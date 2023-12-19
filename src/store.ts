@@ -11,11 +11,9 @@ import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
 import {
     DataPlanResult,
-    Kit,
     KitBlockerOptions,
     LogLevelType,
     MParticleWebSDK,
-    MPForwarder,
     SDKDataPlan,
     SDKEvent,
     SDKGeoLocation,
@@ -24,6 +22,7 @@ import {
 } from './sdkRuntimeModels';
 import { isNumber, isDataPlanSlug, Dictionary } from './utils';
 import { SDKConsentState } from './consent';
+import { Kit, MPForwarder } from './forwarders.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
