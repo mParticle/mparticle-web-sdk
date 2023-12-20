@@ -4,6 +4,8 @@ import Types from './types';
 var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
 
+const { Identify, Modify } = Constants.IdentityMethods;
+
 export default function Identity(mpInstance) {
     var self = this;
     this.checkIdentitySwap = function(
@@ -1476,7 +1478,7 @@ export default function Identity(mpInstance) {
             }
 
             if (xhr.status === 200) {
-                if (method === 'modify') {
+                if (method === Modify) {
                     newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(
                         previousUIByName,
                         identityApiData.userIdentities
@@ -1507,7 +1509,7 @@ export default function Identity(mpInstance) {
                     //will not have a value for "fst" until the current MPID changes, and in some cases,
                     //the current MPID will never change
                     if (
-                        method === 'identify' &&
+                        method === Identify &&
                         prevUser &&
                         identityApiResult.mpid === prevUser.getMPID()
                     ) {
@@ -1620,6 +1622,8 @@ export default function Identity(mpInstance) {
                             mpInstance._APIClient.prepareForwardingStats
                         );
                     }
+
+                    // TODO: https://go.mparticle.com/work/SQDSDKS-6036
                     mpInstance._Forwarders.setForwarderUserIdentities(
                         newUser.getUserIdentities().userIdentities
                     );
@@ -1628,8 +1632,7 @@ export default function Identity(mpInstance) {
                         method
                     );
                     mpInstance._Forwarders.setForwarderOnUserIdentified(
-                        newUser,
-                        method
+                        newUser
                     );
                 }
                 var newIdentitiesByName = {};
@@ -1646,7 +1649,7 @@ export default function Identity(mpInstance) {
                     newIdentitiesByName,
                     method,
                     identityApiResult.mpid,
-                    method === 'modify'
+                    method === Modify
                         ? previousUIByNameCopy
                         : incomingMpidUIByNameCopy
                 );
