@@ -1503,6 +1503,161 @@ describe('forwarders', function() {
         done();
     });
 
+    it('should pass filteredUser and filteredUserIdentities to onIdentifyComplete methods', function(done) {
+        mParticle._resetForTests(MPConfig);
+        const mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+
+        // This removes the Google User Identity
+        config1.userIdentityFilters = [mParticle.IdentityType.Google];
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.Identity.identify({
+            userIdentities: {
+                google: 'test@google.com',
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+
+        expect(window.MockForwarder1.instance.onIdentifyCompleteCalled).to.eq(
+            true
+        );
+        expect(window.MockForwarder1.instance.onIdentifyCompleteUser).to.be.ok;
+        expect(
+            window.MockForwarder1.instance
+                .onIdentifyCompleteFilteredUserIdentities
+        ).to.deep.equal({
+            userIdentities: {
+                // Filtered Identity should no longer have `google` as an identity
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+
+        done();
+    });
+
+    it('should pass filteredUser and filteredUserIdentities to onLoginComplete methods', function(done) {
+        mParticle._resetForTests(MPConfig);
+        const mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+
+        // This removes the Google User Identity
+        config1.userIdentityFilters = [mParticle.IdentityType.Google];
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.Identity.login({
+            userIdentities: {
+                google: 'test@google.com',
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+
+        expect(window.MockForwarder1.instance.onLoginCompleteCalled).to.eq(
+            true
+        );
+        expect(window.MockForwarder1.instance.onLoginCompleteUser).to.be.ok;
+        expect(
+            window.MockForwarder1.instance.onLoginCompleteFilteredUserIdentities
+        ).to.deep.equal({
+            userIdentities: {
+                // Filtered Identity should no longer have `google` as an identity
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+
+        done();
+    });
+
+    it('should pass filteredUser and filteredUserIdentities to onLogoutComplete methods', function(done) {
+        mParticle._resetForTests(MPConfig);
+        const mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+
+        // This removes the Google User Identity
+        config1.userIdentityFilters = [mParticle.IdentityType.Google];
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.Identity.logout({
+            userIdentities: {
+                google: 'test@google.com',
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+
+        expect(window.MockForwarder1.instance.onLogoutCompleteCalled).to.eq(
+            true
+        );
+        expect(window.MockForwarder1.instance.onLogoutCompleteUser).to.be.ok;
+        expect(
+            window.MockForwarder1.instance
+                .onLogoutCompleteFilteredUserIdentities
+        ).to.deep.equal({
+            userIdentities: {
+                // Filtered Identity should no longer have `google` as an identity
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+
+        done();
+    });
+
+    it('should pass filteredUser and filteredUserIdentities to onModifyComplete methods', function(done) {
+        mParticle._resetForTests(MPConfig);
+        const mockForwarder = new MockForwarder();
+        mockForwarder.register(window.mParticle.config);
+
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+
+        // This removes the Google User Identity
+        config1.userIdentityFilters = [mParticle.IdentityType.Google];
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        mParticle.Identity.modify({
+            userIdentities: {
+                google: 'test@google.com',
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+
+        expect(window.MockForwarder1.instance.onModifyCompleteCalled).to.eq(
+            true
+        );
+        expect(window.MockForwarder1.instance.onModifyCompleteUser).to.be.ok;
+        expect(
+            window.MockForwarder1.instance
+                .onModifyCompleteFilteredUserIdentities
+        ).to.deep.equal({
+            userIdentities: {
+                // Filtered Identity should no longer have `google` as an identity
+                email: 'test@gmail.com',
+                customerid: '123',
+            },
+        });
+
+        done();
+    });
+
     it('should not forward event if attribute forwarding rule is set', function(done) {
         mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();

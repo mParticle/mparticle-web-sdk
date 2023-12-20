@@ -10,6 +10,7 @@ import { SDKConsentApi, SDKConsentState } from './consent';
 import { IPersistence } from './persistence.interfaces';
 import { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
+import { Kit, MPForwarder } from './forwarders.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -183,10 +184,6 @@ export type BooleanStringLowerCase = 'false' | 'true';
 export type BooleanStringTitleCase = 'False' | 'True';
 
 export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
-
-// TODO: Create true types for Kits and Kit Configs
-export type Kit = Dictionary;
-export type MPForwarder = Dictionary;
 
 // TODO: This should eventually be moved into wherever init logic lives
 // TODO: Replace/Merge this with MPConfiguration in @types/mparticle__web-sdk

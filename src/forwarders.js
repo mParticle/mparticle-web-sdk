@@ -491,30 +491,45 @@ export default function Forwarders(mpInstance, kitBlocker) {
                 mpInstance,
                 kitBlocker
             );
+
+            const filteredUserIdentities = filteredUser.getUserIdentities();
+
             if (identityMethod === Identify) {
                 if (forwarder.onIdentifyComplete) {
-                    result = forwarder.onIdentifyComplete(filteredUser);
+                    result = forwarder.onIdentifyComplete(
+                        filteredUser,
+                        filteredUserIdentities
+                    );
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
             } else if (identityMethod === Login) {
                 if (forwarder.onLoginComplete) {
-                    result = forwarder.onLoginComplete(filteredUser);
+                    result = forwarder.onLoginComplete(
+                        filteredUser,
+                        filteredUserIdentities
+                    );
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
             } else if (identityMethod === Logout) {
                 if (forwarder.onLogoutComplete) {
-                    result = forwarder.onLogoutComplete(filteredUser);
+                    result = forwarder.onLogoutComplete(
+                        filteredUser,
+                        filteredUserIdentities
+                    );
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }
                 }
             } else if (identityMethod === Modify) {
                 if (forwarder.onModifyComplete) {
-                    result = forwarder.onModifyComplete(filteredUser);
+                    result = forwarder.onModifyComplete(
+                        filteredUser,
+                        filteredUserIdentities
+                    );
                     if (result) {
                         mpInstance.Logger.verbose(result);
                     }

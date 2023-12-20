@@ -391,24 +391,40 @@ var pluses = /\+/g,
                 this.onUserIdentifiedUser = user;
             };
 
-            this.onIdentifyComplete = function(user) {
+            this.onIdentifyComplete = function(
+                filteredUser,
+                filteredUserIdentities
+            ) {
                 this.onIdentifyCompleteCalled = true;
-                this.onIdentifyCompleteUser = user;
+                this.onIdentifyCompleteUser = filteredUser;
+                this.onIdentifyCompleteFilteredUserIdentities = filteredUserIdentities;
             };
 
-            this.onLoginComplete = function(user) {
+            this.onLoginComplete = function(
+                filteredUser,
+                filteredUserIdentities
+            ) {
                 this.onLoginCompleteCalled = true;
-                this.onLoginCompleteUser = user;
+                this.onLoginCompleteUser = filteredUser;
+                this.onLoginCompleteFilteredUserIdentities = filteredUserIdentities;
             };
 
-            this.onLogoutComplete = function(user) {
+            this.onLogoutComplete = function(
+                filteredUser,
+                filteredUserIdentities
+            ) {
                 this.onLogoutCompleteCalled = true;
-                this.onLogoutCompleteUser = user;
+                this.onLogoutCompleteUser = filteredUser;
+                this.onLogoutCompleteFilteredUserIdentities = filteredUserIdentities;
             };
 
-            this.onModifyComplete = function(user) {
+            this.onModifyComplete = function(
+                filteredUser,
+                filteredUserIdentities
+            ) {
                 this.onModifyCompleteCalled = true;
-                this.onModifyCompleteUser = user;
+                this.onModifyCompleteUser = filteredUser;
+                this.onModifyCompleteFilteredUserIdentities = filteredUserIdentities;
             };
 
             this.setUserAttribute = function(key, value) {

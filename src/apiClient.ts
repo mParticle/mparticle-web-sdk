@@ -1,15 +1,11 @@
 import Constants from './constants';
 import Types from './types';
 import { BatchUploader } from './batchUploader';
-import {
-    MParticleUser,
-    MParticleWebSDK,
-    MPForwarder,
-    SDKEvent,
-} from './sdkRuntimeModels';
+import { MParticleUser, MParticleWebSDK, SDKEvent } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
-import { Dictionary, getRampNumber, isEmpty } from './utils';
+import { Dictionary, isEmpty } from './utils';
 import { IUploadObject } from './serverModel';
+import { MPForwarder } from './forwarders.interfaces';
 
 export type ForwardingStatsData = Dictionary<any>;
 

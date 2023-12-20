@@ -1,8 +1,17 @@
-import { MParticleUser, SDKEvent, SDKEventCustomFlags, SDKUserIdentity } from './sdkRuntimeModels';
+import {
+    MParticleUser,
+    SDKEvent,
+    SDKEventCustomFlags,
+    SDKUserIdentity,
+} from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { UserAttributes } from './persistence.interfaces';
 import { IdentityApiData } from '@mparticle/web-sdk';
+
+// TODO: https://go.mparticle.com/work/SQDSDKS-6035
+export type Kit = Dictionary;
+export type MPForwarder = Dictionary;
 
 // The state of the kit when accessed via window.KitName via CDN
 // or imported as an NPM package
@@ -32,11 +41,24 @@ export interface ConfiguredKit
         appVersion: string,
         appName: string,
         customFlags: SDKEventCustomFlags,
-        clientId: string): string;
-    onIdentifyComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
-    onLoginComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
-    onLogoutComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
-    onModifyComplete(user: MParticleUser, filteredIdentityRequest: IdentityApiData): string | KitMappedMethodFailure;
+        clientId: string
+    ): string;
+    onIdentifyComplete(
+        user: MParticleUser,
+        filteredIdentityRequest: IdentityApiData
+    ): string | KitMappedMethodFailure;
+    onLoginComplete(
+        user: MParticleUser,
+        filteredIdentityRequest: IdentityApiData
+    ): string | KitMappedMethodFailure;
+    onLogoutComplete(
+        user: MParticleUser,
+        filteredIdentityRequest: IdentityApiData
+    ): string | KitMappedMethodFailure;
+    onModifyComplete(
+        user: MParticleUser,
+        filteredIdentityRequest: IdentityApiData
+    ): string | KitMappedMethodFailure;
     onUserIdentified(user: MParticleUser): string | KitMappedMethodFailure;
     process(event: SDKEvent): string;
     setOptOut(isOptingOut: boolean): string | KitMappedMethodFailure;
