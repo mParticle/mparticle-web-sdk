@@ -1,5 +1,11 @@
 import Types from './types';
-import { isFunction, isNumber, isObject, isStringOrNumber, valueof } from './utils';
+import {
+    isFunction,
+    isNumber,
+    isObject,
+    isStringOrNumber,
+    valueof,
+} from './utils';
 import Constants from './constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
 
@@ -9,6 +15,8 @@ type ValidationIdentitiesReturn = {
     valid: boolean;
     error?: valueof<typeof Constants.Messages.ValidationMessages>;
 };
+
+const { Modify } = Constants.IdentityMethods;
 
 const Validators = {
     // From ./utils
@@ -43,7 +51,7 @@ const Validators = {
             copyUserAttributes: 1,
         };
         if (identityApiData) {
-            if (method === 'modify') {
+            if (method === Modify) {
                 if (
                     (isObject(identityApiData.userIdentities) &&
                         !Object.keys(identityApiData.userIdentities).length) ||
