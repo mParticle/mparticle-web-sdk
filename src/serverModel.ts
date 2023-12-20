@@ -13,7 +13,12 @@ import {
     SDKProduct,
     SDKUserIdentity,
 } from './sdkRuntimeModels';
-import { parseNumber, parseStringOrNumber, Dictionary } from './utils';
+import {
+    parseNumber,
+    parseStringOrNumber,
+    Dictionary,
+    isValidCustomFlagProperty,
+} from './utils';
 import { ServerSettings } from './store';
 import { MPID } from '@mparticle/web-sdk';
 import {
@@ -145,22 +150,12 @@ function convertCustomFlags(event: SDKEvent, dto: IServerV2DTO) {
 
         if (event.CustomFlags.hasOwnProperty(prop)) {
             if (Array.isArray(event.CustomFlags[prop])) {
-                event.CustomFlags[prop].forEach(function(customFlagProperty) {
-                    // TODO: Can we use our utility functions here?
-                    if (
-                        typeof customFlagProperty === 'number' ||
-                        typeof customFlagProperty === 'string' ||
-                        typeof customFlagProperty === 'boolean'
-                    ) {
+                event.CustomFlags[prop].forEach(customFlagProperty => {
+                    if (isValidCustomFlagProperty(customFlagProperty)) {
                         valueArray.push(customFlagProperty.toString());
                     }
                 });
-            } else if (
-                // TODO: Can we use our utility functions here?
-                typeof event.CustomFlags[prop] === 'number' ||
-                typeof event.CustomFlags[prop] === 'string' ||
-                typeof event.CustomFlags[prop] === 'boolean'
-            ) {
+            } else if (isValidCustomFlagProperty(event.CustomFlags[prop])) {
                 valueArray.push(event.CustomFlags[prop].toString());
             }
 
