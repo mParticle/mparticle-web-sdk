@@ -201,7 +201,10 @@ const converted = (s: string): string => {
 
 const isString = (value: any): boolean => typeof value === 'string';
 const isNumber = (value: any): boolean => typeof value === 'number';
+const isBoolean = (value: any): boolean => typeof value === 'boolean';
 const isFunction = (fn: any): boolean => typeof fn === 'function';
+const isValidCustomFlagProperty = (value: any): boolean =>
+    isNumber(value) || isString(value) || isBoolean(value);
 
 const toDataPlanSlug = (value: any): string =>
     // Make sure we are only acting on strings or numbers
@@ -247,4 +250,5 @@ export {
     isFunction,
     isDataPlanSlug,
     isEmpty,
+    isValidCustomFlagProperty,
 };
