@@ -9,7 +9,7 @@ import { IKitConfigs } from './configAPIClient';
 import { UserAttributes } from './persistence.interfaces';
 import { IdentityApiData } from '@mparticle/web-sdk';
 
-// TODO: Create Distinct MPForwarder and Kit interfaces
+// TODO: https://go.mparticle.com/work/SQDSDKS-6035
 export type Kit = Dictionary;
 export type MPForwarder = Dictionary;
 
