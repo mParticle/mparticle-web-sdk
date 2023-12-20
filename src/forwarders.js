@@ -443,7 +443,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         });
     };
 
-    // TODO: This is a v1 method, we should deprecate
+    // TODO: https://go.mparticle.com/work/SQDSDKS-6036
     this.setForwarderUserIdentities = function(userIdentities) {
         mpInstance._Store.activeForwarders.forEach(function(forwarder) {
             var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(

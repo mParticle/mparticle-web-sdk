@@ -1623,7 +1623,7 @@ export default function Identity(mpInstance) {
                         );
                     }
 
-                    // TODO: This is a v1 method. We should deprecate
+                    // TODO: https://go.mparticle.com/work/SQDSDKS-6036
                     mpInstance._Forwarders.setForwarderUserIdentities(
                         newUser.getUserIdentities().userIdentities
                     );
