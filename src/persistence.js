@@ -1019,7 +1019,6 @@ export default function _Persistence(mpInstance) {
             ),
             date = new Date(),
             key = mpInstance._Store.storageName,
-            // QUESTION: Should this code go below the `useCookieStorage` check?
             expires = new Date(
                 date.getTime() +
                     mpInstance._Store.SDKConfig.cookieExpiration *
