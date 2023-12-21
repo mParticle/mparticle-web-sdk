@@ -48,7 +48,7 @@ export default function _Persistence(mpInstance) {
                     // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
                     if (localStorageData) {
                         if (cookies) {
-                            // TODO: Replace extend with an object merge function
+                            // https://go.mparticle.com/work/SQDSDKS-6047
                             allData = mpInstance._Helpers.extend(
                                 false,
                                 localStorageData,
@@ -166,7 +166,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    // TODO: Move this into the Store
+    // https://go.mparticle.com/work/SQDSDKS-6045
     this.storeDataInMemory = function(obj, currentMPID) {
         try {
             if (!obj) {
@@ -248,8 +248,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    // TODO: Refactor this into a Storage API Helper
-    //       https://go.mparticle.com/work/SQDSDKS-5022
+    // https://go.mparticle.com/work/SQDSDKS-5022
     this.determineLocalStorageAvailability = function(storage) {
         var result;
 
@@ -261,7 +260,7 @@ export default function _Persistence(mpInstance) {
             storage.setItem('mparticle', 'test');
             result = storage.getItem('mparticle') === 'test';
             storage.removeItem('mparticle');
-            return result && storage; // This should return boolean but it doen't some times
+            return result && storage;
         } catch (e) {
             return false;
         }
@@ -1187,7 +1186,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    // TODO: This should not live in Persistence
+    // https://go.mparticle.com/work/SQDSDKS-6045
     // Forwarder Batching Code
     this.forwardingStatsBatches = {
         uploadsTable: {},
