@@ -65,15 +65,21 @@ export const concatenateIdentities = (
     return concatenatedIdentities;
 };
 
-export const shouldCallIdentity = (
+export const hasValidCachedIdentity = (
     method: string,
     proposedUserIdentities: IKnownIdentities,
-    idCache: LocalStorageVault<Dictionary>
+    idCache?: LocalStorageVault<Dictionary>
 ): Boolean => {
-    const cache = idCache.retrieve();
+    // There is an edhge case where multiple identity calls are taking place 
+    // before identify fires, so there may not be a cache.  See what happens when 
+    // the ? in idCache is removed to the following test
+    // "queued events contain login mpid instead of identify mpid when calling 
+    // login immediately after mParticle initializes"
+    const cache = idCache?.retrieve();
 
+    // if there is no cache, then there is no valid cached identity
     if (!cache) {
-        return true;
+        return false;
     }
 
     const cacheKey: string = concatenateIdentities(
@@ -81,12 +87,22 @@ export const shouldCallIdentity = (
         proposedUserIdentities
     );
 
-    if (cache.hasOwnProperty(cacheKey)) {
-        const expireTimestamp = cache[cacheKey].expireTimestamp;
-        if (expireTimestamp > new Date().getTime()) return false;
+    // if cache doesn't have the cacheKey, there is no valid cached identity
+    if (!cache.hasOwnProperty(cacheKey)) {
+        return false;
     }
-
-    return true;
+    
+    // If there is a valid cache key, compare the expireTimestamp to the current time
+    // and return 
+    const expireTimestamp = cache[cacheKey].expireTimestamp;
+    
+    // if the current time is greater than the expireTimestamp, it is not a valid
+    // cached identity.
+    if (expireTimestamp < new Date().getTime()) {
+        return false;
+    } else {
+        return true;
+    }
 };
 
 export const getCachedIdentity = (
@@ -126,293 +142,19 @@ export const createKnownIdentities = (
     return identitiesResult;
 };
 
-// export const parseCachedIdentityResponse = (
-//     cachedIdentity: ICachedIdentityCall,
-//     previousMPID: string,
-//     callback,
-//     // identityApiData,
-//     // method,
-//     // knownIdentities,
-//     mpInstance: MParticleWebSDK
-// ) {
-//     var prevUser = mpInstance.Identity.getUser(previousMPID),
-//         newUser,
-//         mpidIsNotInCookies,
-//         identityApiResult,
-//         indexOfMPID,
-//         newIdentitiesByType = {},
-//         previousUIByName = prevUser
-//             ? prevUser.getUserIdentities().userIdentities
-//             : {},
-//         previousUIByNameCopy = mpInstance._Helpers.extend(
-//             {},
-//             previousUIByName
-//         );
-//     // mpInstance._Store.identityCallInFlight = false;
+export const removeExpiredIdentityCacheDates = function(idCache: LocalStorageVault<Dictionary>): void {
+    const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || {};
 
-//     mpInstance._Store.isLoggedIn = cachedIdentity.isLoggedIn;
+    idCache.purge();
+    
+    const currentTime:number = new Date().getTime();
 
-//         // set currentUser
-//         if (
-//             !prevUser ||
-//             (prevUser.getMPID() &&
-//                 identityApiResult.mpid &&
-//                 identityApiResult.mpid !== prevUser.getMPID())
-//         ) {
-//             mpInstance._Store.mpid = identityApiResult.mpid;
+    // Iterate over the cache and remove any key/value pairs that are expired
+    for (let key in cache) {
+        if (cache[key].expireTimestamp < currentTime) {
+            delete cache[key];
+        }
+    };
 
-//             if (prevUser) {
-//                 mpInstance._Persistence.setLastSeenTime(previousMPID);
-//             }
-
-//             if (
-//                 !mpInstance._Persistence.getFirstSeenTime(
-//                     identityApiResult.mpid
-//                 )
-//             )
-//                 mpidIsNotInCookies = true;
-//             mpInstance._Persistence.setFirstSeenTime(
-//                 identityApiResult.mpid
-//             );
-//         }
-
-//         if (xhr.status === 200) {
-//             // const CACHE_HEADER = 'X-MP-Max-Age';
-//             // const idCacheTimeout = xhr.getAllResponseHeaders();
-//             // magic code to get CACHE_HEADER
-//             const oneDayInMS = 86400 * 60 * 60 * 24;
-//             const timeout = new Date().getTime() + oneDayInMS;
-
-//             if (method === 'login' || method === 'identify') {
-//                 cacheIdentityRequest(
-//                     method,
-//                     knownIdentities,
-//                     identityApiResult.mpid,
-//                     timeout,
-//                     self.idCache
-//                 );
-//             }
-
-//             if (method === 'modify') {
-//                 newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(
-//                     previousUIByName,
-//                     identityApiData.userIdentities
-//                 );
-
-//                 mpInstance._Persistence.saveUserIdentitiesToPersistence(
-//                     previousMPID,
-//                     newIdentitiesByType
-//                 );
-//             } else {
-//                 var incomingUser = self.IdentityAPI.getUser(
-//                     identityApiResult.mpid
-//                 );
-
-//                 var incomingMpidUIByName = incomingUser
-//                     ? incomingUser.getUserIdentities().userIdentities
-//                     : {};
-
-//                 var incomingMpidUIByNameCopy = mpInstance._Helpers.extend(
-//                     {},
-//                     incomingMpidUIByName
-//                 );
-//                 mpInstance.Logger.verbose(
-//                     'Successfully parsed Identity Response'
-//                 );
-
-//                 //this covers an edge case where, users stored before "firstSeenTime" was introduced
-//                 //will not have a value for "fst" until the current MPID changes, and in some cases,
-//                 //the current MPID will never change
-//                 if (
-//                     method === 'identify' &&
-//                     prevUser &&
-//                     identityApiResult.mpid === prevUser.getMPID()
-//                 ) {
-//                     mpInstance._Persistence.setFirstSeenTime(
-//                         identityApiResult.mpid
-//                     );
-//                 }
-
-//                 indexOfMPID = mpInstance._Store.currentSessionMPIDs.indexOf(
-//                     identityApiResult.mpid
-//                 );
-
-//                 if (
-//                     mpInstance._Store.sessionId &&
-//                     identityApiResult.mpid &&
-//                     previousMPID !== identityApiResult.mpid &&
-//                     indexOfMPID < 0
-//                 ) {
-//                     mpInstance._Store.currentSessionMPIDs.push(
-//                         identityApiResult.mpid
-//                     );
-//                 }
-
-//                 if (indexOfMPID > -1) {
-//                     mpInstance._Store.currentSessionMPIDs = mpInstance._Store.currentSessionMPIDs
-//                         .slice(0, indexOfMPID)
-//                         .concat(
-//                             mpInstance._Store.currentSessionMPIDs.slice(
-//                                 indexOfMPID + 1,
-//                                 mpInstance._Store.currentSessionMPIDs
-//                                     .length
-//                             )
-//                         );
-//                     mpInstance._Store.currentSessionMPIDs.push(
-//                         identityApiResult.mpid
-//                     );
-//                 }
-
-//                 mpInstance._CookieSyncManager.attemptCookieSync(
-//                     previousMPID,
-//                     identityApiResult.mpid,
-//                     mpidIsNotInCookies
-//                 );
-
-//                 self.checkIdentitySwap(
-//                     previousMPID,
-//                     identityApiResult.mpid,
-//                     mpInstance._Store.currentSessionMPIDs
-//                 );
-
-//                 if (
-//                     identityApiData &&
-//                     identityApiData.userIdentities &&
-//                     Object.keys(identityApiData.userIdentities).length
-//                 ) {
-//                     newIdentitiesByType = self.IdentityRequest.combineUserIdentities(
-//                         incomingMpidUIByName,
-//                         identityApiData.userIdentities
-//                     );
-//                 }
-
-//                 mpInstance._Persistence.saveUserIdentitiesToPersistence(
-//                     identityApiResult.mpid,
-//                     newIdentitiesByType
-//                 );
-//                 mpInstance._Persistence.update();
-
-//                 mpInstance._Persistence.findPrevCookiesBasedOnUI(
-//                     identityApiData
-//                 );
-
-//                 mpInstance._Store.context =
-//                     identityApiResult.context ||
-//                     mpInstance._Store.context;
-//             }
-
-//             newUser = mpInstance.Identity.getCurrentUser();
-
-//             if (
-//                 identityApiData &&
-//                 identityApiData.onUserAlias &&
-//                 mpInstance._Helpers.Validators.isFunction(
-//                     identityApiData.onUserAlias
-//                 )
-//             ) {
-//                 try {
-//                     mpInstance.Logger.warning(
-//                         'Deprecated function onUserAlias will be removed in future releases'
-//                     );
-//                     identityApiData.onUserAlias(prevUser, newUser);
-//                 } catch (e) {
-//                     mpInstance.Logger.error(
-//                         'There was an error with your onUserAlias function - ' +
-//                             e
-//                     );
-//                 }
-//             }
-//             var persistence = mpInstance._Persistence.getPersistence();
-
-//             if (newUser) {
-//                 mpInstance._Persistence.storeDataInMemory(
-//                     persistence,
-//                     newUser.getMPID()
-//                 );
-//                 if (
-//                     !prevUser ||
-//                     newUser.getMPID() !== prevUser.getMPID() ||
-//                     prevUser.isLoggedIn() !== newUser.isLoggedIn()
-//                 ) {
-//                     mpInstance._Forwarders.initForwarders(
-//                         newUser.getUserIdentities().userIdentities,
-//                         mpInstance._APIClient.prepareForwardingStats
-//                     );
-//                 }
-//                 mpInstance._Forwarders.setForwarderUserIdentities(
-//                     newUser.getUserIdentities().userIdentities
-//                 );
-//                 mpInstance._Forwarders.setForwarderOnIdentityComplete(
-//                     newUser,
-//                     method
-//                 );
-//                 mpInstance._Forwarders.setForwarderOnUserIdentified(
-//                     newUser,
-//                     method
-//                 );
-//             }
-//             var newIdentitiesByName = {};
-
-//             for (var key in newIdentitiesByType) {
-//                 newIdentitiesByName[
-//                     Types.IdentityType.getIdentityName(
-//                         mpInstance._Helpers.parseNumber(key)
-//                     )
-//                 ] = newIdentitiesByType[key];
-//             }
-
-//             self.sendUserIdentityChangeEvent(
-//                 newIdentitiesByName,
-//                 method,
-//                 identityApiResult.mpid,
-//                 method === 'modify'
-//                     ? previousUIByNameCopy
-//                     : incomingMpidUIByNameCopy
-//             );
-//         }
-
-//         if (callback) {
-//             if (xhr.status === 0) {
-//                 mpInstance._Helpers.invokeCallback(
-//                     callback,
-//                     HTTPCodes.noHttpCoverage,
-//                     identityApiResult || null,
-//                     newUser
-//                 );
-//             } else {
-//                 mpInstance._Helpers.invokeCallback(
-//                     callback,
-//                     xhr.status,
-//                     identityApiResult || null,
-//                     newUser
-//                 );
-//             }
-//         } else {
-//             if (
-//                 identityApiResult &&
-//                 identityApiResult.errors &&
-//                 identityApiResult.errors.length
-//             ) {
-//                 mpInstance.Logger.error(
-//                     'Received HTTP response code of ' +
-//                         xhr.status +
-//                         ' - ' +
-//                         identityApiResult.errors[0].message
-//                 );
-//             }
-//         }
-
-//         mpInstance._APIClient.processQueuedEvents();
-//     } catch (e) {
-//         if (callback) {
-//             mpInstance._Helpers.invokeCallback(
-//                 callback,
-//                 xhr.status,
-//                 identityApiResult || null
-//             );
-//         }
-//         mpInstance.Logger.error(
-//             'Error parsing JSON response from Identity server: ' + e
-//         );
-//     }
-// };
+    idCache.store(cache);
+}

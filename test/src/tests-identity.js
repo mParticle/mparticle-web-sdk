@@ -5,7 +5,8 @@ import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey,
     testMPID,
     MPConfig,
-    workspaceCookieName } from './config/constants';
+    workspaceCookieName
+} from './config/constants';
 
 const getLocalStorage = Utils.getLocalStorage,
     setLocalStorage = Utils.setLocalStorage,
@@ -26,6 +27,7 @@ describe('identity', function() {
         fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
+        localStorage.clear();
 
         mockServer.respondWith(urls.identify, [
             200,
@@ -160,7 +162,13 @@ describe('identity', function() {
             JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
         ]);
 
-        mParticle.Identity.login();
+        const userIdentities1 = {
+            userIdentities: {
+                customerid: 'foo1',
+            },
+        };
+
+        mParticle.Identity.login(userIdentities1);
         const localStorageDataBeforeSessionEnd = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -174,7 +182,7 @@ describe('identity', function() {
         localStorageDataAfterSessionEnd1.gs.should.not.have.property('csm');
 
         mParticle.logEvent('hi');
-        mParticle.Identity.login();
+        mParticle.Identity.login(userIdentities1);
 
         const localStorageAfterLoggingEvent = mParticle
             .getInstance()
@@ -202,7 +210,13 @@ describe('identity', function() {
             JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
         ]);
 
-        mParticle.Identity.login();
+        const userIdentities1 = {
+            userIdentities: {
+                customerid: 'foo1',
+            },
+        };
+
+        mParticle.Identity.login(userIdentities1);
         const cookiesAfterMPIDChange = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -272,7 +286,13 @@ describe('identity', function() {
             JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
         ]);
 
-        mParticle.Identity.login();
+        const userIdentities1 = {
+            userIdentities: {
+                customerid: 'foo1',
+            },
+        };
+
+        mParticle.Identity.login(userIdentities1);
 
         const cookiesAfterMPIDChange = findCookie();
         cookiesAfterMPIDChange.should.have.properties([
@@ -1048,12 +1068,21 @@ describe('identity', function() {
     it('getUsers should return all mpids available in local storage', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        const user1 = {};
-        const user2 = {};
-        const user3 = {
+        const userIdentities1 = {
             userIdentities: {
-                customerid: 'customerid3',
-                email: 'email3@test.com',
+                customerid: 'foo1',
+            },
+        };
+
+        const userIdentities2 = {
+            userIdentities: {
+                customerid: 'foo2',
+            },
+        };
+
+        const userIdentities3 = {
+            userIdentities: {
+                customerid: 'foo3',
             },
         };
 
@@ -1065,8 +1094,8 @@ describe('identity', function() {
             {},
             JSON.stringify({ mpid: 'user1', is_logged_in: false }),
         ]);
-
-        mParticle.Identity.login(user1);
+        debugger;
+        mParticle.Identity.login(userIdentities1);
 
         // get user 2 into cookies
         mockServer.respondWith(urls.login, [
@@ -1075,7 +1104,7 @@ describe('identity', function() {
             JSON.stringify({ mpid: 'user2', is_logged_in: false }),
         ]);
 
-        mParticle.Identity.login(user2);
+        mParticle.Identity.login(userIdentities2);
 
         // get user 3 into cookies
         mockServer.respondWith(urls.login, [
@@ -1084,7 +1113,7 @@ describe('identity', function() {
             JSON.stringify({ mpid: 'user3', is_logged_in: false }),
         ]);
 
-        mParticle.Identity.login(user3);
+        mParticle.Identity.login(userIdentities3);
 
         // init again using user 1
         mockServer.respondWith(urls.login, [
@@ -1093,7 +1122,8 @@ describe('identity', function() {
             JSON.stringify({ mpid: 'user1', is_logged_in: false }),
         ]);
 
-        mParticle.identifyRequest = user1;
+
+        mParticle.identifyRequest = userIdentities1;
 
         mParticle.init(apiKey, window.mParticle.config);
         const users = mParticle.Identity.getUsers();
@@ -1106,6 +1136,7 @@ describe('identity', function() {
         Should.not.exist(mParticle.Identity.getUser('cu'));
         Should.not.exist(mParticle.Identity.getUser('0'));
         Should.not.exist(mParticle.Identity.getUser('user4'));
+
         done();
     });
 
@@ -2282,7 +2313,7 @@ describe('identity', function() {
         mockServer.respondWith(urls.identify, [
             200,
             {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
 
         mockServer.requests = [];
@@ -2300,35 +2331,41 @@ describe('identity', function() {
         mockServer.respondWith(urls.login, [
             200,
             {},
-            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
         ]);
 
+        const userIdentities1 = {
+            userIdentities: {
+                customerid: 'foo1',
+            },
+        };
+
         mockServer.requests = [];
-        mParticle.Identity.login();
+        mParticle.Identity.login(userIdentities1);
 
         currentUser = mParticle.Identity.getCurrentUser();
-        currentUser.getMPID().should.equal('MPID2');
+        currentUser.getMPID().should.equal('MPID1');
 
-        //new user's firstSeenTime should be greater than or equal to the preceeding user's lastSeenTime
+        // new user's firstSeenTime should be greater than or equal to the preceeding user's lastSeenTime
         (currentUser.getFirstSeenTime() >= user1LastSeen).should.equal(true);
         currentUser.getFirstSeenTime().should.equal(120);
 
         clock.tick(20);
 
-        const user1 = mParticle.Identity.getUser('MPID1');
+        const user1 = mParticle.Identity.getUser(testMPID);
         user1.getFirstSeenTime().should.equal(user1FirstSeen);
 
         mockServer.respondWith(urls.login, [
             200,
             {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
         mockServer.requests = [];
 
         mParticle.Identity.login();
 
         currentUser = mParticle.Identity.getCurrentUser();
-        currentUser.getMPID().should.equal('MPID1');
+        currentUser.getMPID().should.equal(testMPID);
         currentUser.getFirstSeenTime().should.equal(user1FirstSeen);
         (currentUser.getLastSeenTime() > user1LastSeen).should.equal(true);
 
@@ -3078,14 +3115,17 @@ describe('identity', function() {
             }
 
             mParticle.config.identifyRequest = identities;
-
+            debugger;
             mParticle.init(apiKey, window.mParticle.config);
 
             const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
             initialIdentityCall.should.be.ok();
             mockServer.requests = [];
-
-            mParticle.Identity.identify(identities);
+            function callback(result) {
+                debugger;
+            }
+            debugger;
+            mParticle.Identity.identify(identities, callback);
             const duplicateIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
 
             Should(duplicateIdentityCall).not.be.ok();

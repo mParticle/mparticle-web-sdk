@@ -239,7 +239,7 @@ export interface SDKIdentityApi {
     login;
     logout;
     modify;
-    getUser();
+    getUser(mpid: string);
 }
 
 export interface SDKHelpersApi {

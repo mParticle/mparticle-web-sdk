@@ -2,7 +2,8 @@ import Constants from './constants';
 import Types from './types';
 import {
     cacheIdentityRequest,
-    shouldCallIdentity,
+    hasValidCachedIdentity,
+    getCachedIdentity,
     createKnownIdentities,
 } from './identity-utils';
 
@@ -252,27 +253,30 @@ export default function Identity(mpInstance) {
                     mpid
                 );
 
-                let canCallIdentity = shouldCallIdentity(
+                const shouldReturnCachedIdentity = hasValidCachedIdentity(
                     'identify',
                     identityApiRequest.known_identities,
                     self.idCache
                 );
 
-                // not calling identity means that there is something in the cache
-                if (!canCallIdentity) {
-                    // const cachedIdentity = getCachedIdentity(
-                    //     'identify',
-                    //     identityApiRequest.known_identities,
-                    //     self.idCache
-                    // );
-                    // this.parseCachedIdentityResponse(cachedIdentity);
-                    // try to DRY up invoking callback
-                    mpInstance._Helpers.invokeCallback(
-                        callback,
-                        HTTPCodes.validationIssue,
-                        preProcessResult.error
+                // If Identity is cached, then immediately parse the identity response
+                if (shouldReturnCachedIdentity) {
+                    const cachedIdentity = getCachedIdentity(
+                        'identify',
+                        identityApiRequest.known_identities,
+                        self.idCache
                     );
-                    mpInstance.Logger.verbose(preProcessResult);
+
+                    self.parseIdentityResponse(
+                        cachedIdentity,
+                        mpid,
+                        callback,
+                        identityApiData,
+                        'identify',
+                        identityApiRequest.known_identities,
+                        true
+                    );
+
                     return;
                 }
 
@@ -440,20 +444,30 @@ export default function Identity(mpInstance) {
                     mpid
                 );
 
-                let canCallIdentity = shouldCallIdentity(
+                let shouldReturnCachedIdentity = hasValidCachedIdentity(
                     'login',
                     identityApiRequest.known_identities,
                     self.idCache
                 );
 
-                if (!canCallIdentity) {
-                    // try to DRY up invoking callback
-                    mpInstance._Helpers.invokeCallback(
-                        callback,
-                        HTTPCodes.validationIssue,
-                        preProcessResult.error
+                // If Identity is cached, then immediately parse the identity response
+                if (shouldReturnCachedIdentity) {
+                    const cachedIdentity = getCachedIdentity(
+                        'identify',
+                        identityApiRequest.known_identities,
+                        self.idCache
                     );
-                    mpInstance.Logger.verbose(preProcessResult);
+
+                    self.parseIdentityResponse(
+                        cachedIdentity,
+                        mpid,
+                        callback,
+                        identityApiData,
+                        'identify',
+                        identityApiRequest.known_identities,
+                        true
+                    );
+
                     return;
                 }
 
@@ -1458,7 +1472,8 @@ export default function Identity(mpInstance) {
         callback,
         identityApiData,
         method,
-        knownIdentities
+        knownIdentities,
+        fromCache,
     ) {
         var prevUser = mpInstance.Identity.getUser(previousMPID),
             newUser,
@@ -1520,6 +1535,7 @@ export default function Identity(mpInstance) {
                 const expireTimestamp = new Date().getTime() + oneDayInMS;
 
                 if (method === 'login' || method === 'identify') {
+                    // if (fromCache) {
                     cacheIdentityRequest(
                         method,
                         knownIdentities,
@@ -1527,6 +1543,7 @@ export default function Identity(mpInstance) {
                         self.idCache,
                         xhr
                     );
+                    // }
                 }
 
                 if (method === Modify) {

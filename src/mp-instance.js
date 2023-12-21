@@ -37,6 +37,7 @@ import KitBlocker from './kitBlocking';
 import ConfigAPIClient from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
 import { LocalStorageVault } from './vault';
+import { removeExpiredIdentityCacheDates } from './identity-utils';
 
 var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
@@ -1316,6 +1317,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             logger: mpInstance.Logger,
         }
     );
+
+    removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
     if (config.hasOwnProperty('workspaceToken')) {
         mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;
     } else {
