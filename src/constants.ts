@@ -146,6 +146,8 @@ const Constants = {
         ia: 1,
         con: 1,
     },
+
+    // https://go.mparticle.com/work/SQDSDKS-6039
     SDKv2NonMPIDCookieKeys: {
         gs: 1,
         cu: 1,

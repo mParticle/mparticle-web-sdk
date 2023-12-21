@@ -349,6 +349,8 @@ export default function Events(mpInstance) {
             }
 
             mpInstance._APIClient.sendEventToServer(commerceEvent, options);
+
+            // https://go.mparticle.com/work/SQDSDKS-6038
             mpInstance._Persistence.update();
         } else {
             mpInstance.Logger.verbose(

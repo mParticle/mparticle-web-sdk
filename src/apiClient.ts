@@ -45,6 +45,7 @@ export default function APIClient(
         }
         this.uploader.queueEvent(event);
 
+        // https://go.mparticle.com/work/SQDSDKS-6038
         mpInstance._Persistence.update();
     };
 
@@ -116,6 +117,7 @@ export default function APIClient(
             return;
         }
 
+        // https://go.mparticle.com/work/SQDSDKS-6038
         if (options.shouldUploadEvent) {
             this.queueEventForBatchUpload(event);
         }

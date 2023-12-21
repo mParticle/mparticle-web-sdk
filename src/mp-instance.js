@@ -1330,6 +1330,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
     mpInstance._Store.configurationLoaded = true;
 
+    // https://go.mparticle.com/work/SQDSDKS-6044
     if (!mpInstance._Store.webviewBridgeEnabled) {
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
@@ -1401,6 +1402,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._Events.logAST();
 
         // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
+        // Any identity callback should always be ran regardless if an identity call is made
         if (
             !mpInstance._Store.identifyCalled &&
             mpInstance._Store.SDKConfig.identityCallback &&
@@ -1455,6 +1457,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._preInit.readyQueue = [];
     }
 
+    // https://go.mparticle.com/work/SQDSDKS-6040
     if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;
     }
