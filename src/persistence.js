@@ -328,7 +328,7 @@ export default function _Persistence(mpInstance) {
         return parsedDecodedProducts;
     };
 
-    // TODO https://go.mparticle.com/work/SQDSDKS-6021
+    // https://go.mparticle.com/work/SQDSDKS-6021
     this.setLocalStorage = function() {
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
