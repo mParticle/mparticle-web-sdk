@@ -147,7 +147,7 @@ const Constants = {
         con: 1,
     },
 
-    // QUESTION: Can we eventually deprecate this or migrate to Cookie v4?
+    // https://go.mparticle.com/work/SQDSDKS-6039
     SDKv2NonMPIDCookieKeys: {
         gs: 1,
         cu: 1,

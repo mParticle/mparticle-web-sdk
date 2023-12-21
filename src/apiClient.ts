@@ -49,7 +49,7 @@ export default function APIClient(
         }
         this.uploader.queueEvent(event);
 
-        // This should should only be updating the dateLastEventSent value in persistence
+        // https://go.mparticle.com/work/SQDSDKS-6038
         mpInstance._Persistence.update();
     };
 
@@ -121,8 +121,7 @@ export default function APIClient(
             return;
         }
 
-        // QUESTION: Is there a better place to update the dateLastEventSent given
-        // that a user can decide if an event should be sent or not?
+        // https://go.mparticle.com/work/SQDSDKS-6038
         if (options.shouldUploadEvent) {
             this.queueEventForBatchUpload(event);
         }
