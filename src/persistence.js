@@ -11,10 +11,7 @@ var Base64 = Polyfill.Base64,
 export default function _Persistence(mpInstance) {
     var self = this;
 
-    // TODO: Refactor all the checks for Storage API and Cookie Settings
-    //       into a mechanism that can be the single source of truth
-    //       for browser features and persistence settings
-    //       Should be part of: https://go.mparticle.com/work/SQDSDKS-5022
+    // https://go.mparticle.com/work/SQDSDKS-5022
     this.useLocalStorage = function() {
         return (
             !mpInstance._Store.SDKConfig.useCookieStorage &&
@@ -29,7 +26,7 @@ export default function _Persistence(mpInstance) {
                 cookies = self.getCookie(),
                 allData;
 
-            // QUESTION: Can we move store values into a Store Persistence?
+            // https://go.mparticle.com/work/SQDSDKS-6045
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
             if (!localStorageData && !cookies) {
                 mpInstance._Store.isFirstRun = true;
@@ -38,12 +35,12 @@ export default function _Persistence(mpInstance) {
                 mpInstance._Store.isFirstRun = false;
             }
 
-            // TODO: We should not mutate a config setting here
+            // https://go.mparticle.com/work/SQDSDKS-6045
             if (!mpInstance._Store.isLocalStorageAvailable) {
                 mpInstance._Store.SDKConfig.useCookieStorage = true;
             }
 
-            // TODO: Create a migration helper function that allows transferring between cookies and local storage
+            // https://go.mparticle.com/work/SQDSDKS-6046
             if (mpInstance._Store.isLocalStorageAvailable) {
                 storage = window.localStorage;
                 if (mpInstance._Store.SDKConfig.useCookieStorage) {
@@ -70,7 +67,7 @@ export default function _Persistence(mpInstance) {
                     // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
                     if (cookies) {
                         if (localStorageData) {
-                            // TODO: Replace extend with an object merge function
+                            // https://go.mparticle.com/work/SQDSDKS-6047
                             allData = mpInstance._Helpers.extend(
                                 false,
                                 localStorageData,
@@ -89,7 +86,7 @@ export default function _Persistence(mpInstance) {
                 self.storeDataInMemory(cookies);
             }
 
-            // TODO: This code is deprecated and should be refactored and eventually removed
+            // https://go.mparticle.com/work/SQDSDKS-6048
             try {
                 if (mpInstance._Store.isLocalStorageAvailable) {
                     var encodedProducts = localStorage.getItem(
@@ -118,7 +115,7 @@ export default function _Persistence(mpInstance) {
                 );
             }
 
-            // TODO: Move this into the Store as a function
+            // https://go.mparticle.com/work/SQDSDKS-6046
             // Stores all non-current user MPID information into the store
             for (var key in allData) {
                 if (allData.hasOwnProperty(key)) {
@@ -511,10 +508,8 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    // TODO: When refactoring as part of https://go.mparticle.com/work/SQDSDKS-5022
-    //       a lot of this code should go into the Vault as a Cookie Vault
-    // only used in persistence
-    // TODO https://go.mparticle.com/work/SQDSDKS-6021
+    // https://go.mparticle.com/work/SQDSDKS-5022
+    // https://go.mparticle.com/work/SQDSDKS-6021
     this.setCookie = function() {
         var mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
@@ -1018,7 +1013,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    // TODO https://go.mparticle.com/work/SQDSDKS-6021
+    // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
         var encodedPersistence = self.encodePersistence(
                 JSON.stringify(persistence)

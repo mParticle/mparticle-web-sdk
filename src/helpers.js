@@ -99,6 +99,7 @@ export default function Helpers(mpInstance) {
         }
     };
 
+    // https://go.mparticle.com/work/SQDSDKS-6047
     // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
     this.extend = function() {
         var options,
