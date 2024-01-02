@@ -1,3 +1,11 @@
+## [2.23.8](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.7...v2.23.8) (2024-01-02)
+
+
+### Bug Fixes
+
+* Add filtered user identities to identity complete methods ([#816](https://github.com/mParticle/mparticle-web-sdk/issues/816)) ([715e217](https://github.com/mParticle/mparticle-web-sdk/commit/715e217cb8c630dfaefddc136eaa2150a53a5036))
+* Replace identify method strings with constants ([#817](https://github.com/mParticle/mparticle-web-sdk/issues/817)) ([1bca974](https://github.com/mParticle/mparticle-web-sdk/commit/1bca9744567f12714aa8900c79a5232fe972c64b))
+
 ## [2.23.7](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.6...v2.23.7) (2023-10-23)
 
 
