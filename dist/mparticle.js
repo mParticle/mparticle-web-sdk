@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.23.7";
+    var version = "2.23.8";
 
     var Constants = {
       sdkVersion: version,
@@ -742,6 +742,7 @@ var mParticle = (function () {
         ia: 1,
         con: 1
       },
+      // https://go.mparticle.com/work/SQDSDKS-6039
       SDKv2NonMPIDCookieKeys: {
         gs: 1,
         cu: 1,
@@ -764,7 +765,13 @@ var mParticle = (function () {
         OfflineStorage: 'offlineStorage'
       },
       DefaultInstance: 'default_instance',
-      CCPAPurpose: 'data_sale_opt_out'
+      CCPAPurpose: 'data_sale_opt_out',
+      IdentityMethods: {
+        Modify: 'modify',
+        Logout: 'logout',
+        Login: 'login',
+        Identify: 'identify'
+      }
     };
 
     /******************************************************************************
@@ -1282,8 +1289,14 @@ var mParticle = (function () {
     var isNumber = function isNumber(value) {
       return typeof value === 'number';
     };
+    var isBoolean = function isBoolean(value) {
+      return typeof value === 'boolean';
+    };
     var isFunction = function isFunction(fn) {
       return typeof fn === 'function';
+    };
+    var isValidCustomFlagProperty = function isValidCustomFlagProperty(value) {
+      return isNumber(value) || isString(value) || isBoolean(value);
     };
     var toDataPlanSlug = function toDataPlanSlug(value) {
       // Make sure we are only acting on strings or numbers
@@ -2364,6 +2377,7 @@ var mParticle = (function () {
           this.uploader = new BatchUploader(mpInstance, millis);
         }
         this.uploader.queueEvent(event);
+        // https://go.mparticle.com/work/SQDSDKS-6038
         mpInstance._Persistence.update();
       };
       this.processQueuedEvents = function () {
@@ -2414,6 +2428,7 @@ var mParticle = (function () {
         if (isEmpty(event)) {
           return;
         }
+        // https://go.mparticle.com/work/SQDSDKS-6038
         if (options.shouldUploadEvent) {
           this.queueEventForBatchUpload(event);
         }
@@ -2494,6 +2509,7 @@ var mParticle = (function () {
       };
     }
 
+    var Modify$3 = Constants.IdentityMethods.Modify;
     var Validators = {
       // From ./utils
       // Utility Functions for backwards compatability
@@ -2516,7 +2532,7 @@ var mParticle = (function () {
           copyUserAttributes: 1
         };
         if (identityApiData) {
-          if (method === 'modify') {
+          if (method === Modify$3) {
             if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
               return {
                 valid: false,
@@ -2690,6 +2706,7 @@ var mParticle = (function () {
         }
       };
 
+      // https://go.mparticle.com/work/SQDSDKS-6047
       // Standalone version of jQuery.extend, from https://github.com/dansdom/extend
       this.extend = function () {
         var options,
@@ -3191,6 +3208,7 @@ var mParticle = (function () {
             self.endSession();
             self.startNewSession();
           } else {
+            // https://go.mparticle.com/work/SQDSDKS-6045
             var persistence = mpInstance._Persistence.getPersistence();
             if (persistence && !persistence.cu) {
               mpInstance.Identity.identify(mpInstance._Store.SDKConfig.identifyRequest, mpInstance._Store.SDKConfig.identityCallback);
@@ -4008,6 +4026,8 @@ var mParticle = (function () {
       StorageNames = Constants.StorageNames;
     function _Persistence(mpInstance) {
       var self = this;
+
+      // https://go.mparticle.com/work/SQDSDKS-5022
       this.useLocalStorage = function () {
         return !mpInstance._Store.SDKConfig.useCookieStorage && mpInstance._Store.isLocalStorageAvailable;
       };
@@ -4018,6 +4038,7 @@ var mParticle = (function () {
             cookies = self.getCookie(),
             allData;
 
+          // https://go.mparticle.com/work/SQDSDKS-6045
           // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
           if (!localStorageData && !cookies) {
             mpInstance._Store.isFirstRun = true;
@@ -4025,9 +4046,13 @@ var mParticle = (function () {
           } else {
             mpInstance._Store.isFirstRun = false;
           }
+
+          // https://go.mparticle.com/work/SQDSDKS-6045
           if (!mpInstance._Store.isLocalStorageAvailable) {
             mpInstance._Store.SDKConfig.useCookieStorage = true;
           }
+
+          // https://go.mparticle.com/work/SQDSDKS-6046
           if (mpInstance._Store.isLocalStorageAvailable) {
             storage = window.localStorage;
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
@@ -4035,6 +4060,7 @@ var mParticle = (function () {
               // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
               if (localStorageData) {
                 if (cookies) {
+                  // https://go.mparticle.com/work/SQDSDKS-6047
                   allData = mpInstance._Helpers.extend(false, localStorageData, cookies);
                 } else {
                   allData = localStorageData;
@@ -4049,6 +4075,7 @@ var mParticle = (function () {
               // no mParticle localStorage exists yet and there are cookies. Get the cookies, set them to localStorage, then delete the cookies.
               if (cookies) {
                 if (localStorageData) {
+                  // https://go.mparticle.com/work/SQDSDKS-6047
                   allData = mpInstance._Helpers.extend(false, localStorageData, cookies);
                 } else {
                   allData = cookies;
@@ -4062,6 +4089,8 @@ var mParticle = (function () {
           } else {
             self.storeDataInMemory(cookies);
           }
+
+          // https://go.mparticle.com/work/SQDSDKS-6048
           try {
             if (mpInstance._Store.isLocalStorageAvailable) {
               var encodedProducts = localStorage.getItem(mpInstance._Store.prodStorageName);
@@ -4079,6 +4108,9 @@ var mParticle = (function () {
             mpInstance._Store.cartProducts = [];
             mpInstance.Logger.error('Error loading products in initialization: ' + e);
           }
+
+          // https://go.mparticle.com/work/SQDSDKS-6046
+          // Stores all non-current user MPID information into the store
           for (var key in allData) {
             if (allData.hasOwnProperty(key)) {
               if (!SDKv2NonMPIDCookieKeys[key]) {
@@ -4088,6 +4120,8 @@ var mParticle = (function () {
           }
           self.update();
         } catch (e) {
+          // If cookies or local storage is corrupt, we want to remove it
+          // so that in the future, initializeStorage will work
           if (self.useLocalStorage() && mpInstance._Store.isLocalStorageAvailable) {
             localStorage.removeItem(mpInstance._Store.storageName);
           } else {
@@ -4113,6 +4147,8 @@ var mParticle = (function () {
           }
         }
       };
+
+      // https://go.mparticle.com/work/SQDSDKS-6045
       this.storeDataInMemory = function (obj, currentMPID) {
         try {
           if (!obj) {
@@ -4164,6 +4200,8 @@ var mParticle = (function () {
           mpInstance.Logger.error(Messages$4.ErrorMessages.CookieParseError);
         }
       };
+
+      // https://go.mparticle.com/work/SQDSDKS-5022
       this.determineLocalStorageAvailability = function (storage) {
         var result;
         if (window.mParticle && window.mParticle._forceNoLocalStorage) {
@@ -4223,6 +4261,8 @@ var mParticle = (function () {
         }
         return parsedDecodedProducts;
       };
+
+      // https://go.mparticle.com/work/SQDSDKS-6021
       this.setLocalStorage = function () {
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return;
@@ -4355,7 +4395,8 @@ var mParticle = (function () {
         }
       };
 
-      // only used in persistence
+      // https://go.mparticle.com/work/SQDSDKS-5022
+      // https://go.mparticle.com/work/SQDSDKS-6021
       this.setCookie = function () {
         var mpid,
           currentUser = mpInstance.Identity.getCurrentUser();
@@ -4706,6 +4747,8 @@ var mParticle = (function () {
           }
         }
       };
+
+      // https://go.mparticle.com/work/SQDSDKS-6021
       this.savePersistence = function (persistence) {
         var encodedPersistence = self.encodePersistence(JSON.stringify(persistence)),
           date = new Date(),
@@ -4835,6 +4878,7 @@ var mParticle = (function () {
         }
       };
 
+      // https://go.mparticle.com/work/SQDSDKS-6045
       // Forwarder Batching Code
       this.forwardingStatsBatches = {
         uploadsTable: {},
@@ -5044,6 +5088,8 @@ var mParticle = (function () {
             commerceEvent.EventAttributes = attrs;
           }
           mpInstance._APIClient.sendEventToServer(commerceEvent, options);
+
+          // https://go.mparticle.com/work/SQDSDKS-6038
           mpInstance._Persistence.update();
         } else {
           mpInstance.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent);
@@ -5168,6 +5214,11 @@ var mParticle = (function () {
       };
     }
 
+    var _Constants$IdentityMe$1 = Constants.IdentityMethods,
+      Modify$2 = _Constants$IdentityMe$1.Modify,
+      Identify$1 = _Constants$IdentityMe$1.Identify,
+      Login = _Constants$IdentityMe$1.Login,
+      Logout = _Constants$IdentityMe$1.Logout;
     function Forwarders(mpInstance, kitBlocker) {
       var self = this;
       var UserAttributeActionTypes = {
@@ -5398,6 +5449,8 @@ var mParticle = (function () {
           }
         });
       };
+
+      // TODO: https://go.mparticle.com/work/SQDSDKS-6036
       this.setForwarderUserIdentities = function (userIdentities) {
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
           var filteredUserIdentities = mpInstance._Helpers.filterUserIdentities(userIdentities, forwarder.userIdentityFilters);
@@ -5426,30 +5479,31 @@ var mParticle = (function () {
         var result;
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
           var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker);
-          if (identityMethod === 'identify') {
+          var filteredUserIdentities = filteredUser.getUserIdentities();
+          if (identityMethod === Identify$1) {
             if (forwarder.onIdentifyComplete) {
-              result = forwarder.onIdentifyComplete(filteredUser);
+              result = forwarder.onIdentifyComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
             }
-          } else if (identityMethod === 'login') {
+          } else if (identityMethod === Login) {
             if (forwarder.onLoginComplete) {
-              result = forwarder.onLoginComplete(filteredUser);
+              result = forwarder.onLoginComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
             }
-          } else if (identityMethod === 'logout') {
+          } else if (identityMethod === Logout) {
             if (forwarder.onLogoutComplete) {
-              result = forwarder.onLogoutComplete(filteredUser);
+              result = forwarder.onLogoutComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
             }
-          } else if (identityMethod === 'modify') {
+          } else if (identityMethod === Modify$2) {
             if (forwarder.onModifyComplete) {
-              result = forwarder.onModifyComplete(filteredUser);
+              result = forwarder.onModifyComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
@@ -5649,14 +5703,11 @@ var mParticle = (function () {
         if (event.CustomFlags.hasOwnProperty(prop)) {
           if (Array.isArray(event.CustomFlags[prop])) {
             event.CustomFlags[prop].forEach(function (customFlagProperty) {
-              // TODO: Can we use our utility functions here?
-              if (typeof customFlagProperty === 'number' || typeof customFlagProperty === 'string' || typeof customFlagProperty === 'boolean') {
+              if (isValidCustomFlagProperty(customFlagProperty)) {
                 valueArray.push(customFlagProperty.toString());
               }
             });
-          } else if (
-          // TODO: Can we use our utility functions here?
-          typeof event.CustomFlags[prop] === 'number' || typeof event.CustomFlags[prop] === 'string' || typeof event.CustomFlags[prop] === 'boolean') {
+          } else if (isValidCustomFlagProperty(event.CustomFlags[prop])) {
             valueArray.push(event.CustomFlags[prop].toString());
           }
           if (valueArray.length) {
@@ -5992,6 +6043,9 @@ var mParticle = (function () {
 
     var Messages$2 = Constants.Messages,
       HTTPCodes$2 = Constants.HTTPCodes;
+    var _Constants$IdentityMe = Constants.IdentityMethods,
+      Identify = _Constants$IdentityMe.Identify,
+      Modify$1 = _Constants$IdentityMe.Modify;
     function Identity(mpInstance) {
       var self = this;
       this.checkIdentitySwap = function (previousMPID, currentMPID, currentSessionMPIDs) {
@@ -6897,7 +6951,7 @@ var mParticle = (function () {
             mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
           }
           if (xhr.status === 200) {
-            if (method === 'modify') {
+            if (method === Modify$1) {
               newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(previousUIByName, identityApiData.userIdentities);
               mpInstance._Persistence.saveUserIdentitiesToPersistence(previousMPID, newIdentitiesByType);
             } else {
@@ -6909,7 +6963,7 @@ var mParticle = (function () {
               //this covers an edge case where, users stored before "firstSeenTime" was introduced
               //will not have a value for "fst" until the current MPID changes, and in some cases,
               //the current MPID will never change
-              if (method === 'identify' && prevUser && identityApiResult.mpid === prevUser.getMPID()) {
+              if (method === Identify && prevUser && identityApiResult.mpid === prevUser.getMPID()) {
                 mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
               }
               indexOfMPID = mpInstance._Store.currentSessionMPIDs.indexOf(identityApiResult.mpid);
@@ -6925,6 +6979,8 @@ var mParticle = (function () {
               if (identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length) {
                 newIdentitiesByType = self.IdentityRequest.combineUserIdentities(incomingMpidUIByName, identityApiData.userIdentities);
               }
+
+              // https://go.mparticle.com/work/SQDSDKS-6041
               mpInstance._Persistence.saveUserIdentitiesToPersistence(identityApiResult.mpid, newIdentitiesByType);
               mpInstance._Persistence.update();
               mpInstance._Persistence.findPrevCookiesBasedOnUI(identityApiData);
@@ -6945,15 +7001,17 @@ var mParticle = (function () {
               if (!prevUser || newUser.getMPID() !== prevUser.getMPID() || prevUser.isLoggedIn() !== newUser.isLoggedIn()) {
                 mpInstance._Forwarders.initForwarders(newUser.getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
               }
+
+              // TODO: https://go.mparticle.com/work/SQDSDKS-6036
               mpInstance._Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);
               mpInstance._Forwarders.setForwarderOnIdentityComplete(newUser, method);
-              mpInstance._Forwarders.setForwarderOnUserIdentified(newUser, method);
+              mpInstance._Forwarders.setForwarderOnUserIdentified(newUser);
             }
             var newIdentitiesByName = {};
             for (var key in newIdentitiesByType) {
               newIdentitiesByName[Types.IdentityType.getIdentityName(mpInstance._Helpers.parseNumber(key))] = newIdentitiesByType[key];
             }
-            self.sendUserIdentityChangeEvent(newIdentitiesByName, method, identityApiResult.mpid, method === 'modify' ? previousUIByNameCopy : incomingMpidUIByNameCopy);
+            self.sendUserIdentityChangeEvent(newIdentitiesByName, method, identityApiResult.mpid, method === Modify$1 ? previousUIByNameCopy : incomingMpidUIByNameCopy);
           }
           if (callback) {
             if (xhr.status === 0) {
@@ -7840,6 +7898,7 @@ var mParticle = (function () {
 
     var HTTPCodes$1 = Constants.HTTPCodes,
       Messages$1 = Constants.Messages;
+    var Modify = Constants.IdentityMethods.Modify;
     function IdentityAPIClient(mpInstance) {
       this.sendAliasRequest = function (aliasRequest, callback) {
         var xhr,
@@ -7894,7 +7953,7 @@ var mParticle = (function () {
               mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
             } else {
               previousMPID = mpid || null;
-              if (method === 'modify') {
+              if (method === Modify) {
                 xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl) + mpid + '/' + method);
               } else {
                 xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl) + method);
@@ -8873,6 +8932,8 @@ var mParticle = (function () {
       }
       mpInstance._Store.webviewBridgeEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled(mpInstance._Store.SDKConfig.requiredWebviewBridgeName, mpInstance._Store.SDKConfig.minWebviewBridgeVersion);
       mpInstance._Store.configurationLoaded = true;
+
+      // https://go.mparticle.com/work/SQDSDKS-6044
       if (!mpInstance._Store.webviewBridgeEnabled) {
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
@@ -8917,6 +8978,7 @@ var mParticle = (function () {
         mpInstance._Events.logAST();
 
         // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
+        // Any identity callback should always be ran regardless if an identity call is made
         if (!mpInstance._Store.identifyCalled && mpInstance._Store.SDKConfig.identityCallback && currentUser && currentUser.getMPID()) {
           mpInstance._Store.SDKConfig.identityCallback({
             httpCode: HTTPCodes.activeSession,
@@ -8953,6 +9015,8 @@ var mParticle = (function () {
         });
         mpInstance._preInit.readyQueue = [];
       }
+
+      // https://go.mparticle.com/work/SQDSDKS-6040
       if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;
       }
