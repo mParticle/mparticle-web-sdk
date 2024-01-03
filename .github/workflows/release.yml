@@ -234,7 +234,7 @@ jobs:
 
             - name: Create and push release branch
               run: |
-                  git checkout release/${{ github.run_number }}
+                  git checkout -b release/${{ github.run_number }}
                   git push origin release/${{ github.run_number }}
 
     release:
@@ -251,7 +251,7 @@ jobs:
             NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
         steps:
-            - name: Checkout master branch
+            - name: Checkout public master branch
               uses: actions/checkout@v3
               with:
                   fetch-depth: 0
@@ -267,7 +267,7 @@ jobs:
 
             - name: Merge release branch into master branch
               run: |
-                  git pull origin pre-release/${{ github.run_number }}
+                  git pull origin release/${{ github.run_number }}
 
             - name: Setup Node.js
               uses: actions/setup-node@v3
@@ -298,32 +298,34 @@ jobs:
             - name: Push automated release commits to release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
-                git push origin HEAD:release/${{ github.run_number }}   
-            
-    sync-repository:
-      name: Sync repositories
-      needs: release
-      runs-on: ubuntu-latest
-      steps:
-          - name: Checkout master branch
-            uses: actions/checkout@v3
-            with:
-                fetch-depth: 0
-                repository: ${{ github.repository }}
-                token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
-                ref: master
+                  git push origin HEAD:release/${{ github.run_number }}
 
-          - name: Merge release branch into master branch
-            if: ${{ github.event.inputs.dryRun == 'false' }}
-            run: |
-                git pull origin release/${{ github.run_number }}
-          - name: Push release commits to main, master and development branches
-            if: ${{ github.event.inputs.dryRun == 'false' }}
-            run: |
-                git push origin HEAD:development
-                git push origin HEAD:master
-                git push origin HEAD:main
-          - name: Delete release branch
-            if: ${{ github.event.inputs.dryRun == 'false' }}
-            run: |
-                git push --delete origin release/${{ github.run_number }}
+    sync-repository:
+        name: Sync repositories
+        needs: release
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout master branch
+              uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
+                  repository: ${{ github.repository }}
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  ref: master
+
+            - name: Merge release branch into master branch
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              run: |
+                  git pull origin release/${{ github.run_number }}
+
+            - name: Push release commits to main, master and development branches
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              run: |
+                  git push origin HEAD:development
+                  git push origin HEAD:master
+                  git push origin HEAD:main
+
+            - name: Delete release branch
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              run: |
+                  git push --delete origin release/${{ github.run_number }}
