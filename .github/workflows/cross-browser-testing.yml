@@ -1,10 +1,13 @@
+# The below template is adapted from
+# https://github.com/browserstack/github-actions?tab=readme-ov-file#sample-workflow-with-usage-of-both-actions
+
 name: 'BrowserStack Test'
 on: [push, pull_request, workflow_dispatch]
 
 jobs:
-  ubuntu-job:
-    name: 'BrowserStack Test on Ubuntu'
-    runs-on: ubuntu-latest  # Can be self-hosted runner also
+  browserstack-test:
+    name: 'BrowserStack Test'
+    runs-on: ubuntu-latest
     steps:
 
       - name: 'BrowserStack Env Setup'  # Invokes the setup-env action
