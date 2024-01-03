@@ -1,4 +1,4 @@
-name: "Release - Step 1: Prepare CDN Pre-Release, Publish NPM"
+name: Release SDK
 
 on:
     workflow_dispatch:
@@ -212,7 +212,7 @@ jobs:
             branch_name: ${{ vars.GITHUB_SHA }}
             build_command: npm run build:esm && npm run build:test-bundle
 
-    create-pre-release-branch:
+    create-release-branch:
         name: Create release branch
         runs-on: ubuntu-latest
         needs:
@@ -234,14 +234,14 @@ jobs:
 
             - name: Create and push release branch
               run: |
-                  git checkout -b pre-release/${{ github.run_number }}
-                  git push origin pre-release/${{ github.run_number }}
+                  git checkout -b release/${{ github.run_number }}
+                  git push origin release/${{ github.run_number }}
 
-    pre-release:
-        name: Perform Pre-Release
+    release:
+        name: Perform Release
         runs-on: ubuntu-latest
         needs:
-            - create-pre-release-branch
+            - create-release-branch
         env:
             GITHUB_TOKEN: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
             GIT_AUTHOR_NAME: mparticle-automation
@@ -251,7 +251,7 @@ jobs:
             NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
         steps:
-            - name: Checkout master branch
+            - name: Checkout public master branch
               uses: actions/checkout@v3
               with:
                   fetch-depth: 0
@@ -265,9 +265,9 @@ jobs:
                   git_user_signingkey: true
                   git_commit_gpgsign: true
 
-            - name: Merge pre-release branch into local master branch
+            - name: Merge release branch into master branch
               run: |
-                  git pull origin pre-release/${{ github.run_number }}
+                  git pull origin release/${{ github.run_number }}
 
             - name: Setup Node.js
               uses: actions/setup-node@v3
@@ -288,10 +288,6 @@ jobs:
               run: |
                   npx semantic-release
 
-            - name: Get Package Version Number
-              uses: martinbeentjes/npm-get-version-action@3cf273023a0dda27efcd3164bdfb51908dd46a5b #v1.3.1
-              id: packageJsonVersion
-
             - name: Archive npm failure logs
               uses: actions/upload-artifact@v3
               if: failure()
@@ -299,12 +295,37 @@ jobs:
                   name: npm-logs
                   path: ~/.npm/_logs
 
-            - name: Push automated release commits to pre-release branch
+            - name: Push automated release commits to release branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
-                  git push origin HEAD:release/${{ steps.packageJsonVersion.outputs.current-version }}    
-            
-            - name: Delete pre-release branch
+                  git push origin HEAD:release/${{ github.run_number }}
+
+    sync-repository:
+        name: Sync repositories
+        needs: release
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout master branch
+              uses: actions/checkout@v3
+              with:
+                  fetch-depth: 0
+                  repository: ${{ github.repository }}
+                  token: ${{ secrets.MP_SEMANTIC_RELEASE_BOT }}
+                  ref: master
+
+            - name: Merge release branch into master branch
               if: ${{ github.event.inputs.dryRun == 'false' }}
               run: |
-                  git push --delete origin pre-release/${{ github.run_number }}
+                  git pull origin release/${{ github.run_number }}
+
+            - name: Push release commits to main, master and development branches
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              run: |
+                  git push origin HEAD:development
+                  git push origin HEAD:master
+                  git push origin HEAD:main
+
+            - name: Delete release branch
+              if: ${{ github.event.inputs.dryRun == 'false' }}
+              run: |
+                  git push --delete origin release/${{ github.run_number }}
