@@ -30,6 +30,9 @@ jobs:
       - name: 'Run NPM CI'
         run: npm ci
 
+      - name: Run Build IIFE
+        run: npm run build:iife
+
         # ensures the tests are es5 compatible
       - name: 'Run NPM build:cbt'
         run: npm run build:cbt
