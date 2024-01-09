@@ -3,7 +3,7 @@ import Types from './types';
 import { BatchUploader } from './batchUploader';
 import { MParticleUser, MParticleWebSDK, SDKEvent } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
-import { Dictionary, isEmpty } from './utils';
+import { Dictionary, getRampNumber, isEmpty, parseNumber } from './utils';
 import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
 
@@ -38,9 +38,9 @@ export default function APIClient(
     const self = this;
     this.queueEventForBatchUpload = function(event: SDKEvent) {
         if (!this.uploader) {
-            const millis = mpInstance._Helpers.getFeatureFlag(
+            const millis: number = parseNumber(mpInstance._Helpers.getFeatureFlag(
                 Constants.FeatureFlags.EventBatchingIntervalMillis
-            );
+            ));
             this.uploader = new BatchUploader(mpInstance, millis);
         }
         this.uploader.queueEvent(event);
