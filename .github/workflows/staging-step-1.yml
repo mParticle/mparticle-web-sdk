@@ -1,4 +1,4 @@
-name: "Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM"
+name: 'Staging Release - Step 1: Prepare CDN Pre-Release, Publish NPM'
 
 on:
     workflow_dispatch:
@@ -20,11 +20,11 @@ jobs:
 
             - name: Branch Check
               run: |
-                BRANCHNAME=${GITHUB_REF##*/}
-                if [ $BRANCHNAME != "staging" ]; then
-                    echo "You can only run a staging release from the staging branch, you are trying to run it from ${BRANCHNAME}"
-                    exit 1
-                fi
+                  BRANCHNAME=${GITHUB_REF##*/}
+                  if [ $BRANCHNAME != "staging" ]; then
+                      echo "You can only run a staging release from the staging branch, you are trying to run it from ${BRANCHNAME}"
+                      exit 1
+                  fi
 
     build-bundle:
         name: Build Distribution Bundle
@@ -60,8 +60,8 @@ jobs:
               uses: actions/upload-artifact@v2
               if: failure()
               with:
-                    name: npm-logs
-                    path: ~/.npm/_logs
+                  name: npm-logs
+                  path: ~/.npm/_logs
 
     # Currently, we're only using Jest to test TypeScript modules
     # and they do not require any built files
@@ -240,8 +240,8 @@ jobs:
             - name: Checkout development branch
               uses: actions/checkout@v3
               with:
-                    repository: mparticle/mparticle-web-sdk
-                    ref: development
+                  repository: mparticle/mparticle-web-sdk
+                  ref: development
 
             - name: Create and push release branch
               run: |
@@ -265,8 +265,8 @@ jobs:
             - name: Checkout staging branch
               uses: actions/checkout@v3
               with:
-                 fetch-depth: 0
-                 ref: staging
+                  fetch-depth: 0
+                  ref: staging
 
             - name: Import GPG Key
               uses: crazy-max/ghaction-import-gpg@e00cb83a68c1158b29afc5217dd0582cada6d172 #v4.4.0
@@ -278,7 +278,7 @@ jobs:
 
             - name: Merge release branch into staging branch
               run: |
-                    git pull origin release/${{ github.run_number }}
+                  git pull origin release/${{ github.run_number }}
 
             - name: Setup Node.js
               uses: actions/setup-node@v3
