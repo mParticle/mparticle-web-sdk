@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.23.9";
+    var version = "2.24.0";
 
     var Constants = {
       sdkVersion: version,
@@ -721,10 +721,10 @@ var mParticle = (function () {
         integrationDelayTimeout: 5000,
         maxCookieSize: 3000,
         aliasMaxWindow: 90,
-        uploadInterval: 0 // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload
+        uploadInterval: 0 // Maximum milliseconds in between batch uploads, below 500 will mean immediate upload.  The server returns this as a string, but we are using it as a number internally
       },
 
-      DefaultUrls: {
+      DefaultBaseUrls: {
         v1SecureServiceUrl: 'jssdks.mparticle.com/v1/JS/',
         v2SecureServiceUrl: 'jssdks.mparticle.com/v2/JS/',
         v3SecureServiceUrl: 'jssdks.mparticle.com/v3/JS/',
@@ -762,7 +762,8 @@ var mParticle = (function () {
       FeatureFlags: {
         ReportBatching: 'reportBatching',
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
-        OfflineStorage: 'offlineStorage'
+        OfflineStorage: 'offlineStorage',
+        DirectUrlRouting: 'directURLRouting'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -852,6 +853,16 @@ var mParticle = (function () {
             } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
             if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
         }
+    }
+
+    function __spreadArray(to, from, pack) {
+        if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+            if (ar || !(i in from)) {
+                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+                ar[i] = from[i];
+            }
+        }
+        return to.concat(ar || Array.prototype.slice.call(from));
     }
 
     typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
@@ -2373,7 +2384,7 @@ var mParticle = (function () {
       var self = this;
       this.queueEventForBatchUpload = function (event) {
         if (!this.uploader) {
-          var millis = mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatchingIntervalMillis);
+          var millis = parseNumber(mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatchingIntervalMillis));
           this.uploader = new BatchUploader(mpInstance, millis);
         }
         this.uploader.queueEvent(event);
@@ -3757,13 +3768,13 @@ var mParticle = (function () {
           }
         }
       }
-      for (var prop in Constants.DefaultUrls) {
-        sdkConfig[prop] = Constants.DefaultUrls[prop];
+      for (var prop in Constants.DefaultBaseUrls) {
+        sdkConfig[prop] = Constants.DefaultBaseUrls[prop];
       }
       return sdkConfig;
     }
     // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
-    function Store(config, mpInstance) {
+    function Store(config, mpInstance, apiKey) {
       var defaultStore = {
         isEnabled: true,
         sessionAttributes: {},
@@ -3811,10 +3822,15 @@ var mParticle = (function () {
       for (var key in defaultStore) {
         this[key] = defaultStore[key];
       }
+      this.devToken = apiKey || null;
       this.integrationDelayTimeoutStart = Date.now();
-      this.SDKConfig = createSDKConfig(config);
       // Set configuration to default settings
+      this.SDKConfig = createSDKConfig(config);
       if (config) {
+        if (!config.hasOwnProperty('flags')) {
+          this.SDKConfig.flags = {};
+        }
+        this.SDKConfig.flags = processFlags(config, this.SDKConfig);
         if (config.deviceId) {
           this.deviceId = config.deviceId;
         }
@@ -3823,23 +3839,9 @@ var mParticle = (function () {
         } else {
           this.SDKConfig.isDevelopmentMode = false;
         }
-        if (config.hasOwnProperty('v1SecureServiceUrl')) {
-          this.SDKConfig.v1SecureServiceUrl = config.v1SecureServiceUrl;
-        }
-        if (config.hasOwnProperty('v2SecureServiceUrl')) {
-          this.SDKConfig.v2SecureServiceUrl = config.v2SecureServiceUrl;
-        }
-        if (config.hasOwnProperty('v3SecureServiceUrl')) {
-          this.SDKConfig.v3SecureServiceUrl = config.v3SecureServiceUrl;
-        }
-        if (config.hasOwnProperty('identityUrl')) {
-          this.SDKConfig.identityUrl = config.identityUrl;
-        }
-        if (config.hasOwnProperty('aliasUrl')) {
-          this.SDKConfig.aliasUrl = config.aliasUrl;
-        }
-        if (config.hasOwnProperty('configUrl')) {
-          this.SDKConfig.configUrl = config.configUrl;
+        var baseUrls = processBaseUrls(config, this.SDKConfig.flags, apiKey);
+        for (var baseUrlKeys in baseUrls) {
+          this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
         }
         if (config.hasOwnProperty('logLevel')) {
           this.SDKConfig.logLevel = config.logLevel;
@@ -3953,19 +3955,77 @@ var mParticle = (function () {
             this.SDKConfig.onCreateBatch = undefined;
           }
         }
-        if (!config.hasOwnProperty('flags')) {
-          this.SDKConfig.flags = {};
+      }
+    }
+    function processFlags(config, SDKConfig) {
+      var flags = {};
+      var _a = Constants.FeatureFlags,
+        ReportBatching = _a.ReportBatching,
+        EventBatchingIntervalMillis = _a.EventBatchingIntervalMillis,
+        OfflineStorage = _a.OfflineStorage,
+        DirectUrlRouting = _a.DirectUrlRouting;
+      if (!config.flags) {
+        return {};
+      }
+      // Passed in config flags take priority over defaults
+      flags[ReportBatching] = config.flags[ReportBatching] || false;
+      // The server returns stringified numbers, sowe need to parse
+      flags[EventBatchingIntervalMillis] = parseNumber(config.flags[EventBatchingIntervalMillis]) || Constants.DefaultConfig.uploadInterval;
+      flags[OfflineStorage] = config.flags[OfflineStorage] || '0';
+      flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
+      return flags;
+    }
+    function processBaseUrls(config, flags, apiKey) {
+      // an API key is not present in a webview only mode. In this case, no baseUrls are needed
+      if (!apiKey) {
+        return {};
+      }
+      // When direct URL routing is false, update baseUrls based custom urls
+      // passed to the config
+      if (flags.directURLRouting) {
+        return processDirectBaseUrls(config, apiKey);
+      } else {
+        return processCustomBaseUrls(config);
+      }
+    }
+    function processCustomBaseUrls(config) {
+      var defaultBaseUrls = Constants.DefaultBaseUrls;
+      var newBaseUrls = {};
+      // If there is no custo base url, we use the default base url
+      for (var baseUrlKey in defaultBaseUrls) {
+        newBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
+      }
+      return newBaseUrls;
+    }
+    function processDirectBaseUrls(config, apiKey) {
+      var defaultBaseUrls = Constants.DefaultBaseUrls;
+      var directBaseUrls = {};
+      // When Direct URL Routing is true, we create a new set of baseUrls that
+      // include the silo in the urls.  mParticle API keys are prefixed with the
+      // silo and a hyphen (ex. "us1-", "us2-", "eu1-").  us1 was the first silo,
+      // and before other silos existed, there were no prefixes and all apiKeys
+      // were us1. As such, if we split on a '-' and the resulting array length
+      // is 1, then it is an older APIkey that should route to us1.
+      // When splitKey.length is greater than 1, then splitKey[0] will be
+      // us1, us2, eu1, au1, or st1, etc as new silos are added
+      var DEFAULT_SILO = 'us1';
+      var splitKey = apiKey.split('-');
+      var routingPrefix = splitKey.length <= 1 ? DEFAULT_SILO : splitKey[0];
+      for (var baseUrlKey in defaultBaseUrls) {
+        // Any custom endpoints passed to mpConfig will take priority over direct
+        // mapping to the silo.  The most common use case is a customer provided CNAME.
+        if (baseUrlKey === 'configUrl') {
+          directBaseUrls[baseUrlKey] = config[baseUrlKey] || defaultBaseUrls[baseUrlKey];
+          continue;
         }
-        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.EventBatchingIntervalMillis)) {
-          this.SDKConfig.flags[Constants.FeatureFlags.EventBatchingIntervalMillis] = Constants.DefaultConfig.uploadInterval;
-        }
-        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.ReportBatching)) {
-          this.SDKConfig.flags[Constants.FeatureFlags.ReportBatching] = false;
-        }
-        if (!this.SDKConfig.flags.hasOwnProperty(Constants.FeatureFlags.OfflineStorage)) {
-          this.SDKConfig.flags[Constants.FeatureFlags.OfflineStorage] = 0;
+        if (config.hasOwnProperty(baseUrlKey)) {
+          directBaseUrls[baseUrlKey] = config[baseUrlKey];
+        } else {
+          var urlparts = defaultBaseUrls[baseUrlKey].split('.');
+          directBaseUrls[baseUrlKey] = __spreadArray([urlparts[0], routingPrefix], urlparts.slice(1), true).join('.');
         }
       }
+      return directBaseUrls;
     }
 
     function Logger(config) {
@@ -9080,9 +9140,8 @@ var mParticle = (function () {
     }
     function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
       mpInstance.Logger = new Logger(config);
-      mpInstance._Store = new Store(config, mpInstance);
+      mpInstance._Store = new Store(config, mpInstance, apiKey);
       window.mParticle.Store = mpInstance._Store;
-      mpInstance._Store.devToken = apiKey || null;
       mpInstance.Logger.verbose(Messages.InformationMessages.StartingInitialization);
 
       // Check to see if localStorage is available before main configuration runs
