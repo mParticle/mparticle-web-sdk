@@ -10,7 +10,11 @@ import {
 import { LocalStorageVault } from "../../src/vault";
 import { Dictionary } from "../../src/utils";
 import { expect } from 'chai';
-import { MILLISECONDS_IN_ONE_DAY, MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND, testMPID } from './config';
+import { 
+    MILLISECONDS_IN_ONE_DAY,
+    MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND,
+    testMPID
+} from './config/constants';
 
 import sinon from 'sinon';
 

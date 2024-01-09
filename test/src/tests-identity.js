@@ -1094,7 +1094,7 @@ describe('identity', function() {
             {},
             JSON.stringify({ mpid: 'user1', is_logged_in: false }),
         ]);
-        debugger;
+
         mParticle.Identity.login(userIdentities1);
 
         // get user 2 into cookies
@@ -3115,16 +3115,15 @@ describe('identity', function() {
             }
 
             mParticle.config.identifyRequest = identities;
-            debugger;
+
             mParticle.init(apiKey, window.mParticle.config);
 
             const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
             initialIdentityCall.should.be.ok();
             mockServer.requests = [];
-            function callback(result) {
-                debugger;
+            function callback() {
+                // debugger;
             }
-            debugger;
             mParticle.Identity.identify(identities, callback);
             const duplicateIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
 

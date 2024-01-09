@@ -96,7 +96,6 @@ describe('/config self-hosting integration tests', function() {
             [200, {}, JSON.stringify({ workspaceToken: 'workspaceTokenTest' })]
         );
 
-        debugger;
         mockServer.respondWith(urls.identify, [
             200,
             {},

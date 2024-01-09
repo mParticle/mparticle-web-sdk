@@ -29,4 +29,4 @@ import './tests-utils';
 import './tests-session-manager';
 import './tests-store';
 import './tests-config-api-client';
-import './tests-identity-utils.ts'
+import './tests-identity-utils';
