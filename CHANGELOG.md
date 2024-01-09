@@ -1,3 +1,10 @@
+# [2.24.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.9...v2.24.0) (2024-01-09)
+
+
+### Features
+
+* Support direct url routing from config ([#797](https://github.com/mParticle/mparticle-web-sdk/issues/797)) ([#801](https://github.com/mParticle/mparticle-web-sdk/issues/801)) ([ffddbc4](https://github.com/mParticle/mparticle-web-sdk/commit/ffddbc4127e465dea4d35eef2a9948e79c199808))
+
 ## [2.23.9](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.8...v2.23.9) (2024-01-08)
 
 ## [2.23.8](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.7...v2.23.8) (2024-01-02)
