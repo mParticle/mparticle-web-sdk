@@ -9,7 +9,7 @@ import {
 import Constants from './constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
 
-type IdentityAPIMethod = 'login' | 'logout' | 'identify' | 'modify';
+export type IdentityAPIMethod = 'login' | 'logout' | 'identify' | 'modify';
 
 type ValidationIdentitiesReturn = {
     valid: boolean;

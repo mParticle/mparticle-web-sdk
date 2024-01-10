@@ -1,7 +1,8 @@
-import { Dictionary } from './utils';
+import { Dictionary, parseNumber } from './utils';
 import { LocalStorageVault } from './vault';
 import Types from './types';
 import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
+import { IdentityAPIMethod } from './validators';
 import { isObject } from './utils';
 import { MParticleWebSDK } from './sdkRuntimeModels';
 
@@ -16,7 +17,7 @@ export interface ICachedIdentityCall extends UserIdentities {
 }
 
 export const cacheIdentityRequest = (
-    method: string,
+    method: IdentityAPIMethod,
     identities: IKnownIdentities,
     expireTimestamp: number,
     idCache: LocalStorageVault<Dictionary>,
@@ -33,7 +34,7 @@ export const cacheIdentityRequest = (
 // we sort the identities based on their enum.
 // we create an array, set the user identity at the index of the user identity type
 export const concatenateIdentities = (
-    method: string,
+    method: IdentityAPIMethod,
     userIdentities: IKnownIdentities
 ): string => {
     // set DAS first since it is not an official identity type
@@ -42,7 +43,7 @@ export const concatenateIdentities = (
     let concatenatedIdentities: string = '';
 
     if (idLength) {
-        let userIDArray: Array<string> = new Array(idLength);
+        let userIDArray: Array<string> = new Array();
         // create an array where each index is equal to the user identity type
         for (let key in userIdentities) {
             if (key === 'device_application_stamp') {
@@ -66,11 +67,11 @@ export const concatenateIdentities = (
 };
 
 export const hasValidCachedIdentity = (
-    method: string,
+    method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
     idCache?: LocalStorageVault<Dictionary>
 ): Boolean => {
-    // There is an edhge case where multiple identity calls are taking place 
+    // There is an edge case where multiple identity calls are taking place 
     // before identify fires, so there may not be a cache.  See what happens when 
     // the ? in idCache is removed to the following test
     // "queued events contain login mpid instead of identify mpid when calling 
@@ -106,7 +107,7 @@ export const hasValidCachedIdentity = (
 };
 
 export const getCachedIdentity = (
-    method: string,
+    method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
     idCache: LocalStorageVault<Dictionary>
 ): Dictionary<string | number | boolean> | null => {
@@ -142,7 +143,7 @@ export const createKnownIdentities = (
     return identitiesResult;
 };
 
-export const removeExpiredIdentityCacheDates = function(idCache: LocalStorageVault<Dictionary>): void {
+export const removeExpiredIdentityCacheDates = (idCache: LocalStorageVault<Dictionary>): void => {
     const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || {};
 
     idCache.purge();
