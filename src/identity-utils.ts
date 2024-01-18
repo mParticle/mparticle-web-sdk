@@ -1,11 +1,16 @@
+import Constants from './constants';
 import { Dictionary, parseNumber } from './utils';
 import { LocalStorageVault } from './vault';
 import Types from './types';
 import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
 import { IdentityAPIMethod } from './validators';
 import { isObject } from './utils';
+const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 import { MParticleWebSDK } from './sdkRuntimeModels';
 
+const CACHE_HEADER = 'x-mp-max-age';
+const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
+const MILLIS_IN_ONE_SEC = 1000;
 export interface IKnownIdentities extends UserIdentities {
     device_application_stamp?: string;
 }
@@ -14,6 +19,39 @@ export interface ICachedIdentityCall extends UserIdentities {
     responseText: string;
     status: number;
     expireTimestamp: number;
+}
+
+export const cacheOrClearIdCache = (
+    method: string,
+    knownIdentities: IKnownIdentities,
+    idCache: LocalStorageVault<Dictionary>,
+    xhr: XMLHttpRequest
+): void => {
+    debugger;
+    // default the expire timestamp to one day in milliseconds unless a header comes back
+    let expireTimestamp = new Date().getTime() + ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC;
+
+    if (xhr.getAllResponseHeaders().includes(CACHE_HEADER)) {
+        expireTimestamp =
+            parseNumber(xhr.getResponseHeader(CACHE_HEADER)) * MILLIS_IN_ONE_SEC;
+    }
+
+    switch (method) {
+        case Login: 
+        case Identify: 
+            cacheIdentityRequest(
+                method,
+                knownIdentities,
+                expireTimestamp,
+                idCache,
+                xhr 
+            );
+            break;
+        case Modify:
+        case Logout:
+            idCache.purge();
+            break;
+    }
 }
 
 export const cacheIdentityRequest = (
@@ -93,12 +131,11 @@ export const hasValidCachedIdentity = (
         return false;
     }
     
-    // If there is a valid cache key, compare the expireTimestamp to the current time
-    // and return 
+    // If there is a valid cache key, compare the expireTimestamp to the current time.
+    // If the current time is greater than the expireTimestamp, it is not a valid
+    // cached identity.
     const expireTimestamp = cache[cacheKey].expireTimestamp;
     
-    // if the current time is greater than the expireTimestamp, it is not a valid
-    // cached identity.
     if (expireTimestamp < new Date().getTime()) {
         return false;
     } else {

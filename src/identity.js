@@ -1,7 +1,7 @@
 import Constants from './constants';
 import Types from './types';
 import {
-    cacheIdentityRequest,
+    cacheOrClearIdCache,
     hasValidCachedIdentity,
     getCachedIdentity,
     createKnownIdentities,
@@ -10,7 +10,7 @@ import {
 var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
 
-const { Identify, Modify } = Constants.IdentityMethods;
+const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 
 export default function Identity(mpInstance) {
     var self = this;
@@ -337,7 +337,7 @@ export default function Identity(mpInstance) {
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
                     identityApiData,
                     callback,
-                    'logout'
+                    Logout
                 );
             if (currentUser) {
                 mpid = currentUser.getMPID();
@@ -373,7 +373,7 @@ export default function Identity(mpInstance) {
                     } else {
                         mpInstance._IdentityAPIClient.sendIdentityRequest(
                             identityApiRequest,
-                            'logout',
+                            Logout,
                             callback,
                             identityApiData,
                             self.parseIdentityResponse,
@@ -426,7 +426,7 @@ export default function Identity(mpInstance) {
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
                     identityApiData,
                     callback,
-                    'login'
+                    Login
                 );
 
             if (currentUser) {
@@ -445,7 +445,7 @@ export default function Identity(mpInstance) {
                 );
 
                 let shouldReturnCachedIdentity = hasValidCachedIdentity(
-                    'login',
+                    Login,
                     identityApiRequest.known_identities,
                     self.idCache
                 );
@@ -489,7 +489,7 @@ export default function Identity(mpInstance) {
                     } else {
                         mpInstance._IdentityAPIClient.sendIdentityRequest(
                             identityApiRequest,
-                            'login',
+                            Login,
                             callback,
                             identityApiData,
                             self.parseIdentityResponse,
@@ -1528,23 +1528,7 @@ export default function Identity(mpInstance) {
             }
 
             if (xhr.status === 200) {
-                // const CACHE_HEADER = 'X-MP-Max-Age';
-                // const idCacheTimeout = xhr.getAllResponseHeaders();
-                // magic code to get CACHE_HEADER
-                const oneDayInMS = 1000 * 60 * 60 * 24;
-                const expireTimestamp = new Date().getTime() + oneDayInMS;
-
-                if (method === 'login' || method === 'identify') {
-                    // if (fromCache) {
-                    cacheIdentityRequest(
-                        method,
-                        knownIdentities,
-                        expireTimestamp,
-                        self.idCache,
-                        xhr
-                    );
-                    // }
-                }
+                cacheOrClearIdCache(method, knownIdentities, self.idCache, xhr);
 
                 if (method === Modify) {
                     newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(

@@ -22,6 +22,7 @@ export const testMPID = 'testMPID';
 export const v3CookieKey = 'mprtcl-v3';
 export const v3LSKey = v3CookieKey;
 export const localStorageProductsV4 = 'mprtcl-prodv4';
+export const localStorageIDKey = 'mparticle-id-cache';
 export const v4CookieKey = 'mprtcl-v4';
 export const v4LSKey = 'mprtcl-v4';
 export const workspaceToken = 'abcdef';
