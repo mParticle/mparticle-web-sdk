@@ -8,6 +8,8 @@ import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
+const mParticle = window.mParticle;
+
 describe('Store', () => {
     const now = new Date();
     let sandbox;
@@ -34,6 +36,12 @@ describe('Store', () => {
     });
 
     it('should initialize Store with defaults', () => {
+        const generateUniqueIdSpy = sinon.stub(
+            mParticle.getInstance()._Helpers,
+            'generateUniqueId'
+        );
+        generateUniqueIdSpy.returns('test-unique-id');
+
         // Use sample config to make sure our types are safe
         const store: IStore = new Store(sampleConfig, window.mParticle.getInstance());
         expect(store).to.be.ok;
@@ -44,7 +52,7 @@ describe('Store', () => {
         expect(store.sessionId, 'sessionId').to.eq(null);
         expect(store.isFirstRun, 'isFirstRun').to.eq(null);
         expect(store.clientId, 'clientId').to.eq(null);
-        expect(store.deviceId, 'deviceId').to.eq(null);
+        expect(store.deviceId, 'deviceId').to.eq('test-unique-id');
         expect(store.devToken, 'devToken').to.eq(null);
         expect(store.serverSettings, 'serverSettings').to.be.ok;
         expect(store.dateLastEventSent, 'dateLastEventSent').to.eq(null);

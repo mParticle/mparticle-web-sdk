@@ -11,6 +11,11 @@ var Base64 = Polyfill.Base64,
 export default function _Persistence(mpInstance) {
     var self = this;
 
+    // QUESTION: Should isEnabled be a param on the constructor, or should it read from config?
+    this.isEnabled = function() {
+        return mpInstance._Store.SDKConfig.usePersistence;
+    };
+
     // https://go.mparticle.com/work/SQDSDKS-5022
     this.useLocalStorage = function() {
         return (
@@ -1058,6 +1063,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getPersistence = function() {
+        if (!this.isEnabled()) {
+            return null;
+        }
         var persistence = this.useLocalStorage()
             ? this.getLocalStorage()
             : this.getCookie();

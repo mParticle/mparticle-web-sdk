@@ -579,6 +579,7 @@ export default function Identity(mpInstance) {
          * @return {Object} the user for  mpid
          */
         getUser: function(mpid) {
+            // FIXME: This seems to break if persistence is not enabled
             var persistence = mpInstance._Persistence.getPersistence();
             if (persistence) {
                 if (
@@ -1463,15 +1464,19 @@ export default function Identity(mpInstance) {
                 mpInstance._Store.mpid = identityApiResult.mpid;
 
                 if (prevUser) {
+                    // TODO: Replace this with store
                     mpInstance._Persistence.setLastSeenTime(previousMPID);
                 }
 
                 if (
+                    // TODO: Replace this with store
                     !mpInstance._Persistence.getFirstSeenTime(
                         identityApiResult.mpid
                     )
                 )
                     mpidIsNotInCookies = true;
+
+                // TODO: Replace this with store
                 mpInstance._Persistence.setFirstSeenTime(
                     identityApiResult.mpid
                 );

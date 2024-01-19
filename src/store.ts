@@ -65,6 +65,7 @@ export interface SDKConfig {
     requestConfig?: boolean;
     sessionTimeout?: number;
     useNativeSdk?: boolean;
+    usePersistence?: boolean;
     useCookieStorage?: boolean;
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
@@ -161,6 +162,11 @@ export interface IStore {
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
+
+    getDeviceId(): string;
+    setDeviceId(deviceId: string): void;
+
+    nullifySession?(): void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -222,6 +228,9 @@ export default function Store(
 
     this.integrationDelayTimeoutStart = Date.now();
 
+    // TODO: Load from persistence if that exists, otherwise create a new one
+    this.deviceId = mpInstance._Helpers.generateUniqueId();
+
     // Set configuration to default settings
     this.SDKConfig = createSDKConfig(config);
 
@@ -277,6 +286,12 @@ export default function Store(
             this.SDKConfig.useCookieStorage = config.useCookieStorage;
         } else {
             this.SDKConfig.useCookieStorage = false;
+        }
+
+        if (config.hasOwnProperty('usePersistence')) {
+            this.SDKConfig.usePersistence = config.usePersistence;
+        } else {
+            this.SDKConfig.usePersistence = false;
         }
 
         if (config.hasOwnProperty('maxProducts')) {
@@ -417,6 +432,21 @@ export default function Store(
             }
         }
     }
+
+    // QUESTION: Should we just use get/set instead?
+    this.getDeviceId = (): string => this.deviceId;
+    this.setDeviceId = (deviceId: string): void => {
+        // TODO: This should update persistence
+        this.deviceId = deviceId;
+    };
+
+    this.nullifySession = (): void => {
+        this.sessionId = null;
+        this.dateLastEventSent = null;
+        this.sessionAttributes = {};
+        this.sessionStartDate = null;
+        mpInstance._Persistence.update();
+    };
 }
 
 export function processFlags(

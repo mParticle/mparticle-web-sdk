@@ -290,8 +290,8 @@ describe('SessionManager', () => {
         });
 
         describe('#endSession', () => {
-            it('should end a session', () => {
-                mParticle.init(apiKey, window.mParticle.config);
+            it('should end a session if persistence is enabled', () => {
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: true });
                 const mpInstance = mParticle.getInstance();
                 const persistenceSpy = sinon.spy(
                     mpInstance._Persistence,
@@ -304,6 +304,28 @@ describe('SessionManager', () => {
                 expect(mpInstance._Store.sessionId).to.equal(null);
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
+                expect(mpInstance._Store.sessionStartDate).to.eql(null);
+
+                // Persistence isn't necessary for this feature, but we should test
+                // to see that it is called in case this ever needs to be refactored
+                expect(persistenceSpy.called).to.equal(true);
+            });
+
+            it('should end a session if persistence is disabled', () => {
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: false});
+                const mpInstance = mParticle.getInstance();
+                const persistenceSpy = sinon.spy(
+                    mpInstance._Persistence,
+                    'update'
+                );
+
+                clock.tick(31 * MILLISECONDS_IN_ONE_MINUTE);
+                mpInstance._SessionManager.endSession();
+
+                expect(mpInstance._Store.sessionId).to.equal(null);
+                expect(mpInstance._Store.dateLastEventSent).to.equal(null);
+                expect(mpInstance._Store.sessionAttributes).to.eql({});
+                expect(mpInstance._Store.sessionStartDate).to.eql(null);
 
                 // Persistence isn't necessary for this feature, but we should test
                 // to see that it is called in case this ever needs to be refactored
@@ -329,8 +351,9 @@ describe('SessionManager', () => {
                 expect(persistenceSpy.called).to.equal(true);
             });
 
+            // QUESTION: Is this test still relevant now that we are not depending on persistence?
             it('should log StartingEndSession message and return early if Persistence is null', () => {
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, {...window.mParticle.config, usePersistence: false });
 
                 const mpInstance = mParticle.getInstance();
                 sinon
@@ -352,7 +375,29 @@ describe('SessionManager', () => {
                 expect(consoleSpy.getCalls().length).to.equal(1);
             });
 
-            it('should log a NoSessionToEnd Message if Persistence Exists but does not return an sid', () => {
+            it('should log a NoSessionToEnd Message if session id is null in _Store and Persistence is empty', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+
+                const mpInstance = mParticle.getInstance();
+                sinon
+                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .returns(null);
+
+                const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+                mpInstance._Store.sessionId = null;
+                mpInstance._Store.dateLastEventSent = null;
+
+                mpInstance._SessionManager.endSession();
+
+                // Should log initial StartingEndSession and NoSessionToEnd messages
+                expect(consoleSpy.getCalls().length).to.equal(2);
+                expect(consoleSpy.lastCall.firstArg).to.equal(
+                    Messages.InformationMessages.NoSessionToEnd
+                );
+            });
+
+            it('should log a NoSessionToEnd Message if session id is null in _Store and Persistence Exists but does not return an sid', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -361,6 +406,9 @@ describe('SessionManager', () => {
                     .returns({ gs: {} });
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+                mpInstance._Store.sessionId = null;
+                mpInstance._Store.dateLastEventSent = null;
 
                 mpInstance._SessionManager.endSession();
 
@@ -375,9 +423,6 @@ describe('SessionManager', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
-                sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
-                    .returns({ gs: {} });
 
                 sinon.stub(mpInstance._Helpers, 'canLog').returns(false);
 
@@ -396,9 +441,6 @@ describe('SessionManager', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
-                sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
-                    .returns({ gs: {} });
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
 
@@ -417,9 +459,6 @@ describe('SessionManager', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
-                sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
-                    .returns({ gs: {} });
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
 
@@ -436,8 +475,12 @@ describe('SessionManager', () => {
                 );
             });
 
-            it('should log NoSessionToEnd message if webviewBridgeEnabled and Store.isEnabled are true but devToken is undefined', () => {
-                mParticle.init(apiKey, window.mParticle.config);
+            // TODO: What if session is in memory but not in persistence? How should session end?
+            // TODO: What if session is in persistence but not in memory? How should session end?
+
+            it('should log NoSessionToEnd message if session has ended (with Persistence) and webviewBridgeEnabled and Store.isEnabled are true but devToken is undefined', () => {
+                debugger;
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: true});
 
                 const mpInstance = mParticle.getInstance();
                 sinon
@@ -449,6 +492,7 @@ describe('SessionManager', () => {
                 mpInstance._Store.isEnabled = true;
                 mpInstance._Store.devToken = undefined;
                 mpInstance._Store.webviewBridgeEnabled = true;
+                mpInstance._Store.sessionId = null;
 
                 mpInstance._SessionManager.endSession();
 
@@ -459,8 +503,29 @@ describe('SessionManager', () => {
                 );
             });
 
-            it('should prioritize cookie sessionId over Store.sessionId', () => {
-                mParticle.init(apiKey, window.mParticle.config);
+            it('should log NoSessionToEnd message if session has ended (without Persistence) and webviewBridgeEnabled and Store.isEnabled are true but devToken is undefined', () => {
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: false});
+
+                const mpInstance = mParticle.getInstance();
+
+                const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+                mpInstance._Store.isEnabled = true;
+                mpInstance._Store.devToken = undefined;
+                mpInstance._Store.webviewBridgeEnabled = true;
+                mpInstance._Store.sessionId = null;
+
+                mpInstance._SessionManager.endSession();
+
+                // Should log initial StartingEndSession and NoSessionToEnd messages
+                expect(consoleSpy.getCalls().length).to.equal(2);
+                expect(consoleSpy.lastCall.firstArg).to.equal(
+                    Messages.InformationMessages.NoSessionToEnd
+                );
+            });
+
+            it('should prioritize cookie sessionId over Store.sessionId when Persistence is enabled', () => {
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: false });
 
                 const mpInstance = mParticle.getInstance();
                 sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
@@ -478,7 +543,38 @@ describe('SessionManager', () => {
                 );
             });
 
-            it('should NOT end session if session has not timed out', () => {
+            it('should NOT end session (without Persistence) if session has not timed out', () => {
+                const generateUniqueIdSpy = sinon.stub(
+                    mParticle.getInstance()._Helpers,
+                    'generateUniqueId'
+                );
+
+                generateUniqueIdSpy.returns('test-unique-id');
+
+                const now = new Date();
+                // The default timeout limit is 30 minutes.
+                const twentyMinutesAgo = new Date();
+                twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
+
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: false });
+                const mpInstance = mParticle.getInstance();
+                const timerSpy = sinon.spy(
+                    mpInstance._SessionManager,
+                    'setSessionTimer'
+                );
+
+                
+                mpInstance._SessionManager.endSession();
+
+                // session ID is capitalized up mParticle init
+                expect(mpInstance._Store.sessionId).to.equal('TEST-UNIQUE-ID');
+
+                // When session is not timed out, setSessionTimer is called to keep track
+                // of current session timeout
+                expect(timerSpy.getCalls().length).to.equal(1);
+            });
+
+            it('should NOT end session (with Persistence) if session has not timed out', () => {
                 const now = new Date();
                 // The default timeout limit is 30 minutes.
                 const twentyMinutesAgo = new Date();
@@ -512,7 +608,7 @@ describe('SessionManager', () => {
                 expect(timerSpy.getCalls().length).to.equal(1);
             });
 
-            it('should end session if the session timeout limit has been reached', () => {
+            it('should end session if the session timeout limit has been reached with Persistence', () => {
                 const generateUniqueIdSpy = sinon.stub(
                     mParticle.getInstance()._Helpers,
                     'generateUniqueId'
@@ -525,11 +621,21 @@ describe('SessionManager', () => {
                 twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
                 hourAgo.setMinutes(now.getMinutes() - 60);
 
-                mParticle.init(apiKey, window.mParticle.config);
+                // Session Manager relies on persistence to determine last time seen (LES)
+                // Also requires sid to verify session exists
+                const persistenceGetterStub = sinon
+                .stub(mParticle.getInstance()._Persistence, 'getPersistence')
+                .returns({
+                    gs: {
+                        les: hourAgo,
+                        sid: 'TEST-UNIQUE-ID',
+                    },
+                });
+
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: true });
                 const mpInstance = mParticle.getInstance();
 
                 expect(mpInstance._Store.sessionId).to.equal('TEST-UNIQUE-ID');
-                // Init will set dateLastEventSent to now, but endSession relies on the persistence layer
                 expect(mpInstance._Store.dateLastEventSent).to.eql(now);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
 
@@ -540,8 +646,7 @@ describe('SessionManager', () => {
 
                 // Session Manager relies on persistence to determine last event seen (LES) time
                 // Also requires sid to verify session exists
-                const persistenceGetterStub = sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                persistenceGetterStub
                     .returns({
                         gs: {
                             les: twentyMinutesAgo,
@@ -553,8 +658,7 @@ describe('SessionManager', () => {
                 mpInstance._SessionManager.endSession();
 
                 expect(mpInstance._Store.sessionId).to.equal('TEST-UNIQUE-ID');
-                // Init will set dateLastEventSent to now, but endSession relies on the persistence layer
-                expect(mpInstance._Store.dateLastEventSent).to.eql(now);
+                expect(mpInstance._Store.dateLastEventSent).to.eql(twentyMinutesAgo);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
 
                 // Session Manager relies on persistence to determine last time seen (LES)
@@ -575,6 +679,47 @@ describe('SessionManager', () => {
                 // Persistence isn't necessary for this feature, but we should test
                 // to see that it is called in case this ever needs to be refactored
                 expect(persistenceUpdateSpy.called).to.equal(true);
+            });
+
+            it('should end session if the session timeout limit has been reached without Persistence', () => {
+                const generateUniqueIdSpy = sinon.stub(
+                    mParticle.getInstance()._Helpers,
+                    'generateUniqueId'
+                );
+                generateUniqueIdSpy.returns('test-unique-id');
+
+                const now = new Date();
+                const twentyMinutesAgo = new Date();
+                const hourAgo = new Date();
+                twentyMinutesAgo.setMinutes(now.getMinutes() - 20);
+                hourAgo.setMinutes(now.getMinutes() - 60);
+
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: false });
+                const mpInstance = mParticle.getInstance();
+
+                expect(mpInstance._Store.sessionId).to.equal('TEST-UNIQUE-ID');
+                expect(mpInstance._Store.dateLastEventSent).to.eql(now);
+                expect(mpInstance._Store.sessionAttributes).to.eql({});
+
+                
+                // Force update dateLastEventSent to move clock forward
+                mpInstance._Store.dateLastEventSent = new Date(twentyMinutesAgo);
+
+                // Fire end session before sessionTimeout window has been reached
+                mpInstance._SessionManager.endSession();
+
+                expect(mpInstance._Store.sessionId).to.equal('TEST-UNIQUE-ID');
+                expect(mpInstance._Store.dateLastEventSent).to.eql(twentyMinutesAgo);
+                expect(mpInstance._Store.sessionAttributes).to.eql({});
+
+                // Force update dateLastEventSent to move clock forward
+                mpInstance._Store.dateLastEventSent = new Date(hourAgo);
+
+                mpInstance._SessionManager.endSession();
+
+                expect(mpInstance._Store.sessionId).to.equal(null);
+                expect(mpInstance._Store.dateLastEventSent).to.equal(null);
+                expect(mpInstance._Store.sessionAttributes).to.eql({});
             });
         });
 
@@ -716,8 +861,23 @@ describe('SessionManager', () => {
         });
 
         describe('startNewSessionIfNeeded', () => {
-            it('should call startNewSession if sessionId is not available from Persistence', () => {
-                mParticle.init(apiKey, window.mParticle.config);
+            it('should call startNewSession if sessionId is null without Persistence', () => {
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: false });
+                const mpInstance = mParticle.getInstance();
+
+                mpInstance._Store.sessionId = null;
+
+                const startNewSessionSpy = sinon.spy(
+                    mpInstance._SessionManager,
+                    'startNewSession'
+                );
+
+                mpInstance._SessionManager.startNewSessionIfNeeded();
+                expect(startNewSessionSpy.called).to.equal(true);
+            });
+
+            it('should call startNewSession if sessionId is null with Persistence', () => {
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: true });
                 const mpInstance = mParticle.getInstance();
 
                 // Session Manager relies on persistence check sid (Session ID)
@@ -738,8 +898,9 @@ describe('SessionManager', () => {
                 expect(startNewSessionSpy.called).to.equal(true);
             });
 
-            it('should NOT call startNewSession if sessionId is undefined and Persistence is undefined', () => {
-                mParticle.init(apiKey, window.mParticle.config);
+            // QUESTION: Is this use case no longer necessary if we are are not defaulting to persistence?
+            it.skip('should NOT call startNewSession if sessionId is undefined and Persistence is undefined', () => {
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: true });
                 const mpInstance = mParticle.getInstance();
 
                 // Session Manager relies on persistence check sid (Session ID)
@@ -761,7 +922,7 @@ describe('SessionManager', () => {
             });
 
             it('should override Store.sessionId from Persistence', () => {
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: true });
                 const mpInstance = mParticle.getInstance();
 
                 // Session Manager relies on persistence check sid (Session ID)
@@ -778,8 +939,26 @@ describe('SessionManager', () => {
                 mpInstance._Store.sessionId = 'sid-from-persistence';
             });
 
+            it('should use Store.sessionId instead of Persistence if persistence is disabled', () => {
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: false });
+                const mpInstance = mParticle.getInstance();
+
+                // Session Manager relies on persistence check sid (Session ID)
+                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                    gs: {
+                        sid: 'sid-from-persistence',
+                    },
+                });
+
+                mpInstance._Store.sessionId = 'sid-from-store';
+
+                mpInstance._SessionManager.startNewSessionIfNeeded();
+
+                mpInstance._Store.sessionId = 'sid-from-store';
+            });
+
             it('should set sessionId from Persistence if Store.sessionId is undefined', () => {
-                mParticle.init(apiKey, window.mParticle.config);
+                mParticle.init(apiKey, { ...window.mParticle.config, usePersistence: true });
                 const mpInstance = mParticle.getInstance();
 
                 // Session Manager relies on persistence check sid (Session ID)
@@ -803,7 +982,8 @@ describe('SessionManager', () => {
                 expect(startNewSessionSpy.called).to.equal(true);
             });
 
-            it('should NOT call startNewSession if Store.sessionId and Persistence are null', () => {
+            // QUESTION: Is this use case no longer necessary if we are are not defaulting to persistence?
+            it.skip('should NOT call startNewSession if Store.sessionId and Persistence are null', () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
 
