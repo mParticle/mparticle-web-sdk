@@ -116,6 +116,7 @@ export interface IFeatureFlags {
     eventBatchingIntervalMillis?: number;
     offlineStorage?: string;
     directURLRouting?: boolean;
+    cacheIdentity?: boolean;
 }
 
 // Temporary Interface until Store can be refactored as a class
@@ -429,6 +430,7 @@ export function processFlags(
         EventBatchingIntervalMillis,
         OfflineStorage,
         DirectUrlRouting,
+        CacheIdentity,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -443,6 +445,7 @@ export function processFlags(
         Constants.DefaultConfig.uploadInterval;
     flags[OfflineStorage] = config.flags[OfflineStorage] || '0';
     flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
+    flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
 
     return flags;
 }

@@ -27,7 +27,6 @@ export const cacheOrClearIdCache = (
     idCache: LocalStorageVault<Dictionary>,
     xhr: XMLHttpRequest
 ): void => {
-    debugger;
     // default the expire timestamp to one day in milliseconds unless a header comes back
     let expireTimestamp = new Date().getTime() + ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC;
 

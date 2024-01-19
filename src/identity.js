@@ -236,7 +236,7 @@ export default function Identity(mpInstance) {
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
                     identityApiData,
                     callback,
-                    'identify'
+                    Identify
                 );
             if (currentUser) {
                 mpid = currentUser.getMPID();
@@ -253,31 +253,37 @@ export default function Identity(mpInstance) {
                     mpid
                 );
 
-                const shouldReturnCachedIdentity = hasValidCachedIdentity(
-                    'identify',
-                    identityApiRequest.known_identities,
-                    self.idCache
-                );
-
-                // If Identity is cached, then immediately parse the identity response
-                if (shouldReturnCachedIdentity) {
-                    const cachedIdentity = getCachedIdentity(
-                        'identify',
+                if (
+                    mpInstance._Helpers.getFeatureFlag(
+                        Constants.FeatureFlags.CacheIdentity
+                    )
+                ) {
+                    const shouldReturnCachedIdentity = hasValidCachedIdentity(
+                        Identify,
                         identityApiRequest.known_identities,
                         self.idCache
                     );
 
-                    self.parseIdentityResponse(
-                        cachedIdentity,
-                        mpid,
-                        callback,
-                        identityApiData,
-                        'identify',
-                        identityApiRequest.known_identities,
-                        true
-                    );
+                    // If Identity is cached, then immediately parse the identity response
+                    if (shouldReturnCachedIdentity) {
+                        const cachedIdentity = getCachedIdentity(
+                            Identify,
+                            identityApiRequest.known_identities,
+                            self.idCache
+                        );
 
-                    return;
+                        self.parseIdentityResponse(
+                            cachedIdentity,
+                            mpid,
+                            callback,
+                            identityApiData,
+                            Identify,
+                            identityApiRequest.known_identities,
+                            true
+                        );
+
+                        return;
+                    }
                 }
 
                 if (mpInstance._Helpers.canLog()) {
@@ -298,7 +304,7 @@ export default function Identity(mpInstance) {
                     } else {
                         mpInstance._IdentityAPIClient.sendIdentityRequest(
                             identityApiRequest,
-                            'identify',
+                            Identify,
                             callback,
                             identityApiData,
                             self.parseIdentityResponse,
@@ -444,31 +450,37 @@ export default function Identity(mpInstance) {
                     mpid
                 );
 
-                let shouldReturnCachedIdentity = hasValidCachedIdentity(
-                    Login,
-                    identityApiRequest.known_identities,
-                    self.idCache
-                );
-
-                // If Identity is cached, then immediately parse the identity response
-                if (shouldReturnCachedIdentity) {
-                    const cachedIdentity = getCachedIdentity(
-                        'identify',
+                if (
+                    mpInstance._Helpers.getFeatureFlag(
+                        Constants.FeatureFlags.CacheIdentity
+                    )
+                ) {
+                    let shouldReturnCachedIdentity = hasValidCachedIdentity(
+                        Login,
                         identityApiRequest.known_identities,
                         self.idCache
                     );
 
-                    self.parseIdentityResponse(
-                        cachedIdentity,
-                        mpid,
-                        callback,
-                        identityApiData,
-                        'identify',
-                        identityApiRequest.known_identities,
-                        true
-                    );
+                    // If Identity is cached, then immediately parse the identity response
+                    if (shouldReturnCachedIdentity) {
+                        const cachedIdentity = getCachedIdentity(
+                            Identify,
+                            identityApiRequest.known_identities,
+                            self.idCache
+                        );
 
-                    return;
+                        self.parseIdentityResponse(
+                            cachedIdentity,
+                            mpid,
+                            callback,
+                            identityApiData,
+                            Identify,
+                            identityApiRequest.known_identities,
+                            true
+                        );
+
+                        return;
+                    }
                 }
 
                 if (mpInstance._Helpers.canLog()) {
@@ -528,7 +540,7 @@ export default function Identity(mpInstance) {
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
                     identityApiData,
                     callback,
-                    'modify'
+                    Modify
                 );
             if (currentUser) {
                 mpid = currentUser.getMPID();
@@ -567,7 +579,7 @@ export default function Identity(mpInstance) {
                     } else {
                         mpInstance._IdentityAPIClient.sendIdentityRequest(
                             identityApiRequest,
-                            'modify',
+                            Modify,
                             callback,
                             identityApiData,
                             self.parseIdentityResponse,
@@ -1473,7 +1485,6 @@ export default function Identity(mpInstance) {
         identityApiData,
         method,
         knownIdentities
-        // fromCache,
     ) {
         var prevUser = mpInstance.Identity.getUser(previousMPID),
             newUser,
@@ -1528,7 +1539,18 @@ export default function Identity(mpInstance) {
             }
 
             if (xhr.status === 200) {
-                cacheOrClearIdCache(method, knownIdentities, self.idCache, xhr);
+                if (
+                    mpInstance._Helpers.getFeatureFlag(
+                        Constants.FeatureFlags.CacheIdentity
+                    )
+                ) {
+                    cacheOrClearIdCache(
+                        method,
+                        knownIdentities,
+                        self.idCache,
+                        xhr
+                    );
+                }
 
                 if (method === Modify) {
                     newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(
@@ -1767,7 +1789,7 @@ export default function Identity(mpInstance) {
         var currentUserInMemory, userIdentityChangeEvent;
 
         if (!mpid) {
-            if (method !== 'modify') {
+            if (method !== Modify) {
                 return;
             }
         }

@@ -3097,7 +3097,44 @@ describe('identity', function() {
             sinon.restore();
         });
 
-        it('should not call identify if no identities have changed', function() {
+        it('should use header `x-mp-max-age` as expiration date for cache', function() {
+            const clock = sinon.useFakeTimers();
+            clock.tick(1);
+            const X_MP_MAX_AGE = '1';
+            mParticle._resetForTests(MPConfig);
+            mockServer.respondWith(urls.identify, [
+                200,
+                {'x-mp-max-age': X_MP_MAX_AGE},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+            
+            mockServer.requests = [];
+            
+            const identities = {
+                userIdentities: {
+                    customerid: 'abc',
+                    email: 'test@gmail.com'
+                }
+            }
+            
+            mParticle.config.identifyRequest = identities;
+            
+            localStorage.clear();
+            mParticle.config.flags.cacheIdentity = 'True';
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            let idCache = JSON.parse(localStorage.getItem('mprtcl-v4_abcdef-id-cache'));
+
+            // a single identify cache key will be on the idCache
+            Should(Object.keys(idCache).length).equal(1);
+            for (var key in idCache) {
+                // 1 second from x-mp-max-age * 1000
+                Should(idCache[key].expireTimestamp).equal(X_MP_MAX_AGE * 1000)
+            }
+        });
+
+        it('should not call identify if no identities have changed within the expiration time', function() {
             mParticle._resetForTests(MPConfig);
             mockServer.respondWith(urls.identify, [
                 200,
@@ -3115,7 +3152,7 @@ describe('identity', function() {
             }
 
             mParticle.config.identifyRequest = identities;
-
+            mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
             const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
@@ -3131,7 +3168,46 @@ describe('identity', function() {
             // add a callback to confirm it gets called
         });
 
-        it('should not call login if previously cached', function() {
+        it('should not call identify if no identities have changed within the expiration time', function() {
+            const clock = sinon.useFakeTimers();
+            const X_MP_MAX_AGE = '1';
+            mParticle._resetForTests(MPConfig);
+            mockServer.respondWith(urls.identify, [
+                200,
+                {'x-mp-max-age': X_MP_MAX_AGE},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+
+            mockServer.requests = [];
+
+            const identities = {
+                userIdentities: {
+                    customerid: 'abc',
+                    email: 'test@gmail.com'
+                }
+            }
+
+            mParticle.config.identifyRequest = identities;
+            mParticle.config.flags.cacheIdentity = 'True';
+            mParticle.init(apiKey, window.mParticle.config);
+
+            const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+            initialIdentityCall.should.be.ok();
+            mockServer.requests = [];
+            function callback() {
+                // debugger;
+            }
+
+            // cached time will be 1000 if header returns '1'
+            clock.tick(1001);
+            mParticle.Identity.identify(identities, callback);
+            const duplicateIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+
+            Should(duplicateIdentityCall).be.ok();
+            // add a callback to confirm it gets called
+        });
+
+        it('should not call login if previously cached within the expiration time', function() {
             mParticle._resetForTests(MPConfig);
             mockServer.respondWith(urls.identify, [
                 200,
@@ -3155,7 +3231,7 @@ describe('identity', function() {
             }
 
             mParticle.config.identifyRequest = identities;
-
+            mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
             mParticle.Identity.login(identities);
@@ -3171,40 +3247,116 @@ describe('identity', function() {
             Should(secondLoginCall).not.be.ok();
         });
 
-        it('should use x-mp-max-age as expiration date for cache', function() {
+        it('should call login if duplicate login happens after expiration time', function() {
             const clock = sinon.useFakeTimers();
-            clock.tick(1);
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
-            mockServer.respondWith(urls.identify, [
+            
+            mockServer.respondWith(urls.login, [
                 200,
                 {'x-mp-max-age': X_MP_MAX_AGE},
                 JSON.stringify({ mpid: testMPID, is_logged_in: false }),
             ]);
-            
+
             mockServer.requests = [];
-            
+
             const identities = {
                 userIdentities: {
                     customerid: 'abc',
                     email: 'test@gmail.com'
                 }
             }
-            
+
             mParticle.config.identifyRequest = identities;
-            
-            localStorage.clear();
+            mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
-            let idCache = JSON.parse(localStorage.getItem('mprtcl-v4_abcdef-id-cache'));
+            mParticle.Identity.login(identities);
+            const firstLoginCall = getIdentityEvent(mockServer.requests, 'login');
 
-            // a single identify cache key will be on the idCache
-            Should(Object.keys(idCache).length).equal(1);
-            for (var key in idCache) {
-                // 1 second from x-mp-max-age * 1000
-                Should(idCache[key].expireTimestamp).equal(X_MP_MAX_AGE * 1000)
+            Should(firstLoginCall).be.ok();
+            mockServer.requests = [];
+
+            // cached time will be 1000 if header returns '1'
+            clock.tick(1001);
+            mParticle.Identity.login(identities);
+            const secondLoginCall = getIdentityEvent(mockServer.requests, 'login');
+
+            Should(secondLoginCall).be.ok();
+        });
+
+        it('should clear cache when modify is called', function() {
+            mParticle._resetForTests(MPConfig);
+            
+            mockServer.respondWith(urls.identify, [
+                200,
+                {},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+            mockServer.respondWith(urls.modify, [
+                200,
+                {},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+
+            mockServer.requests = [];
+
+            const identities = {
+                userIdentities: {
+                    customerid: 'abc',
+                    email: 'test@gmail.com'
+                }
             }
 
+            mParticle.config.identifyRequest = identities;
+            mParticle.config.flags.cacheIdentity = 'True';
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            let idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
+            Should(idCache).be.ok();
+
+            mParticle.Identity.modify({userIdentities: {
+                customerid: 'abc1',
+            }});
+            let secondIdCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
+            Should(secondIdCache).not.be.ok();
+        });
+
+        it.only('should clear cache when logout is called', function() {
+            mParticle._resetForTests(MPConfig);
+            
+            mockServer.respondWith(urls.identify, [
+                200,
+                {},
+                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            ]);
+            mockServer.respondWith(urls.logout, [
+                200,
+                {},
+                JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
+            ]);
+
+            mockServer.requests = [];
+
+            const identities = {
+                userIdentities: {
+                    customerid: 'abc',
+                    email: 'test@gmail.com'
+                }
+            }
+
+            mParticle.config.identifyRequest = identities;
+            mParticle.config.flags.cacheIdentity = 'True';
+
+            mParticle.init(apiKey, window.mParticle.config);
+
+            let idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
+            Should(idCache).be.ok();
+
+            mParticle.Identity.logout();
+            let secondIdCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
+            Should(secondIdCache).not.be.ok();
         });
     });
 

@@ -169,6 +169,7 @@ const Constants = {
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
         OfflineStorage: 'offlineStorage',
         DirectUrlRouting: 'directURLRouting',
+        CacheIdentity: 'cacheIdentity',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',
