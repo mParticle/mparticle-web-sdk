@@ -464,7 +464,7 @@ export default function Identity(mpInstance) {
                     // If Identity is cached, then immediately parse the identity response
                     if (shouldReturnCachedIdentity) {
                         const cachedIdentity = getCachedIdentity(
-                            Identify,
+                            Login,
                             identityApiRequest.known_identities,
                             self.idCache
                         );
@@ -474,7 +474,7 @@ export default function Identity(mpInstance) {
                             mpid,
                             callback,
                             identityApiData,
-                            Identify,
+                            Login,
                             identityApiRequest.known_identities,
                             true
                         );

@@ -3323,7 +3323,7 @@ describe('identity', function() {
             Should(secondIdCache).not.be.ok();
         });
 
-        it.only('should clear cache when logout is called', function() {
+        it('should clear cache when logout is called', function() {
             mParticle._resetForTests(MPConfig);
             
             mockServer.respondWith(urls.identify, [

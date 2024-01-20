@@ -1311,6 +1311,11 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     mpInstance._Store.prodStorageName = mpInstance._Helpers.createProductStorageName(
         config.workspaceToken
     );
+
+    // idCache is instantiated here as opposed to when _Identity is instantiated
+    // because it depends on _Store.storageName, which is not sent until above
+    // because it is a setting on config which returns asyncronously
+    // in self hosted mode
     mpInstance._Identity.idCache = new LocalStorageVault(
         `${mpInstance._Store.storageName}-id-cache`,
         {
@@ -1319,6 +1324,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     );
 
     removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
+
     if (config.hasOwnProperty('workspaceToken')) {
         mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;
     } else {

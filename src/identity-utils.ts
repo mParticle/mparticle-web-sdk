@@ -1,16 +1,14 @@
 import Constants from './constants';
 import { Dictionary, parseNumber } from './utils';
-import { LocalStorageVault } from './vault';
+import { BaseVault } from './vault';
 import Types from './types';
 import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
 import { IdentityAPIMethod } from './validators';
 import { isObject } from './utils';
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
+import { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
 import { MParticleWebSDK } from './sdkRuntimeModels';
 
-const CACHE_HEADER = 'x-mp-max-age';
-const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
-const MILLIS_IN_ONE_SEC = 1000;
 export interface IKnownIdentities extends UserIdentities {
     device_application_stamp?: string;
 }
@@ -24,9 +22,11 @@ export interface ICachedIdentityCall extends UserIdentities {
 export const cacheOrClearIdCache = (
     method: string,
     knownIdentities: IKnownIdentities,
-    idCache: LocalStorageVault<Dictionary>,
+    idCache: BaseVault<Dictionary>,
     xhr: XMLHttpRequest
 ): void => {
+    const CACHE_HEADER = 'x-mp-max-age';
+
     // default the expire timestamp to one day in milliseconds unless a header comes back
     let expireTimestamp = new Date().getTime() + ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC;
 
@@ -57,11 +57,11 @@ export const cacheIdentityRequest = (
     method: IdentityAPIMethod,
     identities: IKnownIdentities,
     expireTimestamp: number,
-    idCache: LocalStorageVault<Dictionary>,
+    idCache: BaseVault<Dictionary>,
     xhr: XMLHttpRequest
 ): void => {
-    let cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || {};
-    let cacheKey = concatenateIdentities(method, identities);
+    const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || {};
+    const cacheKey = concatenateIdentities(method, identities);
 
     cache[cacheKey] = { responseText: xhr.responseText, status: xhr.status, expireTimestamp};
     idCache.store(cache);
@@ -74,8 +74,9 @@ export const concatenateIdentities = (
     method: IdentityAPIMethod,
     userIdentities: IKnownIdentities
 ): string => {
+    const DEVICE_APPLICATION_STAMP = 'device_application_stamp';
     // set DAS first since it is not an official identity type
-    let cacheKey: string = `${method}:device_application_stamp=${userIdentities.device_application_stamp};`;
+    let cacheKey: string = `${method}:${DEVICE_APPLICATION_STAMP}=${userIdentities.device_application_stamp};`;
     const idLength: number = Object.keys(userIdentities).length;
     let concatenatedIdentities: string = '';
 
@@ -83,7 +84,7 @@ export const concatenateIdentities = (
         let userIDArray: Array<string> = new Array();
         // create an array where each index is equal to the user identity type
         for (let key in userIdentities) {
-            if (key === 'device_application_stamp') {
+            if (key === DEVICE_APPLICATION_STAMP) {
                 continue;
             } else {
                 userIDArray[Types.IdentityType.getIdentityType(key)] =
@@ -93,7 +94,7 @@ export const concatenateIdentities = (
 
         concatenatedIdentities = userIDArray.reduce(
             (prevValue: string, currentValue: string, index: number) => {
-                let idName: string = Types.IdentityType.getIdentityName(index);
+                const idName: string = Types.IdentityType.getIdentityName(index);
                 return `${prevValue}${idName}=${currentValue};`;
             },
             cacheKey
@@ -106,7 +107,7 @@ export const concatenateIdentities = (
 export const hasValidCachedIdentity = (
     method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
-    idCache?: LocalStorageVault<Dictionary>
+    idCache?: BaseVault<Dictionary>
 ): Boolean => {
     // There is an edge case where multiple identity calls are taking place 
     // before identify fires, so there may not be a cache.  See what happens when 
@@ -145,7 +146,7 @@ export const hasValidCachedIdentity = (
 export const getCachedIdentity = (
     method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
-    idCache: LocalStorageVault<Dictionary>
+    idCache: BaseVault<Dictionary>
 ): Dictionary<string | number | boolean> | null => {
     const cacheKey: string = concatenateIdentities(
         method,
@@ -158,15 +159,15 @@ export const getCachedIdentity = (
     return cachedIdentity;
 };
 
+// https://go.mparticle.com/work/SQDSDKS-6079
 export const createKnownIdentities = (
     identityApiData: IdentityApiData,
     deviceId: string
 ): IKnownIdentities => {
-    var identitiesResult: IKnownIdentities = {};
+    const identitiesResult: IKnownIdentities = {};
 
     if (
-        identityApiData &&
-        identityApiData.userIdentities &&
+        identityApiData?.userIdentities &&
         isObject(identityApiData.userIdentities)
     ) {
         for (var identity in identityApiData.userIdentities) {
@@ -179,12 +180,12 @@ export const createKnownIdentities = (
     return identitiesResult;
 };
 
-export const removeExpiredIdentityCacheDates = (idCache: LocalStorageVault<Dictionary>): void => {
+export const removeExpiredIdentityCacheDates = (idCache: BaseVault<Dictionary>): void => {
     const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || {};
 
     idCache.purge();
     
-    const currentTime:number = new Date().getTime();
+    const currentTime: number = new Date().getTime();
 
     // Iterate over the cache and remove any key/value pairs that are expired
     for (let key in cache) {

@@ -582,12 +582,10 @@ describe('persistence', () => {
     });
 
     it('should transfer user attributes and revert to user identities properly', done => {
-        let clock = sinon.useFakeTimers();
         mParticle._resetForTests(MPConfig);
         const user1 = { userIdentities: { customerid: 'customerid1' } };
 
         const user2 = { userIdentities: { customerid: 'customerid2' } };
-        window.localStorage.clear();
         mParticle.init(apiKey, mParticle.config);
 
         // set user attributes on testMPID
@@ -659,8 +657,6 @@ describe('persistence', () => {
             JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
         ]);
 
-        // tick clock forward to go beyond the 1 day identity caching
-        clock.tick(MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND);
         mParticle.Identity.login(user1);
         const user1RelogInData = mParticle
             .getInstance()
@@ -672,7 +668,6 @@ describe('persistence', () => {
 
         Object.keys(user1RelogInData.mpid1.ui).length.should.equal(2);
         user1RelogInData.mpid1.ua.should.have.property('test2', 'test2');
-        clock.restore();
 
         done();
     });
@@ -817,7 +812,7 @@ describe('persistence', () => {
         done();
     });
 
-    // this test needs to update the cookie size in order to 
+    // Why is this test breaking?
     xit('integration test - should remove a previous MPID as a key from cookies if new user attribute added and exceeds the size of the max cookie size', done => {
         mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
@@ -1017,8 +1012,7 @@ describe('persistence', () => {
         done();
     });
 
-    // figure out cookie size here too
-    xit('integration test - should remove a random MPID from storage if there is a new session and there are no MPIDs in currentSessionMPIDs', done => {
+    it('integration test - should remove a random MPID from storage if there is a new session and there are no MPIDs in currentSessionMPIDs', done => {
         mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
         mParticle.config.maxCookieSize = 600;
@@ -1127,8 +1121,7 @@ describe('persistence', () => {
         done();
     });
 
-    // change cooke size
-    xit('integration test - migrates a large localStorage cookie to cookies and properly remove MPIDs', done => {
+    it('integration test - migrates a large localStorage cookie to cookies and properly remove MPIDs', done => {
         mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = false;
         mParticle.config.maxCookieSize = 700;
@@ -1876,41 +1869,41 @@ describe('persistence', () => {
         done();
     });
 
-    // it.only('fst should be set when the user does not change, after an identify request', done => {
-    //     mParticle._resetForTests(MPConfig);
-    //     debugger;
-    //     const cookies = JSON.stringify({
-    //         gs: {
-    //             sid: 'fst Test',
-    //             les: new Date().getTime(),
-    //         },
-    //         current: {},
-    //         cu: 'current',
-    //     });
+    it('fst should be set when the user does not change, after an identify request', done => {
+        mParticle._resetForTests(MPConfig);
+        debugger;
+        const cookies = JSON.stringify({
+            gs: {
+                sid: 'fst Test',
+                les: new Date().getTime(),
+            },
+            current: {},
+            cu: 'current',
+        });
 
-    //     mockServer.respondWith(urls.identify, [
-    //         200,
-    //         {},
-    //         JSON.stringify({ mpid: 'current', is_logged_in: false }),
-    //     ]);
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'current', is_logged_in: false }),
+        ]);
 
-    //     setCookie(workspaceCookieName, cookies, true);
-    //     // FIXME: Should this be in configs or global?
-    //     mParticle.config.useCookieStorage = true;
+        setCookie(workspaceCookieName, cookies, true);
+        // FIXME: Should this be in configs or global?
+        mParticle.config.useCookieStorage = true;
 
-    //     mParticle.init(apiKey, mParticle.config);
-    //     expect(
-    //         mParticle.getInstance()._Persistence.getFirstSeenTime('current')
-    //     ).to.equal(null);
+        mParticle.init(apiKey, mParticle.config);
+        expect(
+            mParticle.getInstance()._Persistence.getFirstSeenTime('current')
+        ).to.equal(null);
 
-    //     mParticle.Identity.identify();
+        mParticle.Identity.identify();
 
-    //     expect(
-    //         mParticle.getInstance()._Persistence.getFirstSeenTime('current')
-    //     ).to.not.equal(null);
+        expect(
+            mParticle.getInstance()._Persistence.getFirstSeenTime('current')
+        ).to.not.equal(null);
 
-    //     done();
-    // });
+        done();
+    });
 
     it('lastSeenTime should be null for users in storage without an lst value', done => {
         const cookies = JSON.stringify({
