@@ -919,7 +919,6 @@ describe('persistence', () => {
 
         cookieData = findCookie();
 
-        debugger;
         expect(cookieData['testMPID']).to.not.be.ok;
         cookieData['MPID1'].ua.should.have.property('id', 'id2');
         cookieData['MPID1'].ua.should.have.property('gender', 'male');
@@ -1871,7 +1870,7 @@ describe('persistence', () => {
 
     it('fst should be set when the user does not change, after an identify request', done => {
         mParticle._resetForTests(MPConfig);
-        debugger;
+
         const cookies = JSON.stringify({
             gs: {
                 sid: 'fst Test',

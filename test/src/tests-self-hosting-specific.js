@@ -64,7 +64,6 @@ describe('/config self-hosting integration tests', function() {
         done();
     });
 
-    // TODO: LOGIN needs self.idCache to exist, but 
     it('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
         const messages = [];
         mParticle._resetForTests(MPConfig);
