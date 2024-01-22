@@ -3,17 +3,16 @@ import { Dictionary, parseNumber } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
-import { IdentityAPIMethod } from './validators';
+import { IdentityAPIMethod } from './sdkRuntimeModels';
 import { isObject } from './utils';
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 import { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { MParticleWebSDK } from './sdkRuntimeModels';
 
 export interface IKnownIdentities extends UserIdentities {
     device_application_stamp?: string;
 }
 
-export interface ICachedIdentityCall extends UserIdentities {
+export interface ICachedIdentityCall {
     responseText: string;
     status: number;
     expireTimestamp: number;
@@ -22,7 +21,7 @@ export interface ICachedIdentityCall extends UserIdentities {
 export const cacheOrClearIdCache = (
     method: string,
     knownIdentities: IKnownIdentities,
-    idCache: BaseVault<Dictionary>,
+    idCache: BaseVault<Dictionary<ICachedIdentityCall>>,
     xhr: XMLHttpRequest
 ): void => {
     const CACHE_HEADER = 'x-mp-max-age';
@@ -57,10 +56,10 @@ export const cacheIdentityRequest = (
     method: IdentityAPIMethod,
     identities: IKnownIdentities,
     expireTimestamp: number,
-    idCache: BaseVault<Dictionary>,
+    idCache: BaseVault<Dictionary<ICachedIdentityCall>>,
     xhr: XMLHttpRequest
 ): void => {
-    const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || {};
+    const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || ({} as Dictionary<ICachedIdentityCall>);
     const cacheKey = concatenateIdentities(method, identities);
 
     cache[cacheKey] = { responseText: xhr.responseText, status: xhr.status, expireTimestamp};
@@ -107,7 +106,7 @@ export const concatenateIdentities = (
 export const hasValidCachedIdentity = (
     method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
-    idCache?: BaseVault<Dictionary>
+    idCache?: BaseVault<Dictionary<ICachedIdentityCall>>
 ): Boolean => {
     // There is an edge case where multiple identity calls are taking place 
     // before identify fires, so there may not be a cache.  See what happens when 
@@ -146,8 +145,8 @@ export const hasValidCachedIdentity = (
 export const getCachedIdentity = (
     method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
-    idCache: BaseVault<Dictionary>
-): Dictionary<string | number | boolean> | null => {
+    idCache: BaseVault<Dictionary<ICachedIdentityCall>>
+): ICachedIdentityCall | null => {
     const cacheKey: string = concatenateIdentities(
         method,
         proposedUserIdentities
@@ -180,8 +179,8 @@ export const createKnownIdentities = (
     return identitiesResult;
 };
 
-export const removeExpiredIdentityCacheDates = (idCache: BaseVault<Dictionary>): void => {
-    const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || {};
+export const removeExpiredIdentityCacheDates = (idCache: BaseVault<Dictionary<ICachedIdentityCall>>) => {
+    const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || {} as Dictionary<ICachedIdentityCall>;
 
     idCache.purge();
     
