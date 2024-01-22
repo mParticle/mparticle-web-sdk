@@ -291,7 +291,7 @@ export default function Store(
         if (config.hasOwnProperty('usePersistence')) {
             this.SDKConfig.usePersistence = config.usePersistence;
         } else {
-            this.SDKConfig.usePersistence = false;
+            this.SDKConfig.usePersistence = true;
         }
 
         if (config.hasOwnProperty('maxProducts')) {
