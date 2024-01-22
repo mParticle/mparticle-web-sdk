@@ -7,9 +7,9 @@ import {
     testMPID,
     urls,
     MessageType,
-    MILLISECONDS_IN_ONE_MINUTE,
 } from './config/constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
+import { MILLIS_IN_ONE_SEC } from '../../src/constants';
 import Constants from '../../src/constants';
 
 const { Messages } = Constants;
@@ -75,7 +75,7 @@ describe('SessionManager', () => {
             });
 
             it('ends the previous session and creates a new session if Store contains a sessionId and dateLastEventSent beyond the timeout window', () => {
-                const timePassed = 11 * MILLISECONDS_IN_ONE_MINUTE;
+                const timePassed = 11 * (MILLIS_IN_ONE_SEC * 60);
 
                 const generateUniqueIdSpy = sinon.stub(
                     mParticle.getInstance()._Helpers,
@@ -98,7 +98,7 @@ describe('SessionManager', () => {
             });
 
             it('resumes the previous session if session ID exists and dateLastSent is within the timeout window', () => {
-                const timePassed = 8 * MILLISECONDS_IN_ONE_MINUTE;
+                const timePassed = 8 * (MILLIS_IN_ONE_SEC * 60);
 
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
@@ -298,7 +298,7 @@ describe('SessionManager', () => {
                     'update'
                 );
 
-                clock.tick(31 * MILLISECONDS_IN_ONE_MINUTE);
+                clock.tick(31 * (MILLIS_IN_ONE_SEC * 60));
                 mpInstance._SessionManager.endSession();
 
                 expect(mpInstance._Store.sessionId).to.equal(null);
@@ -591,11 +591,11 @@ describe('SessionManager', () => {
                 mpInstance._SessionManager.setSessionTimer();
 
                 // Progress 29 minutes to make sure end session has not fired
-                clock.tick(29 * MILLISECONDS_IN_ONE_MINUTE);
+                clock.tick(29 * (MILLIS_IN_ONE_SEC * 60));
                 expect(endSessionSpy.called).to.equal(false);
 
                 // Progress one minute to make sure end session fires
-                clock.tick(1 * MILLISECONDS_IN_ONE_MINUTE);
+                clock.tick(1 * (MILLIS_IN_ONE_SEC * 60));
                 expect(endSessionSpy.called).to.equal(true);
             });
 
@@ -871,7 +871,7 @@ describe('SessionManager', () => {
             });
 
             // trigger a session end
-            clock.tick(60 * MILLISECONDS_IN_ONE_MINUTE);
+            clock.tick(60 * (MILLIS_IN_ONE_SEC * 60));
 
             expect(mpInstance._Store.sessionId).to.equal(null);
             expect(mpInstance._Store.dateLastEventSent).to.equal(null);

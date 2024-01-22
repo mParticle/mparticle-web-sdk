@@ -1,4 +1,5 @@
 import { SDKInitConfig } from "../../../src/sdkRuntimeModels";
+import { MILLIS_IN_ONE_SEC, ONE_DAY_IN_SECONDS } from "../../../src/constants";
 
 export const urls = {
     events: 'https://jssdks.mparticle.com/v3/JS/test_key/events',
@@ -11,7 +12,8 @@ export const urls = {
     forwarding: 'https://jssdks.mparticle.com/v1/JS/test_key/Forwarding'
 };
 
-export const MILLISECONDS_IN_ONE_MINUTE = 60000;
+export const MILLISECONDS_IN_ONE_DAY = ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC
+export const MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND = MILLISECONDS_IN_ONE_DAY + 1;
 
 export const mParticle = window.mParticle;
 
@@ -20,6 +22,7 @@ export const testMPID = 'testMPID';
 export const v3CookieKey = 'mprtcl-v3';
 export const v3LSKey = v3CookieKey;
 export const localStorageProductsV4 = 'mprtcl-prodv4';
+export const localStorageIDKey = 'mparticle-id-cache';
 export const v4CookieKey = 'mprtcl-v4';
 export const v4LSKey = 'mprtcl-v4';
 export const workspaceToken = 'abcdef';

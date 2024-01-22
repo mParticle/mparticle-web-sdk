@@ -1,4 +1,3 @@
-import { MPConfiguration } from "@mparticle/web-sdk";
 import { UnregisteredKit } from "../../src/forwarders.interfaces";
 import { SDKInitConfig } from "../../src/sdkRuntimeModels";
 

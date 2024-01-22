@@ -213,6 +213,7 @@ describe('Store', () => {
                 eventBatchingIntervalMillis: 0,
                 offlineStorage: '0',
                 directURLRouting: false,
+                cacheIdentity: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -224,6 +225,7 @@ describe('Store', () => {
                 eventBatchingIntervalMillis: 5000,
                 offlineStorage: '100',
                 directURLRouting: 'True',
+                cacheIdentity: 'True',
             };
 
             const flags = processFlags({flags: cutomizedFlags} as unknown as SDKInitConfig, {} as SDKConfig);
@@ -233,6 +235,7 @@ describe('Store', () => {
                 eventBatchingIntervalMillis: 5000,
                 offlineStorage: '100',
                 directURLRouting: true,
+                cacheIdentity: true
             }
 
             expect(flags).to.deep.equal(expectedResult);

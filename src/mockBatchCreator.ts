@@ -12,7 +12,7 @@ const mockFunction = function() {
 };
 export default class _BatchValidator {
     private getMPInstance() {
-        return {
+        return ({
             // Certain Helper, Store, and Identity properties need to be mocked to be used in the `returnBatch` method
             _Helpers: {
                 sanitizeAttributes: window.mParticle.getInstance()._Helpers
@@ -119,7 +119,7 @@ export default class _BatchValidator {
             logLevel: 'none',
             setPosition: mockFunction,
             upload: mockFunction,
-        } as MParticleWebSDK;
+        } as unknown) as MParticleWebSDK;
     }
 
     private createSDKEventFunction(event): SDKEvent {
