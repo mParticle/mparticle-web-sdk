@@ -3247,7 +3247,7 @@ describe('identity', function() {
             Should(callback.called).equal(true);
         });
 
-        it.only('should call login if duplicate login happens after expiration time', function() {
+        it('should call login if duplicate login happens after expiration time', function() {
             const clock = sinon.useFakeTimers();
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
