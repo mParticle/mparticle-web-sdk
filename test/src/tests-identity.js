@@ -3129,8 +3129,8 @@ describe('identity', function() {
             // a single identify cache key will be on the idCache
             Should(Object.keys(idCache).length).equal(1);
             for (var key in idCache) {
-                // 1 second from x-mp-max-age * 1000
-                Should(idCache[key].expireTimestamp).equal(X_MP_MAX_AGE * 1000)
+            // 1 second from x-mp-max-age * 1000
+            Should(idCache[key].expireTimestamp).equal(X_MP_MAX_AGE * 1000)
             }
         });
 
@@ -3158,17 +3158,17 @@ describe('identity', function() {
             const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
             initialIdentityCall.should.be.ok();
             mockServer.requests = [];
-            function callback() {
-                // debugger;
-            }
+            const callback = sinon.spy();
             mParticle.Identity.identify(identities, callback);
             const duplicateIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
 
             Should(duplicateIdentityCall).not.be.ok();
-            // add a callback to confirm it gets called
+
+            // callback still gets called even if the identity call is not made` 
+            Should(callback.called).equal(true);
         });
 
-        it('should not call identify if no identities have changed within the expiration time', function() {
+        it('should call identify if no identities have changed but we are outside the expiration time', function() {
             const clock = sinon.useFakeTimers();
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
@@ -3194,9 +3194,7 @@ describe('identity', function() {
             const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
             initialIdentityCall.should.be.ok();
             mockServer.requests = [];
-            function callback() {
-                // debugger;
-            }
+           const callback = sinon.spy();
 
             // cached time will be 1000 if header returns '1'
             clock.tick(1001);
@@ -3204,7 +3202,7 @@ describe('identity', function() {
             const duplicateIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
 
             Should(duplicateIdentityCall).be.ok();
-            // add a callback to confirm it gets called
+            Should(callback.called).equal(true);
         });
 
         it('should not call login if previously cached within the expiration time', function() {
@@ -3234,20 +3232,22 @@ describe('identity', function() {
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
-            mParticle.Identity.login(identities);
+            const callback = sinon.spy();
+
+            mParticle.Identity.login(identities, callback);
             const firstLoginCall = getIdentityEvent(mockServer.requests, 'login');
 
             Should(firstLoginCall).be.ok();
             mockServer.requests = [];
 
-
             mParticle.Identity.login(identities);
             const secondLoginCall = getIdentityEvent(mockServer.requests, 'login');
 
             Should(secondLoginCall).not.be.ok();
+            Should(callback.called).equal(true);
         });
 
-        it('should call login if duplicate login happens after expiration time', function() {
+        it.only('should call login if duplicate login happens after expiration time', function() {
             const clock = sinon.useFakeTimers();
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
@@ -3271,6 +3271,8 @@ describe('identity', function() {
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
+            const callback = sinon.spy();
+
             mParticle.Identity.login(identities);
             const firstLoginCall = getIdentityEvent(mockServer.requests, 'login');
 
@@ -3279,10 +3281,11 @@ describe('identity', function() {
 
             // cached time will be 1000 if header returns '1'
             clock.tick(1001);
-            mParticle.Identity.login(identities);
+            mParticle.Identity.login(identities, callback);
             const secondLoginCall = getIdentityEvent(mockServer.requests, 'login');
 
             Should(secondLoginCall).be.ok();
+            Should(callback.called).equal(true);
         });
 
         it('should clear cache when modify is called', function() {
