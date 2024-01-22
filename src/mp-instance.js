@@ -233,7 +233,7 @@ export default function mParticleInstance(instanceName) {
         if (queued) return;
 
         self._Store.SDKConfig.appVersion = version;
-        if (self.Store.SDKConfig.usePersistence) {
+        if (self._Store.SDKConfig.usePersistence) {
             self._Persistence.update();
         }
     };
@@ -250,7 +250,7 @@ export default function mParticleInstance(instanceName) {
 
         // debugger;
         // TODO: Replace this with Store.setDeviceId
-        if (self.Store.SDKConfig.usePersistence) {
+        if (self._Store.SDKConfig.usePersistence) {
             this._Persistence.setDeviceId(guid);
         }
     };
