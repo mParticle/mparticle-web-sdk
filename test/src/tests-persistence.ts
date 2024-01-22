@@ -812,11 +812,10 @@ describe('persistence', () => {
         done();
     });
 
-    // Why is this test breaking?
-    xit('integration test - should remove a previous MPID as a key from cookies if new user attribute added and exceeds the size of the max cookie size', done => {
+    it('integration test - should remove a previous MPID as a key from cookies if new user attribute added and exceeds the size of the max cookie size', done => {
         mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
-        mParticle.config.maxCookieSize = 650;
+        mParticle.config.maxCookieSize = 700;
 
         mParticle.init(apiKey, mParticle.config);
 
