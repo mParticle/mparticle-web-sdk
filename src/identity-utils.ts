@@ -7,6 +7,7 @@ import { IdentityAPIMethod } from './sdkRuntimeModels';
 import { isObject } from './utils';
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 import { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
+import { generateHash } from './utils';
 
 export interface IKnownIdentities extends UserIdentities {
     device_application_stamp?: string;
@@ -61,8 +62,9 @@ export const cacheIdentityRequest = (
 ): void => {
     const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || ({} as Dictionary<ICachedIdentityCall>);
     const cacheKey = concatenateIdentities(method, identities);
+    const hashedKey = generateHash(cacheKey);
 
-    cache[cacheKey] = { responseText: xhr.responseText, status: xhr.status, expireTimestamp};
+    cache[hashedKey] = { responseText: xhr.responseText, status: xhr.status, expireTimestamp};
     idCache.store(cache);
 };
 
@@ -124,16 +126,17 @@ export const hasValidCachedIdentity = (
         method,
         proposedUserIdentities
     );
+    const hashedKey = generateHash(cacheKey);
 
     // if cache doesn't have the cacheKey, there is no valid cached identity
-    if (!cache.hasOwnProperty(cacheKey)) {
+    if (!cache.hasOwnProperty(hashedKey)) {
         return false;
     }
     
     // If there is a valid cache key, compare the expireTimestamp to the current time.
     // If the current time is greater than the expireTimestamp, it is not a valid
     // cached identity.
-    const expireTimestamp = cache[cacheKey].expireTimestamp;
+    const expireTimestamp = cache[hashedKey].expireTimestamp;
     
     if (expireTimestamp < new Date().getTime()) {
         return false;
@@ -151,9 +154,10 @@ export const getCachedIdentity = (
         method,
         proposedUserIdentities
     );
+    const hashedKey = generateHash(cacheKey);
 
     const cache = idCache.retrieve();
-    const cachedIdentity = cache ? cache[cacheKey] : null;
+    const cachedIdentity = cache ? cache[hashedKey] : null;
 
     return cachedIdentity;
 };
