@@ -7,6 +7,7 @@ import { IdentityAPIMethod } from './sdkRuntimeModels';
 import { isObject } from './utils';
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 import { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
+import { generateHash } from './utils';
 
 export interface IKnownIdentities extends UserIdentities {
     device_application_stamp?: string;
@@ -62,7 +63,7 @@ export const cacheIdentityRequest = (
     const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || ({} as Dictionary<ICachedIdentityCall>);
     const cacheKey = concatenateIdentities(method, identities);
 
-    cache[cacheKey] = { responseText: xhr.responseText, status: xhr.status, expireTimestamp};
+    cache[generateHash(cacheKey)] = { responseText: xhr.responseText, status: xhr.status, expireTimestamp};
     idCache.store(cache);
 };
 
@@ -120,10 +121,10 @@ export const hasValidCachedIdentity = (
         return false;
     }
 
-    const cacheKey: string = concatenateIdentities(
+    const cacheKey: number = generateHash(concatenateIdentities(
         method,
         proposedUserIdentities
-    );
+    ));
 
     // if cache doesn't have the cacheKey, there is no valid cached identity
     if (!cache.hasOwnProperty(cacheKey)) {
@@ -153,7 +154,7 @@ export const getCachedIdentity = (
     );
 
     const cache = idCache.retrieve();
-    const cachedIdentity = cache ? cache[cacheKey] : null;
+    const cachedIdentity = cache ? cache[generateHash(cacheKey)] : null;
 
     return cachedIdentity;
 };

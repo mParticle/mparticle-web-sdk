@@ -9,7 +9,7 @@ import {
     ICachedIdentityCall
 } from "../../src/identity-utils";
 import { LocalStorageVault } from "../../src/vault";
-import { Dictionary } from "../../src/utils";
+import { Dictionary, generateHash } from "../../src/utils";
 import { expect } from 'chai';
 import { 
     MILLISECONDS_IN_ONE_DAY,
@@ -133,7 +133,7 @@ describe('identity-utils', () => {
 
             expect(Object.keys(updatedMpIdCache!).length).to.equal(1);
             const cachedKey =
-                'identify:device_application_stamp=test-device-id;customerid=id1;';
+                generateHash('identify:device_application_stamp=test-device-id;customerid=id1;');
 
             expect(updatedMpIdCache!.hasOwnProperty(cachedKey)).to.equal(true);
 
@@ -180,7 +180,7 @@ describe('identity-utils', () => {
             const updatedMpIdCache = cacheVault.retrieve();
 
             expect(Object.keys(updatedMpIdCache!).length).to.equal(1);
-            const cachedKey = 'login:device_application_stamp=test-device-id;customerid=id1;';
+            const cachedKey = generateHash('login:device_application_stamp=test-device-id;customerid=id1;');
             expect(updatedMpIdCache!.hasOwnProperty(cachedKey)).to.equal(true);
 
             const cachedLoginCall: ICachedIdentityCall = updatedMpIdCache![
@@ -421,9 +421,9 @@ describe('identity-utils', () => {
             const updatedMpIdCache = cacheVault.retrieve();
 
             const knownIdentities1CachedKey =
-                'identify:device_application_stamp=test-device-id;customerid=id1;';
+                generateHash('identify:device_application_stamp=test-device-id;customerid=id1;');
             const knownIdentities2CachedKey =
-                'identify:device_application_stamp=test-device-id;customerid=id2;';
+                generateHash('identify:device_application_stamp=test-device-id;customerid=id2;');
 
 
             // both known identities cache keys should exist on the cacheVault
