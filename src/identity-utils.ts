@@ -5,9 +5,10 @@ import Types from './types';
 import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
 import { IdentityAPIMethod } from './sdkRuntimeModels';
 import { isObject } from './utils';
-const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 import { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
 import { generateHash } from './utils';
+
+const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 
 export interface IKnownIdentities extends UserIdentities {
     device_application_stamp?: string;
