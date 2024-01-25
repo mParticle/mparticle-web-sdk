@@ -3130,7 +3130,7 @@ describe('identity', function() {
 
             // a single identify cache key will be on the idCache
             Should(Object.keys(idCache).length).equal(1);
-            for (var key in idCache) {
+            for (let key in idCache) {
             // we previously ticked forward 1 second, so the expire timestamp should be 1 second more than the X_MP_MAX_AGE
             Should(idCache[key].expireTimestamp).equal(X_MP_MAX_AGE * 1000 + 1)
             }

@@ -1,12 +1,10 @@
-import Constants from './constants';
+import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
 import { Dictionary, parseNumber } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
 import { IdentityAPIMethod } from './sdkRuntimeModels';
-import { isObject } from './utils';
-import { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { generateHash } from './utils';
+import { isObject, generateHash } from './utils';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 
@@ -114,7 +112,7 @@ export const hasValidCachedIdentity = (
     method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
     idCache?: BaseVault<Dictionary<ICachedIdentityCall>>
-): Boolean => {
+): boolean => {
     // There is an edge case where multiple identity calls are taking place 
     // before identify fires, so there may not be a cache.  See what happens when 
     // the ? in idCache is removed to the following test
@@ -178,7 +176,7 @@ export const createKnownIdentities = (
         identityApiData?.userIdentities &&
         isObject(identityApiData.userIdentities)
     ) {
-        for (var identity in identityApiData.userIdentities) {
+        for (let identity in identityApiData.userIdentities) {
             identitiesResult[identity] =
                 identityApiData.userIdentities[identity];
         }

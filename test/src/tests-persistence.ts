@@ -11,8 +11,7 @@ import {
     localStorageProductsV4,
     LocalStorageProductsV4WithWorkSpaceName,
     workspaceCookieName,
-    v4LSKey,
-    MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND
+    v4LSKey
 } from './config/constants';
 import { expect } from 'chai';
 import {
