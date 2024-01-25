@@ -3099,6 +3099,8 @@ describe('identity', function() {
 
         it('should use header `x-mp-max-age` as expiration date for cache', function() {
             const clock = sinon.useFakeTimers();
+
+            // tick forward 1 second
             clock.tick(1);
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
@@ -3129,8 +3131,8 @@ describe('identity', function() {
             // a single identify cache key will be on the idCache
             Should(Object.keys(idCache).length).equal(1);
             for (var key in idCache) {
-            // 1 second from x-mp-max-age * 1000
-            Should(idCache[key].expireTimestamp).equal(X_MP_MAX_AGE * 1000)
+            // we previously ticked forward 1 second, so the expire timestamp should be 1 second more than the X_MP_MAX_AGE
+            Should(idCache[key].expireTimestamp).equal(X_MP_MAX_AGE * 1000 + 1)
             }
         });
 

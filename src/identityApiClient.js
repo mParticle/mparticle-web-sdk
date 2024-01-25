@@ -82,7 +82,8 @@ export default function IdentityAPIClient(mpInstance) {
                         callback,
                         originalIdentityApiData,
                         method,
-                        knownIdentities
+                        knownIdentities,
+                        false
                     );
                 }
             };

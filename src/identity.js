@@ -1484,7 +1484,8 @@ export default function Identity(mpInstance) {
         callback,
         identityApiData,
         method,
-        knownIdentities
+        knownIdentities,
+        parsingCachedResponse
     ) {
         var prevUser = mpInstance.Identity.getUser(previousMPID),
             newUser,
@@ -1548,7 +1549,8 @@ export default function Identity(mpInstance) {
                         method,
                         knownIdentities,
                         self.idCache,
-                        xhr
+                        xhr,
+                        parsingCachedResponse
                     );
                 }
 

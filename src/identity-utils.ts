@@ -24,16 +24,20 @@ export const cacheOrClearIdCache = (
     method: string,
     knownIdentities: IKnownIdentities,
     idCache: BaseVault<Dictionary<ICachedIdentityCall>>,
-    xhr: XMLHttpRequest
+    xhr: XMLHttpRequest,
+    parsingCachedResponse: boolean,
 ): void => {
+    // when parsing a response that has already been cached, simply return instead of attempting another cache
+    if (parsingCachedResponse) { return; }
+
     const CACHE_HEADER = 'x-mp-max-age';
 
     // default the expire timestamp to one day in milliseconds unless a header comes back
-    let expireTimestamp = new Date().getTime() + ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC;
-
+    let now = new Date().getTime();
+    let expireTimestamp = now + ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC;
     if (xhr.getAllResponseHeaders().includes(CACHE_HEADER)) {
         expireTimestamp =
-            parseNumber(xhr.getResponseHeader(CACHE_HEADER)) * MILLIS_IN_ONE_SEC;
+            now + (parseNumber(xhr.getResponseHeader(CACHE_HEADER)) * MILLIS_IN_ONE_SEC);
     }
 
     switch (method) {

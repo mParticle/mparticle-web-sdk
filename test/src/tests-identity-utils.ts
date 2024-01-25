@@ -71,7 +71,8 @@ describe('identity-utils', () => {
                 Identify,
                 knownIdentities,
                 cacheVault,
-                xhr
+                xhr,
+                false
             );
 
             expect(retrieveSpy.called).to.eq(true);
@@ -88,7 +89,8 @@ describe('identity-utils', () => {
                 Login,
                 knownIdentities,
                 cacheVault,
-                xhr
+                xhr,
+                false
             );
 
             expect(retrieveSpy.called).to.eq(true);
@@ -105,12 +107,31 @@ describe('identity-utils', () => {
                 Logout,
                 knownIdentities,
                 cacheVault,
-                xhr
+                xhr,
+                false
             );
                 
             expect(retrieveSpy.called).to.eq(false);
             expect(storeSpy.called).to.eq(false);
             expect(purgeSpy.called).to.eq(true);
+        });
+
+        it('should not cache identities if using a cached response argument is `true`', () => {
+            const retrieveSpy = sinon.spy(cacheVault, 'retrieve');
+            const storeSpy = sinon.spy(cacheVault, 'store');
+            const purgeSpy = sinon.spy(cacheVault, 'purge');
+
+            cacheOrClearIdCache(
+                Identify,
+                knownIdentities,
+                cacheVault,
+                xhr,
+                true
+            );
+
+            expect(retrieveSpy.called).to.eq(false);
+            expect(storeSpy.called).to.eq(false);
+            expect(purgeSpy.called).to.eq(false);
         });
     });
 
