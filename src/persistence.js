@@ -11,25 +11,34 @@ var Base64 = Polyfill.Base64,
 export default function _Persistence(mpInstance) {
     var self = this;
 
-    // QUESTION: Should isEnabled be a param on the constructor, or should it read from config?
-    this.isEnabled = function() {
+    this.isEnabled = function () {
         return mpInstance._Store.SDKConfig.usePersistence;
     };
 
     // https://go.mparticle.com/work/SQDSDKS-5022
-    this.useLocalStorage = function() {
+    this.useLocalStorage = function () {
+        if (!this.isEnabled()) {
+            return;
+        }
+
         return (
             !mpInstance._Store.SDKConfig.useCookieStorage &&
             mpInstance._Store.isLocalStorageAvailable
         );
     };
 
-    this.initializeStorage = function() {
+    this.initializeStorage = function () {
+        if (!this.isEnabled()) {
+            return;
+        }
+
         try {
             var storage,
                 localStorageData = self.getLocalStorage(),
                 cookies = self.getCookie(),
                 allData;
+
+            // FIXME: Move some of these "defaults" to store
 
             // https://go.mparticle.com/work/SQDSDKS-6045
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
@@ -146,7 +155,11 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.update = function() {
+    this.update = function () {
+        if (!this.isEnabled()) {
+            return;
+        }
+
         if (!mpInstance._Store.webviewBridgeEnabled) {
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
                 self.setCookie();
@@ -254,7 +267,10 @@ export default function _Persistence(mpInstance) {
     };
 
     // https://go.mparticle.com/work/SQDSDKS-5022
-    this.determineLocalStorageAvailability = function(storage) {
+    this.determineLocalStorageAvailability = function (storage) {
+        if (!this.isEnabled()) {
+            return false;
+        }
         var result;
 
         if (window.mParticle && window.mParticle._forceNoLocalStorage) {
@@ -271,8 +287,8 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getUserProductsFromLS = function(mpid) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
+    this.getUserProductsFromLS = function (mpid) {
+        if (!this.isEnabled() || !mpInstance._Store.isLocalStorageAvailable) {
             return [];
         }
 
@@ -310,7 +326,11 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getAllUserProductsFromLS = function() {
+    this.getAllUserProductsFromLS = function () {
+        if (!this.isEnabled()) {
+            return {};
+        }
+
         var decodedProducts,
             encodedProducts = localStorage.getItem(
                 mpInstance._Store.prodStorageName
@@ -907,7 +927,11 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getCartProducts = function(mpid) {
+    this.getCartProducts = function (mpid) {
+        if (!this.isEnabled) {
+            return [];
+        }
+
         var allCartProducts,
             cartProductsString = localStorage.getItem(
                 mpInstance._Store.prodStorageName
@@ -926,8 +950,8 @@ export default function _Persistence(mpInstance) {
         return [];
     };
 
-    this.setCartProducts = function(allProducts) {
-        if (!mpInstance._Store.isLocalStorageAvailable) {
+    this.setCartProducts = function (allProducts) {
+        if (!this.isEnabled() && !mpInstance._Store.isLocalStorageAvailable) {
             return;
         }
 
@@ -942,7 +966,10 @@ export default function _Persistence(mpInstance) {
             );
         }
     };
-    this.saveUserIdentitiesToPersistence = function(mpid, userIdentities) {
+    this.saveUserIdentitiesToPersistence = function (mpid, userIdentities) {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (userIdentities) {
             var persistence = self.getPersistence();
             if (persistence) {
@@ -958,7 +985,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.saveUserAttributesToPersistence = function(mpid, userAttributes) {
+    this.saveUserAttributesToPersistence = function (mpid, userAttributes) {
+        if (!this.isEnabled()) {
+            return;
+        }
         var persistence = self.getPersistence();
         if (userAttributes) {
             if (persistence) {
@@ -977,7 +1007,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.saveUserCookieSyncDatesToPersistence = function(mpid, csd) {
+    this.saveUserCookieSyncDatesToPersistence = function (mpid, csd) {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (csd) {
             var persistence = self.getPersistence();
             if (persistence) {
@@ -993,7 +1026,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.saveUserConsentStateToCookies = function(mpid, consentState) {
+    this.saveUserConsentStateToCookies = function (mpid, consentState) {
+        if (!this.isEnabled()) {
+            return;
+        }
         //it's currently not supported to set persistence
         //for any MPID that's not the current one.
         if (consentState || consentState === null) {
@@ -1018,7 +1054,12 @@ export default function _Persistence(mpInstance) {
     };
 
     // https://go.mparticle.com/work/SQDSDKS-6021
-    this.savePersistence = function(persistence) {
+    this.savePersistence = function (persistence) {
+        // debugger;
+        if (!this.isEnabled()) {
+            return;
+        }
+
         var encodedPersistence = self.encodePersistence(
                 JSON.stringify(persistence)
             ),
@@ -1073,7 +1114,10 @@ export default function _Persistence(mpInstance) {
         return persistence;
     };
 
-    this.getConsentState = function(mpid) {
+    this.getConsentState = function (mpid) {
+        if (!this.isEnabled()) {
+            return null;
+        }
         var persistence = self.getPersistence();
 
         if (persistence && persistence[mpid] && persistence[mpid].con) {
@@ -1085,7 +1129,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getFirstSeenTime = function(mpid) {
+    this.getFirstSeenTime = function (mpid) {
+        if (!this.isEnabled()) {
+            return null;
+        }
         if (!mpid) {
             return null;
         }
@@ -1101,7 +1148,10 @@ export default function _Persistence(mpInstance) {
      * set the "first seen" time for a user. the time will only be set once for a given
      * mpid after which subsequent calls will be ignored
      */
-    this.setFirstSeenTime = function(mpid, time) {
+    this.setFirstSeenTime = function (mpid, time) {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (!mpid) {
             return;
         }
@@ -1125,7 +1175,10 @@ export default function _Persistence(mpInstance) {
      * return value will always be the current time, otherwise it will be to stored "last seen"
      * time
      */
-    this.getLastSeenTime = function(mpid) {
+    this.getLastSeenTime = function (mpid) {
+        if (!this.isEnabled()) {
+            return null;
+        }
         if (!mpid) {
             return null;
         }
@@ -1141,7 +1194,10 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.setLastSeenTime = function(mpid, time) {
+    this.setLastSeenTime = function (mpid, time) {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (!mpid) {
             return;
         }
@@ -1155,16 +1211,19 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.getDeviceId = function() {
+    this.getDeviceId = function () {
         return mpInstance._Store.deviceId;
     };
 
-    this.setDeviceId = function(guid) {
+    this.setDeviceId = function (guid) {
         mpInstance._Store.deviceId = guid;
         self.update();
     };
 
-    this.resetPersistence = function() {
+    this.resetPersistence = function () {
+        if (!this.isEnabled()) {
+            return;
+        }
         removeLocalStorage(StorageNames.localStorageName);
         removeLocalStorage(StorageNames.localStorageNameV3);
         removeLocalStorage(StorageNames.localStorageNameV4);

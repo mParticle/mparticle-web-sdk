@@ -6,6 +6,8 @@ import {
     IdentifyRequest,
     IdentityCallback,
     SDKEventCustomFlags,
+    UserIdentities,
+    ConsentState,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
@@ -13,6 +15,7 @@ import {
     DataPlanResult,
     KitBlockerOptions,
     LogLevelType,
+    MParticleUser,
     MParticleWebSDK,
     SDKDataPlan,
     SDKEvent,
@@ -20,9 +23,21 @@ import {
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
-import { isNumber, isDataPlanSlug, Dictionary, parseNumber } from './utils';
-import { SDKConsentState } from './consent';
+import {
+    isNumber,
+    isDataPlanSlug,
+    Dictionary,
+    parseNumber,
+    generateUniqueId,
+    isEmpty,
+} from './utils';
+import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
+import {
+    IGlobalStoreV2MinifiedKeys,
+    IPersistenceMinified,
+    UserAttributes,
+} from './persistence.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -163,6 +178,31 @@ export interface IStore {
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
 
+    mpid?: MPID;
+
+    persistenceData?: IPersistenceMinified;
+    initializePersistence?(): void;
+    storeDataInMemory?(obj: IPersistenceMinified, currentMPID: MPID): void;
+    updatePersistence?(): void;
+    getPersistence?(): IPersistenceMinified;
+    getGlobalStorageAttributes?: () => IGlobalStoreV2MinifiedKeys;
+    savePersistence?(persistence: IPersistenceMinified): void;
+    getConsentState?(mpid: MPID): ConsentState; // TODO: Make sure this is the correct type
+    setConsentState?(mpid, consentState: ConsentState): void;
+
+    userAttributes?: Dictionary<UserAttributes>;
+    getUserAttributes?(mpid: MPID): UserAttributes;
+
+    // QUESTION: Is there a difference between this and currentUserIdentities?
+    userIdentities?: UserIdentities;
+    setUserIdentities?(mpid: MPID, identities: UserIdentities): void;
+    getUserIdentities?(mpid: MPID): UserIdentities;
+
+    getFirstSeenTime?(mpid: MPID): number;
+    setFirstSeenTime?(mpid: MPID, time?: number): void;
+    getLastSeenTime?(mpid: MPID): number;
+    setLastSeenTime?(mpid: MPID, time?: number): void;
+
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
 
@@ -177,12 +217,13 @@ export default function Store(
     apiKey?: string
 ) {
     const defaultStore: Partial<IStore> = {
+        mpid: null,
         isEnabled: true,
         sessionAttributes: {},
         currentSessionMPIDs: [],
         consentState: null,
         sessionId: null,
-        isFirstRun: null,
+        isFirstRun: true,
         clientId: null,
         deviceId: null,
         devToken: null,
@@ -214,10 +255,32 @@ export default function Store(
         sideloadedKits: [],
         configuredForwarders: [],
         pixelConfigurations: [],
+        userIdentities: {},
         wrapperSDKInfo: {
             name: 'none',
             version: null,
             isInfoSet: false,
+        },
+
+        // Placeholder for in-memory persistence model
+        persistenceData: {
+            cu: null,
+            gs: {
+                sid: null,
+                ie: null,
+                sa: null,
+                ss: null,
+                dt: null,
+                av: null,
+                cgid: null,
+                das: null,
+                ia: null,
+                c: null,
+                csm: null,
+                les: null,
+                ssd: null,
+            },
+            l: null,
         },
     };
 
@@ -228,8 +291,8 @@ export default function Store(
 
     this.integrationDelayTimeoutStart = Date.now();
 
-    // TODO: Load from persistence if that exists, otherwise create a new one
-    this.deviceId = mpInstance._Helpers.generateUniqueId();
+    this.clientId = generateUniqueId();
+    this.deviceId = generateUniqueId();
 
     // Set configuration to default settings
     this.SDKConfig = createSDKConfig(config);
@@ -239,16 +302,19 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        this.SDKConfig.flags = processFlags(config, this
-            .SDKConfig as SDKConfig);
+        this.SDKConfig.flags = processFlags(
+            config,
+            this.SDKConfig as SDKConfig
+        );
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
-                config.isDevelopmentMode
-            );
+            this.SDKConfig.isDevelopmentMode =
+                mpInstance._Helpers.returnConvertedBoolean(
+                    config.isDevelopmentMode
+                );
         } else {
             this.SDKConfig.isDevelopmentMode = false;
         }
@@ -433,11 +499,106 @@ export default function Store(
         }
     }
 
+    this.getUserAttributes = (mpid: MPID): UserAttributes => {
+        return { ...this.persistenceData[mpid]?.ua };
+    };
+
+    this.getFirstSeenTime = (mpid: MPID): number => {
+        return this.persistenceData[mpid]?.fst || null;
+    };
+
+    this.setFirstSeenTime = (mpid: MPID, time?: number): void => {
+        if (!mpid) {
+            return null;
+        }
+
+        if (!time) {
+            time = new Date().getTime();
+        }
+
+        if (isEmpty(this.persistenceData[mpid])) {
+            this.persistenceData[mpid] = {};
+        }
+        if (!this.persistenceData[mpid].fst) {
+            this.persistenceData[mpid].fst = time;
+        }
+    };
+
+    this.getLastSeenTime = (mpid: MPID): number => {
+        return this.persistenceData[mpid]?.lst || null;
+    };
+
+    this.setLastSeenTime = (mpid: MPID, time?: number): void => {
+        if (!mpid) {
+            return null;
+        }
+
+        if (!time) {
+            time = new Date().getTime();
+        }
+
+        if (isEmpty(this.persistenceData[mpid])) {
+            this.persistenceData[mpid] = {};
+        }
+        if (!this.persistenceData[mpid].lst) {
+            this.persistenceData[mpid].lst = time;
+        }
+    };
+
+    this.setUserIdentities = (mpid: MPID, identities: UserIdentities): void => {
+        if (isEmpty(identities)) {
+            return;
+        }
+
+        if (this.persistenceData[mpid]?.ui) {
+            this.persistenceData[mpid].ui = identities;
+        } else {
+            this.persistenceData[mpid] = {
+                ui: identities,
+            };
+        }
+    };
+
+    this.getUserIdentities = (mpid: MPID) => {
+        return { ...this.persistenceData[mpid]?.ui };
+    };
+
     // QUESTION: Should we just use get/set instead?
     this.getDeviceId = (): string => this.deviceId;
     this.setDeviceId = (deviceId: string): void => {
         // TODO: This should update persistence
         this.deviceId = deviceId;
+        mpInstance._Persistence.update();
+    };
+
+    this.getConsentState = (mpid: MPID): ConsentState => {
+        const consentState = this.persistenceData[mpid]?.con;
+        if (isEmpty(consentState)) {
+            return null;
+        }
+
+        return mpInstance._Consent.ConsentSerialization.fromMinifiedJsonObject(
+            consentState
+        );
+    };
+
+    this.setConsentState = (mpid: MPID, consentState: ConsentState) => {
+        // QUESTION: What is the context here?
+        // it's currently not supported to set persistence
+        // for any MPID that's not the current one.
+        if (isEmpty(consentState)) {
+            const minifiedConsentState: IMinifiedConsentJSONObject =
+                mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(
+                    consentState
+                );
+            if (this.persistenceData[mpid] && this.persistenceData[mpid].con) {
+                this.persistenceData[mpid].con = minifiedConsentState;
+            } else {
+                this.persistenceData[mpid] = {
+                    con: minifiedConsentState,
+                };
+            }
+        }
     };
 
     this.nullifySession = (): void => {
@@ -445,8 +606,126 @@ export default function Store(
         this.dateLastEventSent = null;
         this.sessionAttributes = {};
         this.sessionStartDate = null;
-        mpInstance._Persistence.update();
     };
+
+    this.storeDataInMemory = (obj: IPersistenceMinified, currentMPID: MPID) => {
+        if (currentMPID) {
+            this.mpid = currentMPID;
+        } else {
+            this.mpid = obj.cu || '';
+        }
+
+        this.sessionId = obj?.gs?.sid || this.sessionId;
+        this.isEnabled =
+            typeof obj?.gs?.ie !== 'undefined' ? obj.gs.ie : this.isEnabled;
+        this.sessionAttributes = obj?.gs?.sa || this.sessionAttributes;
+        this.serverSettings = obj?.gs?.ss || this.serverSettings;
+        this.devToken = this.devToken || obj?.gs?.dt;
+
+        // FIXME: We should not be mutating this setting
+        this.SDKConfig.appVersion = this.SDKConfig.appVersion || obj?.gs?.av;
+        this.clientId = obj?.gs?.cgid || this.clientId;
+
+        // For most persistence values, we prioritize localstorage/cookie values over
+        // Store. However, we allow device ID to be overriden via a config value and
+        // thus the priority of the deviceId value is
+        // 1. value passed via config.deviceId
+        // 2. previous value in persistence
+        // 3. generate new guid
+        this.deviceId = this.deviceId || obj?.gs?.das;
+
+        this.integrationAttributes = obj?.gs?.ia || {};
+        this.context = obj?.gs?.c || this.context;
+        this.currentSessionMPIDs = obj?.gs?.csm || this.currentSessionMPIDs;
+
+        // QUESTION: What is the intention behind this?
+        // this.isLoggedIn = obj.l === true;
+        this.isLoggedIn = obj?.l || false;
+
+        if (obj?.gs?.les) {
+            this.dateLastEventSent = new Date(obj.gs.les);
+        }
+
+        // QUESTION: Can we just move this to session start?
+        if (obj?.gs?.ssd) {
+            this.sessionStartDate = new Date(obj.gs.ssd);
+        } else {
+            this.sessionStartDate = new Date();
+        }
+
+        if (this.mpid) {
+            this.persistenceData[this.mpid] = obj;
+        }
+    };
+
+    this.initializePersistence = () => {
+        const persistenceData: Partial<IPersistenceMinified> = {};
+
+        // TODO: should be in defaults
+        this.isFirstRun = true;
+        this.mpid = null; // QUESTION Should this be null, empty string or 0?
+
+        // Populates "persistence" with defaults
+        this.storeDataInMemory(persistenceData as IPersistenceMinified, null);
+
+        // QUESTION: Is this redundant?
+        this.updatePersistence();
+    };
+
+    // QUESTION: Is this still necessary?
+    this.updatePersistence = (): void => {
+        const currentUser: MParticleUser = mpInstance.Identity.getCurrentUser();
+        const mpid: MPID = currentUser.getMPID() || null;
+        const persistenceData: IPersistenceMinified = this.getPersistence();
+
+        // Moving this up so that we can have a "base" GS
+        // Mirrors Set Local Storage
+        persistenceData.gs = this.getGlobalStorageAttributes();
+
+        persistenceData.l = this.isLoggedIn;
+        if (this.sessionId) {
+            // QUESTION: What's the difference between sessionId and "Current Session ID?"
+            persistenceData.gs.csm = this.currentSessionMPIDs;
+        }
+        if (mpid) {
+            persistenceData.cu = mpid;
+        }
+
+        // TODO: Understand what is really being copied here
+        if (!isEmpty(this.nonCurrentUserMPIDs)) {
+            console.log('persistenceData', persistenceData);
+            console.log(this.nonCurrentUserMPIDs);
+        }
+
+        // TODO: Should we "save" this?
+        this.storeDataInMemory(persistenceData, mpid);
+    };
+
+    this.getPersistence = (): IPersistenceMinified => {
+        // TODO: Do we need to create a copy of this data?
+        return { ...this.persistenceData };
+    };
+
+    this.savePersistence = (persistence: IPersistenceMinified) => {
+        // TODO: Should we do a "deep copy"
+        this.persistenceData = { ...this.persistenceData, persistence };
+    };
+
+    this.getGlobalStorageAttributes = (): IGlobalStoreV2MinifiedKeys => ({
+        sid: this.sessionId,
+        ie: this.isEnabled,
+        sa: this.sessionAttributes,
+        ss: this.serverSettings,
+        dt: this.devToken,
+        les: this.dateLastEventSent ? this.dateLastEventSent.getTime() : null,
+        av: this.SDKConfig.appVersion,
+        cgid: this.clientId,
+        das: this.deviceId,
+        c: this.context,
+        ssd: this.sessionStartDate ? this.sessionStartDate.getTime() : 0,
+        ia: this.integrationAttributes,
+        csm: this.currentSessionMPIDs,
+    });
 }
 
 export function processFlags(
