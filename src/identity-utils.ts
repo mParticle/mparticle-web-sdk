@@ -2,12 +2,20 @@ import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
 import { Dictionary, parseNumber } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
-import { IdentityApiData, UserIdentities } from '@mparticle/web-sdk';
-import { IdentityAPIMethod } from './sdkRuntimeModels';
+import { IdentityApiData, UserIdentities, IdentityCallback } from '@mparticle/web-sdk';
+import { IdentityAPIMethod, MParticleWebSDK } from './sdkRuntimeModels';
 import { isObject, generateHash } from './utils';
-
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 
+export interface IParseCachedIdentityResponse {
+    (cachedIdentity: ICachedIdentityCall,
+    mpid: string,
+    callback: IdentityCallback,
+    identityApiData: IdentityApiData,
+    identityMethod: string,
+    knownIdentities: IKnownIdentities,
+    fromCachedIdentity: boolean): void
+}
 export interface IKnownIdentities extends UserIdentities {
     device_application_stamp?: string;
 }
@@ -201,4 +209,49 @@ export const removeExpiredIdentityCacheDates = (idCache: BaseVault<Dictionary<IC
     };
 
     idCache.store(cache);
+}
+
+export const tryCacheIdentity = (
+    mpInstance: MParticleWebSDK,
+    knownIdentities: IKnownIdentities,
+    idCache: BaseVault<Dictionary<ICachedIdentityCall>>,
+    parseIdentityResponse: IParseCachedIdentityResponse,
+    mpid: string,
+    callback: IdentityCallback,
+    identityApiData: IdentityApiData,
+    identityMethod: IdentityAPIMethod
+): boolean =>  {
+    if (
+        mpInstance._Helpers.getFeatureFlag(
+            Constants.FeatureFlags.CacheIdentity
+        )
+    ) {
+        const shouldReturnCachedIdentity = hasValidCachedIdentity(
+            identityMethod,
+            knownIdentities,
+            idCache
+        );
+
+        // If Identity is cached, then immediately parse the identity response
+        if (shouldReturnCachedIdentity) {
+            const cachedIdentity = getCachedIdentity(
+                identityMethod,
+                knownIdentities,
+                idCache
+            );
+
+            parseIdentityResponse(
+                cachedIdentity,
+                mpid,
+                callback,
+                identityApiData,
+                identityMethod,
+                knownIdentities,
+                true
+            );
+
+            return true;
+        }
+    }
+    return false;
 }

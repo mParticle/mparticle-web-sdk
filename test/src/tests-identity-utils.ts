@@ -5,6 +5,7 @@ import {
     hasValidCachedIdentity,
     createKnownIdentities,
     removeExpiredIdentityCacheDates,
+    tryCacheIdentity,
     IKnownIdentities,
     ICachedIdentityCall
 } from "../../src/identity-utils";
@@ -12,11 +13,15 @@ import { LocalStorageVault } from "../../src/vault";
 import { Dictionary, generateHash } from "../../src/utils";
 import { expect } from 'chai';
 import { 
+    apiKey, MPConfig,
     MILLISECONDS_IN_ONE_DAY,
     MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND,
     testMPID,
     localStorageIDKey
 } from './config/constants';
+import { IdentityApiData } from '@mparticle/web-sdk';
+import Identity from "../../src/identity";
+
 import Constants from '../../src/constants';
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 
@@ -467,6 +472,128 @@ describe('identity-utils', () => {
             expect(updatedMpIdCache3!.hasOwnProperty(knownIdentities1CachedKey)).to.equal(false);
             expect(updatedMpIdCache3!.hasOwnProperty(knownIdentities2CachedKey)).to.equal(true);
 
+            clock.restore();
+        });
+    });
+
+    describe('#tryCacheIdentity', () => {
+        it('returns true if trying to cache an identity that has already been cached', () => {
+            window.mParticle._resetForTests(MPConfig);
+            const clock = sinon.useFakeTimers();
+
+            window.mParticle.config.flags = {cacheIdentity: 'True'};
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            const mpInstance = window.mParticle.getInstance();
+
+            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+
+            const identifyResponse = {
+                context: null,
+                matched_identities: {
+                    device_application_stamp: "test-das"
+                },
+                is_ephemeral: false,
+                mpid: testMPID,
+                is_logged_in: false
+            };
+
+            const xhr: XMLHttpRequest = {
+                status: 200,
+                responseText: JSON.stringify(identifyResponse),
+            } as XMLHttpRequest;
+
+            const customerId = {customerid: 'id1'}
+            const knownIdentities1: IKnownIdentities = createKnownIdentities({
+                userIdentities: customerId},
+                DEVICE_ID
+            );
+
+            // Cache 1st identity response to expire in 1 day
+            cacheIdentityRequest(
+                'identify',
+                knownIdentities,
+                MILLISECONDS_IN_ONE_DAY,
+                cacheVault,
+                xhr
+            );
+
+            const identityInstance = new Identity(mpInstance);
+
+            const identityApiData: IdentityApiData = {
+                userIdentities: customerId
+            };
+            const callback = sinon.spy();
+
+            const successfullyCachedIdentity = tryCacheIdentity(
+                mpInstance,
+                knownIdentities1,
+                cacheVault,
+                identityInstance.parseIdentityResponse,
+                testMPID,
+                callback,
+                identityApiData,
+                'identify'
+            );
+
+            expect(successfullyCachedIdentity).to.equal(true);
+            expect(callback.called).to.equal(true);
+            clock.restore();
+        });
+
+        it('returns false if trying to cache an identity that has not been cached', () => {
+            window.mParticle._resetForTests(MPConfig);
+            const clock = sinon.useFakeTimers();
+
+            window.mParticle.config.flags = {cacheIdentity: 'True'};
+
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            const mpInstance = window.mParticle.getInstance();
+            const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
+
+            const loginResponse = {
+                context: null,
+                matched_identities: {
+                    device_application_stamp: "test-das"
+                },
+                is_ephemeral: false,
+                mpid: testMPID,
+                is_logged_in: false
+            };
+
+            const xhr: XMLHttpRequest = {
+                status: 200,
+                responseText: JSON.stringify(loginResponse),
+            } as XMLHttpRequest;
+
+            const customerId = {customerid: 'id1'}
+            const knownIdentities1: IKnownIdentities = createKnownIdentities({
+                userIdentities: customerId},
+                DEVICE_ID
+            );
+
+            const identityInstance = new Identity(mpInstance);
+
+            const identityApiData: IdentityApiData = {
+                userIdentities: customerId
+            };
+            const callback = sinon.spy();
+            debugger;
+            const successfullyCachedIdentity = tryCacheIdentity(
+                mpInstance,
+                knownIdentities1,
+                cacheVault,
+                identityInstance.parseIdentityResponse,
+                testMPID,
+                callback,
+                identityApiData,
+                'login'
+            );
+
+            expect(successfullyCachedIdentity).to.equal(false);
+            // callback does not get called in the above method
+            expect(callback.called).to.equal(false);
             clock.restore();
         });
     });

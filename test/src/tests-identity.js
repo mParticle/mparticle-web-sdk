@@ -3158,10 +3158,12 @@ describe('identity', function() {
             mParticle.init(apiKey, window.mParticle.config);
 
             const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+
             initialIdentityCall.should.be.ok();
             mockServer.requests = [];
             const callback = sinon.spy();
             mParticle.Identity.identify(identities, callback);
+
             const duplicateIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
 
             Should(duplicateIdentityCall).not.be.ok();

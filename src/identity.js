@@ -2,9 +2,8 @@ import Constants from './constants';
 import Types from './types';
 import {
     cacheOrClearIdCache,
-    hasValidCachedIdentity,
-    getCachedIdentity,
     createKnownIdentities,
+    tryCacheIdentity,
 } from './identity-utils';
 
 var Messages = Constants.Messages,
@@ -253,37 +252,19 @@ export default function Identity(mpInstance) {
                     mpid
                 );
 
-                if (
-                    mpInstance._Helpers.getFeatureFlag(
-                        Constants.FeatureFlags.CacheIdentity
-                    )
-                ) {
-                    const shouldReturnCachedIdentity = hasValidCachedIdentity(
-                        Identify,
-                        identityApiRequest.known_identities,
-                        self.idCache
-                    );
+                const successfullyCachedIdentity = tryCacheIdentity(
+                    mpInstance,
+                    identityApiRequest.known_identities,
+                    self.idCache,
+                    self.parseIdentityResponse,
+                    mpid,
+                    callback,
+                    identityApiData,
+                    Identify
+                );
 
-                    // If Identity is cached, then immediately parse the identity response
-                    if (shouldReturnCachedIdentity) {
-                        const cachedIdentity = getCachedIdentity(
-                            Identify,
-                            identityApiRequest.known_identities,
-                            self.idCache
-                        );
-
-                        self.parseIdentityResponse(
-                            cachedIdentity,
-                            mpid,
-                            callback,
-                            identityApiData,
-                            Identify,
-                            identityApiRequest.known_identities,
-                            true
-                        );
-
-                        return;
-                    }
+                if (successfullyCachedIdentity) {
+                    return;
                 }
 
                 if (mpInstance._Helpers.canLog()) {
@@ -450,37 +431,19 @@ export default function Identity(mpInstance) {
                     mpid
                 );
 
-                if (
-                    mpInstance._Helpers.getFeatureFlag(
-                        Constants.FeatureFlags.CacheIdentity
-                    )
-                ) {
-                    let shouldReturnCachedIdentity = hasValidCachedIdentity(
-                        Login,
-                        identityApiRequest.known_identities,
-                        self.idCache
-                    );
+                const successfullyCachedIdentity = tryCacheIdentity(
+                    mpInstance,
+                    identityApiRequest.known_identities,
+                    self.idCache,
+                    self.parseIdentityResponse,
+                    mpid,
+                    callback,
+                    identityApiData,
+                    Login
+                );
 
-                    // If Identity is cached, then immediately parse the identity response
-                    if (shouldReturnCachedIdentity) {
-                        const cachedIdentity = getCachedIdentity(
-                            Login,
-                            identityApiRequest.known_identities,
-                            self.idCache
-                        );
-
-                        self.parseIdentityResponse(
-                            cachedIdentity,
-                            mpid,
-                            callback,
-                            identityApiData,
-                            Login,
-                            identityApiRequest.known_identities,
-                            true
-                        );
-
-                        return;
-                    }
+                if (successfullyCachedIdentity) {
+                    return;
                 }
 
                 if (mpInstance._Helpers.canLog()) {
