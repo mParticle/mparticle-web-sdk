@@ -3,9 +3,7 @@
 import ServerModel from './serverModel';
 import { SDKEvent, BaseEvent, MParticleWebSDK } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
-import * as EventsApi from '@mparticle/event-models';
 import { Batch } from '@mparticle/event-models';
-import { IMPSideloadedKit} from './sideloadedKit';
 
 const mockFunction = function() {
     return null;
@@ -89,6 +87,8 @@ export default class _BatchValidator {
                     isDevelopmentMode: false,
                     onCreateBatch: mockFunction,
                 },
+                getDeviceId: mockFunction,
+                setDeviceId: mockFunction,
             },
             config: null,
             eCommerce: null,

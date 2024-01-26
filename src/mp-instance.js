@@ -59,7 +59,10 @@ export default function mParticleInstance(instanceName) {
     this._instanceName = instanceName;
     this._NativeSdkHelpers = new NativeSdkHelpers(this);
     this._SessionManager = new SessionManager(this);
+
+    // debugger;
     this._Persistence = new Persistence(this);
+
     this._Helpers = new Helpers(this);
     this._Events = new Events(this);
     this._CookieSyncManager = new CookieSyncManager(this);
@@ -84,7 +87,6 @@ export default function mParticleInstance(instanceName) {
     this._Identity = new Identity(this);
     this.Identity = this._Identity.IdentityAPI;
     this.generateHash = this._Helpers.generateHash;
-    this.getDeviceId = this._Persistence.getDeviceId;
 
     if (typeof window !== 'undefined') {
         if (window.mParticle && window.mParticle.config) {
@@ -141,7 +143,7 @@ export default function mParticleInstance(instanceName) {
      * before any other mParticle methods or the SDK will not function as intended.
      * @method reset
      */
-    this.reset = function(instance) {
+    this.reset = function (instance) {
         try {
             instance._Persistence.resetPersistence();
             if (instance._Store) {
@@ -152,20 +154,22 @@ export default function mParticleInstance(instanceName) {
         }
     };
 
-    this._resetForTests = function(config, keepPersistence, instance) {
+    this._resetForTests = function (config, keepPersistence, instance) {
         if (instance._Store) {
             delete instance._Store;
         }
         instance._Store = new Store(config, instance);
-        instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
-            window.localStorage
-        );
+        instance._Store.isLocalStorageAvailable =
+            instance._Persistence.determineLocalStorageAvailability(
+                window.localStorage
+            );
         instance._Events.stopTracking();
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
         }
         instance._Persistence.forwardingStatsBatches.uploadsTable = {};
-        instance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue = [];
+        instance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue =
+            [];
         instance._preInit = {
             readyQueue: [],
             pixelConfigurations: [],
@@ -217,19 +221,32 @@ export default function mParticleInstance(instanceName) {
         if (queued) return;
 
         self._Store.SDKConfig.appVersion = version;
-        self._Persistence.update();
+        if (self._Store.SDKConfig.usePersistence) {
+            self._Persistence.update();
+        }
     };
+
+    /**
+     * Gets the device ID
+     * @method getDeviceId
+     * @return {String} A Device ID (UUIDv4-formatted string)
+     */
+    this.getDeviceId = function () {
+        return self._Store.getDeviceId();
+    };
+
     /**
      * Sets the device id
      * @method setDeviceId
      * @param {String} name device ID (UUIDv4-formatted string)
      */
-    this.setDeviceId = function(guid) {
-        var queued = queueIfNotInitialized(function() {
+    this.setDeviceId = function (guid) {
+        var queued = queueIfNotInitialized(function () {
             self.setDeviceId(guid);
         }, self);
         if (queued) return;
-        this._Persistence.setDeviceId(guid);
+
+        self._Store.setDeviceId(guid);
     };
     /**
      * Returns a boolean for whether or not the SDKhas been fully initialized
@@ -1101,7 +1118,7 @@ export default function mParticleInstance(instanceName) {
         self._Persistence.update();
 
         if (self._Store.activeForwarders.length) {
-            self._Store.activeForwarders.forEach(function(forwarder) {
+            self._Store.activeForwarders.forEach(function (forwarder) {
                 if (forwarder.setOptOut) {
                     var result = forwarder.setOptOut(isOptingOut);
 
@@ -1333,7 +1350,11 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-6044
     if (!mpInstance._Store.webviewBridgeEnabled) {
         // Load any settings/identities/attributes from cookie or localStorage
+        // FIXME: if persistence is turned off, device id never gets set
+        // FIXME: maybe we set device id in _Store and that fixes everything?
+        // debugger;
         mpInstance._Persistence.initializeStorage();
+        mpInstance._Store.initializePersistence();
     }
 
     if (mpInstance._Store.webviewBridgeEnabled) {
@@ -1531,6 +1552,14 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger.verbose(
         Messages.InformationMessages.StartingInitialization
     );
+
+    if (!mpInstance._Store.SDKConfig.usePersistence) {
+        mpInstance.Logger.warning(
+            'usePersistence is set to false in pre-config check. Persistence will not be used'
+        );
+
+        return;
+    }
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence

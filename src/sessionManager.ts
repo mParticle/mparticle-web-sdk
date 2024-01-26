@@ -44,6 +44,7 @@ export default function SessionManager(
                 self.endSession();
                 self.startNewSession();
             } else {
+                // QUESTION: Should we check for current user if we don't have persistence?
                 // https://go.mparticle.com/work/SQDSDKS-6045
                 const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
                 if (persistence && !persistence.cu) {
@@ -120,6 +121,7 @@ export default function SessionManager(
     };
 
     this.endSession = function(override: boolean): void {
+        // debugger;
         mpInstance.Logger.verbose(
             Messages.InformationMessages.StartingEndSession
         );
@@ -129,9 +131,11 @@ export default function SessionManager(
                 messageType: Types.MessageType.SessionEnd,
             });
 
-            nullifySession();
+            mpInstance._Store.nullifySession();
             return;
         }
+
+        // debugger;
 
         if (!mpInstance._Helpers.canLog()) {
             // At this moment, an AbandonedEndSession is defined when on of three things occurs:
@@ -144,33 +148,60 @@ export default function SessionManager(
             return;
         }
 
+        // debugger;
+
         let sessionTimeoutInMilliseconds: number;
         let timeSinceLastEventSent: number;
 
-        const cookies: IPersistenceMinified = mpInstance._Persistence.getPersistence();
+        const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
 
-        // TODO: https://go.mparticle.com/work/SQDSDKS-5684
-        if (!cookies) {
-            return;
-        }
+        // debugger;
 
-        if (cookies.gs && !cookies.gs.sid) {
+        // QUESTION: What constitutes ending a session if we don't have persistence?
+
+        // If for some reason we do not have a session ID, there is no session to end
+        if (
+            !persistence?.gs?.sid &&
+            !mpInstance._Store.sessionId
+        ) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.NoSessionToEnd
             );
             return;
         }
 
-        // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
-        if (cookies.gs.sid && mpInstance._Store.sessionId !== cookies.gs.sid) {
-            mpInstance._Store.sessionId = cookies.gs.sid;
+        // If sessionId exists in persistence and is different than Store, persistence takes precedence
+        // For example, if persistence changed in a separate browser instance or tab
+        if (
+            persistence?.gs &&
+            persistence?.gs.sid &&
+            mpInstance._Store.sessionId !== persistence.gs.sid
+        ) {
+            mpInstance._Store.sessionId = persistence.gs.sid;
         }
 
-        if (cookies?.gs?.les) {
+        // debugger;
+
+        // Check Store for last time event was sent. If there is a different value in persistence,
+        // use that and update the Store
+        // TODO: Check if dateLastEventSent and return early if it does not exist
+        let timeLastEventSent: number = mpInstance._Store.dateLastEventSent?.getTime();
+        if (
+            persistence?.gs &&
+            persistence?.gs.les &&
+            timeLastEventSent !== persistence.gs.les
+        ) {
+            timeLastEventSent = persistence.gs.les;
+            mpInstance._Store.dateLastEventSent = new Date(persistence.gs.les);
+        }
+
+        // debugger;
+
+        if (timeLastEventSent) {
             sessionTimeoutInMilliseconds =
                 mpInstance._Store.SDKConfig.sessionTimeout * 60000;
             const newDate: number = new Date().getTime();
-            timeSinceLastEventSent = newDate - cookies.gs.les;
+            timeSinceLastEventSent = newDate - timeLastEventSent;
 
             if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
                 self.setSessionTimer();
@@ -179,8 +210,7 @@ export default function SessionManager(
                     messageType: Types.MessageType.SessionEnd,
                 });
 
-                mpInstance._Store.sessionStartDate = null;
-                nullifySession();
+                mpInstance._Store.nullifySession();
             }
         }
     };
@@ -190,6 +220,8 @@ export default function SessionManager(
             mpInstance._Store.SDKConfig.sessionTimeout * 60000;
 
         mpInstance._Store.globalTimer = window.setTimeout(function() {
+            // TODO: kill this global timer when ending session
+            // debugger;
             self.endSession();
         }, sessionTimeoutInMilliseconds);
     };
@@ -213,20 +245,18 @@ export default function SessionManager(
         if (!mpInstance._Store.webviewBridgeEnabled) {
             const persistence = mpInstance._Persistence.getPersistence();
 
-            if (!mpInstance._Store.sessionId && persistence) {
-                if (persistence.sid) {
-                    mpInstance._Store.sessionId = persistence.sid;
-                } else {
-                    self.startNewSession();
-                }
+            if (
+                persistence?.gs &&
+                persistence?.gs.sid &&
+                mpInstance._Store.sessionId !== persistence.gs.sid
+            ) {
+                mpInstance._Store.sessionId = persistence.gs.sid;
+            }
+
+            // TODO: Make this a store method
+            if (!mpInstance._Store.sessionId) {
+                self.startNewSession();
             }
         }
     };
-
-    function nullifySession(): void {
-        mpInstance._Store.sessionId = null;
-        mpInstance._Store.dateLastEventSent = null;
-        mpInstance._Store.sessionAttributes = {};
-        mpInstance._Persistence.update();
-    }
 }
