@@ -552,21 +552,6 @@ describe('identity-utils', () => {
             const mpInstance = window.mParticle.getInstance();
             const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
 
-            const loginResponse = {
-                context: null,
-                matched_identities: {
-                    device_application_stamp: "test-das"
-                },
-                is_ephemeral: false,
-                mpid: testMPID,
-                is_logged_in: false
-            };
-
-            const xhr: XMLHttpRequest = {
-                status: 200,
-                responseText: JSON.stringify(loginResponse),
-            } as XMLHttpRequest;
-
             const customerId = {customerid: 'id1'}
             const knownIdentities1: IKnownIdentities = createKnownIdentities({
                 userIdentities: customerId},

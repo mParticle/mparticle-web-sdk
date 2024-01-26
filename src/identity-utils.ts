@@ -1,10 +1,9 @@
 import Constants, { ONE_DAY_IN_SECONDS, MILLIS_IN_ONE_SEC } from './constants';
-import { Dictionary, parseNumber } from './utils';
+import { Dictionary, parseNumber, isObject, generateHash } from './utils';
 import { BaseVault } from './vault';
 import Types from './types';
 import { IdentityApiData, UserIdentities, IdentityCallback } from '@mparticle/web-sdk';
 import { IdentityAPIMethod, MParticleWebSDK } from './sdkRuntimeModels';
-import { isObject, generateHash } from './utils';
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 
 export interface IParseCachedIdentityResponse {
