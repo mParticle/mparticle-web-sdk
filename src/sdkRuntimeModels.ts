@@ -3,7 +3,7 @@ import { DataPlanVersion } from '@mparticle/data-planning-models';
 import { MPConfiguration, IdentityApiData } from '@mparticle/web-sdk';
 import { IStore } from './store';
 import Validators from './validators';
-import { Dictionary } from './utils';
+import { Dictionary, valueof } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
@@ -11,6 +11,7 @@ import { IPersistence } from './persistence.interfaces';
 import { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
 import { Kit, MPForwarder } from './forwarders.interfaces';
+import Constants from './constants';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -51,6 +52,8 @@ export interface SDKEvent {
     DataPlan?: SDKDataPlan;
     LaunchReferral?: string;
 }
+
+export type IdentityAPIMethod = valueof<typeof Constants.IdentityMethods>;
 
 export interface SDKGeoLocation {
     lat: number | string;
@@ -238,6 +241,7 @@ export interface SDKIdentityApi {
     login;
     logout;
     modify;
+    getUser(mpid: string): MParticleUser;
 }
 
 export interface SDKHelpersApi {

@@ -960,7 +960,6 @@ describe('batch uploader', () => {
                 window.localStorage.getItem(batchStorageKey),
                 'Offline Batch Storage should be empty'
             ).to.equal('');
-            debugger;
 
             // To verify the sequence, we should look at what has been uploaded
             // as the upload queue and Offline Storage should be empty

@@ -3,7 +3,9 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey,
     testMPID,
-    MPConfig } from './config/constants';
+    MPConfig, 
+    MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND
+} from './config/constants';
 
 const findEventFromRequest = Utils.findEventFromRequest,
     findBatch = Utils.findBatch,
@@ -981,6 +983,7 @@ describe('identities and attributes', function() {
     });
 
     it('should send historical UIs on batches when MPID changes', function(done) {
+        const clock = sinon.useFakeTimers();
         mParticle._resetForTests(MPConfig);
 
         window.mParticle.config.identifyRequest = {
@@ -1043,6 +1046,8 @@ describe('identities and attributes', function() {
             JSON.stringify({ mpid: testMPID, is_logged_in: true }),
         ]);
 
+        clock.tick(MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND)
+
         mParticle.Identity.login(loginUser);
 
         // switching back to logged in user shoudl not result in any UIC events
@@ -1054,6 +1059,7 @@ describe('identities and attributes', function() {
         batch.user_identities.should.have.property('email', 'initial@gmail.com');
         batch.user_identities.should.have.property('customer_id', 'customerid1');
 
+        clock.restore();
         done();
     });
 

@@ -66,7 +66,8 @@ export default function IdentityAPIClient(mpInstance) {
         callback,
         originalIdentityApiData,
         parseIdentityResponse,
-        mpid
+        mpid,
+        knownIdentities
     ) {
         var xhr,
             previousMPID,
@@ -80,7 +81,9 @@ export default function IdentityAPIClient(mpInstance) {
                         previousMPID,
                         callback,
                         originalIdentityApiData,
-                        method
+                        method,
+                        knownIdentities,
+                        false
                     );
                 }
             };
