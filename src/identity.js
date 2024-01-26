@@ -251,20 +251,24 @@ export default function Identity(mpInstance) {
                     mpInstance._Store.context,
                     mpid
                 );
+                if (
+                    mpInstance._Helpers.getFeatureFlag(
+                        Constants.FeatureFlags.CacheIdentity
+                    )
+                ) {
+                    const successfullyCachedIdentity = tryCacheIdentity(
+                        identityApiRequest.known_identities,
+                        self.idCache,
+                        self.parseIdentityResponse,
+                        mpid,
+                        callback,
+                        identityApiData,
+                        Identify
+                    );
 
-                const successfullyCachedIdentity = tryCacheIdentity(
-                    mpInstance,
-                    identityApiRequest.known_identities,
-                    self.idCache,
-                    self.parseIdentityResponse,
-                    mpid,
-                    callback,
-                    identityApiData,
-                    Identify
-                );
-
-                if (successfullyCachedIdentity) {
-                    return;
+                    if (successfullyCachedIdentity) {
+                        return;
+                    }
                 }
 
                 if (mpInstance._Helpers.canLog()) {
@@ -431,19 +435,24 @@ export default function Identity(mpInstance) {
                     mpid
                 );
 
-                const successfullyCachedIdentity = tryCacheIdentity(
-                    mpInstance,
-                    identityApiRequest.known_identities,
-                    self.idCache,
-                    self.parseIdentityResponse,
-                    mpid,
-                    callback,
-                    identityApiData,
-                    Login
-                );
+                if (
+                    mpInstance._Helpers.getFeatureFlag(
+                        Constants.FeatureFlags.CacheIdentity
+                    )
+                ) {
+                    const successfullyCachedIdentity = tryCacheIdentity(
+                        identityApiRequest.known_identities,
+                        self.idCache,
+                        self.parseIdentityResponse,
+                        mpid,
+                        callback,
+                        identityApiData,
+                        Login
+                    );
 
-                if (successfullyCachedIdentity) {
-                    return;
+                    if (successfullyCachedIdentity) {
+                        return;
+                    }
                 }
 
                 if (mpInstance._Helpers.canLog()) {

@@ -526,7 +526,6 @@ describe('identity-utils', () => {
             const callback = sinon.spy();
 
             const successfullyCachedIdentity = tryCacheIdentity(
-                mpInstance,
                 knownIdentities1,
                 cacheVault,
                 identityInstance.parseIdentityResponse,
@@ -566,7 +565,6 @@ describe('identity-utils', () => {
             const callback = sinon.spy();
             debugger;
             const successfullyCachedIdentity = tryCacheIdentity(
-                mpInstance,
                 knownIdentities1,
                 cacheVault,
                 identityInstance.parseIdentityResponse,

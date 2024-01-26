@@ -181,10 +181,7 @@ export const createKnownIdentities = (
 ): IKnownIdentities => {
     const identitiesResult: IKnownIdentities = {};
 
-    if (
-        identityApiData?.userIdentities &&
-        isObject(identityApiData.userIdentities)
-    ) {
+    if (isObject(identityApiData?.userIdentities)) {
         for (let identity in identityApiData.userIdentities) {
             identitiesResult[identity] =
                 identityApiData.userIdentities[identity];
@@ -197,8 +194,6 @@ export const createKnownIdentities = (
 
 export const removeExpiredIdentityCacheDates = (idCache: BaseVault<Dictionary<ICachedIdentityCall>>) => {
     const cache: Dictionary<ICachedIdentityCall> = idCache.retrieve() || {} as Dictionary<ICachedIdentityCall>;
-
-    idCache.purge();
     
     const currentTime: number = new Date().getTime();
 
@@ -213,7 +208,6 @@ export const removeExpiredIdentityCacheDates = (idCache: BaseVault<Dictionary<IC
 }
 
 export const tryCacheIdentity = (
-    mpInstance: MParticleWebSDK,
     knownIdentities: IKnownIdentities,
     idCache: BaseVault<Dictionary<ICachedIdentityCall>>,
     parseIdentityResponse: IParseCachedIdentityResponse,
@@ -222,38 +216,32 @@ export const tryCacheIdentity = (
     identityApiData: IdentityApiData,
     identityMethod: IdentityAPIMethod
 ): boolean =>  {
-    if (
-        mpInstance._Helpers.getFeatureFlag(
-            Constants.FeatureFlags.CacheIdentity
-        )
-    ) {
-        // https://go.mparticle.com/work/SQDSDKS-6095
-        const shouldReturnCachedIdentity = hasValidCachedIdentity(
+    // https://go.mparticle.com/work/SQDSDKS-6095
+    const shouldReturnCachedIdentity = hasValidCachedIdentity(
+        identityMethod,
+        knownIdentities,
+        idCache
+    );
+
+    // If Identity is cached, then immediately parse the identity response
+    if (shouldReturnCachedIdentity) {
+        const cachedIdentity = getCachedIdentity(
             identityMethod,
             knownIdentities,
             idCache
         );
 
-        // If Identity is cached, then immediately parse the identity response
-        if (shouldReturnCachedIdentity) {
-            const cachedIdentity = getCachedIdentity(
-                identityMethod,
-                knownIdentities,
-                idCache
-            );
+        parseIdentityResponse(
+            cachedIdentity,
+            mpid,
+            callback,
+            identityApiData,
+            identityMethod,
+            knownIdentities,
+            true
+        );
 
-            parseIdentityResponse(
-                cachedIdentity,
-                mpid,
-                callback,
-                identityApiData,
-                identityMethod,
-                knownIdentities,
-                true
-            );
-
-            return true;
-        }
+        return true;
     }
     return false;
 }
