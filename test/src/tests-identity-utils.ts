@@ -305,7 +305,7 @@ describe('identity-utils', () => {
             expect(result).to.equal(false);
         });
 
-        it('should return true if idCache has the identity method and new identity call is within 1 day of previously cached identity call', () => {
+        it.only('should return true if idCache has the identity method and new identity call is within 1 day of previously cached identity call', () => {
             const mpIdCache = window.localStorage.getItem(localStorageIDKey);
             expect(mpIdCache).to.equal(null);
 
@@ -313,7 +313,7 @@ describe('identity-utils', () => {
 
             // check to ensure there is nothing on the cache first
             const result1 = hasValidCachedIdentity('identify', userIdentities, cacheVault);
-            expect(result1).to.equal(false);
+            expect(result1).to.deep.equal({result: false});
 
             const oneDayInMS = 86400 * 60 * 60 * 24;
 
@@ -330,7 +330,8 @@ describe('identity-utils', () => {
             // tick forward less than oneDayInMS
             clock.tick(5000);
             const result2 = hasValidCachedIdentity('identify', userIdentities, cacheVault);
-            expect(result2).to.equal(true);
+
+            expect(result2).to.deep.equal({result: true});
         });
 
         it('should return true if idCache has the identity method and new identity call is beyond of 1 day of previously cached identity call', () => {

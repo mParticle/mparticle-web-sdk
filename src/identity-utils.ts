@@ -26,6 +26,11 @@ export interface ICachedIdentityCall {
     expireTimestamp: number;
 }
 
+export interface ICachedIdentityResult {
+    result: boolean;
+    cachedIdentity?: ICachedIdentityCall;
+}
+
 export const cacheOrClearIdCache = (
     method: string,
     knownIdentities: IKnownIdentities,
@@ -120,7 +125,7 @@ export const hasValidCachedIdentity = (
     method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
     idCache?: BaseVault<Dictionary<ICachedIdentityCall>>
-): boolean => {
+): ICachedIdentityResult => {
     // There is an edge case where multiple identity calls are taking place 
     // before identify fires, so there may not be a cache.  See what happens when 
     // the ? in idCache is removed to the following test
@@ -130,7 +135,9 @@ export const hasValidCachedIdentity = (
 
     // if there is no cache, then there is no valid cached identity
     if (!cache) {
-        return false;
+        return {
+            result: false
+        };
     }
 
     const cacheKey: string = concatenateIdentities(
@@ -141,7 +148,9 @@ export const hasValidCachedIdentity = (
 
     // if cache doesn't have the cacheKey, there is no valid cached identity
     if (!cache.hasOwnProperty(hashedKey)) {
-        return false;
+        return {
+            result: false
+        };
     }
     
     // If there is a valid cache key, compare the expireTimestamp to the current time.
@@ -150,9 +159,14 @@ export const hasValidCachedIdentity = (
     const expireTimestamp = cache[hashedKey].expireTimestamp;
     
     if (expireTimestamp < new Date().getTime()) {
-        return false;
+        return {
+            result: false
+        };
     } else {
-        return true;
+        return {
+            result: true,
+            cachedIdentity: cache[hashedKey]
+        }
     }
 };
 
@@ -234,15 +248,9 @@ export const tryCacheIdentity = (
         );
 
         // If Identity is cached, then immediately parse the identity response
-        if (shouldReturnCachedIdentity) {
-            const cachedIdentity = getCachedIdentity(
-                identityMethod,
-                knownIdentities,
-                idCache
-            );
-
+        if (shouldReturnCachedIdentity.result) {
             parseIdentityResponse(
-                cachedIdentity,
+                shouldReturnCachedIdentity.cachedIdentity,
                 mpid,
                 callback,
                 identityApiData,
