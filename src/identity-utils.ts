@@ -226,6 +226,7 @@ export const tryCacheIdentity = (
             Constants.FeatureFlags.CacheIdentity
         )
     ) {
+        // https://go.mparticle.com/work/SQDSDKS-6095
         const shouldReturnCachedIdentity = hasValidCachedIdentity(
             identityMethod,
             knownIdentities,
