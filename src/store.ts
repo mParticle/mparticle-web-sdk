@@ -674,8 +674,9 @@ export default function Store(
 
     // QUESTION: Is this still necessary?
     this.updatePersistence = (): void => {
-        const currentUser: MParticleUser = mpInstance.Identity.getCurrentUser();
-        const mpid: MPID = currentUser.getMPID() || null;
+        const currentUser: MParticleUser =
+            mpInstance.Identity?.getCurrentUser();
+        const mpid: MPID = currentUser?.getMPID() || null;
         const persistenceData: IPersistenceMinified = this.getPersistence();
 
         // Moving this up so that we can have a "base" GS
