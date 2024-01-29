@@ -1,3 +1,10 @@
+# [2.25.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.24.0...v2.25.0) (2024-01-29)
+
+
+### Features
+
+* Implement identity caching ([#834](https://github.com/mParticle/mparticle-web-sdk/issues/834)) ([04514ec](https://github.com/mParticle/mparticle-web-sdk/commit/04514ec9ab06d20958426dcb66f2589a58044a17))
+
 # [2.24.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.23.9...v2.24.0) (2024-01-09)
 
 
