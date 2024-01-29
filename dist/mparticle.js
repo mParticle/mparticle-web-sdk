@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.24.0";
+    var version = "2.25.0";
 
     var Constants = {
       sdkVersion: version,
@@ -763,7 +763,8 @@ var mParticle = (function () {
         ReportBatching: 'reportBatching',
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
         OfflineStorage: 'offlineStorage',
-        DirectUrlRouting: 'directURLRouting'
+        DirectUrlRouting: 'directURLRouting',
+        CacheIdentity: 'cacheIdentity'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -774,6 +775,9 @@ var mParticle = (function () {
         Identify: 'identify'
       }
     };
+    // https://go.mparticle.com/work/SQDSDKS-6080
+    var ONE_DAY_IN_SECONDS = 60 * 60 * 24;
+    var MILLIS_IN_ONE_SEC = 1000;
 
     /******************************************************************************
     Copyright (c) Microsoft Corporation.
@@ -2520,7 +2524,7 @@ var mParticle = (function () {
       };
     }
 
-    var Modify$3 = Constants.IdentityMethods.Modify;
+    var Modify$4 = Constants.IdentityMethods.Modify;
     var Validators = {
       // From ./utils
       // Utility Functions for backwards compatability
@@ -2543,7 +2547,7 @@ var mParticle = (function () {
           copyUserAttributes: 1
         };
         if (identityApiData) {
-          if (method === Modify$3) {
+          if (method === Modify$4) {
             if (isObject(identityApiData.userIdentities) && !Object.keys(identityApiData.userIdentities).length || !isObject(identityApiData.userIdentities)) {
               return {
                 valid: false,
@@ -3963,7 +3967,8 @@ var mParticle = (function () {
         ReportBatching = _a.ReportBatching,
         EventBatchingIntervalMillis = _a.EventBatchingIntervalMillis,
         OfflineStorage = _a.OfflineStorage,
-        DirectUrlRouting = _a.DirectUrlRouting;
+        DirectUrlRouting = _a.DirectUrlRouting,
+        CacheIdentity = _a.CacheIdentity;
       if (!config.flags) {
         return {};
       }
@@ -3973,6 +3978,7 @@ var mParticle = (function () {
       flags[EventBatchingIntervalMillis] = parseNumber(config.flags[EventBatchingIntervalMillis]) || Constants.DefaultConfig.uploadInterval;
       flags[OfflineStorage] = config.flags[OfflineStorage] || '0';
       flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
+      flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
       return flags;
     }
     function processBaseUrls(config, flags, apiKey) {
@@ -5275,10 +5281,10 @@ var mParticle = (function () {
     }
 
     var _Constants$IdentityMe$1 = Constants.IdentityMethods,
-      Modify$2 = _Constants$IdentityMe$1.Modify,
-      Identify$1 = _Constants$IdentityMe$1.Identify,
-      Login = _Constants$IdentityMe$1.Login,
-      Logout = _Constants$IdentityMe$1.Logout;
+      Modify$3 = _Constants$IdentityMe$1.Modify,
+      Identify$2 = _Constants$IdentityMe$1.Identify,
+      Login$2 = _Constants$IdentityMe$1.Login,
+      Logout$2 = _Constants$IdentityMe$1.Logout;
     function Forwarders(mpInstance, kitBlocker) {
       var self = this;
       var UserAttributeActionTypes = {
@@ -5540,28 +5546,28 @@ var mParticle = (function () {
         mpInstance._Store.activeForwarders.forEach(function (forwarder) {
           var filteredUser = filteredMparticleUser(user.getMPID(), forwarder, mpInstance, kitBlocker);
           var filteredUserIdentities = filteredUser.getUserIdentities();
-          if (identityMethod === Identify$1) {
+          if (identityMethod === Identify$2) {
             if (forwarder.onIdentifyComplete) {
               result = forwarder.onIdentifyComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
             }
-          } else if (identityMethod === Login) {
+          } else if (identityMethod === Login$2) {
             if (forwarder.onLoginComplete) {
               result = forwarder.onLoginComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
             }
-          } else if (identityMethod === Logout) {
+          } else if (identityMethod === Logout$2) {
             if (forwarder.onLogoutComplete) {
               result = forwarder.onLogoutComplete(filteredUser, filteredUserIdentities);
               if (result) {
                 mpInstance.Logger.verbose(result);
               }
             }
-          } else if (identityMethod === Modify$2) {
+          } else if (identityMethod === Modify$3) {
             if (forwarder.onModifyComplete) {
               result = forwarder.onModifyComplete(filteredUser, filteredUserIdentities);
               if (result) {
@@ -6101,13 +6107,149 @@ var mParticle = (function () {
       }
     }
 
+    var _a = Constants.IdentityMethods,
+      Identify$1 = _a.Identify,
+      Modify$2 = _a.Modify,
+      Login$1 = _a.Login,
+      Logout$1 = _a.Logout;
+    var cacheOrClearIdCache = function cacheOrClearIdCache(method, knownIdentities, idCache, xhr, parsingCachedResponse) {
+      // when parsing a response that has already been cached, simply return instead of attempting another cache
+      if (parsingCachedResponse) {
+        return;
+      }
+      var CACHE_HEADER = 'x-mp-max-age';
+      // default the expire timestamp to one day in milliseconds unless a header comes back
+      var now = new Date().getTime();
+      var expireTimestamp = now + ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC;
+      if (xhr.getAllResponseHeaders().includes(CACHE_HEADER)) {
+        expireTimestamp = now + parseNumber(xhr.getResponseHeader(CACHE_HEADER)) * MILLIS_IN_ONE_SEC;
+      }
+      switch (method) {
+        case Login$1:
+        case Identify$1:
+          cacheIdentityRequest(method, knownIdentities, expireTimestamp, idCache, xhr);
+          break;
+        case Modify$2:
+        case Logout$1:
+          idCache.purge();
+          break;
+      }
+    };
+    var cacheIdentityRequest = function cacheIdentityRequest(method, identities, expireTimestamp, idCache, xhr) {
+      var cache = idCache.retrieve() || {};
+      var cacheKey = concatenateIdentities(method, identities);
+      var hashedKey = generateHash(cacheKey);
+      cache[hashedKey] = {
+        responseText: xhr.responseText,
+        status: xhr.status,
+        expireTimestamp: expireTimestamp
+      };
+      idCache.store(cache);
+    };
+    // We need to ensure that identities are concatenated in a deterministic way, so
+    // we sort the identities based on their enum.
+    // we create an array, set the user identity at the index of the user identity type
+    var concatenateIdentities = function concatenateIdentities(method, userIdentities) {
+      var DEVICE_APPLICATION_STAMP = 'device_application_stamp';
+      // set DAS first since it is not an official identity type
+      var cacheKey = "".concat(method, ":").concat(DEVICE_APPLICATION_STAMP, "=").concat(userIdentities.device_application_stamp, ";");
+      var idLength = Object.keys(userIdentities).length;
+      var concatenatedIdentities = '';
+      if (idLength) {
+        var userIDArray = new Array();
+        // create an array where each index is equal to the user identity type
+        for (var key in userIdentities) {
+          if (key === DEVICE_APPLICATION_STAMP) {
+            continue;
+          } else {
+            userIDArray[Types.IdentityType.getIdentityType(key)] = userIdentities[key];
+          }
+        }
+        concatenatedIdentities = userIDArray.reduce(function (prevValue, currentValue, index) {
+          var idName = Types.IdentityType.getIdentityName(index);
+          return "".concat(prevValue).concat(idName, "=").concat(currentValue, ";");
+        }, cacheKey);
+      }
+      return concatenatedIdentities;
+    };
+    var hasValidCachedIdentity = function hasValidCachedIdentity(method, proposedUserIdentities, idCache) {
+      // There is an edge case where multiple identity calls are taking place 
+      // before identify fires, so there may not be a cache.  See what happens when 
+      // the ? in idCache is removed to the following test
+      // "queued events contain login mpid instead of identify mpid when calling 
+      // login immediately after mParticle initializes"
+      var cache = idCache === null || idCache === void 0 ? void 0 : idCache.retrieve();
+      // if there is no cache, then there is no valid cached identity
+      if (!cache) {
+        return false;
+      }
+      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
+      var hashedKey = generateHash(cacheKey);
+      // if cache doesn't have the cacheKey, there is no valid cached identity
+      if (!cache.hasOwnProperty(hashedKey)) {
+        return false;
+      }
+      // If there is a valid cache key, compare the expireTimestamp to the current time.
+      // If the current time is greater than the expireTimestamp, it is not a valid
+      // cached identity.
+      var expireTimestamp = cache[hashedKey].expireTimestamp;
+      if (expireTimestamp < new Date().getTime()) {
+        return false;
+      } else {
+        return true;
+      }
+    };
+    var getCachedIdentity = function getCachedIdentity(method, proposedUserIdentities, idCache) {
+      var cacheKey = concatenateIdentities(method, proposedUserIdentities);
+      var hashedKey = generateHash(cacheKey);
+      var cache = idCache.retrieve();
+      var cachedIdentity = cache ? cache[hashedKey] : null;
+      return cachedIdentity;
+    };
+    // https://go.mparticle.com/work/SQDSDKS-6079
+    var createKnownIdentities = function createKnownIdentities(identityApiData, deviceId) {
+      var identitiesResult = {};
+      if (isObject(identityApiData === null || identityApiData === void 0 ? void 0 : identityApiData.userIdentities)) {
+        for (var identity in identityApiData.userIdentities) {
+          identitiesResult[identity] = identityApiData.userIdentities[identity];
+        }
+      }
+      identitiesResult.device_application_stamp = deviceId;
+      return identitiesResult;
+    };
+    var removeExpiredIdentityCacheDates = function removeExpiredIdentityCacheDates(idCache) {
+      var cache = idCache.retrieve() || {};
+      var currentTime = new Date().getTime();
+      // Iterate over the cache and remove any key/value pairs that are expired
+      for (var key in cache) {
+        if (cache[key].expireTimestamp < currentTime) {
+          delete cache[key];
+        }
+      }
+      idCache.store(cache);
+    };
+    var tryCacheIdentity = function tryCacheIdentity(knownIdentities, idCache, parseIdentityResponse, mpid, callback, identityApiData, identityMethod) {
+      // https://go.mparticle.com/work/SQDSDKS-6095
+      var shouldReturnCachedIdentity = hasValidCachedIdentity(identityMethod, knownIdentities, idCache);
+      // If Identity is cached, then immediately parse the identity response
+      if (shouldReturnCachedIdentity) {
+        var cachedIdentity = getCachedIdentity(identityMethod, knownIdentities, idCache);
+        parseIdentityResponse(cachedIdentity, mpid, callback, identityApiData, identityMethod, knownIdentities, true);
+        return true;
+      }
+      return false;
+    };
+
     var Messages$2 = Constants.Messages,
       HTTPCodes$2 = Constants.HTTPCodes;
     var _Constants$IdentityMe = Constants.IdentityMethods,
       Identify = _Constants$IdentityMe.Identify,
-      Modify$1 = _Constants$IdentityMe.Modify;
+      Modify$1 = _Constants$IdentityMe.Modify,
+      Login = _Constants$IdentityMe.Login,
+      Logout = _Constants$IdentityMe.Logout;
     function Identity(mpInstance) {
       var self = this;
+      this.idCache = null;
       this.checkIdentitySwap = function (previousMPID, currentMPID, currentSessionMPIDs) {
         if (previousMPID && currentMPID && previousMPID !== currentMPID) {
           var persistence = mpInstance._Persistence.getPersistence();
@@ -6119,16 +6261,6 @@ var mParticle = (function () {
         }
       };
       this.IdentityRequest = {
-        createKnownIdentities: function createKnownIdentities(identityApiData, deviceId) {
-          var identitiesResult = {};
-          if (identityApiData && identityApiData.userIdentities && mpInstance._Helpers.isObject(identityApiData.userIdentities)) {
-            for (var identity in identityApiData.userIdentities) {
-              identitiesResult[identity] = identityApiData.userIdentities[identity];
-            }
-          }
-          identitiesResult.device_application_stamp = deviceId;
-          return identitiesResult;
-        },
         preProcessIdentityRequest: function preProcessIdentityRequest(identityApiData, callback, method) {
           mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
           var identityValidationResult = mpInstance._Helpers.Validators.validateIdentities(identityApiData, method);
@@ -6163,7 +6295,7 @@ var mParticle = (function () {
             request_id: mpInstance._Helpers.generateUniqueId(),
             request_timestamp_ms: new Date().getTime(),
             previous_mpid: mpid || null,
-            known_identities: this.createKnownIdentities(identityApiData, deviceId)
+            known_identities: createKnownIdentities(identityApiData, deviceId)
           };
           return APIRequest;
         },
@@ -6265,18 +6397,24 @@ var mParticle = (function () {
         identify: function identify(identityApiData, callback) {
           var mpid,
             currentUser = mpInstance.Identity.getCurrentUser(),
-            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'identify');
+            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Identify);
           if (currentUser) {
             mpid = currentUser.getMPID();
           }
           if (preProcessResult.valid) {
             var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
+            if (mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CacheIdentity)) {
+              var successfullyCachedIdentity = tryCacheIdentity(identityApiRequest.known_identities, self.idCache, self.parseIdentityResponse, mpid, callback, identityApiData, Identify);
+              if (successfullyCachedIdentity) {
+                return;
+              }
+            }
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Identify, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
                 mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Identify request sent to native sdk');
               } else {
-                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'identify', callback, identityApiData, self.parseIdentityResponse, mpid);
+                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Identify, callback, identityApiData, self.parseIdentityResponse, mpid, identityApiRequest.known_identities);
               }
             } else {
               mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
@@ -6296,7 +6434,7 @@ var mParticle = (function () {
         logout: function logout(identityApiData, callback) {
           var mpid,
             currentUser = mpInstance.Identity.getCurrentUser(),
-            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'logout');
+            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Logout);
           if (currentUser) {
             mpid = currentUser.getMPID();
           }
@@ -6308,7 +6446,7 @@ var mParticle = (function () {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Logout, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
                 mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Logout request sent to native sdk');
               } else {
-                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'logout', callback, identityApiData, self.parseIdentityResponse, mpid);
+                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Logout, callback, identityApiData, self.parseIdentityResponse, mpid);
                 evt = mpInstance._ServerModel.createEventObject({
                   messageType: Types.MessageType.Profile
                 });
@@ -6339,18 +6477,24 @@ var mParticle = (function () {
         login: function login(identityApiData, callback) {
           var mpid,
             currentUser = mpInstance.Identity.getCurrentUser(),
-            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'login');
+            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Login);
           if (currentUser) {
             mpid = currentUser.getMPID();
           }
           if (preProcessResult.valid) {
             var identityApiRequest = mpInstance._Identity.IdentityRequest.createIdentityRequest(identityApiData, Constants.platform, Constants.sdkVendor, Constants.sdkVersion, mpInstance._Store.deviceId, mpInstance._Store.context, mpid);
+            if (mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CacheIdentity)) {
+              var successfullyCachedIdentity = tryCacheIdentity(identityApiRequest.known_identities, self.idCache, self.parseIdentityResponse, mpid, callback, identityApiData, Login);
+              if (successfullyCachedIdentity) {
+                return;
+              }
+            }
             if (mpInstance._Helpers.canLog()) {
               if (mpInstance._Store.webviewBridgeEnabled) {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Login, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
                 mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Login request sent to native sdk');
               } else {
-                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'login', callback, identityApiData, self.parseIdentityResponse, mpid);
+                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Login, callback, identityApiData, self.parseIdentityResponse, mpid, identityApiRequest.known_identities);
               }
             } else {
               mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
@@ -6370,7 +6514,7 @@ var mParticle = (function () {
         modify: function modify(identityApiData, callback) {
           var mpid,
             currentUser = mpInstance.Identity.getCurrentUser(),
-            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, 'modify');
+            preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Modify$1);
           if (currentUser) {
             mpid = currentUser.getMPID();
           }
@@ -6382,7 +6526,7 @@ var mParticle = (function () {
                 mpInstance._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Modify, JSON.stringify(mpInstance._Identity.IdentityRequest.convertToNative(identityApiData)));
                 mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.nativeIdentityRequest, 'Modify request sent to native sdk');
               } else {
-                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, 'modify', callback, identityApiData, self.parseIdentityResponse, mpid);
+                mpInstance._IdentityAPIClient.sendIdentityRequest(identityApiRequest, Modify$1, callback, identityApiData, self.parseIdentityResponse, mpid, identityApiRequest.known_identities);
               }
             } else {
               mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.loggingDisabledOrMissingAPIKey, Messages$2.InformationMessages.AbandonLogEvent);
@@ -6982,7 +7126,7 @@ var mParticle = (function () {
           }
         };
       };
-      this.parseIdentityResponse = function (xhr, previousMPID, callback, identityApiData, method) {
+      this.parseIdentityResponse = function (xhr, previousMPID, callback, identityApiData, method, knownIdentities, parsingCachedResponse) {
         var prevUser = mpInstance.Identity.getUser(previousMPID),
           newUser,
           mpidIsNotInCookies,
@@ -7011,6 +7155,9 @@ var mParticle = (function () {
             mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
           }
           if (xhr.status === 200) {
+            if (mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CacheIdentity)) {
+              cacheOrClearIdCache(method, knownIdentities, self.idCache, xhr, parsingCachedResponse);
+            }
             if (method === Modify$1) {
               newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(previousUIByName, identityApiData.userIdentities);
               mpInstance._Persistence.saveUserIdentitiesToPersistence(previousMPID, newIdentitiesByType);
@@ -7100,7 +7247,7 @@ var mParticle = (function () {
       this.sendUserIdentityChangeEvent = function (newUserIdentities, method, mpid, prevUserIdentities) {
         var currentUserInMemory, userIdentityChangeEvent;
         if (!mpid) {
-          if (method !== 'modify') {
+          if (method !== Modify$1) {
             return;
           }
         }
@@ -7991,13 +8138,13 @@ var mParticle = (function () {
           }
         }
       };
-      this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid) {
+      this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
         var xhr,
           previousMPID,
           xhrCallback = function xhrCallback() {
             if (xhr.readyState === 4) {
               mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server');
-              parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method);
+              parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
             }
           };
         mpInstance.Logger.verbose(Messages$1.InformationMessages.SendIdentityBegin);
@@ -8978,8 +9125,19 @@ var mParticle = (function () {
           mpInstance._Store.SDKConfig.flags[Constants.FeatureFlags.EventBatchingIntervalMillis] = config.flags[Constants.FeatureFlags.EventBatchingIntervalMillis];
         }
       }
+
+      // add a new function to apply items to the store that require config to be returned
       mpInstance._Store.storageName = mpInstance._Helpers.createMainStorageName(config.workspaceToken);
       mpInstance._Store.prodStorageName = mpInstance._Helpers.createProductStorageName(config.workspaceToken);
+
+      // idCache is instantiated here as opposed to when _Identity is instantiated
+      // because it depends on _Store.storageName, which is not sent until above
+      // because it is a setting on config which returns asyncronously
+      // in self hosted mode
+      mpInstance._Identity.idCache = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
+        logger: mpInstance.Logger
+      });
+      removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
       if (config.hasOwnProperty('workspaceToken')) {
         mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;
       } else {
@@ -9625,7 +9783,7 @@ var mParticle = (function () {
         return self.getInstance().getIntegrationAttributes(moduleId);
       };
       this.Identity = {
-        HTTPCodes: self.getInstance().Identity.HTTPCodes,
+        HTTPCodes: Constants.HTTPCodes,
         aliasUsers: function aliasUsers(aliasRequest, callback) {
           self.getInstance().Identity.aliasUsers(aliasRequest, callback);
         },
