@@ -172,8 +172,10 @@ describe('identity-utils', () => {
             expect(cachedIdentityCall.status).to.equal(200);
             expect(cachedIdentityCall.expireTimestamp).to.equal(currentTime);
 
-            const responseText = JSON.parse(cachedIdentityCall.responseText);
-            expect(responseText).to.deep.equal(identifyResponse);
+            const cachedResponseText = JSON.parse(cachedIdentityCall.responseText);
+            
+            const expectedResponseText = {mpid: testMPID, is_logged_in: false};
+            expect(cachedResponseText).to.deep.equal(expectedResponseText);
         });
 
         it('should save a login request to local storage', () => {
@@ -184,7 +186,6 @@ describe('identity-utils', () => {
                 ...identifyResponse,
                 is_logged_in: true,
             };
-            
 
             const jsonString = JSON.stringify(loginResponse);
 
@@ -220,8 +221,9 @@ describe('identity-utils', () => {
             expect(cachedLoginCall.status).to.equal(200);
             expect(cachedLoginCall.expireTimestamp).to.equal(currentTime);
 
-            const responseText = JSON.parse(cachedLoginCall.responseText);
-            expect(responseText).to.deep.equal(loginResponse);
+            const cachedResponseText = JSON.parse(cachedLoginCall.responseText);
+            const expectedResponseText = {mpid: testMPID, is_logged_in: true};
+            expect(cachedResponseText).to.deep.equal(expectedResponseText);
         });
     });
 
