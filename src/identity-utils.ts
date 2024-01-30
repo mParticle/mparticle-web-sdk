@@ -76,7 +76,13 @@ export const cacheIdentityRequest = (
     const cacheKey = concatenateIdentities(method, identities);
     const hashedKey = generateHash(cacheKey);
 
-    cache[hashedKey] = { responseText: xhr.responseText, status: xhr.status, expireTimestamp};
+    const { mpid, is_logged_in } = JSON.parse(xhr.responseText);
+    const cachedResponseText = {
+        mpid,
+        is_logged_in,
+    };
+
+    cache[hashedKey] = { responseText: JSON.stringify(cachedResponseText), status: xhr.status, expireTimestamp};
     idCache.store(cache);
 };
 
