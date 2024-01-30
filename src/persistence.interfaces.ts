@@ -82,6 +82,7 @@ export interface IPersistenceMinified extends Dictionary {
 export interface IPersistence {
     useLocalStorage(): boolean;
     initializeStorage(): void;
+    isEnabled?(): boolean;
     update(): void;
     storeProductsInMemory(products: Product[], mpid: MPID): void;
     storeDataInMemory(obj: IPersistenceMinified, currentMPID: MPID): void;

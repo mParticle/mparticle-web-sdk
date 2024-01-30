@@ -11,6 +11,10 @@ var Base64 = Polyfill.Base64,
 export default function _Persistence(mpInstance) {
     var self = this;
 
+    this.isEnabled = function() {
+        return mpInstance._Store.SDKConfig.usePersistence;
+    };
+
     // https://go.mparticle.com/work/SQDSDKS-5022
     this.useLocalStorage = function() {
         return (
@@ -42,7 +46,9 @@ export default function _Persistence(mpInstance) {
 
             // https://go.mparticle.com/work/SQDSDKS-6046
             if (mpInstance._Store.isLocalStorageAvailable) {
-                storage = window.localStorage;
+                if (this.isEnabled()) {
+                    storage = window.localStorage;
+                }
                 if (mpInstance._Store.SDKConfig.useCookieStorage) {
                     // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
                     // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
@@ -57,7 +63,9 @@ export default function _Persistence(mpInstance) {
                         } else {
                             allData = localStorageData;
                         }
-                        storage.removeItem(mpInstance._Store.storageName);
+                        if (this.isEnabled()) {
+                            storage.removeItem(mpInstance._Store.storageName);
+                        }
                     } else if (cookies) {
                         allData = cookies;
                     }
@@ -77,7 +85,10 @@ export default function _Persistence(mpInstance) {
                             allData = cookies;
                         }
                         self.storeDataInMemory(allData);
-                        self.expireCookies(mpInstance._Store.storageName);
+
+                        if (this.isEnabled()) {
+                            self.expireCookies(mpInstance._Store.storageName);
+                        }
                     } else {
                         self.storeDataInMemory(localStorageData);
                     }
@@ -142,6 +153,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.update = function() {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (!mpInstance._Store.webviewBridgeEnabled) {
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
                 self.setCookie();
@@ -250,6 +264,9 @@ export default function _Persistence(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-5022
     this.determineLocalStorageAvailability = function(storage) {
+        if (!this.isEnabled()) {
+            return;
+        }
         var result;
 
         if (window.mParticle && window.mParticle._forceNoLocalStorage) {
@@ -326,6 +343,9 @@ export default function _Persistence(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setLocalStorage = function() {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
         }
@@ -417,6 +437,10 @@ export default function _Persistence(mpInstance) {
     }
 
     this.getLocalStorage = function() {
+        if (!this.isEnabled()) {
+            return null;
+        }
+
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return null;
         }
@@ -467,6 +491,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getCookie = function() {
+        if (!this.isEnabled()) {
+            return null;
+        }
         var cookies = window.document.cookie.split('; '),
             key = mpInstance._Store.storageName,
             i,
@@ -510,6 +537,9 @@ export default function _Persistence(mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-5022
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setCookie = function() {
+        if (!this.isEnabled()) {
+            return;
+        }
         var mpid,
             currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
@@ -845,6 +875,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getCookieDomain = function() {
+        if (!this.isEnabled()) {
+            return '';
+        }
         if (mpInstance._Store.SDKConfig.cookieDomain) {
             return mpInstance._Store.SDKConfig.cookieDomain;
         } else {
@@ -922,6 +955,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.setCartProducts = function(allProducts) {
+        if (!this.isEnabled()) {
+            return;
+        }
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return;
         }
@@ -1014,6 +1050,9 @@ export default function _Persistence(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
+        if (!this.isEnabled()) {
+            return;
+        }
         var encodedPersistence = self.encodePersistence(
                 JSON.stringify(persistence)
             ),
@@ -1157,6 +1196,9 @@ export default function _Persistence(mpInstance) {
     };
 
     this.resetPersistence = function() {
+        if (!this.isEnabled()) {
+            return;
+        }
         removeLocalStorage(StorageNames.localStorageName);
         removeLocalStorage(StorageNames.localStorageNameV3);
         removeLocalStorage(StorageNames.localStorageNameV4);

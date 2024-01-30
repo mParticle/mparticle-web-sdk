@@ -146,6 +146,7 @@ describe('Store', () => {
             false
         );
         expect(store.SDKConfig.useNativeSdk, 'useNativeSdk').to.eq(false);
+        expect(store.SDKConfig.usePersistence, 'usePersistence').to.eq(true);
 
         expect(store.SDKConfig.v1SecureServiceUrl, 'v1SecureServiceUrl').to.eq(
             'jssdks.mparticle.com/v1/JS/'

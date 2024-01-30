@@ -51,6 +51,10 @@ describe('persistence', () => {
         fetchMock.restore();
     });
 
+    it('should enable persistence by default', () => {
+        expect(mParticle.getInstance()._Persistence.isEnabled()).to.be.true;
+    });
+
     it('should move new schema from cookies to localStorage with useCookieStorage = false', done => {
         mParticle._resetForTests(MPConfig);
 
@@ -2025,5 +2029,46 @@ describe('persistence', () => {
         user2.getAllUserAttributes()['ua-1'].should.equal('a');
 
         done();
+    });
+});
+
+describe('persistence disabled', () => {
+    beforeEach(() => {
+        fetchMock.post(urls.events, 200);
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+    });
+
+    afterEach(() => {
+        mockServer.restore();
+        fetchMock.restore();
+    });
+
+    it('should inititalize the SDK without reading or writing to cookies', () => {
+        mParticle.config.useCookieStorage = true;
+        mParticle.config.usePersistence = false;
+        mParticle.init(apiKey, mParticle.config);
+
+        expect(window.document.cookie).to.eq('');
+    });
+
+    it('should inititalize the SDK without reading or writing to local storage', () => {
+        const getItemSpy = sinon.spy(Storage.prototype, 'getItem');
+        const setItemSpy = sinon.spy(Storage.prototype, 'setItem');
+        const removeItemSpy = sinon.spy(Storage.prototype, 'removeItem');
+
+        mParticle.config.useCookieStorage = false;
+        mParticle.config.usePersistence = false;
+        mParticle.init(apiKey, mParticle.config);
+
+        expect(getItemSpy.called).to.eq(false);
+        expect(setItemSpy.called).to.eq(false);
+        expect(removeItemSpy.called).to.eq(false);
     });
 });

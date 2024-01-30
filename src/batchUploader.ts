@@ -130,16 +130,22 @@ export class BatchUploader {
     private addEventListeners() {
         const _this = this;
 
-        // visibility change is a document property, not window
-        document.addEventListener('visibilitychange', () => {
-            _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
-        window.addEventListener('beforeunload', () => {
-            _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
-        window.addEventListener('pagehide', () => {
-            _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
+        try {
+            // visibility change is a document property, not window
+            window.document.addEventListener('visibilitychange', () => {
+                _this.prepareAndUpload(false, _this.isBeaconAvailable());
+            });
+            window.addEventListener('beforeunload', () => {
+                _this.prepareAndUpload(false, _this.isBeaconAvailable());
+            });
+            window.addEventListener('pagehide', () => {
+                _this.prepareAndUpload(false, _this.isBeaconAvailable());
+            });
+        } catch (error) {
+            this.mpInstance.Logger.error(
+                'Cannot addEventListeners for Batch Uploader: ' + error
+            );
+        }
     }
 
     private isBeaconAvailable(): boolean {

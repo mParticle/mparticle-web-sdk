@@ -66,6 +66,7 @@ export interface SDKConfig {
     sessionTimeout?: number;
     useNativeSdk?: boolean;
     useCookieStorage?: boolean;
+    usePersistence?: boolean;
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
@@ -278,6 +279,12 @@ export default function Store(
             this.SDKConfig.useCookieStorage = config.useCookieStorage;
         } else {
             this.SDKConfig.useCookieStorage = false;
+        }
+
+        if (config.hasOwnProperty('usePersistence')) {
+            this.SDKConfig.usePersistence = config.usePersistence;
+        } else {
+            this.SDKConfig.usePersistence = true;
         }
 
         if (config.hasOwnProperty('maxProducts')) {
