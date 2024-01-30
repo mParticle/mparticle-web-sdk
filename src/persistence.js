@@ -255,6 +255,7 @@ export default function _Persistence(mpInstance) {
                     mpInstance._Store.sessionStartDate = new Date();
                 }
 
+                // TODO: Investigate if this is even still necessary
                 if (currentMPID) {
                     obj = obj[currentMPID];
                 } else {
@@ -404,6 +405,7 @@ export default function _Persistence(mpInstance) {
                 mpInstance._Store.nonCurrentUserMPIDs = {};
             }
 
+            // TODO: Understand what is really being copied here
             localStorageData = setGlobalStorageAttributes(localStorageData);
 
             try {

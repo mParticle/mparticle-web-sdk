@@ -39,6 +39,8 @@ import {
     UserAttributes,
 } from './persistence.interfaces';
 
+const { SDKv2NonMPIDCookieKeys } = Constants;
+
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
 // configurations have been stitched together.
@@ -182,7 +184,7 @@ export interface IStore {
 
     persistenceData?: IPersistenceMinified;
     initializePersistence?(): void;
-    storeDataInMemory?(obj: IPersistenceMinified, currentMPID: MPID): void;
+    storeDataInMemory?(obj: IPersistenceMinified, currentMPID?: MPID): void;
     updatePersistence?(): void;
     getPersistence?(): IPersistenceMinified;
     getGlobalStorageAttributes?: () => IGlobalStoreV2MinifiedKeys;
@@ -608,7 +610,10 @@ export default function Store(
         this.sessionStartDate = null;
     };
 
-    this.storeDataInMemory = (obj: IPersistenceMinified, currentMPID: MPID) => {
+    this.storeDataInMemory = (
+        obj: IPersistenceMinified,
+        currentMPID?: MPID
+    ) => {
         if (currentMPID) {
             this.mpid = currentMPID;
         } else {
@@ -640,7 +645,7 @@ export default function Store(
 
         // QUESTION: What is the intention behind this?
         // this.isLoggedIn = obj.l === true;
-        this.isLoggedIn = obj?.l || false;
+        this.isLoggedIn = (obj?.l as boolean) || false;
 
         if (obj?.gs?.les) {
             this.dateLastEventSent = new Date(obj.gs.les);
@@ -658,48 +663,62 @@ export default function Store(
         }
     };
 
+    // This may not be necesary going forward, once we've refactored Persistence.
     this.initializePersistence = () => {
-        const persistenceData: Partial<IPersistenceMinified> = {};
+        const persistenceData: Partial<IPersistenceMinified> =
+            { ...this.persistenceData } || {};
 
-        // TODO: should be in defaults
-        this.isFirstRun = true;
-        this.mpid = null; // QUESTION Should this be null, empty string or 0?
+        if (isEmpty(this.persistenceData)) {
+            this.isFirstRun = true;
+            this.mpid = null;
+        } else {
+            this.isFirstRun = false;
+        }
 
         // Populates "persistence" with defaults
-        this.storeDataInMemory(persistenceData as IPersistenceMinified, null);
+        this.storeDataInMemory(persistenceData as IPersistenceMinified);
 
-        // QUESTION: Is this redundant?
+        // https://go.mparticle.com/work/SQDSDKS-6046
+        // Stores all non-current user MPID information into the store
+        for (var key in persistenceData) {
+            if (persistenceData.hasOwnProperty(key)) {
+                if (!SDKv2NonMPIDCookieKeys[key]) {
+                    this.nonCurrentUserMPIDs[key] = persistenceData[key];
+                }
+            }
+        }
+
         this.updatePersistence();
     };
 
-    // QUESTION: Is this still necessary?
     this.updatePersistence = (): void => {
         const currentUser: MParticleUser =
             mpInstance.Identity?.getCurrentUser();
         const mpid: MPID = currentUser?.getMPID() || null;
-        const persistenceData: IPersistenceMinified = this.getPersistence();
+        let persistenceData: IPersistenceMinified = this.getPersistence();
 
-        // Moving this up so that we can have a "base" GS
-        // Mirrors Set Local Storage
-        persistenceData.gs = this.getGlobalStorageAttributes();
+        persistenceData.l = this.isLoggedIn ? 1 : 0;
 
-        persistenceData.l = this.isLoggedIn;
         if (this.sessionId) {
-            // QUESTION: What's the difference between sessionId and "Current Session ID?"
             persistenceData.gs.csm = this.currentSessionMPIDs;
         }
         if (mpid) {
             persistenceData.cu = mpid;
         }
 
-        // TODO: Understand what is really being copied here
         if (!isEmpty(this.nonCurrentUserMPIDs)) {
             console.log('persistenceData', persistenceData);
             console.log(this.nonCurrentUserMPIDs);
+            persistenceData = mpInstance._Helpers.extend(
+                {},
+                persistenceData,
+                this.nonCurrentUserMPIDs
+            );
+            this.nonCurrentUserMPIDs = {};
         }
+        persistenceData.gs = this.getGlobalStorageAttributes();
 
-        // TODO: Should we "save" this?
-        this.storeDataInMemory(persistenceData, mpid);
+        this.persistenceData = persistenceData;
     };
 
     this.getPersistence = (): IPersistenceMinified => {

@@ -43,7 +43,7 @@ describe('migrations and persistence-related', () => {
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
-        mParticle.init(apiKey, mParticle.config);
+        mParticle.init(apiKey, { ...mParticle.config, usePersistence: true });
     });
 
     afterEach(() => {
@@ -68,7 +68,7 @@ describe('migrations and persistence-related', () => {
         setCookie(workspaceCookieName, cookies);
         const beforeInitCookieData = findCookie(workspaceCookieName);
         mParticle.config.useCookieStorage = false;
-        mParticle.init(apiKey, mParticle.config);
+        mParticle.init(apiKey, { ...mParticle.config, usePersistence: true });
         mParticle
             .getInstance()
             .Identity.getCurrentUser()
