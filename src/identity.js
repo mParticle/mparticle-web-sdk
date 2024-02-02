@@ -5,6 +5,7 @@ import {
     createKnownIdentities,
     tryCacheIdentity,
 } from './identity-utils';
+import AudienceManager from './audienceManager';
 
 var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
@@ -14,6 +15,7 @@ const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 export default function Identity(mpInstance) {
     var self = this;
     this.idCache = null;
+    this.audienceManager = null;
 
     this.checkIdentitySwap = function(
         previousMPID,
@@ -1264,6 +1266,23 @@ export default function Identity(mpInstance) {
             },
             getFirstSeenTime: function() {
                 return mpInstance._Persistence.getFirstSeenTime(mpid);
+            },
+            /**
+             * Get user segments for user
+             * @method getUserSegments
+             * @return {Object} an array with user segments????
+             */
+            getUserAudiences: function(callback) {
+                if (self.audienceManager === null) {
+                    self.audienceManager = new AudienceManager(
+                        mpInstance._Store.SDKConfig.userSegmentUrl,
+                        mpInstance._Store.devToken,
+                        mpInstance.Logger,
+                        mpid
+                    );
+                }
+
+                self.audienceManager.sendGetUserAudienceRequest(mpid, callback);
             },
         };
     };

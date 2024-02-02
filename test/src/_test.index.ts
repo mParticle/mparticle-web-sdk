@@ -30,3 +30,5 @@ import './tests-session-manager';
 import './tests-store';
 import './tests-config-api-client';
 import './tests-identity-utils';
+import './tests-audience';
+import './tests-audience-manager';

@@ -108,11 +108,11 @@ export class BatchUploader {
             _Store: { deviceId },
         } = this.mpInstance;
 
-        const offlineStorageFeatureFlagValue = getFeatureFlag(
+        const offlineStorageFeatureFlagValue: string = getFeatureFlag(
             Constants.FeatureFlags.OfflineStorage
-        );
+        ) as string;
 
-        const offlineStoragePercentage = parseInt(
+        const offlineStoragePercentage: number = parseInt(
             offlineStorageFeatureFlagValue,
             10
         );
@@ -424,25 +424,26 @@ export class BatchUploader {
     }
 }
 
-abstract class AsyncUploader {
+export abstract class AsyncUploader {
     url: string;
-    public abstract upload(fetchPayload: fetchPayload): Promise<XHRResponse>;
+    public abstract upload(fetchPayload: fetchPayload): Promise<Response>;
 
     constructor(url: string) {
         this.url = url;
     }
 }
 
-class FetchUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload): Promise<XHRResponse> {
-        const response: XHRResponse = await fetch(this.url, fetchPayload);
+export class FetchUploader extends AsyncUploader {
+    public async upload(fetchPayload: fetchPayload): Promise<Response> {
+        const response: Response = await fetch(this.url,fetchPayload);
+
         return response;
     }
 }
 
-class XHRUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload): Promise<XHRResponse> {
-        const response: XHRResponse = await this.makeRequest(
+export class XHRUploader extends AsyncUploader {
+    public async upload(fetchPayload: fetchPayload): Promise<Response> {
+        const response: Response = await this.makeRequest(
             this.url,
             fetchPayload.body
         );
@@ -452,7 +453,7 @@ class XHRUploader extends AsyncUploader {
     private async makeRequest(
         url: string,
         data: string
-    ): Promise<XMLHttpRequest> {
+    ): Promise<Response> {
         const xhr: XMLHttpRequest = new XMLHttpRequest();
         return new Promise((resolve, reject) => {
             xhr.onreadystatechange = () => {
@@ -460,7 +461,7 @@ class XHRUploader extends AsyncUploader {
 
                 // Process the response
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(xhr);
+                    resolve(xhr as unknown as Response);
                 } else {
                     reject(xhr);
                 }
@@ -472,16 +473,11 @@ class XHRUploader extends AsyncUploader {
     }
 }
 
-interface XHRResponse {
-    status: number;
-    statusText?: string;
-}
-
-interface fetchPayload {
+export interface fetchPayload {
     method: string;
     headers: {
         Accept: string;
-        'Content-Type': string;
+        'Content-Type'?: string;
     };
-    body: string;
+    body?: string;
 }
