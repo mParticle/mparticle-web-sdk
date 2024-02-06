@@ -2053,9 +2053,13 @@ describe('persistence disabled', () => {
     it('should inititalize the SDK without reading or writing to cookies', () => {
         mParticle.config.useCookieStorage = true;
         mParticle.config.usePersistence = false;
+        mParticle.config.flags = {
+            offlineStorage: '0',
+            cacheIdentity: '0',
+        };
         mParticle.init(apiKey, mParticle.config);
 
-        expect(window.document.cookie).to.eq('');
+        expect(window.document.cookie).to.eqls('');
     });
 
     it('should inititalize the SDK without reading or writing to local storage', () => {
@@ -2065,10 +2069,17 @@ describe('persistence disabled', () => {
 
         mParticle.config.useCookieStorage = false;
         mParticle.config.usePersistence = false;
+        mParticle.config.flags = {
+            offlineStorage: '0',
+            cacheIdentity: '0',
+        };
+
         mParticle.init(apiKey, mParticle.config);
 
-        expect(getItemSpy.called).to.eq(false);
-        expect(setItemSpy.called).to.eq(false);
-        expect(removeItemSpy.called).to.eq(false);
+        expect(getItemSpy.called, 'localStorage.getItem called').to.eq(false);
+        expect(setItemSpy.called, 'localStorage.setItem called').to.eq(false);
+        expect(removeItemSpy.called, 'localStorage.removeItem called').to.eq(
+            false
+        );
     });
 });

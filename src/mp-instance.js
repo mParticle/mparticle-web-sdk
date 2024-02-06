@@ -1316,14 +1316,18 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     // because it depends on _Store.storageName, which is not sent until above
     // because it is a setting on config which returns asyncronously
     // in self hosted mode
-    mpInstance._Identity.idCache = new LocalStorageVault(
-        `${mpInstance._Store.storageName}-id-cache`,
-        {
-            logger: mpInstance.Logger,
-        }
-    );
+    if (
+        mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CacheIdentity)
+    ) {
+        mpInstance._Identity.idCache = new LocalStorageVault(
+            `${mpInstance._Store.storageName}-id-cache`,
+            {
+                logger: mpInstance.Logger,
+            }
+        );
 
-    removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
+        removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
+    }
 
     if (config.hasOwnProperty('workspaceToken')) {
         mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;
