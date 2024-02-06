@@ -201,6 +201,23 @@ describe('Store', () => {
         expect(store.devToken, 'devToken').to.equal(apiKey);
     });
 
+
+    describe('#nullifySession', () => {
+
+        it('should clear out a session', () => {
+            const config = { ...sampleConfig};
+            const store: IStore = new Store(config, window.mParticle.getInstance(), apiKey);
+
+            store.nullifySession();
+
+            expect(store.sessionId).to.eq(null);
+            expect(store.dateLastEventSent).to.eq(null);
+            expect(store.sessionAttributes).to.eql({});
+            expect(store.sessionStartDate).to.eq(null);
+        })
+    });
+
+
     describe('#processFlags', () => {
         it('should return an empty object if no featureFlags are passed', () => {
             const flags = processFlags({} as SDKInitConfig, {} as SDKConfig);

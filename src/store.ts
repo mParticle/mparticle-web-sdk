@@ -163,6 +163,7 @@ export interface IStore {
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
+    nullifySession?(): void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -425,6 +426,12 @@ export default function Store(
             }
         }
     }
+
+    this.nullifySession = (): void => {
+        this.sessionId = null;
+        this.dateLastEventSent = null;
+        this.sessionAttributes = {};
+    };
 }
 
 export function processFlags(

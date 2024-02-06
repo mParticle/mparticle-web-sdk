@@ -224,9 +224,7 @@ export default function SessionManager(
     };
 
     function nullifySession(): void {
-        mpInstance._Store.sessionId = null;
-        mpInstance._Store.dateLastEventSent = null;
-        mpInstance._Store.sessionAttributes = {};
+        mpInstance._Store.nullifySession();
         mpInstance._Persistence.update();
     }
 }
