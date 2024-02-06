@@ -1,3 +1,10 @@
+## [2.25.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.25.0...v2.25.1) (2024-02-06)
+
+
+### Bug Fixes
+
+* Only cache mpid and is_loggeed_in from xhr.responseText ([#838](https://github.com/mParticle/mparticle-web-sdk/issues/838)) ([dd1920f](https://github.com/mParticle/mparticle-web-sdk/commit/dd1920ff5928b3825fb4367e21aa0d03035a6081))
+
 # [2.25.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.24.0...v2.25.0) (2024-01-29)
 
 
