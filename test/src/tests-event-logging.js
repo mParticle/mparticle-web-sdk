@@ -1045,3 +1045,121 @@ describe('event logging', function() {
         done(); 
     });
 });
+
+describe('event logging without persistence', function() {
+    beforeEach(function() {
+        mParticle._resetForTests(MPConfig);
+        fetchMock.post(urls.events, 200);
+        delete mParticle._instances['default_instance'];
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+
+        mParticle.init(apiKey, {
+            ...window.mParticle.config,
+            usePersistence: false,
+        });
+    });
+
+    afterEach(function() {
+        mockServer.restore();
+        fetchMock.restore();
+        mParticle._resetForTests(MPConfig);
+    });
+
+    it('should log an event', function(done) {
+        window.mParticle.logEvent(
+            'Test Event',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' },
+            { myFlags: 'some-flag' }
+        );
+        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
+        const testEventBatch = findBatch(fetchMock.calls(), 'Test Event');
+
+        expect(testEvent.data.event_name, 'event name').to.equal('Test Event');
+        expect(
+            testEvent.data.session_start_unixtime_ms,
+            'event session start time'
+        ).to.not.equal(null);
+        expect(testEvent.data.session_uuid, 'event session uuid').to.not.equal(
+            null
+        );
+        expect(
+            testEvent.data.source_message_id,
+            'event source message id'
+        ).to.not.equal(null);
+        expect(
+            testEvent.data.timestamp_unixtime_ms,
+            'event timestamp'
+        ).to.not.equal(null);
+
+        expect(
+            testEvent.data.custom_event_type,
+            'event custom event type'
+        ).to.equal('navigation');
+
+        expect(
+            testEvent.data.custom_attributes,
+            'event custom attributes'
+        ).to.eqls({ mykey: 'myvalue' });
+
+        expect(testEvent.data.custom_flags, 'event custom flags').to.eqls({
+            myFlags: 'some-flag',
+        });
+
+        expect(testEventBatch.mpid, 'batch mpid').to.equal(testMPID);
+        expect(testEventBatch.consent_state, 'batch consent state').to.eqls(
+            null
+        );
+        expect(testEventBatch.mp_deviceid, 'batch device id').to.not.equal(
+            null
+        );
+        expect(testEventBatch.sdk_version, 'batch sdk version').to.not.equal(
+            null
+        );
+        expect(
+            testEventBatch.source_request_id,
+            'batch source_request_id'
+        ).to.not.equal(null);
+        expect(
+            testEventBatch.timestamp_unixtime_ms,
+            'batch timestamp'
+        ).to.not.equal(null);
+        expect(testEventBatch.user_attributes, 'batch user attributes').to.eqls(
+            {}
+        );
+        expect(testEventBatch.user_identities, 'batch user identities').to.eqls(
+            null
+        );
+
+        done();
+    });
+
+    it('should log an event with new device id when set on setDeviceId', function(done) {
+        window.mParticle.logEvent(
+            'Test Event',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' }
+        );
+
+        const testEventBatch = findBatch(fetchMock.calls(), 'Test Event');
+        // this das should be the SDK auto generated one, which is 36 characters long
+        testEventBatch.mp_deviceid.should.have.length(36);
+
+        mParticle.setDeviceId('foo-guid');
+
+        window.mParticle.logEvent('Test Event2');
+        const testEvent2Batch = findBatch(fetchMock.calls(), 'Test Event2');
+
+        // das should be the one passed to setDeviceId()
+        testEvent2Batch.should.have.property('mp_deviceid', 'foo-guid');
+
+        done();
+    });
+});

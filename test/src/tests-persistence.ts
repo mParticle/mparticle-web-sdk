@@ -11,7 +11,7 @@ import {
     localStorageProductsV4,
     LocalStorageProductsV4WithWorkSpaceName,
     workspaceCookieName,
-    v4LSKey
+    v4LSKey,
 } from './config/constants';
 import { expect } from 'chai';
 import {
@@ -440,7 +440,10 @@ describe('persistence', () => {
         mParticle.logEvent('Test Event');
         const testEvent = findBatch(fetchMock.calls(), 'Test Event');
         testEvent.integration_attributes.should.have.property('128');
-        testEvent.integration_attributes['128'].should.have.property('MCID', 'abcedfg');
+        testEvent.integration_attributes['128'].should.have.property(
+            'MCID',
+            'abcedfg'
+        );
 
         done();
     });
@@ -758,9 +761,9 @@ describe('persistence', () => {
 
         const userIdentities1 = {
             userIdentities: {
-                customerid: 'foo1'
-            }
-        }
+                customerid: 'foo1',
+            },
+        };
 
         mockServer.respondWith(urls.login, [
             200,
