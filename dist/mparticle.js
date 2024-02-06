@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.25.0";
+    var version = "2.25.1";
 
     var Constants = {
       sdkVersion: version,
@@ -6139,8 +6139,15 @@ var mParticle = (function () {
       var cache = idCache.retrieve() || {};
       var cacheKey = concatenateIdentities(method, identities);
       var hashedKey = generateHash(cacheKey);
+      var _a = JSON.parse(xhr.responseText),
+        mpid = _a.mpid,
+        is_logged_in = _a.is_logged_in;
+      var cachedResponseText = {
+        mpid: mpid,
+        is_logged_in: is_logged_in
+      };
       cache[hashedKey] = {
-        responseText: xhr.responseText,
+        responseText: JSON.stringify(cachedResponseText),
         status: xhr.status,
         expireTimestamp: expireTimestamp
       };
