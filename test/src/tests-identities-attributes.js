@@ -1240,7 +1240,7 @@ describe('identities and attributes without Persistence', () => {
         fetchMock.restore();
     });
 
-    it('shoulds et session attribute', done => {
+    it('should set session attribute', done => {
         mParticle.setSessionAttribute('name', 'test');
 
         mParticle.logEvent('test event');
