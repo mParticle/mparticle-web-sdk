@@ -220,6 +220,7 @@ export interface SDKInitConfig
     sessionTimeout?: number;
     useNativeSdk?: boolean;
     useCookieStorage?: boolean;
+    usePersistence?: boolean;
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;

@@ -66,6 +66,7 @@ export interface SDKConfig {
     sessionTimeout?: number;
     useNativeSdk?: boolean;
     useCookieStorage?: boolean;
+    usePersistence?: boolean;
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
@@ -162,6 +163,7 @@ export interface IStore {
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
+    nullifySession?(): void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -278,6 +280,12 @@ export default function Store(
             this.SDKConfig.useCookieStorage = config.useCookieStorage;
         } else {
             this.SDKConfig.useCookieStorage = false;
+        }
+
+        if (config.hasOwnProperty('usePersistence')) {
+            this.SDKConfig.usePersistence = config.usePersistence;
+        } else {
+            this.SDKConfig.usePersistence = true;
         }
 
         if (config.hasOwnProperty('maxProducts')) {
@@ -418,6 +426,12 @@ export default function Store(
             }
         }
     }
+
+    this.nullifySession = (): void => {
+        this.sessionId = null;
+        this.dateLastEventSent = null;
+        this.sessionAttributes = {};
+    };
 }
 
 export function processFlags(

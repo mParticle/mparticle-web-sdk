@@ -1214,7 +1214,71 @@ describe('identities and attributes', function() {
         event4.data.deleted.should.equal(false);
         event4.data.is_new_attribute.should.equal(false);
 
-        done()
+        done();
+    });
+});
+
+describe('identities and attributes without Persistence', () => {
+    beforeEach(function() {
+        mockServer = sinon.createFakeServer();
+        mockServer.respondImmediately = true;
+
+        fetchMock.post(urls.events, 200);
+        mockServer.respondWith(urls.identify, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+        mParticle.init(apiKey, {
+            ...window.mParticle.config,
+            usePersistence: false,
+        });
     });
 
+    afterEach(function() {
+        mockServer.restore();
+        fetchMock.restore();
+    });
+
+    it('should set session attribute', done => {
+        mParticle.setSessionAttribute('name', 'test');
+
+        mParticle.logEvent('test event');
+
+        const event = findEventFromRequest(fetchMock.calls(), 'test event');
+
+        Should(event.data.custom_attributes).equal(null);
+
+        mParticle.endSession();
+        const sessionEndEvent = findEventFromRequest(
+            fetchMock.calls(),
+            'session_end'
+        );
+
+        sessionEndEvent.data.custom_attributes.should.have.property(
+            'name',
+            'test'
+        );
+
+        done();
+    });
+
+    it('should remove session attributes when session ends', function(done) {
+        mParticle.startNewSession();
+        mParticle.setSessionAttribute('name', 'test');
+        mParticle.endSession();
+
+        fetchMock.resetHistory();
+        mParticle.startNewSession();
+        mParticle.endSession();
+
+        const sessionEndEvent = findEventFromRequest(
+            fetchMock.calls(),
+            'session_end'
+        );
+
+        sessionEndEvent.data.custom_attributes.should.not.have.property('name');
+
+        done();
+    });
 });

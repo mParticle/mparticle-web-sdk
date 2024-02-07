@@ -7,6 +7,10 @@ export default function cookieSyncManager(mpInstance) {
 
     // Public
     this.attemptCookieSync = function(previousMPID, mpid, mpidIsNotInCookies) {
+        if (!mpInstance._Persistence.isEnabled()) {
+            return false;
+        }
+
         // TODO: These should move inside the for loop
         var pixelConfig,
             lastSyncDateForModule,

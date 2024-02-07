@@ -841,6 +841,188 @@ describe('SessionManager', () => {
         });
     });
 
+    describe('without Persistence', () => {
+        beforeEach(() => {
+            const generateUniqueIdSpy = sinon.stub(
+                mParticle.getInstance()._Helpers,
+                'generateUniqueId'
+            );
+            generateUniqueIdSpy.returns('test-unique-id');
+
+            mParticle.init(apiKey, {
+                ...window.mParticle.config,
+                usePersistence: false,
+            });
+        });
+
+        describe('#initialize', () => {
+            beforeEach(() => {
+                // Change timeout to 10 minutes so we can make sure defaults are not in use
+                mParticle.init(apiKey, {
+                    ...window.mParticle.config,
+                    usePersistence: false,
+                    sessionTimeout: 10,
+                });
+            });
+
+            it('starts a new session if Store does not contain a sessionId', () => {
+                const mpInstance = mParticle.getInstance();
+
+                mpInstance._Store.sessionId = '';
+                expect(mpInstance._Store.sessionId).to.be.empty;
+
+                mpInstance._SessionManager.initialize();
+                expect(mpInstance._Store.sessionId).to.equal('TEST-UNIQUE-ID');
+            });
+
+            it('ends the previous session and creates a new session if Store contains a sessionId and dateLastEventSent beyond the timeout window', () => {
+                const timePassed = 11 * (MILLIS_IN_ONE_SEC * 60);
+
+                const mpInstance = mParticle.getInstance();
+
+                mpInstance._Store.sessionId = 'OLD-ID';
+
+                const timeLastEventSent = mpInstance._Store.dateLastEventSent.getTime();
+                mpInstance._Store.dateLastEventSent = new Date(
+                    timeLastEventSent - timePassed
+                );
+
+                mpInstance._SessionManager.initialize();
+                expect(mpInstance._Store.sessionId).to.equal('TEST-UNIQUE-ID');
+            });
+
+            it('resumes the previous session if session ID exists and dateLastSent is within the timeout window', () => {
+                const timePassed = 8 * (MILLIS_IN_ONE_SEC * 60);
+                const mpInstance = mParticle.getInstance();
+
+                mParticle.getInstance()._Store.sessionId = 'OLD-ID';
+
+                const timeLastEventSent = mpInstance._Store.dateLastEventSent.getTime();
+                mpInstance._Store.dateLastEventSent = new Date(
+                    timeLastEventSent - timePassed
+                );
+
+                mParticle.getInstance()._SessionManager.initialize();
+                expect(mParticle.getInstance()._Store.sessionId).to.equal(
+                    'OLD-ID'
+                );
+            });
+        });
+
+        describe('#endSession', () => {
+            it('should log a NoSessionToEnd Message if session id is null in _Store and Persistence Exists but does not return an sid', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+
+                const mpInstance = mParticle.getInstance();
+                sinon
+                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .returns({ gs: {} });
+
+                const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+                mpInstance._Store.sessionId = null;
+                mpInstance._Store.dateLastEventSent = null;
+
+                mpInstance._SessionManager.endSession();
+
+                // Should log initial StartingEndSession and NoSessionToEnd messages
+                expect(consoleSpy.getCalls().length).to.equal(2);
+                expect(consoleSpy.lastCall.firstArg).to.equal(
+                    Messages.InformationMessages.NoSessionToEnd
+                );
+            });
+
+            it('should log an AbandonedEndSession message if SDK canLog() returns false', () => {
+                mParticle.init(apiKey, window.mParticle.config);
+
+                const mpInstance = mParticle.getInstance();
+
+                sinon.stub(mpInstance._Helpers, 'canLog').returns(false);
+
+                const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+                mpInstance._SessionManager.endSession();
+
+                // Should log initial StartingEndSession and AbandonEndSession messages
+                expect(consoleSpy.getCalls().length).to.equal(2);
+                expect(consoleSpy.lastCall.firstArg).to.equal(
+                    Messages.InformationMessages.AbandonEndSession
+                );
+            });
+
+            it('should log an AbandonedEndSession message if Store.isEnabled is false', () => {
+                const mpInstance = mParticle.getInstance();
+                const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+                mpInstance._Store.isEnabled = false;
+
+                mpInstance._SessionManager.endSession();
+
+                // Should log initial StartingEndSession and AbandonEndSession messagesk
+                expect(consoleSpy.getCalls().length).to.equal(2);
+                expect(consoleSpy.lastCall.firstArg).to.equal(
+                    Messages.InformationMessages.AbandonEndSession
+                );
+            });
+
+            it('should log AbandonEndSession message if webviewBridgeEnabled is false but Store.isEnabled is true and devToken is undefined', () => {
+                const mpInstance = mParticle.getInstance();
+                const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+                mpInstance._Store.isEnabled = true;
+                mpInstance._Store.webviewBridgeEnabled = false;
+                mpInstance._Store.devToken = undefined;
+                mpInstance._SessionManager.endSession();
+
+                // Should log initial StartingEndSession and AbandonEndSession messages
+                expect(consoleSpy.getCalls().length).to.equal(2);
+                expect(consoleSpy.lastCall.firstArg).to.equal(
+                    Messages.InformationMessages.AbandonEndSession
+                );
+            });
+
+            it('should log NoSessionToEnd message if session has ended (with Persistence) and webviewBridgeEnabled and Store.isEnabled are true but devToken is undefined', () => {
+                const mpInstance = mParticle.getInstance();
+                sinon
+                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .returns({ gs: {} });
+                const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
+
+                mpInstance._Store.isEnabled = true;
+                mpInstance._Store.devToken = undefined;
+                mpInstance._Store.webviewBridgeEnabled = true;
+                mpInstance._Store.sessionId = null;
+
+                mpInstance._SessionManager.endSession();
+
+                // Should log initial StartingEndSession and NoSessionToEnd messages
+                expect(consoleSpy.getCalls().length).to.equal(2);
+                expect(consoleSpy.lastCall.firstArg).to.equal(
+                    Messages.InformationMessages.NoSessionToEnd
+                );
+            });
+        });
+
+        describe('startNewSessionIfNeeded', () => {
+            it('should NOT call startNewSession if session ID exists', () => {
+                const mpInstance = mParticle.getInstance();
+
+                // Stubbing Persistence to show that Session ID is not coming from
+                // persistence
+                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                    gs: {
+                        sid: 'sid-from-persistence',
+                    },
+                });
+
+                mpInstance._Store.sessionId = 'sid-from-store';
+
+                mpInstance._SessionManager.startNewSessionIfNeeded();
+
+                mpInstance._Store.sessionId = 'sid-from-store';
+            });
+        });
+    });
+
     describe('Integration Tests', () => {
         it('should end a session if the session timeout expires', () => {
             const generateUniqueIdSpy = sinon.stub(
