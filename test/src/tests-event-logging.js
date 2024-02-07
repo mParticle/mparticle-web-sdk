@@ -1135,10 +1135,10 @@ describe('event logging without persistence', function() {
             testEventBatch.timestamp_unixtime_ms,
             'batch timestamp'
         ).to.not.equal(null);
-        expect(testEventBatch.user_attributes, 'batch user attributes').to.eqls(
+        expect(testEventBatch.user_attributes, 'batch user attributes').to.deep.equal(
             {}
         );
-        expect(testEventBatch.user_identities, 'batch user identities').to.eqls(
+        expect(testEventBatch.user_identities, 'batch user identities').to.deep.equal(
             null
         );
 
