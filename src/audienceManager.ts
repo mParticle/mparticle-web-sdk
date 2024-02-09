@@ -33,13 +33,8 @@ export interface AudienceListMembershipUpdateType {
 }
 
 export interface IMPParsedAudienceMemberships {
-    currentAudiences: IMPAudience[];
-    pastAudiences: IMPAudience[];
-}
-
-export interface IMPAudience {
-    id: number;
-    name: string;
+    currentAudiences: Audience[];
+    pastAudiences: Audience[];
 }
 
 export default class AudienceManager {
@@ -119,8 +114,8 @@ export default class AudienceManager {
 }
 
 export const parseUserAudiences = (audienceServerResponse: IAudienceServerResponse): IMPParsedAudienceMemberships => {
-    const currentAudiences: IMPAudience[] = [];
-    const pastAudiences: IMPAudience[] = [];
+    const currentAudiences: Audience[] = [];
+    const pastAudiences: Audience[] = [];
     audienceServerResponse?.m?.forEach((membership: IAudienceMembership) => {
         if (membership.c[0].a === AudienceMembershipChangeAction.Add) {
             currentAudiences.push(new Audience(
