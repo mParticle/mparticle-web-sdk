@@ -4,7 +4,7 @@ import {
     XHRUploader,
     AsyncUploader,
     fetchPayload
-} from './batchUploader';
+} from './uploaders';
 import Audience from './audience';
 
 type AudienceResponseMessage = 'ar';
@@ -12,9 +12,9 @@ export interface IAudienceServerResponse {
     dt: AudienceResponseMessage;
     id: string;
     ct: number;
-    m: IAudienceMembership[];
+    m: IMinifiedAudienceMembership[];
 }
-export interface IAudienceMembership {
+export interface IMinifiedAudienceMembership {
     id: number; // AudienceId
     n: string; // External Name
     c: AudienceListMembershipUpdateType[]; // AudienceMembershipChanges
@@ -116,7 +116,7 @@ export default class AudienceManager {
 export const parseUserAudiences = (audienceServerResponse: IAudienceServerResponse): IMPParsedAudienceMemberships => {
     const currentAudiences: Audience[] = [];
     const pastAudiences: Audience[] = [];
-    audienceServerResponse?.m?.forEach((membership: IAudienceMembership) => {
+    audienceServerResponse?.m?.forEach((membership: IMinifiedAudienceMembership) => {
         if (membership.c[0].a === AudienceMembershipChangeAction.Add) {
             currentAudiences.push(new Audience(
                 membership.id,

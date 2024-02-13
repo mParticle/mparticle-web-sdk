@@ -5,7 +5,7 @@ import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import Constants from '../../src/constants';
 import { MParticleWebSDK, SDKLoggerApi } from '../../src/sdkRuntimeModels';
 import AudienceManager, {
-    IAudienceMembership,
+    IMinifiedAudienceMembership,
     IAudienceServerResponse,
     AudienceMembershipChangeAction,
     IMPParsedAudienceMemberships,
@@ -67,7 +67,7 @@ describe('AudienceManager', () => {
 
         expect(audienceManager.logger).to.be.ok;
         expect(audienceManager.url).to.equal(userAudienceUrl);
-        expect(audienceManager.url).to.equal(userAudienceUrl);
+        expect(audienceManager.userAudienceAPI).to.be.ok;
     });
 
     describe('#sendGetUserAudienceRequest', () => {
@@ -79,7 +79,7 @@ describe('AudienceManager', () => {
             testMPID
         );
 
-        const audienceMembership1: IAudienceMembership = {
+        const audienceMembership1: IMinifiedAudienceMembership = {
             'id': 7628,
             'n': 'foo-audience-1',
             'c': [{
@@ -89,7 +89,7 @@ describe('AudienceManager', () => {
             's': []
         };
 
-        const audienceMembership2: IAudienceMembership = {
+        const audienceMembership2: IMinifiedAudienceMembership = {
             'id': 13388,
             'n': 'foo-audience-2',
             'c': [
