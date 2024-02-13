@@ -57,7 +57,7 @@ describe('AudienceManager', () => {
     });
 
     it('should have proper properties on AudienceManager initialization', () => {
-        const newLogger:SDKLoggerApi = new Logger(window.mParticle.config);
+        const newLogger: SDKLoggerApi = new Logger(window.mParticle.config);
         const audienceManager = new AudienceManager(
             Constants.DefaultBaseUrls.userAudienceUrl,
             apiKey,
