@@ -21,10 +21,6 @@ declare global {
     }
 }
 
-const enableBatchingConfigFlags = {
-    eventBatchingIntervalMillis: 1000,
-};
-
 const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience?mpid=${testMPID}`
 
 describe('AudienceManager', () => {
