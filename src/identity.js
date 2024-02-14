@@ -1268,14 +1268,14 @@ export default function Identity(mpInstance) {
                 return mpInstance._Persistence.getFirstSeenTime(mpid);
             },
             /**
-             * Get user segments for user
-             * @method getUserSegments
-             * @return {Object} an array with user segments????
+             * Get user audiences
+             * @method getuserAudiences
+             * @param {Function} [callback] A callback function that is invoked when the user audience request completes
              */
             getUserAudiences: function(callback) {
                 if (self.audienceManager === null) {
                     self.audienceManager = new AudienceManager(
-                        mpInstance._Store.SDKConfig.userSegmentUrl,
+                        mpInstance._Store.SDKConfig.userAudienceUrl,
                         mpInstance._Store.devToken,
                         mpInstance.Logger,
                         mpid
