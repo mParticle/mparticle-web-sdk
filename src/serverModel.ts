@@ -166,6 +166,14 @@ function convertCustomFlags(event: SDKEvent, dto: IServerV2DTO) {
     }
 }
 
+function getLaunchReferral(): string | null {
+    if (window.location && window.location.href) {
+        return window.location.href;
+    }
+
+    return null;
+}
+
 function convertProductToV2DTO(product: SDKProduct): IProductV2DTO {
     return {
         id: parseStringOrNumber(product.Sku),
@@ -368,7 +376,7 @@ export default function ServerModel(
 
             if (eventObject.EventDataType === MessageType.AppStateTransition) {
                 eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
-                eventObject.LaunchReferral = window.location.href || null;
+                eventObject.LaunchReferral = getLaunchReferral();
             }
 
             // FIXME: Remove duplicate occurence
