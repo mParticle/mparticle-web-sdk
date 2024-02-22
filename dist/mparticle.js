@@ -1328,6 +1328,7 @@ var mParticle = (function () {
     };
 
     function convertEvents(mpid, sdkEvents, mpInstance) {
+      var _a, _b;
       if (!mpid) {
         return null;
       }
@@ -1374,8 +1375,8 @@ var mParticle = (function () {
         },
         device_info: {
           platform: dist.DeviceInformationPlatformEnum.web,
-          screen_width: window.screen.width,
-          screen_height: window.screen.height
+          screen_width: ((_a = window === null || window === void 0 ? void 0 : window.screen) === null || _a === void 0 ? void 0 : _a.width) || 0,
+          screen_height: ((_b = window === null || window === void 0 ? void 0 : window.screen) === null || _b === void 0 ? void 0 : _b.height) || 0
         },
         user_attributes: lastEvent.UserAttributes,
         user_identities: convertUserIdentities(lastEvent.UserIdentities),
@@ -2062,16 +2063,20 @@ var mParticle = (function () {
       // loses focus for any reason, such as closing browser tab or minimizing window
       BatchUploader.prototype.addEventListeners = function () {
         var _this = this;
-        // visibility change is a document property, not window
-        document.addEventListener('visibilitychange', function () {
-          _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
-        window.addEventListener('beforeunload', function () {
-          _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
-        window.addEventListener('pagehide', function () {
-          _this.prepareAndUpload(false, _this.isBeaconAvailable());
-        });
+        try {
+          // visibility change is a document property, not window
+          window.document.addEventListener('visibilitychange', function () {
+            _this.prepareAndUpload(false, _this.isBeaconAvailable());
+          });
+          window.addEventListener('beforeunload', function () {
+            _this.prepareAndUpload(false, _this.isBeaconAvailable());
+          });
+          window.addEventListener('pagehide', function () {
+            _this.prepareAndUpload(false, _this.isBeaconAvailable());
+          });
+        } catch (error) {
+          this.mpInstance.Logger.error('Cannot addEventListeners for Batch Uploader: ' + error);
+        }
       };
       BatchUploader.prototype.isBeaconAvailable = function () {
         if (navigator.sendBeacon) {
@@ -3099,6 +3104,10 @@ var mParticle = (function () {
 
       // Public
       this.attemptCookieSync = function (previousMPID, mpid, mpidIsNotInCookies) {
+        if (!mpInstance._Persistence.isEnabled()) {
+          return false;
+        }
+
         // TODO: These should move inside the for loop
         var pixelConfig, lastSyncDateForModule, url, redirect, urlWithRedirect, requiresConsent;
 
@@ -3349,9 +3358,7 @@ var mParticle = (function () {
         }
       };
       function nullifySession() {
-        mpInstance._Store.sessionId = null;
-        mpInstance._Store.dateLastEventSent = null;
-        mpInstance._Store.sessionAttributes = {};
+        mpInstance._Store.nullifySession();
         mpInstance._Persistence.update();
       }
     }
@@ -3779,6 +3786,7 @@ var mParticle = (function () {
     }
     // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
     function Store(config, mpInstance, apiKey) {
+      var _this = this;
       var defaultStore = {
         isEnabled: true,
         sessionAttributes: {},
@@ -3862,6 +3870,11 @@ var mParticle = (function () {
           this.SDKConfig.useCookieStorage = config.useCookieStorage;
         } else {
           this.SDKConfig.useCookieStorage = false;
+        }
+        if (config.hasOwnProperty('usePersistence')) {
+          this.SDKConfig.usePersistence = config.usePersistence;
+        } else {
+          this.SDKConfig.usePersistence = true;
         }
         if (config.hasOwnProperty('maxProducts')) {
           this.SDKConfig.maxProducts = config.maxProducts;
@@ -3960,6 +3973,11 @@ var mParticle = (function () {
           }
         }
       }
+      this.nullifySession = function () {
+        _this.sessionId = null;
+        _this.dateLastEventSent = null;
+        _this.sessionAttributes = {};
+      };
     }
     function processFlags(config, SDKConfig) {
       var flags = {};
@@ -4092,6 +4110,9 @@ var mParticle = (function () {
       StorageNames = Constants.StorageNames;
     function _Persistence(mpInstance) {
       var self = this;
+      this.isEnabled = function () {
+        return mpInstance._Store.SDKConfig.usePersistence;
+      };
 
       // https://go.mparticle.com/work/SQDSDKS-5022
       this.useLocalStorage = function () {
@@ -4120,7 +4141,9 @@ var mParticle = (function () {
 
           // https://go.mparticle.com/work/SQDSDKS-6046
           if (mpInstance._Store.isLocalStorageAvailable) {
-            storage = window.localStorage;
+            if (this.isEnabled()) {
+              storage = window.localStorage;
+            }
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
               // For migrating from localStorage to cookies -- If an instance switches from localStorage to cookies, then
               // no mParticle cookie exists yet and there is localStorage. Get the localStorage, set them to cookies, then delete the localStorage item.
@@ -4131,7 +4154,9 @@ var mParticle = (function () {
                 } else {
                   allData = localStorageData;
                 }
-                storage.removeItem(mpInstance._Store.storageName);
+                if (this.isEnabled()) {
+                  storage.removeItem(mpInstance._Store.storageName);
+                }
               } else if (cookies) {
                 allData = cookies;
               }
@@ -4147,7 +4172,9 @@ var mParticle = (function () {
                   allData = cookies;
                 }
                 self.storeDataInMemory(allData);
-                self.expireCookies(mpInstance._Store.storageName);
+                if (this.isEnabled()) {
+                  self.expireCookies(mpInstance._Store.storageName);
+                }
               } else {
                 self.storeDataInMemory(localStorageData);
               }
@@ -4197,6 +4224,9 @@ var mParticle = (function () {
         }
       };
       this.update = function () {
+        if (!this.isEnabled()) {
+          return;
+        }
         if (!mpInstance._Store.webviewBridgeEnabled) {
           if (mpInstance._Store.SDKConfig.useCookieStorage) {
             self.setCookie();
@@ -4269,6 +4299,9 @@ var mParticle = (function () {
 
       // https://go.mparticle.com/work/SQDSDKS-5022
       this.determineLocalStorageAvailability = function (storage) {
+        if (!this.isEnabled()) {
+          return;
+        }
         var result;
         if (window.mParticle && window.mParticle._forceNoLocalStorage) {
           storage = undefined;
@@ -4330,6 +4363,9 @@ var mParticle = (function () {
 
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.setLocalStorage = function () {
+        if (!this.isEnabled()) {
+          return;
+        }
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return;
         }
@@ -4389,6 +4425,9 @@ var mParticle = (function () {
         return data;
       }
       this.getLocalStorage = function () {
+        if (!this.isEnabled()) {
+          return null;
+        }
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return null;
         }
@@ -4428,6 +4467,9 @@ var mParticle = (function () {
         document.cookie = cookieName + '=' + '' + expires + '; path=/' + domain;
       };
       this.getCookie = function () {
+        if (!this.isEnabled()) {
+          return null;
+        }
         var cookies = window.document.cookie.split('; '),
           key = mpInstance._Store.storageName,
           i,
@@ -4464,6 +4506,9 @@ var mParticle = (function () {
       // https://go.mparticle.com/work/SQDSDKS-5022
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.setCookie = function () {
+        if (!this.isEnabled()) {
+          return;
+        }
         var mpid,
           currentUser = mpInstance.Identity.getCurrentUser();
         if (currentUser) {
@@ -4679,6 +4724,9 @@ var mParticle = (function () {
         }
       };
       this.getCookieDomain = function () {
+        if (!this.isEnabled()) {
+          return '';
+        }
         if (mpInstance._Store.SDKConfig.cookieDomain) {
           return mpInstance._Store.SDKConfig.cookieDomain;
         } else {
@@ -4739,6 +4787,9 @@ var mParticle = (function () {
         return [];
       };
       this.setCartProducts = function (allProducts) {
+        if (!this.isEnabled()) {
+          return;
+        }
         if (!mpInstance._Store.isLocalStorageAvailable) {
           return;
         }
@@ -4816,6 +4867,9 @@ var mParticle = (function () {
 
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.savePersistence = function (persistence) {
+        if (!this.isEnabled()) {
+          return;
+        }
         var encodedPersistence = self.encodePersistence(JSON.stringify(persistence)),
           date = new Date(),
           key = mpInstance._Store.storageName,
@@ -4924,6 +4978,9 @@ var mParticle = (function () {
         self.update();
       };
       this.resetPersistence = function () {
+        if (!this.isEnabled()) {
+          return;
+        }
         removeLocalStorage(StorageNames.localStorageName);
         removeLocalStorage(StorageNames.localStorageNameV3);
         removeLocalStorage(StorageNames.localStorageNameV4);
@@ -5782,6 +5839,12 @@ var mParticle = (function () {
         }
       }
     }
+    function getLaunchReferral() {
+      if (window.location && window.location.href) {
+        return window.location.href;
+      }
+      return null;
+    }
     function convertProductToV2DTO(product) {
       return {
         id: parseStringOrNumber(product.Sku),
@@ -5943,7 +6006,7 @@ var mParticle = (function () {
           };
           if (eventObject.EventDataType === MessageType$1.AppStateTransition) {
             eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
-            eventObject.LaunchReferral = window.location.href || null;
+            eventObject.LaunchReferral = getLaunchReferral();
           }
           // FIXME: Remove duplicate occurence
           eventObject.CurrencyCode = mpInstance._Store.currencyCode;
@@ -9134,10 +9197,12 @@ var mParticle = (function () {
       // because it depends on _Store.storageName, which is not sent until above
       // because it is a setting on config which returns asyncronously
       // in self hosted mode
-      mpInstance._Identity.idCache = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
-        logger: mpInstance.Logger
-      });
-      removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
+      if (mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CacheIdentity)) {
+        mpInstance._Identity.idCache = new LocalStorageVault("".concat(mpInstance._Store.storageName, "-id-cache"), {
+          logger: mpInstance.Logger
+        });
+        removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
+      }
       if (config.hasOwnProperty('workspaceToken')) {
         mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;
       } else {
