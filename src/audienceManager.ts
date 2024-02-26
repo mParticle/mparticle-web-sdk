@@ -22,7 +22,7 @@ export interface IMinifiedAudienceMembership {
 }
 
 export enum AudienceMembershipChangeAction {
-    Unknown = 'unkown',
+    Unknown = 'unknown',
     Add = 'add',
     Drop = 'drop',
 }
