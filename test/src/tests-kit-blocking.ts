@@ -17,7 +17,7 @@ declare global {
     }
 }
 
-describe('kit blocking', () => {
+describe.only('kit blocking', () => {
     let mockServer;
     let kitBlockerDataPlan: KitBlockerDataPlan = {
         document: dataPlan

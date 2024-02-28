@@ -3,7 +3,7 @@ const { DEBUG } = process.env;
 const files = [
   '../lib/geomock.js',
   '../../dist/mparticle.js',
-  './CBT-tests-es5.js',
+  './CBT-tests.js',
 ];
 
 let captureConsole = false;

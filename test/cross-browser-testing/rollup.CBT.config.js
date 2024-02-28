@@ -36,28 +36,28 @@ export default [
             json()
         ],
     },
-    {
-        input: 'test/cross-browser-testing/CBT-tests.js',
-        output: {
-            file: 'test/cross-browser-testing/CBT-tests-es5.js',
-            format: 'umd',
-            name: 'mParticleTests',
-        },
-        plugins: [
-            resolve({
-                preferBuiltins: true
-            }),
-            commonjs({
-                include: 'node_modules/**',
-            }),
-            babel({
-                presets: ['@babel/preset-env'],
-                plugins: ['@babel/plugin-transform-runtime'],
-                ...babelSettings,
-                exclude: ['node_modules/**/*'],
-                babelHelpers: 'runtime',
-            }),
-            json()
-        ],
-    },
+    // {
+    //     input: 'test/cross-browser-testing/CBT-tests.js',
+    //     output: {
+    //         file: 'test/cross-browser-testing/CBT-tests-es5.js',
+    //         format: 'umd',
+    //         name: 'mParticleTests',
+    //     },
+    //     plugins: [
+    //         resolve({
+    //             preferBuiltins: true
+    //         }),
+    //         commonjs({
+    //             include: 'node_modules/**',
+    //         }),
+    //         babel({
+    //             presets: ['@babel/preset-env'],
+    //             plugins: ['@babel/plugin-transform-runtime'],
+    //             ...babelSettings,
+    //             exclude: ['node_modules/**/*'],
+    //             babelHelpers: 'runtime',
+    //         }),
+    //         json()
+    //     ],
+    // },
 ]

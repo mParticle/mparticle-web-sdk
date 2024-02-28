@@ -21,14 +21,14 @@ let browserConsoleLogOptions = {
 let captureConsole = false;
 
 // Allows console logs to appear when doing npm run test:debug
-if (DEBUG === 'true') {
-    browserConsoleLogOptions = {
-        level: 'log',
-        format: '%b %T: %m',
-        terminal: true,
-    };
-    captureConsole = true;
-}
+// if (DEBUG === 'true') {
+//     browserConsoleLogOptions = {
+//         level: 'log',
+//         format: '%b %T: %m',
+//         terminal: true,
+//     };
+//     captureConsole = true;
+// }
 
 module.exports = function(config) {
     config.set({

@@ -206,14 +206,16 @@ const isFunction = (fn: any): boolean => typeof fn === 'function';
 const isValidCustomFlagProperty = (value: any): boolean =>
     isNumber(value) || isString(value) || isBoolean(value);
 
-const toDataPlanSlug = (value: any): string =>
+const toDataPlanSlug = (value: any): string => {
+    debugger;
     // Make sure we are only acting on strings or numbers
-    isStringOrNumber(value)
+    return isStringOrNumber(value)
         ? value
               .toString()
               .toLowerCase()
-              .replace(/[^0-9a-zA-Z]+/g, '_')
+              .replaceAll(/[^0-9a-zA-Z]+/g, '_')
         : '';
+};
 
 const isDataPlanSlug = (str: string): boolean => str === toDataPlanSlug(str);
 
