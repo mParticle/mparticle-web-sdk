@@ -60,6 +60,7 @@ export interface SDKConfig {
     aliasUrl?: string;
     configUrl?: string;
     identityUrl?: string;
+    userAudienceUrl?: string;
     isIOS?: boolean;
     maxProducts: number;
     requestConfig?: boolean;

@@ -248,6 +248,7 @@ describe('Store', () => {
 
             it('should return default baseUrls if no baseUrls are passed', () => {
                 const baseUrls: Dictionary = Constants.DefaultBaseUrls;
+
                 const result = processBaseUrls(
                     {} as unknown as SDKInitConfig,
                     featureFlags as unknown as IFeatureFlags,
@@ -263,6 +264,7 @@ describe('Store', () => {
                     configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
                     identityUrl: 'foo-identity.customer.mp.com/',
                     aliasUrl: 'foo-alias.customer.mp.com/',
+                    userAudienceUrl: 'foo-user-segment.customer.mp.com/',
                 };
 
                 const result = processBaseUrls(
@@ -275,6 +277,7 @@ describe('Store', () => {
                     v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                     configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
                     identityUrl: 'foo-identity.customer.mp.com/',
+                    userAudienceUrl: 'foo-user-segment.customer.mp.com/',
                     aliasUrl: 'foo-alias.customer.mp.com/',
                     v1SecureServiceUrl: "jssdks.mparticle.com/v1/JS/",
                     v2SecureServiceUrl: "jssdks.mparticle.com/v2/JS/",
@@ -318,6 +321,7 @@ describe('Store', () => {
                     v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                     configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
                     identityUrl: 'foo-identity.customer.mp.com/',
+                    userAudienceUrl: 'foo-user-segment.customer.mp.com/',
                     aliasUrl: 'foo-alias.customer.mp.com/',
                 };
 
@@ -331,6 +335,7 @@ describe('Store', () => {
                     v3SecureServiceUrl: 'foo.customer.mp.com/v3/JS/',
                     configUrl: 'foo-configUrl.customer.mp.com/v2/JS/',
                     identityUrl: 'foo-identity.customer.mp.com/',
+                    userAudienceUrl: 'foo-user-segment.customer.mp.com/',
                     aliasUrl: 'foo-alias.customer.mp.com/',
                     v1SecureServiceUrl: "jssdks.us1.mparticle.com/v1/JS/",
                     v2SecureServiceUrl: "jssdks.us1.mparticle.com/v2/JS/",
