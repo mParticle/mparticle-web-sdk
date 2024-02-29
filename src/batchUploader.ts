@@ -10,6 +10,7 @@ import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
 import { getRampNumber, isEmpty } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
+import { AsyncUploader, FetchUploader, XHRUploader, fetchPayload } from './uploaders';
 
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
@@ -108,11 +109,11 @@ export class BatchUploader {
             _Store: { deviceId },
         } = this.mpInstance;
 
-        const offlineStorageFeatureFlagValue = getFeatureFlag(
+        const offlineStorageFeatureFlagValue: string = getFeatureFlag(
             Constants.FeatureFlags.OfflineStorage
-        );
+        ) as string;
 
-        const offlineStoragePercentage = parseInt(
+        const offlineStoragePercentage: number = parseInt(
             offlineStorageFeatureFlagValue,
             10
         );
@@ -422,66 +423,4 @@ export class BatchUploader {
         }
         return null;
     }
-}
-
-abstract class AsyncUploader {
-    url: string;
-    public abstract upload(fetchPayload: fetchPayload): Promise<XHRResponse>;
-
-    constructor(url: string) {
-        this.url = url;
-    }
-}
-
-class FetchUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload): Promise<XHRResponse> {
-        const response: XHRResponse = await fetch(this.url, fetchPayload);
-        return response;
-    }
-}
-
-class XHRUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload): Promise<XHRResponse> {
-        const response: XHRResponse = await this.makeRequest(
-            this.url,
-            fetchPayload.body
-        );
-        return response;
-    }
-
-    private async makeRequest(
-        url: string,
-        data: string
-    ): Promise<XMLHttpRequest> {
-        const xhr: XMLHttpRequest = new XMLHttpRequest();
-        return new Promise((resolve, reject) => {
-            xhr.onreadystatechange = () => {
-                if (xhr.readyState !== 4) return;
-
-                // Process the response
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(xhr);
-                } else {
-                    reject(xhr);
-                }
-            };
-
-            xhr.open('post', url);
-            xhr.send(data);
-        });
-    }
-}
-
-interface XHRResponse {
-    status: number;
-    statusText?: string;
-}
-
-interface fetchPayload {
-    method: string;
-    headers: {
-        Accept: string;
-        'Content-Type': string;
-    };
-    body: string;
 }
