@@ -40,7 +40,7 @@ export default function APIClient(
         if (!this.uploader) {
             const millis: number = parseNumber(mpInstance._Helpers.getFeatureFlag(
                 Constants.FeatureFlags.EventBatchingIntervalMillis
-            ));
+            ) as string);
             this.uploader = new BatchUploader(mpInstance, millis);
         }
         this.uploader.queueEvent(event);

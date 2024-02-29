@@ -246,19 +246,26 @@ export interface SDKIdentityApi {
 
 export interface SDKHelpersApi {
     canLog?(): boolean;
-    createServiceUrl(arg0: string, arg1: string): void;
+    createServiceUrl(url: string, devToken?: string): void;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);
     parseNumber?(value: string | number): number;
     generateUniqueId();
     generateHash?(value: string): string;
-    getFeatureFlag?(feature: string); // TODO: Feature Constants should be converted to enum
+    getFeatureFlag?(feature: string): boolean | string; // TODO: Feature Constants should be converted to enum
     isDelayedByIntegration?(
         delayedIntegrations: Dictionary<boolean>,
         timeoutStart: number,
         now: number
     ): boolean;
     isObject?(item: any);
+    invokeCallback?(
+        cb: ()=> void,
+        code: string,
+        body: string,
+        mParticleUser?: MParticleUser,
+        previousMpid?: string
+    ): void;
     returnConvertedBoolean(data: string | boolean | number): boolean;
     sanitizeAttributes?(
         attrs: Dictionary<string>,
