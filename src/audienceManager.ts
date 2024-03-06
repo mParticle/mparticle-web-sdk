@@ -7,35 +7,40 @@ import {
 } from './uploaders';
 import Audience from './audience';
 
-type AudienceResponseMessage = 'ar';
-export interface IAudienceServerResponse {
-    dt: AudienceResponseMessage;
-    id: string;
-    ct: number;
-    m: IMinifiedAudienceMembership[];
-}
-export interface IMinifiedAudienceMembership {
-    id: number; // AudienceId
-    n: string; // External Name
-    c: AudienceListMembershipUpdateType[]; // AudienceMembershipChanges
-    s: string[]; // ModuleEndpointExternalReferenceKeys
+export interface IAudienceMemberships {
+    audience_memberships: Audience[];
 }
 
-export enum AudienceMembershipChangeAction {
-    Unknown = 'unknown',
-    Add = 'add',
-    Drop = 'drop',
-}
+// export interface IAudienceMemberships extends IAudienceServerResponse {}
 
-export interface AudienceListMembershipUpdateType {
-    ct: number;
-    a: AudienceMembershipChangeAction;
-}
+// export interface IAudienceServerResponse {
+//     dt: AudienceResponseMessage;
+//     id: string;
+//     ct: number;
+//     m: IMinifiedAudienceMembership[];
+// }
+// export interface IMinifiedAudienceMembership {
+//     id: number; // AudienceId
+//     n: string; // External Name
+//     c: AudienceListMembershipUpdateType[]; // AudienceMembershipChanges
+//     s: string[]; // ModuleEndpointExternalReferenceKeys
+// }
 
-export interface IMPParsedAudienceMemberships {
-    currentAudiences: Audience[];
-    pastAudiences: Audience[];
-}
+// export enum AudienceMembershipChangeAction {
+//     Unknown = 'unknown',
+//     Add = 'add',
+//     Drop = 'drop',
+// }
+
+// export interface AudienceListMembershipUpdateType {
+//     ct: number;
+//     a: AudienceMembershipChangeAction;
+// }
+
+// export interface IMPParsedAudienceMemberships {
+//     currentAudiences: Audience[];
+//     pastAudiences: Audience[];
+// }
 
 export default class AudienceManager {
     public url: string = '';
@@ -55,7 +60,7 @@ export default class AudienceManager {
             : new XHRUploader(this.url);
     }
 
-    public async sendGetUserAudienceRequest(callback: (userAudiences: IMPParsedAudienceMemberships) => void) {
+    public async sendGetUserAudienceRequest(callback: (userAudiences: IAudienceMemberships) => void) {
         this.logger.verbose('Fetching user audiences from server');
 
         const fetchPayload: fetchPayload = {
@@ -77,13 +82,12 @@ export default class AudienceManager {
             ) {
                 this.logger.verbose(`User Audiences successfully received`);
 
-                const userAudienceResponse: IAudienceServerResponse = await userAudiencePromise.json();
-                const parsedUserAudiences: IMPParsedAudienceMemberships = parseUserAudiences(userAudienceResponse)
+                const userAudienceMemberships: IAudienceMemberships = await userAudiencePromise.json();
                 
                 try {
-                    callback(parsedUserAudiences);
+                    callback(userAudienceMemberships);
                 } catch(e) {
-                    this.logger.error('Error invoking callback on user audience response.')
+                    this.logger.error('Error invoking callback on IAudienceMemberships.');
                 }
 
             } else if (userAudiencePromise.status === 401) {
@@ -113,26 +117,27 @@ export default class AudienceManager {
     }
 }
 
-export const parseUserAudiences = (audienceServerResponse: IAudienceServerResponse): IMPParsedAudienceMemberships => {
-    const currentAudiences: Audience[] = [];
-    const pastAudiences: Audience[] = [];
-    audienceServerResponse?.m?.forEach((membership: IMinifiedAudienceMembership) => {
-        if (membership.c[0].a === AudienceMembershipChangeAction.Add) {
-            currentAudiences.push(new Audience(
-                membership.id,
-                membership.n
-            ));
-        };
+// export const parseUserAudiences = (audienceServerResponse: IAudienceServerResponse): IAudienceMemberships => {
+//     return audienceServerResponse;
+//     // const currentAudiences: Audience[] = [];
+//     // const pastAudiences: Audience[] = [];
+//     // audienceServerResponse.audience_memberships.forEach(audience: Audience) => {
+//         // if (membership.c[0].a === AudienceMembershipChangeAction.Add) {
+//         //     currentAudiences.push(new Audience(
+//         //         membership.id,
+//         //         membership.n
+//         //     ));
+//         // };
 
-        if (membership.c[0].a === AudienceMembershipChangeAction.Drop) {
-            pastAudiences.push(new Audience(
-                membership.id,
-                membership.n
-            ));
-        };
-    });
+//         // if (membership.c[0].a === AudienceMembershipChangeAction.Drop) {
+//         //     pastAudiences.push(new Audience(
+//         //         membership.id,
+//         //         membership.n
+//         //     ));
+//         // };
+//     // });
 
-    return {
-        currentAudiences, pastAudiences
-    }
-}
+//     // return {
+//     //     currentAudiences, pastAudiences
+//     // }
+// }
