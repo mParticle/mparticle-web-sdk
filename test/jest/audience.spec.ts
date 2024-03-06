@@ -1,11 +1,19 @@
 import Audience from '../../src/audience';
 
 describe('Audience', () => {
-    it('should return an audience with an id and name', () => {
-        const audience = new Audience(12345, 'foo-audience');
+    it('should return an audience with just an audience_id', () => {
+        const audience = new Audience(12345);
 
         expect(audience).toBeDefined();
-        expect(audience.id).toEqual(12345);
-        expect(audience.name).toEqual('foo-audience');
+        expect(audience.audience_id).toEqual(12345);
+        expect(audience.expiration_timestamp_ms).toEqual(null);
+    });
+
+    it('should return an audience with an audience_id and expiration_timestamp_ms', () => {
+        const audience = new Audience(12345, 12345);
+
+        expect(audience).toBeDefined();
+        expect(audience.audience_id).toEqual(12345);
+        expect(audience.expiration_timestamp_ms).toEqual(12345);
     });
 });

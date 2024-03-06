@@ -1,9 +1,12 @@
 export default class Audience {
-    public id: number;
-    public name: string;
+    public audience_id: number;
+    public expiration_timestamp_ms?: number;
 
-    constructor(id: number, name: string) {
-        this.id = id;
-        this.name = name;
+    constructor(
+        audience_id: number,
+        expiration_timestamp_ms?: number
+    ) {
+        this.audience_id = audience_id;
+        this.expiration_timestamp_ms = expiration_timestamp_ms || null;
     }
 }
