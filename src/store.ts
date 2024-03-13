@@ -171,6 +171,8 @@ export default function Store(
     mpInstance: MParticleWebSDK,
     apiKey?: string
 ) {
+    console.warn('Store instantiated');
+
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
         sessionAttributes: {},

@@ -117,6 +117,9 @@ export default function ConfigAPIClient(this: IConfigAPIClient) {
                             config,
                             JSON.parse(xhr.responseText)
                         );
+
+                        console.warn('async config request returns');
+
                         completeSDKInitialization(apiKey, config, mpInstance);
                         mpInstance.Logger.verbose(
                             'Successfully received configuration from server'

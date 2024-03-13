@@ -2,6 +2,10 @@ import Constants from './constants';
 import Polyfill from './polyfill';
 import * as Utils from './utils';
 
+// import AsyncStorage from '@react-native-async-storage/async-storage';
+// This version is deprecated, and the above is the "current one". Maybe?
+// import AsyncStorage from '@react-native-community/async-storage';
+
 var Base64 = Polyfill.Base64,
     Messages = Constants.Messages,
     Base64CookieKeys = Constants.Base64CookieKeys,
@@ -10,6 +14,8 @@ var Base64 = Polyfill.Base64,
 
 export default function _Persistence(mpInstance) {
     var self = this;
+
+    console.warn('Persistence instantiated');
 
     // https://go.mparticle.com/work/SQDSDKS-5022
     this.useLocalStorage = function() {
@@ -20,11 +26,27 @@ export default function _Persistence(mpInstance) {
     };
 
     this.initializeStorage = function() {
+        console.warn('firing initializeStorage');
+        // debugger;
+
+        // TODO: Try to force Async storage to be used here
+        // AsyncStorage.setItem('mp-async-storage-test', 'save some random stuff');
+
         try {
+            console.warn('initialize storage calls getLocalStorage');
             var storage,
+                // QUESTION: Why is getLocalStorage called twice?
                 localStorageData = self.getLocalStorage(),
+                // asynStorageData = self.getAsyncStorage(),
                 cookies = self.getCookie(),
                 allData;
+
+            // console.warn(
+            //     'initialize storage checks async storage data',
+            //     asynStorageData
+            // );
+
+            console.warn('initialize storge resumes');
 
             // https://go.mparticle.com/work/SQDSDKS-6045
             // Determine if there is any data in cookies or localStorage to figure out if it is the first time the browser is loading mParticle
@@ -125,7 +147,11 @@ export default function _Persistence(mpInstance) {
                     }
                 }
             }
+
+            // Triggers a second call for get local storage
             self.update();
+
+            console.warn('initialize storge ends');
         } catch (e) {
             // If cookies or local storage is corrupt, we want to remove it
             // so that in the future, initializeStorage will work
@@ -142,6 +168,8 @@ export default function _Persistence(mpInstance) {
     };
 
     this.update = function() {
+        console.error('CALLING UPDATE');
+
         if (!mpInstance._Store.webviewBridgeEnabled) {
             if (mpInstance._Store.SDKConfig.useCookieStorage) {
                 self.setCookie();
@@ -416,7 +444,23 @@ export default function _Persistence(mpInstance) {
         return data;
     }
 
+    // this.getAsyncStorage = async function() {
+    //     try {
+    //         const asyncPersistence = await AsyncStorage.getItem(
+    //             'mp-async-storage-test'
+    //         );
+    //         console.warn('Returning async storage data', asyncPersistence);
+    //         return asyncPersistence;
+    //     } catch (error) {
+    //         console.error('Error reading from async storage', error);
+    //         return null;
+    //     }
+    // };
+
     this.getLocalStorage = function() {
+        // debugger;
+        console.warn('Reading from local storage');
+
         if (!mpInstance._Store.isLocalStorageAvailable) {
             return null;
         }
@@ -437,6 +481,7 @@ export default function _Persistence(mpInstance) {
         }
 
         if (Object.keys(obj).length) {
+            console.warn('returning local storage data', obj);
             return obj;
         }
 
@@ -1058,9 +1103,21 @@ export default function _Persistence(mpInstance) {
     };
 
     this.getPersistence = function() {
+        // this.getPersistence = async function() {
+        // debugger;
+        // var asyncPersistence = await this.getAsyncStorage();
+        // console.warn('async persistence in getPersistence', asyncPersistence);
+
+        // debugger;
+
+        // TODO: Should we consider a flag for async storage?
         var persistence = this.useLocalStorage()
             ? this.getLocalStorage()
             : this.getCookie();
+
+        console.warn('local persistence in getPersistence', persistence);
+
+        // debugger;
 
         return persistence;
     };
