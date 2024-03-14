@@ -7,8 +7,15 @@ import {
 } from './uploaders';
 import Audience from './audience';
 
+export interface IAudienceMembershipsServerResponse {
+    dt: 'cam';  // current audience memberships
+    ct: number; // timestamp
+    id: string;
+    current_audience_memberships: Audience[];
+}
+
 export interface IAudienceMemberships {
-    audience_memberships: Audience[];
+    currentAudienceMemberships: Audience[];
 }
 
 export default class AudienceManager {
@@ -19,17 +26,16 @@ export default class AudienceManager {
     constructor(
         userAudienceUrl: string,
         apiKey: string,
-        logger: SDKLoggerApi,
-        mpid: string
+        logger: SDKLoggerApi
     ) {
         this.logger = logger;
-        this.url = `https://${userAudienceUrl}${apiKey}/audience?mpid=${mpid}`;
+        this.url = `https://${userAudienceUrl}${apiKey}/audience?mpid=`;
         this.userAudienceAPI = window.fetch
             ? new FetchUploader(this.url)
             : new XHRUploader(this.url);
     }
 
-    public async sendGetUserAudienceRequest(callback: (userAudiences: IAudienceMemberships) => void) {
+    public async sendGetUserAudienceRequest(mpid: string, callback: (userAudiences: IAudienceMemberships) => void) {
         this.logger.verbose('Fetching user audiences from server');
 
         const fetchPayload: fetchPayload = {
@@ -38,12 +44,14 @@ export default class AudienceManager {
                 Accept: '*/*',
             },
         };
+        const audienceURLWithMPID = `${this.url}${mpid}`;
         let userAudiencePromise: Response;
 
         try {
              userAudiencePromise = await this.userAudienceAPI.upload(
-                fetchPayload
-            );
+                 fetchPayload,
+                 audienceURLWithMPID
+             );
 
             if (
                 userAudiencePromise.status >= 200 &&
@@ -51,10 +59,13 @@ export default class AudienceManager {
             ) {
                 this.logger.verbose(`User Audiences successfully received`);
 
-                const userAudienceMemberships: IAudienceMemberships = await userAudiencePromise.json();
-                
+                const userAudienceMembershipsServerResponse: IAudienceMembershipsServerResponse = await userAudiencePromise.json();
+                const parsedUserAudienceMemberships: IAudienceMemberships = {
+                    currentAudienceMemberships: userAudienceMembershipsServerResponse?.current_audience_memberships
+                }
+
                 try {
-                    callback(userAudienceMemberships);
+                    callback(parsedUserAudienceMemberships);
                 } catch(e) {
                     this.logger.error('Error invoking callback on IAudienceMemberships.');
                 }
