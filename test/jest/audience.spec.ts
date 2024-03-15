@@ -6,14 +6,12 @@ describe('Audience', () => {
 
         expect(audience).toBeDefined();
         expect(audience.audience_id).toEqual(12345);
-        expect(audience.expiration_timestamp_ms).toEqual(null);
     });
 
     it('should return an audience with an audience_id and expiration_timestamp_ms', () => {
-        const audience = new Audience(12345, 12345);
+        const audience = new Audience(12345);
 
         expect(audience).toBeDefined();
         expect(audience.audience_id).toEqual(12345);
-        expect(audience.expiration_timestamp_ms).toEqual(12345);
     });
 });

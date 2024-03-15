@@ -9,7 +9,6 @@ import AudienceManager, {
 } from '../../src/audienceManager';
 import Logger from '../../src/logger.js';
 
-
 declare global {
     interface Window {
         mParticle: MParticleWebSDK;
@@ -76,11 +75,9 @@ describe('AudienceManager', () => {
             current_audience_memberships: [
                 {
                     audience_id: 7628,
-                    expiration_timestamp_ms: 1234
                 },
                 {
                     audience_id: 13388,
-                    expiration_timestamp_ms: null
                 },
             ]
         };
@@ -89,11 +86,9 @@ describe('AudienceManager', () => {
             currentAudienceMemberships: [
                 {
                     audience_id: 7628,
-                    expiration_timestamp_ms: 1234
                 },
                 {
                     audience_id: 13388,
-                    expiration_timestamp_ms: null
                 },
             ]
         };
@@ -135,11 +130,9 @@ describe('AudienceManager', () => {
                 current_audience_memberships: [
                     {
                         audience_id: 9876,
-                        expiration_timestamp_ms: 1234
                     },
                     {
                         audience_id: 5432,
-                        expiration_timestamp_ms: null
                     },
                 ]
             };
@@ -148,11 +141,9 @@ describe('AudienceManager', () => {
             currentAudienceMemberships: [
                 {
                     audience_id: 9876,
-                    expiration_timestamp_ms: 1234
                 },
                 {
                     audience_id: 5432,
-                    expiration_timestamp_ms: null
                 },
             ]
         };

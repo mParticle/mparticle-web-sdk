@@ -26,8 +26,6 @@ export class FetchUploader extends AsyncUploader {
     ): Promise<Response> {
         const url = _url || this.url;
         return await fetch(url, fetchPayload);
-
-        return response;
     }
 }
 
