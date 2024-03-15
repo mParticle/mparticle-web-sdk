@@ -26,7 +26,7 @@ export default class AudienceManager {
     constructor(
         userAudienceUrl: string,
         apiKey: string,
-        logger: SDKLoggerApi
+        logger: SDKLoggerApi,
     ) {
         this.logger = logger;
         this.url = `https://${userAudienceUrl}${apiKey}/audience`;
@@ -67,7 +67,7 @@ export default class AudienceManager {
                 try {
                     callback(parsedUserAudienceMemberships);
                 } catch(e) {
-                    this.logger.error('Error invoking callback on IAudienceMemberships.');
+                    this.logger.error('Error invoking callback on user audience response.');
                 }
 
             } else if (userAudiencePromise.status === 401) {
