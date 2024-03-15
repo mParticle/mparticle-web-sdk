@@ -16,7 +16,7 @@ declare global {
     }
 }
 
-const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience?mpid=`
+const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience`;
 
 describe('AudienceManager', () => {
     let mockServer;
@@ -96,7 +96,7 @@ describe('AudienceManager', () => {
         it('should invoke a callback with user audiences of interface IMPParsedAudienceMemberships', async () => {
             const callback = sinon.spy();
 
-            fetchMock.get(`${userAudienceUrl}${testMPID}`, {
+            fetchMock.get(`${userAudienceUrl}?mpid=${testMPID}`, {
                 status: 200,
                 body: JSON.stringify(audienceMembershipServerResponse)
             });
@@ -106,7 +106,6 @@ describe('AudienceManager', () => {
             expect(audienceManager.logger).to.be.ok;
             expect(audienceManager.url).to.equal(userAudienceUrl);
             expect(callback.calledOnce).to.eq(true);
-            debugger;
             expect(callback.getCall(0).lastArg).to.deep.equal(
                 expectedAudienceMembership
             );
@@ -115,8 +114,8 @@ describe('AudienceManager', () => {
         it('should change the URL endpoint to a new MPID when switching users and attempting to retrieve audiences', async () => {
             const callback = sinon.spy();
             const newMPID = 'newMPID';
-            const testMPIDAudienceEndpoint = `${userAudienceUrl}${testMPID}`;
-            const newMPIDAudienceEndpoint = `${userAudienceUrl}${newMPID}`;
+            const testMPIDAudienceEndpoint = `${userAudienceUrl}?mpid=${testMPID}`;
+            const newMPIDAudienceEndpoint = `${userAudienceUrl}?mpid=${newMPID}`;
 
             fetchMock.get(testMPIDAudienceEndpoint, {
                 status: 200,
@@ -161,7 +160,7 @@ describe('AudienceManager', () => {
             expect(callback.getCall(0).lastArg).to.deep.equal(
                 expectedAudienceMembership
             );
-            
+
             await audienceManager.sendGetUserAudienceRequest(newMPID, callback);
 
             expect(callback.calledTwice).to.eq(true);
