@@ -22,15 +22,10 @@ export abstract class AsyncUploader {
 export class FetchUploader extends AsyncUploader {
     public async upload(
         fetchPayload: fetchPayload,
-        url?: string
+        _url?: string
     ): Promise<Response> {
-        let response: Response;
-
-        if (url) {
-            response = await fetch(url, fetchPayload);
-        } else {
-            response = await fetch(this.url, fetchPayload);
-        }
+        const url = _url || this.url;
+        return await fetch(url, fetchPayload);
 
         return response;
     }

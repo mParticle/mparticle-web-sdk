@@ -1,6 +1,5 @@
 export default class Audience {
     public audience_id: number;
-    public expiration_timestamp_ms?: number;
 
     constructor(
         audience_id: number,

@@ -29,7 +29,7 @@ export default class AudienceManager {
         logger: SDKLoggerApi
     ) {
         this.logger = logger;
-        this.url = `https://${userAudienceUrl}${apiKey}/audience?mpid=`;
+        this.url = `https://${userAudienceUrl}${apiKey}/audience`;
         this.userAudienceAPI = window.fetch
             ? new FetchUploader(this.url)
             : new XHRUploader(this.url);
@@ -44,7 +44,7 @@ export default class AudienceManager {
                 Accept: '*/*',
             },
         };
-        const audienceURLWithMPID = `${this.url}${mpid}`;
+        const audienceURLWithMPID = `${this.url}?mpid=${mpid}`;
         let userAudiencePromise: Response;
 
         try {
