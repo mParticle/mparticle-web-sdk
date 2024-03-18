@@ -5,14 +5,9 @@ import { urls, apiKey, MPConfig, testMPID } from './config/constants';
 import Constants from '../../src/constants';
 import { MParticleWebSDK, SDKLoggerApi } from '../../src/sdkRuntimeModels';
 import AudienceManager, {
-    IMinifiedAudienceMembership,
-    IAudienceServerResponse,
-    AudienceMembershipChangeAction,
-    IMPParsedAudienceMemberships,
-    parseUserAudiences
+    IAudienceMemberships, IAudienceMembershipsServerResponse
 } from '../../src/audienceManager';
 import Logger from '../../src/logger.js';
-
 
 declare global {
     interface Window {
@@ -21,7 +16,7 @@ declare global {
     }
 }
 
-const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience?mpid=${testMPID}`
+const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience`;
 
 describe('AudienceManager', () => {
     let mockServer;
@@ -58,7 +53,6 @@ describe('AudienceManager', () => {
             Constants.DefaultBaseUrls.userAudienceUrl,
             apiKey,
             newLogger,
-            testMPID
         );
 
         expect(audienceManager.logger).to.be.ok;
@@ -71,73 +65,108 @@ describe('AudienceManager', () => {
         const audienceManager = new AudienceManager(
             Constants.DefaultBaseUrls.userAudienceUrl,
             apiKey,
-            newLogger,
-            testMPID
+            newLogger
         );
 
-        const audienceMembership1: IMinifiedAudienceMembership = {
-            'id': 7628,
-            'n': 'foo-audience-1',
-            'c': [{
-                'ct': 0,
-                'a': AudienceMembershipChangeAction.Drop
-                }],
-            's': []
-        };
-
-        const audienceMembership2: IMinifiedAudienceMembership = {
-            'id': 13388,
-            'n': 'foo-audience-2',
-            'c': [
+        const audienceMembershipServerResponse: IAudienceMembershipsServerResponse = {
+            ct: 1710441407914,
+            dt: 'cam',
+            id: 'foo-id',
+            current_audience_memberships: [
                 {
-                    'ct': 1706713126180,
-                    'a': AudienceMembershipChangeAction.Add
-                }
-            ],
-            's': []
-        }
-        const audiencePayloadResponse: IAudienceServerResponse = {
-            'dt': 'ar', // audience response message
-            'id': '399a6b02-6c38-4146-a7e2-144a2b803c24',
-            'ct': 1706714266028,
-            'm': [audienceMembership1, audienceMembership2]
+                    audience_id: 7628,
+                },
+                {
+                    audience_id: 13388,
+                },
+            ]
         };
 
-        const userAudienceResult: IMPParsedAudienceMemberships = {
-            currentAudiences: [{
-                id: 13388,
-                name: 'foo-audience-2',
-            },],
-            pastAudiences: [{
-                id: 7628,
-                name: 'foo-audience-1',
-
-            }]
+        const expectedAudienceMembership: IAudienceMemberships = {
+            currentAudienceMemberships: [
+                {
+                    audience_id: 7628,
+                },
+                {
+                    audience_id: 13388,
+                },
+            ]
         };
 
         it('should invoke a callback with user audiences of interface IMPParsedAudienceMemberships', async () => {
             const callback = sinon.spy();
 
-            fetchMock.get(userAudienceUrl, {
+            fetchMock.get(`${userAudienceUrl}?mpid=${testMPID}`, {
                 status: 200,
-                body: JSON.stringify(audiencePayloadResponse)
+                body: JSON.stringify(audienceMembershipServerResponse)
             });
 
-            await audienceManager.sendGetUserAudienceRequest(callback);
+            await audienceManager.sendGetUserAudienceRequest(testMPID, callback);
 
             expect(audienceManager.logger).to.be.ok;
             expect(audienceManager.url).to.equal(userAudienceUrl);
-            expect(callback.called).to.eq(true);
+            expect(callback.calledOnce).to.eq(true);
             expect(callback.getCall(0).lastArg).to.deep.equal(
-                userAudienceResult
+                expectedAudienceMembership
             );
         });
-        
-        it('#parseUserAudiences', () => {
-            const parsedAudienceResponse: IMPParsedAudienceMemberships = parseUserAudiences(audiencePayloadResponse)
 
-            expect(parsedAudienceResponse).to.deep.equal(userAudienceResult);
-        })
+        it('should change the URL endpoint to a new MPID when switching users and attempting to retrieve audiences', async () => {
+            const callback = sinon.spy();
+            const newMPID = 'newMPID';
+            const testMPIDAudienceEndpoint = `${userAudienceUrl}?mpid=${testMPID}`;
+            const newMPIDAudienceEndpoint = `${userAudienceUrl}?mpid=${newMPID}`;
+
+            fetchMock.get(testMPIDAudienceEndpoint, {
+                status: 200,
+                body: JSON.stringify(audienceMembershipServerResponse)
+            });
+
+            const audienceMembershipServerResponse2: IAudienceMembershipsServerResponse = {
+                ct: 1710441407915,
+                dt: 'cam',
+                id: 'foo-id-2',
+                current_audience_memberships: [
+                    {
+                        audience_id: 9876,
+                    },
+                    {
+                        audience_id: 5432,
+                    },
+                ]
+            };
+
+            const expectedAudienceMembership2: IAudienceMemberships = {
+            currentAudienceMemberships: [
+                {
+                    audience_id: 9876,
+                },
+                {
+                    audience_id: 5432,
+                },
+            ]
+        };
+
+            fetchMock.get(newMPIDAudienceEndpoint, {
+                status: 200,
+                body: JSON.stringify(audienceMembershipServerResponse2)
+            });
+
+            await audienceManager.sendGetUserAudienceRequest(testMPID, callback);
+
+            expect(audienceManager.logger).to.be.ok;
+            expect(audienceManager.url).to.equal(userAudienceUrl);
+            expect(callback.calledOnce).to.eq(true);
+            expect(callback.getCall(0).lastArg).to.deep.equal(
+                expectedAudienceMembership
+            );
+
+            await audienceManager.sendGetUserAudienceRequest(newMPID, callback);
+
+            expect(callback.calledTwice).to.eq(true);
+            expect(callback.getCall(1).lastArg).to.deep.equal(
+                expectedAudienceMembership2
+            );
+        });
     });
-
 });

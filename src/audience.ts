@@ -1,9 +1,9 @@
 export default class Audience {
-    public id: number;
-    public name: string;
+    public audience_id: number;
 
-    constructor(id: number, name: string) {
-        this.id = id;
-        this.name = name;
+    constructor(
+        audience_id: number,
+    ) {
+        this.audience_id = audience_id;
     }
 }

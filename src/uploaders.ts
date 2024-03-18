@@ -9,7 +9,10 @@ export interface fetchPayload {
 
 export abstract class AsyncUploader {
     url: string;
-    public abstract upload(fetchPayload: fetchPayload): Promise<Response>;
+    public abstract upload(
+        fetchPayload: fetchPayload,
+        url?: string
+    ): Promise<Response>;
 
     constructor(url: string) {
         this.url = url;
@@ -17,10 +20,12 @@ export abstract class AsyncUploader {
 }
 
 export class FetchUploader extends AsyncUploader {
-    public async upload(fetchPayload: fetchPayload): Promise<Response> {
-        const response: Response = await fetch(this.url, fetchPayload);
-
-        return response;
+    public async upload(
+        fetchPayload: fetchPayload,
+        _url?: string
+    ): Promise<Response> {
+        const url = _url || this.url;
+        return await fetch(url, fetchPayload);
     }
 }
 

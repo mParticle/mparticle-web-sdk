@@ -7,34 +7,15 @@ import {
 } from './uploaders';
 import Audience from './audience';
 
-type AudienceResponseMessage = 'ar';
-export interface IAudienceServerResponse {
-    dt: AudienceResponseMessage;
+export interface IAudienceMembershipsServerResponse {
+    dt: 'cam';  // current audience memberships
+    ct: number; // timestamp
     id: string;
-    ct: number;
-    m: IMinifiedAudienceMembership[];
-}
-export interface IMinifiedAudienceMembership {
-    id: number; // AudienceId
-    n: string; // External Name
-    c: AudienceListMembershipUpdateType[]; // AudienceMembershipChanges
-    s: string[]; // ModuleEndpointExternalReferenceKeys
+    current_audience_memberships: Audience[];
 }
 
-export enum AudienceMembershipChangeAction {
-    Unknown = 'unknown',
-    Add = 'add',
-    Drop = 'drop',
-}
-
-export interface AudienceListMembershipUpdateType {
-    ct: number;
-    a: AudienceMembershipChangeAction;
-}
-
-export interface IMPParsedAudienceMemberships {
-    currentAudiences: Audience[];
-    pastAudiences: Audience[];
+export interface IAudienceMemberships {
+    currentAudienceMemberships: Audience[];
 }
 
 export default class AudienceManager {
@@ -46,16 +27,15 @@ export default class AudienceManager {
         userAudienceUrl: string,
         apiKey: string,
         logger: SDKLoggerApi,
-        mpid: string
     ) {
         this.logger = logger;
-        this.url = `https://${userAudienceUrl}${apiKey}/audience?mpid=${mpid}`;
+        this.url = `https://${userAudienceUrl}${apiKey}/audience`;
         this.userAudienceAPI = window.fetch
             ? new FetchUploader(this.url)
             : new XHRUploader(this.url);
     }
 
-    public async sendGetUserAudienceRequest(callback: (userAudiences: IMPParsedAudienceMemberships) => void) {
+    public async sendGetUserAudienceRequest(mpid: string, callback: (userAudiences: IAudienceMemberships) => void) {
         this.logger.verbose('Fetching user audiences from server');
 
         const fetchPayload: fetchPayload = {
@@ -64,12 +44,14 @@ export default class AudienceManager {
                 Accept: '*/*',
             },
         };
+        const audienceURLWithMPID = `${this.url}?mpid=${mpid}`;
         let userAudiencePromise: Response;
 
         try {
              userAudiencePromise = await this.userAudienceAPI.upload(
-                fetchPayload
-            );
+                 fetchPayload,
+                 audienceURLWithMPID
+             );
 
             if (
                 userAudiencePromise.status >= 200 &&
@@ -77,13 +59,15 @@ export default class AudienceManager {
             ) {
                 this.logger.verbose(`User Audiences successfully received`);
 
-                const userAudienceResponse: IAudienceServerResponse = await userAudiencePromise.json();
-                const parsedUserAudiences: IMPParsedAudienceMemberships = parseUserAudiences(userAudienceResponse)
-                
+                const userAudienceMembershipsServerResponse: IAudienceMembershipsServerResponse = await userAudiencePromise.json();
+                const parsedUserAudienceMemberships: IAudienceMemberships = {
+                    currentAudienceMemberships: userAudienceMembershipsServerResponse?.current_audience_memberships
+                }
+
                 try {
-                    callback(parsedUserAudiences);
+                    callback(parsedUserAudienceMemberships);
                 } catch(e) {
-                    this.logger.error('Error invoking callback on user audience response.')
+                    this.logger.error('Error invoking callback on user audience response.');
                 }
 
             } else if (userAudiencePromise.status === 401) {
@@ -110,29 +94,5 @@ export default class AudienceManager {
                 `Error retrieving audiences. ${e}`
             );
         }
-    }
-}
-
-export const parseUserAudiences = (audienceServerResponse: IAudienceServerResponse): IMPParsedAudienceMemberships => {
-    const currentAudiences: Audience[] = [];
-    const pastAudiences: Audience[] = [];
-    audienceServerResponse?.m?.forEach((membership: IMinifiedAudienceMembership) => {
-        if (membership.c[0].a === AudienceMembershipChangeAction.Add) {
-            currentAudiences.push(new Audience(
-                membership.id,
-                membership.n
-            ));
-        };
-
-        if (membership.c[0].a === AudienceMembershipChangeAction.Drop) {
-            pastAudiences.push(new Audience(
-                membership.id,
-                membership.n
-            ));
-        };
-    });
-
-    return {
-        currentAudiences, pastAudiences
     }
 }
