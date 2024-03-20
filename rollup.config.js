@@ -11,6 +11,7 @@ const defaultOutputOptions = {
     name: 'mParticle',
     strict: false,
     sourcemap: ENVIRONMENT !== 'prod' ? 'inline' : false,
+    // external: ['@react-native-community/async-storage'],
 };
 
 const defaultBabel = babel({

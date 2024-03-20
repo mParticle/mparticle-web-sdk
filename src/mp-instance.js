@@ -96,13 +96,21 @@ export default function mParticleInstance(instanceName) {
         }
     }
     this.init = function(apiKey, config) {
+        console.warn('LOCAL DEV');
+
         if (!config) {
             console.warn(
                 'You did not pass a config object to init(). mParticle will not initialize properly'
             );
         }
 
+        console.log('call to runPreConfigFetchInitialization');
+
+        console.error('STARTING INIT');
+
         runPreConfigFetchInitialization(this, apiKey, config);
+
+        // TODO: Perhaps we break up completeSDKInitialization into two methods, one for fetching config and one for initializing the SDK
 
         // config code - Fetch config when requestConfig = true, otherwise, proceed with SDKInitialization
         // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
@@ -112,13 +120,27 @@ export default function mParticleInstance(instanceName) {
                 !config.hasOwnProperty('requestConfig') ||
                 config.requestConfig
             ) {
+                console.warn('firing async call to fetch config');
                 new ConfigAPIClient().getSDKConfiguration(
                     apiKey,
                     config,
                     completeSDKInitialization,
                     this
                 );
+
+                console.warn('async config continues');
             } else {
+                console.warn('non-async call to fetch config');
+                // debugger;
+                // var self = this;
+                // setTimeout(
+                //     function() {
+                //         debugger;
+                //         completeSDKInitialization(apiKey, config, self);
+                //     },
+                //     0,
+                //     self
+                // );
                 completeSDKInitialization(apiKey, config, this);
             }
         } else {
@@ -127,6 +149,8 @@ export default function mParticleInstance(instanceName) {
             );
             return;
         }
+
+        console.error('ENDING INIT');
     };
     /**
      * Resets the SDK to an uninitialized state and removes cookies/localStorage. You MUST call mParticle.init(apiKey, window.mParticle.config)
@@ -1285,10 +1309,14 @@ export default function mParticleInstance(instanceName) {
 
 // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 function completeSDKInitialization(apiKey, config, mpInstance) {
+    console.warn('completeSDKInitialization called');
+
     var kitBlocker = createKitBlocker(config, mpInstance);
 
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
+
+    // TODO: Move this into the store or create a config class
     if (config.flags) {
         if (
             config.flags.hasOwnProperty(
@@ -1304,6 +1332,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         }
     }
 
+    console.warn('Storage name is set');
+
+    // QUESTION: Can we move these two into the _Store object?
     // add a new function to apply items to the store that require config to be returned
     mpInstance._Store.storageName = mpInstance._Helpers.createMainStorageName(
         config.workspaceToken
@@ -1350,7 +1381,12 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-6044
     if (!mpInstance._Store.webviewBridgeEnabled) {
         // Load any settings/identities/attributes from cookie or localStorage
+
+        console.error('PERSISTENCE: Starts initializing Storage');
+
         mpInstance._Persistence.initializeStorage();
+
+        console.error('PERSISTENCE: Finishes Initialzing Storage');
     }
 
     if (mpInstance._Store.webviewBridgeEnabled) {
@@ -1542,12 +1578,23 @@ function createKitBlocker(config, mpInstance) {
 }
 
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
+    // async function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger = new Logger(config);
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
     mpInstance.Logger.verbose(
         Messages.InformationMessages.StartingInitialization
     );
+
+    // // QUESTION: Can we try fetching async storage here?
+    // try {
+    //     console.warn('trying to fetch async storage in preConfig');
+    //     const asyncPersistence = await mpInstance._Persistence.getAsyncStorage();
+
+    //     console.warn('fetching async storage in preConfig', asyncPersistence);
+    // } catch (error) {
+    //     console.error('error fetching async storage in preConfig', error);
+    // }
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence
