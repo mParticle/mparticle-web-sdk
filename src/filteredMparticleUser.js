@@ -10,7 +10,7 @@ export default function filteredMparticleUser(
     return {
         getUserIdentities: function() {
             var currentUserIdentities = {};
-            var identities = mpInstance._Persistence.getUserIdentities(mpid);
+            var identities = mpInstance._Store.getUserIdentities(mpid);
 
             for (var identityType in identities) {
                 if (identities.hasOwnProperty(identityType)) {
@@ -67,10 +67,9 @@ export default function filteredMparticleUser(
             return userAttributesLists;
         },
         getAllUserAttributes: function() {
+            // TODO: May not need to make a copy since Store should return a copy
             var userAttributesCopy = {};
-            var userAttributes = mpInstance._Persistence.getAllUserAttributes(
-                mpid
-            );
+            var userAttributes = mpInstance._Store.getUserAttributes(mpid);
 
             if (userAttributes) {
                 for (var prop in userAttributes) {

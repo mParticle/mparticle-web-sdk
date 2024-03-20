@@ -6,6 +6,8 @@ import {
     IdentifyRequest,
     IdentityCallback,
     SDKEventCustomFlags,
+    UserIdentities,
+    ConsentState,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
@@ -20,9 +22,24 @@ import {
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
-import { isNumber, isDataPlanSlug, Dictionary, parseNumber } from './utils';
-import { SDKConsentState } from './consent';
+import {
+    isNumber,
+    isDataPlanSlug,
+    Dictionary,
+    parseNumber,
+    isEmpty,
+    mergeObjects,
+} from './utils';
+import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
+import {
+    CookieSyncDate,
+    IGlobalStoreV2MinifiedKeys,
+    IPersistenceMinified,
+    UserAttributes,
+} from './persistence.interfaces';
+
+const { Messages } = Constants;
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -121,6 +138,8 @@ export interface IFeatureFlags {
 
 // Temporary Interface until Store can be refactored as a class
 export interface IStore {
+    mpid?: MPID;
+
     isEnabled: boolean;
     sessionAttributes: SessionAttributes;
     currentSessionMPIDs: MPID[];
@@ -162,6 +181,48 @@ export interface IStore {
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
+
+    persistenceData?: IPersistenceMinified;
+
+    setAppVersion: (appVersion: string) => void;
+
+    _getFromPersistence?<T>(mpid: MPID, key: string): T;
+    _setPersistence?<T>(mpid: MPID, key: string, value: T): void;
+    setPersistenceData?(persistenceData: IPersistenceMinified): void;
+    getPersistenceData?(): IPersistenceMinified;
+
+    getConsentState?(mpid: MPID): ConsentState;
+    setConsentState?(mpid: MPID, consentState: ConsentState): void;
+
+    getFirstSeenTime?(mpid: MPID): number;
+    setFirstSeenTime?(mpid: MPID, time?: number): void;
+    getLastSeenTime?(mpid: MPID): number;
+    setLastSeenTime?(mpid: MPID, time?: number): void;
+
+    getUserIdentities?(mpid: MPID): UserIdentities;
+    setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
+    getAllUserAttributes?(mpid: MPID): Dictionary;
+    setUserAttributes?(mpid: MPID, userAttributes: Dictionary): void;
+    setUserCookieSyncDates?(mpid: MPID, cookieSyncDates: Dictionary): void;
+
+    hasCurrentUser?(): boolean;
+    hasSession?(): boolean;
+
+    nullifySession?(): void;
+
+    // Originally this took data as a param and mutated. This should actuall
+    // return the data and allow the "end user" to mutate a copy.
+    getGlobalStorageAttributes?(): IPersistenceMinified;
+
+    getDeviceId?(): string;
+    setDeviceId?(guid: string): void;
+
+    swapIdentity?(currentMPID: MPID, currentSessionMPIDs: MPID[]): void;
+
+    storeDataInPersistence?(
+        persistenceObject: IPersistenceMinified,
+        mpid: MPID
+    ): void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -213,6 +274,27 @@ export default function Store(
             name: 'none',
             version: null,
             isInfoSet: false,
+        },
+
+        // Placeholder for in-memory persistence model
+        persistenceData: {
+            cu: null,
+            gs: {
+                sid: null,
+                ie: null,
+                sa: null,
+                ss: null,
+                dt: null,
+                av: null,
+                cgid: null,
+                das: null,
+                ia: null,
+                c: null,
+                csm: null,
+                les: null,
+                ssd: null,
+            },
+            l: null,
         },
     };
 
@@ -418,6 +500,276 @@ export default function Store(
             }
         }
     }
+
+    this.setAppVersion = (appVersion: string): void => {
+        this.SDKConfig.appVersion = appVersion;
+        mpInstance._Persistence.update();
+    };
+
+    // TODO: Create an interface for T so we can restrict this method to only
+    //       valid keys of T
+    this._getFromPersistence = <T>(mpid: MPID, key: string): T | null => {
+        if (!mpid) {
+            return null;
+        }
+
+        const persistence = mpInstance._Persistence.getPersistence();
+
+        this.persistenceData = mergeObjects(this.persistenceData, persistence);
+
+        if (
+            this.persistenceData &&
+            this.persistenceData[mpid] &&
+            this.persistenceData[mpid][key]
+        ) {
+            return this.persistenceData[mpid][key] as T;
+        } else {
+            return null;
+        }
+    };
+
+    this.getPersistenceData = (): IPersistenceMinified => {
+        const persistence = mpInstance._Persistence.getPersistence();
+
+        this.persistenceData = mergeObjects(this.persistenceData, persistence);
+
+        return this.persistenceData;
+    };
+
+    this.getFirstSeenTime = (mpid: MPID): number =>
+        this._getFromPersistence<number>(mpid, 'fst');
+    this.getLastSeenTime = (mpid: MPID): number =>
+        this._getFromPersistence<number>(mpid, 'lst');
+    this.getUserIdentities = (mpid: MPID): UserIdentities =>
+        this._getFromPersistence<UserIdentities>(mpid, 'ui');
+
+    // QUESTION: Can we rename this to getUserAttributes?
+    this.getAllUserAttributes = (mpid: MPID): Dictionary =>
+        this._getFromPersistence<Dictionary>(mpid, 'ua');
+    this.getConsentState = (mpid: MPID): ConsentState => {
+        const serializedConsentState = this._getFromPersistence<
+            IMinifiedConsentJSONObject
+        >(mpid, 'con');
+
+        if (!isEmpty(serializedConsentState)) {
+            return mpInstance._Consent.ConsentSerialization.fromMinifiedJsonObject(
+                serializedConsentState
+            );
+        }
+
+        return null;
+    };
+
+    this._setPersistence = <T>(mpid: MPID, key: string, value: T): void => {
+        if (!mpid) {
+            return;
+        }
+
+        const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
+
+        this.persistenceData = mergeObjects(this.persistenceData, persistence);
+
+        if (this.persistenceData) {
+            if (this.persistenceData[mpid]) {
+                this.persistenceData[mpid][key] = value;
+            } else {
+                this.persistenceData[mpid] = {
+                    [key]: value,
+                };
+            }
+            mpInstance._Persistence.savePersistence(this.persistenceData);
+        }
+    };
+
+    this.setPersistenceData = (persistenceData: IPersistenceMinified): void => {
+        const persistence = mpInstance._Persistence.getPersistence();
+
+        this.persistenceData = mergeObjects(
+            this.persistenceData,
+            persistence,
+            persistenceData
+        );
+    };
+
+    this.setFirstSeenTime = (mpid: MPID, _time: number): void => {
+        const time = _time || new Date().getTime();
+        this._setPersistence<number>(mpid, 'fst', time);
+    };
+    this.setLastSeenTime = (mpid: MPID, _time: number): void => {
+        const time = _time || new Date().getTime();
+        this._setPersistence<number>(mpid, 'lst', time);
+    };
+    this.setUserIdentities = (
+        mpid: MPID,
+        userIdentities: UserIdentities
+    ): void => {
+        this._setPersistence<UserIdentities>(mpid, 'ui', userIdentities);
+    };
+    this.setUserAttributes = (
+        mpid: MPID,
+        userAttributes: UserAttributes
+    ): void => {
+        this._setPersistence<Dictionary>(mpid, 'ua', userAttributes);
+    };
+    this.setConsentState = (mpid: MPID, consentState: ConsentState): void => {
+        const serializedConsentState = mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(
+            consentState
+        );
+
+        this._setPersistence<IMinifiedConsentJSONObject>(
+            mpid,
+            'con',
+            serializedConsentState
+        );
+    };
+    this.setUserCookieSyncDates = (
+        mpid: MPID,
+        cookieSyncDates: CookieSyncDate[]
+    ): void => {
+        this._setPersistence<CookieSyncDate[]>(mpid, 'csd', cookieSyncDates);
+    };
+
+    this.hasCurrentUser = (): boolean => {
+        const persistance = this.getPersistenceData();
+
+        return !!persistance.cu;
+    };
+
+    this.hasSession = (): boolean => {
+        const persistance = this.getPersistenceData();
+
+        return !!(persistance.gs && persistance.gs.sid);
+    };
+
+    this.nullifySession = (): void => {
+        this.sessionId = null;
+        this.dateLastEventSent = null;
+        this.sessionAttributes = {};
+        mpInstance._Persistence.update();
+    };
+
+    this.getGlobalStorageAttributes = (): IPersistenceMinified => {
+        const data: Partial<IPersistenceMinified> = {};
+
+        data.gs.sid = this.sessionId;
+        data.gs.ie = this.isEnabled;
+        data.gs.sa = this.sessionAttributes;
+        data.gs.ss = this.serverSettings;
+        data.gs.dt = this.devToken;
+        data.gs.les = this.dateLastEventSent
+            ? this.dateLastEventSent.getTime()
+            : null;
+        data.gs.av = this.SDKConfig.appVersion;
+        data.gs.cgid = this.clientId;
+        data.gs.das = this.deviceId;
+        data.gs.c = this.context;
+        data.gs.ssd = this.sessionStartDate
+            ? this.sessionStartDate.getTime()
+            : 0;
+        data.gs.ia = this.integrationAttributes;
+
+        return data as IPersistenceMinified;
+    };
+
+    this.getDeviceId = (): string => this.deviceId;
+    this.setDeviceId = (guid: string): void => {
+        this.deviceId = guid;
+
+        // https://go.mparticle.com/work/SQDSDKS-6045
+        mpInstance._Persistence.update();
+    };
+
+    this.swapIdentity = (
+        currentMPID: MPID,
+        currentSessionMPIDs: MPID[]
+    ): void => {
+        const persistance = mpInstance._Persistence.getPersistence();
+
+        this.persistenceData = mergeObjects(this.persistenceData, persistance);
+
+        if (this.persistenceData) {
+            this.persistenceData.cu = currentMPID;
+            this.persistenceData.gs.csm = currentSessionMPIDs;
+            mpInstance._Persistence.savePersistence(this.persistenceData);
+        }
+    };
+
+    this.storeDataInPersistence = (
+        persistenceObject: IPersistenceMinified,
+        currentMPID: MPID
+    ): void => {
+        try {
+            if (!persistenceObject) {
+                mpInstance.Logger.verbose(
+                    Messages.InformationMessages.CookieNotFound
+                );
+
+                // QUESTION: Can we remove these now that we have store defaults?
+                this.clientId =
+                    this.clientId || mpInstance._Helpers.generateUniqueId();
+                this.deviceId =
+                    this.deviceId || mpInstance._Helpers.generateUniqueId();
+            } else {
+                //         // Set MPID first, then change object to match MPID data
+                if (currentMPID) {
+                    this.mpid = currentMPID;
+                } else {
+                    this.mpid = persistenceObject.cu || '';
+                }
+                persistenceObject.gs =
+                    persistenceObject.gs || ({} as IGlobalStoreV2MinifiedKeys);
+                this.sessionId = persistenceObject.gs.sid || this.sessionId;
+                this.isEnabled =
+                    typeof persistenceObject.gs.ie !== 'undefined'
+                        ? persistenceObject.gs.ie
+                        : this.isEnabled;
+                this.sessionAttributes =
+                    persistenceObject.gs.sa || this.sessionAttributes;
+                this.serverSettings =
+                    persistenceObject.gs.ss || this.serverSettings;
+                this.devToken = this.devToken || persistenceObject.gs.dt;
+                this.SDKConfig.appVersion =
+                    this.SDKConfig.appVersion || persistenceObject.gs.av;
+                this.clientId =
+                    persistenceObject.gs.cgid ||
+                    this.clientId ||
+                    mpInstance._Helpers.generateUniqueId();
+                // For most persistence values, we prioritize localstorage/cookie values over
+                // Store. However, we allow device ID to be overriden via a config value and
+                // thus the priority of the deviceId value is
+                // 1. value passed via config.deviceId
+                // 2. previous value in persistence
+                // 3. generate new guid
+                this.deviceId =
+                    this.deviceId ||
+                    persistenceObject.gs.das ||
+                    mpInstance._Helpers.generateUniqueId();
+                this.integrationAttributes = persistenceObject.gs.ia || {};
+                this.context = persistenceObject.gs.c || this.context;
+                this.currentSessionMPIDs =
+                    persistenceObject.gs.csm || this.currentSessionMPIDs;
+                this.isLoggedIn = persistenceObject.l === (true as Boolean);
+                if (persistenceObject.gs.les) {
+                    this.dateLastEventSent = new Date(persistenceObject.gs.les);
+                }
+                if (persistenceObject.gs.ssd) {
+                    this.sessionStartDate = new Date(persistenceObject.gs.ssd);
+                } else {
+                    this.sessionStartDate = new Date();
+                }
+                if (currentMPID) {
+                    persistenceObject = persistenceObject[currentMPID];
+                } else {
+                    persistenceObject = persistenceObject[persistenceObject.cu];
+                }
+
+                // QUESTION: Should we store this persistence object into persistenceData?
+            }
+        } catch (error) {
+            mpInstance.Logger.error(Messages.ErrorMessages.CookieParseError);
+            console.error(error);
+        }
+    };
 }
 
 export function processFlags(

@@ -293,10 +293,6 @@ describe('SessionManager', () => {
             it('should end a session', () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
-                const persistenceSpy = sinon.spy(
-                    mpInstance._Persistence,
-                    'update'
-                );
 
                 clock.tick(31 * (MILLIS_IN_ONE_SEC * 60));
                 mpInstance._SessionManager.endSession();
@@ -304,37 +300,25 @@ describe('SessionManager', () => {
                 expect(mpInstance._Store.sessionId).to.equal(null);
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
-
-                // Persistence isn't necessary for this feature, but we should test
-                // to see that it is called in case this ever needs to be refactored
-                expect(persistenceSpy.called).to.equal(true);
             });
 
             it('should force a session end when override is used', () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
-                const persistenceSpy = sinon.spy(
-                    mpInstance._Persistence,
-                    'update'
-                );
 
                 mpInstance._SessionManager.endSession(true);
 
                 expect(mpInstance._Store.sessionId).to.equal(null);
                 expect(mpInstance._Store.dateLastEventSent).to.equal(null);
                 expect(mpInstance._Store.sessionAttributes).to.eql({});
-
-                // Persistence isn't necessary for this feature, but we should test
-                // to see that it is called in case this ever needs to be refactored
-                expect(persistenceSpy.called).to.equal(true);
             });
 
-            it('should log  NoSessionToEnd Message  and return if Persistence is null', () => {
+            it('should log NoSessionToEnd Message  and return if Persistence is null', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
                 sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .stub(mpInstance._Store, 'getPersistenceData')
                     .returns(null);
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
@@ -356,7 +340,7 @@ describe('SessionManager', () => {
 
                 const mpInstance = mParticle.getInstance();
                 sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .stub(mpInstance._Store, 'getPersistenceData')
                     .returns({ gs: {} });
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
@@ -375,7 +359,7 @@ describe('SessionManager', () => {
 
                 const mpInstance = mParticle.getInstance();
                 sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .stub(mpInstance._Store, 'getPersistenceData')
                     .returns({ gs: {} });
 
                 sinon.stub(mpInstance._Helpers, 'canLog').returns(false);
@@ -396,7 +380,7 @@ describe('SessionManager', () => {
 
                 const mpInstance = mParticle.getInstance();
                 sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .stub(mpInstance._Store, 'getPersistenceData')
                     .returns({ gs: {} });
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
@@ -417,7 +401,7 @@ describe('SessionManager', () => {
 
                 const mpInstance = mParticle.getInstance();
                 sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .stub(mpInstance._Store, 'getPersistenceData')
                     .returns({ gs: {} });
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
@@ -440,7 +424,7 @@ describe('SessionManager', () => {
 
                 const mpInstance = mParticle.getInstance();
                 sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .stub(mpInstance._Store, 'getPersistenceData')
                     .returns({ gs: {} });
 
                 const consoleSpy = sinon.spy(mpInstance.Logger, 'verbose');
@@ -462,7 +446,7 @@ describe('SessionManager', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                sinon.stub(mpInstance._Store, 'getPersistenceData').returns({
                     gs: {
                         sid: 'cookie-session-id',
                     },
@@ -492,7 +476,7 @@ describe('SessionManager', () => {
 
                 // Session Manager relies on persistence to determine last event sent (LES) time
                 // Also requires sid to verify session exists
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                sinon.stub(mpInstance._Store, 'getPersistenceData').returns({
                     gs: {
                         les: twentyMinutesAgo,
                         sid: 'fake-session-id',
@@ -540,7 +524,7 @@ describe('SessionManager', () => {
                 // Session Manager relies on persistence to determine last event seen (LES) time
                 // Also requires sid to verify session exists
                 const persistenceGetterStub = sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .stub(mpInstance._Store, 'getPersistenceData')
                     .returns({
                         gs: {
                             les: twentyMinutesAgo,
@@ -719,8 +703,8 @@ describe('SessionManager', () => {
                 mParticle.init(apiKey, window.mParticle.config);
                 const mpInstance = mParticle.getInstance();
 
-                // Session Manager relies on persistence check sid (Session ID)
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                // Session Manager relies on persistence to check sid (Session ID)
+                sinon.stub(mpInstance._Store, 'getPersistenceData').returns({
                     gs: {
                         sid: null,
                     },
@@ -745,7 +729,7 @@ describe('SessionManager', () => {
                 // However, if persistence is undefined, this will not create a
                 // new session
                 sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .stub(mpInstance._Store, 'getPersistenceData')
                     .returns(null);
 
                 mpInstance._Store.sessionId = undefined;
@@ -764,7 +748,7 @@ describe('SessionManager', () => {
                 const mpInstance = mParticle.getInstance();
 
                 // Session Manager relies on persistence check sid (Session ID)
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                sinon.stub(mpInstance._Store, 'getPersistenceData').returns({
                     gs: {
                         sid: 'sid-from-persistence',
                     },
@@ -782,7 +766,7 @@ describe('SessionManager', () => {
                 const mpInstance = mParticle.getInstance();
 
                 // Session Manager relies on persistence check sid (Session ID)
-                sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+                sinon.stub(mpInstance._Store, 'getPersistenceData').returns({
                     gs: {
                         sid: 'sid-from-persistence',
                     },
@@ -808,7 +792,7 @@ describe('SessionManager', () => {
 
                 // Session Manager relies on persistence check sid (Session ID)
                 sinon
-                    .stub(mpInstance._Persistence, 'getPersistence')
+                    .stub(mpInstance._Store, 'getPersistenceData')
                     .returns(null);
 
                 const startNewSessionSpy = sinon.spy(
@@ -862,7 +846,7 @@ describe('SessionManager', () => {
 
             // Session Manager relies on persistence to determine last time seen (LES)
             // Also requires sid to verify session exists
-            sinon.stub(mpInstance._Persistence, 'getPersistence').returns({
+            sinon.stub(mpInstance._Store, 'getPersistenceData').returns({
                 gs: {
                     les: now,
                     sid: 'fake-session-id',

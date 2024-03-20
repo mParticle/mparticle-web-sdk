@@ -432,12 +432,16 @@ describe('core SDK', function() {
         let sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
         Should(sessionEndEvent).be.ok();
 
+        // QUESTION: Why do we reset history?
         fetchMock.resetHistory();
         clock.tick(100);
 
+        // TODO: Nto sure if it's related but I noticed persistence and store persistence are out of sync here
         mParticle.logEvent('Test Event2');
 
-        const sid = mParticle.getInstance()._Persistence.getLocalStorage().gs.sid;
+        // TODO: look into store persistence data just in case
+        const sid = mParticle.getInstance()._Persistence.getLocalStorage().gs
+            .sid;
 
         const new_Persistence = {
             gs: {
@@ -449,7 +453,7 @@ describe('core SDK', function() {
         setLocalStorage(workspaceCookieName, new_Persistence);
         // // This clock tick initiates a session end event that is not successful
         clock.tick(70000);
-        sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
+        // TODO: Session End Event is not empty but the expectation is that it should be
 
         Should(sessionEndEvent).not.be.ok();
         const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
