@@ -223,6 +223,10 @@ const isStringOrNumber = (value: any): boolean =>
 const isEmpty = (value: Dictionary<any> | null | undefined): boolean =>
     value == null || !(Object.keys(value) || value).length;
 
+const mergeObjects = <T extends object>(...objects: T[]): T => {
+    return Object.assign({}, ...objects);
+};
+
 export {
     createCookieString,
     revertCookieString,
@@ -251,4 +255,5 @@ export {
     isDataPlanSlug,
     isEmpty,
     isValidCustomFlagProperty,
+    mergeObjects,
 };
