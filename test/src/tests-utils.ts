@@ -370,6 +370,10 @@ describe('Utils', () => {
 
         it('returns true if Custom Flag Property is not valid', () => {
             expect(isValidCustomFlagProperty(null), 'null').to.equal(false);
+            expect(isValidCustomFlagProperty(function(){}), 'function').to.equal(false);
+            expect(isValidCustomFlagProperty(undefined), 'undefined').to.equal(false);
+        });
+    });
 
     describe('#mergeObjects', () => {
         it('should merge objects', () => {
