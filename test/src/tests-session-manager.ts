@@ -43,7 +43,7 @@ describe('SessionManager', () => {
         ]);
     });
 
-    afterEach(function () {
+    afterEach(function() {
         sandbox.restore();
         clock.restore();
         mockServer.restore();
@@ -329,7 +329,7 @@ describe('SessionManager', () => {
                 expect(persistenceSpy.called).to.equal(true);
             });
 
-            it('should log StartingEndSession message and return early if Persistence is null', () => {
+            it('should log  NoSessionToEnd Message  and return if Persistence is null', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();
@@ -341,18 +341,17 @@ describe('SessionManager', () => {
 
                 mpInstance._SessionManager.endSession();
 
-                // This path currently goes through the !cookies path,
-                // which doesn't really return anything except for logging the
-                // initial StartingEndSession message
-                expect(consoleSpy.getCall(0).firstArg).to.equal(
+                // Should log initial StartingEndSession and NoSessionToEnd messages
+                expect(consoleSpy.getCalls().length).to.equal(2);
+                expect(consoleSpy.firstCall.firstArg).to.equal(
                     Messages.InformationMessages.StartingEndSession
                 );
-
-                // Should only log a single verbose log
-                expect(consoleSpy.getCalls().length).to.equal(1);
+                expect(consoleSpy.lastCall.firstArg).to.equal(
+                    Messages.InformationMessages.NoSessionToEnd
+                );
             });
 
-            it('should log a NoSessionToEnd Message if Persistence Exists but does not return an sid', () => {
+            it('should log a NoSessionToEnd Message if Persistence exists but does not return an sid', () => {
                 mParticle.init(apiKey, window.mParticle.config);
 
                 const mpInstance = mParticle.getInstance();

@@ -149,12 +149,7 @@ export default function SessionManager(
 
         const cookies: IPersistenceMinified = mpInstance._Persistence.getPersistence();
 
-        // TODO: https://go.mparticle.com/work/SQDSDKS-5684
-        if (!cookies) {
-            return;
-        }
-
-        if (cookies.gs && !cookies.gs.sid) {
+        if (!cookies || cookies.gs && !cookies.gs.sid) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.NoSessionToEnd
             );
