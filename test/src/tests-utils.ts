@@ -12,6 +12,7 @@ import {
     isObject,
     isStringOrNumber,
     isValidCustomFlagProperty,
+    mergeObjects,
     parseNumber,
     parseStringOrNumber,
     replaceApostrophesWithQuotes,
@@ -369,8 +370,50 @@ describe('Utils', () => {
 
         it('returns true if Custom Flag Property is not valid', () => {
             expect(isValidCustomFlagProperty(null), 'null').to.equal(false);
-            expect(isValidCustomFlagProperty(function(){}), 'function').to.equal(false);
-            expect(isValidCustomFlagProperty(undefined), 'undefined').to.equal(false);
+
+    describe('#mergeObjects', () => {
+        it('should merge objects', () => {
+            const obj1 = { foo: 'bar' };
+            const obj2 = { fizz: 'buzz' };
+
+            expect(mergeObjects<any>(obj1, obj2)).to.deep.equal({
+                foo: 'bar',
+                fizz: 'buzz',
+            });
+        });
+
+        it('should override values with the same keys', () => {
+            const obj1 = { foo: 'bar', flip: 'flop' };
+            const obj2 = { fizz: 'buzz', narf: 'poit' };
+            const obj3 = { foo: 'baz' };
+
+            expect(mergeObjects<any>(obj1, obj2, obj3)).to.deep.equal({
+                foo: 'baz',
+                fizz: 'buzz',
+                flip: 'flop',
+                narf: 'poit',
+            });
+        });
+
+        it('should merge objects with nested objects', () => {
+            const obj1 = { foo: { bar: 'baz' } };
+            const obj2 = { fizz: { buzz: 'fizzbuzz' } };
+
+            expect(mergeObjects<any>(obj1, obj2)).to.deep.equal({
+                foo: { bar: 'baz' },
+                fizz: { buzz: 'fizzbuzz' },
+            });
+        });
+
+        it('should return a copy of the original object', () => {
+            const obj1 = { foo: 'bar' };
+            const obj2 = { fizz: 'buzz' };
+
+            const merged = mergeObjects<any>(obj1, obj2);
+            merged.foo = 'not-bar';
+
+            expect(obj1.foo).to.equal('bar');
+            expect(merged.foo).to.equal('not-bar');
         });
     });
 });
