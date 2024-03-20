@@ -386,7 +386,7 @@ describe('Utils', () => {
             });
         });
 
-        it('should override values with the same keys', () => {
+        it('should override values with the same keys in the order they appear, with the subsequent objects taking priority', () => {
             const obj1 = { foo: 'bar', flip: 'flop' };
             const obj2 = { fizz: 'buzz', narf: 'poit' };
             const obj3 = { foo: 'baz' };
