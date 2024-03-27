@@ -440,8 +440,7 @@ describe('core SDK', function() {
         mParticle.logEvent('Test Event2');
 
         // TODO: look into store persistence data just in case
-        const sid = mParticle.getInstance()._Persistence.getLocalStorage().gs
-            .sid;
+        const sid = mParticle.getInstance()._Persistence.getLocalStorage().gs.sid;
 
         const new_Persistence = {
             gs: {
