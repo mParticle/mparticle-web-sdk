@@ -221,8 +221,10 @@ export interface IStore {
 
     storeDataInPersistence?(
         persistenceObject: IPersistenceMinified,
-        mpid: MPID
+        mpid?: MPID
     ): void;
+
+    updatePersistence?(): void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -538,8 +540,38 @@ export default function Store(
 
     this.getFirstSeenTime = (mpid: MPID): number =>
         this._getFromPersistence<number>(mpid, 'fst');
-    this.getLastSeenTime = (mpid: MPID): number =>
-        this._getFromPersistence<number>(mpid, 'lst');
+
+    /**
+     * set the "first seen" time for a user. the time will only be set once for a given
+     * mpid after which subsequent calls will be ignored
+     */
+    this.setFirstSeenTime = (mpid: MPID, _time: number): void => {
+        const time = _time || new Date().getTime();
+        this._setPersistence<number>(mpid, 'fst', time);
+    };
+
+    /**
+     * returns the "last seen" time for a user. If the mpid represents the current user, the
+     * return value will always be the current time, otherwise it will be to stored "last seen"
+     * time
+     */
+    this.getLastSeenTime = (mpid: MPID): number => {
+        // TODO: We should store the current user in the Store's mpid rather than
+        //       relying on the Identity object
+        const currentUser = mpInstance.Identity.getCurrentUser();
+
+        if (mpid === currentUser?.getMPID()) {
+            return new Date().getTime();
+        } else {
+            return this._getFromPersistence<number>(mpid, 'lst');
+        }
+    };
+
+    this.setLastSeenTime = (mpid: MPID, _time: number): void => {
+        const time = _time || new Date().getTime();
+        this._setPersistence<number>(mpid, 'lst', time);
+    };
+
     this.getUserIdentities = (mpid: MPID): UserIdentities =>
         this._getFromPersistence<UserIdentities>(mpid, 'ui');
 
@@ -591,14 +623,6 @@ export default function Store(
         );
     };
 
-    this.setFirstSeenTime = (mpid: MPID, _time: number): void => {
-        const time = _time || new Date().getTime();
-        this._setPersistence<number>(mpid, 'fst', time);
-    };
-    this.setLastSeenTime = (mpid: MPID, _time: number): void => {
-        const time = _time || new Date().getTime();
-        this._setPersistence<number>(mpid, 'lst', time);
-    };
     this.setUserIdentities = (
         mpid: MPID,
         userIdentities: UserIdentities
@@ -696,7 +720,7 @@ export default function Store(
 
     this.storeDataInPersistence = (
         persistenceObject: IPersistenceMinified,
-        currentMPID: MPID
+        currentMPID?: MPID
     ): void => {
         try {
             if (!persistenceObject) {
@@ -769,6 +793,34 @@ export default function Store(
             mpInstance.Logger.error(Messages.ErrorMessages.CookieParseError);
             console.error(error);
         }
+    };
+
+    this.updatePersistence = (): void => {
+        let persistenceData = this.getPersistenceData();
+        const currentUser = mpInstance.Identity.getCurrentUser();
+        const mpid = currentUser ? currentUser.getMPID() : null;
+
+        persistenceData.l = this.isLoggedIn;
+
+        if (this.sessionId) {
+            persistenceData.gs.csm = this.currentSessionMPIDs;
+        }
+
+        persistenceData.gs.ie = this.isEnabled;
+
+        if (mpid) {
+            persistenceData.cu = mpid;
+        }
+
+        // TODO: Replace with !isEmpty
+        if (Object.keys(this.nonCurrentUserMPIDs).length) {
+            persistenceData = mergeObjects(persistenceData, this
+                .nonCurrentUserMPIDs as IPersistenceMinified);
+        }
+
+        persistenceData = this.getGlobalStorageAttributes();
+
+        this.setPersistenceData(persistenceData);
     };
 }
 

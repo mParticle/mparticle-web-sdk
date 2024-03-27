@@ -166,6 +166,7 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    // TODO: Move this method into the store
     // https://go.mparticle.com/work/SQDSDKS-6045
     this.storeDataInMemory = function(obj, currentMPID) {
         try {
@@ -237,6 +238,8 @@ export default function _Persistence(mpInstance) {
                     mpInstance._Store.sessionStartDate = new Date();
                 }
 
+                // TODO: Investigate to see if this is still relevant, because it's an
+                // antipattern
                 if (currentMPID) {
                     obj = obj[currentMPID];
                 } else {

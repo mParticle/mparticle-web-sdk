@@ -17,6 +17,7 @@ import {
 import Utils from './config/utils';
 import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
+import { IPersistenceMinified } from '../../src/persistence.interfaces';
 
 const { MockSideloadedKit } = Utils;
 
@@ -134,7 +135,7 @@ describe('Store', () => {
                 .undefined;
 
             expect(
-                store.SDKConfig.flags?.eventBatchingIntervalMillis,
+                store.SDKConfig.flags.eventBatchingIntervalMillis,
                 'flags.eventBatchingIntervalMillis'
             ).to.eq(0);
             expect(store.SDKConfig.forceHttps, 'forceHttps').to.eq(true);
@@ -386,6 +387,15 @@ describe('Store', () => {
             expect(store.persistenceData[testMPID].fst).to.equal(12345);
         });
 
+        it('should return undefined if mpid is null', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.setFirstSeenTime(null, 12345)).to.equal(undefined);
+        });
+
         it('should set the firstSeenTime in persistence', () => {
             const store: IStore = new Store(
                 sampleConfig,
@@ -455,6 +465,15 @@ describe('Store', () => {
             expect(store.getLastSeenTime(testMPID)).to.equal(null);
         });
 
+        it('should return null if mpid is null', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getLastSeenTime(null)).to.equal(null);
+        });
+
         it('should return the lastSeenTime from persistence', () => {
             const persistenceValue = JSON.stringify({
                 gs: {
@@ -484,6 +503,49 @@ describe('Store', () => {
 
             expect(store.getLastSeenTime(testMPID)).to.be.ok;
             expect(store.getLastSeenTime(testMPID)).to.equal(12345);
+        });
+
+        it('should update store values from persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.persistenceData[testMPID] = {
+                lst: 12345,
+            };
+
+            const persistenceValue = JSON.stringify({
+                gs: {
+                    sid: 'sid',
+                    les: new Date().getTime(),
+                },
+                testMPID: {
+                    lst: 54321,
+                },
+                cu: testMPID,
+            });
+
+            localStorage.setItem(workspaceCookieName, persistenceValue);
+
+            expect(store.getLastSeenTime(testMPID)).to.equal(54321);
+        });
+
+        it('should return the current time if mpid matches current user', () => {
+            const userSpy = sinon.stub(
+                window.mParticle.getInstance().Identity,
+                'getCurrentUser'
+            );
+            userSpy.returns({
+                getMPID: () => 'testMPID',
+            });
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getLastSeenTime(testMPID)).to.equal(now.getTime());
         });
     });
 
@@ -1375,6 +1437,233 @@ describe('Store', () => {
                 lastSync: 54321,
                 lastModified: 12345,
             });
+        });
+    });
+
+    describe('storeDataInPersistence', () => {
+        it('should update store values from a persistence object', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const lastSeenTime = new Date(12345).getTime();
+            const sessionStartTime = new Date(12345).getTime();
+
+            const persistenceObject: IPersistenceMinified = {
+                gs: {
+                    les: lastSeenTime,
+                    sid: 'sessionId',
+                    ie: false,
+                    sa: {
+                        sessionAttr1: 'sessionAttr1',
+                        sessionAttr2: 'sessionAttr2',
+                    },
+                    ss: {
+                        serverSetting: 'testServerSetting',
+                    },
+                    dt: 'deviceToken',
+                    av: '1.2.3',
+                    cgid: 'clientId',
+                    das: 'deviceId',
+                    ia: {
+                        integrationAttribute1: {
+                            integrationAttributeKey:
+                                'Integration Attribute Value',
+                        },
+                        integrationAttribute2: {
+                            integrationAttributeKey:
+                                'Integration Attribute Value',
+                        },
+                    },
+                    c: {
+                        data_plan: {
+                            plan_id: '123',
+                            plan_version: 1,
+                        },
+                    },
+                    csm: ['123'],
+                    ssd: sessionStartTime,
+                },
+                l: false,
+                testMPID: {
+                    ua: { fizz: 'buzz' },
+                },
+                cu: 'testMPID',
+            };
+
+            debugger;
+
+            store.storeDataInPersistence(persistenceObject, 'testMPID');
+
+            expect(store.clientId).to.equal('clientId');
+            expect(store.deviceId).to.equal('deviceId');
+            expect(store.mpid).to.equal('testMPID');
+            expect(store.sessionId).to.equal('sessionId');
+            expect(store.isEnabled).to.equal(false);
+            expect(store.sessionAttributes).to.deep.equal({
+                sessionAttr1: 'sessionAttr1',
+                sessionAttr2: 'sessionAttr2',
+            });
+            expect(store.serverSettings).to.deep.equal({
+                serverSetting: 'testServerSetting',
+            });
+            expect(store.devToken).to.equal('deviceToken');
+
+            // The config value overrides the persistence value
+            expect(store.SDKConfig.appVersion).to.equal('1.x');
+
+            expect(store.integrationAttributes).to.deep.equal({
+                integrationAttribute1: {
+                    integrationAttributeKey: 'Integration Attribute Value',
+                },
+                integrationAttribute2: {
+                    integrationAttributeKey: 'Integration Attribute Value',
+                },
+            });
+
+            expect(store.context).to.deep.equal({
+                data_plan: {
+                    plan_id: '123',
+                    plan_version: 1,
+                },
+            });
+
+            expect(store.currentSessionMPIDs).to.deep.equal(['123']);
+
+            expect(store.isLoggedIn).to.equal(false);
+
+            expect(store.dateLastEventSent).to.deep.equal(
+                new Date(lastSeenTime)
+            );
+
+            expect(store.sessionStartDate).to.deep.equal(
+                new Date(sessionStartTime)
+            );
+        });
+
+        it('should prioritize deviceId from config over persistence', () => {
+            const store: IStore = new Store(
+                { ...sampleConfig, deviceId: 'configDeviceId' },
+                window.mParticle.getInstance()
+            );
+
+            const persistenceObject = {
+                gs: {
+                    das: 'persistenceDeviceId',
+                },
+                cu: 'testMPID',
+            };
+
+            const partialPersistenceObject = (persistenceObject as unknown) as IPersistenceMinified;
+            store.storeDataInPersistence(partialPersistenceObject);
+
+            expect(store.deviceId).to.equal('configDeviceId');
+        });
+
+        it('should generate a unique deviceId if not provided by config or persistence', () => {
+            const generateUniqueIdSpy = sinon.stub(
+                window.mParticle.getInstance()._Helpers,
+                'generateUniqueId'
+            );
+            generateUniqueIdSpy.returns('generated-device-id');
+
+            const store: IStore = new Store(
+                { ...sampleConfig, deviceId: null },
+                window.mParticle.getInstance()
+            );
+
+            const persistenceObject = {};
+
+            const partialPersistenceObject = (persistenceObject as unknown) as IPersistenceMinified;
+            store.storeDataInPersistence(partialPersistenceObject);
+
+            expect(store.deviceId).to.equal('generated-device-id');
+        });
+
+        it('should generate default values if persistence object is empty', () => {
+            const generateUniqueIdSpy = sinon.stub(
+                window.mParticle.getInstance()._Helpers,
+                'generateUniqueId'
+            );
+            generateUniqueIdSpy.returns('test-unique-id');
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const persistenceObject: Partial<IPersistenceMinified> = {};
+
+            const emptyPersistenceObject = (persistenceObject as unknown) as IPersistenceMinified;
+            store.storeDataInPersistence(emptyPersistenceObject);
+
+            expect(store.clientId).to.equal('test-unique-id');
+            expect(store.deviceId).to.equal('test-unique-id');
+            expect(store.SDKConfig.appVersion).to.equal('1.x');
+        });
+
+        it('should use the current user from persistence if mpid is not passed as an argument', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const persistenceObject = {
+                cu: 'persistenceMPID',
+            };
+
+            const partialPersistenceObject = (persistenceObject as unknown) as IPersistenceMinified;
+            store.storeDataInPersistence(partialPersistenceObject);
+
+            expect(store.mpid).to.equal('persistenceMPID');
+        });
+
+        it('should set mpid to an empty string if mpid is not passed in and does not exist in persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const persistenceObject = {};
+
+            const partialPersistenceObject = (persistenceObject as unknown) as IPersistenceMinified;
+            store.storeDataInPersistence(partialPersistenceObject);
+
+            expect(store.mpid).to.equal('');
+        });
+
+        it('should use app version from persistence if it is not in the config', () => {
+            const store: IStore = new Store(
+                { ...sampleConfig, appVersion: null },
+                window.mParticle.getInstance()
+            );
+
+            const persistenceObject = {
+                gs: {
+                    av: '2.3.4',
+                },
+            };
+
+            const partialPersistenceObject = (persistenceObject as unknown) as IPersistenceMinified;
+
+            store.storeDataInPersistence(partialPersistenceObject);
+
+            expect(store.SDKConfig.appVersion).to.equal('2.3.4');
+        });
+
+        it('should create a new session start date if not provided by persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const persistenceObject = {};
+
+            const partialPersistenceObject = (persistenceObject as unknown) as IPersistenceMinified;
+            store.storeDataInPersistence(partialPersistenceObject);
+
+            expect(store.sessionStartDate).to.deep.equal(now);
         });
     });
 

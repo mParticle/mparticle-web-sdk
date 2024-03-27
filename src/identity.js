@@ -1619,6 +1619,7 @@ export default function Identity(mpInstance) {
                     );
                     // Is update actually necessary here?
                     // mpInstance._Persistence.update();
+                    mpInstance._Store.updatePersistence();
 
                     // TODO: LEFT OFF HERE
                     // TODO: Migrate this to store
@@ -1651,10 +1652,15 @@ export default function Identity(mpInstance) {
                         );
                     }
                 }
-                var persistence = mpInstance._Persistence.getPersistence();
+                // var persistence = mpInstance._Persistence.getPersistence();
+                var persistence = mpInstance._Store.getPersistenceData();
 
                 if (newUser) {
-                    mpInstance._Persistence.storeDataInMemory(
+                    // mpInstance._Persistence.storeDataInMemory(
+                    //     persistence,
+                    //     newUser.getMPID()
+                    // );
+                    mpInstance._Store.storeDataInPersistence(
                         persistence,
                         newUser.getMPID()
                     );

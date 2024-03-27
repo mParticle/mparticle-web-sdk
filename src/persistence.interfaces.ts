@@ -45,7 +45,7 @@ export interface IGlobalStoreV2MinifiedKeys {
 export interface IPersistenceMinified extends Dictionary {
     cu: MPID; // Current User MPID
     gs: IGlobalStoreV2MinifiedKeys;
-    l: false; // IsLoggedIn
+    l: boolean; // IsLoggedIn
 
     // Persistence Minified can also store optional dictionaries with
     // an idex of MPID
