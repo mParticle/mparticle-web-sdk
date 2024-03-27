@@ -454,6 +454,7 @@ describe('core SDK', function() {
         // // This clock tick initiates a session end event that is not successful
         clock.tick(70000);
         // TODO: Session End Event is not empty but the expectation is that it should be
+        sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
 
         Should(sessionEndEvent).not.be.ok();
         const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
