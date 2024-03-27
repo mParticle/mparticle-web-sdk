@@ -67,7 +67,6 @@ export default function filteredMparticleUser(
             return userAttributesLists;
         },
         getAllUserAttributes: function() {
-            // TODO: May not need to make a copy since Store should return a copy
             var userAttributesCopy = {};
             var userAttributes = mpInstance._Store.getUserAttributes(mpid);
 
