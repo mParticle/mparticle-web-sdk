@@ -1897,6 +1897,7 @@ describe('persistence', () => {
 
         const sessionId = mParticle.sessionManager.getSession();
         const das = mParticle.getDeviceId();
+        // QUESTION: What is client generated string?
         const cgid = mParticle.getInstance()._Persistence.getCookie().gs.cgid;
         sessionId.should.not.equal('1992BDBB-AD74-49DB-9B20-5EC8037E72DE');
         das.should.not.equal('68c2ba39-c869-416a-a82c-8789caf5f1e7');

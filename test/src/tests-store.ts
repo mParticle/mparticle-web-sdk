@@ -17,11 +17,14 @@ import {
 import Utils from './config/utils';
 import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
-import { IPersistenceMinified } from '../../src/persistence.interfaces';
+import {
+    IGlobalStoreV2MinifiedKeys,
+    IPersistenceMinified,
+} from '../../src/persistence.interfaces';
 
-const { MockSideloadedKit } = Utils;
+const { MockSideloadedKit, setLocalStorage } = Utils;
 
-describe('Store', () => {
+describe.only('Store', () => {
     const now = new Date();
     let sandbox;
     let clock;
@@ -1361,6 +1364,154 @@ describe('Store', () => {
                 expectedConsentState.ccpa
             );
         });
+
+        it('should not set consent state if consent state is null', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const expectedConsentState = {
+                con: {
+                    gdpr: {
+                        analytics: {
+                            c: true,
+                            d: 'foo gdpr document',
+                            h: 'foo gdpr hardware id',
+                            l: 'foo gdpr location',
+                            ts: 10,
+                        },
+                    },
+                    ccpa: {
+                        data_sale_opt_out: {
+                            c: false,
+                            d: 'foo ccpa document',
+                            h: 'foo ccpa hardware id',
+                            l: 'foo ccpa location',
+                            ts: 42,
+                        },
+                    },
+                },
+            };
+
+            store.persistenceData[testMPID] = expectedConsentState;
+
+            store.setConsentState(testMPID, null);
+
+            expect(store.persistenceData[testMPID]).to.deep.equal(
+                expectedConsentState
+            );
+        });
+    });
+
+    describe('setPersistenceData', () => {
+        it('should set persistence data in the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const persistenceObject: IPersistenceMinified = {
+                gs: {
+                    les: 12345,
+                    sid: 'sessionId',
+                    ie: false,
+                    sa: {
+                        sessionAttr1: 'sessionAttr1',
+                        sessionAttr2: 'sessionAttr2',
+                    },
+                    ss: {
+                        serverSetting: 'testServerSetting',
+                    },
+                    dt: 'deviceToken',
+                    av: '1.2.3',
+                    cgid: 'clientId',
+                    das: 'deviceId',
+                    ia: {
+                        integrationAttribute1: {
+                            integrationAttributeKey:
+                                'Integration Attribute Value',
+                        },
+                        integrationAttribute2: {
+                            integrationAttributeKey:
+                                'Integration Attribute Value',
+                        },
+                    },
+                    c: {
+                        data_plan: {
+                            plan_id: '123',
+                            plan_version: 1,
+                        },
+                    },
+                    csm: ['123'],
+                    ssd: 12345,
+                },
+                l: false,
+                testMPID: {
+                    ua: { fizz: 'buzz' },
+                },
+                cu: 'testMPID',
+            };
+
+            store.setPersistenceData(persistenceObject);
+            expect(store.persistenceData).to.deep.equal(persistenceObject);
+        });
+
+        it('should set persistence data in persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const persistenceObject: IPersistenceMinified = {
+                gs: {
+                    les: 12345,
+                    sid: 'sessionId',
+                    ie: false,
+                    sa: {
+                        sessionAttr1: 'sessionAttr1',
+                        sessionAttr2: 'sessionAttr2',
+                    },
+                    ss: {
+                        serverSetting: 'testServerSetting',
+                    },
+                    dt: 'deviceToken',
+                    av: '1.2.3',
+                    cgid: 'clientId',
+                    das: 'deviceId',
+                    ia: {
+                        integrationAttribute1: {
+                            integrationAttributeKey:
+                                'Integration Attribute Value',
+                        },
+                        integrationAttribute2: {
+                            integrationAttributeKey:
+                                'Integration Attribute Value',
+                        },
+                    },
+                    c: {
+                        data_plan: {
+                            plan_id: '123',
+                            plan_version: 1,
+                        },
+                    },
+                    csm: ['123'],
+                    ssd: 12345,
+                },
+                l: false,
+                testMPID: {
+                    ua: { fizz: 'buzz' },
+                },
+                cu: 'testMPID',
+            };
+
+            store.setPersistenceData(persistenceObject);
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence).to.deep.equal(persistenceObject);
+        });
     });
 
     describe('#setUserCookieSyncDates', () => {
@@ -1817,6 +1968,139 @@ describe('Store', () => {
 
                 expect(result).to.deep.equal(expectedResult);
             });
+        });
+    });
+
+    describe('#resetPersistenceData', () => {
+        it('should clear out the persistence data in the store', () => {
+            debugger;
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.persistenceData = {
+                gs: {
+                    csm: ['mpid3'],
+                    sid: 'abcd',
+                    ie: true,
+                    dt: apiKey,
+                    cgid: 'cgid1',
+                    das: 'das1',
+                } as IGlobalStoreV2MinifiedKeys,
+                cu: 'mpid3',
+                l: false,
+                mpid1: {
+                    ua: {
+                        gender: 'female',
+                        age: 29,
+                        height: '65',
+                        color: 'blue',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                    ui: { 1: 'customerid123', 2: 'facebookid123' },
+                },
+                mpid2: {
+                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                    ui: {
+                        1: 'customerid234',
+                        2: 'facebookid234',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                },
+                mpid3: {
+                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                    ui: {
+                        1: 'customerid234',
+                        2: 'facebookid234',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                },
+            };
+
+            store.resetPersistenceData();
+
+            expect(store.persistenceData).to.deep.equal({
+                cu: null,
+                gs: {
+                    sid: null,
+                    ie: null,
+                    sa: null,
+                    ss: null,
+                    dt: null,
+                    av: null,
+                    cgid: null,
+                    das: null,
+                    ia: null,
+                    c: null,
+                    csm: null,
+                    les: null,
+                    ssd: null,
+                },
+                l: null,
+            });
+        });
+
+        it('should clear out the persistence data in persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const persistenceData = {
+                gs: {
+                    csm: ['mpid3'],
+                    sid: 'abcd',
+                    ie: true,
+                    dt: apiKey,
+                    cgid: 'cgid1',
+                    das: 'das1',
+                } as IGlobalStoreV2MinifiedKeys,
+                cu: 'mpid3',
+                l: false,
+                mpid1: {
+                    ua: {
+                        gender: 'female',
+                        age: 29,
+                        height: '65',
+                        color: 'blue',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                    ui: { 1: 'customerid123', 2: 'facebookid123' },
+                },
+                mpid2: {
+                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                    ui: {
+                        1: 'customerid234',
+                        2: 'facebookid234',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                },
+                mpid3: {
+                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                    ui: {
+                        1: 'customerid234',
+                        2: 'facebookid234',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                },
+            };
+
+            window.mParticle
+                .getInstance()
+                ._Persistence.savePersistence(persistenceData);
+
+            expect(
+                window.mParticle.getInstance()._Persistence.getPersistence()
+            ).not.to.deep.equal(null);
+
+            store.persistenceData = persistenceData;
+
+            store.resetPersistenceData();
+
+            expect(
+                window.mParticle.getInstance()._Persistence.getPersistence()
+            ).to.deep.equal(null);
         });
     });
 });

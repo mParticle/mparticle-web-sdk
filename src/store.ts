@@ -225,6 +225,7 @@ export interface IStore {
     ): void;
 
     updatePersistence?(): void;
+    resetPersistenceData?(): void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -503,11 +504,6 @@ export default function Store(
         }
     }
 
-    this.setAppVersion = (appVersion: string): void => {
-        this.SDKConfig.appVersion = appVersion;
-        mpInstance._Persistence.update();
-    };
-
     // TODO: Create an interface for T so we can restrict this method to only
     //       valid keys of T
     this._getFromPersistence = <T>(mpid: MPID, key: string): T | null => {
@@ -530,12 +526,68 @@ export default function Store(
         }
     };
 
-    this.getPersistenceData = (): IPersistenceMinified => {
-        const persistence = mpInstance._Persistence.getPersistence();
+    this._setPersistence = <T>(mpid: MPID, key: string, value: T): void => {
+        if (!mpid) {
+            return;
+        }
+
+        const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
 
         this.persistenceData = mergeObjects(this.persistenceData, persistence);
 
-        return this.persistenceData;
+        if (this.persistenceData) {
+            if (this.persistenceData[mpid]) {
+                this.persistenceData[mpid][key] = value;
+            } else {
+                this.persistenceData[mpid] = {
+                    [key]: value,
+                };
+            }
+            mpInstance._Persistence.savePersistence(this.persistenceData);
+        }
+    };
+
+    this.setAppVersion = (appVersion: string): void => {
+        this.SDKConfig.appVersion = appVersion;
+        mpInstance._Persistence.update();
+    };
+
+    this.getDeviceId = (): string => this.deviceId;
+    this.setDeviceId = (guid: string): void => {
+        this.deviceId = guid;
+
+        // https://go.mparticle.com/work/SQDSDKS-6045
+        mpInstance._Persistence.update();
+    };
+
+    this.getConsentState = (mpid: MPID): ConsentState => {
+        const serializedConsentState = this._getFromPersistence<
+            IMinifiedConsentJSONObject
+        >(mpid, 'con');
+
+        if (!isEmpty(serializedConsentState)) {
+            return mpInstance._Consent.ConsentSerialization.fromMinifiedJsonObject(
+                serializedConsentState
+            );
+        }
+
+        return null;
+    };
+
+    this.setConsentState = (mpid: MPID, consentState: ConsentState): void => {
+        if (!consentState) {
+            return;
+        }
+
+        const serializedConsentState = mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(
+            consentState
+        );
+
+        this._setPersistence<IMinifiedConsentJSONObject>(
+            mpid,
+            'con',
+            serializedConsentState
+        );
     };
 
     this.getFirstSeenTime = (mpid: MPID): number =>
@@ -560,7 +612,9 @@ export default function Store(
         //       relying on the Identity object
         const currentUser = mpInstance.Identity.getCurrentUser();
 
+        // TODO: Fix prettier to stop complaining about `?`
         if (mpid === currentUser?.getMPID()) {
+            //if the mpid is the current user, its last seen time is the current time
             return new Date().getTime();
         } else {
             return this._getFromPersistence<number>(mpid, 'lst');
@@ -572,46 +626,20 @@ export default function Store(
         this._setPersistence<number>(mpid, 'lst', time);
     };
 
+    this.getPersistenceData = (): IPersistenceMinified => {
+        const persistence = mpInstance._Persistence.getPersistence();
+
+        this.persistenceData = mergeObjects(this.persistenceData, persistence);
+
+        return this.persistenceData;
+    };
+
     this.getUserIdentities = (mpid: MPID): UserIdentities =>
         this._getFromPersistence<UserIdentities>(mpid, 'ui');
 
     // QUESTION: Can we rename this to getUserAttributes?
     this.getAllUserAttributes = (mpid: MPID): Dictionary =>
         this._getFromPersistence<Dictionary>(mpid, 'ua');
-    this.getConsentState = (mpid: MPID): ConsentState => {
-        const serializedConsentState = this._getFromPersistence<
-            IMinifiedConsentJSONObject
-        >(mpid, 'con');
-
-        if (!isEmpty(serializedConsentState)) {
-            return mpInstance._Consent.ConsentSerialization.fromMinifiedJsonObject(
-                serializedConsentState
-            );
-        }
-
-        return null;
-    };
-
-    this._setPersistence = <T>(mpid: MPID, key: string, value: T): void => {
-        if (!mpid) {
-            return;
-        }
-
-        const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
-
-        this.persistenceData = mergeObjects(this.persistenceData, persistence);
-
-        if (this.persistenceData) {
-            if (this.persistenceData[mpid]) {
-                this.persistenceData[mpid][key] = value;
-            } else {
-                this.persistenceData[mpid] = {
-                    [key]: value,
-                };
-            }
-            mpInstance._Persistence.savePersistence(this.persistenceData);
-        }
-    };
 
     this.setPersistenceData = (persistenceData: IPersistenceMinified): void => {
         const persistence = mpInstance._Persistence.getPersistence();
@@ -621,6 +649,8 @@ export default function Store(
             persistence,
             persistenceData
         );
+
+        mpInstance._Persistence.savePersistence(this.persistenceData);
     };
 
     this.setUserIdentities = (
@@ -629,23 +659,15 @@ export default function Store(
     ): void => {
         this._setPersistence<UserIdentities>(mpid, 'ui', userIdentities);
     };
+
     this.setUserAttributes = (
         mpid: MPID,
         userAttributes: UserAttributes
     ): void => {
+        debugger;
         this._setPersistence<Dictionary>(mpid, 'ua', userAttributes);
     };
-    this.setConsentState = (mpid: MPID, consentState: ConsentState): void => {
-        const serializedConsentState = mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(
-            consentState
-        );
 
-        this._setPersistence<IMinifiedConsentJSONObject>(
-            mpid,
-            'con',
-            serializedConsentState
-        );
-    };
     this.setUserCookieSyncDates = (
         mpid: MPID,
         cookieSyncDates: CookieSyncDate[]
@@ -693,14 +715,6 @@ export default function Store(
         data.gs.ia = this.integrationAttributes;
 
         return data as IPersistenceMinified;
-    };
-
-    this.getDeviceId = (): string => this.deviceId;
-    this.setDeviceId = (guid: string): void => {
-        this.deviceId = guid;
-
-        // https://go.mparticle.com/work/SQDSDKS-6045
-        mpInstance._Persistence.update();
     };
 
     this.swapIdentity = (
@@ -821,6 +835,11 @@ export default function Store(
         persistenceData = this.getGlobalStorageAttributes();
 
         this.setPersistenceData(persistenceData);
+    };
+
+    this.resetPersistenceData = (): void => {
+        this.persistenceData = mergeObjects(defaultStore.persistenceData);
+        mpInstance._Persistence.resetPersistence();
     };
 }
 
