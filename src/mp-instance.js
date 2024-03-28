@@ -86,6 +86,8 @@ export default function mParticleInstance(instanceName) {
     this._Identity = new Identity(this);
     this.Identity = this._Identity.IdentityAPI;
     this.generateHash = this._Helpers.generateHash;
+
+    // TODO: Replace with store
     this.getDeviceId = this._Persistence.getDeviceId;
 
     if (typeof window !== 'undefined') {
@@ -145,6 +147,7 @@ export default function mParticleInstance(instanceName) {
      */
     this.reset = function(instance) {
         try {
+            // QUESITON: Should we move this into Store?
             instance._Persistence.resetPersistence();
             if (instance._Store) {
                 delete instance._Store;
@@ -159,6 +162,8 @@ export default function mParticleInstance(instanceName) {
             delete instance._Store;
         }
         instance._Store = new Store(config, instance);
+
+        // TODO: Refactor this to be a store method
         instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
             window.localStorage
         );
@@ -217,9 +222,7 @@ export default function mParticleInstance(instanceName) {
         }, self);
 
         if (queued) return;
-
-        self._Store.SDKConfig.appVersion = version;
-        self._Persistence.update();
+        self._Store.setAppVersion(version);
     };
     /**
      * Sets the device id
@@ -231,7 +234,7 @@ export default function mParticleInstance(instanceName) {
             self.setDeviceId(guid);
         }, self);
         if (queued) return;
-        this._Persistence.setDeviceId(guid);
+        this._Store.setDeviceId(guid);
     };
     /**
      * Returns a boolean for whether or not the SDKhas been fully initialized
