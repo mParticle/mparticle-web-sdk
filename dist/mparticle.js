@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.25.1";
+    var version = "2.25.2";
 
     var Constants = {
       sdkVersion: version,
@@ -3290,11 +3290,7 @@ var mParticle = (function () {
         var sessionTimeoutInMilliseconds;
         var timeSinceLastEventSent;
         var cookies = mpInstance._Persistence.getPersistence();
-        // TODO: https://go.mparticle.com/work/SQDSDKS-5684
-        if (!cookies) {
-          return;
-        }
-        if (cookies.gs && !cookies.gs.sid) {
+        if (!cookies || cookies.gs && !cookies.gs.sid) {
           mpInstance.Logger.verbose(Messages$6.InformationMessages.NoSessionToEnd);
           return;
         }
