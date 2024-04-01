@@ -1,3 +1,11 @@
+## [2.25.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.25.1...v2.25.2) (2024-04-01)
+
+
+### Bug Fixes
+
+* Combine End Session Logging Messaging flow ([#848](https://github.com/mParticle/mparticle-web-sdk/issues/848)) ([a2c902d](https://github.com/mParticle/mparticle-web-sdk/commit/a2c902d4ed1f51cc214c31e5f262bd89e0513863))
+* Create a simple merge object utility ([#849](https://github.com/mParticle/mparticle-web-sdk/issues/849)) ([61e82da](https://github.com/mParticle/mparticle-web-sdk/commit/61e82daa8b4c5797d77952e1bb2f8992fab20058))
+
 ## [2.25.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.25.0...v2.25.1) (2024-02-06)
 
 
