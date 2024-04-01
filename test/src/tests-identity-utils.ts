@@ -565,7 +565,7 @@ describe('identity-utils', () => {
                 userIdentities: customerId
             };
             const callback = sinon.spy();
-            debugger;
+            // debugger;
             const successfullyCachedIdentity = tryCacheIdentity(
                 knownIdentities1,
                 cacheVault,
