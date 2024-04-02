@@ -250,7 +250,7 @@ describe('Store', () => {
     });
 
     describe('#nullifySessionData', () => {
-        it('should nullify session data', () => {
+        it('should nullify session data on the store', () => {
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
