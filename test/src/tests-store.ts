@@ -12,6 +12,7 @@ import { MPConfig, apiKey } from './config/constants';
 import Utils from './config/utils';
 import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
+import { IGlobalStoreV2MinifiedKeys } from '../../src/persistence.interfaces';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
 describe('Store', () => {
@@ -245,6 +246,98 @@ describe('Store', () => {
             );
 
             expect(store.devToken, 'devToken').to.equal(apiKey);
+        });
+    });
+
+    describe('#nullifySessionData', () => {
+        it('should nullify session data on the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.sessionId = '123';
+            store.dateLastEventSent = new Date();
+            store.sessionAttributes = { foo: 'bar' };
+
+            store.nullifySession();
+
+            expect(store.sessionId).to.be.null;
+            expect(store.dateLastEventSent).to.be.null;
+            expect(store.sessionAttributes).to.deep.equal({});
+        });
+
+        it('should nullify session data in persistence', () => {
+            const persistenceData = {
+                gs: {
+                    csm: ['mpid3'],
+                    sid: 'abcd',
+                    ie: true,
+                    dt: apiKey,
+                    cgid: 'cgid1',
+                    das: 'das1',
+                    les: 1234567890,
+                    sa: { foo: 'bar' },
+                    ss: {},
+                    av: '1.0',
+                    ia: {},
+                    c: null,
+                    ssd: 8675309,
+                } as IGlobalStoreV2MinifiedKeys,
+                cu: 'mpid3',
+                l: false,
+                mpid1: {
+                    ua: {
+                        gender: 'female',
+                        age: 29,
+                        height: '65',
+                        color: 'blue',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                    ui: { 1: 'customerid123', 2: 'facebookid123' },
+                },
+                mpid2: {
+                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                    ui: {
+                        1: 'customerid234',
+                        2: 'facebookid234',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                },
+                mpid3: {
+                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                    ui: {
+                        1: 'customerid234',
+                        2: 'facebookid234',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                },
+            };
+
+            window.mParticle
+                .getInstance()
+                ._Persistence.savePersistence(persistenceData);
+
+            let fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence.gs).to.be.ok;
+            expect(fromPersistence.gs.sid).to.equal('abcd');
+            expect(fromPersistence.gs.les).to.equal(1234567890);
+            expect(fromPersistence.gs.sa).to.deep.equal({ foo: 'bar' });
+
+            // Grab the store directly from mPInstance to make sure they share scope
+            window.mParticle.getInstance()._Store.nullifySession();
+
+            fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence.gs).to.be.ok;
+            expect(fromPersistence.gs.sid).to.be.undefined;
+            expect(fromPersistence.gs.les).to.be.undefined;
+            expect(fromPersistence.gs.sa).to.be.undefined;
         });
     });
 

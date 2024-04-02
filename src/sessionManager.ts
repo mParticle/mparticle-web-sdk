@@ -129,7 +129,7 @@ export default function SessionManager(
                 messageType: Types.MessageType.SessionEnd,
             });
 
-            nullifySession();
+            mpInstance._Store.nullifySession();
             return;
         }
 
@@ -175,7 +175,7 @@ export default function SessionManager(
                 });
 
                 mpInstance._Store.sessionStartDate = null;
-                nullifySession();
+                mpInstance._Store.nullifySession();
             }
         }
     };
@@ -204,7 +204,7 @@ export default function SessionManager(
         clearTimeout(mpInstance._Store.globalTimer);
     };
 
-    this.startNewSessionIfNeeded = function(): void {
+    this.startNewSessionIfNeeded = function (): void {
         if (!mpInstance._Store.webviewBridgeEnabled) {
             const persistence = mpInstance._Persistence.getPersistence();
 
@@ -217,11 +217,4 @@ export default function SessionManager(
             }
         }
     };
-
-    function nullifySession(): void {
-        mpInstance._Store.sessionId = null;
-        mpInstance._Store.dateLastEventSent = null;
-        mpInstance._Store.sessionAttributes = {};
-        mpInstance._Persistence.update();
-    }
 }
