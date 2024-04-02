@@ -169,9 +169,6 @@ export interface IStore {
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
 
-    getAllUserAttributes?(mpid: MPID): Dictionary;
-    setUserAttributes?(mpid: MPID, userAttributes: Dictionary): void;
-
     nullifySession?: () => void;
 }
 
