@@ -34,6 +34,7 @@ export default function SessionManager(
             const sessionTimeoutInMilliseconds: number =
                 mpInstance._Store.SDKConfig.sessionTimeout * 60000;
 
+            // TODO: Create a helper function called shouldSessionEnd
             if (
                 new Date() >
                 new Date(

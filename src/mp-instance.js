@@ -1285,6 +1285,52 @@ export default function mParticleInstance(instanceName) {
 
 // Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
 function completeSDKInitialization(apiKey, config, mpInstance) {
+    // https://go.mparticle.com/work/SQDSDKS-6289
+    // Init Workflow as I understand it
+    // - Create KitBlocker
+    // - Prepare API Client
+    // - Prepare Forwarders
+    // - (Store} Set Event Batching Millis from Feature Flags
+    // - (Store} Get Storage Names from Config
+    // - Set up Identity Cache and purge expired cache
+    // - (Store) Set Workspace Token
+    // - (Store) Set Webview Bridge as Enabled (or not)
+    // - (Store) Mark Config as Loaded
+    // - (Persistence) Initialize Persistence (if not in Webview Bridge Mode)
+    // - Set Session Attributes for Web View Bridge Mode
+    // - Identify User
+    // - Process Forwarders
+    // - Process Pixel Config (forwarders?)
+    // - Initialixe Session
+    // - Log AST Event
+    // - Identify User (Again?)
+    // - Release Ready Queue
+    // - Set SDK Config to "Ready State"
+
+    // Proposed Workflow
+    // - Create KitBlocker
+    // - Prepare API Client
+    // - Prepare Forwarders
+    // - Initialize Store
+    //   - Set Event Batching Millis from Feature Flags
+    //   - Get Storage Names from Config
+    //   - Set Workspace Token
+    //   - Set Webview Bridge as Enabled (or not)
+    //   - Mark Config as Loaded
+    // - Set up Identity Cache and purge expired cache
+    // - Decide if we are in Webview Bridge Mode or not
+    // - (Webview Bridge Mode)
+    //   - Set Session Attributes for Web View Bridge Mode
+    // - (Standard Mode)
+    //   - (Persistence) Initialize Persistence (if not in Webview Bridge Mode)
+    //   - Identify User
+    //   - Process Forwarders (and Pixel Config?)
+    //   - Initialixe Session
+    //   - Log AST Event
+    //   - Call Identity Callback
+    // - Release Ready Queue
+    // - Set SDK Config to "Ready State"
+
     var kitBlocker = createKitBlocker(config, mpInstance);
 
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
@@ -1312,10 +1358,12 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         config.workspaceToken
     );
 
+    // TODO: Move this to after configurationLoaded
     // idCache is instantiated here as opposed to when _Identity is instantiated
     // because it depends on _Store.storageName, which is not sent until above
     // because it is a setting on config which returns asyncronously
     // in self hosted mode
+    // QUESTION: Should this be in "non bridge mode"
     mpInstance._Identity.idCache = new LocalStorageVault(
         `${mpInstance._Store.storageName}-id-cache`,
         {
@@ -1325,6 +1373,11 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
     removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
 
+    // TODO: Maybe this should be a method in the store?
+    // perhaps: mpInstance._Store.setWorkspaceToken(config.workspaceToken);
+    // or: mpInstance._Store.setServerConfig(config);
+    // Technically this is a "server config" not an "init config"
+    // QUESTION: Can this happen earlier?
     if (config.hasOwnProperty('workspaceToken')) {
         mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;
     } else {
@@ -1333,6 +1386,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         );
     }
 
+    // TODO: mPInstance._Store.setWebViewBridgeName(config);
     if (config.hasOwnProperty('requiredWebviewBridgeName')) {
         mpInstance._Store.SDKConfig.requiredWebviewBridgeName =
             config.requiredWebviewBridgeName;
@@ -1346,6 +1400,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     );
 
     mpInstance._Store.configurationLoaded = true;
+
+    // TODO: INSERT ASYNC SHIM HERE -->>>>>
 
     // https://go.mparticle.com/work/SQDSDKS-6044
     if (!mpInstance._Store.webviewBridgeEnabled) {
@@ -1366,8 +1422,12 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         }
     } else {
         var currentUser;
+        // TODO: Make a ticket for this
+        currentUser = mpInstance.Identity.getCurrentUser();
 
+        // TODO: Left off here with Rob
         // If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
+        // TODO: replace this with a convenience method: hasValidIdentifyRequest
         if (
             (mpInstance._Helpers.isObject(
                 mpInstance._Store.SDKConfig.identifyRequest
@@ -1382,7 +1442,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         ) {
             var modifiedUIforIdentityRequest = {};
 
-            currentUser = mpInstance.Identity.getCurrentUser();
+            // currentUser = mpInstance.Identity.getCurrentUser();
             if (currentUser) {
                 var identities =
                     currentUser.getUserIdentities().userIdentities || {};
@@ -1398,8 +1458,12 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 userIdentities: modifiedUIforIdentityRequest,
             };
         }
+        // TODO: Replace above with this
+        // if (!hasValidIdentifyRequest) {
+        //    mpInstance._Store.SDKConfig.identifyRequest = generateIdentityRequest(currentUser);
+        // }
 
-        currentUser = mpInstance.Identity.getCurrentUser();
+        // currentUser = mpInstance.Identity.getCurrentUser();
 
         if (
             mpInstance._Helpers.getFeatureFlag(
@@ -1418,6 +1482,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
+        // NOTE: This code has a secret dependency with _SessionManager.initialize
+        // and should be refactored to be more explicit
         // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
         // Any identity callback should always be ran regardless if an identity call is made
         if (
