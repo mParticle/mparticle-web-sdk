@@ -8,7 +8,12 @@ import Store, {
     processBaseUrls,
     IFeatureFlags,
 } from '../../src/store';
-import { MPConfig, apiKey } from './config/constants';
+import {
+    MPConfig,
+    apiKey,
+    testMPID,
+    workspaceCookieName,
+} from './config/constants';
 import Utils from './config/utils';
 import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
@@ -375,6 +380,202 @@ describe('Store', () => {
             expect(fromPersistence.gs.sid).to.be.undefined;
             expect(fromPersistence.gs.les).to.be.undefined;
             expect(fromPersistence.gs.sa).to.be.undefined;
+        });
+    });
+
+    describe('#getFirstSeenTime', () => {
+        it('should return the firstSeenTime from the store', () => {
+            debugger;
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+            store.persistenceData[testMPID] = {
+                fst: 12345,
+            };
+            expect(store.getFirstSeenTime(testMPID)).to.equal(12345);
+        });
+
+        it('should return null if no firstSeenTime is found', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+            expect(store.getFirstSeenTime(testMPID)).to.equal(null);
+        });
+    });
+
+    describe('#setFirstSeenTime', () => {
+        it('should set the firstSeenTime in the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setFirstSeenTime(testMPID, 12345);
+            expect(store.persistenceData[testMPID].fst).to.equal(12345);
+        });
+
+        it('should return undefined if mpid is null', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.setFirstSeenTime(null, 12345)).to.equal(undefined);
+        });
+
+        it('should set the firstSeenTime in persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setFirstSeenTime(testMPID, 12345);
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].fst).to.be.ok;
+            expect(fromPersistence[testMPID].fst).to.equal(12345);
+        });
+
+        it('should override persistence with store values', () => {
+            const persistenceValue = JSON.stringify({
+                gs: {
+                    sid: 'sid',
+                    les: new Date().getTime(),
+                },
+                testMPID: {
+                    fst: 12345,
+                },
+                cu: testMPID,
+            });
+
+            localStorage.setItem(workspaceCookieName, persistenceValue);
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setFirstSeenTime(testMPID, 54321);
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].fst).to.be.ok;
+            expect(fromPersistence[testMPID].fst).to.equal(54321);
+        });
+    });
+
+    describe('#getLastSeenTime', () => {
+        it('should return the lastSeenTime from the store', () => {
+            debugger;
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.persistenceData[testMPID] = {
+                lst: 12345,
+            };
+
+            expect(store.getLastSeenTime(testMPID)).to.equal(12345);
+        });
+
+        it('should return null if no lastSeenTime is found', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getLastSeenTime(testMPID)).to.equal(null);
+        });
+
+        it('should return null if mpid is null', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getLastSeenTime(null)).to.equal(null);
+        });
+
+        it('should return the current time if mpid matches current user', () => {
+            const userSpy = sinon.stub(
+                window.mParticle.getInstance().Identity,
+                'getCurrentUser'
+            );
+            userSpy.returns({
+                getMPID: () => 'testMPID',
+            });
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getLastSeenTime(testMPID)).to.equal(now.getTime());
+        });
+    });
+
+    describe('#setLastSeenTime', () => {
+        it('should set the lastSeenTime in the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setLastSeenTime(testMPID, 12345);
+            expect(store.persistenceData[testMPID].lst).to.equal(12345);
+        });
+
+        it('should set the lastSeenTime in persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setLastSeenTime(testMPID, 12345);
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].lst).to.be.ok;
+            expect(fromPersistence[testMPID].lst).to.equal(12345);
+        });
+
+        it('should override persistence with store values', () => {
+            const persistenceValue = JSON.stringify({
+                gs: {
+                    sid: 'sid',
+                    les: new Date().getTime(),
+                },
+                testMPID: {
+                    lst: 12345,
+                },
+                cu: testMPID,
+            });
+
+            localStorage.setItem(workspaceCookieName, persistenceValue);
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setLastSeenTime(testMPID, 54321);
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].lst).to.be.ok;
+            expect(fromPersistence[testMPID].lst).to.equal(54321);
         });
     });
 

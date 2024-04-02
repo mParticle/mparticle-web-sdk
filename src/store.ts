@@ -169,6 +169,11 @@ export interface IStore {
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
 
+    getFirstSeenTime?(mpid: MPID): number;
+    setFirstSeenTime?(mpid: MPID, time?: number): void;
+    getLastSeenTime?(mpid: MPID): number;
+    setLastSeenTime?(mpid: MPID, time?: number): void;
+
     nullifySession?: () => void;
 }
 
@@ -463,6 +468,83 @@ export default function Store(
         this.dateLastEventSent = null;
         this.sessionAttributes = {};
         mpInstance._Persistence.update();
+    };
+
+    this.getFirstSeenTime = (mpid: MPID) => {
+        if (!mpid) {
+            return null;
+        }
+
+        if (
+            this.persistenceData &&
+            this.persistenceData[mpid] &&
+            this.persistenceData[mpid].fst
+        ) {
+            return this.persistenceData[mpid].fst;
+        } else {
+            return null;
+        }
+    };
+
+    this.setFirstSeenTime = (mpid: MPID, _time?: number) => {
+        if (!mpid) {
+            return;
+        }
+
+        const time = _time || new Date().getTime();
+
+        if (this.persistenceData) {
+            if (!this.persistenceData[mpid]) {
+                this.persistenceData[mpid] = {};
+            }
+            if (!this.persistenceData[mpid].fst) {
+                this.persistenceData[mpid].fst = time;
+                mpInstance._Persistence.savePersistence(this.persistenceData);
+            }
+        }
+    };
+
+    this.getLastSeenTime = (mpid: MPID) => {
+        if (!mpid) {
+            return null;
+        }
+
+        // TODO: We should store the current user in the Store's mpid rather than
+        //       relying on the Identity object
+        const currentUser = mpInstance.Identity.getCurrentUser();
+
+        if (mpid === currentUser?.getMPID()) {
+            // if the mpid is the current user, its last seen time is the current time
+            return new Date().getTime();
+        } else {
+            if (
+                this.persistenceData &&
+                this.persistenceData[mpid] &&
+                this.persistenceData[mpid].lst
+            ) {
+                return this.persistenceData[mpid].lst;
+            } else {
+                return null;
+            }
+        }
+    };
+
+    this.setLastSeenTime = (mpid: MPID, _time?: number) => {
+        if (!mpid) {
+            return;
+        }
+
+        const time = _time || new Date().getTime();
+
+        if (this.persistenceData) {
+            if (!this.persistenceData[mpid]) {
+                this.persistenceData[mpid] = {};
+            }
+            if (!this.persistenceData[mpid].lst) {
+                this.persistenceData[mpid].lst = time;
+                mpInstance._Persistence.savePersistence(this.persistenceData);
+            }
+        }
     };
 }
 
