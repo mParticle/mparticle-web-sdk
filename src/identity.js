@@ -5,6 +5,7 @@ import {
     createKnownIdentities,
     tryCacheIdentity,
 } from './identity-utils';
+import { mergeObjects } from './utils';
 
 var Messages = Constants.Messages,
     HTTPCodes = Constants.HTTPCodes;
@@ -21,12 +22,7 @@ export default function Identity(mpInstance) {
         currentSessionMPIDs
     ) {
         if (previousMPID && currentMPID && previousMPID !== currentMPID) {
-            var persistence = mpInstance._Persistence.getPersistence();
-            if (persistence) {
-                persistence.cu = currentMPID;
-                persistence.gs.csm = currentSessionMPIDs;
-                mpInstance._Persistence.savePersistence(persistence);
-            }
+            mpInstance._Store.swapIdentity(currentMPID, currentSessionMPIDs);
         }
     };
 
@@ -588,6 +584,7 @@ export default function Identity(mpInstance) {
             if (mpInstance._Store) {
                 mpid = mpInstance._Store.mpid;
                 if (mpid) {
+                    // TODO: Why does this need to be sliced and mutated?
                     mpid = mpInstance._Store.mpid.slice();
                     return self.mParticleUser(
                         mpid,
@@ -611,7 +608,7 @@ export default function Identity(mpInstance) {
          * @return {Object} the user for  mpid
          */
         getUser: function(mpid) {
-            var persistence = mpInstance._Persistence.getPersistence();
+            var persistence = mpInstance._Store.getPersistenceData();
             if (persistence) {
                 if (
                     persistence[mpid] &&
@@ -631,8 +628,9 @@ export default function Identity(mpInstance) {
          * @method getUsers
          * @return {Array} array of users
          */
+        // TODO: Create a test for this
         getUsers: function() {
-            var persistence = mpInstance._Persistence.getPersistence();
+            var persistence = mpInstance._Store.getPersistenceData();
             var users = [];
             if (persistence) {
                 for (var key in persistence) {
@@ -810,9 +808,7 @@ export default function Identity(mpInstance) {
             getUserIdentities: function() {
                 var currentUserIdentities = {};
 
-                var identities = mpInstance._Persistence.getUserIdentities(
-                    mpid
-                );
+                var identities = mpInstance._Store.getUserIdentities(mpid);
 
                 for (var identityType in identities) {
                     if (identities.hasOwnProperty(identityType)) {
@@ -869,13 +865,10 @@ export default function Identity(mpInstance) {
              * @param {String} value
              */
             setUserAttribute: function(key, newValue) {
-                var cookies,
-                    userAttributes,
-                    previousUserAttributeValue,
-                    isNewAttribute;
-
+                // QUESTION: Why does this need to reset the timer?
                 mpInstance._SessionManager.resetSessionTimer();
 
+                // TODO: break out these guards to return directly
                 if (mpInstance._Helpers.canLog()) {
                     if (
                         !mpInstance._Helpers.Validators.isValidAttributeValue(
@@ -898,7 +891,9 @@ export default function Identity(mpInstance) {
                             JSON.stringify({ key: key, value: newValue })
                         );
                     } else {
-                        cookies = mpInstance._Persistence.getPersistence();
+                        var userAttributes;
+                        var previousUserAttributeValue;
+                        var isNewAttribute;
 
                         userAttributes = this.getAllUserAttributes();
 
@@ -917,13 +912,11 @@ export default function Identity(mpInstance) {
                         }
 
                         userAttributes[key] = newValue;
-                        if (cookies && cookies[mpid]) {
-                            cookies[mpid].ua = userAttributes;
-                            mpInstance._Persistence.savePersistence(
-                                cookies,
-                                mpid
-                            );
-                        }
+
+                        mpInstance._Store.setUserAttributes(
+                            mpid,
+                            userAttributes
+                        );
 
                         self.sendUserAttributeChangeEvent(
                             key,
@@ -974,7 +967,8 @@ export default function Identity(mpInstance) {
              * @param {String} key
              */
             removeUserAttribute: function(key) {
-                var cookies, userAttributes;
+                // var persistence;
+                var userAttributes;
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
@@ -988,7 +982,8 @@ export default function Identity(mpInstance) {
                         JSON.stringify({ key: key, value: null })
                     );
                 } else {
-                    cookies = mpInstance._Persistence.getPersistence();
+                    // QUESTION: Is this redundant?
+                    // persistence = mpInstance._Store.getPersistenceData();
 
                     userAttributes = this.getAllUserAttributes();
 
@@ -997,20 +992,25 @@ export default function Identity(mpInstance) {
                         key
                     );
 
+                    // QUESTION: Why is this here? If existingProp is not found
+                    // we still try to remove t?
                     if (existingProp) {
                         key = existingProp;
                     }
 
+                    // TODO: Technically, this is the value of the object, not the key
                     var deletedUAKeyCopy = userAttributes[key]
                         ? userAttributes[key].toString()
                         : null;
 
+                    // QUESTION: What happens if key is null?
                     delete userAttributes[key];
 
-                    if (cookies && cookies[mpid]) {
-                        cookies[mpid].ua = userAttributes;
-                        mpInstance._Persistence.savePersistence(cookies, mpid);
-                    }
+                    // if (persistence && persistence[mpid]) {
+                    //     persistence[mpid].ua = userAttributes;
+                    // QUESTION: why is mpid an argument here when it's not in the signature?
+                    mpInstance._Store.setUserAttributes(mpid, userAttributes);
+                    // }
 
                     self.sendUserAttributeChangeEvent(
                         key,
@@ -1039,11 +1039,11 @@ export default function Identity(mpInstance) {
              * @param {Array} value an array of values
              */
             setUserAttributeList: function(key, newValue) {
-                var cookies,
-                    userAttributes,
-                    previousUserAttributeValue,
-                    isNewAttribute,
-                    userAttributeChange;
+                // var persistence;
+                var userAttributes;
+                var previousUserAttributeValue;
+                var isNewAttribute;
+                var userAttributeChange;
 
                 mpInstance._SessionManager.resetSessionTimer();
 
@@ -1068,7 +1068,9 @@ export default function Identity(mpInstance) {
                         JSON.stringify({ key: key, value: arrayCopy })
                     );
                 } else {
-                    cookies = mpInstance._Persistence.getPersistence();
+                    // QUESTION: Is this redundant?
+                    // persistence = mpInstance._Persistence.getPersistence();
+                    // persistence = mpInstance._Store.getPersistenceData();
 
                     userAttributes = this.getAllUserAttributes();
 
@@ -1087,10 +1089,10 @@ export default function Identity(mpInstance) {
                     }
 
                     userAttributes[key] = arrayCopy;
-                    if (cookies && cookies[mpid]) {
-                        cookies[mpid].ua = userAttributes;
-                        mpInstance._Persistence.savePersistence(cookies, mpid);
-                    }
+                    // if (persistence && persistence[mpid]) {
+                    //     persistence[mpid].ua = userAttributes;
+                    mpInstance._Store.setUserAttributes(mpid, userAttributes);
+                    // }
 
                     // If the new attributeList length is different previous, then there is a change event.
                     // Loop through new attributes list, see if they are all in the same index as previous user attributes list
@@ -1191,31 +1193,15 @@ export default function Identity(mpInstance) {
                 return userAttributesLists;
             },
             /**
-             * Returns all user attributes
+             * Returns a copy of all user attributes
              * @method getAllUserAttributes
              * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
              */
             getAllUserAttributes: function() {
-                var userAttributesCopy = {};
-                var userAttributes = mpInstance._Persistence.getAllUserAttributes(
+                var userAttributes = mpInstance._Store.getAllUserAttributes(
                     mpid
                 );
-
-                if (userAttributes) {
-                    for (var prop in userAttributes) {
-                        if (userAttributes.hasOwnProperty(prop)) {
-                            if (Array.isArray(userAttributes[prop])) {
-                                userAttributesCopy[prop] = userAttributes[
-                                    prop
-                                ].slice();
-                            } else {
-                                userAttributesCopy[prop] = userAttributes[prop];
-                            }
-                        }
-                    }
-                }
-
-                return userAttributesCopy;
+                return mergeObjects({}, userAttributes);
             },
             /**
              * Returns the cart object for the current user
@@ -1235,7 +1221,10 @@ export default function Identity(mpInstance) {
              * @return a ConsentState object
              */
             getConsentState: function() {
-                return mpInstance._Persistence.getConsentState(mpid);
+                // TODO: we should not assume mpid comes from persistence
+                // Likely we should check the current user
+                // return mpInstance._Persistence.getConsentState(mpid);
+                return mpInstance._Store.getConsentState(mpid);
             },
             /**
              * Sets the Consent State stored locally for this user.
@@ -1243,10 +1232,14 @@ export default function Identity(mpInstance) {
              * @param {Object} consent state
              */
             setConsentState: function(state) {
-                mpInstance._Persistence.saveUserConsentStateToCookies(
-                    mpid,
-                    state
-                );
+                // TODO: we should not assume mpid comes from persistence
+                // Likely we should check the current user
+                // mpInstance._Persistence.saveUserConsentStateToCookies(
+                //     mpid,
+                //     state
+                // );
+                mpInstance._Store.setConsentState(mpid, state);
+
                 mpInstance._Forwarders.initForwarders(
                     this.getUserIdentities().userIdentities,
                     mpInstance._APIClient.prepareForwardingStats
@@ -1260,10 +1253,16 @@ export default function Identity(mpInstance) {
                 return isLoggedIn;
             },
             getLastSeenTime: function() {
-                return mpInstance._Persistence.getLastSeenTime(mpid);
+                // TODO: we should not assume mpid comes from persistence
+                // Likely we should check the current user
+                // return mpInstance._Persistence.getLastSeenTime(mpid);
+                return mpInstance._Store.getLastSeenTime(mpid);
             },
             getFirstSeenTime: function() {
-                return mpInstance._Persistence.getFirstSeenTime(mpid);
+                // TODO: we should not assume mpid comes from persistence
+                // Likely we should check the current user
+                // return mpInstance._Persistence.getFirstSeenTime(mpid);
+                return mpInstance._Store.getFirstSeenTime(mpid);
             },
         };
     };
@@ -1497,18 +1496,12 @@ export default function Identity(mpInstance) {
                 mpInstance._Store.mpid = identityApiResult.mpid;
 
                 if (prevUser) {
-                    mpInstance._Persistence.setLastSeenTime(previousMPID);
+                    mpInstance._Store.setLastSeenTime(previousMPID);
                 }
 
-                if (
-                    !mpInstance._Persistence.getFirstSeenTime(
-                        identityApiResult.mpid
-                    )
-                )
+                if (!mpInstance._Store.getFirstSeenTime(identityApiResult.mpid))
                     mpidIsNotInCookies = true;
-                mpInstance._Persistence.setFirstSeenTime(
-                    identityApiResult.mpid
-                );
+                mpInstance._Store.setFirstSeenTime(identityApiResult.mpid);
             }
 
             if (xhr.status === 200) {
@@ -1532,7 +1525,7 @@ export default function Identity(mpInstance) {
                         identityApiData.userIdentities
                     );
 
-                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
+                    mpInstance._Store.setUserIdentities(
                         previousMPID,
                         newIdentitiesByType
                     );
@@ -1561,7 +1554,7 @@ export default function Identity(mpInstance) {
                         prevUser &&
                         identityApiResult.mpid === prevUser.getMPID()
                     ) {
-                        mpInstance._Persistence.setFirstSeenTime(
+                        mpInstance._Store.setFirstSeenTime(
                             identityApiResult.mpid
                         );
                     }
@@ -1595,6 +1588,7 @@ export default function Identity(mpInstance) {
                         );
                     }
 
+                    // TODO: Do I need to care about this for persistence refactor right now?
                     mpInstance._CookieSyncManager.attemptCookieSync(
                         previousMPID,
                         identityApiResult.mpid,
@@ -1619,12 +1613,16 @@ export default function Identity(mpInstance) {
                     }
 
                     // https://go.mparticle.com/work/SQDSDKS-6041
-                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
+                    mpInstance._Store.setUserIdentities(
                         identityApiResult.mpid,
                         newIdentitiesByType
                     );
-                    mpInstance._Persistence.update();
+                    // Is update actually necessary here?
+                    // mpInstance._Persistence.update();
+                    mpInstance._Store.updatePersistence();
 
+                    // TODO: LEFT OFF HERE
+                    // TODO: Migrate this to store
                     mpInstance._Persistence.findPrevCookiesBasedOnUI(
                         identityApiData
                     );
@@ -1654,10 +1652,15 @@ export default function Identity(mpInstance) {
                         );
                     }
                 }
-                var persistence = mpInstance._Persistence.getPersistence();
+                // var persistence = mpInstance._Persistence.getPersistence();
+                var persistence = mpInstance._Store.getPersistenceData();
 
                 if (newUser) {
-                    mpInstance._Persistence.storeDataInMemory(
+                    // mpInstance._Persistence.storeDataInMemory(
+                    //     persistence,
+                    //     newUser.getMPID()
+                    // );
+                    mpInstance._Store.storeDataInPersistence(
                         persistence,
                         newUser.getMPID()
                     );

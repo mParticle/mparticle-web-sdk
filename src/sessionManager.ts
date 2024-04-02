@@ -44,9 +44,7 @@ export default function SessionManager(
                 self.endSession();
                 self.startNewSession();
             } else {
-                // https://go.mparticle.com/work/SQDSDKS-6045
-                const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
-                if (persistence && !persistence.cu) {
+                if (!mpInstance._Store.hasCurrentUser()) {
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
                         mpInstance._Store.SDKConfig.identityCallback
@@ -129,7 +127,7 @@ export default function SessionManager(
                 messageType: Types.MessageType.SessionEnd,
             });
 
-            nullifySession();
+            mpInstance._Store.nullifySession();
             return;
         }
 
@@ -147,25 +145,30 @@ export default function SessionManager(
         let sessionTimeoutInMilliseconds: number;
         let timeSinceLastEventSent: number;
 
-        const cookies: IPersistenceMinified = mpInstance._Persistence.getPersistence();
+        // TODO: Destructure les and sid from persistence
+        const persistence: IPersistenceMinified = mpInstance._Store.getPersistenceData();
 
-        if (!cookies || cookies.gs && !cookies.gs.sid) {
+        if (!persistence || (persistence.gs && !persistence.gs.sid)) {
             mpInstance.Logger.verbose(
                 Messages.InformationMessages.NoSessionToEnd
             );
             return;
         }
 
+        // QUESTION: Can we refactor this into the store?
         // sessionId is not equal to cookies.sid if cookies.sid is changed in another tab
-        if (cookies.gs.sid && mpInstance._Store.sessionId !== cookies.gs.sid) {
-            mpInstance._Store.sessionId = cookies.gs.sid;
+        if (
+            persistence.gs.sid &&
+            mpInstance._Store.sessionId !== persistence.gs.sid
+        ) {
+            mpInstance._Store.sessionId = persistence.gs.sid;
         }
 
-        if (cookies?.gs?.les) {
+        if (persistence && persistence.gs && persistence.gs.les) {
             sessionTimeoutInMilliseconds =
                 mpInstance._Store.SDKConfig.sessionTimeout * 60000;
             const newDate: number = new Date().getTime();
-            timeSinceLastEventSent = newDate - cookies.gs.les;
+            timeSinceLastEventSent = newDate - persistence.gs.les;
 
             if (timeSinceLastEventSent < sessionTimeoutInMilliseconds) {
                 self.setSessionTimer();
@@ -175,7 +178,7 @@ export default function SessionManager(
                 });
 
                 mpInstance._Store.sessionStartDate = null;
-                nullifySession();
+                mpInstance._Store.nullifySession();
             }
         }
     };
@@ -206,7 +209,7 @@ export default function SessionManager(
 
     this.startNewSessionIfNeeded = function(): void {
         if (!mpInstance._Store.webviewBridgeEnabled) {
-            const persistence = mpInstance._Persistence.getPersistence();
+            const persistence = mpInstance._Store.getPersistenceData();
 
             if (!mpInstance._Store.sessionId && persistence) {
                 if (persistence.sid) {
@@ -217,11 +220,4 @@ export default function SessionManager(
             }
         }
     };
-
-    function nullifySession(): void {
-        mpInstance._Store.sessionId = null;
-        mpInstance._Store.dateLastEventSent = null;
-        mpInstance._Store.sessionAttributes = {};
-        mpInstance._Persistence.update();
-    }
 }
