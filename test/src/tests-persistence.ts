@@ -1801,10 +1801,6 @@ describe('persistence', () => {
 
         setCookie(workspaceCookieName, cookies, true);
 
-        // TODO: https://go.mparticle.com/work/SQDSDKS-5339
-        // @ts-ignore
-        mParticle.useCookieStorage = true;
-
         mParticle.init(apiKey, mParticle.config);
 
         const clock = sinon.useFakeTimers();
