@@ -274,9 +274,6 @@ describe('Store', () => {
         });
 
         it('should set the deviceId in persistence', () => {
-            // Since this relies on persistence, we need to make sure
-            // we are using an mParticle instance that shares both
-            // store and persistence modules
             const store = window.mParticle.getInstance()._Store;
 
             store.setDeviceId('foo');
@@ -284,8 +281,8 @@ describe('Store', () => {
                 .getInstance()
                 ._Persistence.getPersistence();
 
-            expect(store.deviceId).to.equal('foo');
             expect(fromPersistence.gs.das).to.equal('foo');
+            expect(store.persistenceData.gs.das).to.equal('foo');
         });
     });
 

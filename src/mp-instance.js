@@ -234,7 +234,7 @@ export default function mParticleInstance(instanceName) {
             self.setDeviceId(guid);
         }, self);
         if (queued) return;
-        this._Persistence.setDeviceId(guid);
+        this._Store.setDeviceId(guid);
     };
     /**
      * Returns a boolean for whether or not the SDKhas been fully initialized

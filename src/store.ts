@@ -455,8 +455,7 @@ export default function Store(
     this.setDeviceId = (deviceId: string) => {
         this.deviceId = deviceId;
         this.persistenceData.gs.das = deviceId;
-
-        mpInstance._Persistence.savePersistence(this.persistenceData);
+        mpInstance._Persistence.update();
     };
 
     this.nullifySession = (): void => {
