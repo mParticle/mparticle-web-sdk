@@ -509,8 +509,7 @@ export default function Store(
             return null;
         }
 
-        // TODO: We should store the current user in the Store's mpid rather than
-        //       relying on the Identity object
+        // https://go.mparticle.com/work/SQDSDKS-6315
         const currentUser = mpInstance.Identity.getCurrentUser();
 
         if (mpid === currentUser?.getMPID()) {
