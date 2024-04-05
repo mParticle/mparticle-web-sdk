@@ -7,6 +7,19 @@ var iosBridgeNameBase = 'mParticle';
 
 export default function NativeSdkHelpers(mpInstance) {
     var self = this;
+    this.initializeSessionAttributes = function(apiKey) {
+        self.sendToNative(
+            Constants.NativeSdkPaths.SetSessionAttribute,
+            JSON.stringify({ key: '$src_env', value: 'webview' })
+        );
+        if (apiKey) {
+            self.sendToNative(
+                Constants.NativeSdkPaths.SetSessionAttribute,
+                JSON.stringify({ key: '$src_key', value: apiKey })
+            );
+        }
+    };
+
     this.isBridgeV2Available = function(bridgeName) {
         if (!bridgeName) {
             return false;

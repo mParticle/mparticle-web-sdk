@@ -3,7 +3,6 @@ import sinon from 'sinon';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 import Store, {
     IStore,
-    SDKConfig,
     processFlags,
     processBaseUrls,
     IFeatureFlags,
@@ -291,97 +290,7 @@ describe('Store', () => {
         });
     });
 
-    describe('#nullifySessionData', () => {
-        it('should nullify session data on the store', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
 
-            store.sessionId = '123';
-            store.dateLastEventSent = new Date();
-            store.sessionAttributes = { foo: 'bar' };
-
-            store.nullifySession();
-
-            expect(store.sessionId).to.be.null;
-            expect(store.dateLastEventSent).to.be.null;
-            expect(store.sessionAttributes).to.deep.equal({});
-        });
-
-        it('should nullify session data in persistence', () => {
-            const persistenceData = {
-                gs: {
-                    csm: ['mpid3'],
-                    sid: 'abcd',
-                    ie: true,
-                    dt: apiKey,
-                    cgid: 'cgid1',
-                    das: 'das1',
-                    les: 1234567890,
-                    sa: { foo: 'bar' },
-                    ss: {},
-                    av: '1.0',
-                    ia: {},
-                    c: null,
-                    ssd: 8675309,
-                } as IGlobalStoreV2MinifiedKeys,
-                cu: 'mpid3',
-                l: false,
-                mpid1: {
-                    ua: {
-                        gender: 'female',
-                        age: 29,
-                        height: '65',
-                        color: 'blue',
-                        id: 'abcdefghijklmnopqrstuvwxyz',
-                    },
-                    ui: { 1: 'customerid123', 2: 'facebookid123' },
-                },
-                mpid2: {
-                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
-                    ui: {
-                        1: 'customerid234',
-                        2: 'facebookid234',
-                        id: 'abcdefghijklmnopqrstuvwxyz',
-                    },
-                },
-                mpid3: {
-                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
-                    ui: {
-                        1: 'customerid234',
-                        2: 'facebookid234',
-                        id: 'abcdefghijklmnopqrstuvwxyz',
-                    },
-                },
-            };
-
-            window.mParticle
-                .getInstance()
-                ._Persistence.savePersistence(persistenceData);
-
-            let fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
-
-            expect(fromPersistence.gs).to.be.ok;
-            expect(fromPersistence.gs.sid).to.equal('abcd');
-            expect(fromPersistence.gs.les).to.equal(1234567890);
-            expect(fromPersistence.gs.sa).to.deep.equal({ foo: 'bar' });
-
-            // Grab the store directly from mPInstance to make sure they share scope
-            window.mParticle.getInstance()._Store.nullifySession();
-
-            fromPersistence = window.mParticle
-                .getInstance()
-                ._Persistence.getPersistence();
-
-            expect(fromPersistence.gs).to.be.ok;
-            expect(fromPersistence.gs.sid).to.be.undefined;
-            expect(fromPersistence.gs.les).to.be.undefined;
-            expect(fromPersistence.gs.sa).to.be.undefined;
-        });
-    });
 
     describe('#getFirstSeenTime', () => {
         it('should return the firstSeenTime from the store', () => {
@@ -576,20 +485,264 @@ describe('Store', () => {
             expect(fromPersistence[testMPID].lst).to.equal(54321);
         });
     });
+   
+    describe('#nullifySessionData', () => {
+        it('should nullify session data on the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.sessionId = '123';
+            store.dateLastEventSent = new Date();
+            store.sessionAttributes = { foo: 'bar' };
+
+            store.nullifySession();
+
+            expect(store.sessionId).to.be.null;
+            expect(store.dateLastEventSent).to.be.null;
+            expect(store.sessionAttributes).to.deep.equal({});
+        });
+
+        it('should nullify session data in persistence', () => {
+            const persistenceData = {
+                gs: {
+                    csm: ['mpid3'],
+                    sid: 'abcd',
+                    ie: true,
+                    dt: apiKey,
+                    cgid: 'cgid1',
+                    das: 'das1',
+                    les: 1234567890,
+                    sa: { foo: 'bar' },
+                    ss: {},
+                    av: '1.0',
+                    ia: {},
+                    c: null,
+                    ssd: 8675309,
+                } as IGlobalStoreV2MinifiedKeys,
+                cu: 'mpid3',
+                l: false,
+                mpid1: {
+                    ua: {
+                        gender: 'female',
+                        age: 29,
+                        height: '65',
+                        color: 'blue',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                    ui: { 1: 'customerid123', 2: 'facebookid123' },
+                },
+                mpid2: {
+                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                    ui: {
+                        1: 'customerid234',
+                        2: 'facebookid234',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                },
+                mpid3: {
+                    ua: { gender: 'male', age: 20, height: '68', color: 'red' },
+                    ui: {
+                        1: 'customerid234',
+                        2: 'facebookid234',
+                        id: 'abcdefghijklmnopqrstuvwxyz',
+                    },
+                },
+            };
+
+            window.mParticle
+                .getInstance()
+                ._Persistence.savePersistence(persistenceData);
+
+            let fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence.gs).to.be.ok;
+            expect(fromPersistence.gs.sid).to.equal('abcd');
+            expect(fromPersistence.gs.les).to.equal(1234567890);
+            expect(fromPersistence.gs.sa).to.deep.equal({ foo: 'bar' });
+
+            // Grab the store directly from mPInstance to make sure they share scope
+            window.mParticle.getInstance()._Store.nullifySession();
+
+            fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence.gs).to.be.ok;
+            expect(fromPersistence.gs.sid).to.be.undefined;
+            expect(fromPersistence.gs.les).to.be.undefined;
+            expect(fromPersistence.gs.sa).to.be.undefined;
+        });
+    });
+
+    describe('#processConfig', () => {
+        it('should process feature flags', () => {
+            const config = {
+                ...sampleConfig,
+                flags: {
+                    reportBatching: false, // This should be a string
+                    eventBatchingIntervalMillis: '42000',
+                    offlineStorage: '42',
+                    directURLRouting: 'False',
+                    cacheIdentity: 'False',
+                },
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            const expectedResult = {
+                reportBatching: false,
+                eventBatchingIntervalMillis: 42000,
+                offlineStorage: '42',
+                directURLRouting: false,
+                cacheIdentity: false,
+            };
+
+            // TODO: This passes even though we're only doing this in the constructor.
+            // Should we move the processFlags call into this method?
+            expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
+        });
+
+        it('should process storage names', () => {
+            const config = {
+                ...sampleConfig,
+                workspaceToken: 'foo',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(store.storageName, 'storageName').to.equal('mprtcl-v4_foo');
+            expect(store.prodStorageName, 'prodStorageName').to.equal(
+                'mprtcl-prodv4_foo'
+            );
+            expect(store.SDKConfig.workspaceToken, 'workspace token').to.equal(
+                'foo'
+            );
+        });
+
+        it('should warn if workspace token is missing', () => {
+            const config = {
+                ...sampleConfig,
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            const warnSpy = sinon.spy(
+                window.mParticle.getInstance().Logger,
+                'warning'
+            );
+
+            store.processConfig(config);
+
+            expect(warnSpy.calledOnce, 'should call Logger.warn').to.be.true;
+            expect(warnSpy.getCall(0).firstArg).to.equal(
+                'You should have a workspaceToken on your config object for security purposes.'
+            );
+        });
+
+        it('should use a Web View Bridge Name if requiredWebviewBridgeName is present', () => {
+            const config = {
+                ...sampleConfig,
+                requiredWebviewBridgeName: 'my-webview-bridge-name',
+                workspaceToken: 'my-workspace-token',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(
+                store.SDKConfig.requiredWebviewBridgeName,
+                'webviewBridgeName'
+            ).to.equal('my-webview-bridge-name');
+        });
+
+        it('should use a workspace token as the Web View Bridge Name if requiredWebviewBridgeName is not present ', () => {
+            const config = {
+                ...sampleConfig,
+                workspaceToken: 'my-workspace-token',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(
+                store.SDKConfig.requiredWebviewBridgeName,
+                'webviewBridgeName'
+            ).to.equal('my-workspace-token');
+        });
+
+        it('should enable WebviewBridge if requiredWebviewBridgeName is present', () => {
+            const config = {
+                ...sampleConfig,
+                requiredWebviewBridgeName: 'my-webview-bridge-name',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            // Webview bridge requires a bridge name set on the global mParticle object
+            // @ts-ignore
+            window.mParticle.uiwebviewBridgeName =
+                'mParticle_my-webview-bridge-name_v2';
+
+            store.processConfig(config);
+
+            expect(store.webviewBridgeEnabled, 'webviewBridgeEnabled').to.be
+                .true;
+        });
+
+        it('should set configurationLoaded to true if config is successfully processed', () => {
+            const config = {
+                ...sampleConfig,
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(store.configurationLoaded, 'configurationLoaded').to.be.true;
+        });
+    });
 
     describe('#processFlags', () => {
         it('should return an empty object if no featureFlags are passed', () => {
-            const flags = processFlags({} as SDKInitConfig, {} as SDKConfig);
+            const flags = processFlags({} as SDKInitConfig);
             expect(Object.keys(flags).length).to.equal(0);
         });
 
         it('should return default featureFlags if no featureFlags are passed', () => {
-            const flags = processFlags(
-                { flags: {} } as SDKInitConfig,
-                {} as SDKConfig
-            );
+            const flags = processFlags({ flags: {} } as SDKInitConfig);
             const expectedResult = {
-                reportBatching: false,
+                reportBatching: false, // This should be a string
                 eventBatchingIntervalMillis: 0,
                 offlineStorage: '0',
                 directURLRouting: false,
@@ -602,8 +755,8 @@ describe('Store', () => {
 
         it('should return featureFlags if featureFlags are passed in', () => {
             const cutomizedFlags = {
-                reportBatching: true,
-                eventBatchingIntervalMillis: 5000,
+                reportBatching: true, // This should be a string
+                eventBatchingIntervalMillis: '5000',
                 offlineStorage: '100',
                 directURLRouting: 'True',
                 cacheIdentity: 'True',
@@ -611,8 +764,7 @@ describe('Store', () => {
             };
 
             const flags = processFlags(
-                ({ flags: cutomizedFlags } as unknown) as SDKInitConfig,
-                {} as SDKConfig
+                ({ flags: cutomizedFlags } as unknown) as SDKInitConfig
             );
 
             const expectedResult = {

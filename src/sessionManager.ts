@@ -47,6 +47,7 @@ export default function SessionManager(
                 // https://go.mparticle.com/work/SQDSDKS-6045
                 const persistence: IPersistenceMinified = mpInstance._Persistence.getPersistence();
                 if (persistence && !persistence.cu) {
+                    // https://go.mparticle.com/work/SQDSDKS-6323
                     mpInstance.Identity.identify(
                         mpInstance._Store.SDKConfig.identifyRequest,
                         mpInstance._Store.SDKConfig.identityCallback

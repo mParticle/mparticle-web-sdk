@@ -20,7 +20,14 @@ import {
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
-import { isNumber, isDataPlanSlug, Dictionary, parseNumber } from './utils';
+import {
+    Dictionary,
+    isDataPlanSlug,
+    isNumber,
+    isObject,
+    parseNumber,
+    returnConvertedBoolean,
+} from './utils';
 import { SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
 import { IPersistenceMinified } from './persistence.interfaces';
@@ -71,6 +78,9 @@ export interface SDKConfig {
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
+    webviewBridgeName?: string;
+    workspaceToken?: string;
+    requiredWebviewBridgeName?: string;
 }
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
@@ -114,7 +124,7 @@ interface WrapperSDKInfo {
 
 // https://go.mparticle.com/work/SQDSDKS-5954
 export interface IFeatureFlags {
-    reportBatching?: string;
+    reportBatching?: boolean;
     eventBatchingIntervalMillis?: number;
     offlineStorage?: string;
     directURLRouting?: boolean;
@@ -169,13 +179,14 @@ export interface IStore {
 
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
-
     getFirstSeenTime?(mpid: MPID): number;
     setFirstSeenTime?(mpid: MPID, time?: number): void;
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
 
+    hasValidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
+    processConfig(config: SDKInitConfig): void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -185,6 +196,13 @@ export default function Store(
     mpInstance: MParticleWebSDK,
     apiKey?: string
 ) {
+    const {
+        createMainStorageName,
+        createProductStorageName,
+    } = mpInstance._Helpers;
+
+    const { isWebviewEnabled } = mpInstance._NativeSdkHelpers;
+
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
         sessionAttributes: {},
@@ -266,14 +284,13 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        this.SDKConfig.flags = processFlags(config, this
-            .SDKConfig as SDKConfig);
+        this.SDKConfig.flags = processFlags(config);
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
+            this.SDKConfig.isDevelopmentMode = returnConvertedBoolean(
                 config.isDevelopmentMode
             );
         } else {
@@ -453,6 +470,16 @@ export default function Store(
             }
         }
     }
+    this.hasValidIdentifyRequest = (): boolean => {
+        // TODO: Replace with is empty?
+        const { identifyRequest } = this.SDKConfig;
+        return (
+            (isObject(identifyRequest) &&
+                isObject(identifyRequest.userIdentities) &&
+                Object.keys(identifyRequest.userIdentities).length === 0) ||
+            !identifyRequest
+        );
+    };
 
     this.getDeviceId = () => this.deviceId;
     this.setDeviceId = (deviceId: string) => {
@@ -461,12 +488,7 @@ export default function Store(
         mpInstance._Persistence.update();
     };
 
-    this.nullifySession = (): void => {
-        this.sessionId = null;
-        this.dateLastEventSent = null;
-        this.sessionAttributes = {};
-        mpInstance._Persistence.update();
-    };
+
 
     this.getFirstSeenTime = (mpid: MPID) => {
         if (!mpid) {
@@ -538,13 +560,46 @@ export default function Store(
                 mpInstance._Persistence.savePersistence(this.persistenceData);
             }
         }
+    }
+
+    this.nullifySession = (): void => {
+        this.sessionId = null;
+        this.dateLastEventSent = null;
+        this.sessionAttributes = {};
+        mpInstance._Persistence.update();
+    };
+
+    this.processConfig = (config: SDKInitConfig) => {
+        const { workspaceToken, requiredWebviewBridgeName } = config;
+
+        // TODO: refactor to use flags directly
+        this.SDKConfig.flags = processFlags(config);
+
+        if (workspaceToken) {
+            this.SDKConfig.workspaceToken = workspaceToken;
+        } else {
+            mpInstance.Logger.warning(
+                'You should have a workspaceToken on your config object for security purposes.'
+            );
+        }
+        // add a new function to apply items to the store that require config to be returned
+        this.storageName = createMainStorageName(workspaceToken);
+        this.prodStorageName = createProductStorageName(workspaceToken);
+
+        this.SDKConfig.requiredWebviewBridgeName =
+            requiredWebviewBridgeName || workspaceToken;
+
+        this.webviewBridgeEnabled = isWebviewEnabled(
+            this.SDKConfig.requiredWebviewBridgeName,
+            this.SDKConfig.minWebviewBridgeVersion
+        );
+
+        this.configurationLoaded = true;
     };
 }
 
-export function processFlags(
-    config: SDKInitConfig,
-    SDKConfig: SDKConfig
-): IFeatureFlags {
+// TODO: Refactor to use flags directly
+export function processFlags(config: SDKInitConfig): IFeatureFlags {
     const flags: IFeatureFlags = {};
     const {
         ReportBatching,
@@ -559,6 +614,7 @@ export function processFlags(
         return {};
     }
 
+    // https://go.mparticle.com/work/SQDSDKS-6317
     // Passed in config flags take priority over defaults
     flags[ReportBatching] = config.flags[ReportBatching] || false;
     // The server returns stringified numbers, sowe need to parse

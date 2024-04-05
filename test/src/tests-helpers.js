@@ -231,59 +231,6 @@ describe('helpers', function() {
         done();
     });
 
-    it('should return expected boolean value when strings are passed', function(done) {
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean('false')
-            .should.equal(false);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean(false)
-            .should.equal(false);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean('true')
-            .should.equal(true);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean('true')
-            .should.equal(true);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean('randomstring')
-            .should.equal(true);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean(0)
-            .should.equal(false);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean(1)
-            .should.equal(true);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean('0')
-            .should.equal(false);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean('1')
-            .should.equal(true);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean(null)
-            .should.equal(false);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean(undefined)
-            .should.equal(false);
-        mParticle
-            .getInstance()
-            ._Helpers.returnConvertedBoolean('')
-            .should.equal(false);
-
-        done();
-    });
-
     it('should return 0 when hashing undefined or null', function(done) {
         mParticle.generateHash(undefined)
             .should.equal(0);
