@@ -246,6 +246,8 @@ export interface SDKIdentityApi {
 
 export interface SDKHelpersApi {
     canLog?(): boolean;
+    createMainStorageName?(workspaceToken: string): string;
+    createProductStorageName?(workspaceToken: string): string;
     createServiceUrl(arg0: string, arg1: string): void;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);

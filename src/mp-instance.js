@@ -1289,33 +1289,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
-    if (config.flags) {
-        if (
-            config.flags.hasOwnProperty(
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            )
-        ) {
-            mpInstance._Store.SDKConfig.flags[
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            ] =
-                config.flags[
-                    Constants.FeatureFlags.EventBatchingIntervalMillis
-                ];
-        }
-    }
+    mpInstance._Store.processConfig(config);
 
-    // add a new function to apply items to the store that require config to be returned
-    mpInstance._Store.storageName = mpInstance._Helpers.createMainStorageName(
-        config.workspaceToken
-    );
-    mpInstance._Store.prodStorageName = mpInstance._Helpers.createProductStorageName(
-        config.workspaceToken
-    );
-
-    // idCache is instantiated here as opposed to when _Identity is instantiated
-    // because it depends on _Store.storageName, which is not sent until above
-    // because it is a setting on config which returns asyncronously
-    // in self hosted mode
     mpInstance._Identity.idCache = new LocalStorageVault(
         `${mpInstance._Store.storageName}-id-cache`,
         {
@@ -1324,28 +1299,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     );
 
     removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
-
-    if (config.hasOwnProperty('workspaceToken')) {
-        mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;
-    } else {
-        mpInstance.Logger.warning(
-            'You should have a workspaceToken on your config object for security purposes.'
-        );
-    }
-
-    if (config.hasOwnProperty('requiredWebviewBridgeName')) {
-        mpInstance._Store.SDKConfig.requiredWebviewBridgeName =
-            config.requiredWebviewBridgeName;
-    } else if (config.hasOwnProperty('workspaceToken')) {
-        mpInstance._Store.SDKConfig.requiredWebviewBridgeName =
-            config.workspaceToken;
-    }
-    mpInstance._Store.webviewBridgeEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled(
-        mpInstance._Store.SDKConfig.requiredWebviewBridgeName,
-        mpInstance._Store.SDKConfig.minWebviewBridgeVersion
-    );
-
-    mpInstance._Store.configurationLoaded = true;
 
     // https://go.mparticle.com/work/SQDSDKS-6044
     if (!mpInstance._Store.webviewBridgeEnabled) {

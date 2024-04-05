@@ -69,6 +69,9 @@ export interface SDKConfig {
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
+    webviewBridgeName?: string;
+    workspaceToken?: string;
+    requiredWebviewBridgeName?: string;
 }
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
@@ -112,7 +115,7 @@ interface WrapperSDKInfo {
 
 // https://go.mparticle.com/work/SQDSDKS-5954
 export interface IFeatureFlags {
-    reportBatching?: string;
+    reportBatching?: boolean;
     eventBatchingIntervalMillis?: number;
     offlineStorage?: string;
     directURLRouting?: boolean;
@@ -164,6 +167,7 @@ export interface IStore {
     wrapperSDKInfo: WrapperSDKInfo;
 
     nullifySession?: () => void;
+    processConfig(config: SDKInitConfig): void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -173,6 +177,11 @@ export default function Store(
     mpInstance: MParticleWebSDK,
     apiKey?: string
 ) {
+    const { createMainStorageName, createProductStorageName } =
+        mpInstance._Helpers;
+
+    const { isWebviewEnabled } = mpInstance._NativeSdkHelpers;
+
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
         sessionAttributes: {},
@@ -233,8 +242,7 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        this.SDKConfig.flags = processFlags(config, this
-            .SDKConfig as SDKConfig);
+        this.SDKConfig.flags = processFlags(config);
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
@@ -427,12 +435,38 @@ export default function Store(
         this.sessionAttributes = {};
         mpInstance._Persistence.update();
     };
+
+    this.processConfig = (config: SDKInitConfig) => {
+        const { workspaceToken, requiredWebviewBridgeName } = config;
+
+        // TODO: refactor to use flags directly
+        this.SDKConfig.flags = processFlags(config);
+
+        if (workspaceToken) {
+            this.SDKConfig.workspaceToken = workspaceToken;
+        } else {
+            mpInstance.Logger.warning(
+                'You should have a workspaceToken on your config object for security purposes.'
+            );
+        }
+        // add a new function to apply items to the store that require config to be returned
+        this.storageName = createMainStorageName(workspaceToken);
+        this.prodStorageName = createProductStorageName(workspaceToken);
+
+        this.SDKConfig.requiredWebviewBridgeName =
+            requiredWebviewBridgeName || workspaceToken;
+
+        this.webviewBridgeEnabled = isWebviewEnabled(
+            this.SDKConfig.requiredWebviewBridgeName,
+            this.SDKConfig.minWebviewBridgeVersion
+        );
+
+        this.configurationLoaded = true;
+    };
 }
 
-export function processFlags(
-    config: SDKInitConfig,
-    SDKConfig: SDKConfig
-): IFeatureFlags {
+// TODO: Refactor to use flags directly
+export function processFlags(config: SDKInitConfig): IFeatureFlags {
     const flags: IFeatureFlags = {};
     const {
         ReportBatching,
@@ -446,6 +480,7 @@ export function processFlags(
         return {};
     }
 
+    // https://go.mparticle.com/work/SQDSDKS-6317
     // Passed in config flags take priority over defaults
     flags[ReportBatching] = config.flags[ReportBatching] || false;
     // The server returns stringified numbers, sowe need to parse

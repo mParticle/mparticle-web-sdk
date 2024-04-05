@@ -3,7 +3,6 @@ import sinon from 'sinon';
 import { SDKInitConfig } from '../../src/sdkRuntimeModels';
 import Store, {
     IStore,
-    SDKConfig,
     processFlags,
     processBaseUrls,
     IFeatureFlags,
@@ -341,19 +340,171 @@ describe('Store', () => {
         });
     });
 
+    describe('#processConfig', () => {
+        it('should process feature flags', () => {
+            const config = {
+                ...sampleConfig,
+                flags: {
+                    reportBatching: false, // This should be a string
+                    eventBatchingIntervalMillis: '42000',
+                    offlineStorage: '42',
+                    directURLRouting: 'False',
+                    cacheIdentity: 'False',
+                },
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            const expectedResult = {
+                reportBatching: false,
+                eventBatchingIntervalMillis: 42000,
+                offlineStorage: '42',
+                directURLRouting: false,
+                cacheIdentity: false,
+            };
+
+            // TODO: This passes even though we're only doing this in the constructor.
+            // Should we move the processFlags call into this method?
+            expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
+        });
+
+        it('should process storage names', () => {
+            const config = {
+                ...sampleConfig,
+                workspaceToken: 'foo',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(store.storageName, 'storageName').to.equal('mprtcl-v4_foo');
+            expect(store.prodStorageName, 'prodStorageName').to.equal(
+                'mprtcl-prodv4_foo'
+            );
+            expect(store.SDKConfig.workspaceToken, 'workspace token').to.equal(
+                'foo'
+            );
+        });
+
+        it('should warn if workspace token is missing', () => {
+            const config = {
+                ...sampleConfig,
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            const warnSpy = sinon.spy(
+                window.mParticle.getInstance().Logger,
+                'warning'
+            );
+
+            store.processConfig(config);
+
+            expect(warnSpy.calledOnce, 'should call Logger.warn').to.be.true;
+            expect(warnSpy.getCall(0).firstArg).to.equal(
+                'You should have a workspaceToken on your config object for security purposes.'
+            );
+        });
+
+        it('should use a Web View Bridge Name if requiredWebviewBridgeName is present', () => {
+            const config = {
+                ...sampleConfig,
+                requiredWebviewBridgeName: 'my-webview-bridge-name',
+                workspaceToken: 'my-workspace-token',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(
+                store.SDKConfig.requiredWebviewBridgeName,
+                'webviewBridgeName'
+            ).to.equal('my-webview-bridge-name');
+        });
+
+        it('should use a workspace token as the Web View Bridge Name if requiredWebviewBridgeName is not present ', () => {
+            const config = {
+                ...sampleConfig,
+                workspaceToken: 'my-workspace-token',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(
+                store.SDKConfig.requiredWebviewBridgeName,
+                'webviewBridgeName'
+            ).to.equal('my-workspace-token');
+        });
+
+        it('should enable WebviewBridge if requiredWebviewBridgeName is present', () => {
+            const config = {
+                ...sampleConfig,
+                requiredWebviewBridgeName: 'my-webview-bridge-name',
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            // Webview bridge requires a bridge name set on the global mParticle object
+            // @ts-ignore
+            window.mParticle.uiwebviewBridgeName =
+                'mParticle_my-webview-bridge-name_v2';
+
+            store.processConfig(config);
+
+            expect(store.webviewBridgeEnabled, 'webviewBridgeEnabled').to.be
+                .true;
+        });
+
+        it('should set configurationLoaded to true if config is successfully processed', () => {
+            const config = {
+                ...sampleConfig,
+            };
+
+            const store: IStore = new Store(
+                config,
+                window.mParticle.getInstance()
+            );
+
+            store.processConfig(config);
+
+            expect(store.configurationLoaded, 'configurationLoaded').to.be.true;
+        });
+    });
+
     describe('#processFlags', () => {
         it('should return an empty object if no featureFlags are passed', () => {
-            const flags = processFlags({} as SDKInitConfig, {} as SDKConfig);
+            const flags = processFlags({} as SDKInitConfig);
             expect(Object.keys(flags).length).to.equal(0);
         });
 
         it('should return default featureFlags if no featureFlags are passed', () => {
-            const flags = processFlags(
-                { flags: {} } as SDKInitConfig,
-                {} as SDKConfig
-            );
+            const flags = processFlags({ flags: {} } as SDKInitConfig);
             const expectedResult = {
-                reportBatching: false,
+                reportBatching: false, // This should be a string
                 eventBatchingIntervalMillis: 0,
                 offlineStorage: '0',
                 directURLRouting: false,
@@ -365,16 +516,15 @@ describe('Store', () => {
 
         it('should return featureFlags if featureFlags are passed in', () => {
             const cutomizedFlags = {
-                reportBatching: true,
-                eventBatchingIntervalMillis: 5000,
+                reportBatching: true, // This should be a string
+                eventBatchingIntervalMillis: '5000',
                 offlineStorage: '100',
                 directURLRouting: 'True',
                 cacheIdentity: 'True',
             };
 
             const flags = processFlags(
-                ({ flags: cutomizedFlags } as unknown) as SDKInitConfig,
-                {} as SDKConfig
+                ({ flags: cutomizedFlags } as unknown) as SDKInitConfig
             );
 
             const expectedResult = {
