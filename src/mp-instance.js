@@ -95,7 +95,7 @@ export default function mParticleInstance(instanceName) {
             }
         }
     }
-    this.init = function (apiKey, config) {
+    this.init = function(apiKey, config) {
         if (!config) {
             console.warn(
                 'You did not pass a config object to init(). mParticle will not initialize properly'
@@ -134,7 +134,7 @@ export default function mParticleInstance(instanceName) {
      * @method setLogLevel
      * @param {String} logLevel verbose, warning, or none. By default, `warning` is chosen.
      */
-    this.setLogLevel = function (newLogLevel) {
+    this.setLogLevel = function(newLogLevel) {
         self.Logger.setLogLevel(newLogLevel);
     };
 
@@ -143,7 +143,7 @@ export default function mParticleInstance(instanceName) {
      * before any other mParticle methods or the SDK will not function as intended.
      * @method reset
      */
-    this.reset = function (instance) {
+    this.reset = function(instance) {
         try {
             instance._Persistence.resetPersistence();
             if (instance._Store) {
@@ -154,22 +154,20 @@ export default function mParticleInstance(instanceName) {
         }
     };
 
-    this._resetForTests = function (config, keepPersistence, instance) {
+    this._resetForTests = function(config, keepPersistence, instance) {
         if (instance._Store) {
             delete instance._Store;
         }
         instance._Store = new Store(config, instance);
-        instance._Store.isLocalStorageAvailable =
-            instance._Persistence.determineLocalStorageAvailability(
-                window.localStorage
-            );
+        instance._Store.isLocalStorageAvailable = instance._Persistence.determineLocalStorageAvailability(
+            window.localStorage
+        );
         instance._Events.stopTracking();
         if (!keepPersistence) {
             instance._Persistence.resetPersistence();
         }
         instance._Persistence.forwardingStatsBatches.uploadsTable = {};
-        instance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue =
-            [];
+        instance._Persistence.forwardingStatsBatches.forwardingStatsEventQueue = [];
         instance._preInit = {
             readyQueue: [],
             pixelConfigurations: [],
@@ -183,7 +181,7 @@ export default function mParticleInstance(instanceName) {
      * @method ready
      * @param {Function} function A function to be called after mParticle is initialized
      */
-    this.ready = function (f) {
+    this.ready = function(f) {
         if (self.isInitialized() && typeof f === 'function') {
             f();
         } else {
@@ -195,7 +193,7 @@ export default function mParticleInstance(instanceName) {
      * @method getEnvironment
      * @returns {String} mParticle environment setting
      */
-    this.getEnvironment = function () {
+    this.getEnvironment = function() {
         return self._Store.SDKConfig.isDevelopmentMode
             ? Types.Environment.Development
             : Types.Environment.Production;
@@ -205,7 +203,7 @@ export default function mParticleInstance(instanceName) {
      * @method getVersion
      * @return {String} mParticle SDK version number
      */
-    this.getVersion = function () {
+    this.getVersion = function() {
         return Constants.sdkVersion;
     };
     /**
@@ -213,8 +211,8 @@ export default function mParticleInstance(instanceName) {
      * @method setAppVersion
      * @param {String} version version number
      */
-    this.setAppVersion = function (version) {
-        var queued = queueIfNotInitialized(function () {
+    this.setAppVersion = function(version) {
+        var queued = queueIfNotInitialized(function() {
             self.setAppVersion(version);
         }, self);
 
@@ -228,8 +226,8 @@ export default function mParticleInstance(instanceName) {
      * @method setDeviceId
      * @param {String} name device ID (UUIDv4-formatted string)
      */
-    this.setDeviceId = function (guid) {
-        var queued = queueIfNotInitialized(function () {
+    this.setDeviceId = function(guid) {
+        var queued = queueIfNotInitialized(function() {
             self.setDeviceId(guid);
         }, self);
         if (queued) return;
@@ -240,7 +238,7 @@ export default function mParticleInstance(instanceName) {
      * @method isInitialized
      * @return {Boolean} a boolean for whether or not the SDK has been fully initialized
      */
-    this.isInitialized = function () {
+    this.isInitialized = function() {
         return self._Store ? self._Store.isInitialized : false;
     };
 
@@ -249,7 +247,7 @@ export default function mParticleInstance(instanceName) {
      * @method getAppName
      * @return {String} App name
      */
-    this.getAppName = function () {
+    this.getAppName = function() {
         return self._Store.SDKConfig.appName;
     };
     /**
@@ -257,8 +255,8 @@ export default function mParticleInstance(instanceName) {
      * @method setAppName
      * @param {String} name App Name
      */
-    this.setAppName = function (name) {
-        var queued = queueIfNotInitialized(function () {
+    this.setAppName = function(name) {
+        var queued = queueIfNotInitialized(function() {
             self.setAppName(name);
         }, self);
 
@@ -271,14 +269,14 @@ export default function mParticleInstance(instanceName) {
      * @method getAppVersion
      * @return {String} App version
      */
-    this.getAppVersion = function () {
+    this.getAppVersion = function() {
         return self._Store.SDKConfig.appVersion;
     };
     /**
      * Stops tracking the location of the user
      * @method stopTrackingLocation
      */
-    this.stopTrackingLocation = function () {
+    this.stopTrackingLocation = function() {
         self._SessionManager.resetSessionTimer();
         self._Events.stopTracking();
     };
@@ -287,7 +285,7 @@ export default function mParticleInstance(instanceName) {
      * @method startTrackingLocation
      * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
      */
-    this.startTrackingLocation = function (callback) {
+    this.startTrackingLocation = function(callback) {
         if (!self._Helpers.Validators.isFunction(callback)) {
             self.Logger.warning(
                 'Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.'
@@ -303,8 +301,8 @@ export default function mParticleInstance(instanceName) {
      * @param {Number} lattitude lattitude digit
      * @param {Number} longitude longitude digit
      */
-    this.setPosition = function (lat, lng) {
-        var queued = queueIfNotInitialized(function () {
+    this.setPosition = function(lat, lng) {
+        var queued = queueIfNotInitialized(function() {
             self.setPosition(lat, lng);
         }, self);
 
@@ -326,14 +324,14 @@ export default function mParticleInstance(instanceName) {
      * Starts a new session
      * @method startNewSession
      */
-    this.startNewSession = function () {
+    this.startNewSession = function() {
         self._SessionManager.startNewSession();
     };
     /**
      * Ends the current session
      * @method endSession
      */
-    this.endSession = function () {
+    this.endSession = function() {
         // Sends true as an over ride vs when endSession is called from the setInterval
         self._SessionManager.endSession(true);
     };
@@ -343,8 +341,8 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} event Base Event Object
      * @param {Object} [eventOptions] For Event-level Configuration Options
      */
-    this.logBaseEvent = function (event, eventOptions) {
-        var queued = queueIfNotInitialized(function () {
+    this.logBaseEvent = function(event, eventOptions) {
+        var queued = queueIfNotInitialized(function() {
             self.logBaseEvent(event, eventOptions);
         }, self);
 
@@ -376,14 +374,14 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [customFlags] Additional customFlags
      * @param {Object} [eventOptions] For Event-level Configuration Options
      */
-    this.logEvent = function (
+    this.logEvent = function(
         eventName,
         eventType,
         eventInfo,
         customFlags,
         eventOptions
     ) {
-        var queued = queueIfNotInitialized(function () {
+        var queued = queueIfNotInitialized(function() {
             self.logEvent(
                 eventName,
                 eventType,
@@ -438,8 +436,8 @@ export default function mParticleInstance(instanceName) {
      * @param {String or Object} error The name of the error (string), or an object formed as follows {name: 'exampleName', message: 'exampleMessage', stack: 'exampleStack'}
      * @param {Object} [attrs] Custom attrs to be passed along with the error event; values must be string, number, or boolean
      */
-    this.logError = function (error, attrs) {
-        var queued = queueIfNotInitialized(function () {
+    this.logError = function(error, attrs) {
+        var queued = queueIfNotInitialized(function() {
             self.logError(error, attrs);
         }, self);
 
@@ -484,7 +482,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
      * @param {Object} [eventInfo] Attributes for the event
      */
-    this.logLink = function (selector, eventName, eventType, eventInfo) {
+    this.logLink = function(selector, eventName, eventType, eventInfo) {
         self._Events.addEventHandler(
             'click',
             selector,
@@ -501,7 +499,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Number} [eventType] The eventType as seen [here](http://docs.mparticle.com/developers/sdk/web/event-tracking#event-type)
      * @param {Object} [eventInfo] Attributes for the event
      */
-    this.logForm = function (selector, eventName, eventType, eventInfo) {
+    this.logForm = function(selector, eventName, eventType, eventInfo) {
         self._Events.addEventHandler(
             'submit',
             selector,
@@ -518,8 +516,8 @@ export default function mParticleInstance(instanceName) {
      * @param {Object} [customFlags] Custom flags for the event
      * @param {Object} [eventOptions] For Event-level Configuration Options
      */
-    this.logPageView = function (eventName, attrs, customFlags, eventOptions) {
-        var queued = queueIfNotInitialized(function () {
+    this.logPageView = function(eventName, attrs, customFlags, eventOptions) {
+        var queued = queueIfNotInitialized(function() {
             self.logPageView(eventName, attrs, customFlags, eventOptions);
         }, self);
 
@@ -569,7 +567,7 @@ export default function mParticleInstance(instanceName) {
      * Forces an upload of the batch
      * @method upload
      */
-    this.upload = function () {
+    this.upload = function() {
         if (self._Helpers.canLog()) {
             if (self._Store.webviewBridgeEnabled) {
                 self._NativeSdkHelpers.sendToNative(
@@ -639,7 +637,7 @@ export default function mParticleInstance(instanceName) {
              * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
              * @deprecated
              */
-            add: function (product, logEventBoolean) {
+            add: function(product, logEventBoolean) {
                 self.Logger.warning(
                     'Deprecated function eCommerce.Cart.add() will be removed in future releases'
                 );
@@ -659,7 +657,7 @@ export default function mParticleInstance(instanceName) {
              * @param {Boolean} [logEventBoolean] Option to log the event to mParticle's servers. If blank, no logging occurs.
              * @deprecated
              */
-            remove: function (product, logEventBoolean) {
+            remove: function(product, logEventBoolean) {
                 self.Logger.warning(
                     'Deprecated function eCommerce.Cart.remove() will be removed in future releases'
                 );
@@ -677,7 +675,7 @@ export default function mParticleInstance(instanceName) {
              * @method clear
              * @deprecated
              */
-            clear: function () {
+            clear: function() {
                 self.Logger.warning(
                     'Deprecated function eCommerce.Cart.clear() will be removed in future releases'
                 );
@@ -695,8 +693,8 @@ export default function mParticleInstance(instanceName) {
          * @method setCurrencyCode
          * @param {String} code The currency code
          */
-        setCurrencyCode: function (code) {
-            var queued = queueIfNotInitialized(function () {
+        setCurrencyCode: function(code) {
+            var queued = queueIfNotInitialized(function() {
                 self.eCommerce.setCurrencyCode(code);
             }, self);
 
@@ -724,7 +722,7 @@ export default function mParticleInstance(instanceName) {
          * @param {String} [coupon] product coupon
          * @param {Object} [attributes] product attributes
          */
-        createProduct: function (
+        createProduct: function(
             name,
             sku,
             price,
@@ -758,7 +756,7 @@ export default function mParticleInstance(instanceName) {
          * @param {String} [name] promotion name
          * @param {Number} [position] promotion position
          */
-        createPromotion: function (id, creative, name, position) {
+        createPromotion: function(id, creative, name, position) {
             return self._Ecommerce.createPromotion(
                 id,
                 creative,
@@ -773,7 +771,7 @@ export default function mParticleInstance(instanceName) {
          * @param {String} name impression name
          * @param {Object} product the product for which an impression is being created
          */
-        createImpression: function (name, product) {
+        createImpression: function(name, product) {
             return self._Ecommerce.createImpression(name, product);
         },
         /**
@@ -787,7 +785,7 @@ export default function mParticleInstance(instanceName) {
          * @param {String} [shipping] the shipping method
          * @param {Number} [tax] the tax amount
          */
-        createTransactionAttributes: function (
+        createTransactionAttributes: function(
             id,
             affiliation,
             couponCode,
@@ -814,13 +812,13 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} [customFlags] Custom flags for the event
          * @deprecated
          */
-        logCheckout: function (step, option, attrs, customFlags) {
+        logCheckout: function(step, option, attrs, customFlags) {
             self.Logger.warning(
                 'mParticle.logCheckout is deprecated, please use mParticle.logProductAction instead'
             );
 
             if (!self._Store.isInitialized) {
-                self.ready(function () {
+                self.ready(function() {
                     self.eCommerce.logCheckout(
                         step,
                         option,
@@ -846,7 +844,7 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} [transactionAttributes] Transaction Attributes for the event
          * @param {Object} [eventOptions] For Event-level Configuration Options
          */
-        logProductAction: function (
+        logProductAction: function(
             productActionType,
             product,
             attrs,
@@ -854,7 +852,7 @@ export default function mParticleInstance(instanceName) {
             transactionAttributes,
             eventOptions
         ) {
-            var queued = queueIfNotInitialized(function () {
+            var queued = queueIfNotInitialized(function() {
                 self.eCommerce.logProductAction(
                     productActionType,
                     product,
@@ -888,7 +886,7 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} [customFlags] Custom flags for the event
          * @deprecated
          */
-        logPurchase: function (
+        logPurchase: function(
             transactionAttributes,
             product,
             clearCart,
@@ -899,7 +897,7 @@ export default function mParticleInstance(instanceName) {
                 'mParticle.logPurchase is deprecated, please use mParticle.logProductAction instead'
             );
             if (!self._Store.isInitialized) {
-                self.ready(function () {
+                self.ready(function() {
                     self.eCommerce.logPurchase(
                         transactionAttributes,
                         product,
@@ -932,14 +930,14 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} [customFlags] Custom flags for the event
          * @param {Object} [eventOptions] For Event-level Configuration Options
          */
-        logPromotion: function (
+        logPromotion: function(
             type,
             promotion,
             attrs,
             customFlags,
             eventOptions
         ) {
-            var queued = queueIfNotInitialized(function () {
+            var queued = queueIfNotInitialized(function() {
                 self.eCommerce.logPromotion(
                     type,
                     promotion,
@@ -969,8 +967,8 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} [customFlags] Custom flags for the event
          * @param {Object} [eventOptions] For Event-level Configuration Options
          */
-        logImpression: function (impression, attrs, customFlags, eventOptions) {
-            var queued = queueIfNotInitialized(function () {
+        logImpression: function(impression, attrs, customFlags, eventOptions) {
+            var queued = queueIfNotInitialized(function() {
                 self.eCommerce.logImpression(
                     impression,
                     attrs,
@@ -1000,7 +998,7 @@ export default function mParticleInstance(instanceName) {
          * @param {Object} [customFlags] Custom flags for the event
          * @deprecated
          */
-        logRefund: function (
+        logRefund: function(
             transactionAttributes,
             product,
             clearCart,
@@ -1011,7 +1009,7 @@ export default function mParticleInstance(instanceName) {
                 'mParticle.logRefund is deprecated, please use mParticle.logProductAction instead'
             );
             if (!self._Store.isInitialized) {
-                self.ready(function () {
+                self.ready(function() {
                     self.eCommerce.logRefund(
                         transactionAttributes,
                         product,
@@ -1030,7 +1028,7 @@ export default function mParticleInstance(instanceName) {
                 customFlags
             );
         },
-        expandCommerceEvent: function (event) {
+        expandCommerceEvent: function(event) {
             return self._Ecommerce.expandCommerceEvent(event);
         },
     };
@@ -1040,8 +1038,8 @@ export default function mParticleInstance(instanceName) {
      * @param {String} key key for session attribute
      * @param {String or Number} value value for session attribute
      */
-    this.setSessionAttribute = function (key, value) {
-        var queued = queueIfNotInitialized(function () {
+    this.setSessionAttribute = function(key, value) {
+        var queued = queueIfNotInitialized(function() {
             self.setSessionAttribute(key, value);
         }, self);
 
@@ -1091,8 +1089,8 @@ export default function mParticleInstance(instanceName) {
      * @method setOptOut
      * @param {Boolean} isOptingOut boolean to opt out or not. When set to true, opt out of logging.
      */
-    this.setOptOut = function (isOptingOut) {
-        var queued = queueIfNotInitialized(function () {
+    this.setOptOut = function(isOptingOut) {
+        var queued = queueIfNotInitialized(function() {
             self.setOptOut(isOptingOut);
         }, self);
 
@@ -1105,7 +1103,7 @@ export default function mParticleInstance(instanceName) {
         self._Persistence.update();
 
         if (self._Store.activeForwarders.length) {
-            self._Store.activeForwarders.forEach(function (forwarder) {
+            self._Store.activeForwarders.forEach(function(forwarder) {
                 if (forwarder.setOptOut) {
                     var result = forwarder.setOptOut(isOptingOut);
 
@@ -1129,8 +1127,8 @@ export default function mParticleInstance(instanceName) {
      * Please consult with the mParticle docs or your solutions consultant for the correct value. You may
      * also pass a null or empty map here to remove all of the attributes.
      */
-    this.setIntegrationAttribute = function (integrationId, attrs) {
-        var queued = queueIfNotInitialized(function () {
+    this.setIntegrationAttribute = function(integrationId, attrs) {
+        var queued = queueIfNotInitialized(function() {
             self.setIntegrationAttribute(integrationId, attrs);
         }, self);
 
@@ -1197,7 +1195,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Number} integrationId mParticle integration ID
      * @return {Object} an object map of the integrationId's attributes
      */
-    this.getIntegrationAttributes = function (integrationId) {
+    this.getIntegrationAttributes = function(integrationId) {
         if (self._Store.integrationAttributes[integrationId]) {
             return self._Store.integrationAttributes[integrationId];
         } else {
@@ -1205,16 +1203,16 @@ export default function mParticleInstance(instanceName) {
         }
     };
     // Used by our forwarders
-    this.addForwarder = function (forwarder) {
+    this.addForwarder = function(forwarder) {
         self._preInit.forwarderConstructors.push(forwarder);
     };
-    this.configurePixel = function (settings) {
+    this.configurePixel = function(settings) {
         self._Forwarders.configurePixel(settings);
     };
-    this._getActiveForwarders = function () {
+    this._getActiveForwarders = function() {
         return self._Store.activeForwarders;
     };
-    this._getIntegrationDelays = function () {
+    this._getIntegrationDelays = function() {
         return self._preInit.integrationDelays;
     };
     /*
@@ -1235,7 +1233,7 @@ export default function mParticleInstance(instanceName) {
         If there is no delay, then the events sent before an integration attribute is included would not
         be forwarded successfully server side.
     */
-    this._setIntegrationDelay = function (module, shouldDelayIntegration) {
+    this._setIntegrationDelay = function(module, shouldDelayIntegration) {
         self._preInit.integrationDelays[module] = shouldDelayIntegration;
 
         // If the integration delay is set to true, no further action needed
@@ -1253,11 +1251,11 @@ export default function mParticleInstance(instanceName) {
             return;
         }
 
-        const hasIntegrationDelays = integrationDelaysKeys.some(
-            function (integration) {
-                return self._preInit.integrationDelays[integration] === true;
-            }
-        );
+        const hasIntegrationDelays = integrationDelaysKeys.some(function(
+            integration
+        ) {
+            return self._preInit.integrationDelays[integration] === true;
+        });
 
         if (!hasIntegrationDelays) {
             self._APIClient.processQueuedEvents();
@@ -1265,8 +1263,8 @@ export default function mParticleInstance(instanceName) {
     };
 
     // Internal use only. Used by our wrapper SDKs to identify themselves during initialization.
-    this._setWrapperSDKInfo = function (name, version) {
-        var queued = queueIfNotInitialized(function () {
+    this._setWrapperSDKInfo = function(name, version) {
+        var queued = queueIfNotInitialized(function() {
             self._setWrapperSDKInfo(name, version);
         }, self);
 
@@ -1310,8 +1308,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     mpInstance._Store.storageName = mpInstance._Helpers.createMainStorageName(
         config.workspaceToken
     );
-    mpInstance._Store.prodStorageName =
-        mpInstance._Helpers.createProductStorageName(config.workspaceToken);
+    mpInstance._Store.prodStorageName = mpInstance._Helpers.createProductStorageName(
+        config.workspaceToken
+    );
 
     // idCache is instantiated here as opposed to when _Identity is instantiated
     // because it depends on _Store.storageName, which is not sent until above
@@ -1341,11 +1340,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._Store.SDKConfig.requiredWebviewBridgeName =
             config.workspaceToken;
     }
-    mpInstance._Store.webviewBridgeEnabled =
-        mpInstance._NativeSdkHelpers.isWebviewEnabled(
-            mpInstance._Store.SDKConfig.requiredWebviewBridgeName,
-            mpInstance._Store.SDKConfig.minWebviewBridgeVersion
-        );
+    mpInstance._Store.webviewBridgeEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled(
+        mpInstance._Store.SDKConfig.requiredWebviewBridgeName,
+        mpInstance._Store.SDKConfig.minWebviewBridgeVersion
+    );
 
     mpInstance._Store.configurationLoaded = true;
 
@@ -1430,12 +1428,12 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         ) {
             mpInstance._Store.SDKConfig.identityCallback({
                 httpCode: HTTPCodes.activeSession,
-                getUser: function () {
+                getUser: function() {
                     return mpInstance._Identity.mParticleUser(
                         currentUser.getMPID()
                     );
                 },
-                getPreviousUser: function () {
+                getPreviousUser: function() {
                     var users = mpInstance.Identity.getUsers();
                     var mostRecentUser = users.shift();
                     if (
@@ -1450,8 +1448,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
                 body: {
                     mpid: currentUser.getMPID(),
                     is_logged_in: mpInstance._Store.isLoggedIn,
-                    matched_identities:
-                        currentUser.getUserIdentities().userIdentities,
+                    matched_identities: currentUser.getUserIdentities()
+                        .userIdentities,
                     context: null,
                     is_ephemeral: false,
                 },
@@ -1465,7 +1463,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._preInit.readyQueue &&
         mpInstance._preInit.readyQueue.length
     ) {
-        mpInstance._preInit.readyQueue.forEach(function (readyQueueItem) {
+        mpInstance._preInit.readyQueue.forEach(function(readyQueueItem) {
             if (mpInstance._Helpers.Validators.isFunction(readyQueueItem)) {
                 readyQueueItem();
             } else if (Array.isArray(readyQueueItem)) {
@@ -1555,10 +1553,9 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     // since we will need this for the current implementation of user persistence
     // TODO: Refactor this when we refactor User Identity Persistence
     try {
-        mpInstance._Store.isLocalStorageAvailable =
-            mpInstance._Persistence.determineLocalStorageAvailability(
-                window.localStorage
-            );
+        mpInstance._Store.isLocalStorageAvailable = mpInstance._Persistence.determineLocalStorageAvailability(
+            window.localStorage
+        );
     } catch (e) {
         mpInstance.Logger.warning(
             'localStorage is not available, using cookies if available'
@@ -1593,7 +1590,7 @@ function processPreloadedItem(readyQueueItem, mpInstance) {
 
 function queueIfNotInitialized(func, self) {
     if (!self.isInitialized()) {
-        self.ready(function () {
+        self.ready(function() {
             func();
         });
         return true;
