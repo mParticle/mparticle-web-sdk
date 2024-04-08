@@ -515,15 +515,14 @@ export default function Store(
         if (mpid === currentUser?.getMPID()) {
             // if the mpid is the current user, its last seen time is the current time
             return new Date().getTime();
+        } else if (
+            this.persistenceData &&
+            this.persistenceData[mpid] &&
+            this.persistenceData[mpid].lst
+        ) {
+            return this.persistenceData[mpid].lst;
         } else {
-            if (
-                this.persistenceData &&
-                this.persistenceData[mpid] &&
-                this.persistenceData[mpid].lst
-            ) {
-                return this.persistenceData[mpid].lst;
-            } else {
-                return null;
+            return null;
             }
         }
     };
