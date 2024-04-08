@@ -26,7 +26,10 @@ export interface SDKEvent {
     IsFirstRun: boolean;
     EventName: string;
     EventCategory: number;
+
+    // https://go.mparticle.com/work/SQDSDKS-5196
     UserAttributes?: { [key: string]: string | string[] | null };
+
     UserIdentities?: SDKUserIdentity[];
     SourceMessageId: string;
     MPID: string;
@@ -304,13 +307,16 @@ export interface SDKConfigApi {
     onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
 }
 
-// FIXME: Resolve with User in @types/mparticle-web-sdk
-//        https://go.mparticle.com/work/SQDSDKS-5033
+// https://go.mparticle.com/work/SQDSDKS-5033
 export interface MParticleUser {
-    getMPID(): string;
-    getConsentState(): SDKConsentState;
-    getAllUserAttributes(): any; // FIXME;
-    getUserIdentities(): IdentityApiData; // FIXME: Is this correct?
+    getMPID?(): string;
+    getConsentState?(): SDKConsentState;
+
+    // https://go.mparticle.com/work/SQDSDKS-5196
+    getAllUserAttributes?(): any;
+
+    getUserIdentities?(): IdentityApiData;
+    isLoggedIn?(): boolean;
 }
 
 export interface SDKUserIdentityChangeData {

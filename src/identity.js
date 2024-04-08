@@ -6,32 +6,27 @@ import {
     tryCacheIdentity,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
-
-const { Messages, HTTPCodes, FeatureFlags } = Constants;
+const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
 const { ErrorMessages } = Messages;
-
-const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
+const { CacheIdentity } = FeatureFlags;
+const { Identify, Modify, Login, Logout } = IdentityMethods;
+import {
+    generateDeprecationMessage,
+    isEmpty,
+    isFunction,
+    isObject,
+} from './utils';
+import { didUserChange } from './user-utils';
+import { getNewIdentitiesByName } from './type-utils';
 
 export default function Identity(mpInstance) {
+    const { getFeatureFlag, extend } = mpInstance._Helpers;
+
     var self = this;
     this.idCache = null;
     this.audienceManager = null;
 
-    this.checkIdentitySwap = function(
-        previousMPID,
-        currentMPID,
-        currentSessionMPIDs
-    ) {
-        if (previousMPID && currentMPID && previousMPID !== currentMPID) {
-            var persistence = mpInstance._Persistence.getPersistence();
-            if (persistence) {
-                persistence.cu = currentMPID;
-                persistence.gs.csm = currentSessionMPIDs;
-                mpInstance._Persistence.savePersistence(persistence);
-            }
-        }
-    };
-
+    // https://go.mparticle.com/work/SQDSDKS-6353
     this.IdentityRequest = {
         preProcessIdentityRequest: function(identityApiData, callback, method) {
             mpInstance.Logger.verbose(
@@ -135,9 +130,9 @@ export default function Identity(mpInstance) {
             var key;
             if (
                 newIdentities &&
-                mpInstance._Helpers.isObject(newIdentities) &&
+                isObject(newIdentities) &&
                 previousIdentities &&
-                mpInstance._Helpers.isObject(previousIdentities)
+                isObject(previousIdentities)
             ) {
                 for (key in newIdentities) {
                     identityChanges.push({
@@ -154,11 +149,7 @@ export default function Identity(mpInstance) {
         // takes 2 UI objects keyed by name, combines them, returns them keyed by type
         combineUserIdentities: function(previousUIByName, newUIByName) {
             var combinedUIByType = {};
-
-            var combinedUIByName = mpInstance._Helpers.extend(
-                previousUIByName,
-                newUIByName
-            );
+            var combinedUIByName = extend({}, previousUIByName, newUIByName);
 
             for (var key in combinedUIByName) {
                 var type = Types.IdentityType.getIdentityType(key);
@@ -232,6 +223,7 @@ export default function Identity(mpInstance) {
          * @param {Function} [callback] A callback function that is called when the identify request completes
          */
         identify: function(identityApiData, callback) {
+            // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
@@ -325,6 +317,7 @@ export default function Identity(mpInstance) {
          * @param {Function} [callback] A callback function that is called when the logout request completes
          */
         logout: function(identityApiData, callback) {
+            // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
@@ -414,6 +407,7 @@ export default function Identity(mpInstance) {
          * @param {Function} [callback] A callback function that is called when the login request completes
          */
         login: function(identityApiData, callback) {
+            // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
@@ -509,6 +503,7 @@ export default function Identity(mpInstance) {
          * @param {Function} [callback] A callback function that is called when the modify request completes
          */
         modify: function(identityApiData, callback) {
+            // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
@@ -796,6 +791,7 @@ export default function Identity(mpInstance) {
         },
     };
 
+    // https://go.mparticle.com/work/SQDSDKS-6354
     /**
      * Invoke these methods on the mParticle.Identity.getCurrentUser() object.
      * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
@@ -955,7 +951,7 @@ export default function Identity(mpInstance) {
              */
             setUserAttributes: function(userAttributes) {
                 mpInstance._SessionManager.resetSessionTimer();
-                if (mpInstance._Helpers.isObject(userAttributes)) {
+                if (isObject(userAttributes)) {
                     if (mpInstance._Helpers.canLog()) {
                         for (var key in userAttributes) {
                             if (userAttributes.hasOwnProperty(key)) {
@@ -1480,6 +1476,7 @@ export default function Identity(mpInstance) {
         };
     };
 
+    // https://go.mparticle.com/work/SQDSDKS-6355
     this.parseIdentityResponse = function(
         xhr,
         previousMPID,
@@ -1489,64 +1486,46 @@ export default function Identity(mpInstance) {
         knownIdentities,
         parsingCachedResponse
     ) {
-        var prevUser = mpInstance.Identity.getUser(previousMPID),
-            newUser,
-            mpidIsNotInCookies,
-            identityApiResult,
-            indexOfMPID,
-            newIdentitiesByType = {},
-            previousUIByName = prevUser
-                ? prevUser.getUserIdentities().userIdentities
-                : {},
-            previousUIByNameCopy = mpInstance._Helpers.extend(
-                {},
-                previousUIByName
-            );
+        const prevUser = mpInstance.Identity.getUser(previousMPID);
+        const prevUserMPID = prevUser ? prevUser.getMPID() : null;
+        const previousUIByName = prevUser
+            ? prevUser.getUserIdentities().userIdentities
+            : {};
+
+        let identityApiResult;
+
+        let newUser;
+        let newIdentitiesByType = {};
+
         mpInstance._Store.identityCallInFlight = false;
 
         try {
             mpInstance.Logger.verbose(
                 'Parsing "' + method + '" identity response from server'
             );
-            if (xhr.responseText) {
-                identityApiResult = JSON.parse(xhr.responseText);
 
-                if (identityApiResult.hasOwnProperty('is_logged_in')) {
-                    mpInstance._Store.isLoggedIn =
-                        identityApiResult.is_logged_in;
-                }
+            identityApiResult = xhr.responseText
+                ? JSON.parse(xhr.responseText)
+                : null;
+
+            mpInstance._Store.isLoggedIn =
+                identityApiResult?.is_logged_in || false;
+            mpInstance._Store.mpid = identityApiResult.mpid;
+
+            if (prevUser) {
+                // https://go.mparticle.com/work/SQDSDKS-6329
+                mpInstance._Persistence.setLastSeenTime(previousMPID);
             }
 
-            // set currentUser
-            if (
-                !prevUser ||
-                (prevUser.getMPID() &&
-                    identityApiResult.mpid &&
-                    identityApiResult.mpid !== prevUser.getMPID())
-            ) {
-                mpInstance._Store.mpid = identityApiResult.mpid;
+            const mpidIsNotInCookies = !mpInstance._Persistence.getFirstSeenTime(
+                identityApiResult.mpid
+            );
 
-                if (prevUser) {
-                    mpInstance._Persistence.setLastSeenTime(previousMPID);
-                }
-
-                if (
-                    !mpInstance._Persistence.getFirstSeenTime(
-                        identityApiResult.mpid
-                    )
-                )
-                    mpidIsNotInCookies = true;
-                mpInstance._Persistence.setFirstSeenTime(
-                    identityApiResult.mpid
-                );
-            }
+            // https://go.mparticle.com/work/SQDSDKS-6329
+            mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
 
             if (xhr.status === 200) {
-                if (
-                    mpInstance._Helpers.getFeatureFlag(
-                        Constants.FeatureFlags.CacheIdentity
-                    )
-                ) {
+                if (getFeatureFlag(CacheIdentity)) {
                     cacheOrClearIdCache(
                         method,
                         knownIdentities,
@@ -1555,6 +1534,14 @@ export default function Identity(mpInstance) {
                         parsingCachedResponse
                     );
                 }
+
+                const incomingUser = self.IdentityAPI.getUser(
+                    identityApiResult.mpid
+                );
+
+                const incomingMpidUIByName = incomingUser
+                    ? incomingUser.getUserIdentities().userIdentities
+                    : {};
 
                 if (method === Modify) {
                     newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(
@@ -1567,63 +1554,24 @@ export default function Identity(mpInstance) {
                         newIdentitiesByType
                     );
                 } else {
-                    var incomingUser = self.IdentityAPI.getUser(
-                        identityApiResult.mpid
-                    );
-
-                    var incomingMpidUIByName = incomingUser
-                        ? incomingUser.getUserIdentities().userIdentities
-                        : {};
-
-                    var incomingMpidUIByNameCopy = mpInstance._Helpers.extend(
-                        {},
-                        incomingMpidUIByName
-                    );
-                    mpInstance.Logger.verbose(
-                        'Successfully parsed Identity Response'
-                    );
-
+                    // https://go.mparticle.com/work/SQDSDKS-6356
                     //this covers an edge case where, users stored before "firstSeenTime" was introduced
                     //will not have a value for "fst" until the current MPID changes, and in some cases,
                     //the current MPID will never change
                     if (
                         method === Identify &&
                         prevUser &&
-                        identityApiResult.mpid === prevUser.getMPID()
+                        identityApiResult.mpid === prevUserMPID
                     ) {
                         mpInstance._Persistence.setFirstSeenTime(
                             identityApiResult.mpid
                         );
                     }
 
-                    indexOfMPID = mpInstance._Store.currentSessionMPIDs.indexOf(
-                        identityApiResult.mpid
+                    mpInstance._Store.addMpidToSessionHistory(
+                        identityApiResult.mpid,
+                        previousMPID
                     );
-
-                    if (
-                        mpInstance._Store.sessionId &&
-                        identityApiResult.mpid &&
-                        previousMPID !== identityApiResult.mpid &&
-                        indexOfMPID < 0
-                    ) {
-                        mpInstance._Store.currentSessionMPIDs.push(
-                            identityApiResult.mpid
-                        );
-                    }
-
-                    if (indexOfMPID > -1) {
-                        mpInstance._Store.currentSessionMPIDs = mpInstance._Store.currentSessionMPIDs
-                            .slice(0, indexOfMPID)
-                            .concat(
-                                mpInstance._Store.currentSessionMPIDs.slice(
-                                    indexOfMPID + 1,
-                                    mpInstance._Store.currentSessionMPIDs.length
-                                )
-                            );
-                        mpInstance._Store.currentSessionMPIDs.push(
-                            identityApiResult.mpid
-                        );
-                    }
 
                     mpInstance._CookieSyncManager.attemptCookieSync(
                         previousMPID,
@@ -1631,7 +1579,7 @@ export default function Identity(mpInstance) {
                         mpidIsNotInCookies
                     );
 
-                    self.checkIdentitySwap(
+                    mpInstance._Persistence.swapCurrentUser(
                         previousMPID,
                         identityApiResult.mpid,
                         mpInstance._Store.currentSessionMPIDs
@@ -1639,8 +1587,7 @@ export default function Identity(mpInstance) {
 
                     if (
                         identityApiData &&
-                        identityApiData.userIdentities &&
-                        Object.keys(identityApiData.userIdentities).length
+                        !isEmpty(identityApiData.userIdentities)
                     ) {
                         newIdentitiesByType = self.IdentityRequest.combineUserIdentities(
                             incomingMpidUIByName,
@@ -1659,111 +1606,70 @@ export default function Identity(mpInstance) {
                         identityApiData
                     );
 
+                    // https://go.mparticle.com/work/SQDSDKS-6357
                     mpInstance._Store.context =
                         identityApiResult.context || mpInstance._Store.context;
                 }
 
                 newUser = mpInstance.Identity.getCurrentUser();
 
-                if (
-                    identityApiData &&
-                    identityApiData.onUserAlias &&
-                    mpInstance._Helpers.Validators.isFunction(
-                        identityApiData.onUserAlias
-                    )
-                ) {
-                    try {
-                        mpInstance.Logger.warning(
-                            'Deprecated function onUserAlias will be removed in future releases'
-                        );
-                        identityApiData.onUserAlias(prevUser, newUser);
-                    } catch (e) {
-                        mpInstance.Logger.error(
-                            'There was an error with your onUserAlias function - ' +
-                                e
-                        );
-                    }
-                }
-                var persistence = mpInstance._Persistence.getPersistence();
+                // https://go.mparticle.com/work/SQDSDKS-6359
+                tryOnUserAlias(
+                    prevUser,
+                    newUser,
+                    identityApiData,
+                    mpInstance.Logger
+                );
+
+                const persistence = mpInstance._Persistence.getPersistence();
 
                 if (newUser) {
                     mpInstance._Persistence.storeDataInMemory(
                         persistence,
                         newUser.getMPID()
                     );
-                    if (
-                        !prevUser ||
-                        newUser.getMPID() !== prevUser.getMPID() ||
-                        prevUser.isLoggedIn() !== newUser.isLoggedIn()
-                    ) {
-                        mpInstance._Forwarders.initForwarders(
-                            newUser.getUserIdentities().userIdentities,
-                            mpInstance._APIClient.prepareForwardingStats
-                        );
-                    }
 
-                    // TODO: https://go.mparticle.com/work/SQDSDKS-6036
-                    mpInstance._Forwarders.setForwarderUserIdentities(
-                        newUser.getUserIdentities().userIdentities
-                    );
-                    mpInstance._Forwarders.setForwarderOnIdentityComplete(
-                        newUser,
-                        method
-                    );
-                    mpInstance._Forwarders.setForwarderOnUserIdentified(
-                        newUser
-                    );
+                    self.reinitForwardersOnUserChange(prevUser, newUser);
+                    self.setForwarderCallbacks(newUser, method);
                 }
-                var newIdentitiesByName = {};
 
-                for (var key in newIdentitiesByType) {
-                    newIdentitiesByName[
-                        Types.IdentityType.getIdentityName(
-                            mpInstance._Helpers.parseNumber(key)
-                        )
-                    ] = newIdentitiesByType[key];
-                }
+                const newIdentitiesByName = getNewIdentitiesByName(
+                    newIdentitiesByType
+                );
+
+                const uiByName =
+                    method === Modify ? previousUIByName : incomingMpidUIByName;
 
                 self.sendUserIdentityChangeEvent(
                     newIdentitiesByName,
-                    method,
                     identityApiResult.mpid,
-                    method === Modify
-                        ? previousUIByNameCopy
-                        : incomingMpidUIByNameCopy
+                    uiByName
                 );
             }
 
             if (callback) {
-                if (xhr.status === 0) {
-                    mpInstance._Helpers.invokeCallback(
-                        callback,
-                        HTTPCodes.noHttpCoverage,
-                        identityApiResult || null,
-                        newUser
-                    );
-                } else {
-                    mpInstance._Helpers.invokeCallback(
-                        callback,
-                        xhr.status,
-                        identityApiResult || null,
-                        newUser
-                    );
-                }
-            } else {
-                if (
-                    identityApiResult &&
-                    identityApiResult.errors &&
-                    identityApiResult.errors.length
-                ) {
-                    mpInstance.Logger.error(
-                        'Received HTTP response code of ' +
-                            xhr.status +
-                            ' - ' +
-                            identityApiResult.errors[0].message
-                    );
-                }
+                const callbackCode =
+                    xhr.status === 0 ? HTTPCodes.noHttpCoverage : xhr.status;
+
+                mpInstance._Helpers.invokeCallback(
+                    callback,
+                    callbackCode,
+                    identityApiResult || null,
+                    newUser
+                );
+            } else if (
+                identityApiResult &&
+                !isEmpty(identityApiResult.errors)
+            ) {
+                mpInstance.Logger.error(
+                    'Received HTTP response code of ' +
+                        xhr.status +
+                        ' - ' +
+                        identityApiResult.errors[0].message
+                );
             }
+
+            mpInstance.Logger.verbose('Successfully parsed Identity Response');
 
             mpInstance._APIClient.processQueuedEvents();
         } catch (e) {
@@ -1786,30 +1692,28 @@ export default function Identity(mpInstance) {
 
     this.sendUserIdentityChangeEvent = function(
         newUserIdentities,
-        method,
         mpid,
-        prevUserIdentities
+        currentUserIdentities
     ) {
-        var currentUserInMemory, userIdentityChangeEvent;
-
-        if (!mpid) {
-            if (method !== Modify) {
-                return;
-            }
-        }
-
-        currentUserInMemory = this.IdentityAPI.getUser(mpid);
+        // https://go.mparticle.com/work/SQDSDKS-6354
+        const currentUserInMemory = this.IdentityAPI.getUser(mpid);
 
         for (var identityType in newUserIdentities) {
+            // Verifies a change actually happened
             if (
-                prevUserIdentities[identityType] !==
+                currentUserIdentities[identityType] !==
                 newUserIdentities[identityType]
             ) {
-                var isNewUserIdentityType = !prevUserIdentities[identityType];
-                userIdentityChangeEvent = self.createUserIdentityChange(
+                // If a new identity type was introduced when the identity changes
+                // we need to notify the server so that it will associate the new
+                // identity type with subsequent events
+                const isNewUserIdentityType = !currentUserIdentities[
+                    identityType
+                ];
+                const userIdentityChangeEvent = self.createUserIdentityChange(
                     identityType,
                     newUserIdentities[identityType],
-                    prevUserIdentities[identityType],
+                    currentUserIdentities[identityType],
                     isNewUserIdentityType,
                     currentUserInMemory
                 );
@@ -1824,7 +1728,7 @@ export default function Identity(mpInstance) {
         identityType,
         newIdentity,
         oldIdentity,
-        newCreatedThisBatch,
+        isIdentityTypeNewToBatch,
         userInMemory
     ) {
         var userIdentityChangeEvent;
@@ -1835,7 +1739,7 @@ export default function Identity(mpInstance) {
                 New: {
                     IdentityType: identityType,
                     Identity: newIdentity,
-                    CreatedThisBatch: newCreatedThisBatch,
+                    CreatedThisBatch: isIdentityTypeNewToBatch,
                 },
                 Old: {
                     IdentityType: identityType,
@@ -1899,4 +1803,40 @@ export default function Identity(mpInstance) {
         }
         return userAttributeChangeEvent;
     };
+
+    this.reinitForwardersOnUserChange = function(prevUser, newUser) {
+        if (didUserChange(prevUser, newUser)) {
+            mpInstance._Forwarders.initForwarders(
+                newUser.getUserIdentities().userIdentities,
+                mpInstance._APIClient.prepareForwardingStats
+            );
+        }
+    };
+
+    this.setForwarderCallbacks = function(user, method) {
+        // https://go.mparticle.com/work/SQDSDKS-6036
+        mpInstance._Forwarders.setForwarderUserIdentities(
+            user.getUserIdentities().userIdentities
+        );
+        mpInstance._Forwarders.setForwarderOnIdentityComplete(user, method);
+        mpInstance._Forwarders.setForwarderOnUserIdentified(user);
+    };
+}
+
+// https://go.mparticle.com/work/SQDSDKS-6359
+function tryOnUserAlias(previousUser, newUser, identityApiData, logger) {
+    if (
+        identityApiData &&
+        identityApiData.onUserAlias &&
+        isFunction(identityApiData.onUserAlias)
+    ) {
+        try {
+            logger.warning(generateDeprecationMessage('onUserAlias'));
+            identityApiData.onUserAlias(previousUser, newUser);
+        } catch (e) {
+            logger.error(
+                'There was an error with your onUserAlias function - ' + e
+            );
+        }
+    }
 }

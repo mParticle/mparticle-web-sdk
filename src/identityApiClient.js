@@ -10,6 +10,7 @@ export default function IdentityAPIClient(mpInstance) {
         var xhr,
             xhrCallback = function() {
                 if (xhr.readyState === 4) {
+                    // https://go.mparticle.com/work/SQDSDKS-6368
                     mpInstance.Logger.verbose(
                         'Received ' + xhr.statusText + ' from server'
                     );
@@ -73,6 +74,7 @@ export default function IdentityAPIClient(mpInstance) {
             previousMPID,
             xhrCallback = function() {
                 if (xhr.readyState === 4) {
+                    // https://go.mparticle.com/work/SQDSDKS-6368
                     mpInstance.Logger.verbose(
                         'Received ' + xhr.statusText + ' from server'
                     );
