@@ -1,3 +1,10 @@
+## [2.25.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.25.2...v2.25.3) (2024-04-08)
+
+
+### Bug Fixes
+
+* Migrate deviceId methods to Store ([#855](https://github.com/mParticle/mparticle-web-sdk/issues/855)) ([ccb0dbe](https://github.com/mParticle/mparticle-web-sdk/commit/ccb0dbe44b742a41988c38afc25ee691dbc76bed))
+
 ## [2.25.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.25.1...v2.25.2) (2024-04-01)
 
 
