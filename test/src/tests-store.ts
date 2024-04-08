@@ -385,7 +385,6 @@ describe('Store', () => {
 
     describe('#getFirstSeenTime', () => {
         it('should return the firstSeenTime from the store', () => {
-            debugger;
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
@@ -468,7 +467,6 @@ describe('Store', () => {
 
     describe('#getLastSeenTime', () => {
         it('should return the lastSeenTime from the store', () => {
-            debugger;
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
