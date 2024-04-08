@@ -395,6 +395,16 @@ describe('Store', () => {
             expect(store.getFirstSeenTime(testMPID)).to.equal(12345);
         });
 
+
+        it('should return null if mpid is null', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getFirstSeenTime(null)).to.equal(null);
+        });
+
         it('should return null if no firstSeenTime is found', () => {
             const store: IStore = new Store(
                 sampleConfig,
