@@ -443,14 +443,9 @@ describe('Store', () => {
 
         it('should override persistence with store values', () => {
             const persistenceValue = JSON.stringify({
-                gs: {
-                    sid: 'sid',
-                    les: new Date().getTime(),
-                },
                 testMPID: {
                     fst: 12345,
                 },
-                cu: testMPID,
             });
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
@@ -551,14 +546,9 @@ describe('Store', () => {
 
         it('should override persistence with store values', () => {
             const persistenceValue = JSON.stringify({
-                gs: {
-                    sid: 'sid',
-                    les: new Date().getTime(),
-                },
                 testMPID: {
                     lst: 12345,
                 },
-                cu: testMPID,
             });
 
             localStorage.setItem(workspaceCookieName, persistenceValue);
