@@ -23,6 +23,7 @@ import {
 import { isNumber, isDataPlanSlug, Dictionary, parseNumber } from './utils';
 import { SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
+import { IPersistenceMinified } from './persistence.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -163,6 +164,11 @@ export interface IStore {
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
 
+    persistenceData?: IPersistenceMinified;
+
+    getDeviceId?(): string;
+    setDeviceId?(deviceId: string): void;
+
     nullifySession?: () => void;
 }
 
@@ -216,6 +222,27 @@ export default function Store(
             version: null,
             isInfoSet: false,
         },
+
+        // Placeholder for in-memory persistence model
+        persistenceData: {
+            cu: null,
+            gs: {
+                sid: null,
+                ie: null,
+                sa: null,
+                ss: null,
+                dt: null,
+                av: null,
+                cgid: null,
+                das: null,
+                ia: null,
+                c: null,
+                csm: null,
+                les: null,
+                ssd: null,
+            },
+            l: null,
+        },
     };
 
     for (var key in defaultStore) {
@@ -233,16 +260,19 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        this.SDKConfig.flags = processFlags(config, this
-            .SDKConfig as SDKConfig);
+        this.SDKConfig.flags = processFlags(
+            config,
+            this.SDKConfig as SDKConfig
+        );
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
-                config.isDevelopmentMode
-            );
+            this.SDKConfig.isDevelopmentMode =
+                mpInstance._Helpers.returnConvertedBoolean(
+                    config.isDevelopmentMode
+                );
         } else {
             this.SDKConfig.isDevelopmentMode = false;
         }
@@ -420,6 +450,13 @@ export default function Store(
             }
         }
     }
+
+    this.getDeviceId = () => this.deviceId;
+    this.setDeviceId = (deviceId: string) => {
+        this.deviceId = deviceId;
+        this.persistenceData.gs.das = deviceId;
+        mpInstance._Persistence.update();
+    };
 
     this.nullifySession = (): void => {
         this.sessionId = null;

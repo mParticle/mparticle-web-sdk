@@ -86,6 +86,9 @@ export default function mParticleInstance(instanceName) {
     this._Identity = new Identity(this);
     this.Identity = this._Identity.IdentityAPI;
     this.generateHash = this._Helpers.generateHash;
+
+    // https://go.mparticle.com/work/SQDSDKS-6289
+    // TODO: Replace this with Store once Store is moved earlier in the init process
     this.getDeviceId = this._Persistence.getDeviceId;
 
     if (typeof window !== 'undefined') {
@@ -231,7 +234,7 @@ export default function mParticleInstance(instanceName) {
             self.setDeviceId(guid);
         }, self);
         if (queued) return;
-        this._Persistence.setDeviceId(guid);
+        this._Store.setDeviceId(guid);
     };
     /**
      * Returns a boolean for whether or not the SDKhas been fully initialized

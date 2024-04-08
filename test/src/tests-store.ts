@@ -249,6 +249,43 @@ describe('Store', () => {
         });
     });
 
+    describe('#getDeviceId', () => {
+        it('should return the deviceId from the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.deviceId = 'foo';
+
+            expect(store.getDeviceId()).to.equal('foo');
+        });
+    });
+
+    describe('#setDeviceId', () => {
+        it('should set the deviceId in the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setDeviceId('foo');
+            expect(store.deviceId).to.equal('foo');
+        });
+
+        it('should set the deviceId in persistence', () => {
+            const store = window.mParticle.getInstance()._Store;
+
+            store.setDeviceId('foo');
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence.gs.das).to.equal('foo');
+            expect(store.persistenceData.gs.das).to.equal('foo');
+        });
+    });
+
     describe('#nullifySessionData', () => {
         it('should nullify session data on the store', () => {
             const store: IStore = new Store(
