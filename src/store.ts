@@ -265,19 +265,16 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        this.SDKConfig.flags = processFlags(
-            config,
-            this.SDKConfig as SDKConfig
-        );
+        this.SDKConfig.flags = processFlags(config, this
+            .SDKConfig as SDKConfig);
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode =
-                mpInstance._Helpers.returnConvertedBoolean(
-                    config.isDevelopmentMode
-                );
+            this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
+                config.isDevelopmentMode
+            );
         } else {
             this.SDKConfig.isDevelopmentMode = false;
         }
@@ -508,10 +505,8 @@ export default function Store(
         if (!mpid) {
             return null;
         }
-
-        // https://go.mparticle.com/work/SQDSDKS-6315
+        //     // https://go.mparticle.com/work/SQDSDKS-6315
         const currentUser = mpInstance.Identity.getCurrentUser();
-
         if (mpid === currentUser?.getMPID()) {
             // if the mpid is the current user, its last seen time is the current time
             return new Date().getTime();
@@ -523,7 +518,6 @@ export default function Store(
             return this.persistenceData[mpid].lst;
         } else {
             return null;
-            }
         }
     };
 
