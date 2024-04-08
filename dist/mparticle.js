@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.25.2";
+    var version = "2.25.3";
 
     var Constants = {
       sdkVersion: version,
@@ -3276,7 +3276,7 @@ var mParticle = (function () {
           mpInstance._Events.logEvent({
             messageType: Types.MessageType.SessionEnd
           });
-          nullifySession();
+          mpInstance._Store.nullifySession();
           return;
         }
         if (!mpInstance._Helpers.canLog()) {
@@ -3309,7 +3309,7 @@ var mParticle = (function () {
               messageType: Types.MessageType.SessionEnd
             });
             mpInstance._Store.sessionStartDate = null;
-            nullifySession();
+            mpInstance._Store.nullifySession();
           }
         }
       };
@@ -3344,12 +3344,6 @@ var mParticle = (function () {
           }
         }
       };
-      function nullifySession() {
-        mpInstance._Store.sessionId = null;
-        mpInstance._Store.dateLastEventSent = null;
-        mpInstance._Store.sessionAttributes = {};
-        mpInstance._Persistence.update();
-      }
     }
 
     var Messages$5 = Constants.Messages;
@@ -3775,6 +3769,7 @@ var mParticle = (function () {
     }
     // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
     function Store(config, mpInstance, apiKey) {
+      var _this = this;
       var defaultStore = {
         isEnabled: true,
         sessionAttributes: {},
@@ -3817,6 +3812,26 @@ var mParticle = (function () {
           name: 'none',
           version: null,
           isInfoSet: false
+        },
+        // Placeholder for in-memory persistence model
+        persistenceData: {
+          cu: null,
+          gs: {
+            sid: null,
+            ie: null,
+            sa: null,
+            ss: null,
+            dt: null,
+            av: null,
+            cgid: null,
+            das: null,
+            ia: null,
+            c: null,
+            csm: null,
+            les: null,
+            ssd: null
+          },
+          l: null
         }
       };
       for (var key in defaultStore) {
@@ -3956,6 +3971,20 @@ var mParticle = (function () {
           }
         }
       }
+      this.getDeviceId = function () {
+        return _this.deviceId;
+      };
+      this.setDeviceId = function (deviceId) {
+        _this.deviceId = deviceId;
+        _this.persistenceData.gs.das = deviceId;
+        mpInstance._Persistence.update();
+      };
+      this.nullifySession = function () {
+        _this.sessionId = null;
+        _this.dateLastEventSent = null;
+        _this.sessionAttributes = {};
+        mpInstance._Persistence.update();
+      };
     }
     function processFlags(config, SDKConfig) {
       var flags = {};
@@ -8228,6 +8257,9 @@ var mParticle = (function () {
       this._Identity = new Identity(this);
       this.Identity = this._Identity.IdentityAPI;
       this.generateHash = this._Helpers.generateHash;
+
+      // https://go.mparticle.com/work/SQDSDKS-6289
+      // TODO: Replace this with Store once Store is moved earlier in the init process
       this.getDeviceId = this._Persistence.getDeviceId;
       if (typeof window !== 'undefined') {
         if (window.mParticle && window.mParticle.config) {
@@ -8352,7 +8384,7 @@ var mParticle = (function () {
           self.setDeviceId(guid);
         }, self);
         if (queued) return;
-        this._Persistence.setDeviceId(guid);
+        this._Store.setDeviceId(guid);
       };
       /**
        * Returns a boolean for whether or not the SDKhas been fully initialized
