@@ -233,8 +233,7 @@ export default function Store(
         }
 
         this.SDKConfig.flags = processFlags(config, this
-            .SDKConfig as SDKConfig
-        );
+            .SDKConfig as SDKConfig);
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
