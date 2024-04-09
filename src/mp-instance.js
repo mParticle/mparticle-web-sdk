@@ -40,9 +40,9 @@ import { isEmpty, isFunction } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 
-var Messages = Constants.Messages;
-var HTTPCodes = Constants.HTTPCodes;
-var ReportBatching = Constants.FeatureFlags.ReportBatching;
+const Messages = Constants.Messages;
+const HTTPCodes = Constants.HTTPCodes;
+const ReportBatching = Constants.FeatureFlags.ReportBatching;
 const { StartingInitialization } = Messages.InformationMessages;
 
 /**
@@ -1457,10 +1457,10 @@ function processIdentifyRequest(store, currentUser, currentUserIdentities) {
     // If no initialIdentityRequest is passed in, we set the user identities
     // to what is currently in cookies for the identify request
     if (store.hasValidIdentifyRequest()) {
-        var modifiedUIforIdentityRequest = {};
+        const modifiedUIforIdentityRequest = {};
 
         if (currentUser) {
-            for (var identityKey in currentUserIdentities) {
+            for (let identityKey in currentUserIdentities) {
                 if (currentUserIdentities.hasOwnProperty(identityKey)) {
                     modifiedUIforIdentityRequest[identityKey] =
                         currentUserIdentities[identityKey];
@@ -1517,18 +1517,18 @@ function processIdentityCallback(
 }
 
 function processPreloadedItem(readyQueueItem) {
-    var args = readyQueueItem;
-    var method = args.splice(0, 1)[0];
+    const args = readyQueueItem;
+    const method = args.splice(0, 1)[0];
     // if the first argument is a method on the base mParticle object, run it
     if (mParticle[args[0]]) {
         mParticle[method].apply(this, args);
         // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
     } else {
-        var methodArray = method.split('.');
+        const methodArray = method.split('.');
         try {
             var computedMPFunction = mParticle;
-            for (var i = 0; i < methodArray.length; i++) {
-                var currentMethod = methodArray[i];
+            for (let i = 0; i < methodArray.length; i++) {
+                const currentMethod = methodArray[i];
                 computedMPFunction = computedMPFunction[currentMethod];
             }
             computedMPFunction.apply(this, args);

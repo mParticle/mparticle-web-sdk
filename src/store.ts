@@ -488,8 +488,6 @@ export default function Store(
         mpInstance._Persistence.update();
     };
 
-
-
     this.getFirstSeenTime = (mpid: MPID) => {
         if (!mpid) {
             return null;
@@ -560,7 +558,7 @@ export default function Store(
                 mpInstance._Persistence.savePersistence(this.persistenceData);
             }
         }
-    }
+    };
 
     this.nullifySession = (): void => {
         this.sessionId = null;
@@ -598,7 +596,7 @@ export default function Store(
     };
 }
 
-// TODO: Refactor to use flags directly
+    // https://go.mparticle.com/work/SQDSDKS-6317
 export function processFlags(config: SDKInitConfig): IFeatureFlags {
     const flags: IFeatureFlags = {};
     const {
