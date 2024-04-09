@@ -232,7 +232,9 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        this.SDKConfig.flags = processFlags(config);
+        this.SDKConfig.flags = processFlags(config, this
+            .SDKConfig as SDKConfig
+        );
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
@@ -420,7 +422,10 @@ export default function Store(
     }
 }
 
-export function processFlags(config: SDKInitConfig): IFeatureFlags {
+export function processFlags(
+    config: SDKInitConfig,
+    SDKConfig: SDKConfig
+): IFeatureFlags {
     const flags: IFeatureFlags = {};
     const {
         ReportBatching,

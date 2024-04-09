@@ -202,12 +202,12 @@ describe('Store', () => {
 
     describe('#processFlags', () => {
         it('should return an empty object if no featureFlags are passed', () => {
-            const flags = processFlags({} as SDKInitConfig);
+            const flags = processFlags({} as SDKInitConfig, {} as SDKConfig);
             expect(Object.keys(flags).length).to.equal(0);
         });
 
         it('should return default featureFlags if no featureFlags are passed', () => {
-            const flags = processFlags({flags: {}} as SDKInitConfig);
+            const flags = processFlags({flags: {}} as SDKInitConfig, {} as SDKConfig);
             const expectedResult = {
                 reportBatching: false,
                 eventBatchingIntervalMillis: 0,
@@ -230,7 +230,7 @@ describe('Store', () => {
                 audienceAPI: 'True',
             };
 
-            const flags = processFlags({flags: cutomizedFlags} as unknown as SDKInitConfig);
+            const flags = processFlags({flags: cutomizedFlags} as unknown as SDKInitConfig, {} as SDKConfig);
 
             const expectedResult = {
                 reportBatching: true,
