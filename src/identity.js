@@ -1273,6 +1273,17 @@ export default function Identity(mpInstance) {
              * @param {Function} [callback] A callback function that is invoked when the user audience request completes
              */
             getUserAudiences: function(callback) {
+                // user audience API is feature flagged
+                if (
+                    !mpInstance._Helpers.getFeatureFlag(
+                        Constants.FeatureFlags.AudienceAPI
+                    )
+                ) {
+                    mpInstance.Logger.error(
+                        Constants.Messages.ErrorMessages.AudienceAPINotEnabled
+                    );
+                    return;
+                }
                 if (self.audienceManager === null) {
                     self.audienceManager = new AudienceManager(
                         mpInstance._Store.SDKConfig.userAudienceUrl,

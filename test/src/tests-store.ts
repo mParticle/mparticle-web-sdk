@@ -202,18 +202,19 @@ describe('Store', () => {
 
     describe('#processFlags', () => {
         it('should return an empty object if no featureFlags are passed', () => {
-            const flags = processFlags({} as SDKInitConfig, {} as SDKConfig);
+            const flags = processFlags({} as SDKInitConfig);
             expect(Object.keys(flags).length).to.equal(0);
         });
 
         it('should return default featureFlags if no featureFlags are passed', () => {
-            const flags = processFlags({flags: {}} as SDKInitConfig, {} as SDKConfig);
+            const flags = processFlags({flags: {}} as SDKInitConfig);
             const expectedResult = {
                 reportBatching: false,
                 eventBatchingIntervalMillis: 0,
                 offlineStorage: '0',
                 directURLRouting: false,
                 cacheIdentity: false,
+                audienceAPI: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -226,16 +227,18 @@ describe('Store', () => {
                 offlineStorage: '100',
                 directURLRouting: 'True',
                 cacheIdentity: 'True',
+                audienceAPI: 'True',
             };
 
-            const flags = processFlags({flags: cutomizedFlags} as unknown as SDKInitConfig, {} as SDKConfig);
+            const flags = processFlags({flags: cutomizedFlags} as unknown as SDKInitConfig);
 
             const expectedResult = {
                 reportBatching: true,
                 eventBatchingIntervalMillis: 5000,
                 offlineStorage: '100',
                 directURLRouting: true,
-                cacheIdentity: true
+                cacheIdentity: true,
+                audienceAPI: true,
             }
 
             expect(flags).to.deep.equal(expectedResult);
