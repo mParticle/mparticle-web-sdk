@@ -582,6 +582,7 @@ describe('Store', () => {
         it('should process feature flags', () => {
             const config = {
                 ...sampleConfig,
+                // https://go.mparticle.com/work/SQDSDKS-6317
                 flags: {
                     reportBatching: false, // This should be a string
                     eventBatchingIntervalMillis: '42000',
@@ -606,8 +607,6 @@ describe('Store', () => {
                 cacheIdentity: false,
             };
 
-            // TODO: This passes even though we're only doing this in the constructor.
-            // Should we move the processFlags call into this method?
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
         });
 

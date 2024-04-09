@@ -284,6 +284,7 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
+        // https://go.mparticle.com/work/SQDSDKS-6317
         this.SDKConfig.flags = processFlags(config);
 
         if (config.deviceId) {
@@ -470,8 +471,8 @@ export default function Store(
             }
         }
     }
+
     this.hasValidIdentifyRequest = (): boolean => {
-        // TODO: Replace with is empty?
         const { identifyRequest } = this.SDKConfig;
         return (
             (isObject(identifyRequest) &&
@@ -570,7 +571,7 @@ export default function Store(
     this.processConfig = (config: SDKInitConfig) => {
         const { workspaceToken, requiredWebviewBridgeName } = config;
 
-        // TODO: refactor to use flags directly
+        // https://go.mparticle.com/work/SQDSDKS-6317
         this.SDKConfig.flags = processFlags(config);
 
         if (workspaceToken) {
