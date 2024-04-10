@@ -7,8 +7,8 @@ import {
 } from './identity-utils';
 import AudienceManager from './audienceManager';
 
-var Messages = Constants.Messages,
-    HTTPCodes = Constants.HTTPCodes;
+const { Messages, HTTPCodes } = Constants;
+const { ErrorMessages } = Messages;
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 
@@ -1280,7 +1280,7 @@ export default function Identity(mpInstance) {
                     )
                 ) {
                     mpInstance.Logger.error(
-                        Constants.Messages.ErrorMessages.AudienceAPINotEnabled
+                        ErrorMessages.AudienceAPINotEnabled
                     );
                     return;
                 }
