@@ -7,7 +7,7 @@ import {
 } from './identity-utils';
 import AudienceManager from './audienceManager';
 
-const { Messages, HTTPCodes } = Constants;
+const { Messages, HTTPCodes, FeatureFlags } = Constants;
 const { ErrorMessages } = Messages;
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
@@ -1276,7 +1276,7 @@ export default function Identity(mpInstance) {
                 // user audience API is feature flagged
                 if (
                     !mpInstance._Helpers.getFeatureFlag(
-                        Constants.FeatureFlags.AudienceAPI
+                        FeatureFlags.AudienceAPI
                     )
                 ) {
                     mpInstance.Logger.error(
