@@ -135,7 +135,7 @@ const Constants = {
         configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
         identityUrl: 'identity.mparticle.com/v1/',
         aliasUrl: 'jssdks.mparticle.com/v1/identity/',
-        userAudienceUrl: 'jssdks.mparticle.com/v1/',
+        userAudienceUrl: 'nativesdks.mparticle.com/v1/',
     },
     Base64CookieKeys: {
         csm: 1,

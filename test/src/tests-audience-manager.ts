@@ -72,7 +72,7 @@ describe('AudienceManager', () => {
             ct: 1710441407914,
             dt: 'cam',
             id: 'foo-id',
-            current_audience_memberships: [
+            audience_memberships: [
                 {
                     audience_id: 7628,
                 },
@@ -126,7 +126,7 @@ describe('AudienceManager', () => {
                 ct: 1710441407915,
                 dt: 'cam',
                 id: 'foo-id-2',
-                current_audience_memberships: [
+                audience_memberships: [
                     {
                         audience_id: 9876,
                     },
