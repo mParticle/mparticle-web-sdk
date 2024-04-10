@@ -11,7 +11,7 @@ export interface IAudienceMembershipsServerResponse {
     dt: 'cam';  // current audience memberships
     ct: number; // timestamp
     id: string;
-    current_audience_memberships: Audience[];
+    audience_memberships: Audience[];
 }
 
 export interface IAudienceMemberships {
@@ -61,7 +61,7 @@ export default class AudienceManager {
 
                 const userAudienceMembershipsServerResponse: IAudienceMembershipsServerResponse = await userAudiencePromise.json();
                 const parsedUserAudienceMemberships: IAudienceMemberships = {
-                    currentAudienceMemberships: userAudienceMembershipsServerResponse?.current_audience_memberships
+                    currentAudienceMemberships: userAudienceMembershipsServerResponse?.audience_memberships
                 }
 
                 try {
