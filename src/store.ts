@@ -552,6 +552,7 @@ export function processFlags(
         OfflineStorage,
         DirectUrlRouting,
         CacheIdentity,
+        AudienceAPI,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -567,6 +568,7 @@ export function processFlags(
     flags[OfflineStorage] = config.flags[OfflineStorage] || '0';
     flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
     flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
+    flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
 
     return flags;
 }

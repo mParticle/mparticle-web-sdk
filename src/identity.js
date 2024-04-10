@@ -7,8 +7,8 @@ import {
 } from './identity-utils';
 import AudienceManager from './audienceManager';
 
-var Messages = Constants.Messages,
-    HTTPCodes = Constants.HTTPCodes;
+const { Messages, HTTPCodes, FeatureFlags } = Constants;
+const { ErrorMessages } = Messages;
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 
@@ -1273,6 +1273,17 @@ export default function Identity(mpInstance) {
              * @param {Function} [callback] A callback function that is invoked when the user audience request completes
              */
             getUserAudiences: function(callback) {
+                // user audience API is feature flagged
+                if (
+                    !mpInstance._Helpers.getFeatureFlag(
+                        FeatureFlags.AudienceAPI
+                    )
+                ) {
+                    mpInstance.Logger.error(
+                        ErrorMessages.AudienceAPINotEnabled
+                    );
+                    return;
+                }
                 if (self.audienceManager === null) {
                     self.audienceManager = new AudienceManager(
                         mpInstance._Store.SDKConfig.userAudienceUrl,
