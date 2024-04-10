@@ -594,6 +594,7 @@ describe('Store', () => {
                 offlineStorage: '0',
                 directURLRouting: false,
                 cacheIdentity: false,
+                audienceAPI: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -606,6 +607,7 @@ describe('Store', () => {
                 offlineStorage: '100',
                 directURLRouting: 'True',
                 cacheIdentity: 'True',
+                audienceAPI: 'True',
             };
 
             const flags = processFlags(
@@ -619,6 +621,7 @@ describe('Store', () => {
                 offlineStorage: '100',
                 directURLRouting: true,
                 cacheIdentity: true,
+                audienceAPI: true,
             };
 
             expect(flags).to.deep.equal(expectedResult);

@@ -26,6 +26,8 @@ const Constants = {
             BadKey: 'Key value cannot be object or array',
             BadLogPurchase:
                 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions',
+            AudienceAPINotEnabled:
+                'Your workspace is not enabled to retrieve user audiences.',
         },
         InformationMessages: {
             CookieSearch: 'Searching for cookie',
@@ -171,6 +173,7 @@ const Constants = {
         OfflineStorage: 'offlineStorage',
         DirectUrlRouting: 'directURLRouting',
         CacheIdentity: 'cacheIdentity',
+        AudienceAPI: 'audienceAPI',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',
