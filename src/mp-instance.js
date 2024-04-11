@@ -1300,10 +1300,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     mpInstance._Identity.idCache = createIdentityCache(mpInstance);
     removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
 
-    // Web View Bridge is used for cases where Web SDK is loaded within an iOS or Android Web View
-    // on a Native Mobile Device and will not be responsible for sending events to the mParticle servers.
-    // The Web SDK will not initialize persistence or Identity directly, and simply act as a passthrough
-    // to an mParticle Native SDK.
+    // Web View Bridge is used for cases where the Web SDK is loaded within an iOS or Android device's
+    // Web View.  The Web SDK simply acts as a passthrough to the mParticle Native SDK.  It is not 
+    // responsible for sending events directly to mParticle's servers.  The Web SDK will not initialize
+    // persistence or Identity directly.
     if (mpInstance._Store.webviewBridgeEnabled) {
         mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
     } else {
@@ -1335,8 +1335,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         );
         mpInstance._Forwarders.processPixelConfigs(config);
 
-        // Checks if session is created or resumed
-        // Logs a session start event
+        // Checks if session is created, resumed, or needs to be ended
+        // Logs a session start or session end event accordingly
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
