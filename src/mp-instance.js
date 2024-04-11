@@ -1301,7 +1301,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
 
     // Web View Bridge is used for cases where the Web SDK is loaded within an iOS or Android device's
-    // Web View.  The Web SDK simply acts as a passthrough to the mParticle Native SDK.  It is not 
+    // Web View.  The Web SDK simply acts as a passthrough to the mParticle Native SDK.  It is not
     // responsible for sending events directly to mParticle's servers.  The Web SDK will not initialize
     // persistence or Identity directly.
     if (mpInstance._Store.webviewBridgeEnabled) {
@@ -1319,11 +1319,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             ? currentUser.getUserIdentities().userIdentities
             : {};
 
-        processIdentifyRequest(
-            mpInstance._Store,
-            currentUser,
-            currentUserIdentities
-        );
+        mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasValidIdentifyRequest()
+            ? returnIdentifyRequest(currentUser, currentUserIdentities)
+            : mpInstance._Store.SDKConfig.identifyRequest;
 
         if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
@@ -1356,7 +1354,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             mpInstance._preInit.readyQueue
         );
     } catch (error) {
-        mpInstance.logger.verbose(error);
+        mpInstance.Logger.error(error);
     }
 
     // https://go.mparticle.com/work/SQDSDKS-6040
@@ -1453,25 +1451,23 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     }
 }
 
-function processIdentifyRequest(store, currentUser, currentUserIdentities) {
+function returnIdentifyRequest(currentUser, currentUserIdentities) {
     // If no initialIdentityRequest is passed in, we set the user identities
     // to what is currently in cookies for the identify request
-    if (store.hasValidIdentifyRequest()) {
-        const modifiedUIforIdentityRequest = {};
+    const modifiedUIforIdentityRequest = {};
 
-        if (currentUser) {
-            for (let identityKey in currentUserIdentities) {
-                if (currentUserIdentities.hasOwnProperty(identityKey)) {
-                    modifiedUIforIdentityRequest[identityKey] =
-                        currentUserIdentities[identityKey];
-                }
+    if (currentUser) {
+        for (let identityKey in currentUserIdentities) {
+            if (currentUserIdentities.hasOwnProperty(identityKey)) {
+                modifiedUIforIdentityRequest[identityKey] =
+                    currentUserIdentities[identityKey];
             }
         }
-
-        store.SDKConfig.identifyRequest = {
-            userIdentities: modifiedUIforIdentityRequest,
-        };
     }
+
+    return {
+        userIdentities: modifiedUIforIdentityRequest,
+    };
 }
 
 function processIdentityCallback(

@@ -284,6 +284,9 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
+        // We process the initial config that is passed via the SDK init
+        // and then we will reprocess the config within the processConfig
+        // function when the config is updated from the server
         // https://go.mparticle.com/work/SQDSDKS-6317
         this.SDKConfig.flags = processFlags(config);
 
@@ -571,6 +574,8 @@ export default function Store(
     this.processConfig = (config: SDKInitConfig) => {
         const { workspaceToken, requiredWebviewBridgeName } = config;
 
+        // We should reprocess the flags in case they have changed when we request an updated config
+        // such as if the SDK is being self-hosted and the flags are different on the server config
         // https://go.mparticle.com/work/SQDSDKS-6317
         this.SDKConfig.flags = processFlags(config);
 
