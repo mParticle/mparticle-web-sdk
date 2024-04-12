@@ -47,17 +47,19 @@ describe('AudienceManager', () => {
         fetchMock.restore();
     });
 
-    it('should have proper properties on AudienceManager initialization', () => {
-        const newLogger: SDKLoggerApi = new Logger(window.mParticle.config);
-        const audienceManager = new AudienceManager(
-            Constants.DefaultBaseUrls.userAudienceUrl,
-            apiKey,
-            newLogger,
-        );
+    describe('initialization', () => {
+        it('should have proper properties on AudienceManager', () => {
+            const newLogger: SDKLoggerApi = new Logger(window.mParticle.config);
+            const audienceManager = new AudienceManager(
+                Constants.DefaultBaseUrls.userAudienceUrl,
+                apiKey,
+                newLogger,
+            );
 
-        expect(audienceManager.logger).to.be.ok;
-        expect(audienceManager.url).to.equal(userAudienceUrl);
-        expect(audienceManager.userAudienceAPI).to.be.ok;
+            expect(audienceManager.logger).to.be.ok;
+            expect(audienceManager.url).to.equal(userAudienceUrl);
+            expect(audienceManager.userAudienceAPI).to.be.ok;
+        });
     });
 
     describe('#sendGetUserAudienceRequest', () => {

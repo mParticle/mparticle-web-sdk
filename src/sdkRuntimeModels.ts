@@ -1,6 +1,11 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import { MPConfiguration, IdentityApiData } from '@mparticle/web-sdk';
+import {
+    MPConfiguration,
+    IdentityApiData,
+    MPID,
+    Callback,
+} from '@mparticle/web-sdk';
 import { IStore } from './store';
 import Validators from './validators';
 import { Dictionary, valueof } from './utils';
@@ -252,6 +257,7 @@ export interface SDKHelpersApi {
     parseNumber?(value: string | number): number;
     generateUniqueId();
     generateHash?(value: string): string;
+    // https://go.mparticle.com/work/SQDSDKS-6317
     getFeatureFlag?(feature: string): boolean | string; // TODO: Feature Constants should be converted to enum
     isDelayedByIntegration?(
         delayedIntegrations: Dictionary<boolean>,
@@ -260,11 +266,11 @@ export interface SDKHelpersApi {
     ): boolean;
     isObject?(item: any);
     invokeCallback?(
-        cb: ()=> void,
+        callback: Callback,
         code: string,
         body: string,
         mParticleUser?: MParticleUser,
-        previousMpid?: string
+        previousMpid?: MPID
     ): void;
     returnConvertedBoolean(data: string | boolean | number): boolean;
     sanitizeAttributes?(

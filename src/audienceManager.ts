@@ -45,10 +45,9 @@ export default class AudienceManager {
             },
         };
         const audienceURLWithMPID = `${this.url}?mpid=${mpid}`;
-        let userAudiencePromise: Response;
 
         try {
-             userAudiencePromise = await this.userAudienceAPI.upload(
+             const userAudiencePromise: Response = await this.userAudienceAPI.upload(
                  fetchPayload,
                  audienceURLWithMPID
              );
@@ -67,24 +66,15 @@ export default class AudienceManager {
                 try {
                     callback(parsedUserAudienceMemberships);
                 } catch(e) {
-                    this.logger.error('Error invoking callback on user audience response.');
+                    throw new Error('Error invoking callback on user audience response.');
                 }
 
             } else if (userAudiencePromise.status === 401) {
-                this.logger.error(
-                    `HTTP error status ${userAudiencePromise.status} while retrieving User Audiences - please verify your API key.`
-                );
+                throw new Error('`HTTP error status ${userAudiencePromise.status} while retrieving User Audiences - please verify your API key.`');
             } else if (userAudiencePromise.status === 403) {
-                this.logger.error(
-                    `HTTP error status ${userAudiencePromise.status} while retrieving User Audiences - please verify your workspace is enabled for audiences.`
-                );
+                throw new Error('`HTTP error status ${userAudiencePromise.status} while retrieving User Audiences - please verify your workspace is enabled for audiences.`');
             } else {
                 // In case there is an HTTP error we did not anticipate.
-                console.error(
-                    `HTTP error status ${userAudiencePromise.status} while uploading events.`,
-                    userAudiencePromise
-                );
-
                 throw new Error(
                     `Uncaught HTTP Error ${userAudiencePromise.status}.`
                 );
