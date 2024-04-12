@@ -31,3 +31,4 @@ import './tests-store';
 import './tests-config-api-client';
 import './tests-identity-utils';
 import './tests-audience-manager';
+import './tests-feature-flags';

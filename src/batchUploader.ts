@@ -10,7 +10,12 @@ import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
 import { getRampNumber, isEmpty } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
-import { AsyncUploader, FetchUploader, XHRUploader, fetchPayload } from './uploaders';
+import { 
+    AsyncUploader,
+    FetchUploader,
+    XHRUploader,
+    fetchPayload
+} from './uploaders';
 
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
@@ -109,6 +114,7 @@ export class BatchUploader {
             _Store: { deviceId },
         } = this.mpInstance;
 
+        // https://go.mparticle.com/work/SQDSDKS-6317
         const offlineStorageFeatureFlagValue: string = getFeatureFlag(
             Constants.FeatureFlags.OfflineStorage
         ) as string;

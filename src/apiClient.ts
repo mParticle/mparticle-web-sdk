@@ -38,6 +38,7 @@ export default function APIClient(
     const self = this;
     this.queueEventForBatchUpload = function(event: SDKEvent) {
         if (!this.uploader) {
+            // https://go.mparticle.com/work/SQDSDKS-6317
             const millis: number = parseNumber(mpInstance._Helpers.getFeatureFlag(
                 Constants.FeatureFlags.EventBatchingIntervalMillis
             ) as string);
