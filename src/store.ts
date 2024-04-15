@@ -6,6 +6,7 @@ import {
     IdentityCallback,
     SDKEventCustomFlags,
     ConsentState,
+    UserIdentities,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
@@ -193,6 +194,8 @@ export interface IStore {
     setFirstSeenTime?(mpid: MPID, time?: number): void;
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
+    getUserIdentities?(mpid: MPID): UserIdentities;
+    setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
 
     hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
@@ -611,6 +614,28 @@ export default function Store(
             this.persistenceData,
             persistenceData,
         );
+    };
+
+    this.getUserIdentities = (mpid: MPID): UserIdentities =>
+        this.persistenceData &&
+        this.persistenceData[mpid] &&
+        this.persistenceData[mpid].ui
+            ? this.persistenceData[mpid].ui
+            : {};
+
+    this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
+        if (userIdentities) {
+            if (this.persistenceData) {
+                if (this.persistenceData[mpid]) {
+                    this.persistenceData[mpid].ui = userIdentities;
+                } else {
+                    this.persistenceData[mpid] = {
+                        ui: userIdentities,
+                    };
+                }
+                mpInstance._Persistence.savePersistence(this.persistenceData);
+            }
+        }
     };
 
     this.nullifySession = (): void => {
