@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.25.3";
+    var version = "2.26.0";
 
     var Constants = {
       sdkVersion: version,
@@ -633,7 +633,8 @@ var mParticle = (function () {
           PromotionIdRequired: 'Promotion ID is required',
           BadAttribute: 'Attribute value cannot be object or array',
           BadKey: 'Key value cannot be object or array',
-          BadLogPurchase: 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions'
+          BadLogPurchase: 'Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions',
+          AudienceAPINotEnabled: 'Your workspace is not enabled to retrieve user audiences.'
         },
         InformationMessages: {
           CookieSearch: 'Searching for cookie',
@@ -730,7 +731,8 @@ var mParticle = (function () {
         v3SecureServiceUrl: 'jssdks.mparticle.com/v3/JS/',
         configUrl: 'jssdkcdns.mparticle.com/JS/v2/',
         identityUrl: 'identity.mparticle.com/v1/',
-        aliasUrl: 'jssdks.mparticle.com/v1/identity/'
+        aliasUrl: 'jssdks.mparticle.com/v1/identity/',
+        userAudienceUrl: 'nativesdks.mparticle.com/v1/'
       },
       Base64CookieKeys: {
         csm: 1,
@@ -764,7 +766,8 @@ var mParticle = (function () {
         EventBatchingIntervalMillis: 'eventBatchingIntervalMillis',
         OfflineStorage: 'offlineStorage',
         DirectUrlRouting: 'directURLRouting',
-        CacheIdentity: 'cacheIdentity'
+        CacheIdentity: 'cacheIdentity',
+        AudienceAPI: 'audienceAPI'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -1988,6 +1991,76 @@ var mParticle = (function () {
       return SessionStorageVault;
     }(BaseVault);
 
+    var AsyncUploader = /** @class */function () {
+      function AsyncUploader(url) {
+        this.url = url;
+      }
+      return AsyncUploader;
+    }();
+    var FetchUploader = /** @class */function (_super) {
+      __extends(FetchUploader, _super);
+      function FetchUploader() {
+        return _super !== null && _super.apply(this, arguments) || this;
+      }
+      FetchUploader.prototype.upload = function (fetchPayload, _url) {
+        return __awaiter(this, void 0, void 0, function () {
+          var url;
+          return __generator(this, function (_a) {
+            switch (_a.label) {
+              case 0:
+                url = _url || this.url;
+                return [4 /*yield*/, fetch(url, fetchPayload)];
+              case 1:
+                return [2 /*return*/, _a.sent()];
+            }
+          });
+        });
+      };
+      return FetchUploader;
+    }(AsyncUploader);
+    var XHRUploader = /** @class */function (_super) {
+      __extends(XHRUploader, _super);
+      function XHRUploader() {
+        return _super !== null && _super.apply(this, arguments) || this;
+      }
+      XHRUploader.prototype.upload = function (fetchPayload) {
+        return __awaiter(this, void 0, void 0, function () {
+          var response;
+          return __generator(this, function (_a) {
+            switch (_a.label) {
+              case 0:
+                return [4 /*yield*/, this.makeRequest(this.url, fetchPayload.body)];
+              case 1:
+                response = _a.sent();
+                return [2 /*return*/, response];
+            }
+          });
+        });
+      };
+      XHRUploader.prototype.makeRequest = function (url, data) {
+        return __awaiter(this, void 0, void 0, function () {
+          var xhr;
+          return __generator(this, function (_a) {
+            xhr = new XMLHttpRequest();
+            return [2 /*return*/, new Promise(function (resolve, reject) {
+              xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) return;
+                // Process the response
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  resolve(xhr);
+                } else {
+                  reject(xhr);
+                }
+              };
+              xhr.open('post', url);
+              xhr.send(data);
+            })];
+          });
+        });
+      };
+      return XHRUploader;
+    }(AsyncUploader);
+
     /**
      * BatchUploader contains all the logic to store/retrieve events and batches
      * to/from persistence, and upload batches to mParticle.
@@ -2050,6 +2123,7 @@ var mParticle = (function () {
         var _a = this.mpInstance,
           getFeatureFlag = _a._Helpers.getFeatureFlag,
           deviceId = _a._Store.deviceId;
+        // https://go.mparticle.com/work/SQDSDKS-6317
         var offlineStorageFeatureFlagValue = getFeatureFlag(Constants.FeatureFlags.OfflineStorage);
         var offlineStoragePercentage = parseInt(offlineStorageFeatureFlagValue, 10);
         var rampNumber = getRampNumber(deviceId);
@@ -2313,81 +2387,13 @@ var mParticle = (function () {
       BatchUploader.MINIMUM_INTERVAL_MILLIS = 500;
       return BatchUploader;
     }();
-    var AsyncUploader = /** @class */function () {
-      function AsyncUploader(url) {
-        this.url = url;
-      }
-      return AsyncUploader;
-    }();
-    var FetchUploader = /** @class */function (_super) {
-      __extends(FetchUploader, _super);
-      function FetchUploader() {
-        return _super !== null && _super.apply(this, arguments) || this;
-      }
-      FetchUploader.prototype.upload = function (fetchPayload) {
-        return __awaiter(this, void 0, void 0, function () {
-          var response;
-          return __generator(this, function (_a) {
-            switch (_a.label) {
-              case 0:
-                return [4 /*yield*/, fetch(this.url, fetchPayload)];
-              case 1:
-                response = _a.sent();
-                return [2 /*return*/, response];
-            }
-          });
-        });
-      };
-      return FetchUploader;
-    }(AsyncUploader);
-    var XHRUploader = /** @class */function (_super) {
-      __extends(XHRUploader, _super);
-      function XHRUploader() {
-        return _super !== null && _super.apply(this, arguments) || this;
-      }
-      XHRUploader.prototype.upload = function (fetchPayload) {
-        return __awaiter(this, void 0, void 0, function () {
-          var response;
-          return __generator(this, function (_a) {
-            switch (_a.label) {
-              case 0:
-                return [4 /*yield*/, this.makeRequest(this.url, fetchPayload.body)];
-              case 1:
-                response = _a.sent();
-                return [2 /*return*/, response];
-            }
-          });
-        });
-      };
-      XHRUploader.prototype.makeRequest = function (url, data) {
-        return __awaiter(this, void 0, void 0, function () {
-          var xhr;
-          return __generator(this, function (_a) {
-            xhr = new XMLHttpRequest();
-            return [2 /*return*/, new Promise(function (resolve, reject) {
-              xhr.onreadystatechange = function () {
-                if (xhr.readyState !== 4) return;
-                // Process the response
-                if (xhr.status >= 200 && xhr.status < 300) {
-                  resolve(xhr);
-                } else {
-                  reject(xhr);
-                }
-              };
-              xhr.open('post', url);
-              xhr.send(data);
-            })];
-          });
-        });
-      };
-      return XHRUploader;
-    }(AsyncUploader);
 
     function APIClient(mpInstance, kitBlocker) {
       this.uploader = null;
       var self = this;
       this.queueEventForBatchUpload = function (event) {
         if (!this.uploader) {
+          // https://go.mparticle.com/work/SQDSDKS-6317
           var millis = parseNumber(mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatchingIntervalMillis));
           this.uploader = new BatchUploader(mpInstance, millis);
         }
@@ -3985,6 +3991,61 @@ var mParticle = (function () {
         _this.sessionAttributes = {};
         mpInstance._Persistence.update();
       };
+      this.getFirstSeenTime = function (mpid) {
+        if (!mpid) {
+          return null;
+        }
+        if (_this.persistenceData && _this.persistenceData[mpid] && _this.persistenceData[mpid].fst) {
+          return _this.persistenceData[mpid].fst;
+        } else {
+          return null;
+        }
+      };
+      this.setFirstSeenTime = function (mpid, _time) {
+        if (!mpid) {
+          return;
+        }
+        var time = _time || new Date().getTime();
+        if (_this.persistenceData) {
+          if (!_this.persistenceData[mpid]) {
+            _this.persistenceData[mpid] = {};
+          }
+          if (!_this.persistenceData[mpid].fst) {
+            _this.persistenceData[mpid].fst = time;
+            mpInstance._Persistence.savePersistence(_this.persistenceData);
+          }
+        }
+      };
+      this.getLastSeenTime = function (mpid) {
+        if (!mpid) {
+          return null;
+        }
+        //     // https://go.mparticle.com/work/SQDSDKS-6315
+        var currentUser = mpInstance.Identity.getCurrentUser();
+        if (mpid === (currentUser === null || currentUser === void 0 ? void 0 : currentUser.getMPID())) {
+          // if the mpid is the current user, its last seen time is the current time
+          return new Date().getTime();
+        } else if (_this.persistenceData && _this.persistenceData[mpid] && _this.persistenceData[mpid].lst) {
+          return _this.persistenceData[mpid].lst;
+        } else {
+          return null;
+        }
+      };
+      this.setLastSeenTime = function (mpid, _time) {
+        if (!mpid) {
+          return;
+        }
+        var time = _time || new Date().getTime();
+        if (_this.persistenceData) {
+          if (!_this.persistenceData[mpid]) {
+            _this.persistenceData[mpid] = {};
+          }
+          if (!_this.persistenceData[mpid].lst) {
+            _this.persistenceData[mpid].lst = time;
+            mpInstance._Persistence.savePersistence(_this.persistenceData);
+          }
+        }
+      };
     }
     function processFlags(config, SDKConfig) {
       var flags = {};
@@ -3993,7 +4054,8 @@ var mParticle = (function () {
         EventBatchingIntervalMillis = _a.EventBatchingIntervalMillis,
         OfflineStorage = _a.OfflineStorage,
         DirectUrlRouting = _a.DirectUrlRouting,
-        CacheIdentity = _a.CacheIdentity;
+        CacheIdentity = _a.CacheIdentity,
+        AudienceAPI = _a.AudienceAPI;
       if (!config.flags) {
         return {};
       }
@@ -4004,6 +4066,7 @@ var mParticle = (function () {
       flags[OfflineStorage] = config.flags[OfflineStorage] || '0';
       flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
       flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
+      flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
       return flags;
     }
     function processBaseUrls(config, flags, apiKey) {
@@ -6272,8 +6335,76 @@ var mParticle = (function () {
       return false;
     };
 
+    var AudienceManager = /** @class */function () {
+      function AudienceManager(userAudienceUrl, apiKey, logger) {
+        this.url = '';
+        this.logger = logger;
+        this.url = "https://".concat(userAudienceUrl).concat(apiKey, "/audience");
+        this.userAudienceAPI = window.fetch ? new FetchUploader(this.url) : new XHRUploader(this.url);
+      }
+      AudienceManager.prototype.sendGetUserAudienceRequest = function (mpid, callback) {
+        return __awaiter(this, void 0, void 0, function () {
+          var fetchPayload, audienceURLWithMPID, userAudiencePromise, userAudienceMembershipsServerResponse, parsedUserAudienceMemberships, e_1;
+          return __generator(this, function (_a) {
+            switch (_a.label) {
+              case 0:
+                this.logger.verbose('Fetching user audiences from server');
+                fetchPayload = {
+                  method: 'GET',
+                  headers: {
+                    Accept: '*/*'
+                  }
+                };
+                audienceURLWithMPID = "".concat(this.url, "?mpid=").concat(mpid);
+                _a.label = 1;
+              case 1:
+                _a.trys.push([1, 6,, 7]);
+                return [4 /*yield*/, this.userAudienceAPI.upload(fetchPayload, audienceURLWithMPID)];
+              case 2:
+                userAudiencePromise = _a.sent();
+                if (!(userAudiencePromise.status >= 200 && userAudiencePromise.status < 300)) return [3 /*break*/, 4];
+                this.logger.verbose("User Audiences successfully received");
+                return [4 /*yield*/, userAudiencePromise.json()];
+              case 3:
+                userAudienceMembershipsServerResponse = _a.sent();
+                parsedUserAudienceMemberships = {
+                  currentAudienceMemberships: userAudienceMembershipsServerResponse === null || userAudienceMembershipsServerResponse === void 0 ? void 0 : userAudienceMembershipsServerResponse.audience_memberships
+                };
+                try {
+                  callback(parsedUserAudienceMemberships);
+                } catch (e) {
+                  throw new Error('Error invoking callback on user audience response.');
+                }
+                return [3 /*break*/, 5];
+              case 4:
+                if (userAudiencePromise.status === 401) {
+                  throw new Error('`HTTP error status ${userAudiencePromise.status} while retrieving User Audiences - please verify your API key.`');
+                } else if (userAudiencePromise.status === 403) {
+                  throw new Error('`HTTP error status ${userAudiencePromise.status} while retrieving User Audiences - please verify your workspace is enabled for audiences.`');
+                } else {
+                  // In case there is an HTTP error we did not anticipate.
+                  throw new Error("Uncaught HTTP Error ".concat(userAudiencePromise.status, "."));
+                }
+              case 5:
+                return [3 /*break*/, 7];
+              case 6:
+                e_1 = _a.sent();
+                this.logger.error("Error retrieving audiences. ".concat(e_1));
+                return [3 /*break*/, 7];
+              case 7:
+                return [2 /*return*/];
+            }
+          });
+        });
+      };
+
+      return AudienceManager;
+    }();
+
     var Messages$2 = Constants.Messages,
-      HTTPCodes$2 = Constants.HTTPCodes;
+      HTTPCodes$2 = Constants.HTTPCodes,
+      FeatureFlags = Constants.FeatureFlags;
+    var ErrorMessages = Messages$2.ErrorMessages;
     var _Constants$IdentityMe = Constants.IdentityMethods,
       Identify = _Constants$IdentityMe.Identify,
       Modify$1 = _Constants$IdentityMe.Modify,
@@ -6282,6 +6413,7 @@ var mParticle = (function () {
     function Identity(mpInstance) {
       var self = this;
       this.idCache = null;
+      this.audienceManager = null;
       this.checkIdentitySwap = function (previousMPID, currentMPID, currentSessionMPIDs) {
         if (previousMPID && currentMPID && previousMPID !== currentMPID) {
           var persistence = mpInstance._Persistence.getPersistence();
@@ -7037,6 +7169,22 @@ var mParticle = (function () {
           },
           getFirstSeenTime: function getFirstSeenTime() {
             return mpInstance._Persistence.getFirstSeenTime(mpid);
+          },
+          /**
+           * Get user audiences
+           * @method getuserAudiences
+           * @param {Function} [callback] A callback function that is invoked when the user audience request completes
+           */
+          getUserAudiences: function getUserAudiences(callback) {
+            // user audience API is feature flagged
+            if (!mpInstance._Helpers.getFeatureFlag(FeatureFlags.AudienceAPI)) {
+              mpInstance.Logger.error(ErrorMessages.AudienceAPINotEnabled);
+              return;
+            }
+            if (self.audienceManager === null) {
+              self.audienceManager = new AudienceManager(mpInstance._Store.SDKConfig.userAudienceUrl, mpInstance._Store.devToken, mpInstance.Logger, mpid);
+            }
+            self.audienceManager.sendGetUserAudienceRequest(mpid, callback);
           }
         };
       };
