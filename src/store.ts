@@ -184,7 +184,7 @@ export interface IStore {
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
 
-    hasValidIdentifyRequest?: () => boolean;
+    hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
     processConfig(config: SDKInitConfig): void;
 }
@@ -475,7 +475,7 @@ export default function Store(
         }
     }
 
-    this.hasValidIdentifyRequest = (): boolean => {
+    this.hasInvalidIdentifyRequest = (): boolean => {
         const { identifyRequest } = this.SDKConfig;
         return (
             (isObject(identifyRequest) &&
