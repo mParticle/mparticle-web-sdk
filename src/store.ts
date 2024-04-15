@@ -6,6 +6,7 @@ import {
     IdentityCallback,
     SDKEventCustomFlags,
     ConsentState,
+    AllUserAttributes,
     UserIdentities,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
@@ -120,6 +121,10 @@ export type ServerSettings = Dictionary;
 export type SessionAttributes = Dictionary;
 export type IntegrationAttributes = Dictionary<Dictionary<string>>;
 
+// https://go.mparticle.com/work/SQDSDKS-4576
+// https://go.mparticle.com/work/SQDSDKS-5196
+export type UserAttributes = AllUserAttributes;
+
 type WrapperSDKTypes = 'flutter' | 'none';
 interface WrapperSDKInfo {
     name: WrapperSDKTypes;
@@ -194,6 +199,8 @@ export interface IStore {
     setFirstSeenTime?(mpid: MPID, time?: number): void;
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
+    getUserAttributes?(mpid: MPID): UserAttributes;
+    setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
 
@@ -619,7 +626,15 @@ export default function Store(
 
     this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
         this._setPersistence(mpid, 'ui', userIdentities);
-    };
+
+    this.getUserAttributes = (mpid: MPID): UserAttributes =>
+        this._getFromPersistence(mpid, 'ua') || {};
+
+    this.setUserAttributes = (
+        mpid: MPID,
+        userAttributes: UserAttributes
+    ): void => 
+        this._setPersistence(mpid, 'ua', userAttributes);
 
     this.nullifySession = (): void => {
         this.sessionId = null;

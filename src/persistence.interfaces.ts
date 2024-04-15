@@ -124,9 +124,9 @@ export interface IPersistence {
     decodePersistence(persistenceString: string): string;
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
-    getAllUserAttributes(mpid: MPID): AllUserAttributes;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
+    getUserIdentities(mpid: MPID): UserIdentities;
     saveUserAttributesToPersistence(
         mpid: MPID,
         userAttributes: UserAttributes
