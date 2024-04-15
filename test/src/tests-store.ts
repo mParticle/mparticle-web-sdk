@@ -589,6 +589,7 @@ describe('Store', () => {
                     offlineStorage: '42',
                     directURLRouting: 'False',
                     cacheIdentity: 'False',
+                    audienceAPI: 'False',
                 },
             };
 
@@ -605,6 +606,7 @@ describe('Store', () => {
                 offlineStorage: '42',
                 directURLRouting: false,
                 cacheIdentity: false,
+                audienceAPI: false,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
