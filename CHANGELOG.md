@@ -1,3 +1,18 @@
+# [2.26.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.25.3...v2.26.0) (2024-04-15)
+
+
+### Bug Fixes
+
+* Implement audience API feature flag ([#865](https://github.com/mParticle/mparticle-web-sdk/issues/865)) ([faa4520](https://github.com/mParticle/mparticle-web-sdk/commit/faa45205f788b610bdd8418996a8a9aa58c38b58))
+* Migrate First and Last Seen Time Setters and Getters to Store ([#856](https://github.com/mParticle/mparticle-web-sdk/issues/856)) ([86a9535](https://github.com/mParticle/mparticle-web-sdk/commit/86a953537660ef23a09811bfc7fa8cf1e8854f44))
+* Update audience logic to new backend response ([#844](https://github.com/mParticle/mparticle-web-sdk/issues/844)) ([8a63045](https://github.com/mParticle/mparticle-web-sdk/commit/8a630459f0542e9995ddaf7402e47ba56c8ae423))
+* Update url to nativesdks and update server response ([#863](https://github.com/mParticle/mparticle-web-sdk/issues/863)) ([9e46cef](https://github.com/mParticle/mparticle-web-sdk/commit/9e46cef67ade9e1c682d09d6438f330f2be9fbbd))
+
+
+### Features
+
+* Implement fetching user audiences ([#841](https://github.com/mParticle/mparticle-web-sdk/issues/841)) ([93a7fb7](https://github.com/mParticle/mparticle-web-sdk/commit/93a7fb7ce93d2f28bfc7699bae82cf755de84c3c))
+
 ## [2.25.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.25.2...v2.25.3) (2024-04-08)
 
 
