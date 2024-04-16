@@ -480,7 +480,7 @@ export default function Store(
         return (
             (isObject(identifyRequest) &&
                 isObject(identifyRequest.userIdentities) &&
-                Object.keys(identifyRequest.userIdentities).length === 0) ||
+                isEmpty(identifyRequest.userIdentities)) ||
             !identifyRequest
         );
     };
