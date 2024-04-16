@@ -23,6 +23,7 @@ import {
 import {
     Dictionary,
     isDataPlanSlug,
+    isEmpty,
     isNumber,
     isObject,
     parseNumber,
@@ -602,7 +603,7 @@ export default function Store(
     };
 }
 
-    // https://go.mparticle.com/work/SQDSDKS-6317
+// https://go.mparticle.com/work/SQDSDKS-6317
 export function processFlags(config: SDKInitConfig): IFeatureFlags {
     const flags: IFeatureFlags = {};
     const {

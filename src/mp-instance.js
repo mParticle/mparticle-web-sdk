@@ -1319,7 +1319,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             : {};
 
         mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasInvalidIdentifyRequest()
-            ? returnIdentifyRequest(currentUser, currentUserIdentities)
+            ? { userIdentities: currentUserIdentities }
             : mpInstance._Store.SDKConfig.identifyRequest;
 
         if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
@@ -1448,25 +1448,6 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
         );
         mpInstance._Store.isLocalStorageAvailable = false;
     }
-}
-
-function returnIdentifyRequest(currentUser, currentUserIdentities) {
-    // If no initialIdentityRequest is passed in, we set the user identities
-    // to what is currently in cookies for the identify request
-    const modifiedUIforIdentityRequest = {};
-
-    if (currentUser) {
-        for (let identityKey in currentUserIdentities) {
-            if (currentUserIdentities.hasOwnProperty(identityKey)) {
-                modifiedUIforIdentityRequest[identityKey] =
-                    currentUserIdentities[identityKey];
-            }
-        }
-    }
-
-    return {
-        userIdentities: modifiedUIforIdentityRequest,
-    };
 }
 
 function processIdentityCallback(
