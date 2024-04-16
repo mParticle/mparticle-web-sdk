@@ -40,9 +40,8 @@ import { isEmpty, isFunction } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 
-const Messages = Constants.Messages;
-const HTTPCodes = Constants.HTTPCodes;
-const ReportBatching = Constants.FeatureFlags.ReportBatching;
+const { Messages, HTTPCodes, FeatureFlags } = Constants;
+const { ReportBatching } = FeatureFlags;
 const { StartingInitialization } = Messages.InformationMessages;
 
 /**
@@ -1319,7 +1318,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
             ? currentUser.getUserIdentities().userIdentities
             : {};
 
-        mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasValidIdentifyRequest()
+        mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasInvalidIdentifyRequest()
             ? returnIdentifyRequest(currentUser, currentUserIdentities)
             : mpInstance._Store.SDKConfig.identifyRequest;
 
