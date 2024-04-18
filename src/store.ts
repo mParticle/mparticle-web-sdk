@@ -199,6 +199,7 @@ export interface IStore {
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
+    getGlobalStorageAttributes?(): IGlobalStoreV2MinifiedKeys;
     hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
     processConfig(config: SDKInitConfig): void;
@@ -521,6 +522,23 @@ export default function Store(
             mpInstance._Persistence.savePersistence(this.persistenceData);
         }
     };
+
+    this.getGlobalStorageAttributes = () => ({
+        sid: this.sessionId,
+        ie: this.isEnabled,
+        sa: this.sessionAttributes,
+        ss: this.serverSettings,
+        dt: this.devToken,
+        les: this.dateLastEventSent ? this.dateLastEventSent.getTime() : null,
+        av: this.SDKConfig.appVersion,
+        cgid: this.clientId,
+        das: this.deviceId,
+        c: this.context,
+        ssd: this.sessionStartDate ? this.sessionStartDate.getTime() : 0,
+        ia: this.integrationAttributes,
+
+        csm: this.sessionId ? this.currentSessionMPIDs : undefined,
+    });
 
     this.hasInvalidIdentifyRequest = (): boolean => {
         const { identifyRequest } = this.SDKConfig;

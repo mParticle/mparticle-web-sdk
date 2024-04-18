@@ -356,15 +356,8 @@ export default function _Persistence(mpInstance) {
         }
 
         if (!mpInstance._Store.SDKConfig.useCookieStorage) {
-            localStorageData.gs = localStorageData.gs || {};
-
             localStorageData.l = mpInstance._Store.isLoggedIn ? 1 : 0;
-
-            if (mpInstance._Store.sessionId) {
-                localStorageData.gs.csm = mpInstance._Store.currentSessionMPIDs;
-            }
-
-            localStorageData.gs.ie = mpInstance._Store.isEnabled;
+            localStorageData.gs = mpInstance._Store.getGlobalStorageAttributes();
 
             if (mpid) {
                 localStorageData.cu = mpid;
@@ -379,8 +372,6 @@ export default function _Persistence(mpInstance) {
                 mpInstance._Store.nonCurrentUserMPIDs = {};
             }
 
-            localStorageData = setGlobalStorageAttributes(localStorageData);
-
             try {
                 window.localStorage.setItem(
                     encodeURIComponent(key),
@@ -393,28 +384,6 @@ export default function _Persistence(mpInstance) {
             }
         }
     };
-
-    function setGlobalStorageAttributes(data) {
-        var store = mpInstance._Store;
-        data.gs.sid = store.sessionId;
-        data.gs.ie = store.isEnabled;
-        data.gs.sa = store.sessionAttributes;
-        data.gs.ss = store.serverSettings;
-        data.gs.dt = store.devToken;
-        data.gs.les = store.dateLastEventSent
-            ? store.dateLastEventSent.getTime()
-            : null;
-        data.gs.av = store.SDKConfig.appVersion;
-        data.gs.cgid = store.clientId;
-        data.gs.das = store.deviceId;
-        data.gs.c = store.context;
-        data.gs.ssd = store.sessionStartDate
-            ? store.sessionStartDate.getTime()
-            : 0;
-        data.gs.ia = store.integrationAttributes;
-
-        return data;
-    }
 
     this.getLocalStorage = function() {
         if (!mpInstance._Store.isLocalStorageAvailable) {
@@ -538,19 +507,13 @@ export default function _Persistence(mpInstance) {
             domain = ';domain=' + cookieDomain;
         }
 
-        cookies.gs = cookies.gs || {};
-
-        if (mpInstance._Store.sessionId) {
-            cookies.gs.csm = mpInstance._Store.currentSessionMPIDs;
-        }
+        cookies.gs = mpInstance._Store.getGlobalStorageAttributes();
 
         if (mpid) {
             cookies.cu = mpid;
         }
 
         cookies.l = mpInstance._Store.isLoggedIn ? 1 : 0;
-
-        cookies = setGlobalStorageAttributes(cookies);
 
         if (Object.keys(mpInstance._Store.nonCurrentUserMPIDs).length) {
             cookies = mpInstance._Helpers.extend(
