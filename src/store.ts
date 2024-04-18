@@ -31,7 +31,10 @@ import {
 } from './utils';
 import { SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
-import { IPersistenceMinified } from './persistence.interfaces';
+import {
+    IGlobalStoreV2MinifiedKeys,
+    IPersistenceMinified,
+} from './persistence.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -185,6 +188,7 @@ export interface IStore {
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
 
+    getGlobalStorageAttributes?(): IGlobalStoreV2MinifiedKeys;
     hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
     processConfig(config: SDKInitConfig): void;
@@ -475,6 +479,23 @@ export default function Store(
             }
         }
     }
+
+    this.getGlobalStorageAttributes = () => ({
+        sid: this.sessionId,
+        ie: this.isEnabled,
+        sa: this.sessionAttributes,
+        ss: this.serverSettings,
+        dt: this.devToken,
+        les: this.dateLastEventSent ? this.dateLastEventSent.getTime() : null,
+        av: this.SDKConfig.appVersion,
+        cgid: this.clientId,
+        das: this.deviceId,
+        c: this.context,
+        ssd: this.sessionStartDate ? this.sessionStartDate.getTime() : 0,
+        ia: this.integrationAttributes,
+
+        csm: this.sessionId ? this.currentSessionMPIDs : undefined,
+    });
 
     this.hasInvalidIdentifyRequest = (): boolean => {
         const { identifyRequest } = this.SDKConfig;

@@ -37,7 +37,7 @@ export interface IGlobalStoreV2MinifiedKeys {
     das: string; // Device ID/ Device Application String
     ia: IntegrationAttributes;
     c: Context;
-    csm: MPID[]; // Current Session MPIDs
+    csm?: MPID[]; // Current Session MPIDs
     les: number; // Last Event Sent Timestamp
     ssd: number; // Session Start Date
 }
