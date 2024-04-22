@@ -5,7 +5,7 @@ import { SDKEvent, BaseEvent, MParticleWebSDK } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import * as EventsApi from '@mparticle/event-models';
 import { Batch } from '@mparticle/event-models';
-import { IMPSideloadedKit} from './sideloadedKit';
+import { IMPSideloadedKit } from './sideloadedKit';
 
 const mockFunction = function() {
     return null;
@@ -27,7 +27,6 @@ export default class _BatchValidator {
                 createServiceUrl: mockFunction,
                 parseNumber: mockFunction,
                 isObject: mockFunction,
-                returnConvertedBoolean: mockFunction,
                 Validators: null,
             },
             _resetForTests: mockFunction,

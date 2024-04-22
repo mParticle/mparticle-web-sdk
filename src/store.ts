@@ -20,7 +20,15 @@ import {
     SDKInitConfig,
     SDKProduct,
 } from './sdkRuntimeModels';
-import { isNumber, isDataPlanSlug, Dictionary, parseNumber } from './utils';
+import {
+    Dictionary,
+    isDataPlanSlug,
+    isEmpty,
+    isNumber,
+    isObject,
+    parseNumber,
+    returnConvertedBoolean,
+} from './utils';
 import { SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
 import { IPersistenceMinified } from './persistence.interfaces';
@@ -71,6 +79,9 @@ export interface SDKConfig {
     v1SecureServiceUrl?: string;
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
+    webviewBridgeName?: string;
+    workspaceToken?: string;
+    requiredWebviewBridgeName?: string;
 }
 
 function createSDKConfig(config: SDKInitConfig): SDKConfig {
@@ -114,7 +125,7 @@ interface WrapperSDKInfo {
 
 // https://go.mparticle.com/work/SQDSDKS-5954
 export interface IFeatureFlags {
-    reportBatching?: string;
+    reportBatching?: boolean;
     eventBatchingIntervalMillis?: number;
     offlineStorage?: string;
     directURLRouting?: boolean;
@@ -169,13 +180,14 @@ export interface IStore {
 
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
-
     getFirstSeenTime?(mpid: MPID): number;
     setFirstSeenTime?(mpid: MPID, time?: number): void;
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
 
+    hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
+    processConfig(config: SDKInitConfig): void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -185,6 +197,13 @@ export default function Store(
     mpInstance: MParticleWebSDK,
     apiKey?: string
 ) {
+    const {
+        createMainStorageName,
+        createProductStorageName,
+    } = mpInstance._Helpers;
+
+    const { isWebviewEnabled } = mpInstance._NativeSdkHelpers;
+
     const defaultStore: Partial<IStore> = {
         isEnabled: true,
         sessionAttributes: {},
@@ -266,14 +285,17 @@ export default function Store(
             this.SDKConfig.flags = {};
         }
 
-        this.SDKConfig.flags = processFlags(config, this
-            .SDKConfig as SDKConfig);
+        // We process the initial config that is passed via the SDK init
+        // and then we will reprocess the config within the processConfig
+        // function when the config is updated from the server
+        // https://go.mparticle.com/work/SQDSDKS-6317
+        this.SDKConfig.flags = processFlags(config);
 
         if (config.deviceId) {
             this.deviceId = config.deviceId;
         }
         if (config.hasOwnProperty('isDevelopmentMode')) {
-            this.SDKConfig.isDevelopmentMode = mpInstance._Helpers.returnConvertedBoolean(
+            this.SDKConfig.isDevelopmentMode = returnConvertedBoolean(
                 config.isDevelopmentMode
             );
         } else {
@@ -454,17 +476,20 @@ export default function Store(
         }
     }
 
+    this.hasInvalidIdentifyRequest = (): boolean => {
+        const { identifyRequest } = this.SDKConfig;
+        return (
+            (isObject(identifyRequest) &&
+                isObject(identifyRequest.userIdentities) &&
+                isEmpty(identifyRequest.userIdentities)) ||
+            !identifyRequest
+        );
+    };
+
     this.getDeviceId = () => this.deviceId;
     this.setDeviceId = (deviceId: string) => {
         this.deviceId = deviceId;
         this.persistenceData.gs.das = deviceId;
-        mpInstance._Persistence.update();
-    };
-
-    this.nullifySession = (): void => {
-        this.sessionId = null;
-        this.dateLastEventSent = null;
-        this.sessionAttributes = {};
         mpInstance._Persistence.update();
     };
 
@@ -539,12 +564,47 @@ export default function Store(
             }
         }
     };
+
+    this.nullifySession = (): void => {
+        this.sessionId = null;
+        this.dateLastEventSent = null;
+        this.sessionAttributes = {};
+        mpInstance._Persistence.update();
+    };
+
+    this.processConfig = (config: SDKInitConfig) => {
+        const { workspaceToken, requiredWebviewBridgeName } = config;
+
+        // We should reprocess the flags in case they have changed when we request an updated config
+        // such as if the SDK is being self-hosted and the flags are different on the server config
+        // https://go.mparticle.com/work/SQDSDKS-6317
+        this.SDKConfig.flags = processFlags(config);
+
+        if (workspaceToken) {
+            this.SDKConfig.workspaceToken = workspaceToken;
+        } else {
+            mpInstance.Logger.warning(
+                'You should have a workspaceToken on your config object for security purposes.'
+            );
+        }
+        // add a new function to apply items to the store that require config to be returned
+        this.storageName = createMainStorageName(workspaceToken);
+        this.prodStorageName = createProductStorageName(workspaceToken);
+
+        this.SDKConfig.requiredWebviewBridgeName =
+            requiredWebviewBridgeName || workspaceToken;
+
+        this.webviewBridgeEnabled = isWebviewEnabled(
+            this.SDKConfig.requiredWebviewBridgeName,
+            this.SDKConfig.minWebviewBridgeVersion
+        );
+
+        this.configurationLoaded = true;
+    };
 }
 
-export function processFlags(
-    config: SDKInitConfig,
-    SDKConfig: SDKConfig
-): IFeatureFlags {
+// https://go.mparticle.com/work/SQDSDKS-6317
+export function processFlags(config: SDKInitConfig): IFeatureFlags {
     const flags: IFeatureFlags = {};
     const {
         ReportBatching,
@@ -559,6 +619,7 @@ export function processFlags(
         return {};
     }
 
+    // https://go.mparticle.com/work/SQDSDKS-6317
     // Passed in config flags take priority over defaults
     flags[ReportBatching] = config.flags[ReportBatching] || false;
     // The server returns stringified numbers, sowe need to parse

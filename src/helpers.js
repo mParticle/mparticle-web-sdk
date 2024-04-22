@@ -441,7 +441,6 @@ export default function Helpers(mpInstance) {
     this.inArray = utils.inArray;
     this.isObject = utils.isObject;
     this.decoded = utils.decoded;
-    this.returnConvertedBoolean = utils.returnConvertedBoolean;
     this.parseStringOrNumber = utils.parseStringOrNumber;
     this.generateHash = utils.generateHash;
     this.generateUniqueId = utils.generateUniqueId;

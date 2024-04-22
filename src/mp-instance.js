@@ -36,11 +36,13 @@ import Consent from './consent';
 import KitBlocker from './kitBlocking';
 import ConfigAPIClient from './configAPIClient';
 import IdentityAPIClient from './identityApiClient';
+import { isEmpty, isFunction } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
 
-var Messages = Constants.Messages,
-    HTTPCodes = Constants.HTTPCodes;
+const { Messages, HTTPCodes, FeatureFlags } = Constants;
+const { ReportBatching } = FeatureFlags;
+const { StartingInitialization } = Messages.InformationMessages;
 
 /**
  * <p>All of the following methods can be called on the primary mParticle class. In version 2.10.0, we introduced <a href="https://docs.mparticle.com/developers/sdk/web/multiple-instances/">multiple instances</a>. If you are using multiple instances (self hosted environments only), you should call these methods on each instance.</p>
@@ -289,7 +291,7 @@ export default function mParticleInstance(instanceName) {
      * @param {Function} [callback] A callback function that is called when the location is either allowed or rejected by the user. A position object of schema {coords: {latitude: number, longitude: number}} is passed to the callback
      */
     this.startTrackingLocation = function(callback) {
-        if (!self._Helpers.Validators.isFunction(callback)) {
+        if (!isFunction(callback)) {
             self.Logger.warning(
                 'Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location.'
             );
@@ -1292,189 +1294,66 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
     mpInstance._APIClient = new APIClient(mpInstance, kitBlocker);
     mpInstance._Forwarders = new Forwarders(mpInstance, kitBlocker);
-    if (config.flags) {
-        if (
-            config.flags.hasOwnProperty(
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            )
-        ) {
-            mpInstance._Store.SDKConfig.flags[
-                Constants.FeatureFlags.EventBatchingIntervalMillis
-            ] =
-                config.flags[
-                    Constants.FeatureFlags.EventBatchingIntervalMillis
-                ];
-        }
-    }
+    mpInstance._Store.processConfig(config);
 
-    // add a new function to apply items to the store that require config to be returned
-    mpInstance._Store.storageName = mpInstance._Helpers.createMainStorageName(
-        config.workspaceToken
-    );
-    mpInstance._Store.prodStorageName = mpInstance._Helpers.createProductStorageName(
-        config.workspaceToken
-    );
-
-    // idCache is instantiated here as opposed to when _Identity is instantiated
-    // because it depends on _Store.storageName, which is not sent until above
-    // because it is a setting on config which returns asyncronously
-    // in self hosted mode
-    mpInstance._Identity.idCache = new LocalStorageVault(
-        `${mpInstance._Store.storageName}-id-cache`,
-        {
-            logger: mpInstance.Logger,
-        }
-    );
-
+    mpInstance._Identity.idCache = createIdentityCache(mpInstance);
     removeExpiredIdentityCacheDates(mpInstance._Identity.idCache);
 
-    if (config.hasOwnProperty('workspaceToken')) {
-        mpInstance._Store.SDKConfig.workspaceToken = config.workspaceToken;
+    // Web View Bridge is used for cases where the Web SDK is loaded within an iOS or Android device's
+    // Web View.  The Web SDK simply acts as a passthrough to the mParticle Native SDK.  It is not
+    // responsible for sending events directly to mParticle's servers.  The Web SDK will not initialize
+    // persistence or Identity directly.
+    if (mpInstance._Store.webviewBridgeEnabled) {
+        mpInstance._NativeSdkHelpers.initializeSessionAttributes(apiKey);
     } else {
-        mpInstance.Logger.warning(
-            'You should have a workspaceToken on your config object for security purposes.'
-        );
-    }
+        // Main SDK initialization flow
 
-    if (config.hasOwnProperty('requiredWebviewBridgeName')) {
-        mpInstance._Store.SDKConfig.requiredWebviewBridgeName =
-            config.requiredWebviewBridgeName;
-    } else if (config.hasOwnProperty('workspaceToken')) {
-        mpInstance._Store.SDKConfig.requiredWebviewBridgeName =
-            config.workspaceToken;
-    }
-    mpInstance._Store.webviewBridgeEnabled = mpInstance._NativeSdkHelpers.isWebviewEnabled(
-        mpInstance._Store.SDKConfig.requiredWebviewBridgeName,
-        mpInstance._Store.SDKConfig.minWebviewBridgeVersion
-    );
-
-    mpInstance._Store.configurationLoaded = true;
-
-    // https://go.mparticle.com/work/SQDSDKS-6044
-    if (!mpInstance._Store.webviewBridgeEnabled) {
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
-    }
 
-    if (mpInstance._Store.webviewBridgeEnabled) {
-        mpInstance._NativeSdkHelpers.sendToNative(
-            Constants.NativeSdkPaths.SetSessionAttribute,
-            JSON.stringify({ key: '$src_env', value: 'webview' })
-        );
-        if (apiKey) {
-            mpInstance._NativeSdkHelpers.sendToNative(
-                Constants.NativeSdkPaths.SetSessionAttribute,
-                JSON.stringify({ key: '$src_key', value: apiKey })
-            );
-        }
-    } else {
-        var currentUser;
+        // Set up user identitiy variables for later use
+        const currentUser = mpInstance.Identity.getCurrentUser();
+        const currentUserMPID = currentUser ? currentUser.getMPID() : null;
+        const currentUserIdentities = currentUser
+            ? currentUser.getUserIdentities().userIdentities
+            : {};
 
-        // If no initialIdentityRequest is passed in, we set the user identities to what is currently in cookies for the identify request
-        if (
-            (mpInstance._Helpers.isObject(
-                mpInstance._Store.SDKConfig.identifyRequest
-            ) &&
-                mpInstance._Helpers.isObject(
-                    mpInstance._Store.SDKConfig.identifyRequest.userIdentities
-                ) &&
-                Object.keys(
-                    mpInstance._Store.SDKConfig.identifyRequest.userIdentities
-                ).length === 0) ||
-            !mpInstance._Store.SDKConfig.identifyRequest
-        ) {
-            var modifiedUIforIdentityRequest = {};
+        mpInstance._Store.SDKConfig.identifyRequest = mpInstance._Store.hasInvalidIdentifyRequest()
+            ? { userIdentities: currentUserIdentities }
+            : mpInstance._Store.SDKConfig.identifyRequest;
 
-            currentUser = mpInstance.Identity.getCurrentUser();
-            if (currentUser) {
-                var identities =
-                    currentUser.getUserIdentities().userIdentities || {};
-                for (var identityKey in identities) {
-                    if (identities.hasOwnProperty(identityKey)) {
-                        modifiedUIforIdentityRequest[identityKey] =
-                            identities[identityKey];
-                    }
-                }
-            }
-
-            mpInstance._Store.SDKConfig.identifyRequest = {
-                userIdentities: modifiedUIforIdentityRequest,
-            };
-        }
-
-        currentUser = mpInstance.Identity.getCurrentUser();
-
-        if (
-            mpInstance._Helpers.getFeatureFlag(
-                Constants.FeatureFlags.ReportBatching
-            )
-        ) {
+        if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
         }
+
         mpInstance._Forwarders.processForwarders(
             config,
             mpInstance._APIClient.prepareForwardingStats
         );
-
         mpInstance._Forwarders.processPixelConfigs(config);
 
+        // Checks if session is created, resumed, or needs to be ended
+        // Logs a session start or session end event accordingly
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
-        // Call mParticle._Store.SDKConfig.identityCallback when identify was not called due to a reload or a sessionId already existing
-        // Any identity callback should always be ran regardless if an identity call is made
-        if (
-            !mpInstance._Store.identifyCalled &&
-            mpInstance._Store.SDKConfig.identityCallback &&
-            currentUser &&
-            currentUser.getMPID()
-        ) {
-            mpInstance._Store.SDKConfig.identityCallback({
-                httpCode: HTTPCodes.activeSession,
-                getUser: function() {
-                    return mpInstance._Identity.mParticleUser(
-                        currentUser.getMPID()
-                    );
-                },
-                getPreviousUser: function() {
-                    var users = mpInstance.Identity.getUsers();
-                    var mostRecentUser = users.shift();
-                    if (
-                        mostRecentUser &&
-                        currentUser &&
-                        mostRecentUser.getMPID() === currentUser.getMPID()
-                    ) {
-                        mostRecentUser = users.shift();
-                    }
-                    return mostRecentUser || null;
-                },
-                body: {
-                    mpid: currentUser.getMPID(),
-                    is_logged_in: mpInstance._Store.isLoggedIn,
-                    matched_identities: currentUser.getUserIdentities()
-                        .userIdentities,
-                    context: null,
-                    is_ephemeral: false,
-                },
-            });
-        }
+        processIdentityCallback(
+            mpInstance,
+            currentUser,
+            currentUserMPID,
+            currentUserIdentities
+        );
     }
 
     mpInstance._Store.isInitialized = true;
-    // Call any functions that are waiting for the library to be initialized
-    if (
-        mpInstance._preInit.readyQueue &&
-        mpInstance._preInit.readyQueue.length
-    ) {
-        mpInstance._preInit.readyQueue.forEach(function(readyQueueItem) {
-            if (mpInstance._Helpers.Validators.isFunction(readyQueueItem)) {
-                readyQueueItem();
-            } else if (Array.isArray(readyQueueItem)) {
-                processPreloadedItem(readyQueueItem, mpInstance);
-            }
-        });
 
-        mpInstance._preInit.readyQueue = [];
+    // Call any functions that are waiting for the library to be initialized
+    try {
+        mpInstance._preInit.readyQueue = processReadyQueue(
+            mpInstance._preInit.readyQueue
+        );
+    } catch (error) {
+        mpInstance.Logger.error(error);
     }
 
     // https://go.mparticle.com/work/SQDSDKS-6040
@@ -1544,13 +1423,17 @@ function createKitBlocker(config, mpInstance) {
     return kitBlocker;
 }
 
+function createIdentityCache(mpInstance) {
+    return new LocalStorageVault(`${mpInstance._Store.storageName}-id-cache`, {
+        logger: mpInstance.Logger,
+    });
+}
+
 function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     mpInstance.Logger = new Logger(config);
     mpInstance._Store = new Store(config, mpInstance, apiKey);
     window.mParticle.Store = mpInstance._Store;
-    mpInstance.Logger.verbose(
-        Messages.InformationMessages.StartingInitialization
-    );
+    mpInstance.Logger.verbose(StartingInitialization);
 
     // Check to see if localStorage is available before main configuration runs
     // since we will need this for the current implementation of user persistence
@@ -1567,27 +1450,81 @@ function runPreConfigFetchInitialization(mpInstance, apiKey, config) {
     }
 }
 
-function processPreloadedItem(readyQueueItem, mpInstance) {
-    var args = readyQueueItem,
-        method = args.splice(0, 1)[0];
+function processIdentityCallback(
+    mpInstance,
+    currentUser,
+    currentUserMPID,
+    currentUserIdentities
+) {
+    // https://go.mparticle.com/work/SQDSDKS-6323
+    // Call mParticle._Store.SDKConfig.identityCallback when identify was not called
+    // due to a reload or a sessionId already existing
+    // Any identity callback should always be ran regardless if an identity call
+    // is made
+    if (
+        !mpInstance._Store.identifyCalled &&
+        mpInstance._Store.SDKConfig.identityCallback &&
+        currentUser &&
+        currentUserMPID
+    ) {
+        mpInstance._Store.SDKConfig.identityCallback({
+            httpCode: HTTPCodes.activeSession,
+            getUser: function() {
+                return mpInstance._Identity.mParticleUser(currentUserMPID);
+            },
+            getPreviousUser: function() {
+                const users = mpInstance.Identity.getUsers();
+                let mostRecentUser = users.shift();
+                const mostRecentUserMPID = mostRecentUser.getMPID();
+                if (mostRecentUser && mostRecentUserMPID === currentUserMPID) {
+                    mostRecentUser = users.shift();
+                }
+                return mostRecentUser || null;
+            },
+            body: {
+                mpid: currentUserMPID,
+                is_logged_in: mpInstance._Store.isLoggedIn,
+                matched_identities: currentUserIdentities,
+                context: null,
+                is_ephemeral: false,
+            },
+        });
+    }
+}
+
+function processPreloadedItem(readyQueueItem) {
+    const args = readyQueueItem;
+    const method = args.splice(0, 1)[0];
     // if the first argument is a method on the base mParticle object, run it
     if (mParticle[args[0]]) {
         mParticle[method].apply(this, args);
         // otherwise, the method is on either eCommerce or Identity objects, ie. "eCommerce.setCurrencyCode", "Identity.login"
     } else {
-        var methodArray = method.split('.');
+        const methodArray = method.split('.');
         try {
             var computedMPFunction = mParticle;
-            for (var i = 0; i < methodArray.length; i++) {
-                var currentMethod = methodArray[i];
+            for (let i = 0; i < methodArray.length; i++) {
+                const currentMethod = methodArray[i];
                 computedMPFunction = computedMPFunction[currentMethod];
             }
             computedMPFunction.apply(this, args);
         } catch (e) {
-            mpInstance.Logger.verbose(
-                'Unable to compute proper mParticle function ' + e
-            );
+            throw new Error('Unable to compute proper mParticle function ' + e);
         }
+    }
+}
+
+function processReadyQueue(readyQueue) {
+    if (!isEmpty(readyQueue)) {
+        readyQueue.forEach(function(readyQueueItem) {
+            if (isFunction(readyQueueItem)) {
+                readyQueueItem();
+            } else if (Array.isArray(readyQueueItem)) {
+                processPreloadedItem(readyQueueItem);
+            }
+        });
+
+        return [];
     }
 }
 

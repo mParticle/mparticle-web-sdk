@@ -251,6 +251,8 @@ export interface SDKIdentityApi {
 
 export interface SDKHelpersApi {
     canLog?(): boolean;
+    createMainStorageName?(workspaceToken: string): string;
+    createProductStorageName?(workspaceToken: string): string;
     createServiceUrl(url: string, devToken?: string): void;
     createXHR?(cb: () => void): XMLHttpRequest;
     extend?(...args: any[]);
@@ -272,7 +274,6 @@ export interface SDKHelpersApi {
         mParticleUser?: MParticleUser,
         previousMpid?: MPID
     ): void;
-    returnConvertedBoolean(data: string | boolean | number): boolean;
     sanitizeAttributes?(
         attrs: Dictionary<string>,
         name: string
