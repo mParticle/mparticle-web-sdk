@@ -20,6 +20,7 @@ import {
     IPersistenceMinified,
 } from '../../src/persistence.interfaces';
 import { ConsentState } from '@mparticle/web-sdk';
+import { MParticleUser } from '../../src/sdkRuntimeModels';
 
 const {
     findCookie,
@@ -1479,6 +1480,72 @@ describe('persistence', () => {
             'color',
             'id',
         ]);
+
+        done();
+    });
+
+    it('get/set isLoggedIn for localStorage', done => {
+        mParticle._resetForTests(MPConfig);
+
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid1', is_logged_in: true }),
+        ]);
+
+
+        mParticle.init(apiKey, mParticle.config);
+        let user: MParticleUser = mParticle
+            .getInstance()
+            .Identity.getCurrentUser()
+        expect(user).to.be.ok;
+        expect(user.isLoggedIn()).to.be.false;
+
+        let localStorageData = mParticle.getInstance()._Persistence.getPersistence();
+
+        // The `l` property of Persistence is a boolean, but when saved
+        // to local storage, Persistence encodes this as a 0 or 1.
+        // It is then re-encoded as a boolean when retrieved from local storage.
+        expect(localStorageData.l).to.equal(false);
+
+        mParticle.Identity.login();
+
+        localStorageData = mParticle.getInstance()._Persistence.getPersistence();
+        expect(localStorageData.l).to.equal(true);
+
+        done();
+    });
+
+
+    it('get/set isLoggedIn for cookies', done => {
+        mParticle._resetForTests(MPConfig);
+        mParticle.config.useCookieStorage = true;
+
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid1', is_logged_in: true }),
+        ]);
+
+        mParticle.init(apiKey, mParticle.config);
+
+        let user: MParticleUser = mParticle
+            .getInstance()
+            .Identity.getCurrentUser()
+        expect(user).to.be.ok;
+        expect(user.isLoggedIn()).to.be.false;
+
+        let cookieData = findCookie();
+
+        // The `l` property of Persistence is a boolean, but when saved
+        // to cookie storage, Persistence encodes this as a 0 or 1.
+        // It is then re-encoded as a boolean when retrieved from cookies storage
+        cookieData.l.should.equal(false);
+
+        mParticle.Identity.login();
+
+        cookieData = findCookie();
+        cookieData.l.should.equal(true);
 
         done();
     });

@@ -314,6 +314,7 @@ export interface MParticleUser {
     getConsentState(): SDKConsentState;
     getAllUserAttributes(): SDKUserAttribute;
     getUserIdentities(): IdentityApiData;
+    isLoggedIn?(): boolean;
 }
 
 export interface SDKUserIdentityChangeData {
