@@ -882,16 +882,6 @@ export default function _Persistence(mpInstance) {
         return '';
     };
 
-    this.getUserIdentities = function(mpid) {
-        var persistence = self.getPersistence();
-
-        if (persistence && persistence[mpid] && persistence[mpid].ui) {
-            return persistence[mpid].ui;
-        } else {
-            return {};
-        }
-    };
-
     this.getAllUserAttributes = function(mpid) {
         var persistence = self.getPersistence();
 
@@ -935,21 +925,6 @@ export default function _Persistence(mpInstance) {
             mpInstance.Logger.error(
                 'Error with setting products on localStorage.'
             );
-        }
-    };
-    this.saveUserIdentitiesToPersistence = function(mpid, userIdentities) {
-        if (userIdentities) {
-            var persistence = self.getPersistence();
-            if (persistence) {
-                if (persistence[mpid]) {
-                    persistence[mpid].ui = userIdentities;
-                } else {
-                    persistence[mpid] = {
-                        ui: userIdentities,
-                    };
-                }
-                self.savePersistence(persistence);
-            }
         }
     };
 

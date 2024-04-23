@@ -810,11 +810,8 @@ export default function Identity(mpInstance) {
              * @return {Object} an object with userIdentities as its key
              */
             getUserIdentities: function() {
-                var currentUserIdentities = {};
-
-                var identities = mpInstance._Persistence.getUserIdentities(
-                    mpid
-                );
+                const currentUserIdentities = {};
+                const identities = mpInstance._Store.getUserIdentities(mpid);
 
                 for (var identityType in identities) {
                     if (identities.hasOwnProperty(identityType)) {
@@ -1559,7 +1556,7 @@ export default function Identity(mpInstance) {
                         identityApiData.userIdentities
                     );
 
-                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
+                    mpInstance._Store.setUserIdentities(
                         previousMPID,
                         newIdentitiesByType
                     );
@@ -1646,7 +1643,7 @@ export default function Identity(mpInstance) {
                     }
 
                     // https://go.mparticle.com/work/SQDSDKS-6041
-                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
+                    mpInstance._Store.setUserIdentities(
                         identityApiResult.mpid,
                         newIdentitiesByType
                     );

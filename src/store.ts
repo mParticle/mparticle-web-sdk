@@ -528,15 +528,13 @@ export default function Store(
                 isEmpty(identifyRequest.userIdentities)) ||
             !identifyRequest
         );
-    }
-
- 
+    };
 
     this.getConsentState = (mpid: MPID): ConsentState => {
         const {
             fromMinifiedJsonObject,
         } = mpInstance._Consent.ConsentSerialization;
-        
+
         const serializedConsentState = this._getFromPersistence<
             IMinifiedConsentJSONObject
         >(mpid, 'con');
@@ -617,25 +615,10 @@ export default function Store(
     };
 
     this.getUserIdentities = (mpid: MPID): UserIdentities =>
-        this.persistenceData &&
-        this.persistenceData[mpid] &&
-        this.persistenceData[mpid].ui
-            ? this.persistenceData[mpid].ui
-            : {};
+        this._getFromPersistence(mpid, 'ui') || {};
 
     this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
-        if (userIdentities) {
-            if (this.persistenceData) {
-                if (this.persistenceData[mpid]) {
-                    this.persistenceData[mpid].ui = userIdentities;
-                } else {
-                    this.persistenceData[mpid] = {
-                        ui: userIdentities,
-                    };
-                }
-                mpInstance._Persistence.savePersistence(this.persistenceData);
-            }
-        }
+        this._setPersistence(mpid, 'ui', userIdentities);
     };
 
     this.nullifySession = (): void => {
