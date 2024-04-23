@@ -13,6 +13,7 @@ import {
     isStringOrNumber,
     isValidCustomFlagProperty,
     mergeObjects,
+    moveElementToEnd,
     parseNumber,
     parseStringOrNumber,
     replaceApostrophesWithQuotes,
@@ -418,6 +419,21 @@ describe('Utils', () => {
 
             expect(obj1.foo).to.equal('bar');
             expect(merged.foo).to.equal('not-bar');
+        });
+    });
+
+    describe('#moveElementToEnd', () => {
+        it('should take an array of random strings and moves the element to the end of the array', () => {
+            const array = ['foo', 'bar', 'baz', 'fizz', 'buzz'];
+            const index = 2;
+
+            expect(moveElementToEnd(array, index)).to.deep.equal([
+                'foo',
+                'bar',
+                'fizz',
+                'buzz',
+                'baz',
+            ]);
         });
     });
 });
