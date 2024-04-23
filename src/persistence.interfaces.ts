@@ -1,7 +1,6 @@
 import { Context } from '@mparticle/event-models';
 import {
     AllUserAttributes,
-    ConsentState,
     IdentityApiData,
     MPID,
     Product,
