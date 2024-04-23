@@ -729,8 +729,6 @@ describe('Store', () => {
         });
     });
 
-
-
     describe('#getFirstSeenTime', () => {
         it('should return the firstSeenTime from the store', () => {
             const store: IStore = new Store(
@@ -921,6 +919,99 @@ describe('Store', () => {
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].lst).to.be.ok;
             expect(fromPersistence[testMPID].lst).to.equal(54321);
+        });
+    });
+
+    describe('#getUserIdentities', () => {
+        it('should return the userIdentities from the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.persistenceData[testMPID] = {
+                ui: { customerid: '12345' },
+            };
+
+            expect(store.getUserIdentities(testMPID)).to.deep.equal({
+                customerid: '12345',
+            });
+        });
+
+        it('should return an empty object if mpid is null', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getUserIdentities(null)).to.deep.equal({});
+        });
+
+        it('should return an empty object if no userIdentities are found', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getUserIdentities(testMPID)).to.deep.equal({});
+        });
+    });
+
+    describe('#setUserIdentities', () => {
+        it('should set userIdentities in the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setUserIdentities(testMPID, { customerid: '12345' });
+            expect(store.persistenceData[testMPID].ui).to.deep.equal({
+                customerid: '12345',
+            });
+        });
+
+        it('should set userIdentities in persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setUserIdentities(testMPID, { customerid: '12345' });
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].ui).to.be.ok;
+            expect(fromPersistence[testMPID].ui).to.deep.equal({
+                customerid: '12345',
+            });
+        });
+
+        it('should override persistence with store values', () => {
+            const persistenceValue = JSON.stringify({
+                testMPID: {
+                    ui: { customerid: '12345' },
+                },
+            });
+
+            localStorage.setItem(workspaceCookieName, persistenceValue);
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setUserIdentities(testMPID, { customerid: '54321' });
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].ui).to.be.ok;
+            expect(fromPersistence[testMPID].ui).to.deep.equal({
+                customerid: '54321',
+            });
         });
     });
    
