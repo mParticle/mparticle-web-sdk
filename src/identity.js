@@ -867,6 +867,7 @@ export default function Identity(mpInstance) {
              * @param {String} key
              * @param {String} value
              */
+            // https://go.mparticle.com/work/SQDSDKS-4576
             // https://go.mparticle.com/work/SQDSDKS-6373
             setUserAttribute: function(key, newValue) {
                 mpInstance._SessionManager.resetSessionTimer();
