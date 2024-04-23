@@ -27,6 +27,7 @@ import {
     IPrivacyV2DTO,
     SDKConsentState,
 } from './consent';
+import { UserAttributes } from './persistence.interfaces';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
@@ -47,7 +48,10 @@ export interface IServerV2DTO {
     dp_v?: number;
     n?: string;
     et?: number;
+
+    // https://go.mparticle.com/work/SQDSDKS-5196
     ua?: Dictionary<string | string[]>;
+
     ui?: SDKUserIdentity[];
     ia?: Dictionary<Dictionary<string>>;
     str?: ServerSettings;
