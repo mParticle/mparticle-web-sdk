@@ -330,16 +330,17 @@ export default function _Persistence(mpInstance) {
             return;
         }
 
-        var key = mpInstance._Store.storageName,
-            allLocalStorageProducts = self.getAllUserProductsFromLS(),
-            localStorageData = self.getLocalStorage() || {},
-            currentUser = mpInstance.Identity.getCurrentUser(),
-            mpid = currentUser ? currentUser.getMPID() : null,
-            currentUserProducts = {
-                cp: allLocalStorageProducts[mpid]
-                    ? allLocalStorageProducts[mpid].cp
-                    : [],
-            };
+        const mpid = mpInstance._Store.mpid;
+
+        const key = mpInstance._Store.storageName;
+        let allLocalStorageProducts = self.getAllUserProductsFromLS();
+        let localStorageData = self.getLocalStorage() || {};
+        const currentUserProducts = {
+            cp: allLocalStorageProducts[mpid]
+                ? allLocalStorageProducts[mpid].cp
+                : [],
+        };
+
         if (mpid) {
             allLocalStorageProducts = allLocalStorageProducts || {};
             allLocalStorageProducts[mpid] = currentUserProducts;
@@ -479,27 +480,22 @@ export default function _Persistence(mpInstance) {
     // https://go.mparticle.com/work/SQDSDKS-5022
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.setCookie = function() {
-        var mpid,
-            currentUser = mpInstance.Identity.getCurrentUser();
-        if (currentUser) {
-            mpid = currentUser.getMPID();
-        }
-        var date = new Date(),
-            key = mpInstance._Store.storageName,
-            cookies = self.getCookie() || {},
-            expires = new Date(
-                date.getTime() +
-                    mpInstance._Store.SDKConfig.cookieExpiration *
-                        24 *
-                        60 *
-                        60 *
-                        1000
-            ).toGMTString(),
-            cookieDomain,
-            domain,
-            encodedCookiesWithExpirationAndPath;
+        const mpid = mpInstance._Store.mpid;
 
-        cookieDomain = self.getCookieDomain();
+        const date = new Date();
+        const key = mpInstance._Store.storageName;
+        let cookies = self.getCookie() || {};
+        const expires = new Date(
+            date.getTime() +
+                mpInstance._Store.SDKConfig.cookieExpiration *
+                    24 *
+                    60 *
+                    60 *
+                    1000
+        ).toGMTString();
+        const cookieDomain = self.getCookieDomain();
+        let domain;
+        let encodedCookiesWithExpirationAndPath;
 
         if (cookieDomain === '') {
             domain = '';
