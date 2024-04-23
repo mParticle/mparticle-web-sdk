@@ -1237,7 +1237,7 @@ export default function Identity(mpInstance) {
              * @return a ConsentState object
              */
             getConsentState: function() {
-                return mpInstance._Persistence.getConsentState(mpid);
+                return mpInstance._Store.getConsentState(mpid);
             },
             /**
              * Sets the Consent State stored locally for this user.
@@ -1245,10 +1245,7 @@ export default function Identity(mpInstance) {
              * @param {Object} consent state
              */
             setConsentState: function(state) {
-                mpInstance._Persistence.saveUserConsentStateToCookies(
-                    mpid,
-                    state
-                );
+                mpInstance._Store.setConsentState(mpid, state);
                 mpInstance._Forwarders.initForwarders(
                     this.getUserIdentities().userIdentities,
                     mpInstance._APIClient.prepareForwardingStats
