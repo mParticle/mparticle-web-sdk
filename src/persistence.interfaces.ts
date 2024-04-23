@@ -1,6 +1,5 @@
 import { Context } from '@mparticle/event-models';
 import {
-    AllUserAttributes,
     IdentityApiData,
     MPID,
     Product,
@@ -120,13 +119,8 @@ export interface IPersistence {
     decodePersistence(persistenceString: string): string;
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
-    getUserIdentities(mpid: MPID): UserIdentities;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
-    saveUserIdentitiesToPersistence(
-        mpid: MPID,
-        userIdentities: UserIdentities
-    ): void;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;

@@ -5,6 +5,7 @@ import {
     IdentifyRequest,
     SDKEventCustomFlags,
     ConsentState,
+    UserIdentities,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
@@ -197,6 +198,8 @@ export interface IStore {
     setLastSeenTime?(mpid: MPID, time?: number): void;
     getUserAttributes?(mpid: MPID): UserAttributes;
     setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
+    getUserIdentities?(mpid: MPID): UserIdentities;
+    setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
     hasInvalidIdentifyRequest?: () => boolean;
@@ -530,15 +533,13 @@ export default function Store(
                 isEmpty(identifyRequest.userIdentities)) ||
             !identifyRequest
         );
-    }
-
- 
+    };
 
     this.getConsentState = (mpid: MPID): ConsentState => {
         const {
             fromMinifiedJsonObject,
         } = mpInstance._Consent.ConsentSerialization;
-        
+
         const serializedConsentState = this._getFromPersistence<
             IMinifiedConsentJSONObject
         >(mpid, 'con');
@@ -626,6 +627,13 @@ export default function Store(
         mpid: MPID,
         userAttributes: UserAttributes
     ): void => this._setPersistence(mpid, 'ua', userAttributes);
+
+    this.getUserIdentities = (mpid: MPID): UserIdentities =>
+        this._getFromPersistence(mpid, 'ui') || {};
+
+    this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
+        this._setPersistence(mpid, 'ui', userIdentities);
+    };
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
         const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);
