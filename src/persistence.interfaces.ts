@@ -14,8 +14,8 @@ import {
     SessionAttributes,
 } from './store';
 import { Dictionary } from './utils';
+import { IMinifiedConsentJSONObject } from './consent';
 
-export type CookieSyncDate = Dictionary<string>;
 export type UploadsTable = Dictionary<any>;
 export interface iForwardingStatsBatches {
     uploadsTable: UploadsTable;
@@ -48,7 +48,7 @@ export interface IPersistenceMinified extends Dictionary {
 
     // Persistence Minified can also store optional dictionaries with
     // an idex of MPID
-    // [mpid: MPID]: Dictionary<any>;
+    // [mpid: MPID]: Dictionary<IUserPersistenceMinified>;
 
     // For Example:
     // {
@@ -70,12 +70,32 @@ export interface IPersistenceMinified extends Dictionary {
     //     },
     //     l: false,
     //     MPID1: {
-    //         csd: [],
+    //         csd: {
+    //             [moduleid]: 1234567890,
+    //         },
     //         ui: {
     //             customerid: '12346',
     //         },
+    //         ua: {
+    //             age '42',
+    //         },
     //     },
     // };
+}
+
+export type CookieSyncDate = Dictionary<number>;
+
+export interface IUserPersistenceMinified extends Dictionary {
+    csd: CookieSyncDate; // Cookie Sync Dates // list of timestamps for last cookie sync
+    con: IMinifiedConsentJSONObject; // Consent State
+    ui: UserIdentities; // User Identities
+    ua: UserAttributes; // User Attributes
+
+    // https://go.mparticle.com/work/SQDSDKS-6048
+    cp: Product[]; // Cart Products
+
+    fst: number; // First Seen Time
+    lst: number; // Last Seen Time
 }
 
 export interface IPersistence {

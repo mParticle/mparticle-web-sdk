@@ -17,6 +17,7 @@ import Utils from './config/utils';
 import { Dictionary } from '../../src/utils';
 import Constants from '../../src/constants';
 import { IGlobalStoreV2MinifiedKeys } from '../../src/persistence.interfaces';
+import { IMinifiedConsentJSONObject } from '../../src/consent';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
 describe('Store', () => {
@@ -30,6 +31,77 @@ describe('Store', () => {
         package: 'com.mparticle.test',
         flags: {},
     } as SDKInitConfig;
+
+    type ConsentStateSample = Dictionary<IMinifiedConsentJSONObject>;
+
+    const sampleConsentState: ConsentStateSample = {
+        con: {
+            gdpr: {
+                analytics: {
+                    c: true,
+                    d: 'foo gdpr document',
+                    h: 'foo gdpr hardware id',
+                    l: 'foo gdpr location',
+                    ts: 10,
+                },
+            },
+            ccpa: {
+                data_sale_opt_out: {
+                    c: false,
+                    d: 'foo ccpa document',
+                    h: 'foo ccpa hardware id',
+                    l: 'foo ccpa location',
+                    ts: 42,
+                },
+            },
+        },
+    };
+
+    const sampleConsentStateFromStore: ConsentStateSample = {
+        con: {
+            gdpr: {
+                analytics: {
+                    c: false,
+                    d: 'foo gdpr document from store',
+                    h: 'foo gdpr hardware id from store',
+                    l: 'foo gdpr location from store',
+                    ts: 101,
+                },
+            },
+            ccpa: {
+                data_sale_opt_out: {
+                    c: true,
+                    d: 'foo ccpa document from store',
+                    h: 'foo ccpa hardware id from store',
+                    l: 'foo ccpa location from store',
+                    ts: 24,
+                },
+            },
+        },
+    };
+
+    const sampleConsentStateFromPersistence: ConsentStateSample = {
+        con: {
+            gdpr: {
+                analytics: {
+                    c: false,
+                    d: 'foo gdpr document from persistence',
+                    h: 'foo gdpr hardware id from persistence',
+                    l: 'foo gdpr location from persistence',
+                    ts: 101,
+                },
+            },
+            ccpa: {
+                data_sale_opt_out: {
+                    c: true,
+                    d: 'foo ccpa document from persistence',
+                    h: 'foo ccpa hardware id from persistence',
+                    l: 'foo ccpa location from persistence',
+                    ts: 24,
+                },
+            },
+        },
+    };
 
     beforeEach(function() {
         sandbox = sinon.createSandbox();
@@ -133,7 +205,7 @@ describe('Store', () => {
                 .undefined;
 
             expect(
-                store.SDKConfig.flags?.eventBatchingIntervalMillis,
+                store.SDKConfig.flags.eventBatchingIntervalMillis,
                 'flags.eventBatchingIntervalMillis'
             ).to.eq(0);
             expect(store.SDKConfig.forceHttps, 'forceHttps').to.eq(true);
@@ -307,6 +379,319 @@ describe('Store', () => {
         });
     });
 
+    describe('#getConsentState', () => {
+        it('should return a consent state object from the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.persistenceData[testMPID] = sampleConsentState;
+
+            expect(store.getConsentState(testMPID)).to.be.ok;
+            expect(store.getConsentState(testMPID)).to.haveOwnProperty(
+                'getGDPRConsentState'
+            );
+            expect(store.getConsentState(testMPID)).to.haveOwnProperty(
+                'getCCPAConsentState'
+            );
+
+            expect(
+                store.getConsentState(testMPID).getGDPRConsentState()
+            ).to.deep.equal({
+                analytics: {
+                    Consented: true,
+                    ConsentDocument: 'foo gdpr document',
+                    HardwareId: 'foo gdpr hardware id',
+                    Location: 'foo gdpr location',
+                    Timestamp: 10,
+                },
+            });
+
+            expect(
+                store.getConsentState(testMPID).getCCPAConsentState()
+            ).to.deep.equal({
+                Consented: false,
+                ConsentDocument: 'foo ccpa document',
+                HardwareId: 'foo ccpa hardware id',
+                Location: 'foo ccpa location',
+                Timestamp: 42,
+            });
+        });
+
+        it('should return null if no consent state is found', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getConsentState(testMPID)).to.deep.equal(null);
+        });
+
+        it('should return in-memory consent state if persistence is empty', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.persistenceData[testMPID] = sampleConsentStateFromStore;
+
+            localStorage.setItem(workspaceCookieName, '');
+
+            expect(store.getConsentState(testMPID)).to.be.ok;
+
+            expect(store.getConsentState(testMPID)).to.haveOwnProperty(
+                'getGDPRConsentState'
+            );
+            expect(
+                store.getConsentState(testMPID).getGDPRConsentState()
+            ).to.deep.equal({
+                analytics: {
+                    Consented: false,
+                    ConsentDocument: 'foo gdpr document from store',
+                    HardwareId: 'foo gdpr hardware id from store',
+                    Location: 'foo gdpr location from store',
+                    Timestamp: 101,
+                },
+            });
+
+            expect(store.getConsentState(testMPID)).to.haveOwnProperty(
+                'getCCPAConsentState'
+            );
+
+            expect(
+                store.getConsentState(testMPID).getCCPAConsentState()
+            ).to.deep.equal({
+                Consented: true,
+                ConsentDocument: 'foo ccpa document from store',
+                HardwareId: 'foo ccpa hardware id from store',
+                Location: 'foo ccpa location from store',
+                Timestamp: 24,
+            });
+        });
+    });
+
+    describe('#setConsentState', () => {
+        it('should set consent state as a minified object in the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const consentState = window.mParticle.Consent.createConsentState();
+
+            const gdprConsent = window.mParticle
+                .getInstance()
+                .Consent.createGDPRConsent(
+                    true,
+                    10,
+                    'foo gdpr document',
+                    'foo gdpr location',
+                    'foo gdpr hardware id'
+                );
+
+            const ccpaConsent = window.mParticle
+                .getInstance()
+                .Consent.createCCPAConsent(
+                    false,
+                    42,
+                    'foo ccpa document',
+                    'foo ccpa location',
+                    'foo ccpa hardware id'
+                );
+
+            const expectedConsentState = sampleConsentState.con;
+
+            consentState.addGDPRConsentState('analytics', gdprConsent);
+            consentState.setCCPAConsentState(ccpaConsent);
+
+            store.setConsentState(testMPID, consentState);
+
+            expect(store.persistenceData[testMPID].con).to.be.ok;
+
+            expect(store.persistenceData[testMPID].con.gdpr).to.be.ok;
+            expect(store.persistenceData[testMPID].con.gdpr).to.deep.equal(
+                expectedConsentState.gdpr
+            );
+
+            expect(store.persistenceData[testMPID].con.ccpa).to.be.ok;
+            expect(store.persistenceData[testMPID].con.ccpa).to.deep.equal(
+                expectedConsentState.ccpa
+            );
+        });
+
+        it('should set consent state as a minified object in persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const consentState = window.mParticle.Consent.createConsentState();
+
+            const gdprConsent = window.mParticle
+                .getInstance()
+                .Consent.createGDPRConsent(
+                    true,
+                    10,
+                    'foo gdpr document',
+                    'foo gdpr location',
+                    'foo gdpr hardware id'
+                );
+
+            const ccpaConsent = window.mParticle
+                .getInstance()
+                .Consent.createCCPAConsent(
+                    false,
+                    42,
+                    'foo ccpa document',
+                    'foo ccpa location',
+                    'foo ccpa hardware id'
+                );
+
+            const expectedConsentState = sampleConsentState.con;
+
+            consentState.addGDPRConsentState('analytics', gdprConsent);
+            consentState.setCCPAConsentState(ccpaConsent);
+
+            store.setConsentState(testMPID, consentState);
+
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].con).to.be.ok;
+
+            expect(fromPersistence[testMPID].con.gdpr).to.be.ok;
+            expect(fromPersistence[testMPID].con.gdpr).to.deep.equal(
+                expectedConsentState.gdpr
+            );
+
+            expect(fromPersistence[testMPID].con.ccpa).to.be.ok;
+            expect(fromPersistence[testMPID].con.ccpa).to.deep.equal(
+                expectedConsentState.ccpa
+            );
+        });
+
+        it('should override persistence with store values', () => {
+            const consentState = window.mParticle.Consent.createConsentState();
+
+            const analyticsGdprConsent = window.mParticle
+                .getInstance()
+                .Consent.createGDPRConsent(
+                    false,
+                    101,
+                    'analytics gdpr document from store',
+                    'analytics gdpr location from store',
+                    'analytics gdpr hardware id from store'
+                );
+
+            const marketingGdprConsent = window.mParticle
+                .getInstance()
+                .Consent.createGDPRConsent(
+                    true,
+                    202,
+                    'marketing gdpr document from store',
+                    'marketing gdpr location from store',
+                    'marketing gdpr hardware id from store'
+                );
+
+            const ccpaConsent = window.mParticle
+                .getInstance()
+                .Consent.createCCPAConsent(
+                    true,
+                    24,
+                    'foo ccpa document from store',
+                    'foo ccpa location from store',
+                    'foo ccpa hardware id from store'
+                );
+
+            const expectedConsentState = sampleConsentStateFromStore.con;
+
+            consentState.addGDPRConsentState('analytics', analyticsGdprConsent);
+            consentState.setCCPAConsentState(ccpaConsent);
+
+            const persistenceValue = JSON.stringify({
+                testMPID: {
+                    con: sampleConsentStateFromPersistence.con,
+                },
+            });
+
+            localStorage.setItem(workspaceCookieName, persistenceValue);
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setConsentState(testMPID, consentState);
+
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].con).to.be.ok;
+            expect(fromPersistence[testMPID].con.gdpr).to.be.ok;
+            expect(fromPersistence[testMPID].con.ccpa).to.be.ok;
+
+            expect(fromPersistence[testMPID].con.gdpr).to.deep.equal({
+                analytics: {
+                    c: false,
+                    ts: 101,
+                    d: 'analytics gdpr document from store',
+                    h: 'analytics gdpr hardware id from store',
+                    l: 'analytics gdpr location from store',
+                },
+            });
+
+            expect(fromPersistence[testMPID].con.ccpa).to.deep.equal(
+                expectedConsentState.ccpa
+            );
+
+            consentState.addGDPRConsentState('marketing', marketingGdprConsent);
+            store.setConsentState(testMPID, consentState);
+
+            const retrieveFromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(retrieveFromPersistence[testMPID].con.gdpr).to.deep.equal({
+                analytics: {
+                    c: false,
+                    ts: 101,
+                    d: 'analytics gdpr document from store',
+                    h: 'analytics gdpr hardware id from store',
+                    l: 'analytics gdpr location from store',
+                },
+                marketing: {
+                    c: true,
+                    ts: 202,
+                    d: 'marketing gdpr document from store',
+                    h: 'marketing gdpr hardware id from store',
+                    l: 'marketing gdpr location from store',
+                },
+            });
+        });
+
+        it('should not set consent state if consent state is null', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const expectedConsentState = sampleConsentState;
+
+            store.persistenceData[testMPID] = expectedConsentState;
+
+            store.setConsentState(testMPID, null);
+
+            expect(store.persistenceData[testMPID]).to.deep.equal(
+                expectedConsentState
+            );
+        });
+    });
+
     describe('#getDeviceId', () => {
         it('should return the deviceId from the store', () => {
             const store: IStore = new Store(
@@ -357,7 +742,6 @@ describe('Store', () => {
             };
             expect(store.getFirstSeenTime(testMPID)).to.equal(12345);
         });
-
 
         it('should return null if mpid is null', () => {
             const store: IStore = new Store(
@@ -785,6 +1169,64 @@ describe('Store', () => {
             store.processConfig(config);
 
             expect(store.configurationLoaded, 'configurationLoaded').to.be.true;
+        });
+    });
+
+    describe('#syncPersistenceData', () => {
+        it('should sync store with persistence values', () => {
+            const persistenceValue = JSON.stringify({
+                testMPID: {
+                    lst: 12345,
+                    fst: 54321,
+                    con: sampleConsentStateFromPersistence.con,
+                },
+            });
+
+            localStorage.setItem(workspaceCookieName, persistenceValue);
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.syncPersistenceData();
+
+            expect(store.persistenceData[testMPID].lst).to.equal(12345);
+            expect(store.persistenceData[testMPID].fst).to.equal(54321);
+            expect(store.persistenceData[testMPID].con).to.deep.equal(
+                sampleConsentStateFromPersistence.con
+            );
+        });
+
+        it('should override store with persistence data', () => {
+            const persistenceValue = JSON.stringify({
+                testMPID: {
+                    lst: 12345,
+                    fst: 54321,
+                    con: sampleConsentStateFromPersistence.con,
+                },
+            });
+
+            localStorage.setItem(workspaceCookieName, persistenceValue);
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.persistenceData[testMPID] = {
+                lst: 99999,
+                fst: 88888,
+                con: sampleConsentStateFromStore.con,
+            };
+
+            store.syncPersistenceData();
+
+            expect(store.persistenceData[testMPID].lst).to.equal(12345);
+            expect(store.persistenceData[testMPID].fst).to.equal(54321);
+            expect(store.persistenceData[testMPID].con).to.deep.equal(
+                sampleConsentStateFromPersistence.con
+            );
         });
     });
 
