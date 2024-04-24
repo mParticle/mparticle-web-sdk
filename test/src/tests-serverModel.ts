@@ -3,8 +3,8 @@ import sinon from 'sinon';
 import { urls, testMPID, apiKey } from './config/constants';
 import { expect } from 'chai';
 import { IUploadObject } from '../../src/serverModel';
-import { AllUserAttributes, IdentityApiData } from '@mparticle/web-sdk';
-import { BaseEvent, MParticleUser, SDKEvent } from '../../src/sdkRuntimeModels';
+import { IdentityApiData } from '@mparticle/web-sdk';
+import { BaseEvent, MParticleUser, SDKEvent, SDKUserAttribute } from '../../src/sdkRuntimeModels';
 import Constants from '../../src/constants';
 import {
     SDKConsentState,
@@ -1571,7 +1571,7 @@ describe('ServerModel', () => {
                 getUserIdentities: (): IdentityApiData => ({
                     userIdentities: {},
                 }),
-                getAllUserAttributes: (): AllUserAttributes => {
+                getAllUserAttributes: (): SDKUserAttribute => {
                     return attributes;
                 },
                 getMPID: () => {

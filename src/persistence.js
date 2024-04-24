@@ -841,16 +841,6 @@ export default function _Persistence(mpInstance) {
         return '';
     };
 
-    this.getAllUserAttributes = function(mpid) {
-        var persistence = self.getPersistence();
-
-        if (persistence && persistence[mpid] && persistence[mpid].ua) {
-            return persistence[mpid].ua;
-        } else {
-            return {};
-        }
-    };
-
     this.getCartProducts = function(mpid) {
         var allCartProducts,
             cartProductsString = localStorage.getItem(
@@ -884,25 +874,6 @@ export default function _Persistence(mpInstance) {
             mpInstance.Logger.error(
                 'Error with setting products on localStorage.'
             );
-        }
-    };
-
-    this.saveUserAttributesToPersistence = function(mpid, userAttributes) {
-        var persistence = self.getPersistence();
-        if (userAttributes) {
-            if (persistence) {
-                if (persistence[mpid]) {
-                    // TODO: Investigate why setting this to UI still shows up as UA
-                    //       when running `mParticle.getInstance()._Persistence.getLocalStorage()`
-                    // https://go.mparticle.com/work/SQDSDKS-5195
-                    persistence[mpid].ui = userAttributes;
-                } else {
-                    persistence[mpid] = {
-                        ui: userAttributes,
-                    };
-                }
-            }
-            self.savePersistence(persistence);
         }
     };
 

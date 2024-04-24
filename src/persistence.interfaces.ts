@@ -123,13 +123,8 @@ export interface IPersistence {
     decodePersistence(persistenceString: string): string;
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
-    getAllUserAttributes(mpid: MPID): AllUserAttributes;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
-    saveUserAttributesToPersistence(
-        mpid: MPID,
-        userAttributes: UserAttributes
-    ): void;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
     saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
     savePersistence(persistance: IPersistenceMinified): void;

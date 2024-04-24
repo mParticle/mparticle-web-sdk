@@ -68,9 +68,7 @@ export default function filteredMparticleUser(
         },
         getAllUserAttributes: function() {
             var userAttributesCopy = {};
-            var userAttributes = mpInstance._Persistence.getAllUserAttributes(
-                mpid
-            );
+            var userAttributes = mpInstance._Store.getUserAttributes(mpid);
 
             if (userAttributes) {
                 for (var prop in userAttributes) {
