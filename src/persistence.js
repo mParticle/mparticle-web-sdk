@@ -882,16 +882,6 @@ export default function _Persistence(mpInstance) {
         return '';
     };
 
-    this.getUserIdentities = function(mpid) {
-        var persistence = self.getPersistence();
-
-        if (persistence && persistence[mpid] && persistence[mpid].ui) {
-            return persistence[mpid].ui;
-        } else {
-            return {};
-        }
-    };
-
     this.getCartProducts = function(mpid) {
         var allCartProducts,
             cartProductsString = localStorage.getItem(
