@@ -125,7 +125,6 @@ export interface IPersistence {
     getDomain(doc: string, locationHostname: string): string;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
-    getUserIdentities(mpid: MPID): UserIdentities;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
     saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
     savePersistence(persistance: IPersistenceMinified): void;
