@@ -379,6 +379,130 @@ describe('Store', () => {
         });
     });
 
+    describe('#getCookieSyncDates', () => {
+        it('should return cookie sync dates from the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const expectedCookieSyncDates = {
+                42: 12345,
+            };
+
+            store.persistenceData[testMPID] = {
+                csd: expectedCookieSyncDates,
+            };
+
+            expect(store.getCookieSyncDates(testMPID)).to.deep.equal(
+                expectedCookieSyncDates
+            );
+        });
+
+        it('should return an empty object if no cookie sync dates are found', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getCookieSyncDates(testMPID)).to.deep.equal({});
+        });
+
+        it('should return in-memory cookie sync dates if persistence is empty', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const expectedCookieSyncDates = {
+                42: 12345,
+            };
+
+            store.persistenceData[testMPID] = {
+                csd: expectedCookieSyncDates,
+            };
+
+            localStorage.setItem(workspaceCookieName, '');
+
+            expect(store.getCookieSyncDates(testMPID)).to.deep.equal(
+                expectedCookieSyncDates
+            );
+        });
+    });
+
+    describe('#setCookieSyncDates', () => {
+        it('should set cookie sync dates in the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const cookieSyncDates = {
+                42: 12345,
+            };
+
+            store.setCookieSyncDates(testMPID, cookieSyncDates);
+
+            expect(store.persistenceData[testMPID].csd).to.deep.equal(
+                cookieSyncDates
+            );
+        });
+
+        it('should set cookie sync dates in persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            const cookieSyncDates = {
+                42: 12345,
+            };
+
+            store.setCookieSyncDates(testMPID, cookieSyncDates);
+
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].csd).to.be.ok;
+            expect(fromPersistence[testMPID].csd).to.deep.equal(
+                cookieSyncDates
+            );
+        });
+
+        it('should override persistence with store values', () => {
+            const cookieSyncDates = {
+                42: 12345,
+            };
+
+            const persistenceValue = JSON.stringify({
+                testMPID: {
+                    csd: {
+                        42: 54321,
+                    },
+                },
+            });
+
+            localStorage.setItem(workspaceCookieName, persistenceValue);
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setCookieSyncDates(testMPID, cookieSyncDates);
+
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID].csd).to.deep.equal(
+                cookieSyncDates
+            );
+        });
+    });
+
     describe('#getConsentState', () => {
         it('should return a consent state object from the store', () => {
             const store: IStore = new Store(
@@ -1117,7 +1241,7 @@ describe('Store', () => {
             });
         });
     });
-   
+
     describe('#nullifySessionData', () => {
         it('should nullify session data on the store', () => {
             const store: IStore = new Store(
