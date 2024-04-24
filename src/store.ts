@@ -35,6 +35,7 @@ import { IdentityCallback } from './identity-user-interfaces';
 import {
     IGlobalStoreV2MinifiedKeys,
     IPersistenceMinified,
+    UserAttributes,
 } from './persistence.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
@@ -195,6 +196,8 @@ export interface IStore {
     setFirstSeenTime?(mpid: MPID, time?: number): void;
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
+    getUserAttributes?(mpid: MPID): UserAttributes;
+    setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
 
     addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
     hasInvalidIdentifyRequest?: () => boolean;
@@ -616,6 +619,14 @@ export default function Store(
             persistenceData,
         );
     };
+
+    this.getUserAttributes = (mpid: MPID): UserAttributes =>
+        this._getFromPersistence(mpid, 'ua') || {};
+
+    this.setUserAttributes = (
+        mpid: MPID,
+        userAttributes: UserAttributes
+    ): void => this._setPersistence(mpid, 'ua', userAttributes);
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
         const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);

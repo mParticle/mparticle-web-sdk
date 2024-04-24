@@ -23,6 +23,7 @@ import {
     IMParticleUser,
     ISDKUserIdentity,
     IdentityCallback,
+    ISDKUserAttribute,
 } from './identity-user-interfaces';
 import { IIdentityType } from './types.interfaces';
 
@@ -34,10 +35,7 @@ export interface SDKEvent {
     IsFirstRun: boolean;
     EventName: string;
     EventCategory: number;
-
-    // https://go.mparticle.com/work/SQDSDKS-5196
-    UserAttributes?: { [key: string]: string | string[] | null };
-
+    UserAttributes?: ISDKUserAttribute;
     UserIdentities?: ISDKUserIdentity[];
     SourceMessageId: string;
     MPID: string;

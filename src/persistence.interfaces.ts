@@ -121,16 +121,11 @@ export interface IPersistence {
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
     getUserIdentities(mpid: MPID): UserIdentities;
-    getAllUserAttributes(mpid: MPID): AllUserAttributes;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
     saveUserIdentitiesToPersistence(
         mpid: MPID,
         userIdentities: UserIdentities
-    ): void;
-    saveUserAttributesToPersistence(
-        mpid: MPID,
-        userAttributes: UserAttributes
     ): void;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
     savePersistence(persistance: IPersistenceMinified): void;

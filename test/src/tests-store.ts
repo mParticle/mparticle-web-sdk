@@ -722,6 +722,109 @@ describe('Store', () => {
         });
     });
 
+    describe('#getUserAttributes', () => {
+        it('should return user attributes from the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.persistenceData[testMPID] = {
+                ua: { foo: 'bar' },
+            };
+
+            expect(store.getUserAttributes(testMPID)).to.deep.equal({
+                foo: 'bar',
+            });
+        });
+
+        it('should return an empty object if mpid is null', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getUserAttributes(null)).to.deep.equal({});
+        });
+
+        it('should return an empty object if no user attributes are found', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            expect(store.getUserAttributes(testMPID)).to.deep.equal({});
+        });
+    });
+
+    describe('#setUserAttributes', () => {
+        it('should set user attributes in the store', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setUserAttributes(testMPID, { foo: 'bar' });
+            expect(store.persistenceData[testMPID].ua).to.deep.equal({
+                foo: 'bar',
+            });
+
+            store.setUserAttributes(testMPID, { fiz: 'buzz' });
+            expect(store.persistenceData[testMPID].ua).to.deep.equal({
+                fiz: 'buzz',
+            });
+        });
+
+        it('should set user attributes in persistence', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setUserAttributes(testMPID, { foo: 'bar' });
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].ua).to.be.ok;
+            expect(fromPersistence[testMPID].ua).to.deep.equal({
+                foo: 'bar',
+            });
+        });
+
+        it('should override persistence with store values', () => {
+            const persistenceValue = JSON.stringify({
+                gs: {
+                    sid: 'sid',
+                    les: new Date().getTime(),
+                },
+                testMPID: {
+                    ua: { foo: 'bar' },
+                },
+                cu: testMPID,
+            });
+
+            localStorage.setItem(workspaceCookieName, persistenceValue);
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.setUserAttributes(testMPID, { fizz: 'buzz' });
+            const fromPersistence = window.mParticle
+                .getInstance()
+                ._Persistence.getPersistence();
+
+            expect(fromPersistence[testMPID]).to.be.ok;
+            expect(fromPersistence[testMPID].ua).to.be.ok;
+            expect(fromPersistence[testMPID].ua).to.deep.equal({
+                fizz: 'buzz',
+            });
+        });
+    });
+
     describe('#setDeviceId', () => {
         it('should set the deviceId in the store', () => {
             const store: IStore = new Store(
