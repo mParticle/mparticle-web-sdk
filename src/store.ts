@@ -35,6 +35,7 @@ import { Kit, MPForwarder } from './forwarders.interfaces';
 import {
     IGlobalStoreV2MinifiedKeys,
     IPersistenceMinified,
+    UserAttributes,
 } from './persistence.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
@@ -194,6 +195,8 @@ export interface IStore {
     setFirstSeenTime?(mpid: MPID, time?: number): void;
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
+    getUserAttributes?(mpid: MPID): UserAttributes;
+    setUserAttributes?(mpid: MPID, attributes: UserAttributes): void;
     getUserIdentities?(mpid: MPID): UserIdentities;
     setUserIdentities?(mpid: MPID, userIdentities: UserIdentities): void;
 
@@ -637,7 +640,15 @@ export default function Store(
 
     this.setUserIdentities = (mpid: MPID, userIdentities: UserIdentities) => {
         this._setPersistence(mpid, 'ui', userIdentities);
-    };
+    }
+
+    this.getUserAttributes = (mpid: MPID): UserAttributes =>
+        this._getFromPersistence(mpid, 'ua') || {};
+
+    this.setUserAttributes = (
+        mpid: MPID,
+        userAttributes: UserAttributes
+    ): void => this._setPersistence(mpid, 'ua', userAttributes);
 
     this.nullifySession = (): void => {
         this.sessionId = null;

@@ -22,7 +22,6 @@ export interface iForwardingStatsBatches {
     forwardingStatsEventQueue: ForwardingStatsData[];
 }
 
-// TODO: Migrate this to @types/mparticle__web-sdk
 //       https://go.mparticle.com/work/SQDSDKS-5196
 export type UserAttributes = AllUserAttributes;
 
@@ -124,13 +123,8 @@ export interface IPersistence {
     decodePersistence(persistenceString: string): string;
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
-    getAllUserAttributes(mpid: MPID): AllUserAttributes;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
-    saveUserAttributesToPersistence(
-        mpid: MPID,
-        userAttributes: UserAttributes
-    ): void;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
     saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
     savePersistence(persistance: IPersistenceMinified): void;
