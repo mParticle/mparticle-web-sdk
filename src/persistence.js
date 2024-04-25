@@ -877,22 +877,6 @@ export default function _Persistence(mpInstance) {
         }
     };
 
-    this.saveUserCookieSyncDatesToPersistence = function(mpid, csd) {
-        if (csd) {
-            var persistence = self.getPersistence();
-            if (persistence) {
-                if (persistence[mpid]) {
-                    persistence[mpid].csd = csd;
-                } else {
-                    persistence[mpid] = {
-                        csd: csd,
-                    };
-                }
-            }
-            self.savePersistence(persistence);
-        }
-    };
-
     this.saveUserConsentStateToCookies = function(mpid, consentState) {
         //it's currently not supported to set persistence
         //for any MPID that's not the current one.

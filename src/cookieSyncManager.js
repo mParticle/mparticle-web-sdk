@@ -6,6 +6,7 @@ export default function cookieSyncManager(mpInstance) {
     var self = this;
 
     // Public
+    // https://go.mparticle.com/work/SQDSDKS-6375
     this.attemptCookieSync = function(previousMPID, mpid, mpidIsNotInCookies) {
         // TODO: These should move inside the for loop
         var pixelConfig,
@@ -17,6 +18,8 @@ export default function cookieSyncManager(mpInstance) {
 
         // TODO: Make this exit quicker instead of nested
         if (mpid && !mpInstance._Store.webviewBridgeEnabled) {
+            const cookieSyncDates = mpInstance._Store.getCookieSyncDates(mpid);
+
             mpInstance._Store.pixelConfigurations.forEach(function(
                 pixelSettings
             ) {
@@ -60,22 +63,15 @@ export default function cookieSyncManager(mpInstance) {
                     : '';
                 urlWithRedirect = url + encodeURIComponent(redirect);
 
-                // TODO: Refactor so that Persistence is only called once
-                //       outside of the loop
-                var persistence = mpInstance._Persistence.getPersistence();
-
                 // TODO: Is there a historic reason for checking for previousMPID?
                 //       it does not appear to be passed in anywhere
                 if (previousMPID && previousMPID !== mpid) {
-                    if (persistence && persistence[mpid]) {
-                        if (!persistence[mpid].csd) {
-                            persistence[mpid].csd = {};
-                        }
+                    if (cookieSyncDates) {
                         self.performCookieSync(
                             urlWithRedirect,
                             pixelConfig.moduleId,
                             mpid,
-                            persistence[mpid].csd,
+                            cookieSyncDates,
                             pixelConfig.filteringConsentRuleValues,
                             mpidIsNotInCookies,
                             requiresConsent
@@ -85,16 +81,10 @@ export default function cookieSyncManager(mpInstance) {
                 } else {
                     // TODO: Refactor to check for the inverse and exit early
                     //       rather than nesting
-                    if (persistence[mpid]) {
-                        if (!persistence[mpid].csd) {
-                            persistence[mpid].csd = {};
-                        }
-                        lastSyncDateForModule = persistence[mpid].csd[
-                            pixelConfig.moduleId.toString()
-                        ]
-                            ? persistence[mpid].csd[
-                                  pixelConfig.moduleId.toString()
-                              ]
+                    if (cookieSyncDates) {
+                        const moduleId = pixelConfig.moduleId.toString();
+                        lastSyncDateForModule = cookieSyncDates[moduleId]
+                            ? cookieSyncDates[moduleId]
                             : null;
 
                         if (lastSyncDateForModule) {
@@ -117,7 +107,7 @@ export default function cookieSyncManager(mpInstance) {
                                     urlWithRedirect,
                                     pixelConfig.moduleId,
                                     mpid,
-                                    persistence[mpid].csd,
+                                    cookieSyncDates,
                                     pixelConfig.filteringConsentRuleValues,
                                     mpidIsNotInCookies,
                                     requiresConsent
@@ -128,7 +118,7 @@ export default function cookieSyncManager(mpInstance) {
                                 urlWithRedirect,
                                 pixelConfig.moduleId,
                                 mpid,
-                                persistence[mpid].csd,
+                                cookieSyncDates,
                                 pixelConfig.filteringConsentRuleValues,
                                 mpidIsNotInCookies,
                                 requiresConsent
@@ -186,10 +176,7 @@ export default function cookieSyncManager(mpInstance) {
             img.onload = function() {
                 // TODO: Break this out into a convenience method so we can unit test
                 cookieSyncDates[moduleId.toString()] = new Date().getTime();
-                mpInstance._Persistence.saveUserCookieSyncDatesToPersistence(
-                    mpid,
-                    cookieSyncDates
-                );
+                mpInstance._Store.setCookieSyncDates(mpid, cookieSyncDates);
             };
             img.src = url;
         }

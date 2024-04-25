@@ -87,10 +87,10 @@ export interface IPersistenceMinified extends Dictionary {
     // };
 }
 
-export type CookieSyncDate = Dictionary<number>;
+export type CookieSyncDates = Dictionary<number>;
 
 export interface IUserPersistenceMinified extends Dictionary {
-    csd: CookieSyncDate; // Cookie Sync Dates // list of timestamps for last cookie sync
+    csd: CookieSyncDates; // Cookie Sync Dates // list of timestamps for last cookie sync
     con: IMinifiedConsentJSONObject; // Consent State
     ui: UserIdentities; // User Identities
     ua: UserAttributes; // User Attributes
@@ -129,7 +129,6 @@ export interface IPersistence {
     getDomain(doc: string, locationHostname: string): string;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
-    saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
     saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;
