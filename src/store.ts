@@ -34,7 +34,7 @@ import {
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
 import {
-    CookieSyncDate,
+    CookieSyncDates,
     IGlobalStoreV2MinifiedKeys,
     IPersistenceMinified,
     UserAttributes,
@@ -185,8 +185,8 @@ export interface IStore {
 
     persistenceData?: IPersistenceMinified;
 
-    getCookieSyncDates?(mpid: MPID): CookieSyncDate;
-    setCookieSyncDates?(mpid: MPID, cookieSyncDates: CookieSyncDate): void;
+    getCookieSyncDates?(mpid: MPID): CookieSyncDates;
+    setCookieSyncDates?(mpid: MPID, cookieSyncDates: CookieSyncDates): void;
     getConsentState?(mpid: MPID): ConsentState | null;
     setConsentState?(mpid: MPID, consentState: ConsentState): void;
 
@@ -556,11 +556,11 @@ export default function Store(
         );
     };
 
-    this.getCookieSyncDates = (mpid: MPID): CookieSyncDate =>
-        this._getFromPersistence<CookieSyncDate>(mpid, 'csd') || {};
+    this.getCookieSyncDates = (mpid: MPID): CookieSyncDates =>
+        this._getFromPersistence<CookieSyncDates>(mpid, 'csd') || {};
 
-    this.setCookieSyncDates = (mpid: MPID, cookieSyncDates: CookieSyncDate) => 
-        this._setPersistence<CookieSyncDate>(mpid, 'csd', cookieSyncDates);
+    this.setCookieSyncDates = (mpid: MPID, cookieSyncDates: CookieSyncDates) => 
+        this._setPersistence<CookieSyncDates>(mpid, 'csd', cookieSyncDates);
 
     this.getConsentState = (mpid: MPID): ConsentState => {
         const {
