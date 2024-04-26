@@ -129,10 +129,8 @@ export interface IPersistence {
     getDomain(doc: string, locationHostname: string): string;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
-    saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;
-    getConsentState(mpid: MPID): ConsentState | null;
     getFirstSeenTime(mpid: MPID): string | null;
     setFirstSeenTime(mpid: MPID, time: number): void;
     getLastSeenTime(mpid: MPID): number | null;
