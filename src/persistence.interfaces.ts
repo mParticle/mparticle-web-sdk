@@ -14,8 +14,8 @@ import {
     SessionAttributes,
 } from './store';
 import { Dictionary } from './utils';
+import { IMinifiedConsentJSONObject } from './consent';
 
-export type CookieSyncDate = Dictionary<string>;
 export type UploadsTable = Dictionary<any>;
 export interface iForwardingStatsBatches {
     uploadsTable: UploadsTable;
@@ -36,7 +36,7 @@ export interface IGlobalStoreV2MinifiedKeys {
     das: string; // Device ID/ Device Application String
     ia: IntegrationAttributes;
     c: Context;
-    csm: MPID[]; // Current Session MPIDs
+    csm?: MPID[]; // Current Session MPIDs
     les: number; // Last Event Sent Timestamp
     ssd: number; // Session Start Date
 }
@@ -44,11 +44,15 @@ export interface IGlobalStoreV2MinifiedKeys {
 export interface IPersistenceMinified extends Dictionary {
     cu: MPID; // Current User MPID
     gs: IGlobalStoreV2MinifiedKeys;
+
+    // Stored as 0 or 1 in device persistence but returned as a
+    // boolean when decoding from device persistence via
+    // _Persistence.getPersistence and _Persistence.decodePersistence
     l: boolean; // IsLoggedIn
 
     // Persistence Minified can also store optional dictionaries with
     // an idex of MPID
-    // [mpid: MPID]: Dictionary<any>;
+    // [mpid: MPID]: Dictionary<IUserPersistenceMinified>;
 
     // For Example:
     // {
@@ -70,12 +74,32 @@ export interface IPersistenceMinified extends Dictionary {
     //     },
     //     l: false,
     //     MPID1: {
-    //         csd: [],
+    //         csd: {
+    //             [moduleid]: 1234567890,
+    //         },
     //         ui: {
     //             customerid: '12346',
     //         },
+    //         ua: {
+    //             age '42',
+    //         },
     //     },
     // };
+}
+
+export type CookieSyncDates = Dictionary<number>;
+
+export interface IUserPersistenceMinified extends Dictionary {
+    csd: CookieSyncDates; // Cookie Sync Dates // list of timestamps for last cookie sync
+    con: IMinifiedConsentJSONObject; // Consent State
+    ui: UserIdentities; // User Identities
+    ua: UserAttributes; // User Attributes
+
+    // https://go.mparticle.com/work/SQDSDKS-6048
+    cp: Product[]; // Cart Products
+
+    fst: number; // First Seen Time
+    lst: number; // Last Seen Time
 }
 
 export interface IPersistence {
@@ -103,23 +127,10 @@ export interface IPersistence {
     decodePersistence(persistenceString: string): string;
     getCookieDomain(): string;
     getDomain(doc: string, locationHostname: string): string;
-    getUserIdentities(mpid: MPID): UserIdentities;
-    getAllUserAttributes(mpid: MPID): AllUserAttributes;
     getCartProducts(mpid: MPID): Product[];
     setCartProducts(allProducts: Product[]): void;
-    saveUserIdentitiesToPersistence(
-        mpid: MPID,
-        userIdentities: UserIdentities
-    ): void;
-    saveUserAttributesToPersistence(
-        mpid: MPID,
-        userAttributes: UserAttributes
-    ): void;
-    saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
-    saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;
-    getConsentState(mpid: MPID): ConsentState | null;
     getFirstSeenTime(mpid: MPID): string | null;
     setFirstSeenTime(mpid: MPID, time: number): void;
     getLastSeenTime(mpid: MPID): number | null;

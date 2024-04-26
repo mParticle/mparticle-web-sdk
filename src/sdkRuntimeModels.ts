@@ -26,10 +26,7 @@ export interface SDKEvent {
     IsFirstRun: boolean;
     EventName: string;
     EventCategory: number;
-
-    // https://go.mparticle.com/work/SQDSDKS-5196
-    UserAttributes?: { [key: string]: string | string[] | null };
-
+    UserAttributes?: SDKUserAttribute;
     UserIdentities?: SDKUserIdentity[];
     SourceMessageId: string;
     MPID: string;
@@ -71,6 +68,10 @@ export interface SDKGeoLocation {
 export interface SDKDataPlan {
     PlanVersion?: number | null;
     PlanId?: string | null;
+}
+
+export interface SDKUserAttribute {
+    [key: string]: string | string[] | null;
 }
 
 export interface SDKUserIdentity {
@@ -311,10 +312,7 @@ export interface SDKConfigApi {
 export interface MParticleUser {
     getMPID?(): string;
     getConsentState?(): SDKConsentState;
-
-    // https://go.mparticle.com/work/SQDSDKS-5196
-    getAllUserAttributes?(): any;
-
+    getAllUserAttributes?(): SDKUserAttribute;
     getUserIdentities?(): IdentityApiData;
     isLoggedIn?(): boolean;
 }

@@ -20,6 +20,7 @@ import {
     IPersistenceMinified,
 } from '../../src/persistence.interfaces';
 import { ConsentState } from '@mparticle/web-sdk';
+import { MParticleUser } from '../../src/sdkRuntimeModels';
 
 const {
     findCookie,
@@ -1483,144 +1484,68 @@ describe('persistence', () => {
         done();
     });
 
-    it('get/set consent state for single user', done => {
+    it('get/set isLoggedIn for localStorage', done => {
         mParticle._resetForTests(MPConfig);
 
+        mockServer.respondWith(urls.login, [
+            200,
+            {},
+            JSON.stringify({ mpid: 'mpid1', is_logged_in: true }),
+        ]);
+
+
         mParticle.init(apiKey, mParticle.config);
-        let consentState: ConsentState = mParticle
+        let user: MParticleUser = mParticle
             .getInstance()
             .Identity.getCurrentUser()
-            .getConsentState();
-        expect(consentState).to.equal(null);
-        consentState = mParticle.Consent.createConsentState();
-        consentState.addGDPRConsentState(
-            'foo purpose',
-            mParticle.Consent.createGDPRConsent(true, 10)
-        );
+        expect(user).to.be.ok;
+        expect(user.isLoggedIn()).to.be.false;
 
-        mParticle
-            .getInstance()
-            .Identity.getCurrentUser()
-            .setConsentState(consentState);
+        let localStorageData = mParticle.getInstance()._Persistence.getPersistence();
 
-        const storedConsentState = mParticle
-            .getInstance()
-            .Identity.getCurrentUser()
-            .getConsentState();
-        storedConsentState.should.be.ok();
-        storedConsentState
-            .getGDPRConsentState()
-            .should.have.property('foo purpose');
-        storedConsentState
-            .getGDPRConsentState()
-            ['foo purpose'].should.have.property('Consented', true);
-        storedConsentState
-            .getGDPRConsentState()
-            ['foo purpose'].should.have.property('Timestamp', 10);
+        // The `l` property of Persistence is a boolean, but when saved
+        // to local storage, Persistence encodes this as a 0 or 1.
+        // It is then re-encoded as a boolean when retrieved from local storage.
+        expect(localStorageData.l).to.equal(false);
+
+        mParticle.Identity.login();
+
+        localStorageData = mParticle.getInstance()._Persistence.getPersistence();
+        expect(localStorageData.l).to.equal(true);
+
         done();
     });
 
-    it('get/set consent state for multiple users', done => {
+
+    it('get/set isLoggedIn for cookies', done => {
         mParticle._resetForTests(MPConfig);
-
-        mParticle.init(apiKey, mParticle.config);
-
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-        ]);
-
-        const userIdentities1 = {
-            userIdentities: {
-                customerid: 'foo1',
-            },
-        };
-
-        mParticle.Identity.login(userIdentities1);
-        let user1StoredConsentState: ConsentState = mParticle
-            .getInstance()
-            .Identity.getCurrentUser()
-            .getConsentState();
-        expect(user1StoredConsentState).to.equal(null);
-        const consentState = mParticle.Consent.createConsentState();
-        consentState.addGDPRConsentState(
-            'foo purpose',
-            mParticle.Consent.createGDPRConsent(true, 10)
-        );
-
-        mParticle
-            .getInstance()
-            .Identity.getCurrentUser()
-            .setConsentState(consentState);
-
-        mParticle._resetForTests(MPConfig, true);
-        mParticle.init(apiKey, mParticle.config);
+        mParticle.config.useCookieStorage = true;
 
         mockServer.respondWith(urls.login, [
             200,
             {},
-            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+            JSON.stringify({ mpid: 'mpid1', is_logged_in: true }),
         ]);
 
-        const userIdentities2 = {
-            userIdentities: {
-                customerid: 'foo2',
-            },
-        };
+        mParticle.init(apiKey, mParticle.config);
 
-        mParticle.Identity.login(userIdentities2);
-
-        let user2StoredConsentState: ConsentState = mParticle
+        let user: MParticleUser = mParticle
             .getInstance()
             .Identity.getCurrentUser()
-            .getConsentState();
-        expect(user2StoredConsentState).to.equal(null);
+        expect(user).to.be.ok;
+        expect(user.isLoggedIn()).to.be.false;
 
-        consentState.removeGDPRConsentState('foo purpose');
+        let cookieData = findCookie();
 
-        consentState.addGDPRConsentState(
-            'foo purpose 2',
-            mParticle.Consent.createGDPRConsent(false, 11)
-        );
+        // The `l` property of Persistence is a boolean, but when saved
+        // to cookie storage, Persistence encodes this as a 0 or 1.
+        // It is then re-encoded as a boolean when retrieved from cookies storage
+        cookieData.l.should.equal(false);
 
-        mParticle
-            .getInstance()
-            .Identity.getCurrentUser()
-            .setConsentState(consentState);
+        mParticle.Identity.login();
 
-        user1StoredConsentState = mParticle
-            .getInstance()
-            ._Persistence.getConsentState('MPID1');
-        user2StoredConsentState = mParticle
-            .getInstance()
-            ._Persistence.getConsentState('MPID2');
-
-        user1StoredConsentState
-            .getGDPRConsentState()
-            .should.have.property('foo purpose');
-        user1StoredConsentState
-            .getGDPRConsentState()
-            .should.not.have.property('foo purpose 2');
-        user1StoredConsentState
-            .getGDPRConsentState()
-            ['foo purpose'].should.have.property('Consented', true);
-        user1StoredConsentState
-            .getGDPRConsentState()
-            ['foo purpose'].should.have.property('Timestamp', 10);
-
-        user2StoredConsentState
-            .getGDPRConsentState()
-            .should.have.property('foo purpose 2');
-        user1StoredConsentState
-            .getGDPRConsentState()
-            .should.not.have.property('foo purpose 1');
-        user2StoredConsentState
-            .getGDPRConsentState()
-            ['foo purpose 2'].should.have.property('Consented', false);
-        user2StoredConsentState
-            .getGDPRConsentState()
-            ['foo purpose 2'].should.have.property('Timestamp', 11);
+        cookieData = findCookie();
+        cookieData.l.should.equal(true);
 
         done();
     });

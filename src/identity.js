@@ -806,11 +806,8 @@ export default function Identity(mpInstance) {
              * @return {Object} an object with userIdentities as its key
              */
             getUserIdentities: function() {
-                var currentUserIdentities = {};
-
-                var identities = mpInstance._Persistence.getUserIdentities(
-                    mpid
-                );
+                const currentUserIdentities = {};
+                const identities = mpInstance._Store.getUserIdentities(mpid);
 
                 for (var identityType in identities) {
                     if (identities.hasOwnProperty(identityType)) {
@@ -866,12 +863,9 @@ export default function Identity(mpInstance) {
              * @param {String} key
              * @param {String} value
              */
+            // https://go.mparticle.com/work/SQDSDKS-4576
+            // https://go.mparticle.com/work/SQDSDKS-6373
             setUserAttribute: function(key, newValue) {
-                var cookies,
-                    userAttributes,
-                    previousUserAttributeValue,
-                    isNewAttribute;
-
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (mpInstance._Helpers.canLog()) {
@@ -896,11 +890,11 @@ export default function Identity(mpInstance) {
                             JSON.stringify({ key: key, value: newValue })
                         );
                     } else {
-                        cookies = mpInstance._Persistence.getPersistence();
+                        const userAttributes = this.getAllUserAttributes();
+                        let previousUserAttributeValue;
+                        let isNewAttribute;
 
-                        userAttributes = this.getAllUserAttributes();
-
-                        var existingProp = mpInstance._Helpers.findKeyInObject(
+                        const existingProp = mpInstance._Helpers.findKeyInObject(
                             userAttributes,
                             key
                         );
@@ -915,13 +909,10 @@ export default function Identity(mpInstance) {
                         }
 
                         userAttributes[key] = newValue;
-                        if (cookies && cookies[mpid]) {
-                            cookies[mpid].ua = userAttributes;
-                            mpInstance._Persistence.savePersistence(
-                                cookies,
-                                mpid
-                            );
-                        }
+                        mpInstance._Store.setUserAttributes(
+                            mpid,
+                            userAttributes
+                        );
 
                         self.sendUserAttributeChangeEvent(
                             key,
@@ -949,6 +940,7 @@ export default function Identity(mpInstance) {
              * @method setUserAttributes
              * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
              */
+            // https://go.mparticle.com/work/SQDSDKS-6373
             setUserAttributes: function(userAttributes) {
                 mpInstance._SessionManager.resetSessionTimer();
                 if (isObject(userAttributes)) {
@@ -1036,13 +1028,8 @@ export default function Identity(mpInstance) {
              * @param {String} key
              * @param {Array} value an array of values
              */
+            // https://go.mparticle.com/work/SQDSDKS-6373
             setUserAttributeList: function(key, newValue) {
-                var cookies,
-                    userAttributes,
-                    previousUserAttributeValue,
-                    isNewAttribute,
-                    userAttributeChange;
-
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
@@ -1058,7 +1045,7 @@ export default function Identity(mpInstance) {
                     return;
                 }
 
-                var arrayCopy = newValue.slice();
+                const arrayCopy = newValue.slice();
 
                 if (mpInstance._Store.webviewBridgeEnabled) {
                     mpInstance._NativeSdkHelpers.sendToNative(
@@ -1066,11 +1053,12 @@ export default function Identity(mpInstance) {
                         JSON.stringify({ key: key, value: arrayCopy })
                     );
                 } else {
-                    cookies = mpInstance._Persistence.getPersistence();
+                    const userAttributes = this.getAllUserAttributes();
+                    let previousUserAttributeValue;
+                    let isNewAttribute;
+                    let userAttributeChange;
 
-                    userAttributes = this.getAllUserAttributes();
-
-                    var existingProp = mpInstance._Helpers.findKeyInObject(
+                    const existingProp = mpInstance._Helpers.findKeyInObject(
                         userAttributes,
                         key
                     );
@@ -1085,12 +1073,9 @@ export default function Identity(mpInstance) {
                     }
 
                     userAttributes[key] = arrayCopy;
-                    if (cookies && cookies[mpid]) {
-                        cookies[mpid].ua = userAttributes;
-                        mpInstance._Persistence.savePersistence(cookies, mpid);
-                    }
+                    mpInstance._Store.setUserAttributes(mpid, userAttributes);
 
-                    // If the new attributeList length is different previous, then there is a change event.
+                    // If the new attributeList length is different than the previous, then there is a change event.
                     // Loop through new attributes list, see if they are all in the same index as previous user attributes list
                     // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
                     if (
@@ -1195,9 +1180,7 @@ export default function Identity(mpInstance) {
              */
             getAllUserAttributes: function() {
                 var userAttributesCopy = {};
-                var userAttributes = mpInstance._Persistence.getAllUserAttributes(
-                    mpid
-                );
+                var userAttributes = mpInstance._Store.getUserAttributes(mpid);
 
                 if (userAttributes) {
                     for (var prop in userAttributes) {
@@ -1233,7 +1216,7 @@ export default function Identity(mpInstance) {
              * @return a ConsentState object
              */
             getConsentState: function() {
-                return mpInstance._Persistence.getConsentState(mpid);
+                return mpInstance._Store.getConsentState(mpid);
             },
             /**
              * Sets the Consent State stored locally for this user.
@@ -1241,10 +1224,7 @@ export default function Identity(mpInstance) {
              * @param {Object} consent state
              */
             setConsentState: function(state) {
-                mpInstance._Persistence.saveUserConsentStateToCookies(
-                    mpid,
-                    state
-                );
+                mpInstance._Store.setConsentState(mpid, state);
                 mpInstance._Forwarders.initForwarders(
                     this.getUserIdentities().userIdentities,
                     mpInstance._APIClient.prepareForwardingStats
@@ -1549,7 +1529,7 @@ export default function Identity(mpInstance) {
                         identityApiData.userIdentities
                     );
 
-                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
+                    mpInstance._Store.setUserIdentities(
                         previousMPID,
                         newIdentitiesByType
                     );
@@ -1596,7 +1576,7 @@ export default function Identity(mpInstance) {
                     }
 
                     // https://go.mparticle.com/work/SQDSDKS-6041
-                    mpInstance._Persistence.saveUserIdentitiesToPersistence(
+                    mpInstance._Store.setUserIdentities(
                         identityApiResult.mpid,
                         newIdentitiesByType
                     );
