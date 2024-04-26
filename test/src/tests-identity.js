@@ -1,11 +1,13 @@
 import Constants from '../../src/constants';
 import Utils from './config/utils';
 import sinon from 'sinon';
+import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey,
     testMPID,
     MPConfig,
     workspaceCookieName,
+    mParticle,
 } from './config/constants';
 
 const getLocalStorage = Utils.getLocalStorage,
@@ -3082,6 +3084,46 @@ describe('identity', function() {
         data.known_identities.device_application_stamp.should.equal('foo-guid');
 
         done();
+    });
+
+    describe('#identify', function() {
+        it("should set fst when the user does not change, after an identify request", function(done) {
+            mParticle._resetForTests(MPConfig);
+
+            const cookies = JSON.stringify({
+                gs: {
+                    sid: 'fst Test',
+                    les: new Date().getTime(),
+                },
+                current: {},
+                cu: 'current',
+            });
+    
+            mockServer.respondWith(urls.identify, [
+                200,
+                {},
+                JSON.stringify({ mpid: 'current', is_logged_in: false }),
+            ]);
+    
+            // We set the cookies because the init process will load cookies into
+            // our in-memory store, which we will check before and after the identify request
+            setCookie(workspaceCookieName, cookies, true);
+            mParticle.config.useCookieStorage = true;
+
+            mParticle.init(apiKey, mParticle.config);
+
+            expect(
+                mParticle.getInstance()._Store.getFirstSeenTime('current')
+            ).to.equal(null);
+    
+            mParticle.Identity.identify();
+    
+            expect(
+                mParticle.getInstance()._Store.getFirstSeenTime('current')
+            ).to.not.equal(null);
+    
+            done();
+        });
     });
 
     describe('identity caching', function() {

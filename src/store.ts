@@ -604,6 +604,8 @@ export default function Store(
     this.getFirstSeenTime = (mpid: MPID) =>
         this._getFromPersistence<number>(mpid, 'fst');
 
+     // set the "first seen" time for a user. the time will only be set once for a given
+     // mpid after which subsequent calls will be ignored
     this.setFirstSeenTime = (mpid: MPID, _time?: number) => {
         if (!mpid) {
             return;
@@ -611,7 +613,15 @@ export default function Store(
 
         const time = _time || new Date().getTime();
 
-        this._setPersistence(mpid, 'fst', time);
+        this.syncPersistenceData();
+
+        if(!this.persistenceData[mpid]) {
+            this.persistenceData[mpid] = {};
+        }
+        if(!this.persistenceData[mpid].fst) {
+            this.persistenceData[mpid].fst = time;
+            this._setPersistence(mpid, 'fst', time);
+        }
     };
 
     this.getLastSeenTime = (mpid: MPID): number => {
