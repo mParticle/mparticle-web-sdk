@@ -1,4 +1,5 @@
 import sinon from 'sinon';
+import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import Utils from './config/utils';
@@ -3297,6 +3298,153 @@ describe('identity', function() {
         data.known_identities.device_application_stamp.should.equal('foo-guid');
 
         done();
+    });
+
+    describe('mParticle User', function () {
+        describe('Consent State', function () {
+            it('get/set consent state for single user', done => {
+                mParticle._resetForTests(MPConfig);
+        
+                mParticle.init(apiKey, mParticle.config);
+                let consentState = mParticle
+                    .getInstance()
+                    .Identity.getCurrentUser()
+                    .getConsentState();
+
+                expect(consentState).to.equal(null);
+                consentState = mParticle.Consent.createConsentState();
+                consentState.addGDPRConsentState(
+                    'foo purpose',
+                    mParticle.Consent.createGDPRConsent(true, 10)
+                );
+        
+                mParticle
+                    .getInstance()
+                    .Identity.getCurrentUser()
+                    .setConsentState(consentState);
+        
+                const storedConsentState = mParticle
+                    .getInstance()
+                    .Identity.getCurrentUser()
+                    .getConsentState();
+                storedConsentState.should.be.ok();
+                storedConsentState
+                    .getGDPRConsentState()
+                    .should.have.property('foo purpose');
+                storedConsentState
+                    .getGDPRConsentState()
+                    ['foo purpose'].should.have.property('Consented', true);
+                storedConsentState
+                    .getGDPRConsentState()
+                    ['foo purpose'].should.have.property('Timestamp', 10);
+                done();
+            });
+
+            it('get/set consent state for multiple users', done => {
+                mParticle._resetForTests(MPConfig);
+        
+                mParticle.init(apiKey, mParticle.config);
+        
+                mockServer.respondWith(urls.login, [
+                    200,
+                    {},
+                    JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
+                ]);
+        
+                const userIdentities1 = {
+                    userIdentities: {
+                        customerid: 'foo1',
+                    },
+                };
+        
+                mParticle.Identity.login(userIdentities1);
+                let user1StoredConsentState = mParticle
+                    .getInstance()
+                    .Identity.getCurrentUser()
+                    .getConsentState();
+                expect(user1StoredConsentState).to.equal(null);
+                const consentState = mParticle.Consent.createConsentState();
+                consentState.addGDPRConsentState(
+                    'foo purpose',
+                    mParticle.Consent.createGDPRConsent(true, 10)
+                );
+        
+                mParticle
+                    .getInstance()
+                    .Identity.getCurrentUser()
+                    .setConsentState(consentState);
+        
+                mParticle._resetForTests(MPConfig, true);
+                mParticle.init(apiKey, mParticle.config);
+        
+                mockServer.respondWith(urls.login, [
+                    200,
+                    {},
+                    JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
+                ]);
+        
+                const userIdentities2 = {
+                    userIdentities: {
+                        customerid: 'foo2',
+                    },
+                };
+        
+                mParticle.Identity.login(userIdentities2);
+        
+                let user2StoredConsentState = mParticle
+                    .getInstance()
+                    .Identity.getCurrentUser()
+                    .getConsentState();
+                expect(user2StoredConsentState).to.equal(null);
+        
+                consentState.removeGDPRConsentState('foo purpose');
+        
+                consentState.addGDPRConsentState(
+                    'foo purpose 2',
+                    mParticle.Consent.createGDPRConsent(false, 11)
+                );
+        
+                mParticle
+                    .getInstance()
+                    .Identity.getCurrentUser()
+                    .setConsentState(consentState);
+        
+                user1StoredConsentState = mParticle
+                    .getInstance()
+                    ._Store.getConsentState('MPID1');
+                user2StoredConsentState = mParticle
+                    .getInstance()
+                    ._Store.getConsentState('MPID2');
+        
+                user1StoredConsentState
+                    .getGDPRConsentState()
+                    .should.have.property('foo purpose');
+                user1StoredConsentState
+                    .getGDPRConsentState()
+                    .should.not.have.property('foo purpose 2');
+                user1StoredConsentState
+                    .getGDPRConsentState()
+                    ['foo purpose'].should.have.property('Consented', true);
+                user1StoredConsentState
+                    .getGDPRConsentState()
+                    ['foo purpose'].should.have.property('Timestamp', 10);
+        
+                user2StoredConsentState
+                    .getGDPRConsentState()
+                    .should.have.property('foo purpose 2');
+                user1StoredConsentState
+                    .getGDPRConsentState()
+                    .should.not.have.property('foo purpose 1');
+                user2StoredConsentState
+                    .getGDPRConsentState()
+                    ['foo purpose 2'].should.have.property('Consented', false);
+                user2StoredConsentState
+                    .getGDPRConsentState()
+                    ['foo purpose 2'].should.have.property('Timestamp', 11);
+        
+                done();
+            });
+        });
     });
 
     describe('identity caching', function() {

@@ -133,10 +133,8 @@ export interface IPersistence {
         userAttributes: UserAttributes
     ): void;
     saveUserCookieSyncDatesToPersistence(mpid: MPID, csd: CookieSyncDate): void;
-    saveUserConsentStateToCookies(mpid, consentState: ConsentState): void;
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;
-    getConsentState(mpid: MPID): ConsentState | null;
     getFirstSeenTime(mpid: MPID): string | null;
     setFirstSeenTime(mpid: MPID, time: number): void;
     getLastSeenTime(mpid: MPID): number | null;
