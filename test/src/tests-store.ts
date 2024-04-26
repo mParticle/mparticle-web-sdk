@@ -1099,18 +1099,12 @@ describe('Store', () => {
         });
 
         it('should return the current time if mpid matches current user', () => {
-            const userSpy = sinon.stub(
-                window.mParticle.getInstance().Identity,
-                'getCurrentUser'
-            );
-            userSpy.returns({
-                getMPID: () => 'testMPID',
-            });
-
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
             );
+
+            store.mpid = 'testMPID';
 
             clock.tick(100)
             expect(store.getLastSeenTime(testMPID)).to.equal(100);
@@ -1169,18 +1163,12 @@ describe('Store', () => {
         });
 
         it('returns current time for the current user as the lastSeenTime', () => {
-            const userSpy = sinon.stub(
-                window.mParticle.getInstance().Identity,
-                'getCurrentUser'
-            );
-            userSpy.returns({
-                getMPID: () => 'testMPID',
-            });
-
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()
             );
+
+            store.mpid = 'testMPID';
 
             // Simulates current time
             clock.tick(100);
