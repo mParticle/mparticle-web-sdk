@@ -3230,7 +3230,6 @@ describe('identity', function() {
                 done();
             });
         });
-        
     });
 
     describe('identity caching', function() {
