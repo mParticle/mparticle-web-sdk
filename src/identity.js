@@ -1238,10 +1238,10 @@ export default function Identity(mpInstance) {
                 return isLoggedIn;
             },
             getLastSeenTime: function() {
-                return mpInstance._Persistence.getLastSeenTime(mpid);
+                return mpInstance._Store.getLastSeenTime(mpid);
             },
             getFirstSeenTime: function() {
-                return mpInstance._Persistence.getFirstSeenTime(mpid);
+                return mpInstance._Store.getFirstSeenTime(mpid);
             },
             /**
              * Get user audiences
@@ -1494,15 +1494,15 @@ export default function Identity(mpInstance) {
 
             if (prevUser) {
                 // https://go.mparticle.com/work/SQDSDKS-6329
-                mpInstance._Persistence.setLastSeenTime(previousMPID);
+                mpInstance._Store.setLastSeenTime(previousMPID);
             }
 
-            const mpidIsNotInCookies = !mpInstance._Persistence.getFirstSeenTime(
+            const mpidIsNotInCookies = !mpInstance._Store.getFirstSeenTime(
                 identityApiResult.mpid
             );
 
             // https://go.mparticle.com/work/SQDSDKS-6329
-            mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
+            mpInstance._Store.setFirstSeenTime(identityApiResult.mpid);
 
             if (xhr.status === 200) {
                 if (getFeatureFlag(CacheIdentity)) {
@@ -1543,7 +1543,7 @@ export default function Identity(mpInstance) {
                         prevUser &&
                         identityApiResult.mpid === prevUserMPID
                     ) {
-                        mpInstance._Persistence.setFirstSeenTime(
+                        mpInstance._Store.setFirstSeenTime(
                             identityApiResult.mpid
                         );
                     }

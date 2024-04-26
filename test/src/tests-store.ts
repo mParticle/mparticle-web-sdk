@@ -20,8 +20,9 @@ import { IGlobalStoreV2MinifiedKeys } from '../../src/persistence.interfaces';
 import { IMinifiedConsentJSONObject } from '../../src/consent';
 const MockSideloadedKit = Utils.MockSideloadedKit;
 
+const { setCookie } = Utils;
+
 describe('Store', () => {
-    const now = new Date();
     let sandbox;
     let clock;
 
@@ -105,7 +106,7 @@ describe('Store', () => {
 
     beforeEach(function() {
         sandbox = sinon.createSandbox();
-        clock = sinon.useFakeTimers(now.getTime());
+        clock = sinon.useFakeTimers();
         // MP Instance is just used because Store requires an mParticle instance
         window.mParticle.init(apiKey, window.mParticle.config);
     });
@@ -997,15 +998,6 @@ describe('Store', () => {
             expect(store.persistenceData[testMPID].fst).to.equal(12345);
         });
 
-        it('should return undefined if mpid is null', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
-
-            expect(store.setFirstSeenTime(null, 12345)).to.equal(undefined);
-        });
-
         it('should set the firstSeenTime in persistence', () => {
             const store: IStore = new Store(
                 sampleConfig,
@@ -1022,7 +1014,7 @@ describe('Store', () => {
             expect(fromPersistence[testMPID].fst).to.equal(12345);
         });
 
-        it('should override persistence with store values', () => {
+        it('should override store with persistence values', () => {
             const persistenceValue = JSON.stringify({
                 testMPID: {
                     fst: 12345,
@@ -1037,13 +1029,39 @@ describe('Store', () => {
             );
 
             store.setFirstSeenTime(testMPID, 54321);
+
+            expect(store.getFirstSeenTime(testMPID)).to.equal(12345);
+
             const fromPersistence = window.mParticle
                 .getInstance()
                 ._Persistence.getPersistence();
 
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].fst).to.be.ok;
-            expect(fromPersistence[testMPID].fst).to.equal(54321);
+            expect(fromPersistence[testMPID].fst).to.equal(12345);
+        });
+
+        it('should set firstSeenTime once', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.persistenceData['previous-set-mpid'] = {
+                fst: 100
+            }
+
+            store.setFirstSeenTime('current-mpid', 10000);
+            store.setFirstSeenTime('current-mpid', 2);
+            expect(store.getFirstSeenTime('current-mpid')).to.equal(10000);
+
+            store.setFirstSeenTime('previous-mpid', 10);
+            store.setFirstSeenTime('previous-mpid', 20);
+            expect(store.getFirstSeenTime('previous-mpid')).to.equal(10);
+
+            store.setFirstSeenTime('previous-set-mpid', 200);
+            expect(store.getFirstSeenTime('previous-set-mpid')).to.equal(100);
+
         });
     });
 
@@ -1093,7 +1111,8 @@ describe('Store', () => {
                 window.mParticle.getInstance()
             );
 
-            expect(store.getLastSeenTime(testMPID)).to.equal(now.getTime());
+            clock.tick(100)
+            expect(store.getLastSeenTime(testMPID)).to.equal(100);
         });
     });
 
@@ -1146,6 +1165,29 @@ describe('Store', () => {
             expect(fromPersistence[testMPID]).to.be.ok;
             expect(fromPersistence[testMPID].lst).to.be.ok;
             expect(fromPersistence[testMPID].lst).to.equal(54321);
+        });
+
+        it('returns current time for the current user', () => {
+            const userSpy = sinon.stub(
+                window.mParticle.getInstance().Identity,
+                'getCurrentUser'
+            );
+            userSpy.returns({
+                getMPID: () => 'testMPID',
+            });
+
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            // Simulates current time
+            clock.tick(100);
+            store.setLastSeenTime(testMPID, 12345);
+            expect(store.getLastSeenTime(testMPID)).to.equal(100);
+
+            clock.tick(50);
+            expect(store.getLastSeenTime(testMPID)).to.equal(150);
         });
     });
 
@@ -1812,6 +1854,31 @@ describe('Store', () => {
 
                 expect(result).to.deep.equal(expectedResult);
             });
+        });
+    });
+
+    describe('integration tests', () => {
+        describe('#firstSeenTime', () => {
+            it('should be null for users in storage without an lst value', done => {
+                const cookies = JSON.stringify({
+                    gs: {
+                        sid: 'lst Test',
+                        les: new Date().getTime(),
+                    },
+                    previous: {},
+                    cu: 'current',
+                });
+                setCookie(workspaceCookieName, cookies, true);
+                window.mParticle.config.useCookieStorage = true;
+        
+                window.mParticle.init(apiKey, window.mParticle.config);
+                expect(
+                    window.mParticle.getInstance()._Store.getFirstSeenTime('previous')
+                ).to.equal(null);
+        
+                done();
+            });
+
         });
     });
 });

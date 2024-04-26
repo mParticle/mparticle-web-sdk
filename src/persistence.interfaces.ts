@@ -133,10 +133,6 @@ export interface IPersistence {
     savePersistence(persistance: IPersistenceMinified): void;
     getPersistence(): IPersistenceMinified;
     getConsentState(mpid: MPID): ConsentState | null;
-    getFirstSeenTime(mpid: MPID): string | null;
-    setFirstSeenTime(mpid: MPID, time: number): void;
-    getLastSeenTime(mpid: MPID): number | null;
-    setLastSeenTime(mpid: MPID, time: number): void;
     getDeviceId(): string;
     setDeviceId(guid: string): void;
     resetPersistence(): void;
