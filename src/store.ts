@@ -182,6 +182,7 @@ export interface IStore {
     integrationDelayTimeoutStart: number; // UNIX Timestamp
     webviewBridgeEnabled?: boolean;
     wrapperSDKInfo: WrapperSDKInfo;
+    mpid?: MPID;
 
     persistenceData?: IPersistenceMinified;
 
@@ -628,9 +629,7 @@ export default function Store(
         if (!mpid) {
             return null;
         }
-        // https://go.mparticle.com/work/SQDSDKS-6315
-        const currentUser = mpInstance.Identity.getCurrentUser();
-        if (mpid === currentUser?.getMPID()) {
+        if (mpid === this.mpid) {
             // if the mpid is the current user, its last seen time is the current time
             return new Date().getTime();
         }
