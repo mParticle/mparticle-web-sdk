@@ -3110,7 +3110,13 @@ describe('identity', function() {
             setCookie(workspaceCookieName, cookies, true);
             mParticle.config.useCookieStorage = true;
 
-            mParticle.init(apiKey, mParticle.config);
+
+            // As part of init, there is a call to Identity.Identify. However, in this test case,
+            // we are starting with the assumption that there is a current user, and that user has
+            // both a sessionId (sid) and lastEventSent (les), which causes that initial identify call
+            // to be skipped. By manually forcing an identify call below, we can test that
+            // identify correctly calls setFirstSeenTime to set a value;
+        mParticle.init(apiKey, mParticle.config);
 
             expect(
                 mParticle.getInstance()._Store.getFirstSeenTime('current')

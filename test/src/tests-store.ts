@@ -1051,6 +1051,9 @@ describe('Store', () => {
                 fst: 100
             }
 
+            store.setFirstSeenTime('previous-set-mpid', 200);
+            expect(store.getFirstSeenTime('previous-set-mpid')).to.equal(100);
+
             store.setFirstSeenTime('current-mpid', 10000);
             store.setFirstSeenTime('current-mpid', 2);
             expect(store.getFirstSeenTime('current-mpid')).to.equal(10000);
@@ -1059,8 +1062,6 @@ describe('Store', () => {
             store.setFirstSeenTime('previous-mpid', 20);
             expect(store.getFirstSeenTime('previous-mpid')).to.equal(10);
 
-            store.setFirstSeenTime('previous-set-mpid', 200);
-            expect(store.getFirstSeenTime('previous-set-mpid')).to.equal(100);
 
         });
     });
@@ -1167,7 +1168,7 @@ describe('Store', () => {
             expect(fromPersistence[testMPID].lst).to.equal(54321);
         });
 
-        it('returns current time for the current user', () => {
+        it('returns current time for the current user as the lastSeenTime', () => {
             const userSpy = sinon.stub(
                 window.mParticle.getInstance().Identity,
                 'getCurrentUser'
@@ -1865,20 +1866,19 @@ describe('Store', () => {
                         sid: 'lst Test',
                         les: new Date().getTime(),
                     },
-                    previous: {},
-                    cu: 'current',
+                    previousMPID: {},
+                    cu: 'current-mpid',
                 });
                 setCookie(workspaceCookieName, cookies, true);
                 window.mParticle.config.useCookieStorage = true;
         
                 window.mParticle.init(apiKey, window.mParticle.config);
                 expect(
-                    window.mParticle.getInstance()._Store.getFirstSeenTime('previous')
+                    window.mParticle.getInstance()._Store.getFirstSeenTime('previousMPID')
                 ).to.equal(null);
         
                 done();
             });
-
         });
     });
 });
