@@ -253,60 +253,6 @@ describe('Store', () => {
         });
     });
 
-    describe('#addMpidToSessionHistory', () => {
-        it('should move a new mpid to the end of the currentSessionMPIDs list', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
-
-            store.sessionId = 'my-session-id';
-            store.currentSessionMPIDs = ['oldmpid', 'newermpid', 'recentmpid'];
-            store.addMpidToSessionHistory('brand-new-mpid');
-
-            expect(store.currentSessionMPIDs).to.deep.equal([
-                'oldmpid',
-                'newermpid',
-                'recentmpid',
-                'brand-new-mpid',
-            ]);
-        });
-
-        it('should move an older mpid to the end of the currentSessionMPIDs list if it exists', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
-
-            store.sessionId = 'my-session-id';
-            store.currentSessionMPIDs = ['oldmpid', 'newermpid', 'recentmpid'];
-            store.addMpidToSessionHistory('oldmpid');
-
-            expect(store.currentSessionMPIDs).to.deep.equal([
-                'newermpid',
-                'recentmpid',
-                'oldmpid',
-            ]);
-        });
-
-        it('should move an mpid to the end of the currentSessionMPIDs list if it is also the previous mpid', () => {
-            const store: IStore = new Store(
-                sampleConfig,
-                window.mParticle.getInstance()
-            );
-
-            store.sessionId = 'my-session-id';
-            store.currentSessionMPIDs = ['oldmpid', 'newermpid', 'recentmpid'];
-            store.addMpidToSessionHistory('oldmpid', 'oldmpid');
-
-            expect(store.currentSessionMPIDs).to.deep.equal([
-                'newermpid',
-                'recentmpid',
-                'oldmpid',
-            ]);
-        });
-    });
-
     describe('#getDeviceId', () => {
         it('should return the deviceId from the store', () => {
             const store: IStore = new Store(

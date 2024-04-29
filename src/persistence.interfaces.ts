@@ -22,7 +22,8 @@ export interface iForwardingStatsBatches {
     forwardingStatsEventQueue: ForwardingStatsData[];
 }
 
-// https://go.mparticle.com/work/SQDSDKS-5196
+// TODO: Migrate this to @types/mparticle__web-sdk
+//       https://go.mparticle.com/work/SQDSDKS-5196
 export type UserAttributes = AllUserAttributes;
 
 export interface IGlobalStoreV2MinifiedKeys {

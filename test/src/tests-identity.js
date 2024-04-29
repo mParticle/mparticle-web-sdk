@@ -126,7 +126,7 @@ describe('identity', function() {
     it('should not do an identity swap if there is no MPID change', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         const cookiesBefore = getLocalStorage();
-        mParticle.getInstance()._Persistence.swapCurrentUser(testMPID, testMPID);
+        mParticle.getInstance()._Identity.checkIdentitySwap(testMPID, testMPID);
 
         const cookiesAfter = mParticle
             .getInstance()
@@ -143,7 +143,7 @@ describe('identity', function() {
 
         mParticle
             .getInstance()
-            ._Persistence.swapCurrentUser(testMPID, 'currentMPID');
+            ._Identity.checkIdentitySwap(testMPID, 'currentMPID');
 
         const cookiesAfter = mParticle
             .getInstance()
