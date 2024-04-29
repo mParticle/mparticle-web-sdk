@@ -1,3 +1,10 @@
+## [2.26.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.26.2...v2.26.3) (2024-04-29)
+
+
+### Reverts
+
+* "refactor: Refactor ParseIdentityResponse Workflow ([#864](https://github.com/mParticle/mparticle-web-sdk/issues/864))" ([#879](https://github.com/mParticle/mparticle-web-sdk/issues/879)) ([39163d9](https://github.com/mParticle/mparticle-web-sdk/commit/39163d9a73e938354fb5b81b8498f9fc9723afad))
+
 ## [2.26.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.26.1...v2.26.2) (2024-04-23)
 
 ## [2.26.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.26.0...v2.26.1) (2024-04-22)
