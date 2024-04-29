@@ -1607,6 +1607,7 @@ export default function Identity(mpInstance) {
                         newIdentitiesByType
                     );
                     mpInstance._Persistence.update();
+                    mpInstance._Store.syncPersistenceData();
 
                     mpInstance._Persistence.findPrevCookiesBasedOnUI(
                         identityApiData
