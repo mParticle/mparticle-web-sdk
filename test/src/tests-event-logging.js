@@ -590,6 +590,27 @@ describe('event logging', function() {
         done();
     });
 
+    it('should log identify event', function(done) {
+        mockServer.respondWith(urls.logout, [
+            200,
+            {},
+            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        ]);
+        mParticle.Identity.identify();
+        const data = getIdentityEvent(mockServer.requests, 'identify');
+        data.should.have.properties(
+            'client_sdk',
+            'environment',
+            'known_identities',
+            'previous_mpid',
+            'request_id',
+            'request_timestamp_ms',
+            'context'
+        );
+
+        done();
+    });
+
     it('should log logout event', function(done) {
         mockServer.respondWith(urls.logout, [
             200,
@@ -601,6 +622,7 @@ describe('event logging', function() {
         data.should.have.properties(
             'client_sdk',
             'environment',
+            'known_identities',
             'previous_mpid',
             'request_id',
             'request_timestamp_ms',
@@ -622,6 +644,7 @@ describe('event logging', function() {
         data.should.have.properties(
             'client_sdk',
             'environment',
+            'known_identities',
             'previous_mpid',
             'request_id',
             'request_timestamp_ms',
