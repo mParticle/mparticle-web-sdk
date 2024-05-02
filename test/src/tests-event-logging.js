@@ -6,9 +6,7 @@ import { urls, apiKey,
     MPConfig,
     MessageType } from './config/constants';
 
-const getIdentityEvent = Utils.getIdentityEvent,
-    findEventFromRequest = Utils.findEventFromRequest,
-    findBatch = Utils.findBatch;
+const { findEventFromRequest, findBatch } = Utils;
 let mockServer;
 
 describe('event logging', function() {
@@ -477,67 +475,6 @@ describe('event logging', function() {
         fetchMock.resetHistory();
         mParticle.logEvent('test');
         fetchMock.calls().should.have.lengthOf(0);
-
-        done();
-    });
-
-    it('should log logout event', function(done) {
-        mockServer.respondWith(urls.logout, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
-        mParticle.Identity.logout();
-        const data = getIdentityEvent(mockServer.requests, 'logout');
-        data.should.have.properties(
-            'client_sdk',
-            'environment',
-            'previous_mpid',
-            'request_id',
-            'request_timestamp_ms',
-            'context'
-        );
-
-        done();
-    });
-
-    it('should log login event', function(done) {
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
-
-        mParticle.Identity.login();
-        const data = getIdentityEvent(mockServer.requests, 'login');
-        data.should.have.properties(
-            'client_sdk',
-            'environment',
-            'previous_mpid',
-            'request_id',
-            'request_timestamp_ms',
-            'context'
-        );
-
-        done();
-    });
-
-    it('should log modify event', function(done) {
-        mockServer.respondWith(urls.modify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
-        mParticle.Identity.modify();
-        const data = getIdentityEvent(mockServer.requests, 'modify');
-        data.should.have.properties(
-            'client_sdk',
-            'environment',
-            'identity_changes',
-            'request_id',
-            'request_timestamp_ms',
-            'context'
-        );
 
         done();
     });

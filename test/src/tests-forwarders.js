@@ -42,7 +42,14 @@ describe('forwarders', function() {
         mockServer.respondWith(urls.modify, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            JSON.stringify({
+                change_results: [
+                    {
+                        identity_type: 'email',
+                        modified_mpid: testMPID,
+                    },
+                ],
+            }),
         ]);
 
         mockServer.respondWith(urls.forwarding, [

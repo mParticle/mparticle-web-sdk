@@ -1,8 +1,11 @@
 import Constants from '../../src/constants';
 import Utils from './config/utils';
 import sinon from 'sinon';
+import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls, apiKey,
+import {
+    urls,
+    apiKey,
     testMPID,
     MPConfig,
     workspaceCookieName,
@@ -41,6 +44,179 @@ describe('identity', function() {
         mockServer.restore();
         fetchMock.restore();
         mParticle._resetForTests(MPConfig);
+    });
+
+    describe('requests', function() {
+        it('should contain identify request', function(done) {
+            mockServer.respondWith(urls.logout, [
+                200,
+                {},
+                JSON.stringify({
+                    context: null,
+                    matched_identities: {
+                        device_application_stamp: 'my-das',
+                    },
+                    is_ephemeral: true,
+                    mpid: testMPID,
+                    is_logged_in: false,
+                }),
+            ]);
+
+            mParticle.Identity.identify({
+                userIdentities: {
+                    email: 'test@email.com',
+                },
+            });
+            const data = getIdentityEvent(mockServer.requests, 'identify');
+
+            console.log('data identify', data);
+
+            data.should.have.properties(
+                'client_sdk',
+                'environment',
+                'known_identities',
+                'previous_mpid',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            expect(data.previous_mpid).to.equal(null);
+
+            expect(data.known_identities).to.have.property(
+                'device_application_stamp'
+            );
+
+            done();
+        });
+
+        it('should contain logout request', function(done) {
+            mockServer.respondWith(urls.logout, [
+                200,
+                {},
+                JSON.stringify({
+                    context: null,
+                    matched_identities: {
+                        device_application_stamp: 'my-das',
+                    },
+                    is_ephemeral: true,
+                    mpid: testMPID,
+                    is_logged_in: false,
+                }),
+            ]);
+
+            mParticle.Identity.logout();
+            const data = getIdentityEvent(mockServer.requests, 'logout');
+
+            console.log('data logout', data);
+
+            data.should.have.properties(
+                'client_sdk',
+                'environment',
+                'known_identities',
+                'previous_mpid',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            expect(data.previous_mpid).to.equal(testMPID);
+
+            expect(data.known_identities).to.have.property(
+                'device_application_stamp'
+            );
+
+            done();
+        });
+
+        it('should contain login request', function(done) {
+            mockServer.respondWith(urls.login, [
+                200,
+                {},
+                JSON.stringify({
+                    mpid: testMPID,
+                    is_logged_in: false,
+                    context: null,
+                    matched_identities: {
+                        email: 'abc@gmail.com',
+                    },
+                    is_ephemeral: false,
+                }),
+            ]);
+
+            mParticle.Identity.login({
+                userIdentities: {
+                    email: 'test@email.com',
+                },
+            });
+            const data = getIdentityEvent(mockServer.requests, 'login');
+
+            console.log('data login', data);
+
+            data.should.have.properties(
+                'client_sdk',
+                'environment',
+                'known_identities',
+                'previous_mpid',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            expect(data.previous_mpid).to.equal(testMPID);
+
+            expect(data.known_identities).to.have.property(
+                'email',
+                'test@email.com'
+            );
+            expect(data.known_identities).to.have.property(
+                'device_application_stamp'
+            );
+
+            done();
+        });
+
+        it('should contain modify request', function(done) {
+            mockServer.respondWith(urls.modify, [
+                200,
+                {},
+                JSON.stringify({
+                    change_results: [
+                        {
+                            identity_type: 'email',
+                            modified_mpid: testMPID,
+                        },
+                    ],
+                }),
+            ]);
+
+            mParticle.Identity.modify({
+                userIdentities: {
+                    email: 'test@email.com',
+                },
+            });
+
+            const data = getIdentityEvent(mockServer.requests, 'modify');
+
+            data.should.have.properties(
+                'client_sdk',
+                'environment',
+                'identity_changes',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            expect(data.identity_changes).to.deep.equal([
+                {
+                    old_value: null,
+                    new_value: 'test@email.com',
+                    identity_type: 'email',
+                },
+            ]);
+
+            done();
+        });
     });
 
     it('should respect consent rules on consent-change', function(done) {
@@ -981,7 +1157,14 @@ describe('identity', function() {
         mockServer.respondWith(urls.modify, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            JSON.stringify({
+                change_results: [
+                    {
+                        identity_type: 'email',
+                        modified_mpid: testMPID,
+                    },
+                ],
+            }),
         ]);
 
         mParticle.Identity.modify(identityAPIData);
@@ -1612,7 +1795,14 @@ describe('identity', function() {
         mockServer.respondWith(urls.modify, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            JSON.stringify({
+                change_results: [
+                    {
+                        identity_type: 'valid-identity-type',
+                        modified_mpid: testMPID,
+                    },
+                ],
+            }),
         ]);
 
         identityMethods.forEach(function(identityMethod) {
@@ -1626,13 +1816,46 @@ describe('identity', function() {
                 result = null;
             });
 
-            // for some reason this is returning -4 for a good identity.
-            validUserIdentities.forEach(function(goodIdentities) {
-                mParticle.Identity[identityMethod](goodIdentities, callback);
-                result.httpCode.should.equal(200);
-                result.body.mpid.should.equal(testMPID);
-                result = null;
-            });
+            // modify request have a unique signature but the same validation
+            // for invalid values
+            if (identityMethod !== 'modify') {
+                // for some reason this is returning -4 for a good identity.
+                validUserIdentities.forEach(function(goodIdentities) {
+                    mParticle.Identity[identityMethod](
+                        goodIdentities,
+                        callback
+                    );
+                    expect(
+                        result.httpCode,
+                        `valid ${identityMethod} httpCode`
+                    ).to.equal(200);
+                    console.warn(result.body);
+                    expect(
+                        result.body.mpid,
+                        `valid ${identityMethod} mpid `
+                    ).to.be.ok;
+                    expect(
+                        result.body.mpid,
+                        `valid ${identityMethod} mpid`
+                    ).to.equal(testMPID);
+                    result = null;
+                });
+            } else {
+                validUserIdentities.forEach(function(goodIdentities) {
+                    mParticle.Identity.modify(goodIdentities, callback);
+                    expect(result.httpCode, `valid modify httpCode`).to.equal(
+                        200
+                    );
+                    expect(
+                        result.body.change_results[0].modified_mpid,
+                        `valid modify change_results modified_mpid`
+                    ).to.equal(testMPID);
+                    expect(
+                        result.body.change_results[0].identity_type,
+                        `valid modify change_results identity_type`
+                    ).to.be.ok;
+                });
+            }
         });
 
         done();
@@ -1762,11 +1985,15 @@ describe('identity', function() {
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
-        
+
         mockServer.respondWith(urls.modify, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            JSON.stringify({
+                change_results: [
+                    { identity_type: 'customerid', modified_mpid: testMPID },
+                ],
+            }),
         ]);
 
         mParticle.Identity.login(user);
@@ -3295,7 +3522,14 @@ describe('identity', function() {
             mockServer.respondWith(urls.modify, [
                 200,
                 {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+                JSON.stringify({
+                    change_results: [
+                        {
+                            identity_type: 'customerid',
+                            modified_mpid: testMPID,
+                        },
+                    ],
+                }),
             ]);
 
             mockServer.requests = [];
