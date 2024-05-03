@@ -591,7 +591,7 @@ describe('event logging', function() {
     });
 
     it('should log identify event', function(done) {
-        mockServer.respondWith(urls.logout, [
+        mockServer.respondWith(urls.identify, [
             200,
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),

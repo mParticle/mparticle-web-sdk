@@ -69,8 +69,6 @@ describe('identity', function() {
             });
             const data = getIdentityEvent(mockServer.requests, 'identify');
 
-            console.log('data identify', data);
-
             data.should.have.properties(
                 'client_sdk',
                 'environment',
@@ -107,8 +105,6 @@ describe('identity', function() {
 
             mParticle.Identity.logout();
             const data = getIdentityEvent(mockServer.requests, 'logout');
-
-            console.log('data logout', data);
 
             data.should.have.properties(
                 'client_sdk',
@@ -150,8 +146,6 @@ describe('identity', function() {
                 },
             });
             const data = getIdentityEvent(mockServer.requests, 'login');
-
-            console.log('data login', data);
 
             data.should.have.properties(
                 'client_sdk',
@@ -1840,6 +1834,8 @@ describe('identity', function() {
                     Constants.Messages.ValidationMessages
                         .UserIdentitiesInvalidValues
                 );
+
+                // Reset result for next iteration of the loop
                 result = null;
             });
 
@@ -1856,7 +1852,6 @@ describe('identity', function() {
                         result.httpCode,
                         `valid ${identityMethod} httpCode`
                     ).to.equal(200);
-                    console.warn(result.body);
                     expect(
                         result.body.mpid,
                         `valid ${identityMethod} mpid `
@@ -1865,6 +1860,8 @@ describe('identity', function() {
                         result.body.mpid,
                         `valid ${identityMethod} mpid`
                     ).to.equal(testMPID);
+
+                    // Reset result for next iteration of the loop
                     result = null;
                 });
             } else {
@@ -1881,6 +1878,9 @@ describe('identity', function() {
                         result.body.change_results[0].identity_type,
                         `valid modify change_results identity_type`
                     ).to.be.ok;
+
+                    // Reset result for next iteration of the loop
+                    result = null;
                 });
             }
         });
