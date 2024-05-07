@@ -117,12 +117,7 @@ describe('Identity', () => {
                     sdk_vendor: 'mparticle',
                     sdk_version: '1.0.0',
                 },
-                context: {
-                    data_plan: {
-                        plan_id: '123',
-                        plan_version: 1,
-                    },
-                },
+                context: 'test-context',
                 environment: 'development',
                 request_id: '123',
                 reqest_timestamp_unixtime_ms: Date.now(),
@@ -142,12 +137,7 @@ describe('Identity', () => {
                     sdk_vendor: 'mparticle',
                     sdk_version: '1.0.0',
                 },
-                context: {
-                    data_plan: {
-                        plan_id: '123',
-                        plan_version: 1,
-                    },
-                },
+                context: 'test-context',
                 environment: 'development',
                 request_id: '123',
                 reqest_timestamp_unixtime_ms: Date.now(),

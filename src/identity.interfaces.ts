@@ -55,7 +55,7 @@ export interface IIdentityAPIRequestData {
         sdk_vendor: typeof sdkVendor;
         sdk_version: typeof sdkVersion;
     };
-    context: string;
+    context: string | null;
     environment: Environment;
     request_id: string;
     reqest_timestamp_unixtime_ms: number;
@@ -84,16 +84,16 @@ export interface IIdentityRequest {
         sdkVendor: string,
         sdkVersion: string,
         deviceId: string,
-        context: string,
+        context: string | null,
         mpid: MPID
-    ): IdentityAPIMethod;
+    ): IIdentityAPIRequestData;
     createModifyIdentityRequest(
         currentUserIdentities: UserIdentities,
         newUserIdentities: UserIdentities,
         platform: string,
         sdkVendor: string,
         sdkVersion: string,
-        context: string
+        context: string | null
     ): IIdentityAPIModifyRequestData;
     createIdentityChanges(
         previousIdentities: UserIdentities,
@@ -111,6 +111,7 @@ export interface IAliasRequest {
     sourceMpid: MPID;
     startTime: number;
     endTime: number;
+    scope?: string;
 }
 
 export interface SDKIdentityApi {
