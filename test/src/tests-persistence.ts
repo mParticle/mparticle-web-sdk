@@ -1507,7 +1507,7 @@ describe('persistence', () => {
             .getInstance()
             .Identity.getCurrentUser()
             .getConsentState();
-        storedConsentState.should.be.ok();
+        storedConsentState.should.be.ok;
         storedConsentState
             .getGDPRConsentState()
             .should.have.property('foo purpose');
