@@ -157,7 +157,7 @@ export interface IIdentity {
     checkIdentitySwap(
         previousMPID: MPID,
         currentMPID: MPID,
-        currentSessionMPIDs: MPID[]
+        currentSessionMPIDs?: MPID[]
     ): void;
     createUserAttributeChange(
         key: string,
