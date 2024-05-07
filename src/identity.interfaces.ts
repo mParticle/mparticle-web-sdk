@@ -19,7 +19,7 @@ const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
 
 export type IdentityPreProcessResult = {
     valid: boolean;
-    error: string;
+    error?: string;
 };
 
 export type IdentityAPIMethod = valueof<typeof Constants.IdentityMethods>;
