@@ -16,7 +16,7 @@ import {
     ISDKUserAttributeChangeData,
     ISDKUserIdentityChanges,
     MParticleUser,
-    SDKUserIdentity,
+    ISDKUserIdentity,
 } from './identity-user-interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
@@ -28,7 +28,7 @@ export interface SDKEvent {
     EventName: string;
     EventCategory: number;
     UserAttributes?: { [key: string]: string | string[] | null };
-    UserIdentities?: SDKUserIdentity[];
+    UserIdentities?: ISDKUserIdentity[];
     SourceMessageId: string;
     MPID: string;
     EventAttributes?: { [key: string]: string };

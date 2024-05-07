@@ -3,7 +3,9 @@ import {
     ConsentState,
     IdentityApiData,
     IdentityCallback,
+    MPID,
     Product,
+    User,
 } from '@mparticle/web-sdk';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types.interfaces';
@@ -11,21 +13,15 @@ import { BaseEvent } from './sdkRuntimeModels';
 
 // https://go.mparticle.com/work/SQDSDKS-5033
 // https://go.mparticle.com/work/SQDSDKS-6354
-export interface MParticleUser {
-    getMPID?(): string;
-    getConsentState?(): ConsentState;
-    setConsentState?(consentState: ConsentState): void;
-    getAllUserAttributes?(): any;
-    setUserAttribute?(key: string, value: any): void;
-    setUserAttributeList?(key: string, value: any): void;
-    setUserAttributes?(userAttributes: UserAttributes): void;
+export interface MParticleUser extends User {
+    getAllUserAttributes(): any;
+    setUserTag(tagName: string, value?: any): void;
+    setUserAttribute(key: string, value: any): void;
     getUserAudiences?(callback?: IdentityCallback): void;
-    getUserIdentities?(): IdentityApiData;
-    setUserTag?(tagName: string, value?: any): void;
 }
 
-export interface SDKUserIdentity {
-    Identity?: string;
+export interface ISDKUserIdentity {
+    Identity: string;
     Type: number;
 }
 
@@ -64,11 +60,6 @@ export interface mParticleUserCart {
     remove(product: Product, logEvent: boolean): void;
     clear(): void;
     getCartProducts(): Product[];
-}
-
-export interface SDKUserIdentity {
-    Identity?: string;
-    Type: number;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-5196

@@ -25,7 +25,7 @@ import {
     IPrivacyV2DTO,
     SDKConsentState,
 } from './consent';
-import { MParticleUser, SDKUserIdentity } from './identity-user-interfaces';
+import { MParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
@@ -47,7 +47,7 @@ export interface IServerV2DTO {
     n?: string;
     et?: number;
     ua?: Dictionary<string | string[]>;
-    ui?: SDKUserIdentity[];
+    ui?: ISDKUserIdentity[];
     ia?: Dictionary<Dictionary<string>>;
     str?: ServerSettings;
     sdk?: string;
@@ -229,7 +229,7 @@ export default function ServerModel(
         if (mpInstance._Helpers.isObject(dtoUserIdentities)) {
             if (Object.keys(dtoUserIdentities).length) {
                 for (var key in dtoUserIdentities) {
-                    var userIdentity: Partial<SDKUserIdentity> = {};
+                    var userIdentity: Partial<ISDKUserIdentity> = {};
                     userIdentity.Identity = dtoUserIdentities[key];
                     userIdentity.Type = mpInstance._Helpers.parseNumber(key);
                     validUserIdentities.push(userIdentity);

@@ -1,9 +1,12 @@
 import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 import { IKitConfigs } from './configAPIClient';
-import { UserAttributes } from './persistence.interfaces';
 import { IdentityApiData } from '@mparticle/web-sdk';
-import { MParticleUser, SDKUserIdentity } from './identity-user-interfaces';
+import {
+    MParticleUser,
+    ISDKUserIdentity,
+    UserAttributes,
+} from './identity-user-interfaces';
 
 // TODO: https://go.mparticle.com/work/SQDSDKS-6035
 export type Kit = Dictionary;
@@ -15,7 +18,7 @@ export interface UnregisteredKit {
     register(config): void;
 }
 
-// The state of the kit after being added to forwarderConstructors in the CDN 
+// The state of the kit after being added to forwarderConstructors in the CDN
 // or after registered to SDKConfig.kits via NPM
 export interface RegisteredKit {
     constructor(): void;
@@ -33,7 +36,7 @@ export interface ConfiguredKit
         testMode: boolean,
         trackerId: string | null,
         userAttributes: UserAttributes,
-        userIdentities: SDKUserIdentity,
+        userIdentities: ISDKUserIdentity,
         appVersion: string,
         appName: string,
         customFlags: SDKEventCustomFlags,
@@ -59,7 +62,7 @@ export interface ConfiguredKit
     process(event: SDKEvent): string;
     setOptOut(isOptingOut: boolean): string | KitMappedMethodFailure;
     removeUserAttribute(key: string): string;
-    setUserAttribute(key: string, value:string): string;
+    setUserAttribute(key: string, value: string): string;
 
     // TODO: Convert type to enum during Identity migration
     // https://go.mparticle.com/work/SQDSDKS-5218
