@@ -15,7 +15,7 @@ export interface MParticleUser {
     getMPID?(): string;
     getConsentState?(): ConsentState;
     setConsentState?(consentState: ConsentState): void;
-    getAllUserAttributes?(): any; // FIXME;
+    getAllUserAttributes?(): any;
     setUserAttribute?(key: string, value: any): void;
     setUserAttributeList?(key: string, value: any): void;
     setUserAttributes?(userAttributes: UserAttributes): void;
