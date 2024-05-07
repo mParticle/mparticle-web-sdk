@@ -1,8 +1,11 @@
 import Constants from '../../src/constants';
 import Utils from './config/utils';
 import sinon from 'sinon';
+import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
-import { urls, apiKey,
+import {
+    urls,
+    apiKey,
     testMPID,
     MPConfig,
     workspaceCookieName,
@@ -43,6 +46,173 @@ describe('identity', function() {
         mParticle._resetForTests(MPConfig);
     });
 
+    describe('requests', function() {
+        it('should contain identify request', function(done) {
+            mockServer.respondWith(urls.logout, [
+                200,
+                {},
+                JSON.stringify({
+                    context: null,
+                    matched_identities: {
+                        device_application_stamp: 'my-das',
+                    },
+                    is_ephemeral: true,
+                    mpid: testMPID,
+                    is_logged_in: false,
+                }),
+            ]);
+
+            mParticle.Identity.identify({
+                userIdentities: {
+                    email: 'test@email.com',
+                },
+            });
+            const data = getIdentityEvent(mockServer.requests, 'identify');
+
+            data.should.have.properties(
+                'client_sdk',
+                'environment',
+                'known_identities',
+                'previous_mpid',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            expect(data.previous_mpid).to.equal(null);
+
+            expect(data.known_identities).to.have.property(
+                'device_application_stamp'
+            );
+
+            done();
+        });
+
+        it('should contain logout request', function(done) {
+            mockServer.respondWith(urls.logout, [
+                200,
+                {},
+                JSON.stringify({
+                    context: null,
+                    matched_identities: {
+                        device_application_stamp: 'my-das',
+                    },
+                    is_ephemeral: true,
+                    mpid: testMPID,
+                    is_logged_in: false,
+                }),
+            ]);
+
+            mParticle.Identity.logout();
+            const data = getIdentityEvent(mockServer.requests, 'logout');
+
+            data.should.have.properties(
+                'client_sdk',
+                'environment',
+                'known_identities',
+                'previous_mpid',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            expect(data.previous_mpid).to.equal(testMPID);
+
+            expect(data.known_identities).to.have.property(
+                'device_application_stamp'
+            );
+
+            done();
+        });
+
+        it('should contain login request', function(done) {
+            mockServer.respondWith(urls.login, [
+                200,
+                {},
+                JSON.stringify({
+                    mpid: testMPID,
+                    is_logged_in: false,
+                    context: null,
+                    matched_identities: {
+                        email: 'abc@gmail.com',
+                    },
+                    is_ephemeral: false,
+                }),
+            ]);
+
+            mParticle.Identity.login({
+                userIdentities: {
+                    email: 'test@email.com',
+                },
+            });
+            const data = getIdentityEvent(mockServer.requests, 'login');
+
+            data.should.have.properties(
+                'client_sdk',
+                'environment',
+                'known_identities',
+                'previous_mpid',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            expect(data.previous_mpid).to.equal(testMPID);
+
+            expect(data.known_identities).to.have.property(
+                'email',
+                'test@email.com'
+            );
+            expect(data.known_identities).to.have.property(
+                'device_application_stamp'
+            );
+
+            done();
+        });
+
+        it('should contain modify request', function(done) {
+            mockServer.respondWith(urls.modify, [
+                200,
+                {},
+                JSON.stringify({
+                    change_results: [
+                        {
+                            identity_type: 'email',
+                            modified_mpid: testMPID,
+                        },
+                    ],
+                }),
+            ]);
+
+            mParticle.Identity.modify({
+                userIdentities: {
+                    email: 'test@email.com',
+                },
+            });
+
+            const data = getIdentityEvent(mockServer.requests, 'modify');
+
+            data.should.have.properties(
+                'client_sdk',
+                'environment',
+                'identity_changes',
+                'request_id',
+                'request_timestamp_ms',
+                'context'
+            );
+
+            expect(data.identity_changes).to.deep.equal([
+                {
+                    old_value: null,
+                    new_value: 'test@email.com',
+                    identity_type: 'email',
+                },
+            ]);
+
+            done();
+        });
+    });
+
     it('should respect consent rules on consent-change', function(done) {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
@@ -54,7 +224,9 @@ describe('identity', function() {
             includeOnMatch: true,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 1'),
+                    consentPurpose: mParticle.generateHash(
+                        '1' + 'foo purpose 1'
+                    ),
                     hasConsented: true,
                 },
             ],
@@ -68,7 +240,9 @@ describe('identity', function() {
             includeOnMatch: true,
             values: [
                 {
-                    consentPurpose: mParticle.generateHash('1' + 'foo purpose 2'),
+                    consentPurpose: mParticle.generateHash(
+                        '1' + 'foo purpose 2'
+                    ),
                     hasConsented: true,
                 },
             ],
@@ -717,7 +891,7 @@ describe('identity', function() {
             'other10'
         );
         identityRequest.identity_changes[18].new_value.should.equal('id32');
-        
+
         identityRequest.identity_changes[19].old_value.should.equal('id20');
         identityRequest.identity_changes[19].identity_type.should.equal(
             'mobile_number'
@@ -981,7 +1155,14 @@ describe('identity', function() {
         mockServer.respondWith(urls.modify, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            JSON.stringify({
+                change_results: [
+                    {
+                        identity_type: 'email',
+                        modified_mpid: testMPID,
+                    },
+                ],
+            }),
         ]);
 
         mParticle.Identity.modify(identityAPIData);
@@ -1024,11 +1205,7 @@ describe('identity', function() {
     it('queue events when MPID is 0, and then flush events once MPID changes', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        mockServer.respondWith(urls.identify, [
-            0,
-            {},
-            JSON.stringify({}),
-        ]);
+        mockServer.respondWith(urls.identify, [0, {}, JSON.stringify({})]);
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -1036,9 +1213,9 @@ describe('identity', function() {
         mParticle.logEvent('Test Event1');
 
         let testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
-        
+
         Should(testEvent1).not.be.ok();
-        
+
         mockServer.respondWith(urls.login, [
             200,
             {},
@@ -1050,10 +1227,19 @@ describe('identity', function() {
         // server requests will have AST, sessionStart, Test1, Test2, and login
         testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
         fetchMock.calls().length.should.equal(4);
-        
-        const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
-        const ASTEvent = findEventFromRequest(fetchMock.calls(), 'application_state_transition');
-        const sessionStartEvent = findEventFromRequest(fetchMock.calls(), 'session_start');
+
+        const testEvent2 = findEventFromRequest(
+            fetchMock.calls(),
+            'Test Event2'
+        );
+        const ASTEvent = findEventFromRequest(
+            fetchMock.calls(),
+            'application_state_transition'
+        );
+        const sessionStartEvent = findEventFromRequest(
+            fetchMock.calls(),
+            'session_start'
+        );
         const loginEvent = getIdentityEvent(mockServer.requests, 'login');
 
         Should(testEvent1).be.ok();
@@ -1121,7 +1307,6 @@ describe('identity', function() {
             {},
             JSON.stringify({ mpid: 'user1', is_logged_in: false }),
         ]);
-
 
         mParticle.identifyRequest = userIdentities1;
 
@@ -1231,7 +1416,11 @@ describe('identity', function() {
             twitter: 'test3',
             device_application_stamp: 'das-test',
         };
-        const newUIByName = { google: 'google4', twitter: 'twitter5', invalidKey: 'test' };
+        const newUIByName = {
+            google: 'google4',
+            twitter: 'twitter5',
+            invalidKey: 'test',
+        };
 
         const combinedUIsByType = mParticle
             .getInstance()
@@ -1292,7 +1481,14 @@ describe('identity', function() {
         mockServer.respondWith(urls.modify, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            JSON.stringify({
+                change_results: [
+                    {
+                        identity_type: 'email',
+                        modified_mpid: testMPID,
+                    },
+                ],
+            }),
         ]);
 
         mParticle.Identity.modify(user1modified);
@@ -1311,8 +1507,14 @@ describe('identity', function() {
         const testEvent1Batch = findBatch(fetchMock.calls(), 'Test Event1');
 
         testEvent1Batch.user_attributes.should.have.property('foo1', 'bar1');
-        testEvent1Batch.user_identities.should.have.property('customer_id', 'customerid1');
-        testEvent1Batch.user_identities.should.have.property('email', 'email2@test.com');
+        testEvent1Batch.user_identities.should.have.property(
+            'customer_id',
+            'customerid1'
+        );
+        testEvent1Batch.user_identities.should.have.property(
+            'email',
+            'email2@test.com'
+        );
 
         const products = getLocalStorageProducts();
 
@@ -1344,7 +1546,10 @@ describe('identity', function() {
         const testEvent2Batch = findBatch(fetchMock.calls(), 'Test Event2');
 
         Object.keys(testEvent2Batch.user_attributes).length.should.equal(0);
-        testEvent2Batch.user_identities.should.have.property('customer_id', 'customerid2');
+        testEvent2Batch.user_identities.should.have.property(
+            'customer_id',
+            'customerid2'
+        );
 
         mockServer.respondWith(urls.login, [
             200,
@@ -1358,8 +1563,14 @@ describe('identity', function() {
 
         testEvent3Batch.user_attributes.should.have.property('foo1', 'bar1');
         Object.keys(testEvent3Batch.user_identities).length.should.equal(2);
-        testEvent3Batch.user_identities.should.have.property('customer_id', 'customerid1');
-        testEvent3Batch.user_identities.should.have.property('email', 'email2@test.com');
+        testEvent3Batch.user_identities.should.have.property(
+            'customer_id',
+            'customerid1'
+        );
+        testEvent3Batch.user_identities.should.have.property(
+            'email',
+            'email2@test.com'
+        );
 
         const products2 = getLocalStorageProducts();
 
@@ -1612,7 +1823,14 @@ describe('identity', function() {
         mockServer.respondWith(urls.modify, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            JSON.stringify({
+                change_results: [
+                    {
+                        identity_type: 'valid-identity-type',
+                        modified_mpid: testMPID,
+                    },
+                ],
+            }),
         ]);
 
         identityMethods.forEach(function(identityMethod) {
@@ -1623,23 +1841,62 @@ describe('identity', function() {
                     Constants.Messages.ValidationMessages
                         .UserIdentitiesInvalidValues
                 );
+
+                // Reset result for next iteration of the loop
                 result = null;
             });
 
-            // for some reason this is returning -4 for a good identity.
-            validUserIdentities.forEach(function(goodIdentities) {
-                mParticle.Identity[identityMethod](goodIdentities, callback);
-                result.httpCode.should.equal(200);
-                result.body.mpid.should.equal(testMPID);
-                result = null;
-            });
+            // modify request have a unique signature but the same validation
+            // for invalid values
+            if (identityMethod !== 'modify') {
+                // for some reason this is returning -4 for a good identity.
+                validUserIdentities.forEach(function(goodIdentities) {
+                    mParticle.Identity[identityMethod](
+                        goodIdentities,
+                        callback
+                    );
+                    expect(
+                        result.httpCode,
+                        `valid ${identityMethod} httpCode`
+                    ).to.equal(200);
+                    expect(
+                        result.body.mpid,
+                        `valid ${identityMethod} mpid `
+                    ).to.be.ok;
+                    expect(
+                        result.body.mpid,
+                        `valid ${identityMethod} mpid`
+                    ).to.equal(testMPID);
+
+                    // Reset result for next iteration of the loop
+                    result = null;
+                });
+            } else {
+                validUserIdentities.forEach(function(goodIdentities) {
+                    mParticle.Identity.modify(goodIdentities, callback);
+                    expect(result.httpCode, `valid modify httpCode`).to.equal(
+                        200
+                    );
+                    expect(
+                        result.body.change_results[0].modified_mpid,
+                        `valid modify change_results modified_mpid`
+                    ).to.equal(testMPID);
+                    expect(
+                        result.body.change_results[0].identity_type,
+                        `valid modify change_results identity_type`
+                    ).to.be.ok;
+
+                    // Reset result for next iteration of the loop
+                    result = null;
+                });
+            }
         });
 
         done();
     });
 
     it('should have no user identities when logging out or in with no object', function(done) {
-        mParticle.init(apiKey, window.mParticle.config)
+        mParticle.init(apiKey, window.mParticle.config);
         const user = {
             userIdentities: {
                 customerid: '123',
@@ -1721,9 +1978,15 @@ describe('identity', function() {
 
         mParticle.eCommerce.logCheckout(1);
 
-        const checkoutEvent = findEventFromRequest(fetchMock.calls(), 'checkout');
+        const checkoutEvent = findEventFromRequest(
+            fetchMock.calls(),
+            'checkout'
+        );
 
-        checkoutEvent.data.product_action.should.have.property('products', null)
+        checkoutEvent.data.product_action.should.have.property(
+            'products',
+            null
+        );
 
         mockServer.respondWith(urls.login, [
             200,
@@ -1735,16 +1998,21 @@ describe('identity', function() {
         fetchMock.resetHistory();
         mParticle.eCommerce.logCheckout(1);
 
-        const checkoutEvent2 = findEventFromRequest(fetchMock.calls(), 'checkout');
+        const checkoutEvent2 = findEventFromRequest(
+            fetchMock.calls(),
+            'checkout'
+        );
 
-        checkoutEvent2.data.product_action.should.have.property('products', null);
+        checkoutEvent2.data.product_action.should.have.property(
+            'products',
+            null
+        );
 
         done();
-    
     });
 
     it('should update cookies after modifying identities', function(done) {
-        mParticle.init(apiKey, window.mParticle.config)
+        mParticle.init(apiKey, window.mParticle.config);
         const user = {
             userIdentities: {
                 customerid: 'customerId1',
@@ -1762,11 +2030,15 @@ describe('identity', function() {
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
-        
+
         mockServer.respondWith(urls.modify, [
             200,
             {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+            JSON.stringify({
+                change_results: [
+                    { identity_type: 'customerid', modified_mpid: testMPID },
+                ],
+            }),
         ]);
 
         mParticle.Identity.login(user);
@@ -1779,7 +2051,7 @@ describe('identity', function() {
     });
 
     it('does not run onUserAlias if it is not a function', function(done) {
-        mParticle.init(apiKey, window.mParticle.config)
+        mParticle.init(apiKey, window.mParticle.config);
         const user1 = {
             userIdentities: {
                 customerid: 'customerId1',
@@ -1803,7 +2075,6 @@ describe('identity', function() {
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
-
 
         mParticle.Identity.login(user1);
 
@@ -2059,13 +2330,22 @@ describe('identity', function() {
         fetchMock.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
 
-        (fetchMock.calls().length === 0).should.equal.true
+        (fetchMock.calls().length === 0).should.equal.true;
         clock.tick(1000);
 
-        const sessionStartEventBatch = findBatch(fetchMock.calls(), 'session_start');
-        const ASTEventBatch = findBatch(fetchMock.calls(), 'application_state_transition');
+        const sessionStartEventBatch = findBatch(
+            fetchMock.calls(),
+            'session_start'
+        );
+        const ASTEventBatch = findBatch(
+            fetchMock.calls(),
+            'application_state_transition'
+        );
 
-        sessionStartEventBatch.user_attributes.should.have.property('foo', 'bar');
+        sessionStartEventBatch.user_attributes.should.have.property(
+            'foo',
+            'bar'
+        );
         ASTEventBatch.user_attributes.should.have.property('foo', 'bar');
         clock.restore();
 
@@ -2088,7 +2368,6 @@ describe('identity', function() {
         };
 
         mParticle.init(apiKey, window.mParticle.config);
-
 
         mockServer.respondWith(urls.identify, [
             200,
@@ -2571,11 +2850,7 @@ describe('identity', function() {
             startTime: 3,
             endTime: 4,
         };
-        mockServer.respondWith(urls.alias, [
-            200,
-            {},
-            JSON.stringify({}),
-        ]);
+        mockServer.respondWith(urls.alias, [200, {}, JSON.stringify({})]);
 
         mParticle.Identity.aliasUsers(aliasRequest);
         mockServer.requests.length.should.equal(1);
@@ -2609,11 +2884,7 @@ describe('identity', function() {
             endTime: 4,
             scope: 'mpid',
         };
-        mockServer.respondWith(urls.alias, [
-            200,
-            {},
-            JSON.stringify({}),
-        ]);
+        mockServer.respondWith(urls.alias, [200, {}, JSON.stringify({})]);
 
         mParticle.Identity.aliasUsers(aliasRequest);
         mockServer.requests.length.should.equal(1);
@@ -2745,11 +3016,7 @@ describe('identity', function() {
             endTime: 4,
         };
 
-        mockServer.respondWith(urls.alias, [
-            200,
-            {},
-            JSON.stringify({}),
-        ]);
+        mockServer.respondWith(urls.alias, [200, {}, JSON.stringify({})]);
 
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
@@ -2775,7 +3042,7 @@ describe('identity', function() {
                 code: 'ignored code',
             }),
         ]);
-    
+
         const aliasRequest = {
             destinationMpid: 1,
             sourceMpid: 2,
@@ -3031,7 +3298,7 @@ describe('identity', function() {
         mockServer.respondWith(urls.identify, [
             0,
             {},
-            JSON.stringify({ body: null}),
+            JSON.stringify({ body: null }),
         ]);
 
         mParticle.config.identityCallback = identityCallback;
@@ -3050,19 +3317,21 @@ describe('identity', function() {
         mockServer.respondWith(urls.identify, [
             200,
             {},
-            JSON.stringify({ body: null}),
+            JSON.stringify({ body: null }),
         ]);
 
         mParticle.init(apiKey, window.mParticle.config);
 
         const data = getIdentityEvent(mockServer.requests, 'identify');
         data.known_identities.device_application_stamp.length.should.equal(36);
-        
+
         mParticle.setDeviceId('foo-guid');
-        mParticle.Identity.login({userIdentities: {customerid: 'test'}});
+        mParticle.Identity.login({ userIdentities: { customerid: 'test' } });
         const data2 = getIdentityEvent(mockServer.requests, 'login');
 
-        data2.known_identities.device_application_stamp.should.equal('foo-guid');
+        data2.known_identities.device_application_stamp.should.equal(
+            'foo-guid'
+        );
 
         done();
     });
@@ -3072,7 +3341,7 @@ describe('identity', function() {
         mockServer.respondWith(urls.identify, [
             200,
             {},
-            JSON.stringify({ body: null}),
+            JSON.stringify({ body: null }),
         ]);
         mockServer.requests = [];
         window.mParticle.config.deviceId = 'foo-guid';
@@ -3098,33 +3367,37 @@ describe('identity', function() {
             mParticle._resetForTests(MPConfig);
             mockServer.respondWith(urls.identify, [
                 200,
-                {'x-mp-max-age': X_MP_MAX_AGE},
+                { 'x-mp-max-age': X_MP_MAX_AGE },
                 JSON.stringify({ mpid: testMPID, is_logged_in: false }),
             ]);
-            
+
             mockServer.requests = [];
-            
+
             const identities = {
                 userIdentities: {
                     customerid: 'abc',
-                    email: 'test@gmail.com'
-                }
-            }
-            
+                    email: 'test@gmail.com',
+                },
+            };
+
             mParticle.config.identifyRequest = identities;
-            
+
             localStorage.clear();
             mParticle.config.flags.cacheIdentity = 'True';
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            let idCache = JSON.parse(localStorage.getItem('mprtcl-v4_abcdef-id-cache'));
+            let idCache = JSON.parse(
+                localStorage.getItem('mprtcl-v4_abcdef-id-cache')
+            );
 
             // a single identify cache key will be on the idCache
             Should(Object.keys(idCache).length).equal(1);
             for (let key in idCache) {
-            // we previously ticked forward 1 second, so the expire timestamp should be 1 second more than the X_MP_MAX_AGE
-            Should(idCache[key].expireTimestamp).equal(X_MP_MAX_AGE * 1000 + 1)
+                // we previously ticked forward 1 second, so the expire timestamp should be 1 second more than the X_MP_MAX_AGE
+                Should(idCache[key].expireTimestamp).equal(
+                    X_MP_MAX_AGE * 1000 + 1
+                );
             }
         });
 
@@ -3141,26 +3414,32 @@ describe('identity', function() {
             const identities = {
                 userIdentities: {
                     customerid: 'abc',
-                    email: 'test@gmail.com'
-                }
-            }
+                    email: 'test@gmail.com',
+                },
+            };
 
             mParticle.config.identifyRequest = identities;
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
-            const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+            const initialIdentityCall = getIdentityEvent(
+                mockServer.requests,
+                'identify'
+            );
 
             initialIdentityCall.should.be.ok();
             mockServer.requests = [];
             const callback = sinon.spy();
             mParticle.Identity.identify(identities, callback);
 
-            const duplicateIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+            const duplicateIdentityCall = getIdentityEvent(
+                mockServer.requests,
+                'identify'
+            );
 
             Should(duplicateIdentityCall).not.be.ok();
 
-            // callback still gets called even if the identity call is not made` 
+            // callback still gets called even if the identity call is not made`
             Should(callback.called).equal(true);
         });
 
@@ -3170,7 +3449,7 @@ describe('identity', function() {
             mParticle._resetForTests(MPConfig);
             mockServer.respondWith(urls.identify, [
                 200,
-                {'x-mp-max-age': X_MP_MAX_AGE},
+                { 'x-mp-max-age': X_MP_MAX_AGE },
                 JSON.stringify({ mpid: testMPID, is_logged_in: false }),
             ]);
 
@@ -3179,23 +3458,29 @@ describe('identity', function() {
             const identities = {
                 userIdentities: {
                     customerid: 'abc',
-                    email: 'test@gmail.com'
-                }
-            }
+                    email: 'test@gmail.com',
+                },
+            };
 
             mParticle.config.identifyRequest = identities;
             mParticle.config.flags.cacheIdentity = 'True';
             mParticle.init(apiKey, window.mParticle.config);
 
-            const initialIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+            const initialIdentityCall = getIdentityEvent(
+                mockServer.requests,
+                'identify'
+            );
             initialIdentityCall.should.be.ok();
             mockServer.requests = [];
-           const callback = sinon.spy();
+            const callback = sinon.spy();
 
             // cached time will be 1000 if header returns '1'
             clock.tick(1001);
             mParticle.Identity.identify(identities, callback);
-            const duplicateIdentityCall = getIdentityEvent(mockServer.requests, 'identify');
+            const duplicateIdentityCall = getIdentityEvent(
+                mockServer.requests,
+                'identify'
+            );
 
             Should(duplicateIdentityCall).be.ok();
             Should(callback.called).equal(true);
@@ -3220,9 +3505,9 @@ describe('identity', function() {
             const identities = {
                 userIdentities: {
                     customerid: 'abc',
-                    email: 'test@gmail.com'
-                }
-            }
+                    email: 'test@gmail.com',
+                },
+            };
 
             mParticle.config.identifyRequest = identities;
             mParticle.config.flags.cacheIdentity = 'True';
@@ -3231,13 +3516,19 @@ describe('identity', function() {
             const callback = sinon.spy();
 
             mParticle.Identity.login(identities, callback);
-            const firstLoginCall = getIdentityEvent(mockServer.requests, 'login');
+            const firstLoginCall = getIdentityEvent(
+                mockServer.requests,
+                'login'
+            );
 
             Should(firstLoginCall).be.ok();
             mockServer.requests = [];
 
             mParticle.Identity.login(identities);
-            const secondLoginCall = getIdentityEvent(mockServer.requests, 'login');
+            const secondLoginCall = getIdentityEvent(
+                mockServer.requests,
+                'login'
+            );
 
             Should(secondLoginCall).not.be.ok();
             Should(callback.called).equal(true);
@@ -3247,10 +3538,10 @@ describe('identity', function() {
             const clock = sinon.useFakeTimers();
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
-            
+
             mockServer.respondWith(urls.login, [
                 200,
-                {'x-mp-max-age': X_MP_MAX_AGE},
+                { 'x-mp-max-age': X_MP_MAX_AGE },
                 JSON.stringify({ mpid: testMPID, is_logged_in: false }),
             ]);
 
@@ -3259,9 +3550,9 @@ describe('identity', function() {
             const identities = {
                 userIdentities: {
                     customerid: 'abc',
-                    email: 'test@gmail.com'
-                }
-            }
+                    email: 'test@gmail.com',
+                },
+            };
 
             mParticle.config.identifyRequest = identities;
             mParticle.config.flags.cacheIdentity = 'True';
@@ -3270,7 +3561,10 @@ describe('identity', function() {
             const callback = sinon.spy();
 
             mParticle.Identity.login(identities);
-            const firstLoginCall = getIdentityEvent(mockServer.requests, 'login');
+            const firstLoginCall = getIdentityEvent(
+                mockServer.requests,
+                'login'
+            );
 
             Should(firstLoginCall).be.ok();
             mockServer.requests = [];
@@ -3278,7 +3572,10 @@ describe('identity', function() {
             // cached time will be 1000 if header returns '1'
             clock.tick(1001);
             mParticle.Identity.login(identities, callback);
-            const secondLoginCall = getIdentityEvent(mockServer.requests, 'login');
+            const secondLoginCall = getIdentityEvent(
+                mockServer.requests,
+                'login'
+            );
 
             Should(secondLoginCall).be.ok();
             Should(callback.called).equal(true);
@@ -3286,7 +3583,7 @@ describe('identity', function() {
 
         it('should clear cache when modify is called', function() {
             mParticle._resetForTests(MPConfig);
-            
+
             mockServer.respondWith(urls.identify, [
                 200,
                 {},
@@ -3295,7 +3592,14 @@ describe('identity', function() {
             mockServer.respondWith(urls.modify, [
                 200,
                 {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+                JSON.stringify({
+                    change_results: [
+                        {
+                            identity_type: 'customerid',
+                            modified_mpid: testMPID,
+                        },
+                    ],
+                }),
             ]);
 
             mockServer.requests = [];
@@ -3303,9 +3607,9 @@ describe('identity', function() {
             const identities = {
                 userIdentities: {
                     customerid: 'abc',
-                    email: 'test@gmail.com'
-                }
-            }
+                    email: 'test@gmail.com',
+                },
+            };
 
             mParticle.config.identifyRequest = identities;
             mParticle.config.flags.cacheIdentity = 'True';
@@ -3315,16 +3619,20 @@ describe('identity', function() {
             let idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
             Should(idCache).be.ok();
 
-            mParticle.Identity.modify({userIdentities: {
-                customerid: 'abc1',
-            }});
-            let secondIdCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
+            mParticle.Identity.modify({
+                userIdentities: {
+                    customerid: 'abc1',
+                },
+            });
+            let secondIdCache = localStorage.getItem(
+                'mprtcl-v4_abcdef-id-cache'
+            );
             Should(secondIdCache).not.be.ok();
         });
 
         it('should clear cache when logout is called', function() {
             mParticle._resetForTests(MPConfig);
-            
+
             mockServer.respondWith(urls.identify, [
                 200,
                 {},
@@ -3341,9 +3649,9 @@ describe('identity', function() {
             const identities = {
                 userIdentities: {
                     customerid: 'abc',
-                    email: 'test@gmail.com'
-                }
-            }
+                    email: 'test@gmail.com',
+                },
+            };
 
             mParticle.config.identifyRequest = identities;
             mParticle.config.flags.cacheIdentity = 'True';
@@ -3354,7 +3662,9 @@ describe('identity', function() {
             Should(idCache).be.ok();
 
             mParticle.Identity.logout();
-            let secondIdCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
+            let secondIdCache = localStorage.getItem(
+                'mprtcl-v4_abcdef-id-cache'
+            );
             Should(secondIdCache).not.be.ok();
         });
     });
@@ -3363,11 +3673,14 @@ describe('identity', function() {
         afterEach(function() {
             sinon.restore();
         });
-        it('should deprecate the user\'s cart', function() {
-            mParticle.init(apiKey, window.mParticle.config)
+        it("should deprecate the user's cart", function() {
+            mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
-            mParticle.getInstance().Identity.getCurrentUser().getCart();
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
+                .getCart();
             mParticle.Identity.getCurrentUser().getCart();
 
             bond.called.should.eql(true);
@@ -3378,7 +3691,7 @@ describe('identity', function() {
             );
         });
         it('should deprecate add', function() {
-            mParticle.init(apiKey, window.mParticle.config)
+            mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             const product = mParticle.eCommerce.createProduct(
@@ -3386,7 +3699,9 @@ describe('identity', function() {
                 '12345',
                 400
             );
-            mParticle.getInstance().Identity.getCurrentUser()
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
                 .getCart()
                 .add(product);
 
@@ -3400,10 +3715,9 @@ describe('identity', function() {
             bond.getCalls()[1].args[0].should.eql(
                 'Deprecated function Identity.getCurrentUser().getCart().add() will be removed in future releases'
             );
-
         });
         it('should deprecate remove', function() {
-            mParticle.init(apiKey, window.mParticle.config)
+            mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
             const product = mParticle.eCommerce.createProduct(
@@ -3412,7 +3726,9 @@ describe('identity', function() {
                 400
             );
 
-            mParticle.getInstance().Identity.getCurrentUser()
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
                 .getCart()
                 .remove(product, true);
             mParticle.Identity.getCurrentUser()
@@ -3427,10 +3743,12 @@ describe('identity', function() {
             );
         });
         it('should deprecate clear', function() {
-            mParticle.init(apiKey, window.mParticle.config)
+            mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
-            mParticle.getInstance().Identity.getCurrentUser()
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
                 .getCart()
                 .clear();
             mParticle.Identity.getCurrentUser()
@@ -3446,10 +3764,12 @@ describe('identity', function() {
         });
 
         it('should deprecate getCartProducts', function() {
-            mParticle.init(apiKey, window.mParticle.config)
+            mParticle.init(apiKey, window.mParticle.config);
             const bond = sinon.spy(mParticle.getInstance().Logger, 'warning');
 
-            mParticle.getInstance().Identity.getCurrentUser()
+            mParticle
+                .getInstance()
+                .Identity.getCurrentUser()
                 .getCart()
                 .getCartProducts();
             mParticle.Identity.getCurrentUser()
