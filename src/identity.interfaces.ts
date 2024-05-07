@@ -8,7 +8,6 @@ import AudienceManager from './audienceManager';
 import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
 import { Dictionary, Environment, valueof } from './utils';
-import { Context } from '@mparticle/event-models';
 import Constants from './constants';
 import {
     IUserAttributeChangeEvent,
@@ -56,7 +55,7 @@ export interface IIdentityAPIRequestData {
         sdk_vendor: typeof sdkVendor;
         sdk_version: typeof sdkVersion;
     };
-    context: Context;
+    context: string;
     environment: Environment;
     request_id: string;
     reqest_timestamp_unixtime_ms: number;
@@ -85,7 +84,7 @@ export interface IIdentityRequest {
         sdkVendor: string,
         sdkVersion: string,
         deviceId: string,
-        context: Context,
+        context: string,
         mpid: MPID
     ): IdentityAPIMethod;
     createModifyIdentityRequest(
@@ -94,7 +93,7 @@ export interface IIdentityRequest {
         platform: string,
         sdkVendor: string,
         sdkVersion: string,
-        context: Context
+        context: string
     ): IIdentityAPIModifyRequestData;
     createIdentityChanges(
         previousIdentities: UserIdentities,
