@@ -3,9 +3,8 @@ import { expect } from 'chai';
 import Types from '../../src/types';
 import { SDKEvent, MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
-import Utils from './config/utils';
-import { urls, MPConfig, apiKey } from './config/constants';
-import { MParticleUser } from '../../src/identity-user-interfaces';
+import { MPConfig, apiKey } from './config/constants';
+import { IMParticleUser } from '../../src/identity-user-interfaces';
 
 declare global {
     interface Window {
@@ -67,7 +66,7 @@ describe('Old model to batch model conversion', () => {
                     getConsentState: () => {
                         return null;
                     },
-                } as MParticleUser;
+                } as IMParticleUser;
             };
 
             const publicEvent = {
@@ -144,7 +143,7 @@ describe('Old model to batch model conversion', () => {
                 getConsentState: () => {
                     return null;
                 },
-            } as MParticleUser;
+            } as IMParticleUser;
         };
         const publicEvent = {
             messageType: Types.MessageType.PageEvent,
@@ -237,7 +236,7 @@ describe('Old model to batch model conversion', () => {
                 getConsentState: () => {
                     return null;
                 },
-            } as MParticleUser;
+            } as IMParticleUser;
         };
         const publicEvent = {
             messageType: Types.MessageType.PageEvent,

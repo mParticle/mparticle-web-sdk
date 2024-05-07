@@ -11,7 +11,7 @@ import {
     XHRUploader,
     fetchPayload,
 } from './uploaders';
-import { MParticleUser } from './identity-user-interfaces';
+import { IMParticleUser } from './identity-user-interfaces';
 
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
@@ -201,7 +201,7 @@ export class BatchUploader {
      */
     private static createNewBatches(
         sdkEvents: SDKEvent[],
-        defaultUser: MParticleUser,
+        defaultUser: IMParticleUser,
         mpInstance: MParticleWebSDK
     ): Batch[] | null {
         if (!defaultUser || !sdkEvents || !sdkEvents.length) {

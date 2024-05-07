@@ -15,7 +15,7 @@ import { SDKIdentityApi } from './identity.interfaces';
 import {
     ISDKUserAttributeChangeData,
     ISDKUserIdentityChanges,
-    MParticleUser,
+    IMParticleUser,
     ISDKUserIdentity,
 } from './identity-user-interfaces';
 
@@ -254,7 +254,7 @@ export interface SDKHelpersApi {
         callback: Callback,
         code: string,
         body: string,
-        mParticleUser?: MParticleUser,
+        mParticleUser?: IMParticleUser,
         previousMpid?: MPID
     ): void;
     sanitizeAttributes?(

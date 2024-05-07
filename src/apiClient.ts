@@ -6,7 +6,7 @@ import KitBlocker from './kitBlocking';
 import { Dictionary, getRampNumber, isEmpty, parseNumber } from './utils';
 import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
-import { MParticleUser } from './identity-user-interfaces';
+import { IMParticleUser } from './identity-user-interfaces';
 
 export type ForwardingStatsData = Dictionary<any>;
 
@@ -14,7 +14,7 @@ export interface IAPIClient {
     uploader: BatchUploader | null;
     queueEventForBatchUpload: (event: SDKEvent) => void;
     processQueuedEvents: () => void;
-    appendUserInfoToEvents: (user: MParticleUser, events: SDKEvent[]) => void;
+    appendUserInfoToEvents: (user: IMParticleUser, events: SDKEvent[]) => void;
     sendEventToServer: (event: SDKEvent, _options?: Dictionary<any>) => void;
     sendSingleEventToServer: (event: SDKEvent) => void;
     sendBatchForwardingStatsToServer: (

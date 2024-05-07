@@ -10,6 +10,7 @@ import {
     IIdentityAPIModifyRequestData,
     IAliasRequest,
     SDKIdentityTypeEnum,
+    IIdentityAPIIdentityChangeData,
 } from '../../src/identity.interfaces';
 import { MessageType } from '../../src/types.interfaces';
 
@@ -154,7 +155,7 @@ describe('Identity', () => {
         });
 
         it('defines identity api change data', () => {
-            const testIdentityApiChangeData = {
+            const testIdentityApiChangeData: IIdentityAPIIdentityChangeData = {
                 identity_type: SDKIdentityTypeEnum.google,
                 old_value: 'old value',
                 new_value: 'new value',

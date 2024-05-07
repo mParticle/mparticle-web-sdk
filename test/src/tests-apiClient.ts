@@ -3,7 +3,7 @@ import Constants from '../../src/constants';
 import { apiKey, MPConfig } from './config/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
-import { MParticleUser } from '../../src/identity-user-interfaces';
+import { IMParticleUser } from '../../src/identity-user-interfaces';
 
 declare global {
     interface Window {
@@ -94,8 +94,8 @@ describe('Api Client', () => {
                 getConsentState: () => {
                     return consentState;
                 },
-            } as MParticleUser;;
-        } 
+            } as IMParticleUser;
+        };
 
         mParticle
             .getInstance()

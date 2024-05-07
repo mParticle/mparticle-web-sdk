@@ -12,7 +12,7 @@ import Constants from './constants';
 import {
     IUserAttributeChangeEvent,
     IUserIdentityChangeEvent,
-    MParticleUser,
+    IMParticleUser,
     mParticleUserCart,
 } from './identity-user-interfaces';
 const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
@@ -132,16 +132,16 @@ export interface SDKIdentityApi {
         identityApiData?: IdentityApiData,
         callback?: IdentityCallback
     ): void;
-    getCurrentUser?(): MParticleUser;
-    getUser?(mpid: string): MParticleUser;
-    getUsers?(): MParticleUser[];
+    getCurrentUser?(): IMParticleUser;
+    getUser?(mpid: string): IMParticleUser;
+    getUsers?(): IMParticleUser[];
     aliasUsers?(
         aliasRequest?: IAliasRequest,
         callback?: IdentityCallback
     ): void;
     createAliasRequest?(
-        sourceUser: MParticleUser,
-        destinationUser: MParticleUser
+        sourceUser: IMParticleUser,
+        destinationUser: IMParticleUser
     ): IAliasRequest;
 }
 
@@ -152,7 +152,7 @@ export interface IIdentity {
     IdentityAPI: SDKIdentityApi;
     IdentityRequest: IIdentityRequest;
 
-    mParticleUser(mpid: MPID, IsLoggedIn: boolean): MParticleUser;
+    mParticleUser(mpid: MPID, IsLoggedIn: boolean): IMParticleUser;
 
     checkIdentitySwap(): void;
     createUserAttributeChange(
@@ -161,14 +161,14 @@ export interface IIdentity {
         previousUserAttributeValue: string,
         isNewAttribute: boolean,
         deleted: boolean,
-        user: MParticleUser
+        user: IMParticleUser
     ): IUserAttributeChangeEvent;
     createUserIdentityChange(
         identityType: SDKIdentityTypeEnum,
         newIdentity: string,
         oldIdentity: string,
         newCreatedThisBatch: boolean,
-        userInMemory: MParticleUser
+        userInMemory: IMParticleUser
     ): IUserIdentityChangeEvent;
     parseIdentityResponse(
         xhr: XMLHttpRequest,
@@ -185,7 +185,7 @@ export interface IIdentity {
         previousUserAttributeValue: string,
         isNewAttribute: boolean,
         deleted: boolean,
-        user: MParticleUser
+        user: IMParticleUser
     ): void;
     sendUserIdentityChangeEvent(
         newUserIdentities: UserIdentities,

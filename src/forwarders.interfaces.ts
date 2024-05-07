@@ -3,7 +3,7 @@ import { Dictionary } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { IdentityApiData } from '@mparticle/web-sdk';
 import {
-    MParticleUser,
+    IMParticleUser,
     ISDKUserIdentity,
     UserAttributes,
 } from './identity-user-interfaces';
@@ -43,22 +43,22 @@ export interface ConfiguredKit
         clientId: string
     ): string;
     onIdentifyComplete(
-        user: MParticleUser,
+        user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
     ): string | KitMappedMethodFailure;
     onLoginComplete(
-        user: MParticleUser,
+        user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
     ): string | KitMappedMethodFailure;
     onLogoutComplete(
-        user: MParticleUser,
+        user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
     ): string | KitMappedMethodFailure;
     onModifyComplete(
-        user: MParticleUser,
+        user: IMParticleUser,
         filteredIdentityRequest: IdentityApiData
     ): string | KitMappedMethodFailure;
-    onUserIdentified(user: MParticleUser): string | KitMappedMethodFailure;
+    onUserIdentified(user: IMParticleUser): string | KitMappedMethodFailure;
     process(event: SDKEvent): string;
     setOptOut(isOptingOut: boolean): string | KitMappedMethodFailure;
     removeUserAttribute(key: string): string;
@@ -69,14 +69,17 @@ export interface ConfiguredKit
     setUserIdentity(id: UserIdentityId, type: UserIdentityType): void;
 
     // TODO: https://go.mparticle.com/work/SQDSDKS-5156
-    isSandbox: boolean;  
+    isSandbox: boolean;
     hasSandbox: boolean;
 }
 export interface KitMappedMethodFailure {
-    error: string
+    error: string;
 }
 
 export type UserIdentityId = string;
 export type UserIdentityType = number;
 
-export type forwardingStatsCallback = (forwarder: ConfiguredKit, event: SDKEvent) => void;
+export type forwardingStatsCallback = (
+    forwarder: ConfiguredKit,
+    event: SDKEvent
+) => void;

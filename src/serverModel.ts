@@ -25,7 +25,7 @@ import {
     IPrivacyV2DTO,
     SDKConsentState,
 } from './consent';
-import { MParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
+import { IMParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
@@ -134,9 +134,9 @@ export interface IUploadObject extends SDKEvent {
 
 export interface IServerModel {
     convertEventToV2DTO: (event: IUploadObject) => IServerV2DTO;
-    createEventObject: (event: BaseEvent, user?: MParticleUser) => SDKEvent;
+    createEventObject: (event: BaseEvent, user?: IMParticleUser) => SDKEvent;
     convertToConsentStateV2DTO: (state: SDKConsentState) => IConsentStateV2DTO;
-    appendUserInfo: (user: MParticleUser, event: SDKEvent) => void;
+    appendUserInfo: (user: IMParticleUser, event: SDKEvent) => void;
 }
 
 // TODO: Make this a pure function that returns a new object
@@ -198,7 +198,10 @@ export default function ServerModel(
     var self = this;
 
     // TODO: Can we refactor this to not mutate the event?
-    this.appendUserInfo = function(user: MParticleUser, event: SDKEvent): void {
+    this.appendUserInfo = function(
+        user: IMParticleUser,
+        event: SDKEvent
+    ): void {
         if (!event) {
             return;
         }
@@ -291,7 +294,7 @@ export default function ServerModel(
 
     this.createEventObject = function(
         event: BaseEvent,
-        user?: MParticleUser
+        user?: IMParticleUser
     ): SDKEvent | IUploadObject {
         var uploadObject: Partial<IUploadObject> = {};
         var eventObject: Partial<SDKEvent> = {};

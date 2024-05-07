@@ -1,9 +1,6 @@
 import {
     AllUserAttributes,
-    ConsentState,
-    IdentityApiData,
     IdentityCallback,
-    MPID,
     Product,
     User,
 } from '@mparticle/web-sdk';
@@ -13,7 +10,7 @@ import { BaseEvent } from './sdkRuntimeModels';
 
 // https://go.mparticle.com/work/SQDSDKS-5033
 // https://go.mparticle.com/work/SQDSDKS-6354
-export interface MParticleUser extends User {
+export interface IMParticleUser extends User {
     getAllUserAttributes(): any;
     setUserTag(tagName: string, value?: any): void;
     setUserAttribute(key: string, value: any): void;

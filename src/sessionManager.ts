@@ -4,7 +4,7 @@ import { IPersistenceMinified } from './persistence.interfaces';
 import { MParticleWebSDK } from './sdkRuntimeModels';
 import Types from './types';
 import { generateDeprecationMessage } from './utils';
-import { MParticleUser } from './identity-user-interfaces';
+import { IMParticleUser } from './identity-user-interfaces';
 
 const { Messages } = Constants;
 
@@ -87,7 +87,7 @@ export default function SessionManager(
                 .generateUniqueId()
                 .toUpperCase();
 
-            const currentUser: MParticleUser = mpInstance.Identity.getCurrentUser();
+            const currentUser: IMParticleUser = mpInstance.Identity.getCurrentUser();
             const mpid: MPID = currentUser ? currentUser.getMPID() : null;
 
             if (mpid) {
