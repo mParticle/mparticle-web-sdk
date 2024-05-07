@@ -1272,6 +1272,7 @@ export default function Identity(mpInstance) {
              * @method getuserAudiences
              * @param {Function} [callback] A callback function that is invoked when the user audience request completes
              */
+            // https://go.mparticle.com/work/SQDSDKS-6436
             getUserAudiences: function(callback) {
                 // user audience API is feature flagged
                 if (
