@@ -1,13 +1,9 @@
-import {
-    MParticleUser,
-    SDKEvent,
-    SDKEventCustomFlags,
-    SDKUserIdentity,
-} from './sdkRuntimeModels';
+import { SDKEvent, SDKEventCustomFlags } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
 import { IKitConfigs } from './configAPIClient';
 import { UserAttributes } from './persistence.interfaces';
 import { IdentityApiData } from '@mparticle/web-sdk';
+import { MParticleUser, SDKUserIdentity } from './identity-user-interfaces';
 
 // TODO: https://go.mparticle.com/work/SQDSDKS-6035
 export type Kit = Dictionary;

@@ -1,9 +1,10 @@
 import { MPID } from '@mparticle/web-sdk';
 import Constants from './constants';
 import { IPersistenceMinified } from './persistence.interfaces';
-import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
+import { MParticleWebSDK } from './sdkRuntimeModels';
 import Types from './types';
 import { generateDeprecationMessage } from './utils';
+import { MParticleUser } from './identity-user-interfaces';
 
 const { Messages } = Constants;
 

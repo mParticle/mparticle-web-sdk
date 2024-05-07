@@ -6,12 +6,10 @@ import Types from './types';
 import Constants from './constants';
 import {
     BaseEvent,
-    MParticleUser,
     MParticleWebSDK,
     SDKEvent,
     SDKGeoLocation,
     SDKProduct,
-    SDKUserIdentity,
 } from './sdkRuntimeModels';
 import {
     parseNumber,
@@ -27,6 +25,7 @@ import {
     IPrivacyV2DTO,
     SDKConsentState,
 } from './consent';
+import { MParticleUser, SDKUserIdentity } from './identity-user-interfaces';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;

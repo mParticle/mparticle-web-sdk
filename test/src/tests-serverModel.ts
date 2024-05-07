@@ -4,13 +4,14 @@ import { urls, testMPID, apiKey } from './config/constants';
 import { expect } from 'chai';
 import { IUploadObject } from '../../src/serverModel';
 import { AllUserAttributes, IdentityApiData } from '@mparticle/web-sdk';
-import { BaseEvent, MParticleUser, SDKEvent } from '../../src/sdkRuntimeModels';
+import { BaseEvent, SDKEvent } from '../../src/sdkRuntimeModels';
 import Constants from '../../src/constants';
 import {
     SDKConsentState,
     SDKCCPAConsentState,
     SDKGDPRConsentState,
 } from '../../src/consent';
+import { MParticleUser } from '../../src/identity-user-interfaces';
 
 let mockServer;
 let initialEvent = {};

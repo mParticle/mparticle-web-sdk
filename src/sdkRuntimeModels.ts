@@ -1,14 +1,9 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import {
-    MPConfiguration,
-    IdentityApiData,
-    MPID,
-    Callback,
-} from '@mparticle/web-sdk';
+import { MPConfiguration, MPID, Callback } from '@mparticle/web-sdk';
 import { IStore } from './store';
 import Validators from './validators';
-import { Dictionary, valueof } from './utils';
+import { Dictionary } from './utils';
 import { IServerModel } from './serverModel';
 import { IKitConfigs } from './configAPIClient';
 import { SDKConsentApi, SDKConsentState } from './consent';
@@ -16,7 +11,13 @@ import { IPersistence } from './persistence.interfaces';
 import { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
 import { Kit, MPForwarder } from './forwarders.interfaces';
-import Constants from './constants';
+import { SDKIdentityApi } from './identity.interfaces';
+import {
+    ISDKUserAttributeChangeData,
+    ISDKUserIdentityChanges,
+    MParticleUser,
+    SDKUserIdentity,
+} from './identity-user-interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -51,15 +52,12 @@ export interface SDKEvent {
     PromotionAction?: SDKPromotionAction;
     ProductImpressions?: SDKProductImpression[];
     ShoppingCart?: SDKShoppingCart;
-    UserIdentityChanges?: SDKUserIdentityChangeData;
-    UserAttributeChanges?: SDKUserAttributeChangeData;
+    UserIdentityChanges?: ISDKUserIdentityChanges;
+    UserAttributeChanges?: ISDKUserAttributeChangeData;
     CurrencyCode: string;
     DataPlan?: SDKDataPlan;
     LaunchReferral?: string;
 }
-
-export type IdentityAPIMethod = valueof<typeof Constants.IdentityMethods>;
-
 export interface SDKGeoLocation {
     lat: number | string;
     lng: number | string;
@@ -68,11 +66,6 @@ export interface SDKGeoLocation {
 export interface SDKDataPlan {
     PlanVersion?: number | null;
     PlanId?: string | null;
-}
-
-export interface SDKUserIdentity {
-    Identity?: string;
-    Type: number;
 }
 
 export interface SDKShoppingCart {
@@ -239,16 +232,6 @@ export interface DataPlanConfig {
     document?: DataPlanResult; // when the data plan comes from the server via /mparticle.js
 }
 
-export interface SDKIdentityApi {
-    getCurrentUser();
-    IdentityAPI;
-    identify;
-    login;
-    logout;
-    modify;
-    getUser(mpid: string): MParticleUser;
-}
-
 export interface SDKHelpersApi {
     canLog?(): boolean;
     createMainStorageName?(workspaceToken: string): string;
@@ -304,35 +287,6 @@ export interface SDKConfigApi {
     onCreateBatch(batch: EventsApi.Batch): EventsApi.Batch;
 }
 
-// FIXME: Resolve with User in @types/mparticle-web-sdk
-//        https://go.mparticle.com/work/SQDSDKS-5033
-export interface MParticleUser {
-    getMPID(): string;
-    getConsentState(): SDKConsentState;
-    getAllUserAttributes(): any; // FIXME;
-    getUserIdentities(): IdentityApiData; // FIXME: Is this correct?
-}
-
-export interface SDKUserIdentityChangeData {
-    New: Identity;
-    Old: Identity;
-}
-
-export interface Identity {
-    IdentityType: SDKIdentityTypeEnum;
-    Identity: string;
-    Timestamp: number;
-    CreatedThisBatch: boolean;
-}
-
-export interface SDKUserAttributeChangeData {
-    UserAttributeName: string;
-    New: string;
-    Old: string;
-    Deleted: boolean;
-    IsNewAttribute: boolean;
-}
-
 export interface BaseEvent {
     messageType: number;
     name?: string;
@@ -341,8 +295,8 @@ export interface BaseEvent {
     customFlags?: { [key: string]: string };
     toEventAPIObject?(): SDKEvent;
     sourceMessageId?: string;
-    userAttributeChanges?: SDKUserAttributeChangeData;
-    userIdentityChanges?: SDKUserIdentityChangeData;
+    userAttributeChanges?: ISDKUserAttributeChangeData;
+    userIdentityChanges?: ISDKUserIdentityChanges;
 }
 
 export interface KitBlockerOptions {
@@ -368,29 +322,4 @@ export interface DataPlanResult {
         };
     };
     error_message?: string;
-}
-
-export enum SDKIdentityTypeEnum {
-    other = 'other',
-    customerId = 'customerid',
-    facebook = 'facebook',
-    twitter = 'twitter',
-    google = 'google',
-    microsoft = 'microsoft',
-    yahoo = 'yahoo',
-    email = 'email',
-    alias = 'alias',
-    facebookCustomAudienceId = 'facebookcustomaudienceid',
-    otherId2 = 'other2',
-    otherId3 = 'other3',
-    otherId4 = 'other4',
-    otherId5 = 'other5',
-    otherId6 = 'other6',
-    otherId7 = 'other7',
-    otherId8 = 'other8',
-    otherId9 = 'other9',
-    otherId10 = 'other10',
-    mobileNumber = 'mobile_number',
-    phoneNumber2 = 'phone_number_2',
-    phoneNumber3 = 'phone_number_3',
 }

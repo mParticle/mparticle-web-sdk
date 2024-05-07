@@ -4,10 +4,11 @@ import {
     GDPRConsentState,
     PrivacyConsentState,
 } from '@mparticle/web-sdk';
-import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
+import { MParticleWebSDK } from './sdkRuntimeModels';
 import { Dictionary, isObject } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
+import { MParticleUser } from './identity-user-interfaces';
 
 const { CCPAPurpose } = Constants;
 

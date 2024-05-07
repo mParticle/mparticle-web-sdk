@@ -8,7 +8,7 @@ import {
 } from './utils';
 import Constants from './constants';
 import { IdentityApiData } from '@mparticle/web-sdk';
-import { IdentityAPIMethod } from './sdkRuntimeModels';
+import { IdentityAPIMethod } from './identity.interfaces';
 
 type ValidationIdentitiesReturn = {
     valid: boolean;

@@ -3,10 +3,8 @@ import {
     SDKGeoLocation,
     SDKProduct,
     SDKPromotion,
-    SDKUserIdentity,
     SDKProductActionType,
     MParticleWebSDK,
-    SDKIdentityTypeEnum,
 } from './sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
 import {
@@ -16,6 +14,8 @@ import {
 } from './consent';
 import Types from './types';
 import { isEmpty } from './utils';
+import { SDKUserIdentity } from './identity-user-interfaces';
+import { SDKIdentityTypeEnum } from './identity.interfaces';
 
 export function convertEvents(
     mpid: string,
