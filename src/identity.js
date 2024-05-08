@@ -1830,6 +1830,7 @@ export default function Identity(mpInstance) {
     ) {
         var userIdentityChangeEvent;
 
+        // https://go.mparticle.com/work/SQDSDKS-6439
         userIdentityChangeEvent = mpInstance._ServerModel.createEventObject({
             messageType: Types.MessageType.UserIdentityChange,
             userIdentityChanges: {
@@ -1884,6 +1885,7 @@ export default function Identity(mpInstance) {
         }
         var userAttributeChangeEvent;
         if (newValue !== previousUserAttributeValue) {
+            // https://go.mparticle.com/work/SQDSDKS-6439
             userAttributeChangeEvent = mpInstance._ServerModel.createEventObject(
                 {
                     messageType: Types.MessageType.UserAttributeChange,
