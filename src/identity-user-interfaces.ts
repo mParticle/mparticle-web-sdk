@@ -31,6 +31,7 @@ export interface ISDKUserIdentityChangeData {
     IdentityType: SDKIdentityTypeEnum;
     Identity: string;
     CreatedThisBatch: boolean;
+    // https://go.mparticle.com/work/SQDSDKS-6438
     Timestamp?: number;
 }
 
