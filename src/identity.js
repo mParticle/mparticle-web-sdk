@@ -1272,6 +1272,7 @@ export default function Identity(mpInstance) {
              * @method getuserAudiences
              * @param {Function} [callback] A callback function that is invoked when the user audience request completes
              */
+            // https://go.mparticle.com/work/SQDSDKS-6436
             getUserAudiences: function(callback) {
                 // user audience API is feature flagged
                 if (
@@ -1829,6 +1830,7 @@ export default function Identity(mpInstance) {
     ) {
         var userIdentityChangeEvent;
 
+        // https://go.mparticle.com/work/SQDSDKS-6439
         userIdentityChangeEvent = mpInstance._ServerModel.createEventObject({
             messageType: Types.MessageType.UserIdentityChange,
             userIdentityChanges: {
@@ -1883,6 +1885,7 @@ export default function Identity(mpInstance) {
         }
         var userAttributeChangeEvent;
         if (newValue !== previousUserAttributeValue) {
+            // https://go.mparticle.com/work/SQDSDKS-6439
             userAttributeChangeEvent = mpInstance._ServerModel.createEventObject(
                 {
                     messageType: Types.MessageType.UserAttributeChange,

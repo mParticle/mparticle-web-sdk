@@ -3,10 +3,8 @@ import {
     SDKGeoLocation,
     SDKProduct,
     SDKPromotion,
-    SDKUserIdentity,
     SDKProductActionType,
     MParticleWebSDK,
-    SDKIdentityTypeEnum,
 } from './sdkRuntimeModels';
 import * as EventsApi from '@mparticle/event-models';
 import {
@@ -16,6 +14,8 @@ import {
 } from './consent';
 import Types from './types';
 import { isEmpty } from './utils';
+import { ISDKUserIdentity } from './identity-user-interfaces';
+import { SDKIdentityTypeEnum } from './identity.interfaces';
 
 export function convertEvents(
     mpid: string,
@@ -151,7 +151,7 @@ export function convertCcpaConsentState(
 }
 
 export function convertUserIdentities(
-    sdkUserIdentities?: SDKUserIdentity[]
+    sdkUserIdentities?: ISDKUserIdentity[]
 ): EventsApi.BatchUserIdentities | null {
     if (!sdkUserIdentities || !sdkUserIdentities.length) {
         return null;
@@ -407,8 +407,9 @@ export function convertShoppingCart(
 export function convertCommerceEvent(
     sdkEvent: SDKEvent
 ): EventsApi.CommerceEvent {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
     let commerceEventData: EventsApi.CommerceEventData = {
         custom_flags: sdkEvent.CustomFlags,
         product_action: convertProductAction(sdkEvent),
@@ -427,8 +428,9 @@ export function convertCommerceEvent(
 export function convertCrashReportEvent(
     sdkEvent: SDKEvent
 ): EventsApi.CrashReportEvent {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
     let crashReportEventData: EventsApi.CrashReportEventData = {
         message: sdkEvent.EventName,
     };
@@ -442,8 +444,9 @@ export function convertCrashReportEvent(
 export function convertAST(
     sdkEvent: SDKEvent
 ): EventsApi.ApplicationStateTransitionEvent {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
     let astEventData: EventsApi.ApplicationStateTransitionEventData = {
         application_transition_type:
             EventsApi
@@ -463,8 +466,9 @@ export function convertAST(
 export function convertSessionEndEvent(
     sdkEvent: SDKEvent
 ): EventsApi.SessionEndEvent {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
     let sessionEndEventData: EventsApi.SessionEndEventData = {
         session_duration_ms: sdkEvent.SessionLength,
         //note: External Events DTO does not support the session mpids array as of this time.
@@ -480,8 +484,9 @@ export function convertSessionEndEvent(
 export function convertSessionStartEvent(
     sdkEvent: SDKEvent
 ): EventsApi.SessionStartEvent {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
     let sessionStartEventData: EventsApi.SessionStartEventData = {};
     sessionStartEventData = Object.assign(
         sessionStartEventData,
@@ -496,8 +501,9 @@ export function convertSessionStartEvent(
 export function convertPageViewEvent(
     sdkEvent: SDKEvent
 ): EventsApi.ScreenViewEvent {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
     let screenViewEventData: EventsApi.ScreenViewEventData = {
         custom_flags: sdkEvent.CustomFlags,
         screen_name: sdkEvent.EventName,
@@ -510,8 +516,9 @@ export function convertPageViewEvent(
 }
 
 export function convertOptOutEvent(sdkEvent: SDKEvent): EventsApi.OptOutEvent {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
     let optOutEventData: EventsApi.OptOutEventData = {
         is_opted_out: sdkEvent.OptOut,
     };
@@ -523,8 +530,9 @@ export function convertOptOutEvent(sdkEvent: SDKEvent): EventsApi.OptOutEvent {
 }
 
 export function convertCustomEvent(sdkEvent: SDKEvent): EventsApi.CustomEvent {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
     let customEventData: EventsApi.CustomEventData = {
         custom_event_type: convertSdkEventType(
             sdkEvent.EventCategory
@@ -628,8 +636,9 @@ export function convertSDKLocation(
 export function convertUserAttributeChangeEvent(
     sdkEvent: SDKEvent
 ): EventsApi.UserAttributeChangeEvent | null {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
     let userAttributeChangeEvent: EventsApi.UserAttributeChangeEventData = {
         user_attribute_name: sdkEvent.UserAttributeChanges.UserAttributeName,
         new: sdkEvent.UserAttributeChanges.New,
@@ -652,8 +661,9 @@ export function convertUserAttributeChangeEvent(
 export function convertUserIdentityChangeEvent(
     sdkEvent: SDKEvent
 ): EventsApi.UserIdentityChangeEvent | null {
-    const commonEventData: EventsApi.CommonEventData =
-        convertBaseEventData(sdkEvent);
+    const commonEventData: EventsApi.CommonEventData = convertBaseEventData(
+        sdkEvent
+    );
 
     let userIdentityChangeEvent: EventsApi.UserIdentityChangeEventData = {
         new: {

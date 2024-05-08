@@ -4,10 +4,11 @@ import {
     GDPRConsentState,
     PrivacyConsentState,
 } from '@mparticle/web-sdk';
-import { MParticleUser, MParticleWebSDK } from './sdkRuntimeModels';
+import { MParticleWebSDK } from './sdkRuntimeModels';
 import { Dictionary, isObject } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
+import { IMParticleUser } from './identity-user-interfaces';
 
 const { CCPAPurpose } = Constants;
 
@@ -108,7 +109,7 @@ export interface IConsentState extends ConsentState {
 export interface IConsent {
     isEnabledForUserConsent: (
         consentRules: IConsentRules,
-        user: MParticleUser
+        user: IMParticleUser
     ) => boolean;
     createPrivacyConsent: ICreatePrivacyConsentFunction;
     createConsentState: (consentState?: ConsentState) => ConsentState;
@@ -123,7 +124,7 @@ export default function Consent(this: IConsent, mpInstance: MParticleWebSDK) {
     // forwarder should be initialized
     this.isEnabledForUserConsent = function(
         consentRules: IConsentRules,
-        user: MParticleUser
+        user: IMParticleUser
     ): boolean {
         if (
             !consentRules ||

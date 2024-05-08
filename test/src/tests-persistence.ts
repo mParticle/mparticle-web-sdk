@@ -1506,17 +1506,17 @@ describe('persistence', () => {
         const storedConsentState = mParticle
             .getInstance()
             .Identity.getCurrentUser()
-            .getConsentState();
-        storedConsentState.should.be.ok();
-        storedConsentState
-            .getGDPRConsentState()
-            .should.have.property('foo purpose');
-        storedConsentState
-            .getGDPRConsentState()
-            ['foo purpose'].should.have.property('Consented', true);
-        storedConsentState
-            .getGDPRConsentState()
-            ['foo purpose'].should.have.property('Timestamp', 10);
+            .getConsentState() as any;
+        expect(storedConsentState).to.be.ok;
+        expect(storedConsentState.getGDPRConsentState()).to.have.property(
+            'foo purpose'
+        );
+        expect(
+            storedConsentState.getGDPRConsentState()['foo purpose']
+        ).to.have.property('Consented', true);
+        expect(
+            storedConsentState.getGDPRConsentState()['foo purpose']
+        ).to.have.property('Timestamp', 10);
         done();
     });
 

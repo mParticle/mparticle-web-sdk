@@ -6,12 +6,10 @@ import Types from './types';
 import Constants from './constants';
 import {
     BaseEvent,
-    MParticleUser,
     MParticleWebSDK,
     SDKEvent,
     SDKGeoLocation,
     SDKProduct,
-    SDKUserIdentity,
 } from './sdkRuntimeModels';
 import {
     parseNumber,
@@ -27,6 +25,7 @@ import {
     IPrivacyV2DTO,
     SDKConsentState,
 } from './consent';
+import { IMParticleUser, ISDKUserIdentity } from './identity-user-interfaces';
 
 const MessageType = Types.MessageType;
 const ApplicationTransitionType = Types.ApplicationTransitionType;
@@ -48,7 +47,7 @@ export interface IServerV2DTO {
     n?: string;
     et?: number;
     ua?: Dictionary<string | string[]>;
-    ui?: SDKUserIdentity[];
+    ui?: ISDKUserIdentity[];
     ia?: Dictionary<Dictionary<string>>;
     str?: ServerSettings;
     sdk?: string;
@@ -135,9 +134,9 @@ export interface IUploadObject extends SDKEvent {
 
 export interface IServerModel {
     convertEventToV2DTO: (event: IUploadObject) => IServerV2DTO;
-    createEventObject: (event: BaseEvent, user?: MParticleUser) => SDKEvent;
+    createEventObject: (event: BaseEvent, user?: IMParticleUser) => SDKEvent;
     convertToConsentStateV2DTO: (state: SDKConsentState) => IConsentStateV2DTO;
-    appendUserInfo: (user: MParticleUser, event: SDKEvent) => void;
+    appendUserInfo: (user: IMParticleUser, event: SDKEvent) => void;
 }
 
 // TODO: Make this a pure function that returns a new object
@@ -199,7 +198,10 @@ export default function ServerModel(
     var self = this;
 
     // TODO: Can we refactor this to not mutate the event?
-    this.appendUserInfo = function(user: MParticleUser, event: SDKEvent): void {
+    this.appendUserInfo = function(
+        user: IMParticleUser,
+        event: SDKEvent
+    ): void {
         if (!event) {
             return;
         }
@@ -230,7 +232,7 @@ export default function ServerModel(
         if (mpInstance._Helpers.isObject(dtoUserIdentities)) {
             if (Object.keys(dtoUserIdentities).length) {
                 for (var key in dtoUserIdentities) {
-                    var userIdentity: Partial<SDKUserIdentity> = {};
+                    var userIdentity: Partial<ISDKUserIdentity> = {};
                     userIdentity.Identity = dtoUserIdentities[key];
                     userIdentity.Type = mpInstance._Helpers.parseNumber(key);
                     validUserIdentities.push(userIdentity);
@@ -292,7 +294,7 @@ export default function ServerModel(
 
     this.createEventObject = function(
         event: BaseEvent,
-        user?: MParticleUser
+        user?: IMParticleUser
     ): SDKEvent | IUploadObject {
         var uploadObject: Partial<IUploadObject> = {};
         var eventObject: Partial<SDKEvent> = {};

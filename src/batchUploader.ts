@@ -1,21 +1,17 @@
 import { Batch } from '@mparticle/event-models';
 import Constants from './constants';
-import {
-    SDKEvent,
-    MParticleUser,
-    MParticleWebSDK,
-    SDKLoggerApi,
-} from './sdkRuntimeModels';
+import { SDKEvent, MParticleWebSDK, SDKLoggerApi } from './sdkRuntimeModels';
 import { convertEvents } from './sdkToEventsApiConverter';
 import Types from './types';
 import { getRampNumber, isEmpty } from './utils';
 import { SessionStorageVault, LocalStorageVault } from './vault';
-import { 
+import {
     AsyncUploader,
     FetchUploader,
     XHRUploader,
-    fetchPayload
+    fetchPayload,
 } from './uploaders';
+import { IMParticleUser } from './identity-user-interfaces';
 
 /**
  * BatchUploader contains all the logic to store/retrieve events and batches
@@ -205,7 +201,7 @@ export class BatchUploader {
      */
     private static createNewBatches(
         sdkEvents: SDKEvent[],
-        defaultUser: MParticleUser,
+        defaultUser: IMParticleUser,
         mpInstance: MParticleWebSDK
     ): Batch[] | null {
         if (!defaultUser || !sdkEvents || !sdkEvents.length) {

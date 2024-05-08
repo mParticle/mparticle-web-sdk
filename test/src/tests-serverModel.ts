@@ -4,13 +4,14 @@ import { urls, testMPID, apiKey } from './config/constants';
 import { expect } from 'chai';
 import { IUploadObject } from '../../src/serverModel';
 import { AllUserAttributes, IdentityApiData } from '@mparticle/web-sdk';
-import { BaseEvent, MParticleUser, SDKEvent } from '../../src/sdkRuntimeModels';
+import { BaseEvent, SDKEvent } from '../../src/sdkRuntimeModels';
 import Constants from '../../src/constants';
 import {
     SDKConsentState,
     SDKCCPAConsentState,
     SDKGDPRConsentState,
 } from '../../src/consent';
+import { IMParticleUser } from '../../src/identity-user-interfaces';
 
 let mockServer;
 let initialEvent = {};
@@ -31,7 +32,7 @@ describe('ServerModel', () => {
 
     describe('#appendUserInfo', () => {
         it('should append User Identities and Attributes to event', () => {
-            const user = {
+            const user = ({
                 getUserIdentities: () => {
                     return {
                         userIdentities: {
@@ -75,7 +76,7 @@ describe('ServerModel', () => {
                         },
                     };
                 },
-            } as unknown as MParticleUser;
+            } as unknown) as IMParticleUser;
 
             // TODO: We should move some of the event samples into a reusable module
             //       or set up an event factory
@@ -143,7 +144,7 @@ describe('ServerModel', () => {
         });
 
         it('returns undefined if event is empty', () => {
-            expect(ServerModel.appendUserInfo({} as MParticleUser, null)).to.be
+            expect(ServerModel.appendUserInfo({} as IMParticleUser, null)).to.be
                 .undefined;
         });
 
@@ -167,7 +168,10 @@ describe('ServerModel', () => {
                 MPID: '123456',
             };
 
-            ServerModel.appendUserInfo(user, event as SDKEvent);
+            ServerModel.appendUserInfo(
+                user as IMParticleUser,
+                event as SDKEvent
+            );
 
             expect(event.MPID).to.equal('123456');
             // Verify to make sure we didn't add anything unnecessary to the event
@@ -194,7 +198,10 @@ describe('ServerModel', () => {
                 MPID: '555666777',
             };
 
-            ServerModel.appendUserInfo(user, event as SDKEvent);
+            ServerModel.appendUserInfo(
+                user as IMParticleUser,
+                event as SDKEvent
+            );
 
             expect(event.MPID).to.equal('123456');
         });
@@ -508,7 +515,7 @@ describe('ServerModel', () => {
                 },
             };
 
-            const user = {
+            const user = ({
                 getUserIdentities: () => {
                     return {
                         userIdentities: {
@@ -552,7 +559,7 @@ describe('ServerModel', () => {
                         },
                     };
                 },
-            } as unknown as MParticleUser;
+            } as unknown) as IMParticleUser;
 
             const actualEventObject = mParticle
                 .getInstance()
@@ -627,8 +634,14 @@ describe('ServerModel', () => {
             expect(actualEventObject.EventAttributes, 'EventAttributes').to.eql(
                 { fooSessionAttr: 'session-foo', barSessionAttr: 'session-bar' }
             );
-            expect(actualEventObject.EventAttributes, 'EventAttributes').to.not.have.property('fooEventAttr');
-            expect(actualEventObject.EventAttributes, 'EventAttributes').to.not.have.property('barEventAttr');
+            expect(
+                actualEventObject.EventAttributes,
+                'EventAttributes'
+            ).to.not.have.property('fooEventAttr');
+            expect(
+                actualEventObject.EventAttributes,
+                'EventAttributes'
+            ).to.not.have.property('barEventAttr');
 
             // A SessionEnd event resets currentSessionMPIDs and sessionStartDate.  When a new session starts, these are filled again
             expect(mPStore.currentSessionMPIDs).to.eql([]);
@@ -1490,7 +1503,7 @@ describe('ServerModel', () => {
                     getConsentState: () => {
                         return consentState;
                     },
-                };
+                } as IMParticleUser;
             };
             let sdkEvent = mParticle
                 .getInstance()
@@ -1513,7 +1526,7 @@ describe('ServerModel', () => {
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserIdentities).to.eql([]);
 
-            const user = {
+            const user: IMParticleUser = ({
                 getUserIdentities: () => {
                     return {
                         userIdentities: {
@@ -1536,7 +1549,7 @@ describe('ServerModel', () => {
                 getConsentState: () => {
                     return null;
                 },
-            };
+            } as unknown) as IMParticleUser;
 
             const identityMapping = {};
             identityMapping[Types.IdentityType.CustomerId] = '1234567';
@@ -1567,7 +1580,7 @@ describe('ServerModel', () => {
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserAttributes).to.eql({});
             const attributes = { foo: 'bar', 'foo-arr': ['bar1', 'bar2'] };
-            const user: MParticleUser = {
+            const user: IMParticleUser = {
                 getUserIdentities: (): IdentityApiData => ({
                     userIdentities: {},
                 }),
@@ -1580,7 +1593,7 @@ describe('ServerModel', () => {
                 getConsentState: () => {
                     return null;
                 },
-            };
+            } as IMParticleUser;
 
             mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
             expect(sdkEvent.UserAttributes).to.be.ok;
@@ -1599,8 +1612,7 @@ describe('ServerModel', () => {
             // By default, all tests instances have 'testMPID'
             expect(sdkEvent.MPID).to.equal('testMPID');
 
-            // TODO: this makes the compiler angry unless we make it hacky
-            const user: MParticleUser = {
+            const user: IMParticleUser = {
                 getUserIdentities: () => {
                     return ({
                         userIdentites: {},
@@ -1615,7 +1627,7 @@ describe('ServerModel', () => {
                 getConsentState: () => {
                     return null;
                 },
-            };
+            } as IMParticleUser;
             mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
             expect(sdkEvent.MPID).to.equal('98765');
             done();

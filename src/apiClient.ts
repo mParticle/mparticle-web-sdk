@@ -1,11 +1,12 @@
 import Constants from './constants';
 import Types from './types';
 import { BatchUploader } from './batchUploader';
-import { MParticleUser, MParticleWebSDK, SDKEvent } from './sdkRuntimeModels';
+import { MParticleWebSDK, SDKEvent } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
 import { Dictionary, getRampNumber, isEmpty, parseNumber } from './utils';
 import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
+import { IMParticleUser } from './identity-user-interfaces';
 
 export type ForwardingStatsData = Dictionary<any>;
 
@@ -13,7 +14,7 @@ export interface IAPIClient {
     uploader: BatchUploader | null;
     queueEventForBatchUpload: (event: SDKEvent) => void;
     processQueuedEvents: () => void;
-    appendUserInfoToEvents: (user: MParticleUser, events: SDKEvent[]) => void;
+    appendUserInfoToEvents: (user: IMParticleUser, events: SDKEvent[]) => void;
     sendEventToServer: (event: SDKEvent, _options?: Dictionary<any>) => void;
     sendSingleEventToServer: (event: SDKEvent) => void;
     sendBatchForwardingStatsToServer: (

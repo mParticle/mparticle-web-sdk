@@ -14,6 +14,7 @@ import {
     SessionAttributes,
 } from './store';
 import { Dictionary } from './utils';
+import { UserAttributes } from './identity-user-interfaces';
 
 export type CookieSyncDate = Dictionary<string>;
 export type UploadsTable = Dictionary<any>;
@@ -21,10 +22,6 @@ export interface iForwardingStatsBatches {
     uploadsTable: UploadsTable;
     forwardingStatsEventQueue: ForwardingStatsData[];
 }
-
-// TODO: Migrate this to @types/mparticle__web-sdk
-//       https://go.mparticle.com/work/SQDSDKS-5196
-export type UserAttributes = AllUserAttributes;
 
 export interface IGlobalStoreV2MinifiedKeys {
     sid: string; // Session ID
