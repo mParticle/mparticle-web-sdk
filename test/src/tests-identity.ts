@@ -1,8 +1,9 @@
-import Constants from '../../src/constants';
-import Utils from './config/utils';
 import sinon from 'sinon';
-import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
+import { expect } from 'chai';
+import Utils from './config/utils';
+import Constants from '../../src/constants';
+import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import {
     urls,
     apiKey,
@@ -11,18 +12,30 @@ import {
     workspaceCookieName,
 } from './config/constants';
 
-const getLocalStorage = Utils.getLocalStorage,
-    setLocalStorage = Utils.setLocalStorage,
-    findCookie = Utils.findCookie,
-    forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
-    getLocalStorageProducts = Utils.getLocalStorageProducts,
-    findEventFromRequest = Utils.findEventFromRequest,
-    findBatch = Utils.findBatch,
-    getIdentityEvent = Utils.getIdentityEvent,
-    setCookie = Utils.setCookie,
-    MockForwarder = Utils.MockForwarder,
-    HTTPCodes = Constants.HTTPCodes;
+const {
+    getLocalStorage,
+    setLocalStorage,
+    findCookie,
+    forwarderDefaultConfiguration,
+    getLocalStorageProducts,
+    findEventFromRequest,
+    findBatch,
+    getIdentityEvent,
+    setCookie,
+    MockForwarder,
+} = Utils;
+
+const { HTTPCodes } = Constants;
+
+declare global {
+    interface Window {
+        mParticle: MParticleWebSDK;
+        fetchMock: any;
+    }
+}
+
 let mockServer;
+const mParticle = window.mParticle;
 
 describe('identity', function() {
     beforeEach(function() {
