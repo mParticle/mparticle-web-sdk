@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.26.3";
+    var version = "2.26.4";
 
     var Constants = {
       sdkVersion: version,
@@ -891,31 +891,6 @@ var mParticle = (function () {
       SDKProductActionType[SDKProductActionType["AddToWishlist"] = 9] = "AddToWishlist";
       SDKProductActionType[SDKProductActionType["RemoveFromWishlist"] = 10] = "RemoveFromWishlist";
     })(SDKProductActionType || (SDKProductActionType = {}));
-    var SDKIdentityTypeEnum;
-    (function (SDKIdentityTypeEnum) {
-      SDKIdentityTypeEnum["other"] = "other";
-      SDKIdentityTypeEnum["customerId"] = "customerid";
-      SDKIdentityTypeEnum["facebook"] = "facebook";
-      SDKIdentityTypeEnum["twitter"] = "twitter";
-      SDKIdentityTypeEnum["google"] = "google";
-      SDKIdentityTypeEnum["microsoft"] = "microsoft";
-      SDKIdentityTypeEnum["yahoo"] = "yahoo";
-      SDKIdentityTypeEnum["email"] = "email";
-      SDKIdentityTypeEnum["alias"] = "alias";
-      SDKIdentityTypeEnum["facebookCustomAudienceId"] = "facebookcustomaudienceid";
-      SDKIdentityTypeEnum["otherId2"] = "other2";
-      SDKIdentityTypeEnum["otherId3"] = "other3";
-      SDKIdentityTypeEnum["otherId4"] = "other4";
-      SDKIdentityTypeEnum["otherId5"] = "other5";
-      SDKIdentityTypeEnum["otherId6"] = "other6";
-      SDKIdentityTypeEnum["otherId7"] = "other7";
-      SDKIdentityTypeEnum["otherId8"] = "other8";
-      SDKIdentityTypeEnum["otherId9"] = "other9";
-      SDKIdentityTypeEnum["otherId10"] = "other10";
-      SDKIdentityTypeEnum["mobileNumber"] = "mobile_number";
-      SDKIdentityTypeEnum["phoneNumber2"] = "phone_number_2";
-      SDKIdentityTypeEnum["phoneNumber3"] = "phone_number_3";
-    })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
     var dist = {};
 
@@ -1329,6 +1304,32 @@ var mParticle = (function () {
     var isEmpty = function isEmpty(value) {
       return value == null || !(Object.keys(value) || value).length;
     };
+
+    var SDKIdentityTypeEnum;
+    (function (SDKIdentityTypeEnum) {
+      SDKIdentityTypeEnum["other"] = "other";
+      SDKIdentityTypeEnum["customerId"] = "customerid";
+      SDKIdentityTypeEnum["facebook"] = "facebook";
+      SDKIdentityTypeEnum["twitter"] = "twitter";
+      SDKIdentityTypeEnum["google"] = "google";
+      SDKIdentityTypeEnum["microsoft"] = "microsoft";
+      SDKIdentityTypeEnum["yahoo"] = "yahoo";
+      SDKIdentityTypeEnum["email"] = "email";
+      SDKIdentityTypeEnum["alias"] = "alias";
+      SDKIdentityTypeEnum["facebookCustomAudienceId"] = "facebookcustomaudienceid";
+      SDKIdentityTypeEnum["otherId2"] = "other2";
+      SDKIdentityTypeEnum["otherId3"] = "other3";
+      SDKIdentityTypeEnum["otherId4"] = "other4";
+      SDKIdentityTypeEnum["otherId5"] = "other5";
+      SDKIdentityTypeEnum["otherId6"] = "other6";
+      SDKIdentityTypeEnum["otherId7"] = "other7";
+      SDKIdentityTypeEnum["otherId8"] = "other8";
+      SDKIdentityTypeEnum["otherId9"] = "other9";
+      SDKIdentityTypeEnum["otherId10"] = "other10";
+      SDKIdentityTypeEnum["mobileNumber"] = "mobile_number";
+      SDKIdentityTypeEnum["phoneNumber2"] = "phone_number_2";
+      SDKIdentityTypeEnum["phoneNumber3"] = "phone_number_3";
+    })(SDKIdentityTypeEnum || (SDKIdentityTypeEnum = {}));
 
     function convertEvents(mpid, sdkEvents, mpInstance) {
       if (!mpid) {
@@ -7223,6 +7224,7 @@ var mParticle = (function () {
            * @method getuserAudiences
            * @param {Function} [callback] A callback function that is invoked when the user audience request completes
            */
+          // https://go.mparticle.com/work/SQDSDKS-6436
           getUserAudiences: function getUserAudiences(callback) {
             // user audience API is feature flagged
             if (!mpInstance._Helpers.getFeatureFlag(FeatureFlags$1.AudienceAPI)) {
@@ -7490,6 +7492,8 @@ var mParticle = (function () {
       };
       this.createUserIdentityChange = function (identityType, newIdentity, oldIdentity, newCreatedThisBatch, userInMemory) {
         var userIdentityChangeEvent;
+
+        // https://go.mparticle.com/work/SQDSDKS-6439
         userIdentityChangeEvent = mpInstance._ServerModel.createEventObject({
           messageType: Types.MessageType.UserIdentityChange,
           userIdentityChanges: {
@@ -7520,6 +7524,7 @@ var mParticle = (function () {
         }
         var userAttributeChangeEvent;
         if (newValue !== previousUserAttributeValue) {
+          // https://go.mparticle.com/work/SQDSDKS-6439
           userAttributeChangeEvent = mpInstance._ServerModel.createEventObject({
             messageType: Types.MessageType.UserAttributeChange,
             userAttributeChanges: {
