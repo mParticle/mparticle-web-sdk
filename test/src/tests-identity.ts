@@ -309,7 +309,7 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         let activeForwarders = mParticle.getInstance()._getActiveForwarders();
-        activeForwarders.length.should.not.be.ok();
+        expect(activeForwarders.length).to.equal(0);
 
         let consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState(
@@ -330,7 +330,7 @@ describe('identity', function() {
 
         mParticle.Identity.login();
         activeForwarders = mParticle.getInstance()._getActiveForwarders();
-        activeForwarders.length.should.not.be.ok();
+        expect(activeForwarders.length).to.equal(0);
 
         consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState(
@@ -451,8 +451,8 @@ describe('identity', function() {
             testMPID,
             'gs',
         ]);
-        cookiesAfterMPIDChange.should.have.property('cu', 'otherMPID');
-        cookiesAfterMPIDChange[testMPID].should.have.property('csd');
+        expect(cookiesAfterMPIDChange).to.have.property('cu', 'otherMPID');
+        expect(cookiesAfterMPIDChange[testMPID]).to.have.property('csd');
 
         const props = [
             'ie',
@@ -470,8 +470,10 @@ describe('identity', function() {
         ];
 
         props.forEach(function(prop) {
-            cookiesAfterMPIDChange[testMPID].should.not.have.property(prop);
-            cookiesAfterMPIDChange['otherMPID'].should.not.have.property(prop);
+            expect(cookiesAfterMPIDChange[testMPID]).to.not.have.property(prop);
+            expect(cookiesAfterMPIDChange['otherMPID']).to.not.have.property(
+                prop
+            );
         });
 
         done();
@@ -670,29 +672,34 @@ describe('identity', function() {
             'mobile_number',
             'device_application_stamp',
         ]);
-        identityRequest.known_identities.other.should.equal('id1');
-        identityRequest.known_identities.customerid.should.equal('id2');
-        identityRequest.known_identities.facebook.should.equal('id3');
-        identityRequest.known_identities.twitter.should.equal('id4');
-        identityRequest.known_identities.google.should.equal('id5');
-        identityRequest.known_identities.microsoft.should.equal('id6');
-        identityRequest.known_identities.yahoo.should.equal('id7');
-        identityRequest.known_identities.email.should.equal('id8');
-        identityRequest.known_identities.facebookcustomaudienceid.should.equal(
-            'id9'
+
+        expect(identityRequest.known_identities.other).to.equal('id1');
+        expect(identityRequest.known_identities.customerid).to.equal('id2');
+        expect(identityRequest.known_identities.facebook).to.equal('id3');
+        expect(identityRequest.known_identities.twitter).to.equal('id4');
+        expect(identityRequest.known_identities.google).to.equal('id5');
+        expect(identityRequest.known_identities.microsoft).to.equal('id6');
+        expect(identityRequest.known_identities.yahoo).to.equal('id7');
+        expect(identityRequest.known_identities.email).to.equal('id8');
+        expect(
+            identityRequest.known_identities.facebookcustomaudienceid
+        ).to.equal('id9');
+        expect(identityRequest.known_identities.other2).to.equal('id10');
+        expect(identityRequest.known_identities.other3).to.equal('id11');
+        expect(identityRequest.known_identities.other4).to.equal('id12');
+        expect(identityRequest.known_identities.other5).to.equal('id13');
+        expect(identityRequest.known_identities.other6).to.equal('id14');
+        expect(identityRequest.known_identities.other7).to.equal('id15');
+        expect(identityRequest.known_identities.other8).to.equal('id16');
+        expect(identityRequest.known_identities.other9).to.equal('id17');
+        expect(identityRequest.known_identities.other10).to.equal('id18');
+        expect(identityRequest.known_identities.mobile_number).to.equal('id19');
+        expect(identityRequest.known_identities.phone_number_2).to.equal(
+            'id20'
         );
-        identityRequest.known_identities.other2.should.equal('id10');
-        identityRequest.known_identities.other3.should.equal('id11');
-        identityRequest.known_identities.other4.should.equal('id12');
-        identityRequest.known_identities.other5.should.equal('id13');
-        identityRequest.known_identities.other6.should.equal('id14');
-        identityRequest.known_identities.other7.should.equal('id15');
-        identityRequest.known_identities.other8.should.equal('id16');
-        identityRequest.known_identities.other9.should.equal('id17');
-        identityRequest.known_identities.other10.should.equal('id18');
-        identityRequest.known_identities.mobile_number.should.equal('id19');
-        identityRequest.known_identities.phone_number_2.should.equal('id20');
-        identityRequest.known_identities.phone_number_3.should.equal('id21');
+        expect(identityRequest.known_identities.phone_number_3).to.equal(
+            'id21'
+        );
 
         done();
     });
@@ -775,199 +782,205 @@ describe('identity', function() {
             'sdk_vendor',
             'sdk_version',
         ]);
-        identityRequest.client_sdk.platform.should.equal('web');
-        identityRequest.client_sdk.sdk_vendor.should.equal('mparticle');
-        identityRequest.environment.should.equal('production');
-        identityRequest.identity_changes[0].should.have.properties([
+        expect(identityRequest.client_sdk.platform).to.equal('web');
+        expect(identityRequest.client_sdk.sdk_vendor).to.equal('mparticle');
+        expect(identityRequest.environment).to.equal('production');
+        expect(identityRequest.identity_changes[0]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[0].old_value.should.equal('id1');
-        identityRequest.identity_changes[0].identity_type.should.equal('other');
-        identityRequest.identity_changes[0].new_value.should.equal('id14');
+        expect(identityRequest.identity_changes[0].old_value).to.equal('id1');
+        expect(identityRequest.identity_changes[0].identity_type).to.equal(
+            'other'
+        );
+        expect(identityRequest.identity_changes[0].new_value).to.equal('id14');
 
-        identityRequest.identity_changes[1].should.have.properties([
+        expect(identityRequest.identity_changes[1]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[1].old_value.should.equal('id2');
-        identityRequest.identity_changes[1].identity_type.should.equal(
+        expect(identityRequest.identity_changes[1].old_value).to.equal('id2');
+        expect(identityRequest.identity_changes[1].identity_type).to.equal(
             'customerid'
         );
-        identityRequest.identity_changes[1].new_value.should.equal('id15');
+        expect(identityRequest.identity_changes[1].new_value).to.equal('id15');
 
-        identityRequest.identity_changes[2].should.have.properties([
+        expect(identityRequest.identity_changes[2]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[2].old_value.should.equal('id3');
-        identityRequest.identity_changes[2].identity_type.should.equal(
+        expect(identityRequest.identity_changes[2].old_value).to.equal('id3');
+        expect(identityRequest.identity_changes[2].identity_type).to.equal(
             'facebook'
         );
-        identityRequest.identity_changes[2].new_value.should.equal('id16');
+        expect(identityRequest.identity_changes[2].new_value).to.equal('id16');
 
-        identityRequest.identity_changes[3].should.have.properties([
+        expect(identityRequest.identity_changes[3]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[3].old_value.should.equal('id4');
-        identityRequest.identity_changes[3].identity_type.should.equal(
+        expect(identityRequest.identity_changes[3].old_value).to.equal('id4');
+        expect(identityRequest.identity_changes[3].identity_type).to.equal(
             'twitter'
         );
-        identityRequest.identity_changes[3].new_value.should.equal('id17');
+        expect(identityRequest.identity_changes[3].new_value).to.equal('id17');
 
-        identityRequest.identity_changes[4].should.have.properties([
+        expect(identityRequest.identity_changes[4]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[4].old_value.should.equal('id5');
-        identityRequest.identity_changes[4].identity_type.should.equal(
+        expect(identityRequest.identity_changes[4].old_value).to.equal('id5');
+        expect(identityRequest.identity_changes[4].identity_type).to.equal(
             'google'
         );
-        identityRequest.identity_changes[4].new_value.should.equal('id18');
+        expect(identityRequest.identity_changes[4].new_value).to.equal('id18');
 
-        identityRequest.identity_changes[5].should.have.properties([
+        expect(identityRequest.identity_changes[5]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[5].old_value.should.equal('id6');
-        identityRequest.identity_changes[5].identity_type.should.equal(
+        expect(identityRequest.identity_changes[5].old_value).to.equal('id6');
+        expect(identityRequest.identity_changes[5].identity_type).to.equal(
             'microsoft'
         );
-        identityRequest.identity_changes[5].new_value.should.equal('id19');
+        expect(identityRequest.identity_changes[5].new_value).to.equal('id19');
 
-        identityRequest.identity_changes[6].should.have.properties([
+        expect(identityRequest.identity_changes[6]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[6].old_value.should.equal('id7');
-        identityRequest.identity_changes[6].identity_type.should.equal('yahoo');
-        identityRequest.identity_changes[6].new_value.should.equal('id20');
+        expect(identityRequest.identity_changes[6].old_value).to.equal('id7');
+        expect(identityRequest.identity_changes[6].identity_type).to.equal(
+            'yahoo'
+        );
+        expect(identityRequest.identity_changes[6].new_value).to.equal('id20');
 
-        identityRequest.identity_changes[7].should.have.properties([
+        expect(identityRequest.identity_changes[7]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[7].old_value.should.equal('id8');
-        identityRequest.identity_changes[7].identity_type.should.equal('email');
-        identityRequest.identity_changes[7].new_value.should.equal('id21');
+        expect(identityRequest.identity_changes[7].old_value).to.equal('id8');
+        expect(identityRequest.identity_changes[7].identity_type).to.equal(
+            'email'
+        );
+        expect(identityRequest.identity_changes[7].new_value).to.equal('id21');
 
-        identityRequest.identity_changes[8].should.have.properties([
+        expect(identityRequest.identity_changes[8]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[8].old_value.should.equal('id9');
-        identityRequest.identity_changes[8].identity_type.should.equal(
+        expect(identityRequest.identity_changes[8].old_value).to.equal('id9');
+        expect(identityRequest.identity_changes[8].identity_type).to.equal(
             'facebookcustomaudienceid'
         );
-        identityRequest.identity_changes[8].new_value.should.equal('id22');
+        expect(identityRequest.identity_changes[8].new_value).to.equal('id22');
 
-        identityRequest.identity_changes[9].should.have.properties([
+        expect(identityRequest.identity_changes[9]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[9].old_value.should.equal('id10');
-        identityRequest.identity_changes[9].identity_type.should.equal(
+        expect(identityRequest.identity_changes[9].old_value).to.equal('id10');
+        expect(identityRequest.identity_changes[9].identity_type).to.equal(
             'other1'
         );
-        identityRequest.identity_changes[9].new_value.should.equal('id23');
+        expect(identityRequest.identity_changes[9].new_value).to.equal('id23');
 
-        identityRequest.identity_changes[10].should.have.properties([
+        expect(identityRequest.identity_changes[10]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[10].old_value.should.equal('id11');
-        identityRequest.identity_changes[10].identity_type.should.equal(
+        expect(identityRequest.identity_changes[10].old_value).to.equal('id11');
+        expect(identityRequest.identity_changes[10].identity_type).to.equal(
             'other2'
         );
-        identityRequest.identity_changes[10].new_value.should.equal('id24');
+        expect(identityRequest.identity_changes[10].new_value).to.equal('id24');
 
-        identityRequest.identity_changes[11].should.have.properties([
+        expect(identityRequest.identity_changes[11]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[11].old_value.should.equal('id12');
-        identityRequest.identity_changes[11].identity_type.should.equal(
+        expect(identityRequest.identity_changes[11].old_value).to.equal('id12');
+        expect(identityRequest.identity_changes[11].identity_type).to.equal(
             'other3'
         );
-        identityRequest.identity_changes[11].new_value.should.equal('id25');
+        expect(identityRequest.identity_changes[11].new_value).to.equal('id25');
 
-        identityRequest.identity_changes[12].should.have.properties([
+        expect(identityRequest.identity_changes[12]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[12].old_value.should.equal('id13');
-        identityRequest.identity_changes[12].identity_type.should.equal(
+        expect(identityRequest.identity_changes[12].old_value).to.equal('id13');
+        expect(identityRequest.identity_changes[12].identity_type).to.equal(
             'other4'
         );
-        identityRequest.identity_changes[12].new_value.should.equal('id26');
+        expect(identityRequest.identity_changes[12].new_value).to.equal('id26');
 
-        identityRequest.identity_changes[13].old_value.should.equal('id14');
-        identityRequest.identity_changes[13].identity_type.should.equal(
+        expect(identityRequest.identity_changes[13].old_value).to.equal('id14');
+        expect(identityRequest.identity_changes[13].identity_type).to.equal(
             'other5'
         );
-        identityRequest.identity_changes[13].new_value.should.equal('id27');
+        expect(identityRequest.identity_changes[13].new_value).to.equal('id27');
 
-        identityRequest.identity_changes[14].old_value.should.equal('id15');
-        identityRequest.identity_changes[14].identity_type.should.equal(
+        expect(identityRequest.identity_changes[14].old_value).to.equal('id15');
+        expect(identityRequest.identity_changes[14].identity_type).to.equal(
             'other6'
         );
-        identityRequest.identity_changes[14].new_value.should.equal('id28');
+        expect(identityRequest.identity_changes[14].new_value).to.equal('id28');
 
-        identityRequest.identity_changes[15].old_value.should.equal('id16');
-        identityRequest.identity_changes[15].identity_type.should.equal(
+        expect(identityRequest.identity_changes[15].old_value).to.equal('id16');
+        expect(identityRequest.identity_changes[15].identity_type).to.equal(
             'other7'
         );
-        identityRequest.identity_changes[15].new_value.should.equal('id29');
+        expect(identityRequest.identity_changes[15].new_value).to.equal('id29');
 
-        identityRequest.identity_changes[16].old_value.should.equal('id17');
-        identityRequest.identity_changes[16].identity_type.should.equal(
+        expect(identityRequest.identity_changes[16].old_value).to.equal('id17');
+        expect(identityRequest.identity_changes[16].identity_type).to.equal(
             'other8'
         );
-        identityRequest.identity_changes[16].new_value.should.equal('id30');
+        expect(identityRequest.identity_changes[16].new_value).to.equal('id30');
 
-        identityRequest.identity_changes[17].old_value.should.equal('id18');
-        identityRequest.identity_changes[17].identity_type.should.equal(
+        expect(identityRequest.identity_changes[17].old_value).to.equal('id18');
+        expect(identityRequest.identity_changes[17].identity_type).to.equal(
             'other9'
         );
-        identityRequest.identity_changes[17].new_value.should.equal('id31');
+        expect(identityRequest.identity_changes[17].new_value).to.equal('id31');
 
-        identityRequest.identity_changes[18].old_value.should.equal('id19');
-        identityRequest.identity_changes[18].identity_type.should.equal(
+        expect(identityRequest.identity_changes[18].old_value).to.equal('id19');
+        expect(identityRequest.identity_changes[18].identity_type).to.equal(
             'other10'
         );
-        identityRequest.identity_changes[18].new_value.should.equal('id32');
+        expect(identityRequest.identity_changes[18].new_value).to.equal('id32');
 
-        identityRequest.identity_changes[19].old_value.should.equal('id20');
-        identityRequest.identity_changes[19].identity_type.should.equal(
+        expect(identityRequest.identity_changes[19].old_value).to.equal('id20');
+        expect(identityRequest.identity_changes[19].identity_type).to.equal(
             'mobile_number'
         );
-        identityRequest.identity_changes[19].new_value.should.equal('id33');
+        expect(identityRequest.identity_changes[19].new_value).to.equal('id33');
 
-        identityRequest.identity_changes[20].old_value.should.equal('id21');
-        identityRequest.identity_changes[20].identity_type.should.equal(
+        expect(identityRequest.identity_changes[20].old_value).to.equal('id21');
+        expect(identityRequest.identity_changes[20].identity_type).to.equal(
             'phone_number_2'
         );
-        identityRequest.identity_changes[20].new_value.should.equal('id34');
+        expect(identityRequest.identity_changes[20].new_value).to.equal('id34');
 
-        identityRequest.identity_changes[21].old_value.should.equal('id22');
-        identityRequest.identity_changes[21].identity_type.should.equal(
+        expect(identityRequest.identity_changes[21].old_value).to.equal('id22');
+        expect(identityRequest.identity_changes[21].identity_type).to.equal(
             'phone_number_3'
         );
-        identityRequest.identity_changes[21].new_value.should.equal('id35');
+        expect(identityRequest.identity_changes[21].new_value).to.equal('id35');
 
         done();
     });
@@ -1115,28 +1128,30 @@ describe('identity', function() {
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[0].should.have.property(
+        expect(identityRequest.identity_changes[0]).to.have.property(
             'old_value',
             null
         );
-        identityRequest.identity_changes[0].identity_type.should.equal('other');
-        identityRequest.identity_changes[0].new_value.should.equal(
+        expect(identityRequest.identity_changes[0].identity_type).to.equal(
+            'other'
+        );
+        expect(identityRequest.identity_changes[0].new_value).to.equal(
             'new_other_id'
         );
 
-        identityRequest.identity_changes[1].should.have.properties([
+        expect(identityRequest.identity_changes[1]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[1].should.have.property(
+        expect(identityRequest.identity_changes[1]).to.have.property(
             'old_value',
             'old_facebook_id'
         );
-        identityRequest.identity_changes[1].identity_type.should.equal(
+        expect(identityRequest.identity_changes[1].identity_type).to.equal(
             'facebook'
         );
-        identityRequest.identity_changes[1].new_value.should.equal(
+        expect(identityRequest.identity_changes[1].new_value).to.equal(
             'new_facebook_id'
         );
 
@@ -1161,22 +1176,22 @@ describe('identity', function() {
                 'test-context'
             );
 
-        identityRequest.identity_changes[0].should.have.properties([
+        expect(identityRequest.identity_changes[0]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[0].old_value.should.equal(
+        expect(identityRequest.identity_changes[0].old_value).to.equal(
             'old_facebook_id'
         );
-        identityRequest.identity_changes[0].identity_type.should.equal(
+        expect(identityRequest.identity_changes[0].identity_type).to.equal(
             'facebook'
         );
-        identityRequest.identity_changes[0].new_value.should.equal(
+        expect(identityRequest.identity_changes[0].new_value).to.equal(
             'new_facebook_id'
         );
 
-        identityRequest.identity_changes.length.should.equal(1);
+        expect(identityRequest.identity_changes.length).to.equal(1);
 
         done();
     });
@@ -1219,7 +1234,7 @@ describe('identity', function() {
         done();
     });
 
-    it('Ensure that automatic identify is not called more than once.', function(done) {
+    it('ensure that automatic identify is not called more than once.', function(done) {
         mParticle._resetForTests(MPConfig);
         const spy = sinon.spy();
         mParticle.config.identityCallback = spy;
@@ -1250,7 +1265,7 @@ describe('identity', function() {
 
         let testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
 
-        Should(testEvent1).not.be.ok();
+        expect(testEvent1).to.not.be.ok;
 
         mockServer.respondWith(urls.login, [
             200,
@@ -1262,7 +1277,7 @@ describe('identity', function() {
         mParticle.Identity.login();
         // server requests will have AST, sessionStart, Test1, Test2, and login
         testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
-        fetchMock.calls().length.should.equal(4);
+        expect(fetchMock.calls().length).to.equal(4);
 
         const testEvent2 = findEventFromRequest(
             fetchMock.calls(),
@@ -1278,11 +1293,11 @@ describe('identity', function() {
         );
         const loginEvent = getIdentityEvent(mockServer.requests, 'login');
 
-        Should(testEvent1).be.ok();
-        Should(testEvent2).be.ok();
-        Should(ASTEvent).be.ok();
-        Should(sessionStartEvent).be.ok();
-        Should(loginEvent).be.ok();
+        expect(testEvent1).to.be.ok;
+        expect(testEvent2).to.be.ok;
+        expect(ASTEvent).to.be.ok;
+        expect(sessionStartEvent).to.be.ok;
+        expect(loginEvent).to.be.ok;
 
         done();
     });
@@ -1349,14 +1364,15 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
         const users = mParticle.Identity.getUsers();
         //this includes the original, starting user, in addition to the 3 added above
-        Should(users).have.length(4);
+        expect(users.length).to.equal(4);
         for (let i of users) {
-            Should.exist(mParticle.Identity.getUser(i.getMPID()));
+            const mpid = i.getMPID();
+            expect(mParticle.Identity.getUser(mpid)).to.exist;
         }
-        Should.not.exist(mParticle.Identity.getUser('gs'));
-        Should.not.exist(mParticle.Identity.getUser('cu'));
-        Should.not.exist(mParticle.Identity.getUser('0'));
-        Should.not.exist(mParticle.Identity.getUser('user4'));
+        expect(mParticle.Identity.getUser('gs')).to.not.exist;
+        expect(mParticle.Identity.getUser('cu')).to.not.exist;
+        expect(mParticle.Identity.getUser('0')).to.not.exist;
+        expect(mParticle.Identity.getUser('user4')).to.not.exist;
 
         done();
     });
@@ -1466,6 +1482,16 @@ describe('identity', function() {
             );
 
         expect(combinedUIsByType).to.have.all.keys([1, 3, 4, 7]);
+        expect(combinedUIsByType[1]).to.equal('customerid1');
+        expect(combinedUIsByType[3]).to.equal('twitter5');
+        expect(combinedUIsByType[4]).to.equal('google4');
+        expect(combinedUIsByType[7]).to.equal('email2@test.com');
+
+        // if an invalid identity type is added to the identity call,
+        // it will be removed from the combinedUIsByType
+        // FIXME: What is the actual test case this is trying to test?
+        // expect(combinedUIsByType).to.not.have.property(false);
+        expect(Object.keys(combinedUIsByType).length).to.equal(4);
 
         done();
     });
@@ -2171,15 +2197,13 @@ describe('identity', function() {
         };
 
         mParticle.Identity.login(user3);
-        user2AttributeListsBeforeRemoving.list.length.should.equal(5);
-        Should(
-            Object.keys(user3UserAttributeListsBeforeAdding).length
-        ).not.be.ok();
+        expect(user2AttributeListsBeforeRemoving.list.length).to.equal(5);
+        expect(Object.keys(user3UserAttributeListsBeforeAdding).length).to.not
+            .be.ok;
 
-        Should(
-            Object.keys(user2AttributeListsAfterRemoving).length
-        ).not.be.ok();
-        user3UserAttributeListsAfterAdding.list.length.should.equal(5);
+        expect(Object.keys(user2AttributeListsAfterRemoving).length).to.not.be
+            .ok;
+        expect(user3UserAttributeListsAfterAdding.list.length).to.equal(5);
 
         done();
     });
@@ -2204,7 +2228,7 @@ describe('identity', function() {
             .getCart()
             .getCartProducts();
 
-        Should(products.length).not.be.ok();
+        expect(products.length).to.not.be.ok;
 
         done();
     });
@@ -2228,17 +2252,17 @@ describe('identity', function() {
         mParticle.Identity.logout(identityAPIRequest1);
 
         const logoutData = getIdentityEvent(mockServer.requests, 'logout');
-        Should(logoutData).be.ok();
+        expect(logoutData).to.be.ok;
 
         mParticle.Identity.login(identityAPIRequest1);
 
         const loginData = getIdentityEvent(mockServer.requests, 'login');
-        Should(loginData).be.ok();
+        expect(loginData).to.be.ok;
 
         mParticle.Identity.modify(identityAPIRequest1);
 
         const modifyData = getIdentityEvent(mockServer.requests, 'login');
-        Should(modifyData).be.ok();
+        expect(modifyData).to.be.ok;
 
         done();
     });
@@ -2342,8 +2366,8 @@ describe('identity', function() {
             'matched_identities',
             'mpid'
         );
-        Should(result.body.context).not.be.ok();
-        Should(result.body.is_ephemeral).not.be.ok();
+        expect(result.body.context).to.not.be.ok;
+        expect(result.body.is_ephemeral).to.not.be.ok;
         result.body.matched_identities.should.have.property(
             'customerid',
             'customerid1'
@@ -2524,15 +2548,15 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         const currentUser = mParticle.Identity.getCurrentUser();
-        currentUser.should.not.equal(null);
+        expect(currentUser).to.not.equal(null);
 
-        Should(currentUser.getFirstSeenTime()).not.equal(null);
-        Should(currentUser.getLastSeenTime()).not.equal(null);
+        expect(currentUser.getFirstSeenTime()).to.not.equal(null);
+        expect(currentUser.getLastSeenTime()).to.not.equal(null);
 
         clock.tick(100);
 
-        currentUser.getFirstSeenTime().should.equal(100);
-        currentUser.getLastSeenTime().should.equal(200);
+        expect(currentUser.getFirstSeenTime()).to.equal(100);
+        expect(currentUser.getLastSeenTime()).to.equal(200);
 
         clock.restore();
         done();
@@ -2609,7 +2633,7 @@ describe('identity', function() {
         done();
     });
 
-    it('List returned by Identity.getUsers() should be sorted by lastSeenTime, with nulls last', function(done) {
+    it('list returned by Identity.getUsers() should be sorted by lastSeenTime, with nulls last', function(done) {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -2639,14 +2663,14 @@ describe('identity', function() {
 
         const users = mParticle.Identity.getUsers();
 
-        users.length.should.equal(5);
+        expect(users.length).to.equal(5);
 
-        users[0].getMPID().should.equal('1');
-        users[1].getMPID().should.equal('5');
-        users[2].getMPID().should.equal('2');
-        users[3].getMPID().should.equal('3');
-        users[4].getMPID().should.equal('4');
-        Should(users[4].getLastSeenTime()).equal(null);
+        expect(users[0].getMPID()).to.equal('1');
+        expect(users[1].getMPID()).to.equal('5');
+        expect(users[2].getMPID()).to.equal('2');
+        expect(users[3].getMPID()).to.equal('3');
+        expect(users[4].getMPID()).to.equal('4');
+        expect(users[4].getLastSeenTime()).to.equal(null);
 
         done();
     });
@@ -2699,12 +2723,11 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        identityResult
-            .getUser()
-            .getMPID()
-            .should.equal('testMPID');
-        Should(identityResult.getPreviousUser()).not.equal(null);
-        Should(identityResult.getPreviousUser().getMPID()).equal('testMPID2');
+        expect(identityResult.getUser().getMPID()).to.equal('testMPID');
+        expect(identityResult.getPreviousUser()).to.not.equal(null);
+        expect(identityResult.getPreviousUser().getMPID()).to.equal(
+            'testMPID2'
+        );
         done();
     });
 
@@ -2732,18 +2755,12 @@ describe('identity', function() {
         }
         mParticle.Identity.login(EmptyUserIdentities, identityCallback);
 
-        mParticle.Identity.getCurrentUser()
-            .getMPID()
-            .should.equal('testMPID');
-        loginResult
-            .getUser()
-            .getMPID()
-            .should.equal('testMPID');
-        Should(loginResult.getPreviousUser()).not.equal(null);
-        loginResult
-            .getPreviousUser()
-            .getMPID()
-            .should.equal('testMPID2');
+        expect(mParticle.Identity.getCurrentUser().getMPID()).to.equal(
+            'testMPID'
+        );
+        expect(loginResult.getUser().getMPID()).to.equal('testMPID');
+        expect(loginResult.getPreviousUser()).to.not.be.null;
+        expect(loginResult.getPreviousUser().getMPID()).to.equal('testMPID2');
         done();
     });
 
@@ -2817,18 +2834,18 @@ describe('identity', function() {
         request.url.should.equal(urls.alias);
 
         const requestBody = JSON.parse(request.requestBody);
-        Should(requestBody['request_id']).not.equal(null);
-        Should(requestBody['request_type']).equal('alias');
-        Should(requestBody['environment']).equal('production');
-        Should(requestBody['api_key']).equal(
+        expect(requestBody['request_id']).to.not.equal(null);
+        expect(requestBody['request_type']).to.equal('alias');
+        expect(requestBody['environment']).to.equal('production');
+        expect(requestBody['api_key']).to.equal(
             mParticle.getInstance()._Store.devToken
         );
         const dataBody = requestBody['data'];
-        Should(dataBody).not.equal(null);
-        Should(dataBody['destination_mpid']).equal(1);
-        Should(dataBody['source_mpid']).equal(2);
-        Should(dataBody['start_unixtime_ms']).equal(3);
-        Should(dataBody['end_unixtime_ms']).equal(4);
+        expect(dataBody).to.not.equal(null);
+        expect(dataBody['destination_mpid']).to.equal('destinationMpid');
+        expect(dataBody['source_mpid']).to.equal('sourceMpid');
+        expect(dataBody['start_unixtime_ms']).to.equal(3);
+        expect(dataBody['end_unixtime_ms']).to.equal(4);
 
         done();
     });
@@ -2848,11 +2865,11 @@ describe('identity', function() {
         mockServer.requests.length.should.equal(1);
 
         const request = mockServer.requests[0];
-        request.url.should.equal(urls.alias);
+        expect(request.url).to.equal(urls.alias);
 
         const requestBody = JSON.parse(request.requestBody);
         const dataBody = requestBody['data'];
-        Should(dataBody['scope']).equal('mpid');
+        expect(dataBody['scope']).to.equal('mpid');
 
         done();
     });
@@ -2880,10 +2897,10 @@ describe('identity', function() {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingMpid
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingMpid
         );
         callbackResult = null;
@@ -2900,10 +2917,10 @@ describe('identity', function() {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingMpid
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingMpid
         );
         callbackResult = null;
@@ -2919,11 +2936,12 @@ describe('identity', function() {
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
         });
+
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasNonUniqueMpid
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasNonUniqueMpid
         );
         callbackResult = null;
@@ -2940,10 +2958,10 @@ describe('identity', function() {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasStartBeforeEndTime
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasStartBeforeEndTime
         );
         callbackResult = null;
@@ -2959,10 +2977,10 @@ describe('identity', function() {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingTime
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingTime
         );
         callbackResult = null;
@@ -2982,14 +3000,14 @@ describe('identity', function() {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(200);
-        Should(callbackResult.message).equal(undefined);
-        Should(warnMessage).equal(null);
+        expect(callbackResult.message).to.equal(undefined);
+        expect(warnMessage).to.equal(null);
         callbackResult = null;
 
         done();
     });
 
-    it('Should parse error info from Alias Requests', function(done) {
+    it('should parse error info from Alias Requests', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         const errorMessage = 'this is a sample error message';
         let callbackResult;
@@ -3020,7 +3038,7 @@ describe('identity', function() {
         done();
     });
 
-    it('Should properly create AliasRequest', function(done) {
+    it('should properly create AliasRequest', function(done) {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -3051,16 +3069,16 @@ describe('identity', function() {
             sourceUser,
             destinationUser
         );
-        Should(aliasRequest.sourceMpid).equal('1');
-        Should(aliasRequest.destinationMpid).equal('2');
-        Should(aliasRequest.startTime).equal(200);
-        Should(aliasRequest.endTime).equal(400);
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
+        expect(aliasRequest.startTime).to.equal(200);
+        expect(aliasRequest.endTime).to.equal(400);
         clock.restore();
 
         done();
     });
 
-    it('Should fill in missing fst and lst in createAliasRequest', function(done) {
+    it('should fill in missing fst and lst in createAliasRequest', function(done) {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -3092,19 +3110,19 @@ describe('identity', function() {
             sourceUser,
             destinationUser
         );
-        Should(aliasRequest.sourceMpid).equal('2');
-        Should(aliasRequest.destinationMpid).equal('3');
+        expect(aliasRequest.sourceMpid).to.equal('2');
+        expect(aliasRequest.destinationMpid).to.equal('3');
         //should grab the earliest fst out of any user if user does not have fst
-        Should(aliasRequest.startTime).equal(200);
+        expect(aliasRequest.startTime).to.equal(200);
         //should grab currentTime if user does not have lst
-        Should(aliasRequest.endTime).equal(1000);
+        expect(aliasRequest.endTime).to.equal(1000);
 
         clock.restore();
 
         done();
     });
 
-    it('Should fix startTime when default is outside max window create AliasRequest', function(done) {
+    it('should fix startTime when default is outside max window create AliasRequest', function(done) {
         mParticle._resetForTests(MPConfig);
 
         const millisPerDay = 24 * 60 * 60 * 1000;
@@ -3135,14 +3153,14 @@ describe('identity', function() {
             sourceUser,
             destinationUser
         );
-        Should(aliasRequest.sourceMpid).equal('1');
-        Should(aliasRequest.destinationMpid).equal('2');
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
         const oldestAllowedStartTime =
             new Date().getTime() -
             mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
                 millisPerDay;
-        Should(aliasRequest.startTime).equal(oldestAllowedStartTime);
-        Should(aliasRequest.endTime).equal(new Date().getTime());
+        expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
+        expect(aliasRequest.endTime).to.equal(new Date().getTime());
         clock.restore();
 
         done();
@@ -3187,15 +3205,15 @@ describe('identity', function() {
             sourceUser,
             destinationUser
         );
-        Should(aliasRequest.sourceMpid).equal('1');
-        Should(aliasRequest.destinationMpid).equal('2');
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
         const oldestAllowedStartTime =
             new Date().getTime() -
             mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
                 millisPerDay;
-        Should(aliasRequest.startTime).equal(oldestAllowedStartTime);
-        Should(aliasRequest.endTime).equal(300);
-        Should(warnMessage).equal(
+        expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
+        expect(aliasRequest.endTime).to.equal(300);
+        expect(warnMessage).to.equal(
             'Source User has not been seen in the last ' +
                 mParticle.getInstance()._Store.SDKConfig.maxAliasWindow +
                 ' days, Alias Request will likely fail'
@@ -3205,7 +3223,7 @@ describe('identity', function() {
         done();
     });
 
-    it("Alias request should have environment 'development' when isDevelopmentMode is true", function(done) {
+    it("alias request should have environment 'development' when isDevelopmentMode is true", function(done) {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
 
@@ -3223,7 +3241,7 @@ describe('identity', function() {
 
         const request = mockServer.requests[0];
         const requestBody = JSON.parse(request.requestBody);
-        Should(requestBody['environment']).equal('development');
+        expect(requestBody['environment']).to.equal('development');
 
         done();
     });
@@ -3404,10 +3422,10 @@ describe('identity', function() {
                 'identify'
             );
 
-            Should(duplicateIdentityCall).not.be.ok();
+            expect(duplicateIdentityCall).to.not.be.ok;
 
             // callback still gets called even if the identity call is not made`
-            Should(callback.called).equal(true);
+            expect(callback.called).to.equal(true);
         });
 
         it('should call identify if no identities have changed but we are outside the expiration time', function() {
@@ -3448,8 +3466,8 @@ describe('identity', function() {
                 'identify'
             );
 
-            Should(duplicateIdentityCall).be.ok();
-            Should(callback.called).equal(true);
+            expect(duplicateIdentityCall).to.be.ok;
+            expect(callback.called).to.equal(true);
         });
 
         it('should not call login if previously cached within the expiration time', function() {
@@ -3487,7 +3505,7 @@ describe('identity', function() {
                 'login'
             );
 
-            Should(firstLoginCall).be.ok();
+            expect(firstLoginCall).to.be.ok;
             mockServer.requests = [];
 
             mParticle.Identity.login(identities);
@@ -3496,8 +3514,8 @@ describe('identity', function() {
                 'login'
             );
 
-            Should(secondLoginCall).not.be.ok();
-            Should(callback.called).equal(true);
+            expect(secondLoginCall).to.not.be.ok;
+            expect(callback.called).to.equal(true);
         });
 
         it('should call login if duplicate login happens after expiration time', function() {
@@ -3531,7 +3549,7 @@ describe('identity', function() {
                 'login'
             );
 
-            Should(firstLoginCall).be.ok();
+            expect(firstLoginCall).to.be.ok;
             mockServer.requests = [];
 
             // cached time will be 1000 if header returns '1'
@@ -3542,8 +3560,8 @@ describe('identity', function() {
                 'login'
             );
 
-            Should(secondLoginCall).be.ok();
-            Should(callback.called).equal(true);
+            expect(secondLoginCall).to.be.ok;
+            expect(callback.called).to.equal(true);
         });
 
         it('should clear cache when modify is called', function() {
@@ -3582,7 +3600,7 @@ describe('identity', function() {
             mParticle.init(apiKey, window.mParticle.config);
 
             let idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
-            Should(idCache).be.ok();
+            expect(idCache).to.be.ok;
 
             mParticle.Identity.modify({
                 userIdentities: {
@@ -3592,7 +3610,7 @@ describe('identity', function() {
             let secondIdCache = localStorage.getItem(
                 'mprtcl-v4_abcdef-id-cache'
             );
-            Should(secondIdCache).not.be.ok();
+            expect(secondIdCache).to.not.be.ok;
         });
 
         it('should clear cache when logout is called', function() {
@@ -3624,13 +3642,13 @@ describe('identity', function() {
             mParticle.init(apiKey, window.mParticle.config);
 
             let idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
-            Should(idCache).be.ok();
+            expect(idCache).to.be.ok;
 
             mParticle.Identity.logout();
             let secondIdCache = localStorage.getItem(
                 'mprtcl-v4_abcdef-id-cache'
             );
-            Should(secondIdCache).not.be.ok();
+            expect(secondIdCache).to.not.be.ok;
         });
     });
 
