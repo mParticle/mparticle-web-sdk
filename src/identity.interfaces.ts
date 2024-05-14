@@ -1,9 +1,4 @@
-import {
-    IdentityApiData,
-    IdentityCallback,
-    MPID,
-    UserIdentities,
-} from '@mparticle/web-sdk';
+import { IdentityApiData, IdentityCallback, MPID } from '@mparticle/web-sdk';
 import AudienceManager from './audienceManager';
 import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
@@ -23,6 +18,32 @@ export type IdentityPreProcessResult = {
 };
 
 export type IdentityAPIMethod = valueof<typeof Constants.IdentityMethods>;
+
+// TODO: Consolidate this with @mparticle/web-sdk
+export type UserIdentities = {
+    customerid?: string | undefined;
+    email?: string | undefined;
+    other?: string | undefined;
+    other1?: string | undefined; // QUESTION: Why is this missing?
+    other2?: string | undefined;
+    other3?: string | undefined;
+    other4?: string | undefined;
+    other5?: string | undefined;
+    other6?: string | undefined;
+    other7?: string | undefined;
+    other8?: string | undefined;
+    other9?: string | undefined;
+    other10?: string | undefined;
+    mobile_number?: string | undefined;
+    phone_number_2?: string | undefined;
+    phone_number_3?: string | undefined;
+    facebook?: string | undefined;
+    facebookcustomaudienceid?: string | undefined;
+    google?: string | undefined;
+    twitter?: string | undefined;
+    microsoft?: string | undefined;
+    yahoo?: string | undefined;
+};
 
 export enum SDKIdentityTypeEnum {
     other = 'other',
@@ -78,6 +99,10 @@ export interface IIdentityAPIIdentityChangeData {
 }
 
 export interface IIdentityRequest {
+    combineUserIdentities(
+        currentUserIdentities: UserIdentities,
+        newUserIdentities: UserIdentities
+    ): UserIdentities;
     createIdentityRequest(
         identityApiData: IdentityApiData,
         platform: string,

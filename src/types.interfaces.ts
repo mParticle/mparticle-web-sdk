@@ -50,3 +50,7 @@ export enum IdentityType {
     PhoneNumber2 = 20,
     PhoneNumber3 = 21,
 }
+
+export interface IIdentityType {
+    getIdentityType(identityType: string): IdentityType | null;
+}

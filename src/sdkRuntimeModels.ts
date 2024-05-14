@@ -1,6 +1,11 @@
 import * as EventsApi from '@mparticle/event-models';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
-import { MPConfiguration, MPID, Callback } from '@mparticle/web-sdk';
+import {
+    MPConfiguration,
+    MPID,
+    Callback,
+    IdentityApiData,
+} from '@mparticle/web-sdk';
 import { IStore } from './store';
 import Validators from './validators';
 import { Dictionary } from './utils';
@@ -11,13 +16,15 @@ import { IPersistence } from './persistence.interfaces';
 import { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
 import { Kit, MPForwarder } from './forwarders.interfaces';
-import { SDKIdentityApi } from './identity.interfaces';
+import { IIdentity, SDKIdentityApi } from './identity.interfaces';
 import {
     ISDKUserAttributeChangeData,
     ISDKUserIdentityChanges,
     IMParticleUser,
     ISDKUserIdentity,
+    IIdentityCallback,
 } from './identity-user-interfaces';
+import { IIdentityType } from './types.interfaces';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -137,6 +144,9 @@ interface IEvents {
 
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
+    // TODO: Figure out how we can make IdentityType Work
+    IdentityType: IIdentityType;
+    _Identity: IIdentity;
     Identity: SDKIdentityApi;
     Logger: SDKLoggerApi;
     MPSideloadedKit: IMPSideloadedKit;
@@ -160,14 +170,20 @@ export interface MParticleWebSDK {
         keepPersistence?: boolean,
         instance?: MParticleWebSDK
     ): void;
+    endSession(): void;
+    identifyRequest: IdentityApiData;
     init(apiKey: string, config: SDKInitConfig, instanceName?: string): void;
+    _getActiveForwarders(): MPForwarder[];
     getAppName(): string;
     getAppVersion(): string;
     getDeviceId(): string;
+    setDeviceId(deviceId: string): void;
     getInstance(): MParticleWebSDK; // TODO: Create a new type for MParticleWebSDKInstance
     ServerModel();
     upload();
+    setLogLevel(logLevel: LogLevelType): void;
     setPosition(lat: number | string, lng: number | string): void;
+    startNewSession(): void;
     logEvent(
         eventName: string,
         eventType?: number,
@@ -224,6 +240,9 @@ export interface SDKInitConfig
 
     workspaceToken?: string;
     isDevelopmentMode?: boolean;
+
+    // https://go.mparticle.com/work/SQDSDKS-6460
+    identityCallback?: IIdentityCallback;
 }
 
 export interface DataPlanConfig {

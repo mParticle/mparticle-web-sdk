@@ -71,6 +71,7 @@ export interface SDKConfig {
     identityUrl?: string;
     userAudienceUrl?: string;
     isIOS?: boolean;
+    maxAliasWindow: number;
     maxProducts: number;
     requestConfig?: boolean;
     sessionTimeout?: number;
