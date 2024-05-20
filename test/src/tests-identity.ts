@@ -12,9 +12,7 @@ import {
     workspaceCookieName,
 } from './config/constants';
 import { Callback, IdentityApiData, Product } from '@mparticle/web-sdk';
-import { BaseVault } from '../../src/vault';
-import { Dictionary } from '../../src/utils';
-import { ICachedIdentityCall } from '../../src/identity-utils';
+import { IdentityCache } from '../../src/identity-utils';
 import { UserIdentities, IAliasRequest } from '../../src/identity.interfaces';
 
 const {
@@ -3369,9 +3367,9 @@ describe('identity', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            let idCache: BaseVault<
-                Dictionary<ICachedIdentityCall>
-            > = JSON.parse(localStorage.getItem('mprtcl-v4_abcdef-id-cache'));
+            const idCache: IdentityCache = JSON.parse(
+                localStorage.getItem('mprtcl-v4_abcdef-id-cache')
+            );
 
             // a single identify cache key will be on the idCache
             expect(Object.keys(idCache).length).to.equal(1);
