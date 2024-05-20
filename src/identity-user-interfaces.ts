@@ -87,11 +87,18 @@ export interface IIdentityCallback extends IdentityCallback {
 }
 
 export interface IIdentityResult extends Omit<IdentityResult, 'body'> {
-    body: IIdentityResultBody;
+    body: IIdentityResultBody | IIdentityModifyResultBody;
 }
 
 export interface IIdentityResultBody extends IdentityResultBody {
-    mpid: MPID;
+    mpid?: MPID;
+}
+
+export interface IIdentityModifyResultBody {
+    change_results?: {
+        identity_type: SDKIdentityTypeEnum;
+        modified_mpid: MPID;
+    };
 }
 
 export interface mParticleUserCart {
