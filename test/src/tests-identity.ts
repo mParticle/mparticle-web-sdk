@@ -570,10 +570,7 @@ describe('identity', function() {
 
         let count = 0;
         for (const key in data.userIdentities) {
-            // FIXME: This test assumes that the order of the keys is
-            // the same as the order of the IdentityType enum. While this is
-            // true, I don't think it's a good test.
-            // We probably should just test each key individually.
+            // https://go.mparticle.com/work/SQDSDKS-6473
             expect(mParticle.IdentityType.getIdentityType(key)).to.equal(count);
             count++;
             // 8 is alias, which was removed
