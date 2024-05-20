@@ -3343,7 +3343,9 @@ describe('identity', function() {
         it('should use header `x-mp-max-age` as expiration date for cache', function() {
             // tick forward 1 second
             clock.tick(1);
+
             const X_MP_MAX_AGE = '1';
+
             mParticle._resetForTests(MPConfig);
             mockServer.respondWith(urls.identify, [
                 200,
@@ -3374,9 +3376,16 @@ describe('identity', function() {
             // a single identify cache key will be on the idCache
             expect(Object.keys(idCache).length).to.equal(1);
             for (let key in idCache) {
-                // we previously ticked forward 1 second, so the expire timestamp should be 1 second more than the X_MP_MAX_AGE
+                // X_MP_MAX_AGE is a header value, which is a string,
+                // We want to make sure that the expireTimestamp is evaluated
+                // as a number.
+                const expectedExpiredTimestamp =
+                    parseInt(X_MP_MAX_AGE) * 1000 + 1;
+
+                // we previously ticked forward 1 second, so the expire timestamp
+                // should be 1 second more than the X_MP_MAX_AGE
                 expect(idCache[key].expireTimestamp).to.equal(
-                    ((X_MP_MAX_AGE as unknown) as number) * 1000 + 1
+                    expectedExpiredTimestamp
                 );
             }
         });
