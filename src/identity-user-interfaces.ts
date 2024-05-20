@@ -29,7 +29,7 @@ interface Cart {
     /**
      * @deprecated Cart Products have been deprecated
      */
-    getCartProducts(): Product[];
+    getCartProducts: () => Product[];
 }
 
 // https://go.mparticle.com/work/SQDSDKS-5033
@@ -83,7 +83,7 @@ export interface IUserAttributeChangeEvent extends BaseEvent {
 
 // https://go.mparticle.com/work/SQDSDKS-6460
 export interface IIdentityCallback extends IdentityCallback {
-    (result: IdentityResult): void;
+    (result: IIdentityResult): void;
 }
 
 export interface IIdentityResult extends Omit<IdentityResult, 'body'> {

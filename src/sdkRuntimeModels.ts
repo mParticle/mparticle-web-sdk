@@ -144,7 +144,6 @@ interface IEvents {
 
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
-    // TODO: Figure out how we can make IdentityType Work
     IdentityType: IIdentityType;
     _Identity: IIdentity;
     Identity: SDKIdentityApi;
