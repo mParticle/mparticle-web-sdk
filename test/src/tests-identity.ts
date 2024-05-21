@@ -45,23 +45,23 @@ declare global {
 
 const mParticle = window.mParticle as MParticleWebSDK;
 
-const BadUserIdentitiesAsString = ({
+const BAD_USER_IDENTITIES_AS_STRING = ({
     userIdentities: 'badUserIdentitiesString',
 } as unknown) as IdentityApiData;
 
-const BadUserIdentitiesAsArray = ({
+const BAD_USER_IDENTITIES_AS_ARRAY = ({
     userIdentities: ['bad', 'user', 'identities', 'array'],
 } as unknown) as IdentityApiData;
 
-const BadUserIdentitiesAsNull = ({
+const BAD_USER_IDENTITIES_AS_NULL = ({
     userIdentities: null,
 } as unknown) as IdentityApiData;
 
-const BadUserIdentitiesAsUndefined = ({
+const BAD_USER_IDENTITIES_AS_UNDEFINED = ({
     userIdentities: undefined,
 } as unknown) as IdentityApiData;
 
-const BadUserIdentitiesAsBoolean = ({
+const BAD_USER_IDENTITIES_AS_BOOLEAN = ({
     userIdentities: true,
 } as unknown) as IdentityApiData;
 
@@ -981,25 +981,25 @@ describe('identity', function() {
     });
 
     it('should not make a request when an invalid request is sent to login', function(done) {
-        const identityAPIRequest1 = BadUserIdentitiesAsString;
+        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.login(identityAPIRequest1);
 
         const badData1 = getIdentityEvent(mockServer.requests, 'login');
         expect(badData1).to.not.be.ok;
 
-        const identityAPIRequest2 = BadUserIdentitiesAsArray;
+        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.login(identityAPIRequest2);
 
         const badData2 = getIdentityEvent(mockServer.requests, 'login');
         expect(badData2).to.not.be.ok;
 
-        const identityAPIRequest3 = BadUserIdentitiesAsUndefined;
+        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.login(identityAPIRequest3);
 
         const badData3 = getIdentityEvent(mockServer.requests, 'login');
         expect(badData3).to.not.be.ok;
 
-        const identityAPIRequest4 = BadUserIdentitiesAsBoolean;
+        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.login(identityAPIRequest4);
 
         const badData4 = getIdentityEvent(mockServer.requests, 'login');
@@ -1009,25 +1009,25 @@ describe('identity', function() {
     });
 
     it('should not make a request when an invalid request is sent to logout', function(done) {
-        const identityAPIRequest1 = BadUserIdentitiesAsString;
+        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.logout(identityAPIRequest1);
 
         const badData1 = getIdentityEvent(mockServer.requests, 'logout');
         expect(badData1).to.not.be.ok;
 
-        const identityAPIRequest2 = BadUserIdentitiesAsArray;
+        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.logout(identityAPIRequest2);
 
         const badData2 = getIdentityEvent(mockServer.requests, 'logout');
         expect(badData2).to.not.be.ok;
 
-        const identityAPIRequest3 = BadUserIdentitiesAsUndefined;
+        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.logout(identityAPIRequest3);
 
         const badData3 = getIdentityEvent(mockServer.requests, 'logout');
         expect(badData3).to.not.be.ok;
 
-        const identityAPIRequest4 = BadUserIdentitiesAsBoolean;
+        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.logout(identityAPIRequest4);
 
         const badData4 = getIdentityEvent(mockServer.requests, 'logout');
@@ -1037,31 +1037,31 @@ describe('identity', function() {
     });
 
     it('should not make a request when an invalid request is sent to modify', function(done) {
-        const identityAPIRequest1 = BadUserIdentitiesAsString;
+        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.modify(identityAPIRequest1);
 
         const badData1 = getIdentityEvent(mockServer.requests, 'modify');
         expect(badData1).to.not.be.ok;
 
-        const identityAPIRequest2 = BadUserIdentitiesAsArray;
+        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.modify(identityAPIRequest2);
 
         const badData2 = getIdentityEvent(mockServer.requests, 'modify');
         expect(badData2).to.not.be.ok;
 
-        const identityAPIRequest3 = BadUserIdentitiesAsNull;
+        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_NULL;
         mParticle.Identity.modify(identityAPIRequest3);
 
         const badData3 = getIdentityEvent(mockServer.requests, 'modify');
         expect(badData3).to.not.be.ok;
 
-        const identityAPIRequest4 = BadUserIdentitiesAsUndefined;
+        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.modify(identityAPIRequest4);
 
         const badData4 = getIdentityEvent(mockServer.requests, 'modify');
         expect(badData4).to.not.be.ok;
 
-        const identityAPIRequest5 = BadUserIdentitiesAsBoolean;
+        const identityAPIRequest5 = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.modify(identityAPIRequest5);
 
         const badData5 = getIdentityEvent(mockServer.requests, 'modify');
@@ -1072,25 +1072,25 @@ describe('identity', function() {
 
     it('should not make a request when an invalid request is sent to identify', function(done) {
         mockServer.requests = [];
-        const identityAPIRequest1 = BadUserIdentitiesAsString;
+        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.identify(identityAPIRequest1);
 
         const badData1 = getIdentityEvent(mockServer.requests, 'identify');
         expect(badData1).to.not.be.ok;
 
-        const identityAPIRequest2 = BadUserIdentitiesAsArray;
+        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.identify(identityAPIRequest2);
 
         const badData2 = getIdentityEvent(mockServer.requests, 'identify');
         expect(badData2).to.not.be.ok;
 
-        const identityAPIRequest3 = BadUserIdentitiesAsUndefined;
+        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.identify(identityAPIRequest3);
 
         const badData3 = getIdentityEvent(mockServer.requests, 'identify');
         expect(badData3).to.not.be.ok;
 
-        const identityAPIRequest4 = BadUserIdentitiesAsBoolean;
+        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.identify(identityAPIRequest4);
 
         const badData4 = getIdentityEvent(mockServer.requests, 'identify');
