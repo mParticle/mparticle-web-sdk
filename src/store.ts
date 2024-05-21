@@ -4,7 +4,6 @@ import {
     DataPlanConfig,
     MPID,
     IdentifyRequest,
-    IdentityCallback,
     SDKEventCustomFlags,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
@@ -32,6 +31,7 @@ import {
 import { SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
 import { IPersistenceMinified } from './persistence.interfaces';
+import { IdentityCallback } from './identity-user-interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -71,6 +71,7 @@ export interface SDKConfig {
     identityUrl?: string;
     userAudienceUrl?: string;
     isIOS?: boolean;
+    maxAliasWindow: number;
     maxProducts: number;
     requestConfig?: boolean;
     sessionTimeout?: number;

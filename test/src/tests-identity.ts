@@ -1,8 +1,9 @@
-import Constants from '../../src/constants';
-import Utils from './config/utils';
 import sinon from 'sinon';
-import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
+import { expect } from 'chai';
+import Utils from './config/utils';
+import Constants from '../../src/constants';
+import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import {
     urls,
     apiKey,
@@ -10,27 +11,82 @@ import {
     MPConfig,
     workspaceCookieName,
 } from './config/constants';
+import {
+    Callback,
+    IdentityApiData,
+    Product,
+    UserIdentities,
+} from '@mparticle/web-sdk';
+import { IdentityCache } from '../../src/identity-utils';
+import { IAliasRequest } from '../../src/identity.interfaces';
+import {
+    IdentityModifyResultBody,
+    IdentityResult,
+    IdentityResultBody,
+} from '../../src/identity-user-interfaces';
 
-const getLocalStorage = Utils.getLocalStorage,
-    setLocalStorage = Utils.setLocalStorage,
-    findCookie = Utils.findCookie,
-    forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
-    getLocalStorageProducts = Utils.getLocalStorageProducts,
-    findEventFromRequest = Utils.findEventFromRequest,
-    findBatch = Utils.findBatch,
-    getIdentityEvent = Utils.getIdentityEvent,
-    setCookie = Utils.setCookie,
-    MockForwarder = Utils.MockForwarder,
-    HTTPCodes = Constants.HTTPCodes;
-let mockServer;
+const {
+    getLocalStorage,
+    setLocalStorage,
+    findCookie,
+    forwarderDefaultConfiguration,
+    getLocalStorageProducts,
+    findEventFromRequest,
+    findBatch,
+    getIdentityEvent,
+    setCookie,
+    MockForwarder,
+} = Utils;
+
+const { HTTPCodes } = Constants;
+
+declare global {
+    interface Window {
+        mParticle: MParticleWebSDK;
+        fetchMock: any;
+    }
+}
+
+const mParticle = window.mParticle as MParticleWebSDK;
+
+const BAD_USER_IDENTITIES_AS_STRING = ({
+    userIdentities: 'badUserIdentitiesString',
+} as unknown) as IdentityApiData;
+
+const BAD_USER_IDENTITIES_AS_ARRAY = ({
+    userIdentities: ['bad', 'user', 'identities', 'array'],
+} as unknown) as IdentityApiData;
+
+const BAD_USER_IDENTITIES_AS_NULL = ({
+    userIdentities: null,
+} as unknown) as IdentityApiData;
+
+const BAD_USER_IDENTITIES_AS_UNDEFINED = ({
+    userIdentities: undefined,
+} as unknown) as IdentityApiData;
+
+const BAD_USER_IDENTITIES_AS_BOOLEAN = ({
+    userIdentities: true,
+} as unknown) as IdentityApiData;
+
+const BadCallbackAsString = ('badCallbackString' as unknown) as Callback;
+
+const EmptyUserIdentities = ({} as unknown) as IdentityApiData;
 
 describe('identity', function() {
+    let mockServer;
+    let clock;
+
     beforeEach(function() {
         delete mParticle.config.useCookieStorage;
         fetchMock.post(urls.events, 200);
         mockServer = sinon.createFakeServer();
         mockServer.respondImmediately = true;
         localStorage.clear();
+
+        clock = sinon.useFakeTimers({
+            now: new Date().getTime(),
+        });
 
         mockServer.respondWith(urls.identify, [
             200,
@@ -44,6 +100,7 @@ describe('identity', function() {
         mockServer.restore();
         fetchMock.restore();
         mParticle._resetForTests(MPConfig);
+        clock.restore();
     });
 
     describe('requests', function() {
@@ -260,7 +317,7 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
 
         let activeForwarders = mParticle.getInstance()._getActiveForwarders();
-        activeForwarders.length.should.not.be.ok();
+        expect(activeForwarders.length).to.equal(0);
 
         let consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState(
@@ -281,7 +338,7 @@ describe('identity', function() {
 
         mParticle.Identity.login();
         activeForwarders = mParticle.getInstance()._getActiveForwarders();
-        activeForwarders.length.should.not.be.ok();
+        expect(activeForwarders.length).to.equal(0);
 
         consentState = mParticle.Consent.createConsentState();
         consentState.addGDPRConsentState(
@@ -394,14 +451,16 @@ describe('identity', function() {
         const cookiesAfterMPIDChange = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
-        cookiesAfterMPIDChange.should.have.properties([
+
+        expect(cookiesAfterMPIDChange).to.have.all.keys([
+            'l',
             'cu',
             'otherMPID',
             testMPID,
             'gs',
         ]);
-        cookiesAfterMPIDChange.should.have.property('cu', 'otherMPID');
-        cookiesAfterMPIDChange[testMPID].should.have.property('csd');
+        expect(cookiesAfterMPIDChange).to.have.property('cu', 'otherMPID');
+        expect(cookiesAfterMPIDChange[testMPID]).to.have.property('csd');
 
         const props = [
             'ie',
@@ -419,8 +478,10 @@ describe('identity', function() {
         ];
 
         props.forEach(function(prop) {
-            cookiesAfterMPIDChange[testMPID].should.not.have.property(prop);
-            cookiesAfterMPIDChange['otherMPID'].should.not.have.property(prop);
+            expect(cookiesAfterMPIDChange[testMPID]).to.not.have.property(prop);
+            expect(cookiesAfterMPIDChange['otherMPID']).to.not.have.property(
+                prop
+            );
         });
 
         done();
@@ -501,7 +562,7 @@ describe('identity', function() {
     });
 
     it('should swap property identityType for identityName', function(done) {
-        const data = { userIdentities: {} };
+        const data: IdentityApiData = { userIdentities: {} };
         data.userIdentities.other = 'id1';
         data.userIdentities.customerid = 'id2';
         data.userIdentities.facebook = 'id3';
@@ -517,7 +578,8 @@ describe('identity', function() {
 
         let count = 0;
         for (const key in data.userIdentities) {
-            mParticle.IdentityType.getIdentityType(key).should.equal(count);
+            // https://go.mparticle.com/work/SQDSDKS-6473
+            expect(mParticle.IdentityType.getIdentityType(key)).to.equal(count);
             count++;
             // 8 is alias, which was removed
             if (count === 8) {
@@ -529,7 +591,7 @@ describe('identity', function() {
     });
 
     it('should create a proper identity request', function(done) {
-        const data = { userIdentities: {} },
+        const data: IdentityApiData = { userIdentities: {} },
             platform = 'web',
             sdkVendor = 'mparticle',
             sdkVersion = '1.0.0',
@@ -569,25 +631,29 @@ describe('identity', function() {
                 context,
                 testMPID
             );
-        identityRequest.should.have.properties([
+
+        expect(identityRequest).to.have.all.keys([
             'client_sdk',
-            'environment',
             'context',
+            'environment',
             'known_identities',
             'previous_mpid',
             'request_id',
             'request_timestamp_ms',
         ]);
-        identityRequest.client_sdk.should.have.properties([
+
+        expect(identityRequest.client_sdk).to.have.all.keys([
             'platform',
             'sdk_vendor',
             'sdk_version',
         ]);
-        identityRequest.client_sdk.platform.should.equal(platform);
-        identityRequest.client_sdk.sdk_vendor.should.equal(sdkVendor);
-        identityRequest.environment.should.equal('production');
-        identityRequest.previous_mpid.should.equal(testMPID);
-        identityRequest.known_identities.should.have.properties([
+
+        expect(identityRequest.client_sdk.platform).to.equal(platform);
+        expect(identityRequest.client_sdk.sdk_vendor).to.equal(sdkVendor);
+        expect(identityRequest.environment).to.equal('production');
+        expect(identityRequest.previous_mpid).to.equal(testMPID);
+
+        expect(identityRequest.known_identities).to.have.all.keys([
             'other',
             'customerid',
             'facebook',
@@ -611,41 +677,45 @@ describe('identity', function() {
             'mobile_number',
             'device_application_stamp',
         ]);
-        identityRequest.known_identities.other.should.equal('id1');
-        identityRequest.known_identities.customerid.should.equal('id2');
-        identityRequest.known_identities.facebook.should.equal('id3');
-        identityRequest.known_identities.twitter.should.equal('id4');
-        identityRequest.known_identities.google.should.equal('id5');
-        identityRequest.known_identities.microsoft.should.equal('id6');
-        identityRequest.known_identities.yahoo.should.equal('id7');
-        identityRequest.known_identities.email.should.equal('id8');
-        identityRequest.known_identities.facebookcustomaudienceid.should.equal(
-            'id9'
+
+        expect(identityRequest.known_identities.other).to.equal('id1');
+        expect(identityRequest.known_identities.customerid).to.equal('id2');
+        expect(identityRequest.known_identities.facebook).to.equal('id3');
+        expect(identityRequest.known_identities.twitter).to.equal('id4');
+        expect(identityRequest.known_identities.google).to.equal('id5');
+        expect(identityRequest.known_identities.microsoft).to.equal('id6');
+        expect(identityRequest.known_identities.yahoo).to.equal('id7');
+        expect(identityRequest.known_identities.email).to.equal('id8');
+        expect(
+            identityRequest.known_identities.facebookcustomaudienceid
+        ).to.equal('id9');
+        expect(identityRequest.known_identities.other2).to.equal('id10');
+        expect(identityRequest.known_identities.other3).to.equal('id11');
+        expect(identityRequest.known_identities.other4).to.equal('id12');
+        expect(identityRequest.known_identities.other5).to.equal('id13');
+        expect(identityRequest.known_identities.other6).to.equal('id14');
+        expect(identityRequest.known_identities.other7).to.equal('id15');
+        expect(identityRequest.known_identities.other8).to.equal('id16');
+        expect(identityRequest.known_identities.other9).to.equal('id17');
+        expect(identityRequest.known_identities.other10).to.equal('id18');
+        expect(identityRequest.known_identities.mobile_number).to.equal('id19');
+        expect(identityRequest.known_identities.phone_number_2).to.equal(
+            'id20'
         );
-        identityRequest.known_identities.other2.should.equal('id10');
-        identityRequest.known_identities.other3.should.equal('id11');
-        identityRequest.known_identities.other4.should.equal('id12');
-        identityRequest.known_identities.other5.should.equal('id13');
-        identityRequest.known_identities.other6.should.equal('id14');
-        identityRequest.known_identities.other7.should.equal('id15');
-        identityRequest.known_identities.other8.should.equal('id16');
-        identityRequest.known_identities.other9.should.equal('id17');
-        identityRequest.known_identities.other10.should.equal('id18');
-        identityRequest.known_identities.mobile_number.should.equal('id19');
-        identityRequest.known_identities.phone_number_2.should.equal('id20');
-        identityRequest.known_identities.phone_number_3.should.equal('id21');
+        expect(identityRequest.known_identities.phone_number_3).to.equal(
+            'id21'
+        );
 
         done();
     });
 
     it('should create a proper modify identity request', function(done) {
-        const oldIdentities = {},
-            platform = 'web',
-            sdkVendor = 'mparticle',
-            sdkVersion = '1.0.0',
-            deviceId = 'abc',
-            context = null;
+        const platform = 'web';
+        const sdkVendor = 'mparticle';
+        const sdkVersion = '1.0.0';
+        const context = null;
 
+        const oldIdentities: UserIdentities = {};
         oldIdentities['other'] = 'id1';
         oldIdentities['customerid'] = 'id2';
         oldIdentities['facebook'] = 'id3';
@@ -655,7 +725,6 @@ describe('identity', function() {
         oldIdentities['yahoo'] = 'id7';
         oldIdentities['email'] = 'id8';
         oldIdentities['facebookcustomaudienceid'] = 'id9';
-        oldIdentities['other1'] = 'id10';
         oldIdentities['other2'] = 'id11';
         oldIdentities['other3'] = 'id12';
         oldIdentities['other4'] = 'id13';
@@ -668,7 +737,8 @@ describe('identity', function() {
         oldIdentities['mobile_number'] = 'id20';
         oldIdentities['phone_number_2'] = 'id21';
         oldIdentities['phone_number_3'] = 'id22';
-        const newIdentities = {};
+
+        const newIdentities: UserIdentities = {};
         newIdentities.other = 'id14';
         newIdentities.customerid = 'id15';
         newIdentities.facebook = 'id16';
@@ -678,19 +748,18 @@ describe('identity', function() {
         newIdentities.yahoo = 'id20';
         newIdentities.email = 'id21';
         newIdentities.facebookcustomaudienceid = 'id22';
-        newIdentities.other1 = 'id23';
-        newIdentities.other2 = 'id24';
-        newIdentities.other3 = 'id25';
-        newIdentities.other4 = 'id26';
-        newIdentities.other5 = 'id27';
-        newIdentities.other6 = 'id28';
-        newIdentities.other7 = 'id29';
-        newIdentities.other8 = 'id30';
-        newIdentities.other9 = 'id31';
-        newIdentities.other10 = 'id32';
-        newIdentities.mobile_number = 'id33';
-        newIdentities.phone_number_2 = 'id34';
-        newIdentities.phone_number_3 = 'id35';
+        newIdentities.other2 = 'id23';
+        newIdentities.other3 = 'id24';
+        newIdentities.other4 = 'id25';
+        newIdentities.other5 = 'id26';
+        newIdentities.other6 = 'id27';
+        newIdentities.other7 = 'id28';
+        newIdentities.other8 = 'id29';
+        newIdentities.other9 = 'id30';
+        newIdentities.other10 = 'id31';
+        newIdentities.mobile_number = 'id32';
+        newIdentities.phone_number_2 = 'id33';
+        newIdentities.phone_number_3 = 'id34';
 
         const identityRequest = mParticle
             .getInstance()
@@ -700,374 +769,345 @@ describe('identity', function() {
                 platform,
                 sdkVendor,
                 sdkVersion,
-                deviceId,
-                context,
-                testMPID
+                context
             );
-        identityRequest.should.have.properties([
+
+        expect(identityRequest).to.have.all.keys([
             'client_sdk',
+            'context',
             'environment',
             'identity_changes',
             'request_id',
             'request_timestamp_ms',
         ]);
-        identityRequest.client_sdk.should.have.properties([
+        expect(identityRequest.client_sdk).to.have.all.keys([
             'platform',
             'sdk_vendor',
             'sdk_version',
         ]);
-        identityRequest.client_sdk.platform.should.equal('web');
-        identityRequest.client_sdk.sdk_vendor.should.equal('mparticle');
-        identityRequest.environment.should.equal('production');
-        identityRequest.identity_changes[0].should.have.properties([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        identityRequest.identity_changes[0].old_value.should.equal('id1');
-        identityRequest.identity_changes[0].identity_type.should.equal('other');
-        identityRequest.identity_changes[0].new_value.should.equal('id14');
+        expect(identityRequest.client_sdk.platform).to.equal('web');
+        expect(identityRequest.client_sdk.sdk_vendor).to.equal('mparticle');
+        expect(identityRequest.environment).to.equal('production');
+        expect(identityRequest.identity_changes.length).to.equal(21);
 
-        identityRequest.identity_changes[1].should.have.properties([
+        expect(identityRequest.identity_changes[0]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[1].old_value.should.equal('id2');
-        identityRequest.identity_changes[1].identity_type.should.equal(
+        expect(identityRequest.identity_changes[0].old_value).to.equal('id1');
+        expect(identityRequest.identity_changes[0].identity_type).to.equal(
+            'other'
+        );
+        expect(identityRequest.identity_changes[0].new_value).to.equal('id14');
+
+        expect(identityRequest.identity_changes[1]).to.have.all.keys([
+            'identity_type',
+            'new_value',
+            'old_value',
+        ]);
+        expect(identityRequest.identity_changes[1].old_value).to.equal('id2');
+        expect(identityRequest.identity_changes[1].identity_type).to.equal(
             'customerid'
         );
-        identityRequest.identity_changes[1].new_value.should.equal('id15');
+        expect(identityRequest.identity_changes[1].new_value).to.equal('id15');
 
-        identityRequest.identity_changes[2].should.have.properties([
+        expect(identityRequest.identity_changes[2]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[2].old_value.should.equal('id3');
-        identityRequest.identity_changes[2].identity_type.should.equal(
+        expect(identityRequest.identity_changes[2].old_value).to.equal('id3');
+        expect(identityRequest.identity_changes[2].identity_type).to.equal(
             'facebook'
         );
-        identityRequest.identity_changes[2].new_value.should.equal('id16');
+        expect(identityRequest.identity_changes[2].new_value).to.equal('id16');
 
-        identityRequest.identity_changes[3].should.have.properties([
+        expect(identityRequest.identity_changes[3]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[3].old_value.should.equal('id4');
-        identityRequest.identity_changes[3].identity_type.should.equal(
+        expect(identityRequest.identity_changes[3].old_value).to.equal('id4');
+        expect(identityRequest.identity_changes[3].identity_type).to.equal(
             'twitter'
         );
-        identityRequest.identity_changes[3].new_value.should.equal('id17');
+        expect(identityRequest.identity_changes[3].new_value).to.equal('id17');
 
-        identityRequest.identity_changes[4].should.have.properties([
+        expect(identityRequest.identity_changes[4]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[4].old_value.should.equal('id5');
-        identityRequest.identity_changes[4].identity_type.should.equal(
+        expect(identityRequest.identity_changes[4].old_value).to.equal('id5');
+        expect(identityRequest.identity_changes[4].identity_type).to.equal(
             'google'
         );
-        identityRequest.identity_changes[4].new_value.should.equal('id18');
+        expect(identityRequest.identity_changes[4].new_value).to.equal('id18');
 
-        identityRequest.identity_changes[5].should.have.properties([
+        expect(identityRequest.identity_changes[5]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[5].old_value.should.equal('id6');
-        identityRequest.identity_changes[5].identity_type.should.equal(
+        expect(identityRequest.identity_changes[5].old_value).to.equal('id6');
+        expect(identityRequest.identity_changes[5].identity_type).to.equal(
             'microsoft'
         );
-        identityRequest.identity_changes[5].new_value.should.equal('id19');
+        expect(identityRequest.identity_changes[5].new_value).to.equal('id19');
 
-        identityRequest.identity_changes[6].should.have.properties([
+        expect(identityRequest.identity_changes[6]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[6].old_value.should.equal('id7');
-        identityRequest.identity_changes[6].identity_type.should.equal('yahoo');
-        identityRequest.identity_changes[6].new_value.should.equal('id20');
+        expect(identityRequest.identity_changes[6].old_value).to.equal('id7');
+        expect(identityRequest.identity_changes[6].identity_type).to.equal(
+            'yahoo'
+        );
+        expect(identityRequest.identity_changes[6].new_value).to.equal('id20');
 
-        identityRequest.identity_changes[7].should.have.properties([
+        expect(identityRequest.identity_changes[7]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[7].old_value.should.equal('id8');
-        identityRequest.identity_changes[7].identity_type.should.equal('email');
-        identityRequest.identity_changes[7].new_value.should.equal('id21');
+        expect(identityRequest.identity_changes[7].old_value).to.equal('id8');
+        expect(identityRequest.identity_changes[7].identity_type).to.equal(
+            'email'
+        );
+        expect(identityRequest.identity_changes[7].new_value).to.equal('id21');
 
-        identityRequest.identity_changes[8].should.have.properties([
+        expect(identityRequest.identity_changes[8]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[8].old_value.should.equal('id9');
-        identityRequest.identity_changes[8].identity_type.should.equal(
+        expect(identityRequest.identity_changes[8].old_value).to.equal('id9');
+        expect(identityRequest.identity_changes[8].identity_type).to.equal(
             'facebookcustomaudienceid'
         );
-        identityRequest.identity_changes[8].new_value.should.equal('id22');
+        expect(identityRequest.identity_changes[8].new_value).to.equal('id22');
 
-        identityRequest.identity_changes[9].should.have.properties([
+        expect(identityRequest.identity_changes[9]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[9].old_value.should.equal('id10');
-        identityRequest.identity_changes[9].identity_type.should.equal(
-            'other1'
-        );
-        identityRequest.identity_changes[9].new_value.should.equal('id23');
-
-        identityRequest.identity_changes[10].should.have.properties([
-            'identity_type',
-            'new_value',
-            'old_value',
-        ]);
-        identityRequest.identity_changes[10].old_value.should.equal('id11');
-        identityRequest.identity_changes[10].identity_type.should.equal(
+        expect(identityRequest.identity_changes[9].old_value).to.equal('id11');
+        expect(identityRequest.identity_changes[9].identity_type).to.equal(
             'other2'
         );
-        identityRequest.identity_changes[10].new_value.should.equal('id24');
+        expect(identityRequest.identity_changes[9].new_value).to.equal('id23');
 
-        identityRequest.identity_changes[11].should.have.properties([
+        expect(identityRequest.identity_changes[10]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[11].old_value.should.equal('id12');
-        identityRequest.identity_changes[11].identity_type.should.equal(
+        expect(identityRequest.identity_changes[10].old_value).to.equal('id12');
+        expect(identityRequest.identity_changes[10].identity_type).to.equal(
             'other3'
         );
-        identityRequest.identity_changes[11].new_value.should.equal('id25');
+        expect(identityRequest.identity_changes[10].new_value).to.equal('id24');
 
-        identityRequest.identity_changes[12].should.have.properties([
+        expect(identityRequest.identity_changes[11]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[12].old_value.should.equal('id13');
-        identityRequest.identity_changes[12].identity_type.should.equal(
+        expect(identityRequest.identity_changes[11].old_value).to.equal('id13');
+        expect(identityRequest.identity_changes[11].identity_type).to.equal(
             'other4'
         );
-        identityRequest.identity_changes[12].new_value.should.equal('id26');
+        expect(identityRequest.identity_changes[11].new_value).to.equal('id25');
 
-        identityRequest.identity_changes[13].old_value.should.equal('id14');
-        identityRequest.identity_changes[13].identity_type.should.equal(
+        expect(identityRequest.identity_changes[12]).to.have.all.keys([
+            'identity_type',
+            'new_value',
+            'old_value',
+        ]);
+        expect(identityRequest.identity_changes[12].old_value).to.equal('id14');
+        expect(identityRequest.identity_changes[12].identity_type).to.equal(
             'other5'
         );
-        identityRequest.identity_changes[13].new_value.should.equal('id27');
+        expect(identityRequest.identity_changes[12].new_value).to.equal('id26');
 
-        identityRequest.identity_changes[14].old_value.should.equal('id15');
-        identityRequest.identity_changes[14].identity_type.should.equal(
+        expect(identityRequest.identity_changes[13].old_value).to.equal('id15');
+        expect(identityRequest.identity_changes[13].identity_type).to.equal(
             'other6'
         );
-        identityRequest.identity_changes[14].new_value.should.equal('id28');
+        expect(identityRequest.identity_changes[13].new_value).to.equal('id27');
 
-        identityRequest.identity_changes[15].old_value.should.equal('id16');
-        identityRequest.identity_changes[15].identity_type.should.equal(
+        expect(identityRequest.identity_changes[14].old_value).to.equal('id16');
+        expect(identityRequest.identity_changes[14].identity_type).to.equal(
             'other7'
         );
-        identityRequest.identity_changes[15].new_value.should.equal('id29');
+        expect(identityRequest.identity_changes[14].new_value).to.equal('id28');
 
-        identityRequest.identity_changes[16].old_value.should.equal('id17');
-        identityRequest.identity_changes[16].identity_type.should.equal(
+        expect(identityRequest.identity_changes[15].old_value).to.equal('id17');
+        expect(identityRequest.identity_changes[15].identity_type).to.equal(
             'other8'
         );
-        identityRequest.identity_changes[16].new_value.should.equal('id30');
+        expect(identityRequest.identity_changes[15].new_value).to.equal('id29');
 
-        identityRequest.identity_changes[17].old_value.should.equal('id18');
-        identityRequest.identity_changes[17].identity_type.should.equal(
+        expect(identityRequest.identity_changes[16].old_value).to.equal('id18');
+        expect(identityRequest.identity_changes[16].identity_type).to.equal(
             'other9'
         );
-        identityRequest.identity_changes[17].new_value.should.equal('id31');
+        expect(identityRequest.identity_changes[16].new_value).to.equal('id30');
 
-        identityRequest.identity_changes[18].old_value.should.equal('id19');
-        identityRequest.identity_changes[18].identity_type.should.equal(
+        expect(identityRequest.identity_changes[17].old_value).to.equal('id19');
+        expect(identityRequest.identity_changes[17].identity_type).to.equal(
             'other10'
         );
-        identityRequest.identity_changes[18].new_value.should.equal('id32');
+        expect(identityRequest.identity_changes[17].new_value).to.equal('id31');
 
-        identityRequest.identity_changes[19].old_value.should.equal('id20');
-        identityRequest.identity_changes[19].identity_type.should.equal(
+        expect(identityRequest.identity_changes[18].old_value).to.equal('id20');
+        expect(identityRequest.identity_changes[18].identity_type).to.equal(
             'mobile_number'
         );
-        identityRequest.identity_changes[19].new_value.should.equal('id33');
+        expect(identityRequest.identity_changes[18].new_value).to.equal('id32');
 
-        identityRequest.identity_changes[20].old_value.should.equal('id21');
-        identityRequest.identity_changes[20].identity_type.should.equal(
+        expect(identityRequest.identity_changes[19].old_value).to.equal('id21');
+        expect(identityRequest.identity_changes[19].identity_type).to.equal(
             'phone_number_2'
         );
-        identityRequest.identity_changes[20].new_value.should.equal('id34');
+        expect(identityRequest.identity_changes[19].new_value).to.equal('id33');
 
-        identityRequest.identity_changes[21].old_value.should.equal('id22');
-        identityRequest.identity_changes[21].identity_type.should.equal(
+        expect(identityRequest.identity_changes[20].old_value).to.equal('id22');
+        expect(identityRequest.identity_changes[20].identity_type).to.equal(
             'phone_number_3'
         );
-        identityRequest.identity_changes[21].new_value.should.equal('id35');
+        expect(identityRequest.identity_changes[20].new_value).to.equal('id34');
 
         done();
     });
 
     it('should not make a request when an invalid request is sent to login', function(done) {
-        const identityAPIRequest1 = {
-            userIdentities: 'badUserIdentitiesString',
-        };
+        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.login(identityAPIRequest1);
 
         const badData1 = getIdentityEvent(mockServer.requests, 'login');
-        Should(badData1).not.be.ok();
+        expect(badData1).to.not.be.ok;
 
-        const identityAPIRequest2 = {
-            userIdentities: ['bad', 'user', 'identities', 'array'],
-        };
+        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.login(identityAPIRequest2);
 
         const badData2 = getIdentityEvent(mockServer.requests, 'login');
-        Should(badData2).not.be.ok();
+        expect(badData2).to.not.be.ok;
 
-        const identityAPIRequest3 = {
-            userIdentities: undefined,
-        };
+        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.login(identityAPIRequest3);
 
         const badData3 = getIdentityEvent(mockServer.requests, 'login');
-        Should(badData3).not.be.ok();
+        expect(badData3).to.not.be.ok;
 
-        const identityAPIRequest4 = {
-            userIdentities: true,
-        };
+        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.login(identityAPIRequest4);
 
         const badData4 = getIdentityEvent(mockServer.requests, 'login');
-        Should(badData4).not.be.ok();
+        expect(badData4).to.not.be.ok;
 
         done();
     });
 
     it('should not make a request when an invalid request is sent to logout', function(done) {
-        const identityAPIRequest1 = {
-            userIdentities: 'badUserIdentitiesString',
-        };
+        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.logout(identityAPIRequest1);
 
         const badData1 = getIdentityEvent(mockServer.requests, 'logout');
-        Should(badData1).not.be.ok();
+        expect(badData1).to.not.be.ok;
 
-        const identityAPIRequest2 = {
-            userIdentities: ['bad', 'user', 'identities', 'array'],
-        };
+        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.logout(identityAPIRequest2);
 
         const badData2 = getIdentityEvent(mockServer.requests, 'logout');
-        Should(badData2).not.be.ok();
+        expect(badData2).to.not.be.ok;
 
-        const identityAPIRequest3 = {
-            userIdentities: undefined,
-        };
+        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.logout(identityAPIRequest3);
 
         const badData3 = getIdentityEvent(mockServer.requests, 'logout');
-        Should(badData3).not.be.ok();
+        expect(badData3).to.not.be.ok;
 
-        const identityAPIRequest4 = {
-            userIdentities: true,
-        };
-
+        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.logout(identityAPIRequest4);
+
         const badData4 = getIdentityEvent(mockServer.requests, 'logout');
-        Should(badData4).not.be.ok();
+        expect(badData4).to.not.be.ok;
 
         done();
     });
 
     it('should not make a request when an invalid request is sent to modify', function(done) {
-        const identityAPIRequest1 = {
-            userIdentities: 'badUserIdentitiesString',
-        };
+        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.modify(identityAPIRequest1);
 
         const badData1 = getIdentityEvent(mockServer.requests, 'modify');
-        Should(badData1).not.be.ok();
+        expect(badData1).to.not.be.ok;
 
-        const identityAPIRequest2 = {
-            userIdentities: ['bad', 'user', 'identities', 'array'],
-        };
+        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.modify(identityAPIRequest2);
 
         const badData2 = getIdentityEvent(mockServer.requests, 'modify');
-        Should(badData2).not.be.ok();
+        expect(badData2).to.not.be.ok;
 
-        const identityAPIRequest3 = {
-            userIdentities: null,
-        };
+        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_NULL;
         mParticle.Identity.modify(identityAPIRequest3);
 
         const badData3 = getIdentityEvent(mockServer.requests, 'modify');
-        Should(badData3).not.be.ok();
+        expect(badData3).to.not.be.ok;
 
-        const identityAPIRequest4 = {
-            userIdentities: undefined,
-        };
+        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.modify(identityAPIRequest4);
 
         const badData4 = getIdentityEvent(mockServer.requests, 'modify');
-        Should(badData4).not.be.ok();
+        expect(badData4).to.not.be.ok;
 
-        const identityAPIRequest5 = {
-            userIdentities: true,
-        };
+        const identityAPIRequest5 = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.modify(identityAPIRequest5);
+
         const badData5 = getIdentityEvent(mockServer.requests, 'modify');
-        Should(badData5).not.be.ok();
+        expect(badData5).to.not.be.ok;
 
         done();
     });
 
     it('should not make a request when an invalid request is sent to identify', function(done) {
         mockServer.requests = [];
-        const identityAPIRequest1 = {
-            userIdentities: 'badUserIdentitiesString',
-        };
+        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
         mParticle.Identity.identify(identityAPIRequest1);
 
         const badData1 = getIdentityEvent(mockServer.requests, 'identify');
-        Should(badData1).not.be.ok();
+        expect(badData1).to.not.be.ok;
 
-        const identityAPIRequest2 = {
-            userIdentities: ['bad', 'user', 'identities', 'array'],
-        };
+        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
         mParticle.Identity.identify(identityAPIRequest2);
 
         const badData2 = getIdentityEvent(mockServer.requests, 'identify');
-        Should(badData2).not.be.ok();
+        expect(badData2).to.not.be.ok;
 
-        const identityAPIRequest3 = {
-            userIdentities: undefined,
-        };
+        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_UNDEFINED;
         mParticle.Identity.identify(identityAPIRequest3);
 
         const badData3 = getIdentityEvent(mockServer.requests, 'identify');
-        Should(badData3).not.be.ok();
+        expect(badData3).to.not.be.ok;
 
-        const identityAPIRequest4 = {
-            userIdentities: true,
-        };
+        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_BOOLEAN;
         mParticle.Identity.identify(identityAPIRequest4);
+
         const badData4 = getIdentityEvent(mockServer.requests, 'identify');
-        Should(badData4).not.be.ok();
+        expect(badData4).to.not.be.ok;
 
         done();
     });
 
     it('should have old_value === null when there is no previous identity of a certain type and a new identity of that type', function(done) {
-        const oldIdentities = {};
+        const oldIdentities: UserIdentities = {};
         oldIdentities['facebook'] = 'old_facebook_id';
-        const newIdentities = {};
+
+        const newIdentities: UserIdentities = {};
         newIdentities.other = 'new_other_id';
         newIdentities.facebook = 'new_facebook_id';
 
@@ -1075,36 +1115,42 @@ describe('identity', function() {
             .getInstance()
             ._Identity.IdentityRequest.createModifyIdentityRequest(
                 oldIdentities,
-                newIdentities
+                newIdentities,
+                'test-platform',
+                'test-sdk-vendor',
+                'test-sdk-version',
+                'test-context'
             );
 
-        identityRequest.identity_changes[0].should.have.properties([
+        expect(identityRequest.identity_changes[0]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[0].should.have.property(
+        expect(identityRequest.identity_changes[0]).to.have.property(
             'old_value',
             null
         );
-        identityRequest.identity_changes[0].identity_type.should.equal('other');
-        identityRequest.identity_changes[0].new_value.should.equal(
+        expect(identityRequest.identity_changes[0].identity_type).to.equal(
+            'other'
+        );
+        expect(identityRequest.identity_changes[0].new_value).to.equal(
             'new_other_id'
         );
 
-        identityRequest.identity_changes[1].should.have.properties([
+        expect(identityRequest.identity_changes[1]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[1].should.have.property(
+        expect(identityRequest.identity_changes[1]).to.have.property(
             'old_value',
             'old_facebook_id'
         );
-        identityRequest.identity_changes[1].identity_type.should.equal(
+        expect(identityRequest.identity_changes[1].identity_type).to.equal(
             'facebook'
         );
-        identityRequest.identity_changes[1].new_value.should.equal(
+        expect(identityRequest.identity_changes[1].new_value).to.equal(
             'new_facebook_id'
         );
 
@@ -1112,41 +1158,45 @@ describe('identity', function() {
     });
 
     it('should have new_value === null when there is a previous identity of a certain type and no new identity of that type', function(done) {
-        const oldIdentities = {};
+        const oldIdentities: UserIdentities = {};
         oldIdentities['other'] = 'old_other_id';
         oldIdentities['facebook'] = 'old_facebook_id';
-        const newIdentities = {};
+        const newIdentities: UserIdentities = {};
         newIdentities.facebook = 'new_facebook_id';
 
         const identityRequest = mParticle
             .getInstance()
             ._Identity.IdentityRequest.createModifyIdentityRequest(
                 oldIdentities,
-                newIdentities
+                newIdentities,
+                'test-platform',
+                'test-sdk-vendor',
+                'test-sdk-version',
+                'test-context'
             );
 
-        identityRequest.identity_changes[0].should.have.properties([
+        expect(identityRequest.identity_changes[0]).to.have.all.keys([
             'identity_type',
             'new_value',
             'old_value',
         ]);
-        identityRequest.identity_changes[0].old_value.should.equal(
+        expect(identityRequest.identity_changes[0].old_value).to.equal(
             'old_facebook_id'
         );
-        identityRequest.identity_changes[0].identity_type.should.equal(
+        expect(identityRequest.identity_changes[0].identity_type).to.equal(
             'facebook'
         );
-        identityRequest.identity_changes[0].new_value.should.equal(
+        expect(identityRequest.identity_changes[0].new_value).to.equal(
             'new_facebook_id'
         );
 
-        identityRequest.identity_changes.length.should.equal(1);
+        expect(identityRequest.identity_changes.length).to.equal(1);
 
         done();
     });
 
     it('should create a proper send request when passing identities to modify', function(done) {
-        const identityAPIData = {
+        const identityAPIData: IdentityApiData = {
             userIdentities: {
                 email: 'rob@gmail.com',
             },
@@ -1183,7 +1233,7 @@ describe('identity', function() {
         done();
     });
 
-    it('Ensure that automatic identify is not called more than once.', function(done) {
+    it('ensure that automatic identify is not called more than once.', function(done) {
         mParticle._resetForTests(MPConfig);
         const spy = sinon.spy();
         mParticle.config.identityCallback = spy;
@@ -1214,7 +1264,7 @@ describe('identity', function() {
 
         let testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
 
-        Should(testEvent1).not.be.ok();
+        expect(testEvent1).to.not.be.ok;
 
         mockServer.respondWith(urls.login, [
             200,
@@ -1226,7 +1276,7 @@ describe('identity', function() {
         mParticle.Identity.login();
         // server requests will have AST, sessionStart, Test1, Test2, and login
         testEvent1 = findEventFromRequest(fetchMock.calls(), 'Test Event1');
-        fetchMock.calls().length.should.equal(4);
+        expect(fetchMock.calls().length).to.equal(4);
 
         const testEvent2 = findEventFromRequest(
             fetchMock.calls(),
@@ -1242,11 +1292,11 @@ describe('identity', function() {
         );
         const loginEvent = getIdentityEvent(mockServer.requests, 'login');
 
-        Should(testEvent1).be.ok();
-        Should(testEvent2).be.ok();
-        Should(ASTEvent).be.ok();
-        Should(sessionStartEvent).be.ok();
-        Should(loginEvent).be.ok();
+        expect(testEvent1).to.be.ok;
+        expect(testEvent2).to.be.ok;
+        expect(ASTEvent).to.be.ok;
+        expect(sessionStartEvent).to.be.ok;
+        expect(loginEvent).to.be.ok;
 
         done();
     });
@@ -1254,19 +1304,19 @@ describe('identity', function() {
     it('getUsers should return all mpids available in local storage', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        const userIdentities1 = {
+        const userIdentities1: IdentityApiData = {
             userIdentities: {
                 customerid: 'foo1',
             },
         };
 
-        const userIdentities2 = {
+        const userIdentities2: IdentityApiData = {
             userIdentities: {
                 customerid: 'foo2',
             },
         };
 
-        const userIdentities3 = {
+        const userIdentities3: IdentityApiData = {
             userIdentities: {
                 customerid: 'foo3',
             },
@@ -1313,14 +1363,15 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
         const users = mParticle.Identity.getUsers();
         //this includes the original, starting user, in addition to the 3 added above
-        Should(users).have.length(4);
+        expect(users.length).to.equal(4);
         for (let i of users) {
-            Should.exist(mParticle.Identity.getUser(i.getMPID()));
+            const mpid = i.getMPID();
+            expect(mParticle.Identity.getUser(mpid)).to.exist;
         }
-        Should.not.exist(mParticle.Identity.getUser('gs'));
-        Should.not.exist(mParticle.Identity.getUser('cu'));
-        Should.not.exist(mParticle.Identity.getUser('0'));
-        Should.not.exist(mParticle.Identity.getUser('user4'));
+        expect(mParticle.Identity.getUser('gs')).to.not.exist;
+        expect(mParticle.Identity.getUser('cu')).to.not.exist;
+        expect(mParticle.Identity.getUser('0')).to.not.exist;
+        expect(mParticle.Identity.getUser('user4')).to.not.exist;
 
         done();
     });
@@ -1429,25 +1480,28 @@ describe('identity', function() {
                 newUIByName
             );
 
-        combinedUIsByType.should.have.properties([1, 3, 4, 7]);
-        combinedUIsByType[1].should.equal('customerid1');
-        combinedUIsByType[3].should.equal('twitter5');
-        combinedUIsByType[4].should.equal('google4');
-        combinedUIsByType[7].should.equal('email2@test.com');
-        // if an invalid identity type is added to the
-        combinedUIsByType.should.not.have.property(false);
-        Object.keys(combinedUIsByType).length.should.equal(4);
+        // if an invalid identity type is added to the identity call,
+        // it will be removed from the combinedUIsByType,
+        // in this case, 'invalidKey' which is in `newUIByName`
+        expect(combinedUIsByType).to.have.all.keys([1, 3, 4, 7]);
+        expect(combinedUIsByType[1]).to.equal('customerid1');
+        expect(combinedUIsByType[3]).to.equal('twitter5');
+        expect(combinedUIsByType[4]).to.equal('google4');
+        expect(combinedUIsByType[7]).to.equal('email2@test.com');
+
+        expect(Object.keys(combinedUIsByType).length).to.equal(4);
 
         done();
     });
 
     it('should reject a callback that is not a function', function(done) {
-        const identityRequest = {
+        const identityRequest: IdentityApiData = {
             userIdentities: {
-                customerid: 123,
+                customerid: '123',
             },
         };
-        const badCallback = 'string';
+        const badCallback = BadCallbackAsString;
+
         mockServer.requests = [];
 
         mParticle.Identity.login(identityRequest, badCallback);
@@ -1462,13 +1516,13 @@ describe('identity', function() {
 
     it("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", function(done) {
         mParticle._resetForTests(MPConfig);
-        const user1 = {
+        const user1: IdentityApiData = {
             userIdentities: {
                 customerid: 'customerid1',
             },
         };
 
-        const user1modified = {
+        const user1modified: IdentityApiData = {
             userIdentities: {
                 email: 'email2@test.com',
             },
@@ -1494,7 +1548,7 @@ describe('identity', function() {
         mParticle.Identity.modify(user1modified);
         mParticle.Identity.getCurrentUser().setUserAttribute('foo1', 'bar1');
 
-        const product1 = mParticle.eCommerce.createProduct(
+        const product1: Product = mParticle.eCommerce.createProduct(
             'iPhone',
             '12345',
             '1000',
@@ -1674,87 +1728,10 @@ describe('identity', function() {
         done();
     });
 
-    it('should properly validate identityApiRequest values', function(done) {
-        const badUserIdentitiesArray = {
-            userIdentities: {
-                customerid: [],
-            },
-        };
-
-        const badUserIdentitiesObject = {
-            userIdentities: {
-                customerid: {},
-            },
-        };
-
-        const badUserIdentitiesBoolean = {
-            userIdentities: {
-                customerid: false,
-            },
-        };
-
-        const badUserIdentitiesUndefined = {
-            userIdentities: {
-                customerid: undefined,
-            },
-        };
-
-        const validUserIdentitiesString = {
-            userIdentities: {
-                customerid: '123',
-            },
-        };
-
-        const validUserIdentitiesNull = {
-            userIdentities: {
-                customerid: null,
-            },
-        };
-
-        const invalidUserIdentitiesCombo = {
-            userIdentities: {
-                customerid: '123',
-                email: undefined,
-            },
-        };
-
-        const badUserIdentitiesArrayResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(badUserIdentitiesArray);
-        const badUserIdentitiesObjectResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(badUserIdentitiesObject);
-        const badUserIdentitiesBooleanResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(badUserIdentitiesBoolean);
-        const badUserIdentitiesUndefinedResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(badUserIdentitiesUndefined);
-        const validUserIdentitiesNullResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(validUserIdentitiesNull);
-        const validUserIdentitiesStringResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(validUserIdentitiesString);
-        const invalidUserIdentitiesComboResult = mParticle
-            .getInstance()
-            ._Helpers.Validators.validateIdentities(invalidUserIdentitiesCombo);
-
-        badUserIdentitiesArrayResult.valid.should.equal(false);
-        badUserIdentitiesObjectResult.valid.should.equal(false);
-        badUserIdentitiesBooleanResult.valid.should.equal(false);
-        badUserIdentitiesUndefinedResult.valid.should.equal(false);
-        validUserIdentitiesNullResult.valid.should.equal(true);
-        validUserIdentitiesStringResult.valid.should.equal(true);
-        invalidUserIdentitiesComboResult.valid.should.equal(false);
-
-        done();
-    });
-
     it('should not send requests to the server with invalid userIdentity values', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         mockServer.requests = [];
-        let result;
+        let result: IdentityResult;
 
         const badUserIdentitiesArray = {
             userIdentities: {
@@ -1859,14 +1836,12 @@ describe('identity', function() {
                         result.httpCode,
                         `valid ${identityMethod} httpCode`
                     ).to.equal(200);
-                    expect(
-                        result.body.mpid,
-                        `valid ${identityMethod} mpid `
-                    ).to.be.ok;
-                    expect(
-                        result.body.mpid,
-                        `valid ${identityMethod} mpid`
-                    ).to.equal(testMPID);
+
+                    const body = result.body as IdentityResultBody;
+                    expect(body.mpid, `valid ${identityMethod} mpid `).to.be.ok;
+                    expect(body.mpid, `valid ${identityMethod} mpid`).to.equal(
+                        testMPID
+                    );
 
                     // Reset result for next iteration of the loop
                     result = null;
@@ -1877,12 +1852,14 @@ describe('identity', function() {
                     expect(result.httpCode, `valid modify httpCode`).to.equal(
                         200
                     );
+                    const body = result.body as IdentityModifyResultBody;
+
                     expect(
-                        result.body.change_results[0].modified_mpid,
+                        body.change_results[0].modified_mpid,
                         `valid modify change_results modified_mpid`
                     ).to.equal(testMPID);
                     expect(
-                        result.body.change_results[0].identity_type,
+                        body.change_results[0].identity_type,
                         `valid modify change_results identity_type`
                     ).to.be.ok;
 
@@ -2218,15 +2195,13 @@ describe('identity', function() {
         };
 
         mParticle.Identity.login(user3);
-        user2AttributeListsBeforeRemoving.list.length.should.equal(5);
-        Should(
-            Object.keys(user3UserAttributeListsBeforeAdding).length
-        ).not.be.ok();
+        expect(user2AttributeListsBeforeRemoving.list.length).to.equal(5);
+        expect(Object.keys(user3UserAttributeListsBeforeAdding).length).to.not
+            .be.ok;
 
-        Should(
-            Object.keys(user2AttributeListsAfterRemoving).length
-        ).not.be.ok();
-        user3UserAttributeListsAfterAdding.list.length.should.equal(5);
+        expect(Object.keys(user2AttributeListsAfterRemoving).length).to.not.be
+            .ok;
+        expect(user3UserAttributeListsAfterAdding.list.length).to.equal(5);
 
         done();
     });
@@ -2251,7 +2226,7 @@ describe('identity', function() {
             .getCart()
             .getCartProducts();
 
-        Should(products.length).not.be.ok();
+        expect(products.length).to.not.be.ok;
 
         done();
     });
@@ -2275,17 +2250,17 @@ describe('identity', function() {
         mParticle.Identity.logout(identityAPIRequest1);
 
         const logoutData = getIdentityEvent(mockServer.requests, 'logout');
-        Should(logoutData).be.ok();
+        expect(logoutData).to.be.ok;
 
         mParticle.Identity.login(identityAPIRequest1);
 
         const loginData = getIdentityEvent(mockServer.requests, 'login');
-        Should(loginData).be.ok();
+        expect(loginData).to.be.ok;
 
         mParticle.Identity.modify(identityAPIRequest1);
 
         const modifyData = getIdentityEvent(mockServer.requests, 'login');
-        Should(modifyData).be.ok();
+        expect(modifyData).to.be.ok;
 
         done();
     });
@@ -2301,8 +2276,9 @@ describe('identity', function() {
             JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
         ]);
 
-        mParticle.config.identityCallback = function(resp) {
-            mpid = resp.body.mpid;
+        // https://go.mparticle.com/work/SQDSDKS-6460
+        mParticle.config.identityCallback = function({ body }) {
+            mpid = (body as IdentityResultBody).mpid;
         };
 
         mParticle.init(apiKey, window.mParticle.config);
@@ -2313,7 +2289,7 @@ describe('identity', function() {
 
     it('should trigger the identityCallback before eventQueue is flushed', function(done) {
         mParticle._resetForTests(MPConfig);
-        const clock = sinon.useFakeTimers();
+
         mockServer.respondImmediately = false;
         mockServer.autoRespond = true;
         mockServer.autoRespondAfter = 500;
@@ -2330,7 +2306,7 @@ describe('identity', function() {
         fetchMock.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
 
-        (fetchMock.calls().length === 0).should.equal.true;
+        expect(fetchMock.calls().length).to.equal(0);
         clock.tick(1000);
 
         const sessionStartEventBatch = findBatch(
@@ -2388,8 +2364,8 @@ describe('identity', function() {
             'matched_identities',
             'mpid'
         );
-        Should(result.body.context).not.be.ok();
-        Should(result.body.is_ephemeral).not.be.ok();
+        expect(result.body.context).to.not.be.ok;
+        expect(result.body.is_ephemeral).to.not.be.ok;
         result.body.matched_identities.should.have.property(
             'customerid',
             'customerid1'
@@ -2522,7 +2498,7 @@ describe('identity', function() {
         // without a current user
         mParticle.config.identifyRequest = {
             userIdentities: {
-                customerid: 123,
+                customerid: (123 as unknown) as string,
             },
         };
         mockServer.requests = [];
@@ -2562,21 +2538,23 @@ describe('identity', function() {
 
         mockServer.requests = [];
 
-        const clock = sinon.useFakeTimers();
+        // Reset clock so we can use simple integers for time
+        clock.restore();
+        clock = sinon.useFakeTimers();
         clock.tick(100);
 
         mParticle.init(apiKey, window.mParticle.config);
 
         const currentUser = mParticle.Identity.getCurrentUser();
-        currentUser.should.not.equal(null);
+        expect(currentUser).to.not.equal(null);
 
-        Should(currentUser.getFirstSeenTime()).not.equal(null);
-        Should(currentUser.getLastSeenTime()).not.equal(null);
+        expect(currentUser.getFirstSeenTime()).to.not.equal(null);
+        expect(currentUser.getLastSeenTime()).to.not.equal(null);
 
         clock.tick(100);
 
-        currentUser.getFirstSeenTime().should.equal(100);
-        currentUser.getLastSeenTime().should.equal(200);
+        expect(currentUser.getFirstSeenTime()).to.equal(100);
+        expect(currentUser.getLastSeenTime()).to.equal(200);
 
         clock.restore();
         done();
@@ -2585,7 +2563,9 @@ describe('identity', function() {
     it('firstSeenTime should stay the same for a user', function(done) {
         mParticle._resetForTests(MPConfig);
 
-        const clock = sinon.useFakeTimers();
+        // Reset clock so we can use simple integers for time
+        clock.restore();
+        clock = sinon.useFakeTimers();
         clock.tick(100);
 
         mockServer.respondWith(urls.identify, [
@@ -2651,7 +2631,7 @@ describe('identity', function() {
         done();
     });
 
-    it('List returned by Identity.getUsers() should be sorted by lastSeenTime, with nulls last', function(done) {
+    it('list returned by Identity.getUsers() should be sorted by lastSeenTime, with nulls last', function(done) {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -2681,14 +2661,14 @@ describe('identity', function() {
 
         const users = mParticle.Identity.getUsers();
 
-        users.length.should.equal(5);
+        expect(users.length).to.equal(5);
 
-        users[0].getMPID().should.equal('1');
-        users[1].getMPID().should.equal('5');
-        users[2].getMPID().should.equal('2');
-        users[3].getMPID().should.equal('3');
-        users[4].getMPID().should.equal('4');
-        Should(users[4].getLastSeenTime()).equal(null);
+        expect(users[0].getMPID()).to.equal('1');
+        expect(users[1].getMPID()).to.equal('5');
+        expect(users[2].getMPID()).to.equal('2');
+        expect(users[3].getMPID()).to.equal('3');
+        expect(users[4].getMPID()).to.equal('4');
+        expect(users[4].getLastSeenTime()).to.equal(null);
 
         done();
     });
@@ -2741,12 +2721,11 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        identityResult
-            .getUser()
-            .getMPID()
-            .should.equal('testMPID');
-        Should(identityResult.getPreviousUser()).not.equal(null);
-        Should(identityResult.getPreviousUser().getMPID()).equal('testMPID2');
+        expect(identityResult.getUser().getMPID()).to.equal('testMPID');
+        expect(identityResult.getPreviousUser()).to.not.equal(null);
+        expect(identityResult.getPreviousUser().getMPID()).to.equal(
+            'testMPID2'
+        );
         done();
     });
 
@@ -2772,20 +2751,14 @@ describe('identity', function() {
         function identityCallback(result) {
             loginResult = result;
         }
-        mParticle.Identity.login({}, identityCallback);
+        mParticle.Identity.login(EmptyUserIdentities, identityCallback);
 
-        mParticle.Identity.getCurrentUser()
-            .getMPID()
-            .should.equal('testMPID');
-        loginResult
-            .getUser()
-            .getMPID()
-            .should.equal('testMPID');
-        Should(loginResult.getPreviousUser()).not.equal(null);
-        loginResult
-            .getPreviousUser()
-            .getMPID()
-            .should.equal('testMPID2');
+        expect(mParticle.Identity.getCurrentUser().getMPID()).to.equal(
+            'testMPID'
+        );
+        expect(loginResult.getUser().getMPID()).to.equal('testMPID');
+        expect(loginResult.getPreviousUser()).to.not.be.null;
+        expect(loginResult.getPreviousUser().getMPID()).to.equal('testMPID2');
         done();
     });
 
@@ -2826,7 +2799,7 @@ describe('identity', function() {
         ]);
 
         let identityResult;
-        mParticle.Identity.identify({}, function(result) {
+        mParticle.Identity.identify(EmptyUserIdentities, function(result) {
             identityResult = result;
         });
 
@@ -2844,9 +2817,9 @@ describe('identity', function() {
 
     it('Alias request should be received when API is called validly', function(done) {
         mockServer.requests = [];
-        const aliasRequest = {
-            destinationMpid: 1,
-            sourceMpid: 2,
+        const aliasRequest: IAliasRequest = {
+            destinationMpid: 'destinationMpid',
+            sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
         };
@@ -2859,27 +2832,27 @@ describe('identity', function() {
         request.url.should.equal(urls.alias);
 
         const requestBody = JSON.parse(request.requestBody);
-        Should(requestBody['request_id']).not.equal(null);
-        Should(requestBody['request_type']).equal('alias');
-        Should(requestBody['environment']).equal('production');
-        Should(requestBody['api_key']).equal(
+        expect(requestBody['request_id']).to.not.equal(null);
+        expect(requestBody['request_type']).to.equal('alias');
+        expect(requestBody['environment']).to.equal('production');
+        expect(requestBody['api_key']).to.equal(
             mParticle.getInstance()._Store.devToken
         );
         const dataBody = requestBody['data'];
-        Should(dataBody).not.equal(null);
-        Should(dataBody['destination_mpid']).equal(1);
-        Should(dataBody['source_mpid']).equal(2);
-        Should(dataBody['start_unixtime_ms']).equal(3);
-        Should(dataBody['end_unixtime_ms']).equal(4);
+        expect(dataBody).to.not.equal(null);
+        expect(dataBody['destination_mpid']).to.equal('destinationMpid');
+        expect(dataBody['source_mpid']).to.equal('sourceMpid');
+        expect(dataBody['start_unixtime_ms']).to.equal(3);
+        expect(dataBody['end_unixtime_ms']).to.equal(4);
 
         done();
     });
 
     it('Alias request should include scope if specified', function(done) {
         mockServer.requests = [];
-        const aliasRequest = {
-            destinationMpid: 1,
-            sourceMpid: 2,
+        const aliasRequest: IAliasRequest = {
+            destinationMpid: 'destinationMpid',
+            sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
             scope: 'mpid',
@@ -2890,11 +2863,11 @@ describe('identity', function() {
         mockServer.requests.length.should.equal(1);
 
         const request = mockServer.requests[0];
-        request.url.should.equal(urls.alias);
+        expect(request.url).to.equal(urls.alias);
 
         const requestBody = JSON.parse(request.requestBody);
         const dataBody = requestBody['data'];
-        Should(dataBody['scope']).equal('mpid');
+        expect(dataBody['scope']).to.equal('mpid');
 
         done();
     });
@@ -2911,69 +2884,71 @@ describe('identity', function() {
         mParticle.init(apiKey, window.mParticle.config);
         let callbackResult;
 
-        //missing sourceMpid
-        let aliasRequest = {
-            destinationMpid: 1,
+        // intentionally missing sourceMpid
+        let aliasRequest: IAliasRequest = ({
+            destinationMpid: 'destinationMpid',
             startTime: 3,
             endTime: 4,
-        };
+        } as unknown) as IAliasRequest;
 
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingMpid
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingMpid
         );
         callbackResult = null;
         warnMessage = null;
 
-        //missing destinationMpid
-        aliasRequest = {
-            sourceMpid: 2,
+        // intentionally missing destinationMpid
+        aliasRequest = ({
+            sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
-        };
+        } as unknown) as IAliasRequest;
+
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingMpid
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingMpid
         );
         callbackResult = null;
         warnMessage = null;
 
-        //same destinationMpid & sourceMpid
+        // same destinationMpid & sourceMpid
         aliasRequest = {
-            destinationMpid: 1,
-            sourceMpid: 1,
+            destinationMpid: 'destinationMpid',
+            sourceMpid: 'destinationMpid',
             startTime: 3,
             endTime: 4,
         };
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
         });
+
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasNonUniqueMpid
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasNonUniqueMpid
         );
         callbackResult = null;
         warnMessage = null;
 
-        //endTime before startTime
+        // endTime before startTime
         aliasRequest = {
-            destinationMpid: 1,
-            sourceMpid: 2,
+            destinationMpid: 'destinationMpid',
+            sourceMpid: 'sourceMpid',
             startTime: 4,
             endTime: 3,
         };
@@ -2981,37 +2956,38 @@ describe('identity', function() {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasStartBeforeEndTime
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasStartBeforeEndTime
         );
         callbackResult = null;
         warnMessage = null;
 
-        //missing endTime and startTime
-        aliasRequest = {
-            destinationMpid: 1,
-            sourceMpid: 2,
-        };
+        // intentionally missing endTime and startTime
+        aliasRequest = ({
+            destinationMpid: 'destinationMpid',
+            sourceMpid: 'sourceMpid',
+        } as unknown) as IAliasRequest;
+
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(HTTPCodes.validationIssue);
-        Should(callbackResult.message).equal(
+        expect(callbackResult.message).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingTime
         );
-        Should(warnMessage).equal(
+        expect(warnMessage).to.equal(
             Constants.Messages.ValidationMessages.AliasMissingTime
         );
         callbackResult = null;
         warnMessage = null;
 
-        //sanity test, make sure properly formatted requests are accepted
+        // sanity test, make sure properly formatted requests are accepted
         aliasRequest = {
-            destinationMpid: 1,
-            sourceMpid: 2,
+            destinationMpid: 'destinationMpid',
+            sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
         };
@@ -3022,14 +2998,14 @@ describe('identity', function() {
             callbackResult = callback;
         });
         callbackResult.httpCode.should.equal(200);
-        Should(callbackResult.message).equal(undefined);
-        Should(warnMessage).equal(null);
+        expect(callbackResult.message).to.equal(undefined);
+        expect(warnMessage).to.equal(null);
         callbackResult = null;
 
         done();
     });
 
-    it('Should parse error info from Alias Requests', function(done) {
+    it('should parse error info from Alias Requests', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         const errorMessage = 'this is a sample error message';
         let callbackResult;
@@ -3044,8 +3020,8 @@ describe('identity', function() {
         ]);
 
         const aliasRequest = {
-            destinationMpid: 1,
-            sourceMpid: 2,
+            destinationMpid: 'destinationMpid',
+            sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
         };
@@ -3060,7 +3036,7 @@ describe('identity', function() {
         done();
     });
 
-    it('Should properly create AliasRequest', function(done) {
+    it('should properly create AliasRequest', function(done) {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -3079,7 +3055,9 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        const clock = sinon.useFakeTimers();
+        // Reset clock so we can use simple integers for time
+        clock.restore();
+        clock = sinon.useFakeTimers();
         clock.tick(1000);
 
         const destinationUser = mParticle.Identity.getCurrentUser();
@@ -3089,16 +3067,16 @@ describe('identity', function() {
             sourceUser,
             destinationUser
         );
-        Should(aliasRequest.sourceMpid).equal('1');
-        Should(aliasRequest.destinationMpid).equal('2');
-        Should(aliasRequest.startTime).equal(200);
-        Should(aliasRequest.endTime).equal(400);
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
+        expect(aliasRequest.startTime).to.equal(200);
+        expect(aliasRequest.endTime).to.equal(400);
         clock.restore();
 
         done();
     });
 
-    it('Should fill in missing fst and lst in createAliasRequest', function(done) {
+    it('should fill in missing fst and lst in createAliasRequest', function(done) {
         mParticle._resetForTests(MPConfig);
 
         const cookies = JSON.stringify({
@@ -3118,7 +3096,9 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        const clock = sinon.useFakeTimers();
+        // Reset clock so we can use simple integers for time
+        clock.restore();
+        clock = sinon.useFakeTimers();
         clock.tick(1000);
 
         const destinationUser = mParticle.Identity.getCurrentUser();
@@ -3128,19 +3108,19 @@ describe('identity', function() {
             sourceUser,
             destinationUser
         );
-        Should(aliasRequest.sourceMpid).equal('2');
-        Should(aliasRequest.destinationMpid).equal('3');
+        expect(aliasRequest.sourceMpid).to.equal('2');
+        expect(aliasRequest.destinationMpid).to.equal('3');
         //should grab the earliest fst out of any user if user does not have fst
-        Should(aliasRequest.startTime).equal(200);
+        expect(aliasRequest.startTime).to.equal(200);
         //should grab currentTime if user does not have lst
-        Should(aliasRequest.endTime).equal(1000);
+        expect(aliasRequest.endTime).to.equal(1000);
 
         clock.restore();
 
         done();
     });
 
-    it('Should fix startTime when default is outside max window create AliasRequest', function(done) {
+    it('should fix startTime when default is outside max window create AliasRequest', function(done) {
         mParticle._resetForTests(MPConfig);
 
         const millisPerDay = 24 * 60 * 60 * 1000;
@@ -3162,7 +3142,6 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        const clock = sinon.useFakeTimers();
         clock.tick(millisPerDay * 2);
 
         const destinationUser = mParticle.Identity.getCurrentUser();
@@ -3172,14 +3151,14 @@ describe('identity', function() {
             sourceUser,
             destinationUser
         );
-        Should(aliasRequest.sourceMpid).equal('1');
-        Should(aliasRequest.destinationMpid).equal('2');
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
         const oldestAllowedStartTime =
             new Date().getTime() -
             mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
                 millisPerDay;
-        Should(aliasRequest.startTime).equal(oldestAllowedStartTime);
-        Should(aliasRequest.endTime).equal(new Date().getTime());
+        expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
+        expect(aliasRequest.endTime).to.equal(new Date().getTime());
         clock.restore();
 
         done();
@@ -3215,7 +3194,6 @@ describe('identity', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        const clock = sinon.useFakeTimers();
         clock.tick(millisPerDay * 2);
 
         const destinationUser = mParticle.Identity.getCurrentUser();
@@ -3225,15 +3203,15 @@ describe('identity', function() {
             sourceUser,
             destinationUser
         );
-        Should(aliasRequest.sourceMpid).equal('1');
-        Should(aliasRequest.destinationMpid).equal('2');
+        expect(aliasRequest.sourceMpid).to.equal('1');
+        expect(aliasRequest.destinationMpid).to.equal('2');
         const oldestAllowedStartTime =
             new Date().getTime() -
             mParticle.getInstance()._Store.SDKConfig.aliasMaxWindow *
                 millisPerDay;
-        Should(aliasRequest.startTime).equal(oldestAllowedStartTime);
-        Should(aliasRequest.endTime).equal(300);
-        Should(warnMessage).equal(
+        expect(aliasRequest.startTime).to.equal(oldestAllowedStartTime);
+        expect(aliasRequest.endTime).to.equal(300);
+        expect(warnMessage).to.equal(
             'Source User has not been seen in the last ' +
                 mParticle.getInstance()._Store.SDKConfig.maxAliasWindow +
                 ' days, Alias Request will likely fail'
@@ -3243,7 +3221,7 @@ describe('identity', function() {
         done();
     });
 
-    it("Alias request should have environment 'development' when isDevelopmentMode is true", function(done) {
+    it("alias request should have environment 'development' when isDevelopmentMode is true", function(done) {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
 
@@ -3251,8 +3229,8 @@ describe('identity', function() {
 
         mockServer.requests = [];
         const aliasRequest = {
-            destinationMpid: 1,
-            sourceMpid: 2,
+            destinationMpid: 'destinationMpid',
+            sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
         };
@@ -3261,7 +3239,7 @@ describe('identity', function() {
 
         const request = mockServer.requests[0];
         const requestBody = JSON.parse(request.requestBody);
-        Should(requestBody['environment']).equal('development');
+        expect(requestBody['environment']).to.equal('development');
 
         done();
     });
@@ -3354,16 +3332,23 @@ describe('identity', function() {
     });
 
     describe('identity caching', function() {
+        beforeEach(function() {
+            // Reset clock so we can use simple integers for time
+            clock.restore();
+            clock = sinon.useFakeTimers();
+        });
+
         afterEach(function() {
+            clock.restore();
             sinon.restore();
         });
 
         it('should use header `x-mp-max-age` as expiration date for cache', function() {
-            const clock = sinon.useFakeTimers();
-
             // tick forward 1 second
             clock.tick(1);
+
             const X_MP_MAX_AGE = '1';
+
             mParticle._resetForTests(MPConfig);
             mockServer.respondWith(urls.identify, [
                 200,
@@ -3387,16 +3372,23 @@ describe('identity', function() {
 
             mParticle.init(apiKey, window.mParticle.config);
 
-            let idCache = JSON.parse(
+            const idCache: IdentityCache = JSON.parse(
                 localStorage.getItem('mprtcl-v4_abcdef-id-cache')
             );
 
             // a single identify cache key will be on the idCache
-            Should(Object.keys(idCache).length).equal(1);
+            expect(Object.keys(idCache).length).to.equal(1);
             for (let key in idCache) {
-                // we previously ticked forward 1 second, so the expire timestamp should be 1 second more than the X_MP_MAX_AGE
-                Should(idCache[key].expireTimestamp).equal(
-                    X_MP_MAX_AGE * 1000 + 1
+                // X_MP_MAX_AGE is a header value, which is a string,
+                // We want to make sure that the expireTimestamp is evaluated
+                // as a number.
+                const expectedExpiredTimestamp =
+                    parseInt(X_MP_MAX_AGE) * 1000 + 1;
+
+                // we previously ticked forward 1 second, so the expire timestamp
+                // should be 1 second more than the X_MP_MAX_AGE
+                expect(idCache[key].expireTimestamp).to.equal(
+                    expectedExpiredTimestamp
                 );
             }
         });
@@ -3437,14 +3429,13 @@ describe('identity', function() {
                 'identify'
             );
 
-            Should(duplicateIdentityCall).not.be.ok();
+            expect(duplicateIdentityCall).to.not.be.ok;
 
             // callback still gets called even if the identity call is not made`
-            Should(callback.called).equal(true);
+            expect(callback.called).to.equal(true);
         });
 
         it('should call identify if no identities have changed but we are outside the expiration time', function() {
-            const clock = sinon.useFakeTimers();
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
             mockServer.respondWith(urls.identify, [
@@ -3482,8 +3473,8 @@ describe('identity', function() {
                 'identify'
             );
 
-            Should(duplicateIdentityCall).be.ok();
-            Should(callback.called).equal(true);
+            expect(duplicateIdentityCall).to.be.ok;
+            expect(callback.called).to.equal(true);
         });
 
         it('should not call login if previously cached within the expiration time', function() {
@@ -3521,7 +3512,7 @@ describe('identity', function() {
                 'login'
             );
 
-            Should(firstLoginCall).be.ok();
+            expect(firstLoginCall).to.be.ok;
             mockServer.requests = [];
 
             mParticle.Identity.login(identities);
@@ -3530,12 +3521,11 @@ describe('identity', function() {
                 'login'
             );
 
-            Should(secondLoginCall).not.be.ok();
-            Should(callback.called).equal(true);
+            expect(secondLoginCall).to.not.be.ok;
+            expect(callback.called).to.equal(true);
         });
 
         it('should call login if duplicate login happens after expiration time', function() {
-            const clock = sinon.useFakeTimers();
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
 
@@ -3566,7 +3556,7 @@ describe('identity', function() {
                 'login'
             );
 
-            Should(firstLoginCall).be.ok();
+            expect(firstLoginCall).to.be.ok;
             mockServer.requests = [];
 
             // cached time will be 1000 if header returns '1'
@@ -3577,8 +3567,8 @@ describe('identity', function() {
                 'login'
             );
 
-            Should(secondLoginCall).be.ok();
-            Should(callback.called).equal(true);
+            expect(secondLoginCall).to.be.ok;
+            expect(callback.called).to.equal(true);
         });
 
         it('should clear cache when modify is called', function() {
@@ -3617,7 +3607,7 @@ describe('identity', function() {
             mParticle.init(apiKey, window.mParticle.config);
 
             let idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
-            Should(idCache).be.ok();
+            expect(idCache).to.be.ok;
 
             mParticle.Identity.modify({
                 userIdentities: {
@@ -3627,7 +3617,7 @@ describe('identity', function() {
             let secondIdCache = localStorage.getItem(
                 'mprtcl-v4_abcdef-id-cache'
             );
-            Should(secondIdCache).not.be.ok();
+            expect(secondIdCache).to.not.be.ok;
         });
 
         it('should clear cache when logout is called', function() {
@@ -3659,13 +3649,13 @@ describe('identity', function() {
             mParticle.init(apiKey, window.mParticle.config);
 
             let idCache = localStorage.getItem('mprtcl-v4_abcdef-id-cache');
-            Should(idCache).be.ok();
+            expect(idCache).to.be.ok;
 
             mParticle.Identity.logout();
             let secondIdCache = localStorage.getItem(
                 'mprtcl-v4_abcdef-id-cache'
             );
-            Should(secondIdCache).not.be.ok();
+            expect(secondIdCache).to.not.be.ok;
         });
     });
 

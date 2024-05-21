@@ -2,6 +2,8 @@ import {
     ISDKUserIdentityChangeData,
     IUserAttributeChangeEvent,
     IUserIdentityChangeEvent,
+    IdentityModifyResultBody,
+    IdentityResultBody,
 } from '../../src/identity-user-interfaces';
 import {
     IIdentityAPIRequestData,
@@ -211,6 +213,60 @@ describe('Identity', () => {
             };
 
             expect(testAliasRequest).toBeDefined();
+        });
+
+        describe('IIdentityResultBody', () => {
+            it('defines identity results for login requests', () => {
+                const testLoginResults: IdentityResultBody = {
+                    mpid: '123',
+                    context: 'test-context',
+                    is_logged_in: true,
+                    is_ephemeral: false,
+                    matched_identities: {
+                        email: 'test@email.com',
+                    },
+                };
+
+                expect(testLoginResults).toBeDefined();
+            });
+
+            it('defines identity results for logout requests', () => {
+                const testLogoutResults: IdentityResultBody = {
+                    mpid: '123',
+                    context: 'test-context',
+                    is_logged_in: false,
+                    is_ephemeral: false,
+                    matched_identities: {
+                        email: 'test@email.com',
+                    },
+                };
+                expect(testLogoutResults).toBeDefined();
+            });
+
+            it('defines identity results for identify requests', () => {
+                const testIdentifyResults: IdentityResultBody = {
+                    mpid: '123',
+                    context: 'test-context',
+                    is_logged_in: false,
+                    is_ephemeral: true,
+                    matched_identities: {
+                        email: 'test@email.com',
+                    },
+                };
+
+                expect(testIdentifyResults).toBeDefined();
+            });
+
+            it('defines identity results for modify requests', () => {
+                const testModifyResults: IdentityModifyResultBody = {
+                    change_results: {
+                        identity_type: SDKIdentityTypeEnum.email,
+                        modified_mpid: '123',
+                    },
+                };
+
+                expect(testModifyResults).toBeDefined();
+            });
         });
     });
 });
