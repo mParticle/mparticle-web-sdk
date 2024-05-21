@@ -1,15 +1,11 @@
-import {
-    IdentityApiData,
-    IdentityCallback,
-    MPID,
-    UserIdentities,
-} from '@mparticle/web-sdk';
+import { IdentityApiData, MPID, UserIdentities } from '@mparticle/web-sdk';
 import AudienceManager from './audienceManager';
 import { ICachedIdentityCall, IKnownIdentities } from './identity-utils';
 import { BaseVault } from './vault';
 import { Dictionary, Environment, valueof } from './utils';
 import Constants from './constants';
 import {
+    IdentityCallback,
     IUserAttributeChangeEvent,
     IUserIdentityChangeEvent,
     IMParticleUser,

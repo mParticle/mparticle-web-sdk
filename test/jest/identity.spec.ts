@@ -1,9 +1,9 @@
 import {
-    IIdentityModifyResultBody,
-    IIdentityResultBody,
     ISDKUserIdentityChangeData,
     IUserAttributeChangeEvent,
     IUserIdentityChangeEvent,
+    IdentityModifyResultBody,
+    IdentityResultBody,
 } from '../../src/identity-user-interfaces';
 import {
     IIdentityAPIRequestData,
@@ -217,7 +217,7 @@ describe('Identity', () => {
 
         describe('IIdentityResultBody', () => {
             it('defines identity results for login requests', () => {
-                const testLoginResults: IIdentityResultBody = {
+                const testLoginResults: IdentityResultBody = {
                     mpid: '123',
                     context: 'test-context',
                     is_logged_in: true,
@@ -231,7 +231,7 @@ describe('Identity', () => {
             });
 
             it('defines identity results for logout requests', () => {
-                const testLogoutResults: IIdentityResultBody = {
+                const testLogoutResults: IdentityResultBody = {
                     mpid: '123',
                     context: 'test-context',
                     is_logged_in: false,
@@ -244,7 +244,7 @@ describe('Identity', () => {
             });
 
             it('defines identity results for identify requests', () => {
-                const testIdentifyResults: IIdentityResultBody = {
+                const testIdentifyResults: IdentityResultBody = {
                     mpid: '123',
                     context: 'test-context',
                     is_logged_in: false,
@@ -258,7 +258,7 @@ describe('Identity', () => {
             });
 
             it('defines identity results for modify requests', () => {
-                const testModifyResults: IIdentityModifyResultBody = {
+                const testModifyResults: IdentityModifyResultBody = {
                     change_results: {
                         identity_type: SDKIdentityTypeEnum.email,
                         modified_mpid: '123',

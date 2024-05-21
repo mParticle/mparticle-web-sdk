@@ -1,12 +1,4 @@
-import {
-    AllUserAttributes,
-    IdentityCallback,
-    IdentityResult,
-    IdentityResultBody,
-    MPID,
-    Product,
-    User,
-} from '@mparticle/web-sdk';
+import { AllUserAttributes, MPID, Product, User } from '@mparticle/web-sdk';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types.interfaces';
 import { BaseEvent } from './sdkRuntimeModels';
@@ -82,19 +74,26 @@ export interface IUserAttributeChangeEvent extends BaseEvent {
 }
 
 // https://go.mparticle.com/work/SQDSDKS-6460
-export interface IIdentityCallback extends IdentityCallback {
-    (result: IIdentityResult): void;
+export interface IdentityCallback {
+    (result: IdentityResult): void;
 }
 
-export interface IIdentityResult extends Omit<IdentityResult, 'body'> {
-    body: IIdentityResultBody | IIdentityModifyResultBody;
+export interface IdentityResult {
+    httpCode: any;
+    getPreviousUser(): User;
+    getUser(): User;
+    body: IdentityResultBody | IdentityModifyResultBody;
 }
 
-export interface IIdentityResultBody extends IdentityResultBody {
+export interface IdentityResultBody {
+    context: string | null;
+    is_ephemeral: boolean;
+    is_logged_in: boolean;
+    matched_identities: Record<string, unknown>;
     mpid?: MPID;
 }
 
-export interface IIdentityModifyResultBody {
+export interface IdentityModifyResultBody {
     change_results?: {
         identity_type: SDKIdentityTypeEnum;
         modified_mpid: MPID;

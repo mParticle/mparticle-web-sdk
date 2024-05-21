@@ -19,6 +19,7 @@ import {
 } from '@mparticle/web-sdk';
 import { IdentityCache } from '../../src/identity-utils';
 import { IAliasRequest } from '../../src/identity.interfaces';
+import { IdentityResultBody } from '../../src/identity-user-interfaces';
 
 const {
     getLocalStorage,
@@ -2272,8 +2273,8 @@ describe('identity', function() {
         ]);
 
         // https://go.mparticle.com/work/SQDSDKS-6460
-        mParticle.config.identityCallback = function(resp) {
-            mpid = resp.body.mpid;
+        mParticle.config.identityCallback = function({ body }) {
+            mpid = (body as IdentityResultBody).mpid;
         };
 
         mParticle.init(apiKey, window.mParticle.config);

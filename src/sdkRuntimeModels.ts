@@ -22,7 +22,7 @@ import {
     ISDKUserIdentityChanges,
     IMParticleUser,
     ISDKUserIdentity,
-    IIdentityCallback,
+    IdentityCallback,
 } from './identity-user-interfaces';
 import { IIdentityType } from './types.interfaces';
 
@@ -210,7 +210,10 @@ export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
 // Currently, this extends MPConfiguration in @types/mparticle__web-sdk
 // and the two will be merged in once the Store module is refactored
 export interface SDKInitConfig
-    extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
+    extends Omit<
+        MPConfiguration,
+        'dataPlan' | 'logLevel' | 'identityCallback'
+    > {
     dataPlan?: DataPlanConfig | KitBlockerDataPlan; // TODO: These should be eventually split into two different attributes
     logLevel?: LogLevelType;
 
@@ -241,7 +244,7 @@ export interface SDKInitConfig
     isDevelopmentMode?: boolean;
 
     // https://go.mparticle.com/work/SQDSDKS-6460
-    identityCallback?: IIdentityCallback;
+    identityCallback?: IdentityCallback;
 }
 
 export interface DataPlanConfig {
