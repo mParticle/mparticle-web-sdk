@@ -210,10 +210,7 @@ export type LogLevelType = 'none' | 'verbose' | 'warning' | 'error';
 // Currently, this extends MPConfiguration in @types/mparticle__web-sdk
 // and the two will be merged in once the Store module is refactored
 export interface SDKInitConfig
-    extends Omit<
-        MPConfiguration,
-        'dataPlan' | 'logLevel' | 'identityCallback'
-    > {
+    extends Omit<MPConfiguration, 'dataPlan' | 'logLevel'> {
     dataPlan?: DataPlanConfig | KitBlockerDataPlan; // TODO: These should be eventually split into two different attributes
     logLevel?: LogLevelType;
 
