@@ -11,9 +11,14 @@ import {
     MPConfig,
     workspaceCookieName,
 } from './config/constants';
-import { Callback, IdentityApiData, Product } from '@mparticle/web-sdk';
+import {
+    Callback,
+    IdentityApiData,
+    Product,
+    UserIdentities,
+} from '@mparticle/web-sdk';
 import { IdentityCache } from '../../src/identity-utils';
-import { UserIdentities, IAliasRequest } from '../../src/identity.interfaces';
+import { IAliasRequest } from '../../src/identity.interfaces';
 
 const {
     getLocalStorage,
@@ -715,7 +720,6 @@ describe('identity', function() {
         oldIdentities['yahoo'] = 'id7';
         oldIdentities['email'] = 'id8';
         oldIdentities['facebookcustomaudienceid'] = 'id9';
-        oldIdentities['other1'] = 'id10';
         oldIdentities['other2'] = 'id11';
         oldIdentities['other3'] = 'id12';
         oldIdentities['other4'] = 'id13';
@@ -739,19 +743,18 @@ describe('identity', function() {
         newIdentities.yahoo = 'id20';
         newIdentities.email = 'id21';
         newIdentities.facebookcustomaudienceid = 'id22';
-        newIdentities.other1 = 'id23';
-        newIdentities.other2 = 'id24';
-        newIdentities.other3 = 'id25';
-        newIdentities.other4 = 'id26';
-        newIdentities.other5 = 'id27';
-        newIdentities.other6 = 'id28';
-        newIdentities.other7 = 'id29';
-        newIdentities.other8 = 'id30';
-        newIdentities.other9 = 'id31';
-        newIdentities.other10 = 'id32';
-        newIdentities.mobile_number = 'id33';
-        newIdentities.phone_number_2 = 'id34';
-        newIdentities.phone_number_3 = 'id35';
+        newIdentities.other2 = 'id23';
+        newIdentities.other3 = 'id24';
+        newIdentities.other4 = 'id25';
+        newIdentities.other5 = 'id26';
+        newIdentities.other6 = 'id27';
+        newIdentities.other7 = 'id28';
+        newIdentities.other8 = 'id29';
+        newIdentities.other9 = 'id30';
+        newIdentities.other10 = 'id31';
+        newIdentities.mobile_number = 'id32';
+        newIdentities.phone_number_2 = 'id33';
+        newIdentities.phone_number_3 = 'id34';
 
         const identityRequest = mParticle
             .getInstance()
@@ -780,6 +783,8 @@ describe('identity', function() {
         expect(identityRequest.client_sdk.platform).to.equal('web');
         expect(identityRequest.client_sdk.sdk_vendor).to.equal('mparticle');
         expect(identityRequest.environment).to.equal('production');
+        expect(identityRequest.identity_changes.length).to.equal(21);
+
         expect(identityRequest.identity_changes[0]).to.have.all.keys([
             'identity_type',
             'new_value',
@@ -884,9 +889,9 @@ describe('identity', function() {
             'new_value',
             'old_value',
         ]);
-        expect(identityRequest.identity_changes[9].old_value).to.equal('id10');
+        expect(identityRequest.identity_changes[9].old_value).to.equal('id11');
         expect(identityRequest.identity_changes[9].identity_type).to.equal(
-            'other1'
+            'other2'
         );
         expect(identityRequest.identity_changes[9].new_value).to.equal('id23');
 
@@ -895,9 +900,9 @@ describe('identity', function() {
             'new_value',
             'old_value',
         ]);
-        expect(identityRequest.identity_changes[10].old_value).to.equal('id11');
+        expect(identityRequest.identity_changes[10].old_value).to.equal('id12');
         expect(identityRequest.identity_changes[10].identity_type).to.equal(
-            'other2'
+            'other3'
         );
         expect(identityRequest.identity_changes[10].new_value).to.equal('id24');
 
@@ -906,9 +911,9 @@ describe('identity', function() {
             'new_value',
             'old_value',
         ]);
-        expect(identityRequest.identity_changes[11].old_value).to.equal('id12');
+        expect(identityRequest.identity_changes[11].old_value).to.equal('id13');
         expect(identityRequest.identity_changes[11].identity_type).to.equal(
-            'other3'
+            'other4'
         );
         expect(identityRequest.identity_changes[11].new_value).to.equal('id25');
 
@@ -917,65 +922,59 @@ describe('identity', function() {
             'new_value',
             'old_value',
         ]);
-        expect(identityRequest.identity_changes[12].old_value).to.equal('id13');
+        expect(identityRequest.identity_changes[12].old_value).to.equal('id14');
         expect(identityRequest.identity_changes[12].identity_type).to.equal(
-            'other4'
+            'other5'
         );
         expect(identityRequest.identity_changes[12].new_value).to.equal('id26');
 
-        expect(identityRequest.identity_changes[13].old_value).to.equal('id14');
+        expect(identityRequest.identity_changes[13].old_value).to.equal('id15');
         expect(identityRequest.identity_changes[13].identity_type).to.equal(
-            'other5'
+            'other6'
         );
         expect(identityRequest.identity_changes[13].new_value).to.equal('id27');
 
-        expect(identityRequest.identity_changes[14].old_value).to.equal('id15');
+        expect(identityRequest.identity_changes[14].old_value).to.equal('id16');
         expect(identityRequest.identity_changes[14].identity_type).to.equal(
-            'other6'
+            'other7'
         );
         expect(identityRequest.identity_changes[14].new_value).to.equal('id28');
 
-        expect(identityRequest.identity_changes[15].old_value).to.equal('id16');
+        expect(identityRequest.identity_changes[15].old_value).to.equal('id17');
         expect(identityRequest.identity_changes[15].identity_type).to.equal(
-            'other7'
+            'other8'
         );
         expect(identityRequest.identity_changes[15].new_value).to.equal('id29');
 
-        expect(identityRequest.identity_changes[16].old_value).to.equal('id17');
+        expect(identityRequest.identity_changes[16].old_value).to.equal('id18');
         expect(identityRequest.identity_changes[16].identity_type).to.equal(
-            'other8'
+            'other9'
         );
         expect(identityRequest.identity_changes[16].new_value).to.equal('id30');
 
-        expect(identityRequest.identity_changes[17].old_value).to.equal('id18');
+        expect(identityRequest.identity_changes[17].old_value).to.equal('id19');
         expect(identityRequest.identity_changes[17].identity_type).to.equal(
-            'other9'
+            'other10'
         );
         expect(identityRequest.identity_changes[17].new_value).to.equal('id31');
 
-        expect(identityRequest.identity_changes[18].old_value).to.equal('id19');
+        expect(identityRequest.identity_changes[18].old_value).to.equal('id20');
         expect(identityRequest.identity_changes[18].identity_type).to.equal(
-            'other10'
+            'mobile_number'
         );
         expect(identityRequest.identity_changes[18].new_value).to.equal('id32');
 
-        expect(identityRequest.identity_changes[19].old_value).to.equal('id20');
+        expect(identityRequest.identity_changes[19].old_value).to.equal('id21');
         expect(identityRequest.identity_changes[19].identity_type).to.equal(
-            'mobile_number'
+            'phone_number_2'
         );
         expect(identityRequest.identity_changes[19].new_value).to.equal('id33');
 
-        expect(identityRequest.identity_changes[20].old_value).to.equal('id21');
+        expect(identityRequest.identity_changes[20].old_value).to.equal('id22');
         expect(identityRequest.identity_changes[20].identity_type).to.equal(
-            'phone_number_2'
-        );
-        expect(identityRequest.identity_changes[20].new_value).to.equal('id34');
-
-        expect(identityRequest.identity_changes[21].old_value).to.equal('id22');
-        expect(identityRequest.identity_changes[21].identity_type).to.equal(
             'phone_number_3'
         );
-        expect(identityRequest.identity_changes[21].new_value).to.equal('id35');
+        expect(identityRequest.identity_changes[20].new_value).to.equal('id34');
 
         done();
     });
@@ -1476,16 +1475,15 @@ describe('identity', function() {
                 newUIByName
             );
 
+        // if an invalid identity type is added to the identity call,
+        // it will be removed from the combinedUIsByType,
+        // in this case, 'invalidKey' which is in `newUIByName`
         expect(combinedUIsByType).to.have.all.keys([1, 3, 4, 7]);
         expect(combinedUIsByType[1]).to.equal('customerid1');
         expect(combinedUIsByType[3]).to.equal('twitter5');
         expect(combinedUIsByType[4]).to.equal('google4');
         expect(combinedUIsByType[7]).to.equal('email2@test.com');
 
-        // if an invalid identity type is added to the identity call,
-        // it will be removed from the combinedUIsByType
-        // FIXME: What is the actual test case this is trying to test?
-        // expect(combinedUIsByType).to.not.have.property(false);
         expect(Object.keys(combinedUIsByType).length).to.equal(4);
 
         done();
