@@ -19,7 +19,11 @@ import {
 } from '@mparticle/web-sdk';
 import { IdentityCache } from '../../src/identity-utils';
 import { IAliasRequest } from '../../src/identity.interfaces';
-import { IdentityResultBody } from '../../src/identity-user-interfaces';
+import {
+    IdentityModifyResultBody,
+    IdentityResult,
+    IdentityResultBody,
+} from '../../src/identity-user-interfaces';
 
 const {
     getLocalStorage,
@@ -1727,7 +1731,7 @@ describe('identity', function() {
     it('should not send requests to the server with invalid userIdentity values', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         mockServer.requests = [];
-        let result;
+        let result: IdentityResult;
 
         const badUserIdentitiesArray = {
             userIdentities: {
@@ -1832,14 +1836,12 @@ describe('identity', function() {
                         result.httpCode,
                         `valid ${identityMethod} httpCode`
                     ).to.equal(200);
-                    expect(
-                        result.body.mpid,
-                        `valid ${identityMethod} mpid `
-                    ).to.be.ok;
-                    expect(
-                        result.body.mpid,
-                        `valid ${identityMethod} mpid`
-                    ).to.equal(testMPID);
+
+                    const body = result.body as IdentityResultBody;
+                    expect(body.mpid, `valid ${identityMethod} mpid `).to.be.ok;
+                    expect(body.mpid, `valid ${identityMethod} mpid`).to.equal(
+                        testMPID
+                    );
 
                     // Reset result for next iteration of the loop
                     result = null;
@@ -1850,12 +1852,14 @@ describe('identity', function() {
                     expect(result.httpCode, `valid modify httpCode`).to.equal(
                         200
                     );
+                    const body = result.body as IdentityModifyResultBody;
+
                     expect(
-                        result.body.change_results[0].modified_mpid,
+                        body.change_results[0].modified_mpid,
                         `valid modify change_results modified_mpid`
                     ).to.equal(testMPID);
                     expect(
-                        result.body.change_results[0].identity_type,
+                        body.change_results[0].identity_type,
                         `valid modify change_results identity_type`
                     ).to.be.ok;
 

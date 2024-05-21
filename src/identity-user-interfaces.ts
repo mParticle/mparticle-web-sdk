@@ -2,6 +2,8 @@ import { AllUserAttributes, MPID, Product, User } from '@mparticle/web-sdk';
 import { SDKIdentityTypeEnum } from './identity.interfaces';
 import { MessageType } from './types.interfaces';
 import { BaseEvent } from './sdkRuntimeModels';
+import Constants from './constants';
+const { HTTPCodes } = Constants;
 
 // Cart is Deprecated and private to mParticle user in @mparticle/web-sdk
 // but we need to expose it here for type safety in some of our tests
@@ -79,7 +81,7 @@ export interface IdentityCallback {
 }
 
 export interface IdentityResult {
-    httpCode: any;
+    httpCode: typeof HTTPCodes;
     getPreviousUser(): User;
     getUser(): User;
     body: IdentityResultBody | IdentityModifyResultBody;
