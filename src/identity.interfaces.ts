@@ -75,8 +75,8 @@ export interface IIdentityAPIIdentityChangeData {
 
 export interface IIdentityRequest {
     combineUserIdentities(
-        currentUserIdentities: UserIdentities,
-        newUserIdentities: UserIdentities
+        previousUIByName: UserIdentities,
+        newUIByName: UserIdentities
     ): UserIdentities;
     createIdentityRequest(
         identityApiData: IdentityApiData,
