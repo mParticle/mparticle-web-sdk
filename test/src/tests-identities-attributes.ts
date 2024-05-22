@@ -9,10 +9,10 @@ import {
     MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND,
 } from './config/constants';
 import Utils from './config/utils';
-import { MParticleWebSDK, SDKEvent } from '../../src/sdkRuntimeModels';
+import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { AllUserAttributes, UserAttributesValue } from '@mparticle/web-sdk';
 import { UserAttributes } from '../../src/identity-user-interfaces';
-import { CustomEvent, UserAttributeChangeEvent } from '@mparticle/event-models';
+import { UserAttributeChangeEvent } from '@mparticle/event-models';
 
 const {
     findEventFromRequest,
