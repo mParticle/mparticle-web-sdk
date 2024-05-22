@@ -1,8 +1,8 @@
-import { MParticleUser } from './sdkRuntimeModels';
+import { IMParticleUser } from './identity-user-interfaces';
 
 export function didUserChange(
-    previousUser: MParticleUser,
-    newUser: MParticleUser
+    previousUser: IMParticleUser,
+    newUser: IMParticleUser
 ): boolean {
     return (
         !previousUser ||

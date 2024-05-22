@@ -1,3 +1,4 @@
+import { IMParticleUser } from '../../src/identity-user-interfaces';
 import { didUserChange } from '../../src/user-utils';
 
 describe('user-utils', () => {
@@ -9,11 +10,11 @@ describe('user-utils', () => {
         it('returns true if previousUser and newUser have different mpids', () => {
             const previousUser = {
                 getMPID: () => '123',
-            };
+            } as unknown as IMParticleUser;
 
             const newUser = {
                 getMPID: () => '456',
-            };
+            } as unknown as IMParticleUser;
 
             expect(didUserChange(previousUser, newUser)).toBeTruthy();
         });
@@ -22,12 +23,12 @@ describe('user-utils', () => {
             const previousUser = {
                 getMPID: () => '123',
                 isLoggedIn: () => false,
-            };
+            } as unknown as IMParticleUser;
 
             const newUser = {
                 getMPID: () => '123',
                 isLoggedIn: () => false,
-            };
+            } as unknown as IMParticleUser;
 
             expect(didUserChange(previousUser, newUser)).toBeFalsy();
         });
@@ -36,12 +37,12 @@ describe('user-utils', () => {
             const previousUser = {
                 getMPID: () => '123',
                 isLoggedIn: () => true,
-            };
+            } as unknown as IMParticleUser;
 
             const newUser = {
                 getMPID: () => '123',
                 isLoggedIn: () => false,
-            };
+            } as unknown as IMParticleUser;
 
             expect(didUserChange(previousUser, newUser)).toBeTruthy();
         });
