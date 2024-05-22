@@ -9,9 +9,10 @@ import {
     MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND,
 } from './config/constants';
 import Utils from './config/utils';
-import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
-import { UserAttributesValue } from '@mparticle/web-sdk';
+import { MParticleWebSDK, SDKEvent } from '../../src/sdkRuntimeModels';
+import { AllUserAttributes, UserAttributesValue } from '@mparticle/web-sdk';
 import { UserAttributes } from '../../src/identity-user-interfaces';
+import { CustomEvent, UserAttributeChangeEvent } from '@mparticle/event-models';
 
 const {
     findEventFromRequest,
@@ -743,12 +744,18 @@ describe('identities and attributes', function() {
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
 
-        let body: UserAttributes = JSON.parse(
+        // `fetchMock.lastOptions().body` is technically an object, but
+        // our server actually returns this as a string.
+        // In this case, we are going to parse the string and coerce it
+        // into an AllUserAttributes object so we can have type safety
+        // for the remainder of this test and to ensure that the
+        // exracted event data conforms to a UserAttributeChangeEvent
+        let body: AllUserAttributes = JSON.parse(
             `${fetchMock.lastOptions().body}`
-        ) as UserAttributes; // Convert object to string
+        );
         expect(body.user_attributes).to.have.property('age', '25');
 
-        let event = body.events[0];
+        let event: UserAttributeChangeEvent = body.events[0];
         expect(event).to.be.ok;
         expect(event.event_type).to.equal('user_attribute_change');
         expect(event.data.new).to.equal('25');
@@ -760,7 +767,7 @@ describe('identities and attributes', function() {
         // change age attribute
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '30');
-        body = JSON.parse(`${fetchMock.lastOptions().body}`); // Convert object to string
+        body = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(body.user_attributes).to.have.property('age', '30');
         event = body.events[0];
         expect(event.event_type).to.equal('user_attribute_change');
@@ -773,7 +780,7 @@ describe('identities and attributes', function() {
         // removes age attribute
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().removeUserAttribute('age');
-        body = JSON.parse(`${fetchMock.lastOptions().body}`); // Convert object to string
+        body = JSON.parse(`${fetchMock.lastOptions().body}`);
         expect(body.user_attributes).to.not.have.property('age');
         event = body.events[0];
         expect(event.event_type).to.equal('user_attribute_change');
@@ -800,7 +807,9 @@ describe('identities and attributes', function() {
             test1: true,
             test2: true,
         };
-        event.data.new.forEach(function(userAttr) {
+
+        // In this case, the expectation is that the user attributes are an array of strings
+        (event.data.new as string[]).forEach(function(userAttr) {
             expect(obj[userAttr]).to.equal(true);
         });
         expect(event.data.old === null).to.equal(true);
@@ -825,7 +834,9 @@ describe('identities and attributes', function() {
             test1: true,
             test2: true,
         };
-        event.data.new.forEach(function(userAttr) {
+
+        // In this case, the expectation is that the user attributes are an array of strings
+        (event.data.new as string[]).forEach(function(userAttr) {
             expect(obj[userAttr]).to.equal(true);
         });
 
@@ -846,9 +857,11 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
         const testMPID = mParticle.Identity.getCurrentUser().getMPID();
-        let body = JSON.parse(`${`${fetchMock.lastOptions().body}`}`);
+        let body: UserAttributes = JSON.parse(
+            `${`${fetchMock.lastOptions().body}`}`
+        );
         expect(body.mpid).to.equal(testMPID);
-        let event = body.events[0];
+        let event: UserAttributeChangeEvent = body.events[0];
         expect(event.event_type).to.equal('user_attribute_change');
         expect(event.data.new).to.equal('25');
         expect(event.data.old).to.equal(null);
@@ -975,8 +988,8 @@ describe('identities and attributes', function() {
         mParticle.Identity.login(loginUser);
 
         let body = JSON.parse(`${fetchMock.lastOptions().body}`);
-        // should be the new MPID
 
+        // should be the new MPID
         expect(body.mpid).to.equal('anotherMPID');
         expect(body.user_identities).to.have.property(
             'customer_id',
