@@ -154,11 +154,6 @@ export interface IIdentity {
 
     mParticleUser(mpid: MPID, IsLoggedIn: boolean): IMParticleUser;
 
-    checkIdentitySwap(
-        previousMPID: MPID,
-        currentMPID: MPID,
-        currentSessionMPIDs?: MPID[]
-    ): void;
     createUserAttributeChange(
         key: string,
         newValue: string,

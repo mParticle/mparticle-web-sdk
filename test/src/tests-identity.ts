@@ -354,38 +354,6 @@ describe('identity', function() {
         done();
     });
 
-    it('should not do an identity swap if there is no MPID change', function(done) {
-        mParticle.init(apiKey, window.mParticle.config);
-        const cookiesBefore = getLocalStorage();
-        mParticle.getInstance()._Identity.checkIdentitySwap(testMPID, testMPID);
-
-        const cookiesAfter = mParticle
-            .getInstance()
-            ._Persistence.getLocalStorage();
-
-        cookiesBefore.cu.should.equal(cookiesAfter.cu);
-
-        done();
-    });
-
-    it('should do an identity swap if there is an MPID change', function(done) {
-        mParticle.init(apiKey, window.mParticle.config);
-        const cookiesBefore = getLocalStorage();
-
-        mParticle
-            .getInstance()
-            ._Identity.checkIdentitySwap(testMPID, 'currentMPID');
-
-        const cookiesAfter = mParticle
-            .getInstance()
-            ._Persistence.getLocalStorage();
-        cookiesBefore.cu.should.equal(testMPID);
-
-        cookiesAfter.cu.should.equal('currentMPID');
-
-        done();
-    });
-
     it('should store all MPIDs associated with a sessionId, then clear MPIDs from currentSessionMPIDs when a new session starts', function(done) {
         mockServer.respondWith(urls.login, [
             200,

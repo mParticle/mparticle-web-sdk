@@ -1012,6 +1012,21 @@ export default function _Persistence(mpInstance) {
         }
     };
 
+    this.swapCurrentUser = function(
+        previousMPID,
+        currentMPID,
+        currentSessionMPIDs
+    ) {
+        if (previousMPID && currentMPID && previousMPID !== currentMPID) {
+            var persistence = self.getPersistence();
+            if (persistence) {
+                persistence.cu = currentMPID;
+                persistence.gs.csm = currentSessionMPIDs;
+                self.savePersistence(persistence);
+            }
+        }
+    };
+
     // https://go.mparticle.com/work/SQDSDKS-6021
     this.savePersistence = function(persistence) {
         var encodedPersistence = self.encodePersistence(

@@ -17,21 +17,6 @@ export default function Identity(mpInstance) {
     this.idCache = null;
     this.audienceManager = null;
 
-    this.checkIdentitySwap = function(
-        previousMPID,
-        currentMPID,
-        currentSessionMPIDs
-    ) {
-        if (previousMPID && currentMPID && previousMPID !== currentMPID) {
-            var persistence = mpInstance._Persistence.getPersistence();
-            if (persistence) {
-                persistence.cu = currentMPID;
-                persistence.gs.csm = currentSessionMPIDs;
-                mpInstance._Persistence.savePersistence(persistence);
-            }
-        }
-    };
-
     this.IdentityRequest = {
         preProcessIdentityRequest: function(identityApiData, callback, method) {
             mpInstance.Logger.verbose(
@@ -1632,7 +1617,7 @@ export default function Identity(mpInstance) {
                         mpidIsNotInCookies
                     );
 
-                    self.checkIdentitySwap(
+                    mpInstance._Persistence.swapCurrentUser(
                         previousMPID,
                         identityApiResult.mpid,
                         mpInstance._Store.currentSessionMPIDs
