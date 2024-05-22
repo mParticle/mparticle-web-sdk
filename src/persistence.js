@@ -1112,6 +1112,7 @@ export default function _Persistence(mpInstance) {
         if (!mpid) {
             return;
         }
+        // https://go.mparticle.com/work/SQDSDKS-6329
         if (!time) {
             time = new Date().getTime();
         }
@@ -1152,6 +1153,7 @@ export default function _Persistence(mpInstance) {
         if (!mpid) {
             return;
         }
+        // https://go.mparticle.com/work/SQDSDKS-6329
         if (!time) {
             time = new Date().getTime();
         }
