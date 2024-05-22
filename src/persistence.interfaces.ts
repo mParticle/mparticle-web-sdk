@@ -125,5 +125,10 @@ export interface IPersistence {
     getDeviceId(): string;
     setDeviceId(guid: string): void;
     resetPersistence(): void;
+    swapCurrentUser(
+        previousMPID: MPID,
+        currentMPID: MPID,
+        currentSessionMPIDs?: MPID[]
+    ): void;
     forwardingStatsBatches: iForwardingStatsBatches;
 }
