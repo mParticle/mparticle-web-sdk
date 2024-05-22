@@ -26,7 +26,6 @@ let mockServer;
 declare global {
     interface Window {
         mParticle: MParticleWebSDK;
-        fetchMock: any;
     }
 }
 
