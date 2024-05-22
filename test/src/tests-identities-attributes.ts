@@ -29,25 +29,29 @@ declare global {
     }
 }
 
-const BadSessionAttributeKeyAsObject = ({
+const mParticle = window.mParticle as MParticleWebSDK;
+
+const BAD_SESSION_ATTRIBUTE_KEY_AS_OBJECT = ({
     key: 'value',
 } as unknown) as string;
 
-const BadSessionAttributeKeyAsArray = (['key'] as unknown) as string;
+const BAD_SESSION_ATTRIBUTE_KEY_AS_ARRAY = (['key'] as unknown) as string;
 
-const BadUserAttributeKeyAsObject = ({
+const BAD_SESSION_ATTRIBUTE_VALUE_AS_OBJECT = ({
     bad: 'bad',
 } as unknown) as string;
 
-const BadUserAttributeKeyAsArray = (['bad', 'bad', 'bad'] as unknown) as string;
-
-const BadSessionAttributeValueAsObject = ({
+const BAD_USER_ATTRIBUTE_KEY_AS_OBJECT = ({
     bad: 'bad',
 } as unknown) as string;
 
-const BadUserAttributeListValue = (1234 as unknown) as UserAttributesValue[];
+const BAD_USER_ATTRIBUTE_KEY_AS_ARRAY = ([
+    'bad',
+    'bad',
+    'bad',
+] as unknown) as string;
 
-const mParticle = window.mParticle as MParticleWebSDK;
+const BAD_USER_ATTRIBUTE_LIST_VALUE = (1234 as unknown) as UserAttributesValue[];
 
 describe('identities and attributes', function() {
     beforeEach(function() {
@@ -235,7 +239,10 @@ describe('identities and attributes', function() {
     });
 
     it("should not set a session attribute's key as an object or array)", function(done) {
-        mParticle.setSessionAttribute(BadSessionAttributeKeyAsObject, 'test');
+        mParticle.setSessionAttribute(
+            BAD_SESSION_ATTRIBUTE_KEY_AS_OBJECT,
+            'test'
+        );
         mParticle.endSession();
         const sessionEndEvent1 = findEventFromRequest(
             fetchMock.calls(),
@@ -244,7 +251,10 @@ describe('identities and attributes', function() {
 
         mParticle.startNewSession();
         fetchMock.resetHistory();
-        mParticle.setSessionAttribute(BadSessionAttributeKeyAsArray, 'test');
+        mParticle.setSessionAttribute(
+            BAD_SESSION_ATTRIBUTE_KEY_AS_ARRAY,
+            'test'
+        );
         mParticle.endSession();
         const sessionEndEvent2 = findEventFromRequest(
             fetchMock.calls(),
@@ -591,7 +601,7 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.getCurrentUser().setUserAttributeList(
             'mykey',
-            BadUserAttributeListValue
+            BAD_USER_ATTRIBUTE_LIST_VALUE
         );
 
         const attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
@@ -602,7 +612,10 @@ describe('identities and attributes', function() {
     });
 
     it('should not set bad session attribute value', function(done) {
-        mParticle.setSessionAttribute('name', BadSessionAttributeValueAsObject);
+        mParticle.setSessionAttribute(
+            'name',
+            BAD_SESSION_ATTRIBUTE_VALUE_AS_OBJECT
+        );
 
         mParticle.endSession();
 
@@ -638,7 +651,7 @@ describe('identities and attributes', function() {
         );
 
         mParticle.Identity.getCurrentUser().setUserAttribute(
-            BadUserAttributeKeyAsObject,
+            BAD_USER_ATTRIBUTE_KEY_AS_OBJECT,
             'male'
         );
         mParticle.logEvent('test bad user attributes3');
@@ -648,7 +661,7 @@ describe('identities and attributes', function() {
         );
 
         mParticle.Identity.getCurrentUser().setUserAttribute(
-            BadUserAttributeKeyAsArray,
+            BAD_USER_ATTRIBUTE_KEY_AS_ARRAY,
             'female'
         );
         mParticle.logEvent('test bad user attributes4');
