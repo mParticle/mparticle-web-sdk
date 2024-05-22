@@ -34,7 +34,10 @@ export interface SDKEvent {
     IsFirstRun: boolean;
     EventName: string;
     EventCategory: number;
+
+    // https://go.mparticle.com/work/SQDSDKS-5196
     UserAttributes?: { [key: string]: string | string[] | null };
+
     UserIdentities?: ISDKUserIdentity[];
     SourceMessageId: string;
     MPID: string;

@@ -46,7 +46,10 @@ export interface IServerV2DTO {
     dp_v?: number;
     n?: string;
     et?: number;
+
+    // https://go.mparticle.com/work/SQDSDKS-5196
     ua?: Dictionary<string | string[]>;
+
     ui?: ISDKUserIdentity[];
     ia?: Dictionary<Dictionary<string>>;
     str?: ServerSettings;

@@ -17,6 +17,7 @@ export default function Identity(mpInstance) {
     this.idCache = null;
     this.audienceManager = null;
 
+    // https://go.mparticle.com/work/SQDSDKS-6353
     this.IdentityRequest = {
         preProcessIdentityRequest: function(identityApiData, callback, method) {
             mpInstance.Logger.verbose(
@@ -217,6 +218,7 @@ export default function Identity(mpInstance) {
          * @param {Function} [callback] A callback function that is called when the identify request completes
          */
         identify: function(identityApiData, callback) {
+            // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
@@ -310,6 +312,7 @@ export default function Identity(mpInstance) {
          * @param {Function} [callback] A callback function that is called when the logout request completes
          */
         logout: function(identityApiData, callback) {
+            // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
@@ -399,6 +402,7 @@ export default function Identity(mpInstance) {
          * @param {Function} [callback] A callback function that is called when the login request completes
          */
         login: function(identityApiData, callback) {
+            // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
@@ -494,6 +498,7 @@ export default function Identity(mpInstance) {
          * @param {Function} [callback] A callback function that is called when the modify request completes
          */
         modify: function(identityApiData, callback) {
+            // https://go.mparticle.com/work/SQDSDKS-6337
             var mpid,
                 currentUser = mpInstance.Identity.getCurrentUser(),
                 preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(
@@ -781,6 +786,7 @@ export default function Identity(mpInstance) {
         },
     };
 
+    //go.mparticle.com/work/SQDSDKS-6354
     /**
      * Invoke these methods on the mParticle.Identity.getCurrentUser() object.
      * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
@@ -1466,6 +1472,7 @@ export default function Identity(mpInstance) {
         };
     };
 
+    // https://go.mparticle.com/work/SQDSDKS-6355
     this.parseIdentityResponse = function(
         xhr,
         previousMPID,
@@ -1513,6 +1520,7 @@ export default function Identity(mpInstance) {
                 mpInstance._Store.mpid = identityApiResult.mpid;
 
                 if (prevUser) {
+                    // https://go.mparticle.com/work/SQDSDKS-6329
                     mpInstance._Persistence.setLastSeenTime(previousMPID);
                 }
 
@@ -1569,6 +1577,7 @@ export default function Identity(mpInstance) {
                         'Successfully parsed Identity Response'
                     );
 
+                    // https://go.mparticle.com/work/SQDSDKS-6356
                     //this covers an edge case where, users stored before "firstSeenTime" was introduced
                     //will not have a value for "fst" until the current MPID changes, and in some cases,
                     //the current MPID will never change
@@ -1577,6 +1586,7 @@ export default function Identity(mpInstance) {
                         prevUser &&
                         identityApiResult.mpid === prevUser.getMPID()
                     ) {
+                        // https://go.mparticle.com/work/SQDSDKS-6329
                         mpInstance._Persistence.setFirstSeenTime(
                             identityApiResult.mpid
                         );
@@ -1645,12 +1655,14 @@ export default function Identity(mpInstance) {
                         identityApiData
                     );
 
+                    // https://go.mparticle.com/work/SQDSDKS-6357
                     mpInstance._Store.context =
                         identityApiResult.context || mpInstance._Store.context;
                 }
 
                 newUser = mpInstance.Identity.getCurrentUser();
 
+                // https://go.mparticle.com/work/SQDSDKS-6359
                 if (
                     identityApiData &&
                     identityApiData.onUserAlias &&
@@ -1776,6 +1788,7 @@ export default function Identity(mpInstance) {
         mpid,
         prevUserIdentities
     ) {
+        // https://go.mparticle.com/work/SQDSDKS-6354
         var currentUserInMemory, userIdentityChangeEvent;
 
         if (!mpid) {
