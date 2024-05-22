@@ -1492,7 +1492,7 @@ export default function Identity(mpInstance) {
         const previousUIByName = prevUser
             ? prevUser.getUserIdentities().userIdentities
             : {};
-
+        let mpidIsNotInCookies;
         let identityApiResult;
 
         let newUser;
@@ -1511,19 +1511,25 @@ export default function Identity(mpInstance) {
 
             mpInstance._Store.isLoggedIn =
                 identityApiResult?.is_logged_in || false;
-            mpInstance._Store.mpid = identityApiResult.mpid;
 
-            if (prevUser) {
+            // set currentUser
+            if (hasUserChanged(prevUser, identityApiResult)) {
+                mpInstance._Store.mpid = identityApiResult.mpid;
+
+                if (prevUser) {
+                    // https://go.mparticle.com/work/SQDSDKS-6329
+                    mpInstance._Persistence.setLastSeenTime(previousMPID);
+                }
+
+                mpidIsNotInCookies = !mpInstance._Persistence.getFirstSeenTime(
+                    identityApiResult.mpid
+                );
+
                 // https://go.mparticle.com/work/SQDSDKS-6329
-                mpInstance._Persistence.setLastSeenTime(previousMPID);
+                mpInstance._Persistence.setFirstSeenTime(
+                    identityApiResult.mpid
+                );
             }
-
-            const mpidIsNotInCookies = !mpInstance._Persistence.getFirstSeenTime(
-                identityApiResult.mpid
-            );
-
-            // https://go.mparticle.com/work/SQDSDKS-6329
-            mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
 
             if (xhr.status === 200) {
                 if (getFeatureFlag(CacheIdentity)) {
@@ -1825,6 +1831,15 @@ export default function Identity(mpInstance) {
         mpInstance._Forwarders.setForwarderOnIdentityComplete(user, method);
         mpInstance._Forwarders.setForwarderOnUserIdentified(user);
     };
+}
+
+function hasUserChanged(prevUser, identityApiResult) {
+    return (
+        !prevUser ||
+        (prevUser.getMPID() &&
+            identityApiResult.mpid &&
+            identityApiResult.mpid !== prevUser.getMPID())
+    );
 }
 
 // https://go.mparticle.com/work/SQDSDKS-6359
