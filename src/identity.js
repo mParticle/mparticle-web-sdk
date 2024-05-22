@@ -1788,7 +1788,6 @@ export default function Identity(mpInstance) {
         mpid,
         prevUserIdentities
     ) {
-        // https://go.mparticle.com/work/SQDSDKS-6354
         var currentUserInMemory, userIdentityChangeEvent;
 
         if (!mpid) {
@@ -1797,6 +1796,7 @@ export default function Identity(mpInstance) {
             }
         }
 
+        // https://go.mparticle.com/work/SQDSDKS-6354
         currentUserInMemory = this.IdentityAPI.getUser(mpid);
 
         for (var identityType in newUserIdentities) {
