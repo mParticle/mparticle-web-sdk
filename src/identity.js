@@ -786,7 +786,7 @@ export default function Identity(mpInstance) {
         },
     };
 
-    //go.mparticle.com/work/SQDSDKS-6354
+    // https://go.mparticle.com/work/SQDSDKS-6354
     /**
      * Invoke these methods on the mParticle.Identity.getCurrentUser() object.
      * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
