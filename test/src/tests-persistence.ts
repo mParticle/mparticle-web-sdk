@@ -51,6 +51,40 @@ describe('persistence', () => {
         fetchMock.restore();
     });
 
+    describe('#swapCurrentUser', () => {
+        it('should not swap a user if there is no MPID change', function(done) {
+            mParticle.init(apiKey, window.mParticle.config);
+            const cookiesBefore = getLocalStorage();
+            mParticle.getInstance()._Persistence.swapCurrentUser(testMPID, testMPID);
+    
+            const cookiesAfter = mParticle
+                .getInstance()
+                ._Persistence.getLocalStorage();
+    
+            cookiesBefore.cu.should.equal(cookiesAfter.cu);
+    
+            done();
+        });
+    
+        it('should swap a user if there is an MPID change', function(done) {
+            mParticle.init(apiKey, window.mParticle.config);
+            const cookiesBefore = getLocalStorage();
+    
+            mParticle.getInstance()._Persistence.swapCurrentUser(testMPID, 'currentMPID');
+    
+            const cookiesAfter = mParticle
+                .getInstance()
+                ._Persistence.getLocalStorage();
+            cookiesBefore.cu.should.equal(testMPID);
+    
+            cookiesAfter.cu.should.equal('currentMPID');
+    
+            done();
+        });
+
+
+    });
+
     it('should move new schema from cookies to localStorage with useCookieStorage = false', done => {
         mParticle._resetForTests(MPConfig);
 
