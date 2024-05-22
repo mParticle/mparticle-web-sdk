@@ -1,4 +1,3 @@
-import Utils from './config/utils';
 import sinon from 'sinon';
 import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
@@ -9,6 +8,7 @@ import {
     MPConfig,
     MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND,
 } from './config/constants';
+import Utils from './config/utils';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { UserAttributesValue } from '@mparticle/web-sdk';
 import { UserAttributes } from '../../src/identity-user-interfaces';
@@ -84,11 +84,11 @@ describe('identities and attributes', function() {
 
         const event = findBatch(fetchMock.calls(), 'test user attributes');
 
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.have.property('gender', 'male');
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes).to.have.property('gender', 'male');
 
         const cookies = getLocalStorage();
-        cookies[testMPID].ua.should.have.property('gender', 'male');
+        expect(cookies[testMPID].ua).to.have.property('gender', 'male');
 
         done();
     });
@@ -110,21 +110,21 @@ describe('identities and attributes', function() {
         const event = findBatch(fetchMock.calls(), 'test user attributes');
 
         let cookies = getLocalStorage();
-        cookies[testMPID].ua.should.have.property('gender', 'female');
+        expect(cookies[testMPID].ua).to.have.property('gender', 'female');
 
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.have.property('gender', 'female');
-        event.user_attributes.should.not.have.property('Gender');
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes).to.have.property('gender', 'female');
+        expect(event.user_attributes).to.not.have.property('Gender');
 
         mParticle.Identity.getCurrentUser().setUserAttribute('Gender', 'male');
 
         mParticle.logEvent('test user attributes2');
         const event2 = findBatch(fetchMock.calls(), 'test user attributes2');
-        event2.user_attributes.should.have.property('Gender', 'male');
-        event2.user_attributes.should.not.have.property('gender');
+        expect(event2.user_attributes).to.have.property('Gender', 'male');
+        expect(event2.user_attributes).to.not.have.property('gender');
 
         cookies = getLocalStorage();
-        cookies[testMPID].ua.should.have.property('Gender', 'male');
+        expect(cookies[testMPID].ua).to.have.property('Gender', 'male');
 
         done();
     });
@@ -145,12 +145,12 @@ describe('identities and attributes', function() {
         const event = findBatch(fetchMock.calls(), 'test user attributes');
 
         const cookies = getLocalStorage();
-        cookies[testMPID].ua.should.have.property('gender', 'male');
-        cookies[testMPID].ua.should.have.property('age', 21);
+        expect(cookies[testMPID].ua).to.have.property('gender', 'male');
+        expect(cookies[testMPID].ua).to.have.property('age', 21);
 
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.have.property('gender', 'male');
-        event.user_attributes.should.have.property('age', 21);
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes).to.have.property('gender', 'male');
+        expect(event.user_attributes).to.have.property('age', 21);
 
         done();
     });
@@ -165,9 +165,8 @@ describe('identities and attributes', function() {
         mParticle.Identity.getCurrentUser().removeUserAttribute('gender');
 
         mParticle.logEvent('test user attributes');
-
         const event = findBatch(fetchMock.calls(), 'test user attributes');
-        event.user_attributes.should.not.have.property('gender');
+        expect(event.user_attributes).to.not.have.property('gender');
 
         const cookies = getLocalStorage();
         expect(cookies[testMPID].ua).to.not.be.ok;
@@ -187,7 +186,7 @@ describe('identities and attributes', function() {
         mParticle.logEvent('test user attributes');
 
         const event = findBatch(fetchMock.calls(), 'test user attributes');
-        event.user_attributes.should.not.have.property('Gender');
+        expect(event.user_attributes).to.not.have.property('Gender');
 
         const cookies = getLocalStorage();
         expect(cookies[testMPID].ua).to.not.be.ok;
@@ -210,7 +209,7 @@ describe('identities and attributes', function() {
             'session_end'
         );
 
-        sessionEndEvent.data.custom_attributes.should.have.property(
+        expect(sessionEndEvent.data.custom_attributes).to.have.property(
             'name',
             'test'
         );
@@ -229,11 +228,13 @@ describe('identities and attributes', function() {
             'session_end'
         );
 
-        sessionEndEvent.data.custom_attributes.should.have.property(
+        expect(sessionEndEvent.data.custom_attributes).to.have.property(
             'name',
             'test1'
         );
-        sessionEndEvent.data.custom_attributes.should.not.have.property('Name');
+        expect(sessionEndEvent.data.custom_attributes).to.not.have.property(
+            'Name'
+        );
 
         done();
     });
@@ -261,12 +262,12 @@ describe('identities and attributes', function() {
             'session_end'
         );
 
-        Object.keys(
-            sessionEndEvent1.data.custom_attributes
-        ).length.should.equal(0);
-        Object.keys(
-            sessionEndEvent2.data.custom_attributes
-        ).length.should.equal(0);
+        expect(
+            Object.keys(sessionEndEvent1.data.custom_attributes).length
+        ).to.equal(0);
+        expect(
+            Object.keys(sessionEndEvent2.data.custom_attributes).length
+        ).to.equal(0);
 
         done();
     });
@@ -285,7 +286,9 @@ describe('identities and attributes', function() {
             'session_end'
         );
 
-        sessionEndEvent.data.custom_attributes.should.not.have.property('name');
+        expect(sessionEndEvent.data.custom_attributes).to.not.have.property(
+            'name'
+        );
 
         done();
     });
@@ -296,9 +299,9 @@ describe('identities and attributes', function() {
 
         const event = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
-        event.data.should.have.property('location');
-        event.data.location.should.have.property('latitude', 34.134103);
-        event.data.location.should.have.property('longitude', -118.321694);
+        expect(event.data).to.have.property('location');
+        expect(event.data.location).to.have.property('latitude', 34.134103);
+        expect(event.data.location).to.have.property('longitude', -118.321694);
 
         done();
     });
@@ -310,11 +313,11 @@ describe('identities and attributes', function() {
 
         const event = findBatch(fetchMock.calls(), 'Test Event');
 
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.have.property('test', null);
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes).to.have.property('test', null);
 
         const cookies = getLocalStorage();
-        cookies[testMPID].ua.should.have.property('test');
+        expect(cookies[testMPID].ua).to.have.property('test');
 
         done();
     });
@@ -327,12 +330,12 @@ describe('identities and attributes', function() {
 
         const event = findBatch(fetchMock.calls(), 'Test Event');
 
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.not.have.property('Test');
-        event.user_attributes.should.have.property('test');
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes).to.not.have.property('Test');
+        expect(event.user_attributes).to.have.property('test');
 
         const cookies = getLocalStorage();
-        cookies[testMPID].ua.should.have.property('test');
+        expect(cookies[testMPID].ua).to.have.property('test');
 
         done();
     });
@@ -345,8 +348,8 @@ describe('identities and attributes', function() {
 
         const event = findBatch(fetchMock.calls(), 'test event');
 
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.not.have.property('test');
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes).to.not.have.property('test');
 
         const cookies = getLocalStorage();
         expect(cookies[testMPID].ua).to.not.be.ok;
@@ -362,8 +365,8 @@ describe('identities and attributes', function() {
 
         const event = findBatch(fetchMock.calls(), 'test event');
 
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.not.have.property('Test');
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes).to.not.have.property('Test');
 
         const cookies = getLocalStorage();
         expect(cookies[testMPID].ua).to.not.be.ok;
@@ -387,11 +390,13 @@ describe('identities and attributes', function() {
 
         const event = findBatch(fetchMock.calls(), 'test user attributes');
 
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.have.property('numbers', [1, 2, 3, 4, 5]);
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes)
+            .to.have.property('numbers')
+            .to.deep.equal([1, 2, 3, 4, 5]);
 
         const cookies = getLocalStorage();
-        cookies[testMPID].ua.numbers.length.should.equal(5);
+        expect(cookies[testMPID].ua.numbers.length).to.equal(5);
 
         done();
     });
@@ -421,17 +426,12 @@ describe('identities and attributes', function() {
         const event = findBatch(fetchMock.calls(), 'test user attributes');
         const cookies = getLocalStorage();
 
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.have.property('Numbers', [
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-        ]);
-        event.user_attributes.should.not.have.property('numbers');
-        cookies[testMPID].ua.Numbers.length.should.equal(6);
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes)
+            .to.have.property('Numbers')
+            .to.deep.equal([1, 2, 3, 4, 5, 6]);
+        expect(event.user_attributes).to.not.have.property('numbers');
+        expect(cookies[testMPID].ua.Numbers.length).to.equal(6);
 
         mParticle.Identity.getCurrentUser().setUserAttributeList('numbers', [
             1,
@@ -445,9 +445,11 @@ describe('identities and attributes', function() {
         const event2 = findBatch(fetchMock.calls(), 'test user attributes2');
         const cookies3 = getLocalStorage();
 
-        event2.user_attributes.should.have.property('numbers', [1, 2, 3, 4, 5]);
-        event2.user_attributes.should.not.have.property('Numbers');
-        cookies3[testMPID].ua.numbers.length.should.equal(5);
+        expect(event2.user_attributes)
+            .to.have.property('numbers')
+            .to.deep.equal([1, 2, 3, 4, 5]);
+        expect(event2.user_attributes).to.not.have.property('Numbers');
+        expect(cookies3[testMPID].ua.numbers.length).to.equal(5);
 
         done();
     });
@@ -471,11 +473,12 @@ describe('identities and attributes', function() {
         const event = findBatch(fetchMock.calls(), 'test user attributes');
 
         const cookies = getLocalStorage();
+        expect(cookies[testMPID].ua.numbers.length).to.equal(5);
 
-        cookies[testMPID].ua.numbers.length.should.equal(5);
-
-        event.should.have.property('user_attributes');
-        event.user_attributes.should.have.property('numbers').with.lengthOf(5);
+        expect(event).to.have.property('user_attributes');
+        expect(event.user_attributes)
+            .to.have.property('numbers')
+            .with.lengthOf(5);
 
         done();
     });
@@ -521,8 +524,8 @@ describe('identities and attributes', function() {
 
         const userAttributes = mParticle.Identity.getCurrentUser().getUserAttributesLists();
 
-        userAttributes.should.have.property('numbers');
-        userAttributes.should.not.have.property('gender');
+        expect(userAttributes).to.have.property('numbers');
+        expect(userAttributes).to.not.have.property('gender');
 
         done();
     });
@@ -545,7 +548,7 @@ describe('identities and attributes', function() {
         userAttributes['numbers'].push(6);
 
         const userAttributes1 = mParticle.Identity.getCurrentUser().getUserAttributesLists();
-        userAttributes1['numbers'].should.have.lengthOf(5);
+        expect(userAttributes1['numbers']).to.have.lengthOf(5);
 
         done();
     });
@@ -570,8 +573,8 @@ describe('identities and attributes', function() {
 
         const userAttributes1 = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
-        userAttributes1['numbers'].should.have.lengthOf(5);
-        userAttributes1.should.not.have.property('blah');
+        expect(userAttributes1['numbers']).to.have.lengthOf(5);
+        expect(userAttributes1).to.not.have.property('blah');
 
         done();
     });
@@ -589,8 +592,8 @@ describe('identities and attributes', function() {
 
         const attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
-        attrs.should.have.property('test', '123');
-        attrs.should.have.property('another test', 'blah');
+        expect(attrs).to.have.property('test', '123');
+        expect(attrs).to.have.property('another test', 'blah');
 
         done();
     });
@@ -606,7 +609,7 @@ describe('identities and attributes', function() {
 
         const attrs = mParticle.Identity.getCurrentUser().getAllUserAttributes();
 
-        attrs.should.not.have.property('mykey');
+        expect(attrs).to.not.have.property('mykey');
 
         done();
     });
@@ -624,7 +627,9 @@ describe('identities and attributes', function() {
             'session_end'
         );
 
-        sessionEndEvent.data.custom_attributes.should.not.have.property('name');
+        expect(sessionEndEvent.data.custom_attributes).to.not.have.property(
+            'name'
+        );
 
         done();
     });
@@ -687,23 +692,23 @@ describe('identities and attributes', function() {
             'test bad user attributes6'
         );
 
-        event1.should.have.property('user_attributes');
-        event1.user_attributes.should.not.have.property('gender');
+        expect(event1).to.have.property('user_attributes');
+        expect(event1.user_attributes).to.not.have.property('gender');
 
-        event2.should.have.property('user_attributes');
-        event2.user_attributes.should.not.have.property('gender');
+        expect(event2).to.have.property('user_attributes');
+        expect(event2.user_attributes).to.not.have.property('gender');
 
-        event3.should.have.property('user_attributes');
-        event3.user_attributes.should.not.have.property('gender');
+        expect(event3).to.have.property('user_attributes');
+        expect(event3.user_attributes).to.not.have.property('gender');
 
-        event4.should.have.property('user_attributes');
-        event4.user_attributes.should.not.have.property('gender');
+        expect(event4).to.have.property('user_attributes');
+        expect(event4.user_attributes).to.not.have.property('gender');
 
-        event5.should.have.property('user_attributes');
-        event5.user_attributes.should.not.have.property('gender');
+        expect(event5).to.have.property('user_attributes');
+        expect(event5.user_attributes).to.not.have.property('gender');
 
-        event6.should.have.property('user_attributes');
-        event6.user_attributes.should.not.have.property('gender');
+        expect(event6).to.have.property('user_attributes');
+        expect(event6.user_attributes).to.not.have.property('gender');
 
         done();
     });
@@ -718,9 +723,13 @@ describe('identities and attributes', function() {
             .getCart()
             .getCartProducts();
 
-        cartProducts.length.should.equal(2);
-        JSON.stringify(cartProducts[0]).should.equal(JSON.stringify(product1));
-        JSON.stringify(cartProducts[1]).should.equal(JSON.stringify(product2));
+        expect(cartProducts.length).to.equal(2);
+        expect(JSON.stringify(cartProducts[0])).to.equal(
+            JSON.stringify(product1)
+        );
+        expect(JSON.stringify(cartProducts[1])).to.equal(
+            JSON.stringify(product2)
+        );
 
         done();
     });
@@ -737,42 +746,42 @@ describe('identities and attributes', function() {
         let body: UserAttributes = JSON.parse(
             `${fetchMock.lastOptions().body}`
         ) as UserAttributes; // Convert object to string
-        body.user_attributes.should.have.property('age', '25');
+        expect(body.user_attributes).to.have.property('age', '25');
 
         let event = body.events[0];
-        event.should.be.ok();
-        event.event_type.should.equal('user_attribute_change');
-        event.data.new.should.equal('25');
-        (event.data.old === null).should.equal(true);
-        event.data.user_attribute_name.should.equal('age');
-        event.data.deleted.should.equal(false);
-        event.data.is_new_attribute.should.equal(true);
+        expect(event).to.be.ok;
+        expect(event.event_type).to.equal('user_attribute_change');
+        expect(event.data.new).to.equal('25');
+        expect(event.data.old === null).to.equal(true);
+        expect(event.data.user_attribute_name).to.equal('age');
+        expect(event.data.deleted).to.equal(false);
+        expect(event.data.is_new_attribute).to.equal(true);
 
         // change age attribute
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '30');
         body = JSON.parse(`${fetchMock.lastOptions().body}`); // Convert object to string
-        body.user_attributes.should.have.property('age', '30');
+        expect(body.user_attributes).to.have.property('age', '30');
         event = body.events[0];
-        event.event_type.should.equal('user_attribute_change');
-        event.data.new.should.equal('30');
-        event.data.old.should.equal('25');
-        event.data.user_attribute_name.should.equal('age');
-        event.data.deleted.should.equal(false);
-        event.data.is_new_attribute.should.equal(false);
+        expect(event.event_type).to.equal('user_attribute_change');
+        expect(event.data.new).to.equal('30');
+        expect(event.data.old).to.equal('25');
+        expect(event.data.user_attribute_name).to.equal('age');
+        expect(event.data.deleted).to.equal(false);
+        expect(event.data.is_new_attribute).to.equal(false);
 
         // removes age attribute
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().removeUserAttribute('age');
         body = JSON.parse(`${fetchMock.lastOptions().body}`); // Convert object to string
-        body.user_attributes.should.not.have.property('age');
+        expect(body.user_attributes).to.not.have.property('age');
         event = body.events[0];
-        event.event_type.should.equal('user_attribute_change');
-        (event.data.new === null).should.equal(true);
-        event.data.old.should.equal('30');
-        event.data.user_attribute_name.should.equal('age');
-        event.data.deleted.should.equal(true);
-        event.data.is_new_attribute.should.equal(false);
+        expect(event.event_type).to.equal('user_attribute_change');
+        expect(event.data.new === null).to.equal(true);
+        expect(event.data.old).to.equal('30');
+        expect(event.data.user_attribute_name).to.equal('age');
+        expect(event.data.deleted).to.equal(true);
+        expect(event.data.is_new_attribute).to.equal(false);
 
         // set a user attribute list
         fetchMock.resetHistory();
@@ -783,21 +792,21 @@ describe('identities and attributes', function() {
         ]);
         body = JSON.parse(`${fetchMock.lastOptions().body}`);
 
-        body.user_attributes['age'][0].should.equal('test1');
-        body.user_attributes['age'][1].should.equal('test2');
+        expect(body.user_attributes['age'][0]).to.equal('test1');
+        expect(body.user_attributes['age'][1]).to.equal('test2');
         event = body.events[0];
-        event.event_type.should.equal('user_attribute_change');
+        expect(event.event_type).to.equal('user_attribute_change');
         let obj = {
             test1: true,
             test2: true,
         };
         event.data.new.forEach(function(userAttr) {
-            obj[userAttr].should.equal(true);
+            expect(obj[userAttr]).to.equal(true);
         });
-        (event.data.old === null).should.equal(true);
-        event.data.user_attribute_name.should.equal('age');
-        event.data.deleted.should.equal(false);
-        event.data.is_new_attribute.should.equal(true);
+        expect(event.data.old === null).to.equal(true);
+        expect(event.data.user_attribute_name).to.equal('age');
+        expect(event.data.deleted).to.equal(false);
+        expect(event.data.is_new_attribute).to.equal(true);
 
         // changes ordering of above attribute list
         fetchMock.resetHistory();
@@ -807,24 +816,24 @@ describe('identities and attributes', function() {
             'test1',
         ]);
         body = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body.user_attributes['age'][0].should.equal('test2');
-        body.user_attributes['age'][1].should.equal('test1');
+        expect(body.user_attributes['age'][0]).to.equal('test2');
+        expect(body.user_attributes['age'][1]).to.equal('test1');
 
         event = JSON.parse(`${fetchMock.lastOptions().body}`).events[0];
-        event.event_type.should.equal('user_attribute_change');
+        expect(event.event_type).to.equal('user_attribute_change');
         obj = {
             test1: true,
             test2: true,
         };
         event.data.new.forEach(function(userAttr) {
-            obj[userAttr].should.equal(true);
+            expect(obj[userAttr]).to.equal(true);
         });
 
-        (event.data.old[0] === 'test1').should.equal(true);
-        (event.data.old[1] === 'test2').should.equal(true);
-        event.data.user_attribute_name.should.equal('age');
-        event.data.deleted.should.equal(false);
-        event.data.is_new_attribute.should.equal(false);
+        expect(event.data.old[0] === 'test1').to.equal(true);
+        expect(event.data.old[1] === 'test2').to.equal(true);
+        expect(event.data.user_attribute_name).to.equal('age');
+        expect(event.data.deleted).to.equal(false);
+        expect(event.data.is_new_attribute).to.equal(false);
 
         delete window.mParticle.config.flags;
         done();
@@ -838,7 +847,7 @@ describe('identities and attributes', function() {
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
         const testMPID = mParticle.Identity.getCurrentUser().getMPID();
         let body = JSON.parse(`${`${fetchMock.lastOptions().body}`}`);
-        body.mpid.should.equal(testMPID);
+        expect(body.mpid).to.equal(testMPID);
         let event = body.events[0];
         expect(event.event_type).to.equal('user_attribute_change');
         expect(event.data.new).to.equal('25');
@@ -933,21 +942,20 @@ describe('identities and attributes', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        JSON.parse(
-            `${fetchMock.lastOptions().body}`
-        ).user_identities.should.have.property('email', 'initial@gmail.com');
+        expect(
+            JSON.parse(`${fetchMock.lastOptions().body}`).user_identities
+        ).to.have.property('email', 'initial@gmail.com');
 
         mParticle.logEvent('testAfterInit');
 
-        JSON.parse(
-            `${fetchMock.lastOptions().body}`
-        ).user_identities.should.have.property('email', 'initial@gmail.com');
+        expect(
+            JSON.parse(`${fetchMock.lastOptions().body}`).user_identities
+        ).to.have.property('email', 'initial@gmail.com');
 
         fetchMock.calls().forEach(call => {
-            JSON.parse(`${call[1].body}`).user_identities.should.have.property(
-                'email',
-                'initial@gmail.com'
-            );
+            expect(
+                JSON.parse(`${call[1].body}`).user_identities
+            ).to.have.property('email', 'initial@gmail.com');
         });
 
         mockServer.respondWith(urls.login, [
@@ -969,27 +977,33 @@ describe('identities and attributes', function() {
         let body = JSON.parse(`${fetchMock.lastOptions().body}`);
         // should be the new MPID
 
-        body.mpid.should.equal('anotherMPID');
-        body.user_identities.should.have.property('customer_id', 'customerid1');
-        body.user_identities.should.not.have.property('email');
+        expect(body.mpid).to.equal('anotherMPID');
+        expect(body.user_identities).to.have.property(
+            'customer_id',
+            'customerid1'
+        );
+        expect(body.user_identities).to.not.have.property('email');
 
         const event = body.events[0];
-        event.should.be.ok();
-        event.event_type.should.equal('user_identity_change');
-        event.data.new.identity_type.should.equal('customer_id');
-        event.data.new.identity.should.equal('customerid1');
-        (typeof event.data.new.timestamp_unixtime_ms).should.equal('number');
-        event.data.new.created_this_batch.should.equal(true);
-        event.data.old.identity_type.should.equal('customer_id');
-        (event.data.old.identity === null).should.equal(true);
-        (typeof event.data.old.timestamp_unixtime_ms).should.equal('number');
-        event.data.old.created_this_batch.should.equal(false);
+        expect(event).to.be.ok;
+        expect(event.event_type).to.equal('user_identity_change');
+        expect(event.data.new.identity_type).to.equal('customer_id');
+        expect(event.data.new.identity).to.equal('customerid1');
+        expect(typeof event.data.new.timestamp_unixtime_ms).to.equal('number');
+        expect(event.data.new.created_this_batch).to.equal(true);
+        expect(event.data.old.identity_type).to.equal('customer_id');
+        expect(event.data.old.identity === null).to.equal(true);
+        expect(typeof event.data.old.timestamp_unixtime_ms).to.equal('number');
+        expect(event.data.old.created_this_batch).to.equal(false);
 
         mParticle.logEvent('testAfterLogin');
         body = JSON.parse(`${fetchMock.lastOptions().body}`);
 
-        body.user_identities.should.have.property('customer_id', 'customerid1');
-        body.user_identities.should.not.have.property('email');
+        expect(body.user_identities).to.have.property(
+            'customer_id',
+            'customerid1'
+        );
+        expect(body.user_identities).to.not.have.property('email');
 
         // change customerid creates an identity change event
         const modifyUser = {
@@ -1008,24 +1022,24 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.modify(modifyUser);
         const body2 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body2.mpid.should.equal('anotherMPID');
-        body2.user_identities.should.have.property(
+        expect(body2.mpid).to.equal('anotherMPID');
+        expect(body2.user_identities).to.have.property(
             'customer_id',
             'customerid2'
         );
-        body2.user_identities.should.not.have.property('email');
+        expect(body2.user_identities).to.not.have.property('email');
 
         const event2 = body2.events[0];
-        event2.should.be.ok();
-        event2.event_type.should.equal('user_identity_change');
-        event2.data.new.identity_type.should.equal('customer_id');
-        event2.data.new.identity.should.equal('customerid2');
-        (typeof event2.data.new.timestamp_unixtime_ms).should.equal('number');
-        event2.data.new.created_this_batch.should.equal(false);
-        event2.data.old.identity_type.should.equal('customer_id');
-        event2.data.old.identity.should.equal('customerid1');
-        (typeof event2.data.old.timestamp_unixtime_ms).should.equal('number');
-        event2.data.old.created_this_batch.should.equal(false);
+        expect(event2).to.be.ok;
+        expect(event2.event_type).to.equal('user_identity_change');
+        expect(event2.data.new.identity_type).to.equal('customer_id');
+        expect(event2.data.new.identity).to.equal('customerid2');
+        expect(typeof event2.data.new.timestamp_unixtime_ms).to.equal('number');
+        expect(event2.data.new.created_this_batch).to.equal(false);
+        expect(event2.data.old.identity_type).to.equal('customer_id');
+        expect(event2.data.old.identity).to.equal('customerid1');
+        expect(typeof event2.data.old.timestamp_unixtime_ms).to.equal('number');
+        expect(event2.data.old.created_this_batch).to.equal(false);
 
         // Adding a new identity to the current user will create an identity change event
         const modifyUser2 = {
@@ -1040,20 +1054,20 @@ describe('identities and attributes', function() {
         mParticle.Identity.modify(modifyUser2);
 
         const body3 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body3.mpid.should.equal('anotherMPID');
+        expect(body3.mpid).to.equal('anotherMPID');
 
         const event3 = body3.events[0];
-        event3.should.be.ok();
-        event3.event_type.should.equal('user_identity_change');
-        event3.data.new.identity_type.should.equal('email');
-        event3.data.new.identity.should.equal('test@test.com');
-        (typeof event3.data.new.timestamp_unixtime_ms).should.equal('number');
-        event3.data.new.created_this_batch.should.equal(true);
+        expect(event3).to.be.ok;
+        expect(event3.event_type).to.equal('user_identity_change');
+        expect(event3.data.new.identity_type).to.equal('email');
+        expect(event3.data.new.identity).to.equal('test@test.com');
+        expect(typeof event3.data.new.timestamp_unixtime_ms).to.equal('number');
+        expect(event3.data.new.created_this_batch).to.equal(true);
 
-        event3.data.old.identity_type.should.equal('email');
-        (event3.data.old.identity === null).should.equal(true);
-        (typeof event3.data.old.timestamp_unixtime_ms).should.equal('number');
-        event3.data.old.created_this_batch.should.equal(false);
+        expect(event3.data.old.identity_type).to.equal('email');
+        expect(event3.data.old.identity === null).to.equal(true);
+        expect(typeof event3.data.old.timestamp_unixtime_ms).to.equal('number');
+        expect(event3.data.old.created_this_batch).to.equal(false);
 
         // logout with an other will create only a change event for the other
         const logoutUser = {
@@ -1071,29 +1085,29 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.logout(logoutUser);
         //only call is for `other` change event, not for previous ID types of email and customerid
-        fetchMock.calls().length.should.equal(1);
+        expect(fetchMock.calls().length).to.equal(1);
         const body4 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body4.mpid.should.equal('mpid2');
+        expect(body4.mpid).to.equal('mpid2');
 
         const event4 = body4.events[0];
-        event4.should.be.ok();
-        event4.event_type.should.equal('user_identity_change');
-        event4.data.new.identity_type.should.equal('other');
-        event4.data.new.identity.should.equal('other1');
-        (typeof event4.data.new.timestamp_unixtime_ms).should.equal('number');
-        event4.data.new.created_this_batch.should.equal(true);
+        expect(event4).to.be.ok;
+        expect(event4.event_type).to.equal('user_identity_change');
+        expect(event4.data.new.identity_type).to.equal('other');
+        expect(event4.data.new.identity).to.equal('other1');
+        expect(typeof event4.data.new.timestamp_unixtime_ms).to.equal('number');
+        expect(event4.data.new.created_this_batch).to.equal(true);
 
-        event4.data.old.identity_type.should.equal('other');
-        (event4.data.old.identity === null).should.equal(true);
-        (typeof event4.data.old.timestamp_unixtime_ms).should.equal('number');
-        event4.data.old.created_this_batch.should.equal(false);
+        expect(event4.data.old.identity_type).to.equal('other');
+        expect(event4.data.old.identity === null).to.equal(true);
+        expect(typeof event4.data.old.timestamp_unixtime_ms).to.equal('number');
+        expect(event4.data.old.created_this_batch).to.equal(false);
 
         mParticle.logEvent('testAfterLogout');
 
         const body5 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body5.mpid.should.equal('mpid2');
-        Object.keys(body5.user_identities).length.should.equal(1);
-        body5.user_identities.should.have.property('other', 'other1');
+        expect(body5.mpid).to.equal('mpid2');
+        expect(Object.keys(body5.user_identities).length).to.equal(1);
+        expect(body5.user_identities).to.have.property('other', 'other1');
 
         done();
     });
@@ -1130,12 +1144,12 @@ describe('identities and attributes', function() {
         mParticle.Identity.login(loginUser);
 
         let batch = JSON.parse(`${fetchMock.lastOptions().body}`);
-        batch.mpid.should.equal(testMPID);
-        batch.user_identities.should.have.property(
+        expect(batch.mpid).to.equal(testMPID);
+        expect(batch.user_identities).to.have.property(
             'email',
             'initial@gmail.com'
         );
-        batch.user_identities.should.have.property(
+        expect(batch.user_identities).to.have.property(
             'customer_id',
             'customerid1'
         );
@@ -1155,10 +1169,10 @@ describe('identities and attributes', function() {
         mParticle.Identity.logout(logoutUser);
 
         batch = JSON.parse(`${fetchMock.lastOptions().body}`);
-        batch.mpid.should.equal('mpid2');
-        batch.user_identities.should.have.property('other', 'other1');
-        batch.user_identities.should.not.have.property('email');
-        batch.user_identities.should.not.have.property('customer_id');
+        expect(batch.mpid).to.equal('mpid2');
+        expect(batch.user_identities).to.have.property('other', 'other1');
+        expect(batch.user_identities).to.not.have.property('email');
+        expect(batch.user_identities).to.not.have.property('customer_id');
 
         fetchMock.resetHistory();
         // log back in with previous MPID, but with only a single UI, all UIs should be on batch
@@ -1172,17 +1186,17 @@ describe('identities and attributes', function() {
 
         mParticle.Identity.login(loginUser);
 
-        // switching back to logged in user shoudl not result in any UIC events
+        // switching back to logged in user should not result in any UIC events
         expect(fetchMock.lastOptions()).to.not.be.ok;
 
         mParticle.logEvent('event after logging back in');
         batch = JSON.parse(`${fetchMock.lastOptions().body}`);
-        batch.mpid.should.equal(testMPID);
-        batch.user_identities.should.have.property(
+        expect(batch.mpid).to.equal(testMPID);
+        expect(batch.user_identities).to.have.property(
             'email',
             'initial@gmail.com'
         );
-        batch.user_identities.should.have.property(
+        expect(batch.user_identities).to.have.property(
             'customer_id',
             'customerid1'
         );
@@ -1204,15 +1218,15 @@ describe('identities and attributes', function() {
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('age', '25');
         const body1 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body1.user_attributes.should.have.property('age', '25');
+        expect(body1.user_attributes).to.have.property('age', '25');
         const event1 = body1.events[0];
-        event1.should.be.ok();
-        event1.event_type.should.equal('user_attribute_change');
-        event1.data.new.should.equal('25');
-        (event1.data.old === null).should.equal(true);
-        event1.data.user_attribute_name.should.equal('age');
-        event1.data.deleted.should.equal(false);
-        event1.data.is_new_attribute.should.equal(true);
+        expect(event1).to.be.ok;
+        expect(event1.event_type).to.equal('user_attribute_change');
+        expect(event1.data.new).to.equal('25');
+        expect(event1.data.old).to.equal(null);
+        expect(event1.data.user_attribute_name).to.equal('age');
+        expect(event1.data.deleted).to.equal(false);
+        expect(event1.data.is_new_attribute).to.equal(true);
 
         // test setting attributes with 'false' values (i.e false, 0 and '')
 
@@ -1223,15 +1237,15 @@ describe('identities and attributes', function() {
             false
         );
         const body2 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body2.user_attributes.should.have.property('testFalse', false);
+        expect(body2.user_attributes).to.have.property('testFalse', false);
         const event2 = body2.events[0];
-        event2.should.be.ok();
-        event2.event_type.should.equal('user_attribute_change');
-        event2.data.new.should.equal(false);
-        (event2.data.old === null).should.equal(true);
-        event2.data.user_attribute_name.should.equal('testFalse');
-        event2.data.deleted.should.equal(false);
-        event2.data.is_new_attribute.should.equal(true);
+        expect(event2).to.be.ok;
+        expect(event2.event_type).to.equal('user_attribute_change');
+        expect(event2.data.new).to.equal(false);
+        expect(event2.data.old).to.equal(null);
+        expect(event2.data.user_attribute_name).to.equal('testFalse');
+        expect(event2.data.deleted).to.equal(false);
+        expect(event2.data.is_new_attribute).to.equal(true);
 
         // check for UAC event for testEmptyString: '' when set for first time
         fetchMock.resetHistory();
@@ -1240,36 +1254,36 @@ describe('identities and attributes', function() {
             ''
         );
         const body3 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body3.user_attributes.should.have.property('testEmptyString', '');
+        expect(body3.user_attributes).to.have.property('testEmptyString', '');
         const event3 = body3.events[0];
-        event3.should.be.ok();
-        event3.event_type.should.equal('user_attribute_change');
-        event3.data.new.should.equal('');
-        (event3.data.old === null).should.equal(true);
-        event3.data.user_attribute_name.should.equal('testEmptyString');
-        event3.data.deleted.should.equal(false);
-        event3.data.is_new_attribute.should.equal(true);
+        expect(event3).to.be.ok;
+        expect(event3.event_type).to.equal('user_attribute_change');
+        expect(event3.data.new).to.equal('');
+        expect(event3.data.old).to.equal(null);
+        expect(event3.data.user_attribute_name).to.equal('testEmptyString');
+        expect(event3.data.deleted).to.equal(false);
+        expect(event3.data.is_new_attribute).to.equal(true);
 
         // check for UAC event for testZero: 0 when set for first time
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('testZero', 0);
         const body4 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body4.user_attributes.should.have.property('testZero', 0);
+        expect(body4.user_attributes).to.have.property('testZero', 0);
         const event4 = body4.events[0];
-        event4.should.be.ok();
-        event4.event_type.should.equal('user_attribute_change');
-        event4.data.new.should.equal(0);
-        (event4.data.old === null).should.equal(true);
-        event4.data.user_attribute_name.should.equal('testZero');
-        event4.data.deleted.should.equal(false);
-        event4.data.is_new_attribute.should.equal(true);
+        expect(event4).to.be.ok;
+        expect(event4.event_type).to.equal('user_attribute_change');
+        expect(event4.data.new).to.equal(0);
+        expect(event4.data.old).to.equal(null);
+        expect(event4.data.user_attribute_name).to.equal('testZero');
+        expect(event4.data.deleted).to.equal(false);
+        expect(event4.data.is_new_attribute).to.equal(true);
 
         // confirm user attributes previously set already exist for user
         const userAttributes = mParticle.Identity.getCurrentUser().getAllUserAttributes();
-        userAttributes.should.have.property('age');
-        userAttributes.should.have.property('testFalse');
-        userAttributes.should.have.property('testEmptyString');
-        userAttributes.should.have.property('testZero');
+        expect(userAttributes).to.have.property('age');
+        expect(userAttributes).to.have.property('testFalse');
+        expect(userAttributes).to.have.property('testEmptyString');
+        expect(userAttributes).to.have.property('testZero');
 
         // re-set all previous attributes with the same values
         fetchMock.resetHistory();
@@ -1283,8 +1297,8 @@ describe('identities and attributes', function() {
             ''
         );
         mParticle.Identity.getCurrentUser().setUserAttribute('testZero', 0);
-        (fetchMock.lastOptions() === undefined).should.equal(true);
-        (fetchMock.calls().length === 0).should.equal(true);
+        expect(fetchMock.lastOptions()).to.equal(undefined);
+        expect(fetchMock.calls().length).to.equal(0);
 
         done();
     });
@@ -1302,29 +1316,29 @@ describe('identities and attributes', function() {
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', 0);
         const body1 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body1.user_attributes.should.have.property('testFalsey', 0);
+        expect(body1.user_attributes).to.have.property('testFalsey', 0);
         const event1 = body1.events[0];
-        event1.should.be.ok();
-        event1.event_type.should.equal('user_attribute_change');
-        event1.data.new.should.equal(0);
-        (event1.data.old === null).should.equal(true);
-        event1.data.user_attribute_name.should.equal('testFalsey');
-        event1.data.deleted.should.equal(false);
-        event1.data.is_new_attribute.should.equal(true);
+        expect(event1).to.be.ok;
+        expect(event1.event_type).to.equal('user_attribute_change');
+        expect(event1.data.new).to.equal(0);
+        expect(event1.data.old).to.equal(null);
+        expect(event1.data.user_attribute_name).to.equal('testFalsey');
+        expect(event1.data.deleted).to.equal(false);
+        expect(event1.data.is_new_attribute).to.equal(true);
 
         // re-set same test attribute with 'falsey' value to ''
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', '');
         const body2 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body2.user_attributes.should.have.property('testFalsey', '');
+        expect(body2.user_attributes).to.have.property('testFalsey', '');
         const event2 = body2.events[0];
-        event2.should.be.ok();
-        event2.event_type.should.equal('user_attribute_change');
-        event2.data.new.should.equal('');
-        event2.data.old.should.equal(0);
-        event2.data.user_attribute_name.should.equal('testFalsey');
-        event2.data.deleted.should.equal(false);
-        event2.data.is_new_attribute.should.equal(false);
+        expect(event2).to.be.ok;
+        expect(event2.event_type).to.equal('user_attribute_change');
+        expect(event2.data.new).to.equal('');
+        expect(event2.data.old).to.equal(0);
+        expect(event2.data.user_attribute_name).to.equal('testFalsey');
+        expect(event2.data.deleted).to.equal(false);
+        expect(event2.data.is_new_attribute).to.equal(false);
 
         // re-set same test attribute with 'falsey' value to false
         fetchMock.resetHistory();
@@ -1333,29 +1347,29 @@ describe('identities and attributes', function() {
             false
         );
         const body3 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body3.user_attributes.should.have.property('testFalsey', false);
+        expect(body3.user_attributes).to.have.property('testFalsey', false);
         const event3 = body3.events[0];
-        event3.should.be.ok();
-        event3.event_type.should.equal('user_attribute_change');
-        event3.data.new.should.equal(false);
-        event3.data.old.should.equal('');
-        event3.data.user_attribute_name.should.equal('testFalsey');
-        event3.data.deleted.should.equal(false);
-        event3.data.is_new_attribute.should.equal(false);
+        expect(event3).to.be.ok;
+        expect(event3.event_type).to.equal('user_attribute_change');
+        expect(event3.data.new).to.equal(false);
+        expect(event3.data.old).to.equal('');
+        expect(event3.data.user_attribute_name).to.equal('testFalsey');
+        expect(event3.data.deleted).to.equal(false);
+        expect(event3.data.is_new_attribute).to.equal(false);
 
         // re-set same test attribute with 'falsey' value to original value 0
         fetchMock.resetHistory();
         mParticle.Identity.getCurrentUser().setUserAttribute('testFalsey', 0);
         const body4 = JSON.parse(`${fetchMock.lastOptions().body}`);
-        body4.user_attributes.should.have.property('testFalsey', 0);
+        expect(body4.user_attributes).to.have.property('testFalsey', 0);
         const event4 = body4.events[0];
-        event4.should.be.ok();
-        event4.event_type.should.equal('user_attribute_change');
-        event4.data.new.should.equal(0);
-        event4.data.old.should.equal(false);
-        event4.data.user_attribute_name.should.equal('testFalsey');
-        event4.data.deleted.should.equal(false);
-        event4.data.is_new_attribute.should.equal(false);
+        expect(event4).to.be.ok;
+        expect(event4.event_type).to.equal('user_attribute_change');
+        expect(event4.data.new).to.equal(0);
+        expect(event4.data.old).to.equal(false);
+        expect(event4.data.user_attribute_name).to.equal('testFalsey');
+        expect(event4.data.deleted).to.equal(false);
+        expect(event4.data.is_new_attribute).to.equal(false);
 
         done();
     });
