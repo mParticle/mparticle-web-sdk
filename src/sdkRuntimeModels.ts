@@ -177,6 +177,7 @@ export interface MParticleWebSDK {
     getAppVersion(): string;
     getDeviceId(): string;
     setDeviceId(deviceId: string): void;
+    setSessionAttribute(key: string, value: string): void;
     getInstance(): MParticleWebSDK; // TODO: Create a new type for MParticleWebSDKInstance
     ServerModel();
     upload();
