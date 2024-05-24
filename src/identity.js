@@ -1546,7 +1546,7 @@ export default function Identity(mpInstance) {
                     identityApiResult.mpid
                 );
 
-                const incomingMpidUIByName = incomingUser
+                const incomingUIByName = incomingUser
                     ? incomingUser.getUserIdentities().userIdentities
                     : {};
 
@@ -1598,7 +1598,7 @@ export default function Identity(mpInstance) {
                         !isEmpty(identityApiData.userIdentities)
                     ) {
                         newIdentitiesByType = self.IdentityRequest.combineUserIdentities(
-                            incomingMpidUIByName,
+                            incomingUIByName,
                             identityApiData.userIdentities
                         );
                     }
@@ -1646,12 +1646,14 @@ export default function Identity(mpInstance) {
                 );
 
                 const uiByName =
-                    method === Modify ? previousUIByName : incomingMpidUIByName;
+                    method === Modify ? previousUIByName : incomingUIByName;
 
+                // https://go.mparticle.com/work/SQDSDKS-6501
                 self.sendUserIdentityChangeEvent(
                     newIdentitiesByName,
+                    uiByName,
                     identityApiResult.mpid,
-                    uiByName
+                    method
                 );
             }
 
@@ -1669,6 +1671,7 @@ export default function Identity(mpInstance) {
                 identityApiResult &&
                 !isEmpty(identityApiResult.errors)
             ) {
+                // https://go.mparticle.com/work/SQDSDKS-6500
                 mpInstance.Logger.error(
                     'Received HTTP response code of ' +
                         xhr.status +
@@ -1697,31 +1700,36 @@ export default function Identity(mpInstance) {
     // send a user identity change request on identify, login, logout, modify when any values change.
     // compare what identities exist vs what is previously was for the specific user if they were in memory before.
     // if it's the first time the user is logging in, send a user identity change request with
-
     this.sendUserIdentityChangeEvent = function(
         newUserIdentities,
+        prevUserIdentities,
         mpid,
-        currentUserIdentities
+        method
     ) {
+        if (!mpid) {
+            // https://go.mparticle.com/work/SQDSDKS-6501
+            if (method !== Modify) {
+                return;
+            }
+        }
+
         // https://go.mparticle.com/work/SQDSDKS-6354
         const currentUserInMemory = this.IdentityAPI.getUser(mpid);
 
         for (var identityType in newUserIdentities) {
             // Verifies a change actually happened
             if (
-                currentUserIdentities[identityType] !==
+                prevUserIdentities[identityType] !==
                 newUserIdentities[identityType]
             ) {
                 // If a new identity type was introduced when the identity changes
                 // we need to notify the server so that it will associate the new
                 // identity type with subsequent events
-                const isNewUserIdentityType = !currentUserIdentities[
-                    identityType
-                ];
+                const isNewUserIdentityType = !prevUserIdentities[identityType];
                 const userIdentityChangeEvent = self.createUserIdentityChange(
                     identityType,
                     newUserIdentities[identityType],
-                    currentUserIdentities[identityType],
+                    prevUserIdentities[identityType],
                     isNewUserIdentityType,
                     currentUserInMemory
                 );
