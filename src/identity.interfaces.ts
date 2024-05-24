@@ -188,9 +188,9 @@ export interface IIdentity {
     ): void;
     sendUserIdentityChangeEvent(
         newUserIdentities: UserIdentities,
-        prevUserIdentities: UserIdentities,
+        method: IdentityAPIMethod,
         mpid: MPID,
-        method: IdentityAPIMethod
+        prevUserIdentities: UserIdentities
     ): void;
 
     /**

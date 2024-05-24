@@ -1651,9 +1651,9 @@ export default function Identity(mpInstance) {
                 // https://go.mparticle.com/work/SQDSDKS-6501
                 self.sendUserIdentityChangeEvent(
                     newIdentitiesByName,
-                    uiByName,
+                    method,
                     identityApiResult.mpid,
-                    method
+                    uiByName
                 );
             }
 
@@ -1702,9 +1702,9 @@ export default function Identity(mpInstance) {
     // if it's the first time the user is logging in, send a user identity change request with
     this.sendUserIdentityChangeEvent = function(
         newUserIdentities,
-        prevUserIdentities,
+        method,
         mpid,
-        method
+        prevUserIdentities
     ) {
         if (!mpid) {
             // https://go.mparticle.com/work/SQDSDKS-6501
