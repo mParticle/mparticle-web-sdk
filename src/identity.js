@@ -1723,8 +1723,8 @@ export default function Identity(mpInstance) {
                 newUserIdentities[identityType]
             ) {
                 // If a new identity type was introduced when the identity changes
-                // we need to notify the server so that it will associate the new
-                // identity type with subsequent events
+                // we need to notify the server so that the user profile is updated in
+                // the mParticle UI.
                 const isNewUserIdentityType = !prevUserIdentities[identityType];
                 const userIdentityChangeEvent = self.createUserIdentityChange(
                     identityType,
