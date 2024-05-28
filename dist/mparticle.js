@@ -608,7 +608,7 @@ var mParticle = (function () {
       Environment: Environment
     };
 
-    var version = "2.26.5";
+    var version = "2.26.6";
 
     var Constants = {
       sdkVersion: version,
@@ -4950,6 +4950,16 @@ var mParticle = (function () {
           }
         }
       };
+      this.swapCurrentUser = function (previousMPID, currentMPID, currentSessionMPIDs) {
+        if (previousMPID && currentMPID && previousMPID !== currentMPID) {
+          var persistence = self.getPersistence();
+          if (persistence) {
+            persistence.cu = currentMPID;
+            persistence.gs.csm = currentSessionMPIDs;
+            self.savePersistence(persistence);
+          }
+        }
+      };
 
       // https://go.mparticle.com/work/SQDSDKS-6021
       this.savePersistence = function (persistence) {
@@ -5005,6 +5015,7 @@ var mParticle = (function () {
         if (!mpid) {
           return;
         }
+        // https://go.mparticle.com/work/SQDSDKS-6329
         if (!time) {
           time = new Date().getTime();
         }
@@ -5044,6 +5055,7 @@ var mParticle = (function () {
         if (!mpid) {
           return;
         }
+        // https://go.mparticle.com/work/SQDSDKS-6329
         if (!time) {
           time = new Date().getTime();
         }
@@ -6463,16 +6475,8 @@ var mParticle = (function () {
       var self = this;
       this.idCache = null;
       this.audienceManager = null;
-      this.checkIdentitySwap = function (previousMPID, currentMPID, currentSessionMPIDs) {
-        if (previousMPID && currentMPID && previousMPID !== currentMPID) {
-          var persistence = mpInstance._Persistence.getPersistence();
-          if (persistence) {
-            persistence.cu = currentMPID;
-            persistence.gs.csm = currentSessionMPIDs;
-            mpInstance._Persistence.savePersistence(persistence);
-          }
-        }
-      };
+
+      // https://go.mparticle.com/work/SQDSDKS-6353
       this.IdentityRequest = {
         preProcessIdentityRequest: function preProcessIdentityRequest(identityApiData, callback, method) {
           mpInstance.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent + ': ' + method);
@@ -6608,6 +6612,7 @@ var mParticle = (function () {
          * @param {Function} [callback] A callback function that is called when the identify request completes
          */
         identify: function identify(identityApiData, callback) {
+          // https://go.mparticle.com/work/SQDSDKS-6337
           var mpid,
             currentUser = mpInstance.Identity.getCurrentUser(),
             preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Identify);
@@ -6645,6 +6650,7 @@ var mParticle = (function () {
          * @param {Function} [callback] A callback function that is called when the logout request completes
          */
         logout: function logout(identityApiData, callback) {
+          // https://go.mparticle.com/work/SQDSDKS-6337
           var mpid,
             currentUser = mpInstance.Identity.getCurrentUser(),
             preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Logout);
@@ -6688,6 +6694,7 @@ var mParticle = (function () {
          * @param {Function} [callback] A callback function that is called when the login request completes
          */
         login: function login(identityApiData, callback) {
+          // https://go.mparticle.com/work/SQDSDKS-6337
           var mpid,
             currentUser = mpInstance.Identity.getCurrentUser(),
             preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Login);
@@ -6725,6 +6732,7 @@ var mParticle = (function () {
          * @param {Function} [callback] A callback function that is called when the modify request completes
          */
         modify: function modify(identityApiData, callback) {
+          // https://go.mparticle.com/work/SQDSDKS-6337
           var mpid,
             currentUser = mpInstance.Identity.getCurrentUser(),
             preProcessResult = mpInstance._Identity.IdentityRequest.preProcessIdentityRequest(identityApiData, callback, Modify$1);
@@ -6906,6 +6914,7 @@ var mParticle = (function () {
         }
       };
 
+      // https://go.mparticle.com/work/SQDSDKS-6354
       /**
        * Invoke these methods on the mParticle.Identity.getCurrentUser() object.
        * Example: mParticle.Identity.getCurrentUser().getAllUserAttributes()
@@ -7356,6 +7365,8 @@ var mParticle = (function () {
           }
         };
       };
+
+      // https://go.mparticle.com/work/SQDSDKS-6355
       this.parseIdentityResponse = function (xhr, previousMPID, callback, identityApiData, method, knownIdentities, parsingCachedResponse) {
         var prevUser = mpInstance.Identity.getUser(previousMPID),
           newUser,
@@ -7379,6 +7390,7 @@ var mParticle = (function () {
           if (!prevUser || prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID()) {
             mpInstance._Store.mpid = identityApiResult.mpid;
             if (prevUser) {
+              // https://go.mparticle.com/work/SQDSDKS-6329
               mpInstance._Persistence.setLastSeenTime(previousMPID);
             }
             if (!mpInstance._Persistence.getFirstSeenTime(identityApiResult.mpid)) mpidIsNotInCookies = true;
@@ -7397,10 +7409,12 @@ var mParticle = (function () {
               var incomingMpidUIByNameCopy = mpInstance._Helpers.extend({}, incomingMpidUIByName);
               mpInstance.Logger.verbose('Successfully parsed Identity Response');
 
+              // https://go.mparticle.com/work/SQDSDKS-6356
               //this covers an edge case where, users stored before "firstSeenTime" was introduced
               //will not have a value for "fst" until the current MPID changes, and in some cases,
               //the current MPID will never change
               if (method === Identify && prevUser && identityApiResult.mpid === prevUser.getMPID()) {
+                // https://go.mparticle.com/work/SQDSDKS-6329
                 mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
               }
               indexOfMPID = mpInstance._Store.currentSessionMPIDs.indexOf(identityApiResult.mpid);
@@ -7412,7 +7426,7 @@ var mParticle = (function () {
                 mpInstance._Store.currentSessionMPIDs.push(identityApiResult.mpid);
               }
               mpInstance._CookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid, mpidIsNotInCookies);
-              self.checkIdentitySwap(previousMPID, identityApiResult.mpid, mpInstance._Store.currentSessionMPIDs);
+              mpInstance._Persistence.swapCurrentUser(previousMPID, identityApiResult.mpid, mpInstance._Store.currentSessionMPIDs);
               if (identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length) {
                 newIdentitiesByType = self.IdentityRequest.combineUserIdentities(incomingMpidUIByName, identityApiData.userIdentities);
               }
@@ -7421,9 +7435,13 @@ var mParticle = (function () {
               mpInstance._Persistence.saveUserIdentitiesToPersistence(identityApiResult.mpid, newIdentitiesByType);
               mpInstance._Persistence.update();
               mpInstance._Persistence.findPrevCookiesBasedOnUI(identityApiData);
+
+              // https://go.mparticle.com/work/SQDSDKS-6357
               mpInstance._Store.context = identityApiResult.context || mpInstance._Store.context;
             }
             newUser = mpInstance.Identity.getCurrentUser();
+
+            // https://go.mparticle.com/work/SQDSDKS-6359
             if (identityApiData && identityApiData.onUserAlias && mpInstance._Helpers.Validators.isFunction(identityApiData.onUserAlias)) {
               try {
                 mpInstance.Logger.warning('Deprecated function onUserAlias will be removed in future releases');
@@ -7481,6 +7499,8 @@ var mParticle = (function () {
             return;
           }
         }
+
+        // https://go.mparticle.com/work/SQDSDKS-6354
         currentUserInMemory = this.IdentityAPI.getUser(mpid);
         for (var identityType in newUserIdentities) {
           if (prevUserIdentities[identityType] !== newUserIdentities[identityType]) {
@@ -8344,6 +8364,7 @@ var mParticle = (function () {
         var xhr,
           xhrCallback = function xhrCallback() {
             if (xhr.readyState === 4) {
+              // https://go.mparticle.com/work/SQDSDKS-6368
               mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server');
               //only parse error messages from failing requests
               if (xhr.status !== 200 && xhr.status !== 202) {
@@ -8376,6 +8397,7 @@ var mParticle = (function () {
           previousMPID,
           xhrCallback = function xhrCallback() {
             if (xhr.readyState === 4) {
+              // https://go.mparticle.com/work/SQDSDKS-6368
               mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server');
               parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
             }
