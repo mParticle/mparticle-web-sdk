@@ -305,6 +305,23 @@ describe('Store', () => {
                 'oldmpid',
             ]);
         });
+
+        it('should move an mpid to the end of the currentSessionMPIDs list if it exists in the middle of the list', () => {
+            const store: IStore = new Store(
+                sampleConfig,
+                window.mParticle.getInstance()
+            );
+
+            store.sessionId = 'my-session-id';
+            store.currentSessionMPIDs = ['oldmpid', 'newermpid', 'recentmpid'];
+            store.addMpidToSessionHistory('newermpid');
+
+            expect(store.currentSessionMPIDs).to.deep.equal([
+                'oldmpid',
+                'recentmpid',
+                'newermpid',
+            ]);
+        });
     });
 
     describe('#getDeviceId', () => {

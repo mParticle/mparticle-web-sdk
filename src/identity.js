@@ -16,7 +16,7 @@ import {
     isFunction,
     isObject,
 } from './utils';
-import { didUserChange } from './user-utils';
+import { hasMPIDAndUserLoginChanged, hasMPIDChanged } from './user-utils';
 import { getNewIdentitiesByName } from './type-utils';
 
 export default function Identity(mpInstance) {
@@ -1513,7 +1513,7 @@ export default function Identity(mpInstance) {
                 identityApiResult?.is_logged_in || false;
 
             // set currentUser
-            if (hasUserChanged(prevUser, identityApiResult)) {
+            if (hasMPIDChanged(prevUser, identityApiResult)) {
                 mpInstance._Store.mpid = identityApiResult.mpid;
 
                 if (prevUser) {
@@ -1823,7 +1823,7 @@ export default function Identity(mpInstance) {
     };
 
     this.reinitForwardersOnUserChange = function(prevUser, newUser) {
-        if (didUserChange(prevUser, newUser)) {
+        if (hasMPIDAndUserLoginChanged(prevUser, newUser)) {
             mpInstance._Forwarders.initForwarders(
                 newUser.getUserIdentities().userIdentities,
                 mpInstance._APIClient.prepareForwardingStats
@@ -1839,15 +1839,6 @@ export default function Identity(mpInstance) {
         mpInstance._Forwarders.setForwarderOnIdentityComplete(user, method);
         mpInstance._Forwarders.setForwarderOnUserIdentified(user);
     };
-}
-
-function hasUserChanged(prevUser, identityApiResult) {
-    return (
-        !prevUser ||
-        (prevUser.getMPID() &&
-            identityApiResult.mpid &&
-            identityApiResult.mpid !== prevUser.getMPID())
-    );
 }
 
 // https://go.mparticle.com/work/SQDSDKS-6359
