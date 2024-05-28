@@ -229,6 +229,9 @@ const mergeObjects = <T extends object>(...objects: T[]): T => {
     return Object.assign({}, ...objects);
 };
 
+const moveElementToEnd = <T>(array: T[], index: number): T[] =>
+    array.slice(0, index).concat(array.slice(index + 1), array[index]);
+
 export {
     createCookieString,
     revertCookieString,
@@ -258,4 +261,5 @@ export {
     isEmpty,
     isValidCustomFlagProperty,
     mergeObjects,
+    moveElementToEnd,
 };

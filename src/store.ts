@@ -25,6 +25,7 @@ import {
     isEmpty,
     isNumber,
     isObject,
+    moveElementToEnd,
     parseNumber,
     returnConvertedBoolean,
 } from './utils';
@@ -186,6 +187,7 @@ export interface IStore {
     getLastSeenTime?(mpid: MPID): number;
     setLastSeenTime?(mpid: MPID, time?: number): void;
 
+    addMpidToSessionHistory?(mpid: MPID, previousMpid?: MPID): void;
     hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
     processConfig(config: SDKInitConfig): void;
@@ -492,6 +494,22 @@ export default function Store(
         this.deviceId = deviceId;
         this.persistenceData.gs.das = deviceId;
         mpInstance._Persistence.update();
+    };
+
+    this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
+        const indexOfMPID = this.currentSessionMPIDs.indexOf(mpid);
+
+        if (mpid && previousMPID !== mpid && indexOfMPID < 0) {
+            this.currentSessionMPIDs.push(mpid);
+            return;
+        }
+
+        if (indexOfMPID >= 0) {
+            this.currentSessionMPIDs = moveElementToEnd(
+                this.currentSessionMPIDs,
+                indexOfMPID
+            );
+        }
     };
 
     this.getFirstSeenTime = (mpid: MPID) => {
