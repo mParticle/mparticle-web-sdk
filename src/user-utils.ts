@@ -11,6 +11,7 @@ export function hasMPIDAndUserLoginChanged(
     );
 }
 
+// https://go.mparticle.com/work/SQDSDKS-6504
 export function hasMPIDChanged(
     prevUser: IMParticleUser,
     identityApiResult: IdentityResultBody

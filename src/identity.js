@@ -1512,6 +1512,7 @@ export default function Identity(mpInstance) {
             mpInstance._Store.isLoggedIn =
                 identityApiResult?.is_logged_in || false;
 
+            // https://go.mparticle.com/work/SQDSDKS-6504
             // set currentUser
             if (hasMPIDChanged(prevUser, identityApiResult)) {
                 mpInstance._Store.mpid = identityApiResult.mpid;
