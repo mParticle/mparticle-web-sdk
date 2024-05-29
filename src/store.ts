@@ -31,11 +31,10 @@ import {
 } from './utils';
 import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
-import { IdentityCallback } from './identity-user-interfaces';
+import { IdentityCallback, UserAttributes } from './identity-user-interfaces';
 import {
     IGlobalStoreV2MinifiedKeys,
     IPersistenceMinified,
-    UserAttributes,
 } from './persistence.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
