@@ -244,371 +244,156 @@ var mParticle = (function () {
       return obj;
     }
 
-    var _TriggerUploadType;
-    var MessageType$2 = {
-      SessionStart: 1,
-      SessionEnd: 2,
-      PageView: 3,
-      PageEvent: 4,
-      CrashReport: 5,
-      OptOut: 6,
-      AppStateTransition: 10,
-      Profile: 14,
-      Commerce: 16,
-      Media: 20,
-      UserAttributeChange: 17,
-      UserIdentityChange: 18
+    var EventTypeEnum;
+    (function (EventTypeEnum) {
+      EventTypeEnum[EventTypeEnum["Unknown"] = 0] = "Unknown";
+      EventTypeEnum[EventTypeEnum["Navigation"] = 1] = "Navigation";
+      EventTypeEnum[EventTypeEnum["Location"] = 2] = "Location";
+      EventTypeEnum[EventTypeEnum["Search"] = 3] = "Search";
+      EventTypeEnum[EventTypeEnum["Transaction"] = 4] = "Transaction";
+      EventTypeEnum[EventTypeEnum["UserContent"] = 5] = "UserContent";
+      EventTypeEnum[EventTypeEnum["UserPreference"] = 6] = "UserPreference";
+      EventTypeEnum[EventTypeEnum["Social"] = 7] = "Social";
+      EventTypeEnum[EventTypeEnum["Other"] = 8] = "Other";
+      EventTypeEnum[EventTypeEnum["Media"] = 9] = "Media";
+    })(EventTypeEnum || (EventTypeEnum = {}));
+    // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5403
+    var MessageType$2;
+    (function (MessageType) {
+      MessageType[MessageType["SessionStart"] = 1] = "SessionStart";
+      MessageType[MessageType["SessionEnd"] = 2] = "SessionEnd";
+      MessageType[MessageType["PageView"] = 3] = "PageView";
+      MessageType[MessageType["PageEvent"] = 4] = "PageEvent";
+      MessageType[MessageType["CrashReport"] = 5] = "CrashReport";
+      MessageType[MessageType["OptOut"] = 6] = "OptOut";
+      MessageType[MessageType["AppStateTransition"] = 10] = "AppStateTransition";
+      MessageType[MessageType["Profile"] = 14] = "Profile";
+      MessageType[MessageType["Commerce"] = 16] = "Commerce";
+      MessageType[MessageType["UserAttributeChange"] = 17] = "UserAttributeChange";
+      MessageType[MessageType["UserIdentityChange"] = 18] = "UserIdentityChange";
+      MessageType[MessageType["Media"] = 20] = "Media";
+    })(MessageType$2 || (MessageType$2 = {}));
+    var IdentityType$1;
+    (function (IdentityType) {
+      IdentityType[IdentityType["Other"] = 0] = "Other";
+      IdentityType[IdentityType["CustomerId"] = 1] = "CustomerId";
+      IdentityType[IdentityType["Facebook"] = 2] = "Facebook";
+      IdentityType[IdentityType["Twitter"] = 3] = "Twitter";
+      IdentityType[IdentityType["Google"] = 4] = "Google";
+      IdentityType[IdentityType["Microsoft"] = 5] = "Microsoft";
+      IdentityType[IdentityType["Yahoo"] = 6] = "Yahoo";
+      IdentityType[IdentityType["Email"] = 7] = "Email";
+      IdentityType[IdentityType["FacebookCustomAudienceId"] = 9] = "FacebookCustomAudienceId";
+      IdentityType[IdentityType["Other2"] = 10] = "Other2";
+      IdentityType[IdentityType["Other3"] = 11] = "Other3";
+      IdentityType[IdentityType["Other4"] = 12] = "Other4";
+      IdentityType[IdentityType["Other5"] = 13] = "Other5";
+      IdentityType[IdentityType["Other6"] = 14] = "Other6";
+      IdentityType[IdentityType["Other7"] = 15] = "Other7";
+      IdentityType[IdentityType["Other8"] = 16] = "Other8";
+      IdentityType[IdentityType["Other9"] = 17] = "Other9";
+      IdentityType[IdentityType["Other10"] = 18] = "Other10";
+      IdentityType[IdentityType["MobileNumber"] = 19] = "MobileNumber";
+      IdentityType[IdentityType["PhoneNumber2"] = 20] = "PhoneNumber2";
+      IdentityType[IdentityType["PhoneNumber3"] = 21] = "PhoneNumber3";
+    })(IdentityType$1 || (IdentityType$1 = {}));
+
+    /******************************************************************************
+    Copyright (c) Microsoft Corporation.
+
+    Permission to use, copy, modify, and/or distribute this software for any
+    purpose with or without fee is hereby granted.
+
+    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+    REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+    AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+    INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+    LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+    OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+    PERFORMANCE OF THIS SOFTWARE.
+    ***************************************************************************** */
+    /* global Reflect, Promise, SuppressedError, Symbol */
+
+    var extendStatics = function(d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
     };
 
-    // Dictionary that contains MessageTypes that will
-    // trigger an immediate upload.
-    var TriggerUploadType = (_TriggerUploadType = {}, _defineProperty(_TriggerUploadType, MessageType$2.Commerce, 1), _defineProperty(_TriggerUploadType, MessageType$2.UserIdentityChange, 1), _TriggerUploadType);
-    var EventType = {
-      Unknown: 0,
-      Navigation: 1,
-      Location: 2,
-      Search: 3,
-      Transaction: 4,
-      UserContent: 5,
-      UserPreference: 6,
-      Social: 7,
-      Other: 8,
-      Media: 9,
-      getName: function getName(id) {
-        switch (id) {
-          case EventType.Unknown:
-            return 'Unknown';
-          case EventType.Navigation:
-            return 'Navigation';
-          case EventType.Location:
-            return 'Location';
-          case EventType.Search:
-            return 'Search';
-          case EventType.Transaction:
-            return 'Transaction';
-          case EventType.UserContent:
-            return 'User Content';
-          case EventType.UserPreference:
-            return 'User Preference';
-          case EventType.Social:
-            return 'Social';
-          case CommerceEventType.ProductAddToCart:
-            return 'Product Added to Cart';
-          case CommerceEventType.ProductAddToWishlist:
-            return 'Product Added to Wishlist';
-          case CommerceEventType.ProductCheckout:
-            return 'Product Checkout';
-          case CommerceEventType.ProductCheckoutOption:
-            return 'Product Checkout Options';
-          case CommerceEventType.ProductClick:
-            return 'Product Click';
-          case CommerceEventType.ProductImpression:
-            return 'Product Impression';
-          case CommerceEventType.ProductPurchase:
-            return 'Product Purchased';
-          case CommerceEventType.ProductRefund:
-            return 'Product Refunded';
-          case CommerceEventType.ProductRemoveFromCart:
-            return 'Product Removed From Cart';
-          case CommerceEventType.ProductRemoveFromWishlist:
-            return 'Product Removed from Wishlist';
-          case CommerceEventType.ProductViewDetail:
-            return 'Product View Details';
-          case CommerceEventType.PromotionClick:
-            return 'Promotion Click';
-          case CommerceEventType.PromotionView:
-            return 'Promotion View';
-          default:
-            return 'Other';
-        }
-      }
-    };
+    function __extends(d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    }
 
-    // Continuation of enum above, but in seperate object since we don't expose these to end user
-    var CommerceEventType = {
-      ProductAddToCart: 10,
-      ProductRemoveFromCart: 11,
-      ProductCheckout: 12,
-      ProductCheckoutOption: 13,
-      ProductClick: 14,
-      ProductViewDetail: 15,
-      ProductPurchase: 16,
-      ProductRefund: 17,
-      PromotionView: 18,
-      PromotionClick: 19,
-      ProductAddToWishlist: 20,
-      ProductRemoveFromWishlist: 21,
-      ProductImpression: 22
-    };
-    var IdentityType$1 = {
-      Other: 0,
-      CustomerId: 1,
-      Facebook: 2,
-      Twitter: 3,
-      Google: 4,
-      Microsoft: 5,
-      Yahoo: 6,
-      Email: 7,
-      FacebookCustomAudienceId: 9,
-      Other2: 10,
-      Other3: 11,
-      Other4: 12,
-      Other5: 13,
-      Other6: 14,
-      Other7: 15,
-      Other8: 16,
-      Other9: 17,
-      Other10: 18,
-      MobileNumber: 19,
-      PhoneNumber2: 20,
-      PhoneNumber3: 21
-    };
-    IdentityType$1.isValid = function (identityType) {
-      if (typeof identityType === 'number') {
-        for (var prop in IdentityType$1) {
-          if (IdentityType$1.hasOwnProperty(prop)) {
-            if (IdentityType$1[prop] === identityType) {
-              return true;
+    var __assign = function() {
+        __assign = Object.assign || function __assign(t) {
+            for (var s, i = 1, n = arguments.length; i < n; i++) {
+                s = arguments[i];
+                for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
             }
-          }
+            return t;
+        };
+        return __assign.apply(this, arguments);
+    };
+
+    function __awaiter(thisArg, _arguments, P, generator) {
+        function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+        return new (P || (P = Promise))(function (resolve, reject) {
+            function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+            function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+            function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+            step((generator = generator.apply(thisArg, _arguments || [])).next());
+        });
+    }
+
+    function __generator(thisArg, body) {
+        var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+        return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+        function verb(n) { return function (v) { return step([n, v]); }; }
+        function step(op) {
+            if (f) throw new TypeError("Generator is already executing.");
+            while (g && (g = 0, op[0] && (_ = 0)), _) try {
+                if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+                if (y = 0, t) op = [op[0] & 2, t.value];
+                switch (op[0]) {
+                    case 0: case 1: t = op; break;
+                    case 4: _.label++; return { value: op[1], done: false };
+                    case 5: _.label++; y = op[1]; op = [0]; continue;
+                    case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                    default:
+                        if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                        if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                        if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                        if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                        if (t[2]) _.ops.pop();
+                        _.trys.pop(); continue;
+                }
+                op = body.call(thisArg, _);
+            } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+            if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
         }
-      }
-      return false;
-    };
-    IdentityType$1.getName = function (identityType) {
-      switch (identityType) {
-        case window.mParticle.IdentityType.CustomerId:
-          return 'Customer ID';
-        case window.mParticle.IdentityType.Facebook:
-          return 'Facebook ID';
-        case window.mParticle.IdentityType.Twitter:
-          return 'Twitter ID';
-        case window.mParticle.IdentityType.Google:
-          return 'Google ID';
-        case window.mParticle.IdentityType.Microsoft:
-          return 'Microsoft ID';
-        case window.mParticle.IdentityType.Yahoo:
-          return 'Yahoo ID';
-        case window.mParticle.IdentityType.Email:
-          return 'Email';
-        case window.mParticle.IdentityType.FacebookCustomAudienceId:
-          return 'Facebook App User ID';
-        default:
-          return 'Other ID';
-      }
-    };
-    IdentityType$1.getIdentityType = function (identityName) {
-      switch (identityName) {
-        case 'other':
-          return IdentityType$1.Other;
-        case 'customerid':
-          return IdentityType$1.CustomerId;
-        case 'facebook':
-          return IdentityType$1.Facebook;
-        case 'twitter':
-          return IdentityType$1.Twitter;
-        case 'google':
-          return IdentityType$1.Google;
-        case 'microsoft':
-          return IdentityType$1.Microsoft;
-        case 'yahoo':
-          return IdentityType$1.Yahoo;
-        case 'email':
-          return IdentityType$1.Email;
-        case 'facebookcustomaudienceid':
-          return IdentityType$1.FacebookCustomAudienceId;
-        case 'other2':
-          return IdentityType$1.Other2;
-        case 'other3':
-          return IdentityType$1.Other3;
-        case 'other4':
-          return IdentityType$1.Other4;
-        case 'other5':
-          return IdentityType$1.Other5;
-        case 'other6':
-          return IdentityType$1.Other6;
-        case 'other7':
-          return IdentityType$1.Other7;
-        case 'other8':
-          return IdentityType$1.Other8;
-        case 'other9':
-          return IdentityType$1.Other9;
-        case 'other10':
-          return IdentityType$1.Other10;
-        case 'mobile_number':
-          return IdentityType$1.MobileNumber;
-        case 'phone_number_2':
-          return IdentityType$1.PhoneNumber2;
-        case 'phone_number_3':
-          return IdentityType$1.PhoneNumber3;
-        default:
-          return false;
-      }
-    };
-    IdentityType$1.getIdentityName = function (identityType) {
-      switch (identityType) {
-        case IdentityType$1.Other:
-          return 'other';
-        case IdentityType$1.CustomerId:
-          return 'customerid';
-        case IdentityType$1.Facebook:
-          return 'facebook';
-        case IdentityType$1.Twitter:
-          return 'twitter';
-        case IdentityType$1.Google:
-          return 'google';
-        case IdentityType$1.Microsoft:
-          return 'microsoft';
-        case IdentityType$1.Yahoo:
-          return 'yahoo';
-        case IdentityType$1.Email:
-          return 'email';
-        case IdentityType$1.FacebookCustomAudienceId:
-          return 'facebookcustomaudienceid';
-        case IdentityType$1.Other2:
-          return 'other2';
-        case IdentityType$1.Other3:
-          return 'other3';
-        case IdentityType$1.Other4:
-          return 'other4';
-        case IdentityType$1.Other5:
-          return 'other5';
-        case IdentityType$1.Other6:
-          return 'other6';
-        case IdentityType$1.Other7:
-          return 'other7';
-        case IdentityType$1.Other8:
-          return 'other8';
-        case IdentityType$1.Other9:
-          return 'other9';
-        case IdentityType$1.Other10:
-          return 'other10';
-        case IdentityType$1.MobileNumber:
-          return 'mobile_number';
-        case IdentityType$1.PhoneNumber2:
-          return 'phone_number_2';
-        case IdentityType$1.PhoneNumber3:
-          return 'phone_number_3';
-      }
-    };
-    var ProductActionType = {
-      Unknown: 0,
-      AddToCart: 1,
-      RemoveFromCart: 2,
-      Checkout: 3,
-      CheckoutOption: 4,
-      Click: 5,
-      ViewDetail: 6,
-      Purchase: 7,
-      Refund: 8,
-      AddToWishlist: 9,
-      RemoveFromWishlist: 10
-    };
-    ProductActionType.getName = function (id) {
-      switch (id) {
-        case ProductActionType.AddToCart:
-          return 'Add to Cart';
-        case ProductActionType.RemoveFromCart:
-          return 'Remove from Cart';
-        case ProductActionType.Checkout:
-          return 'Checkout';
-        case ProductActionType.CheckoutOption:
-          return 'Checkout Option';
-        case ProductActionType.Click:
-          return 'Click';
-        case ProductActionType.ViewDetail:
-          return 'View Detail';
-        case ProductActionType.Purchase:
-          return 'Purchase';
-        case ProductActionType.Refund:
-          return 'Refund';
-        case ProductActionType.AddToWishlist:
-          return 'Add to Wishlist';
-        case ProductActionType.RemoveFromWishlist:
-          return 'Remove from Wishlist';
-        default:
-          return 'Unknown';
-      }
+    }
+
+    function __spreadArray(to, from, pack) {
+        if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+            if (ar || !(i in from)) {
+                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+                ar[i] = from[i];
+            }
+        }
+        return to.concat(ar || Array.prototype.slice.call(from));
+    }
+
+    typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
+        var e = new Error(message);
+        return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    // these are the action names used by server and mobile SDKs when expanding a CommerceEvent
-    ProductActionType.getExpansionName = function (id) {
-      switch (id) {
-        case ProductActionType.AddToCart:
-          return 'add_to_cart';
-        case ProductActionType.RemoveFromCart:
-          return 'remove_from_cart';
-        case ProductActionType.Checkout:
-          return 'checkout';
-        case ProductActionType.CheckoutOption:
-          return 'checkout_option';
-        case ProductActionType.Click:
-          return 'click';
-        case ProductActionType.ViewDetail:
-          return 'view_detail';
-        case ProductActionType.Purchase:
-          return 'purchase';
-        case ProductActionType.Refund:
-          return 'refund';
-        case ProductActionType.AddToWishlist:
-          return 'add_to_wishlist';
-        case ProductActionType.RemoveFromWishlist:
-          return 'remove_from_wishlist';
-        default:
-          return 'unknown';
-      }
-    };
-    var PromotionActionType = {
-      Unknown: 0,
-      PromotionView: 1,
-      PromotionClick: 2
-    };
-    PromotionActionType.getName = function (id) {
-      switch (id) {
-        case PromotionActionType.PromotionView:
-          return 'view';
-        case PromotionActionType.PromotionClick:
-          return 'click';
-        default:
-          return 'unknown';
-      }
-    };
-
-    // these are the names that the server and mobile SDKs use while expanding CommerceEvent
-    PromotionActionType.getExpansionName = function (id) {
-      switch (id) {
-        case PromotionActionType.PromotionView:
-          return 'view';
-        case PromotionActionType.PromotionClick:
-          return 'click';
-        default:
-          return 'unknown';
-      }
-    };
-    var ProfileMessageType = {
-      Logout: 3
-    };
-    var ApplicationTransitionType$1 = {
-      AppInit: 1
-    };
-    var Environment = {
-      Production: 'production',
-      Development: 'development'
-    };
-    var Types = {
-      MessageType: MessageType$2,
-      EventType: EventType,
-      CommerceEventType: CommerceEventType,
-      IdentityType: IdentityType$1,
-      ProfileMessageType: ProfileMessageType,
-      ApplicationTransitionType: ApplicationTransitionType$1,
-      ProductActionType: ProductActionType,
-      PromotionActionType: PromotionActionType,
-      TriggerUploadType: TriggerUploadType,
-      Environment: Environment
-    };
-
-    var version = "2.26.6";
+    var version = "2.26.7";
 
     var Constants = {
       sdkVersion: version,
@@ -782,99 +567,568 @@ var mParticle = (function () {
     var ONE_DAY_IN_SECONDS = 60 * 60 * 24;
     var MILLIS_IN_ONE_SEC = 1000;
 
-    /******************************************************************************
-    Copyright (c) Microsoft Corporation.
+    var Messages$9 = Constants.Messages;
+    var createCookieString = function createCookieString(value) {
+      return replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
+    };
+    var revertCookieString = function revertCookieString(value) {
+      return replacePipesWithCommas(replaceApostrophesWithQuotes(value));
+    };
+    var inArray = function inArray(items, name) {
+      var i = 0;
+      if (Array.prototype.indexOf) {
+        return items.indexOf(name, 0) >= 0;
+      } else {
+        for (var n = items.length; i < n; i++) {
+          if (i in items && items[i] === name) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    var findKeyInObject = function findKeyInObject(obj, key) {
+      if (key && obj) {
+        for (var prop in obj) {
+          if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
+            return prop;
+          }
+        }
+      }
+      return null;
+    };
+    var generateDeprecationMessage = function generateDeprecationMessage(methodName, alternateMethod) {
+      var messageArray = [methodName, Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix];
+      if (alternateMethod) {
+        messageArray.push(alternateMethod);
+        messageArray.push(Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix);
+      }
+      return messageArray.join(' ');
+    };
+    function generateHash(name) {
+      var hash = 0;
+      var character;
+      if (name === undefined || name === null) {
+        return 0;
+      }
+      name = name.toString().toLowerCase();
+      if (Array.prototype.reduce) {
+        return name.split('').reduce(function (a, b) {
+          a = (a << 5) - a + b.charCodeAt(0);
+          return a & a;
+        }, 0);
+      }
+      if (name.length === 0) {
+        return hash;
+      }
+      for (var i = 0; i < name.length; i++) {
+        character = name.charCodeAt(i);
+        hash = (hash << 5) - hash + character;
+        hash = hash & hash;
+      }
+      return hash;
+    }
+    var generateRandomValue = function generateRandomValue(value) {
+      var randomValue;
+      var a;
+      if (window.crypto && window.crypto.getRandomValues) {
+        // @ts-ignore
+        randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
+      }
 
-    Permission to use, copy, modify, and/or distribute this software for any
-    purpose with or without fee is hereby granted.
-
-    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
-    REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
-    AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
-    INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
-    LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
-    OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
-    PERFORMANCE OF THIS SOFTWARE.
-    ***************************************************************************** */
-    /* global Reflect, Promise, SuppressedError, Symbol */
-
-    var extendStatics = function(d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
+      if (randomValue) {
+        // @ts-ignore
+        return (a ^ randomValue[0] % 16 >> a / 4).toString(16);
+      }
+      return (a ^ Math.random() * 16 >> a / 4).toString(16);
+    };
+    var generateUniqueId = function generateUniqueId(a) {
+      // https://gist.github.com/jed/982883
+      // Added support for crypto for better random
+      if (a === void 0) {
+        a = '';
+      }
+      return a // if the placeholder was passed, return
+      ? generateRandomValue() // if the placeholder was passed, return
+      :
+      // [1e7] -> // 10000000 +
+      // -1e3  -> // -1000 +
+      // -4e3  -> // -4000 +
+      // -8e3  -> // -80000000 +
+      // -1e11 -> //-100000000000,
+      "".concat(1e7, "-").concat(1e3, "-").concat(4e3, "-").concat(8e3, "-").concat(1e11).replace(/[018]/g,
+      // zeroes, ones, and eights with
+      generateUniqueId // random hex digits
+      );
+    };
+    /**
+     * Returns a value between 1-100 inclusive.
+     */
+    var getRampNumber = function getRampNumber(value) {
+      if (!value) {
+        return 100;
+      }
+      var hash = generateHash(value);
+      return Math.abs(hash % 100) + 1;
+    };
+    var isObject = function isObject(value) {
+      var objType = Object.prototype.toString.call(value);
+      return objType === '[object Object]' || objType === '[object Error]';
+    };
+    var parseNumber = function parseNumber(value) {
+      if (isNaN(value) || !isFinite(value)) {
+        return 0;
+      }
+      var floatValue = parseFloat(value);
+      return isNaN(floatValue) ? 0 : floatValue;
+    };
+    var parseStringOrNumber = function parseStringOrNumber(value) {
+      if (isStringOrNumber(value)) {
+        return value;
+      } else {
+        return null;
+      }
+    };
+    var replaceCommasWithPipes = function replaceCommasWithPipes(value) {
+      return value.replace(/,/g, '|');
+    };
+    var replacePipesWithCommas = function replacePipesWithCommas(value) {
+      return value.replace(/\|/g, ',');
+    };
+    var replaceApostrophesWithQuotes = function replaceApostrophesWithQuotes(value) {
+      return value.replace(/\'/g, '"');
+    };
+    var replaceQuotesWithApostrophes = function replaceQuotesWithApostrophes(value) {
+      return value.replace(/\"/g, "'");
+    };
+    // FIXME: REFACTOR for V3
+    // only used in store.js to sanitize server-side formatting of
+    // booleans when checking for `isDevelopmentMode`
+    // Should be removed in v3
+    var returnConvertedBoolean = function returnConvertedBoolean(data) {
+      if (data === 'false' || data === '0') {
+        return false;
+      } else {
+        return Boolean(data);
+      }
+    };
+    var decoded = function decoded(s) {
+      return decodeURIComponent(s.replace(/\+/g, ' '));
+    };
+    var converted = function converted(s) {
+      if (s.indexOf('"') === 0) {
+        s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+      }
+      return s;
+    };
+    var isString = function isString(value) {
+      return typeof value === 'string';
+    };
+    var isNumber = function isNumber(value) {
+      return typeof value === 'number';
+    };
+    var isBoolean = function isBoolean(value) {
+      return typeof value === 'boolean';
+    };
+    var isFunction = function isFunction(fn) {
+      return typeof fn === 'function';
+    };
+    var isValidCustomFlagProperty = function isValidCustomFlagProperty(value) {
+      return isNumber(value) || isString(value) || isBoolean(value);
+    };
+    var toDataPlanSlug = function toDataPlanSlug(value) {
+      // Make sure we are only acting on strings or numbers
+      return isStringOrNumber(value) ? value.toString().toLowerCase().replace(/[^0-9a-zA-Z]+/g, '_') : '';
+    };
+    var isDataPlanSlug = function isDataPlanSlug(str) {
+      return str === toDataPlanSlug(str);
+    };
+    var isStringOrNumber = function isStringOrNumber(value) {
+      return isString(value) || isNumber(value);
+    };
+    var isEmpty = function isEmpty(value) {
+      return value == null || !(Object.keys(value) || value).length;
+    };
+    var moveElementToEnd = function moveElementToEnd(array, index) {
+      return array.slice(0, index).concat(array.slice(index + 1), array[index]);
     };
 
-    function __extends(d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    function getNewIdentitiesByName(newIdentitiesByType) {
+      var newIdentitiesByName = {};
+      for (var key in newIdentitiesByType) {
+        var identityNameKey = getIdentityName(parseNumber(key));
+        newIdentitiesByName[identityNameKey] = newIdentitiesByType[key];
+      }
+      return newIdentitiesByName;
+    }
+    function getIdentityName(identityType) {
+      switch (identityType) {
+        case IdentityType$1.Other:
+          return 'other';
+        case IdentityType$1.CustomerId:
+          return 'customerid';
+        case IdentityType$1.Facebook:
+          return 'facebook';
+        case IdentityType$1.Twitter:
+          return 'twitter';
+        case IdentityType$1.Google:
+          return 'google';
+        case IdentityType$1.Microsoft:
+          return 'microsoft';
+        case IdentityType$1.Yahoo:
+          return 'yahoo';
+        case IdentityType$1.Email:
+          return 'email';
+        case IdentityType$1.FacebookCustomAudienceId:
+          return 'facebookcustomaudienceid';
+        case IdentityType$1.Other2:
+          return 'other2';
+        case IdentityType$1.Other3:
+          return 'other3';
+        case IdentityType$1.Other4:
+          return 'other4';
+        case IdentityType$1.Other5:
+          return 'other5';
+        case IdentityType$1.Other6:
+          return 'other6';
+        case IdentityType$1.Other7:
+          return 'other7';
+        case IdentityType$1.Other8:
+          return 'other8';
+        case IdentityType$1.Other9:
+          return 'other9';
+        case IdentityType$1.Other10:
+          return 'other10';
+        case IdentityType$1.MobileNumber:
+          return 'mobile_number';
+        case IdentityType$1.PhoneNumber2:
+          return 'phone_number_2';
+        case IdentityType$1.PhoneNumber3:
+          return 'phone_number_3';
+        default:
+          return null;
+      }
     }
 
-    var __assign = function() {
-        __assign = Object.assign || function __assign(t) {
-            for (var s, i = 1, n = arguments.length; i < n; i++) {
-                s = arguments[i];
-                for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p)) t[p] = s[p];
-            }
-            return t;
-        };
-        return __assign.apply(this, arguments);
+    var _TriggerUploadType;
+    var MessageType$1 = {
+      SessionStart: 1,
+      SessionEnd: 2,
+      PageView: 3,
+      PageEvent: 4,
+      CrashReport: 5,
+      OptOut: 6,
+      AppStateTransition: 10,
+      Profile: 14,
+      Commerce: 16,
+      Media: 20,
+      UserAttributeChange: 17,
+      UserIdentityChange: 18
     };
 
-    function __awaiter(thisArg, _arguments, P, generator) {
-        function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-        return new (P || (P = Promise))(function (resolve, reject) {
-            function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-            function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-            function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-            step((generator = generator.apply(thisArg, _arguments || [])).next());
-        });
-    }
-
-    function __generator(thisArg, body) {
-        var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
-        return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-        function verb(n) { return function (v) { return step([n, v]); }; }
-        function step(op) {
-            if (f) throw new TypeError("Generator is already executing.");
-            while (g && (g = 0, op[0] && (_ = 0)), _) try {
-                if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-                if (y = 0, t) op = [op[0] & 2, t.value];
-                switch (op[0]) {
-                    case 0: case 1: t = op; break;
-                    case 4: _.label++; return { value: op[1], done: false };
-                    case 5: _.label++; y = op[1]; op = [0]; continue;
-                    case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                    default:
-                        if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                        if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                        if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                        if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                        if (t[2]) _.ops.pop();
-                        _.trys.pop(); continue;
-                }
-                op = body.call(thisArg, _);
-            } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-            if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    // Dictionary that contains MessageTypes that will
+    // trigger an immediate upload.
+    var TriggerUploadType = (_TriggerUploadType = {}, _defineProperty(_TriggerUploadType, MessageType$1.Commerce, 1), _defineProperty(_TriggerUploadType, MessageType$1.UserIdentityChange, 1), _TriggerUploadType);
+    var EventType = {
+      Unknown: 0,
+      Navigation: 1,
+      Location: 2,
+      Search: 3,
+      Transaction: 4,
+      UserContent: 5,
+      UserPreference: 6,
+      Social: 7,
+      Other: 8,
+      Media: 9,
+      getName: function getName(id) {
+        switch (id) {
+          case EventType.Unknown:
+            return 'Unknown';
+          case EventType.Navigation:
+            return 'Navigation';
+          case EventType.Location:
+            return 'Location';
+          case EventType.Search:
+            return 'Search';
+          case EventType.Transaction:
+            return 'Transaction';
+          case EventType.UserContent:
+            return 'User Content';
+          case EventType.UserPreference:
+            return 'User Preference';
+          case EventType.Social:
+            return 'Social';
+          case CommerceEventType.ProductAddToCart:
+            return 'Product Added to Cart';
+          case CommerceEventType.ProductAddToWishlist:
+            return 'Product Added to Wishlist';
+          case CommerceEventType.ProductCheckout:
+            return 'Product Checkout';
+          case CommerceEventType.ProductCheckoutOption:
+            return 'Product Checkout Options';
+          case CommerceEventType.ProductClick:
+            return 'Product Click';
+          case CommerceEventType.ProductImpression:
+            return 'Product Impression';
+          case CommerceEventType.ProductPurchase:
+            return 'Product Purchased';
+          case CommerceEventType.ProductRefund:
+            return 'Product Refunded';
+          case CommerceEventType.ProductRemoveFromCart:
+            return 'Product Removed From Cart';
+          case CommerceEventType.ProductRemoveFromWishlist:
+            return 'Product Removed from Wishlist';
+          case CommerceEventType.ProductViewDetail:
+            return 'Product View Details';
+          case CommerceEventType.PromotionClick:
+            return 'Promotion Click';
+          case CommerceEventType.PromotionView:
+            return 'Promotion View';
+          default:
+            return 'Other';
         }
-    }
+      }
+    };
 
-    function __spreadArray(to, from, pack) {
-        if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-            if (ar || !(i in from)) {
-                if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-                ar[i] = from[i];
+    // Continuation of enum above, but in seperate object since we don't expose these to end user
+    var CommerceEventType = {
+      ProductAddToCart: 10,
+      ProductRemoveFromCart: 11,
+      ProductCheckout: 12,
+      ProductCheckoutOption: 13,
+      ProductClick: 14,
+      ProductViewDetail: 15,
+      ProductPurchase: 16,
+      ProductRefund: 17,
+      PromotionView: 18,
+      PromotionClick: 19,
+      ProductAddToWishlist: 20,
+      ProductRemoveFromWishlist: 21,
+      ProductImpression: 22
+    };
+    var IdentityType = {
+      Other: 0,
+      CustomerId: 1,
+      Facebook: 2,
+      Twitter: 3,
+      Google: 4,
+      Microsoft: 5,
+      Yahoo: 6,
+      Email: 7,
+      FacebookCustomAudienceId: 9,
+      Other2: 10,
+      Other3: 11,
+      Other4: 12,
+      Other5: 13,
+      Other6: 14,
+      Other7: 15,
+      Other8: 16,
+      Other9: 17,
+      Other10: 18,
+      MobileNumber: 19,
+      PhoneNumber2: 20,
+      PhoneNumber3: 21
+    };
+    IdentityType.isValid = function (identityType) {
+      if (typeof identityType === 'number') {
+        for (var prop in IdentityType) {
+          if (IdentityType.hasOwnProperty(prop)) {
+            if (IdentityType[prop] === identityType) {
+              return true;
             }
+          }
         }
-        return to.concat(ar || Array.prototype.slice.call(from));
-    }
+      }
+      return false;
+    };
+    IdentityType.getName = function (identityType) {
+      switch (identityType) {
+        case window.mParticle.IdentityType.CustomerId:
+          return 'Customer ID';
+        case window.mParticle.IdentityType.Facebook:
+          return 'Facebook ID';
+        case window.mParticle.IdentityType.Twitter:
+          return 'Twitter ID';
+        case window.mParticle.IdentityType.Google:
+          return 'Google ID';
+        case window.mParticle.IdentityType.Microsoft:
+          return 'Microsoft ID';
+        case window.mParticle.IdentityType.Yahoo:
+          return 'Yahoo ID';
+        case window.mParticle.IdentityType.Email:
+          return 'Email';
+        case window.mParticle.IdentityType.FacebookCustomAudienceId:
+          return 'Facebook App User ID';
+        default:
+          return 'Other ID';
+      }
+    };
+    IdentityType.getIdentityType = function (identityName) {
+      switch (identityName) {
+        case 'other':
+          return IdentityType.Other;
+        case 'customerid':
+          return IdentityType.CustomerId;
+        case 'facebook':
+          return IdentityType.Facebook;
+        case 'twitter':
+          return IdentityType.Twitter;
+        case 'google':
+          return IdentityType.Google;
+        case 'microsoft':
+          return IdentityType.Microsoft;
+        case 'yahoo':
+          return IdentityType.Yahoo;
+        case 'email':
+          return IdentityType.Email;
+        case 'facebookcustomaudienceid':
+          return IdentityType.FacebookCustomAudienceId;
+        case 'other2':
+          return IdentityType.Other2;
+        case 'other3':
+          return IdentityType.Other3;
+        case 'other4':
+          return IdentityType.Other4;
+        case 'other5':
+          return IdentityType.Other5;
+        case 'other6':
+          return IdentityType.Other6;
+        case 'other7':
+          return IdentityType.Other7;
+        case 'other8':
+          return IdentityType.Other8;
+        case 'other9':
+          return IdentityType.Other9;
+        case 'other10':
+          return IdentityType.Other10;
+        case 'mobile_number':
+          return IdentityType.MobileNumber;
+        case 'phone_number_2':
+          return IdentityType.PhoneNumber2;
+        case 'phone_number_3':
+          return IdentityType.PhoneNumber3;
+        default:
+          return false;
+      }
+    };
+    IdentityType.getIdentityName = function (identityType) {
+      return getIdentityName(identityType);
+    };
+    var ProductActionType = {
+      Unknown: 0,
+      AddToCart: 1,
+      RemoveFromCart: 2,
+      Checkout: 3,
+      CheckoutOption: 4,
+      Click: 5,
+      ViewDetail: 6,
+      Purchase: 7,
+      Refund: 8,
+      AddToWishlist: 9,
+      RemoveFromWishlist: 10
+    };
+    ProductActionType.getName = function (id) {
+      switch (id) {
+        case ProductActionType.AddToCart:
+          return 'Add to Cart';
+        case ProductActionType.RemoveFromCart:
+          return 'Remove from Cart';
+        case ProductActionType.Checkout:
+          return 'Checkout';
+        case ProductActionType.CheckoutOption:
+          return 'Checkout Option';
+        case ProductActionType.Click:
+          return 'Click';
+        case ProductActionType.ViewDetail:
+          return 'View Detail';
+        case ProductActionType.Purchase:
+          return 'Purchase';
+        case ProductActionType.Refund:
+          return 'Refund';
+        case ProductActionType.AddToWishlist:
+          return 'Add to Wishlist';
+        case ProductActionType.RemoveFromWishlist:
+          return 'Remove from Wishlist';
+        default:
+          return 'Unknown';
+      }
+    };
 
-    typeof SuppressedError === "function" ? SuppressedError : function (error, suppressed, message) {
-        var e = new Error(message);
-        return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
+    // these are the action names used by server and mobile SDKs when expanding a CommerceEvent
+    ProductActionType.getExpansionName = function (id) {
+      switch (id) {
+        case ProductActionType.AddToCart:
+          return 'add_to_cart';
+        case ProductActionType.RemoveFromCart:
+          return 'remove_from_cart';
+        case ProductActionType.Checkout:
+          return 'checkout';
+        case ProductActionType.CheckoutOption:
+          return 'checkout_option';
+        case ProductActionType.Click:
+          return 'click';
+        case ProductActionType.ViewDetail:
+          return 'view_detail';
+        case ProductActionType.Purchase:
+          return 'purchase';
+        case ProductActionType.Refund:
+          return 'refund';
+        case ProductActionType.AddToWishlist:
+          return 'add_to_wishlist';
+        case ProductActionType.RemoveFromWishlist:
+          return 'remove_from_wishlist';
+        default:
+          return 'unknown';
+      }
+    };
+    var PromotionActionType = {
+      Unknown: 0,
+      PromotionView: 1,
+      PromotionClick: 2
+    };
+    PromotionActionType.getName = function (id) {
+      switch (id) {
+        case PromotionActionType.PromotionView:
+          return 'view';
+        case PromotionActionType.PromotionClick:
+          return 'click';
+        default:
+          return 'unknown';
+      }
+    };
+
+    // these are the names that the server and mobile SDKs use while expanding CommerceEvent
+    PromotionActionType.getExpansionName = function (id) {
+      switch (id) {
+        case PromotionActionType.PromotionView:
+          return 'view';
+        case PromotionActionType.PromotionClick:
+          return 'click';
+        default:
+          return 'unknown';
+      }
+    };
+    var ProfileMessageType = {
+      Logout: 3
+    };
+    var ApplicationTransitionType$1 = {
+      AppInit: 1
+    };
+    var Environment = {
+      Production: 'production',
+      Development: 'development'
+    };
+    var Types = {
+      MessageType: MessageType$1,
+      EventType: EventType,
+      CommerceEventType: CommerceEventType,
+      IdentityType: IdentityType,
+      ProfileMessageType: ProfileMessageType,
+      ApplicationTransitionType: ApplicationTransitionType$1,
+      ProductActionType: ProductActionType,
+      PromotionActionType: PromotionActionType,
+      TriggerUploadType: TriggerUploadType,
+      Environment: Environment
     };
 
     var SDKProductActionType;
@@ -1121,189 +1375,6 @@ var mParticle = (function () {
     	    UserIdentityChangeEventEventTypeEnum["userIdentityChange"] = "user_identity_change";
     	})(exports.UserIdentityChangeEventEventTypeEnum || (exports.UserIdentityChangeEventEventTypeEnum = {})); 
     } (dist));
-
-    var Messages$9 = Constants.Messages;
-    var createCookieString = function createCookieString(value) {
-      return replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
-    };
-    var revertCookieString = function revertCookieString(value) {
-      return replacePipesWithCommas(replaceApostrophesWithQuotes(value));
-    };
-    var inArray = function inArray(items, name) {
-      var i = 0;
-      if (Array.prototype.indexOf) {
-        return items.indexOf(name, 0) >= 0;
-      } else {
-        for (var n = items.length; i < n; i++) {
-          if (i in items && items[i] === name) {
-            return true;
-          }
-        }
-      }
-      return false;
-    };
-    var findKeyInObject = function findKeyInObject(obj, key) {
-      if (key && obj) {
-        for (var prop in obj) {
-          if (obj.hasOwnProperty(prop) && prop.toLowerCase() === key.toLowerCase()) {
-            return prop;
-          }
-        }
-      }
-      return null;
-    };
-    var generateDeprecationMessage = function generateDeprecationMessage(methodName, alternateMethod) {
-      var messageArray = [methodName, Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix];
-      if (alternateMethod) {
-        messageArray.push(alternateMethod);
-        messageArray.push(Messages$9.DeprecationMessages.MethodIsDeprecatedPostfix);
-      }
-      return messageArray.join(' ');
-    };
-    function generateHash(name) {
-      var hash = 0;
-      var character;
-      if (name === undefined || name === null) {
-        return 0;
-      }
-      name = name.toString().toLowerCase();
-      if (Array.prototype.reduce) {
-        return name.split('').reduce(function (a, b) {
-          a = (a << 5) - a + b.charCodeAt(0);
-          return a & a;
-        }, 0);
-      }
-      if (name.length === 0) {
-        return hash;
-      }
-      for (var i = 0; i < name.length; i++) {
-        character = name.charCodeAt(i);
-        hash = (hash << 5) - hash + character;
-        hash = hash & hash;
-      }
-      return hash;
-    }
-    var generateRandomValue = function generateRandomValue(value) {
-      var randomValue;
-      var a;
-      if (window.crypto && window.crypto.getRandomValues) {
-        // @ts-ignore
-        randomValue = window.crypto.getRandomValues(new Uint8Array(1)); // eslint-disable-line no-undef
-      }
-
-      if (randomValue) {
-        // @ts-ignore
-        return (a ^ randomValue[0] % 16 >> a / 4).toString(16);
-      }
-      return (a ^ Math.random() * 16 >> a / 4).toString(16);
-    };
-    var generateUniqueId = function generateUniqueId(a) {
-      // https://gist.github.com/jed/982883
-      // Added support for crypto for better random
-      if (a === void 0) {
-        a = '';
-      }
-      return a // if the placeholder was passed, return
-      ? generateRandomValue() // if the placeholder was passed, return
-      :
-      // [1e7] -> // 10000000 +
-      // -1e3  -> // -1000 +
-      // -4e3  -> // -4000 +
-      // -8e3  -> // -80000000 +
-      // -1e11 -> //-100000000000,
-      "".concat(1e7, "-").concat(1e3, "-").concat(4e3, "-").concat(8e3, "-").concat(1e11).replace(/[018]/g,
-      // zeroes, ones, and eights with
-      generateUniqueId // random hex digits
-      );
-    };
-    /**
-     * Returns a value between 1-100 inclusive.
-     */
-    var getRampNumber = function getRampNumber(value) {
-      if (!value) {
-        return 100;
-      }
-      var hash = generateHash(value);
-      return Math.abs(hash % 100) + 1;
-    };
-    var isObject = function isObject(value) {
-      var objType = Object.prototype.toString.call(value);
-      return objType === '[object Object]' || objType === '[object Error]';
-    };
-    var parseNumber = function parseNumber(value) {
-      if (isNaN(value) || !isFinite(value)) {
-        return 0;
-      }
-      var floatValue = parseFloat(value);
-      return isNaN(floatValue) ? 0 : floatValue;
-    };
-    var parseStringOrNumber = function parseStringOrNumber(value) {
-      if (isStringOrNumber(value)) {
-        return value;
-      } else {
-        return null;
-      }
-    };
-    var replaceCommasWithPipes = function replaceCommasWithPipes(value) {
-      return value.replace(/,/g, '|');
-    };
-    var replacePipesWithCommas = function replacePipesWithCommas(value) {
-      return value.replace(/\|/g, ',');
-    };
-    var replaceApostrophesWithQuotes = function replaceApostrophesWithQuotes(value) {
-      return value.replace(/\'/g, '"');
-    };
-    var replaceQuotesWithApostrophes = function replaceQuotesWithApostrophes(value) {
-      return value.replace(/\"/g, "'");
-    };
-    // FIXME: REFACTOR for V3
-    // only used in store.js to sanitize server-side formatting of
-    // booleans when checking for `isDevelopmentMode`
-    // Should be removed in v3
-    var returnConvertedBoolean = function returnConvertedBoolean(data) {
-      if (data === 'false' || data === '0') {
-        return false;
-      } else {
-        return Boolean(data);
-      }
-    };
-    var decoded = function decoded(s) {
-      return decodeURIComponent(s.replace(/\+/g, ' '));
-    };
-    var converted = function converted(s) {
-      if (s.indexOf('"') === 0) {
-        s = s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-      }
-      return s;
-    };
-    var isString = function isString(value) {
-      return typeof value === 'string';
-    };
-    var isNumber = function isNumber(value) {
-      return typeof value === 'number';
-    };
-    var isBoolean = function isBoolean(value) {
-      return typeof value === 'boolean';
-    };
-    var isFunction = function isFunction(fn) {
-      return typeof fn === 'function';
-    };
-    var isValidCustomFlagProperty = function isValidCustomFlagProperty(value) {
-      return isNumber(value) || isString(value) || isBoolean(value);
-    };
-    var toDataPlanSlug = function toDataPlanSlug(value) {
-      // Make sure we are only acting on strings or numbers
-      return isStringOrNumber(value) ? value.toString().toLowerCase().replace(/[^0-9a-zA-Z]+/g, '_') : '';
-    };
-    var isDataPlanSlug = function isDataPlanSlug(str) {
-      return str === toDataPlanSlug(str);
-    };
-    var isStringOrNumber = function isStringOrNumber(value) {
-      return isString(value) || isNumber(value);
-    };
-    var isEmpty = function isEmpty(value) {
-      return value == null || !(Object.keys(value) || value).length;
-    };
 
     var SDKIdentityTypeEnum;
     (function (SDKIdentityTypeEnum) {
@@ -4013,6 +4084,16 @@ var mParticle = (function () {
         _this.persistenceData.gs.das = deviceId;
         mpInstance._Persistence.update();
       };
+      this.addMpidToSessionHistory = function (mpid, previousMPID) {
+        var indexOfMPID = _this.currentSessionMPIDs.indexOf(mpid);
+        if (mpid && previousMPID !== mpid && indexOfMPID < 0) {
+          _this.currentSessionMPIDs.push(mpid);
+          return;
+        }
+        if (indexOfMPID >= 0) {
+          _this.currentSessionMPIDs = moveElementToEnd(_this.currentSessionMPIDs, indexOfMPID);
+        }
+      };
       this.getFirstSeenTime = function (mpid) {
         if (!mpid) {
           return null;
@@ -5429,11 +5510,11 @@ var mParticle = (function () {
       };
     }
 
-    var _Constants$IdentityMe$1 = Constants.IdentityMethods,
-      Modify$3 = _Constants$IdentityMe$1.Modify,
-      Identify$2 = _Constants$IdentityMe$1.Identify,
-      Login$2 = _Constants$IdentityMe$1.Login,
-      Logout$2 = _Constants$IdentityMe$1.Logout;
+    var _Constants$IdentityMe = Constants.IdentityMethods,
+      Modify$3 = _Constants$IdentityMe.Modify,
+      Identify$2 = _Constants$IdentityMe.Identify,
+      Login$2 = _Constants$IdentityMe.Login,
+      Logout$2 = _Constants$IdentityMe.Logout;
     function Forwarders(mpInstance, kitBlocker) {
       var self = this;
       var UserAttributeActionTypes = {
@@ -5907,7 +5988,7 @@ var mParticle = (function () {
     }
 
     // TODO: This file is no longer the server model because the web SDK payload
-    var MessageType$1 = Types.MessageType;
+    var MessageType = Types.MessageType;
     var ApplicationTransitionType = Types.ApplicationTransitionType;
     // TODO: Make this a pure function that returns a new object
     function convertCustomFlags(event, dto) {
@@ -6090,7 +6171,7 @@ var mParticle = (function () {
             CurrencyCode: mpInstance._Store.currencyCode,
             DataPlan: mpInstance._Store.SDKConfig.dataPlan ? mpInstance._Store.SDKConfig.dataPlan : {}
           };
-          if (eventObject.EventDataType === MessageType$1.AppStateTransition) {
+          if (eventObject.EventDataType === MessageType.AppStateTransition) {
             eventObject.IsFirstRun = mpInstance._Store.isFirstRun;
             eventObject.LaunchReferral = window.location.href || null;
           }
@@ -6150,7 +6231,7 @@ var mParticle = (function () {
         if (consent) {
           dto.con = consent;
         }
-        if (event.EventDataType === MessageType$1.AppStateTransition) {
+        if (event.EventDataType === MessageType.AppStateTransition) {
           dto.fr = event.IsFirstRun;
           dto.iu = false;
           dto.at = ApplicationTransitionType.AppInit;
@@ -6162,7 +6243,7 @@ var mParticle = (function () {
         if (event.CustomFlags) {
           convertCustomFlags(event, dto);
         }
-        if (event.EventDataType === MessageType$1.Commerce) {
+        if (event.EventDataType === MessageType.Commerce) {
           dto.cu = event.CurrencyCode;
           // TODO: If Cart is deprecated, we should deprecate this too
           if (event.ShoppingCart) {
@@ -6203,7 +6284,7 @@ var mParticle = (function () {
               };
             });
           }
-        } else if (event.EventDataType === MessageType$1.Profile) {
+        } else if (event.EventDataType === MessageType.Profile) {
           dto.pet = event.ProfileMessageType;
         }
         return dto;
@@ -6462,16 +6543,28 @@ var mParticle = (function () {
       return AudienceManager;
     }();
 
+    function hasMPIDAndUserLoginChanged(previousUser, newUser) {
+      return !previousUser || newUser.getMPID() !== previousUser.getMPID() || previousUser.isLoggedIn() !== newUser.isLoggedIn();
+    }
+    // https://go.mparticle.com/work/SQDSDKS-6504
+    function hasMPIDChanged(prevUser, identityApiResult) {
+      return !prevUser || prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID();
+    }
+
     var Messages$2 = Constants.Messages,
       HTTPCodes$2 = Constants.HTTPCodes,
-      FeatureFlags$1 = Constants.FeatureFlags;
+      FeatureFlags$1 = Constants.FeatureFlags,
+      IdentityMethods = Constants.IdentityMethods;
     var ErrorMessages = Messages$2.ErrorMessages;
-    var _Constants$IdentityMe = Constants.IdentityMethods,
-      Identify = _Constants$IdentityMe.Identify,
-      Modify$1 = _Constants$IdentityMe.Modify,
-      Login = _Constants$IdentityMe.Login,
-      Logout = _Constants$IdentityMe.Logout;
+    var CacheIdentity = FeatureFlags$1.CacheIdentity;
+    var Identify = IdentityMethods.Identify,
+      Modify$1 = IdentityMethods.Modify,
+      Login = IdentityMethods.Login,
+      Logout = IdentityMethods.Logout;
     function Identity(mpInstance) {
+      var _mpInstance$_Helpers = mpInstance._Helpers,
+        getFeatureFlag = _mpInstance$_Helpers.getFeatureFlag,
+        extend = _mpInstance$_Helpers.extend;
       var self = this;
       this.idCache = null;
       this.audienceManager = null;
@@ -6533,7 +6626,7 @@ var mParticle = (function () {
         createIdentityChanges: function createIdentityChanges(previousIdentities, newIdentities) {
           var identityChanges = [];
           var key;
-          if (newIdentities && mpInstance._Helpers.isObject(newIdentities) && previousIdentities && mpInstance._Helpers.isObject(previousIdentities)) {
+          if (newIdentities && isObject(newIdentities) && previousIdentities && isObject(previousIdentities)) {
             for (key in newIdentities) {
               identityChanges.push({
                 old_value: previousIdentities[key] || null,
@@ -6547,7 +6640,7 @@ var mParticle = (function () {
         // takes 2 UI objects keyed by name, combines them, returns them keyed by type
         combineUserIdentities: function combineUserIdentities(previousUIByName, newUIByName) {
           var combinedUIByType = {};
-          var combinedUIByName = mpInstance._Helpers.extend(previousUIByName, newUIByName);
+          var combinedUIByName = extend({}, previousUIByName, newUIByName);
           for (var key in combinedUIByName) {
             var type = Types.IdentityType.getIdentityType(key);
             // this check removes anything that is not whitelisted as an identity type
@@ -7024,7 +7117,7 @@ var mParticle = (function () {
            */
           setUserAttributes: function setUserAttributes(userAttributes) {
             mpInstance._SessionManager.resetSessionTimer();
-            if (mpInstance._Helpers.isObject(userAttributes)) {
+            if (isObject(userAttributes)) {
               if (mpInstance._Helpers.canLog()) {
                 for (var key in userAttributes) {
                   if (userAttributes.hasOwnProperty(key)) {
@@ -7368,67 +7461,56 @@ var mParticle = (function () {
 
       // https://go.mparticle.com/work/SQDSDKS-6355
       this.parseIdentityResponse = function (xhr, previousMPID, callback, identityApiData, method, knownIdentities, parsingCachedResponse) {
-        var prevUser = mpInstance.Identity.getUser(previousMPID),
-          newUser,
-          mpidIsNotInCookies,
-          identityApiResult,
-          indexOfMPID,
-          newIdentitiesByType = {},
-          previousUIByName = prevUser ? prevUser.getUserIdentities().userIdentities : {},
-          previousUIByNameCopy = mpInstance._Helpers.extend({}, previousUIByName);
+        var prevUser = mpInstance.Identity.getUser(previousMPID);
+        var prevUserMPID = prevUser ? prevUser.getMPID() : null;
+        var previousUIByName = prevUser ? prevUser.getUserIdentities().userIdentities : {};
+        var mpidIsNotInCookies;
+        var identityApiResult;
+        var newUser;
+        var newIdentitiesByType = {};
         mpInstance._Store.identityCallInFlight = false;
         try {
+          var _identityApiResult;
           mpInstance.Logger.verbose('Parsing "' + method + '" identity response from server');
-          if (xhr.responseText) {
-            identityApiResult = JSON.parse(xhr.responseText);
-            if (identityApiResult.hasOwnProperty('is_logged_in')) {
-              mpInstance._Store.isLoggedIn = identityApiResult.is_logged_in;
-            }
-          }
+          identityApiResult = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+          mpInstance._Store.isLoggedIn = ((_identityApiResult = identityApiResult) === null || _identityApiResult === void 0 ? void 0 : _identityApiResult.is_logged_in) || false;
 
+          // https://go.mparticle.com/work/SQDSDKS-6504
           // set currentUser
-          if (!prevUser || prevUser.getMPID() && identityApiResult.mpid && identityApiResult.mpid !== prevUser.getMPID()) {
+          if (hasMPIDChanged(prevUser, identityApiResult)) {
             mpInstance._Store.mpid = identityApiResult.mpid;
             if (prevUser) {
               // https://go.mparticle.com/work/SQDSDKS-6329
               mpInstance._Persistence.setLastSeenTime(previousMPID);
             }
-            if (!mpInstance._Persistence.getFirstSeenTime(identityApiResult.mpid)) mpidIsNotInCookies = true;
+            mpidIsNotInCookies = !mpInstance._Persistence.getFirstSeenTime(identityApiResult.mpid);
+
+            // https://go.mparticle.com/work/SQDSDKS-6329
             mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
           }
           if (xhr.status === 200) {
-            if (mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CacheIdentity)) {
+            if (getFeatureFlag(CacheIdentity)) {
               cacheOrClearIdCache(method, knownIdentities, self.idCache, xhr, parsingCachedResponse);
             }
+            var incomingUser = self.IdentityAPI.getUser(identityApiResult.mpid);
+            var incomingUIByName = incomingUser ? incomingUser.getUserIdentities().userIdentities : {};
             if (method === Modify$1) {
               newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(previousUIByName, identityApiData.userIdentities);
               mpInstance._Persistence.saveUserIdentitiesToPersistence(previousMPID, newIdentitiesByType);
             } else {
-              var incomingUser = self.IdentityAPI.getUser(identityApiResult.mpid);
-              var incomingMpidUIByName = incomingUser ? incomingUser.getUserIdentities().userIdentities : {};
-              var incomingMpidUIByNameCopy = mpInstance._Helpers.extend({}, incomingMpidUIByName);
-              mpInstance.Logger.verbose('Successfully parsed Identity Response');
-
               // https://go.mparticle.com/work/SQDSDKS-6356
               //this covers an edge case where, users stored before "firstSeenTime" was introduced
               //will not have a value for "fst" until the current MPID changes, and in some cases,
               //the current MPID will never change
-              if (method === Identify && prevUser && identityApiResult.mpid === prevUser.getMPID()) {
+              if (method === Identify && prevUser && identityApiResult.mpid === prevUserMPID) {
                 // https://go.mparticle.com/work/SQDSDKS-6329
                 mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
               }
-              indexOfMPID = mpInstance._Store.currentSessionMPIDs.indexOf(identityApiResult.mpid);
-              if (mpInstance._Store.sessionId && identityApiResult.mpid && previousMPID !== identityApiResult.mpid && indexOfMPID < 0) {
-                mpInstance._Store.currentSessionMPIDs.push(identityApiResult.mpid);
-              }
-              if (indexOfMPID > -1) {
-                mpInstance._Store.currentSessionMPIDs = mpInstance._Store.currentSessionMPIDs.slice(0, indexOfMPID).concat(mpInstance._Store.currentSessionMPIDs.slice(indexOfMPID + 1, mpInstance._Store.currentSessionMPIDs.length));
-                mpInstance._Store.currentSessionMPIDs.push(identityApiResult.mpid);
-              }
+              mpInstance._Store.addMpidToSessionHistory(identityApiResult.mpid, previousMPID);
               mpInstance._CookieSyncManager.attemptCookieSync(previousMPID, identityApiResult.mpid, mpidIsNotInCookies);
               mpInstance._Persistence.swapCurrentUser(previousMPID, identityApiResult.mpid, mpInstance._Store.currentSessionMPIDs);
-              if (identityApiData && identityApiData.userIdentities && Object.keys(identityApiData.userIdentities).length) {
-                newIdentitiesByType = self.IdentityRequest.combineUserIdentities(incomingMpidUIByName, identityApiData.userIdentities);
+              if (identityApiData && !isEmpty(identityApiData.userIdentities)) {
+                newIdentitiesByType = self.IdentityRequest.combineUserIdentities(incomingUIByName, identityApiData.userIdentities);
               }
 
               // https://go.mparticle.com/work/SQDSDKS-6041
@@ -7442,43 +7524,27 @@ var mParticle = (function () {
             newUser = mpInstance.Identity.getCurrentUser();
 
             // https://go.mparticle.com/work/SQDSDKS-6359
-            if (identityApiData && identityApiData.onUserAlias && mpInstance._Helpers.Validators.isFunction(identityApiData.onUserAlias)) {
-              try {
-                mpInstance.Logger.warning('Deprecated function onUserAlias will be removed in future releases');
-                identityApiData.onUserAlias(prevUser, newUser);
-              } catch (e) {
-                mpInstance.Logger.error('There was an error with your onUserAlias function - ' + e);
-              }
-            }
+            tryOnUserAlias(prevUser, newUser, identityApiData, mpInstance.Logger);
             var persistence = mpInstance._Persistence.getPersistence();
             if (newUser) {
               mpInstance._Persistence.storeDataInMemory(persistence, newUser.getMPID());
-              if (!prevUser || newUser.getMPID() !== prevUser.getMPID() || prevUser.isLoggedIn() !== newUser.isLoggedIn()) {
-                mpInstance._Forwarders.initForwarders(newUser.getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
-              }
+              self.reinitForwardersOnUserChange(prevUser, newUser);
+              self.setForwarderCallbacks(newUser, method);
+            }
+            var newIdentitiesByName = getNewIdentitiesByName(newIdentitiesByType);
+            var uiByName = method === Modify$1 ? previousUIByName : incomingUIByName;
 
-              // TODO: https://go.mparticle.com/work/SQDSDKS-6036
-              mpInstance._Forwarders.setForwarderUserIdentities(newUser.getUserIdentities().userIdentities);
-              mpInstance._Forwarders.setForwarderOnIdentityComplete(newUser, method);
-              mpInstance._Forwarders.setForwarderOnUserIdentified(newUser);
-            }
-            var newIdentitiesByName = {};
-            for (var key in newIdentitiesByType) {
-              newIdentitiesByName[Types.IdentityType.getIdentityName(mpInstance._Helpers.parseNumber(key))] = newIdentitiesByType[key];
-            }
-            self.sendUserIdentityChangeEvent(newIdentitiesByName, method, identityApiResult.mpid, method === Modify$1 ? previousUIByNameCopy : incomingMpidUIByNameCopy);
+            // https://go.mparticle.com/work/SQDSDKS-6501
+            self.sendUserIdentityChangeEvent(newIdentitiesByName, method, identityApiResult.mpid, uiByName);
           }
           if (callback) {
-            if (xhr.status === 0) {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$2.noHttpCoverage, identityApiResult || null, newUser);
-            } else {
-              mpInstance._Helpers.invokeCallback(callback, xhr.status, identityApiResult || null, newUser);
-            }
-          } else {
-            if (identityApiResult && identityApiResult.errors && identityApiResult.errors.length) {
-              mpInstance.Logger.error('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
-            }
+            var callbackCode = xhr.status === 0 ? HTTPCodes$2.noHttpCoverage : xhr.status;
+            mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser);
+          } else if (identityApiResult && !isEmpty(identityApiResult.errors)) {
+            // https://go.mparticle.com/work/SQDSDKS-6500
+            mpInstance.Logger.error('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
           }
+          mpInstance.Logger.verbose('Successfully parsed Identity Response');
           mpInstance._APIClient.processQueuedEvents();
         } catch (e) {
           if (callback) {
@@ -7491,26 +7557,29 @@ var mParticle = (function () {
       // send a user identity change request on identify, login, logout, modify when any values change.
       // compare what identities exist vs what is previously was for the specific user if they were in memory before.
       // if it's the first time the user is logging in, send a user identity change request with
-
       this.sendUserIdentityChangeEvent = function (newUserIdentities, method, mpid, prevUserIdentities) {
-        var currentUserInMemory, userIdentityChangeEvent;
         if (!mpid) {
+          // https://go.mparticle.com/work/SQDSDKS-6501
           if (method !== Modify$1) {
             return;
           }
         }
 
         // https://go.mparticle.com/work/SQDSDKS-6354
-        currentUserInMemory = this.IdentityAPI.getUser(mpid);
+        var currentUserInMemory = this.IdentityAPI.getUser(mpid);
         for (var identityType in newUserIdentities) {
+          // Verifies a change actually happened
           if (prevUserIdentities[identityType] !== newUserIdentities[identityType]) {
+            // If a new identity type was introduced when the identity changes
+            // we need to notify the server so that the user profile is updated in
+            // the mParticle UI.
             var isNewUserIdentityType = !prevUserIdentities[identityType];
-            userIdentityChangeEvent = self.createUserIdentityChange(identityType, newUserIdentities[identityType], prevUserIdentities[identityType], isNewUserIdentityType, currentUserInMemory);
+            var userIdentityChangeEvent = self.createUserIdentityChange(identityType, newUserIdentities[identityType], prevUserIdentities[identityType], isNewUserIdentityType, currentUserInMemory);
             mpInstance._APIClient.sendEventToServer(userIdentityChangeEvent);
           }
         }
       };
-      this.createUserIdentityChange = function (identityType, newIdentity, oldIdentity, newCreatedThisBatch, userInMemory) {
+      this.createUserIdentityChange = function (identityType, newIdentity, oldIdentity, isIdentityTypeNewToBatch, userInMemory) {
         var userIdentityChangeEvent;
 
         // https://go.mparticle.com/work/SQDSDKS-6439
@@ -7520,7 +7589,7 @@ var mParticle = (function () {
             New: {
               IdentityType: identityType,
               Identity: newIdentity,
-              CreatedThisBatch: newCreatedThisBatch
+              CreatedThisBatch: isIdentityTypeNewToBatch
             },
             Old: {
               IdentityType: identityType,
@@ -7558,6 +7627,29 @@ var mParticle = (function () {
         }
         return userAttributeChangeEvent;
       };
+      this.reinitForwardersOnUserChange = function (prevUser, newUser) {
+        if (hasMPIDAndUserLoginChanged(prevUser, newUser)) {
+          mpInstance._Forwarders.initForwarders(newUser.getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
+        }
+      };
+      this.setForwarderCallbacks = function (user, method) {
+        // https://go.mparticle.com/work/SQDSDKS-6036
+        mpInstance._Forwarders.setForwarderUserIdentities(user.getUserIdentities().userIdentities);
+        mpInstance._Forwarders.setForwarderOnIdentityComplete(user, method);
+        mpInstance._Forwarders.setForwarderOnUserIdentified(user);
+      };
+    }
+
+    // https://go.mparticle.com/work/SQDSDKS-6359
+    function tryOnUserAlias(previousUser, newUser, identityApiData, logger) {
+      if (identityApiData && identityApiData.onUserAlias && isFunction(identityApiData.onUserAlias)) {
+        try {
+          logger.warning(generateDeprecationMessage('onUserAlias'));
+          identityApiData.onUserAlias(previousUser, newUser);
+        } catch (e) {
+          logger.error('There was an error with your onUserAlias function - ' + e);
+        }
+      }
     }
 
     var CCPAPurpose = Constants.CCPAPurpose;
@@ -9710,60 +9802,6 @@ var mParticle = (function () {
       };
       return _BatchValidator;
     }();
-
-    var EventTypeEnum;
-    (function (EventTypeEnum) {
-      EventTypeEnum[EventTypeEnum["Unknown"] = 0] = "Unknown";
-      EventTypeEnum[EventTypeEnum["Navigation"] = 1] = "Navigation";
-      EventTypeEnum[EventTypeEnum["Location"] = 2] = "Location";
-      EventTypeEnum[EventTypeEnum["Search"] = 3] = "Search";
-      EventTypeEnum[EventTypeEnum["Transaction"] = 4] = "Transaction";
-      EventTypeEnum[EventTypeEnum["UserContent"] = 5] = "UserContent";
-      EventTypeEnum[EventTypeEnum["UserPreference"] = 6] = "UserPreference";
-      EventTypeEnum[EventTypeEnum["Social"] = 7] = "Social";
-      EventTypeEnum[EventTypeEnum["Other"] = 8] = "Other";
-      EventTypeEnum[EventTypeEnum["Media"] = 9] = "Media";
-    })(EventTypeEnum || (EventTypeEnum = {}));
-    // TODO: https://mparticle-eng.atlassian.net/browse/SQDSDKS-5403
-    var MessageType;
-    (function (MessageType) {
-      MessageType[MessageType["SessionStart"] = 1] = "SessionStart";
-      MessageType[MessageType["SessionEnd"] = 2] = "SessionEnd";
-      MessageType[MessageType["PageView"] = 3] = "PageView";
-      MessageType[MessageType["PageEvent"] = 4] = "PageEvent";
-      MessageType[MessageType["CrashReport"] = 5] = "CrashReport";
-      MessageType[MessageType["OptOut"] = 6] = "OptOut";
-      MessageType[MessageType["AppStateTransition"] = 10] = "AppStateTransition";
-      MessageType[MessageType["Profile"] = 14] = "Profile";
-      MessageType[MessageType["Commerce"] = 16] = "Commerce";
-      MessageType[MessageType["UserAttributeChange"] = 17] = "UserAttributeChange";
-      MessageType[MessageType["UserIdentityChange"] = 18] = "UserIdentityChange";
-      MessageType[MessageType["Media"] = 20] = "Media";
-    })(MessageType || (MessageType = {}));
-    var IdentityType;
-    (function (IdentityType) {
-      IdentityType[IdentityType["Other"] = 0] = "Other";
-      IdentityType[IdentityType["CustomerId"] = 1] = "CustomerId";
-      IdentityType[IdentityType["Facebook"] = 2] = "Facebook";
-      IdentityType[IdentityType["Twitter"] = 3] = "Twitter";
-      IdentityType[IdentityType["Google"] = 4] = "Google";
-      IdentityType[IdentityType["Microsoft"] = 5] = "Microsoft";
-      IdentityType[IdentityType["Yahoo"] = 6] = "Yahoo";
-      IdentityType[IdentityType["Email"] = 7] = "Email";
-      IdentityType[IdentityType["FacebookCustomAudienceId"] = 9] = "FacebookCustomAudienceId";
-      IdentityType[IdentityType["Other2"] = 10] = "Other2";
-      IdentityType[IdentityType["Other3"] = 11] = "Other3";
-      IdentityType[IdentityType["Other4"] = 12] = "Other4";
-      IdentityType[IdentityType["Other5"] = 13] = "Other5";
-      IdentityType[IdentityType["Other6"] = 14] = "Other6";
-      IdentityType[IdentityType["Other7"] = 15] = "Other7";
-      IdentityType[IdentityType["Other8"] = 16] = "Other8";
-      IdentityType[IdentityType["Other9"] = 17] = "Other9";
-      IdentityType[IdentityType["Other10"] = 18] = "Other10";
-      IdentityType[IdentityType["MobileNumber"] = 19] = "MobileNumber";
-      IdentityType[IdentityType["PhoneNumber2"] = 20] = "PhoneNumber2";
-      IdentityType[IdentityType["PhoneNumber3"] = 21] = "PhoneNumber3";
-    })(IdentityType || (IdentityType = {}));
 
     var MPSideloadedKit = /** @class */function () {
       function MPSideloadedKit(unregisteredKitInstance) {
