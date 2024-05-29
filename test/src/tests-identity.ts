@@ -1,5 +1,4 @@
 import sinon from 'sinon';
-import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import Utils from './config/utils';
