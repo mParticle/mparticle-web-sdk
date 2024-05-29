@@ -6,6 +6,7 @@ const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
 let mockServer;
 
+// https://go.mparticle.com/work/SQDSDKS-6508
 describe('mParticleUser', function() {
     beforeEach(function() {
         // TODO - for some reason when these MPIDs are all testMPID, the following test breaks:
