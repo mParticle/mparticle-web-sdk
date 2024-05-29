@@ -15,6 +15,7 @@ import {
 } from './store';
 import { Dictionary } from './utils';
 import { IMinifiedConsentJSONObject } from './consent';
+import { UserAttributes } from './identity-user-interfaces';
 
 export type UploadsTable = Dictionary<any>;
 export interface iForwardingStatsBatches {

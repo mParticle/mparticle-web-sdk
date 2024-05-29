@@ -19,7 +19,6 @@ import {
     IPersistence,
     IPersistenceMinified,
 } from '../../src/persistence.interfaces';
-import { MParticleUser } from '../../src/sdkRuntimeModels';
 
 const {
     findCookie,
