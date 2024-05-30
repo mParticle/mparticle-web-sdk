@@ -11,7 +11,7 @@ import {
     SDKCCPAConsentState,
     SDKGDPRConsentState,
 } from '../../src/consent';
-import { IMParticleUser, ISDKUserAttribute } from '../../src/identity-user-interfaces';
+import { IMParticleUser, ISDKUserAttributes } from '../../src/identity-user-interfaces';
 
 let mockServer;
 let initialEvent = {};
@@ -1584,7 +1584,7 @@ describe('ServerModel', () => {
                 getUserIdentities: (): IdentityApiData => ({
                     userIdentities: {},
                 }),
-                getAllUserAttributes: (): ISDKUserAttribute => {
+                getAllUserAttributes: (): ISDKUserAttributes => {
                     return attributes;
                 },
                 getMPID: () => {

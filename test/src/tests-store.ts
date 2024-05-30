@@ -758,7 +758,7 @@ describe('Store', () => {
     });
 
     describe('#setUserAttributes', () => {
-        it('should set user attributes in the store', () => {
+        it('should set user attributes in the store, overwriting any previous user attributes that exist', () => {
             const store: IStore = new Store(
                 sampleConfig,
                 window.mParticle.getInstance()

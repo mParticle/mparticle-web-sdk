@@ -62,7 +62,7 @@ export interface IUserIdentityChangeEvent extends BaseEvent {
     userIdentityChanges: ISDKUserIdentityChanges;
 }
 
-export interface ISDKUserAttribute {
+export interface ISDKUserAttributes {
     [key: string]: string | string[] | null;
 }
 

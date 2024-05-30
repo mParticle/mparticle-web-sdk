@@ -23,7 +23,7 @@ import {
     IMParticleUser,
     ISDKUserIdentity,
     IdentityCallback,
-    ISDKUserAttribute,
+    ISDKUserAttributes,
 } from './identity-user-interfaces';
 import { IIdentityType } from './types.interfaces';
 
@@ -35,7 +35,7 @@ export interface SDKEvent {
     IsFirstRun: boolean;
     EventName: string;
     EventCategory: number;
-    UserAttributes?: ISDKUserAttribute;
+    UserAttributes?: ISDKUserAttributes;
     UserIdentities?: ISDKUserIdentity[];
     SourceMessageId: string;
     MPID: string;
