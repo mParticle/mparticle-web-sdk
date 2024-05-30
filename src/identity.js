@@ -1182,11 +1182,12 @@ export default function Identity(mpInstance) {
              * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
              */
             getAllUserAttributes: function() {
-                var userAttributesCopy = {};
-                var userAttributes = mpInstance._Store.getUserAttributes(mpid);
+                const { getUserAttributes } = mpInstance._Store;
+                const userAttributesCopy = {};
+                const userAttributes = getUserAttributes(mpid);
 
                 if (userAttributes) {
-                    for (var prop in userAttributes) {
+                    for (const prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
                             if (Array.isArray(userAttributes[prop])) {
                                 userAttributesCopy[prop] = userAttributes[
