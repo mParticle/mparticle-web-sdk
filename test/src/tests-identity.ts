@@ -26,7 +26,6 @@ import {
 } from '../../src/identity-user-interfaces';
 
 const {
-    getLocalStorage,
     setLocalStorage,
     findCookie,
     forwarderDefaultConfiguration,

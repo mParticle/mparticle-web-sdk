@@ -937,6 +937,7 @@ export default function _Persistence(mpInstance) {
             );
         }
     };
+
     this.saveUserIdentitiesToPersistence = function(mpid, userIdentities) {
         if (userIdentities) {
             var persistence = self.getPersistence();
@@ -985,30 +986,6 @@ export default function _Persistence(mpInstance) {
                 }
             }
             self.savePersistence(persistence);
-        }
-    };
-
-    this.saveUserConsentStateToCookies = function(mpid, consentState) {
-        //it's currently not supported to set persistence
-        //for any MPID that's not the current one.
-        if (consentState || consentState === null) {
-            var persistence = self.getPersistence();
-            if (persistence) {
-                if (persistence[mpid]) {
-                    persistence[
-                        mpid
-                    ].con = mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(
-                        consentState
-                    );
-                } else {
-                    persistence[mpid] = {
-                        con: mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(
-                            consentState
-                        ),
-                    };
-                }
-                self.savePersistence(persistence);
-            }
         }
     };
 
@@ -1078,18 +1055,6 @@ export default function _Persistence(mpInstance) {
             : this.getCookie();
 
         return persistence;
-    };
-
-    this.getConsentState = function(mpid) {
-        var persistence = self.getPersistence();
-
-        if (persistence && persistence[mpid] && persistence[mpid].con) {
-            return mpInstance._Consent.ConsentSerialization.fromMinifiedJsonObject(
-                persistence[mpid].con
-            );
-        } else {
-            return null;
-        }
     };
 
     this.getFirstSeenTime = function(mpid) {

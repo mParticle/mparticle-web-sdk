@@ -1,10 +1,10 @@
-import { Batch } from '@mparticle/event-models';
-import { Context } from '@mparticle/event-models';
+import { Batch, Context } from '@mparticle/event-models';
 import {
     DataPlanConfig,
     MPID,
     IdentifyRequest,
     SDKEventCustomFlags,
+    ConsentState,
 } from '@mparticle/web-sdk';
 import { IKitConfigs } from './configAPIClient';
 import Constants from './constants';
@@ -29,10 +29,13 @@ import {
     parseNumber,
     returnConvertedBoolean,
 } from './utils';
-import { SDKConsentState } from './consent';
+import { IMinifiedConsentJSONObject, SDKConsentState } from './consent';
 import { Kit, MPForwarder } from './forwarders.interfaces';
-import { IPersistenceMinified } from './persistence.interfaces';
 import { IdentityCallback } from './identity-user-interfaces';
+import {
+    IGlobalStoreV2MinifiedKeys,
+    IPersistenceMinified,
+} from './persistence.interfaces';
 
 // This represents the runtime configuration of the SDK AFTER
 // initialization has been complete and all settings and
@@ -180,6 +183,12 @@ export interface IStore {
 
     persistenceData?: IPersistenceMinified;
 
+    getConsentState?(mpid: MPID): ConsentState | null;
+    setConsentState?(mpid: MPID, consentState: ConsentState): void;
+
+    _getFromPersistence?<T>(mpid: MPID, key: string): T;
+    _setPersistence?<T>(mpid: MPID, key: string, value: T): void;
+
     getDeviceId?(): string;
     setDeviceId?(deviceId: string): void;
     getFirstSeenTime?(mpid: MPID): number;
@@ -191,6 +200,7 @@ export interface IStore {
     hasInvalidIdentifyRequest?: () => boolean;
     nullifySession?: () => void;
     processConfig(config: SDKInitConfig): void;
+    syncPersistenceData?: () => void;
 }
 
 // TODO: Merge this with SDKStoreApi in sdkRuntimeModels
@@ -253,24 +263,8 @@ export default function Store(
 
         // Placeholder for in-memory persistence model
         persistenceData: {
-            cu: null,
-            gs: {
-                sid: null,
-                ie: null,
-                sa: null,
-                ss: null,
-                dt: null,
-                av: null,
-                cgid: null,
-                das: null,
-                ia: null,
-                c: null,
-                csm: null,
-                les: null,
-                ssd: null,
-            },
-            l: null,
-        },
+            gs: {} as IGlobalStoreV2MinifiedKeys,
+        } as IPersistenceMinified,
     };
 
     for (var key in defaultStore) {
@@ -479,6 +473,53 @@ export default function Store(
         }
     }
 
+    this._getFromPersistence = <T>(mpid: MPID, key: string): T | null => {
+        if (!mpid) {
+            return null;
+        }
+
+        this.syncPersistenceData();
+
+        if (
+            this.persistenceData &&
+            this.persistenceData[mpid] &&
+            this.persistenceData[mpid][key]
+        ) {
+            return this.persistenceData[mpid][key] as T;
+        } else {
+            return null;
+        }
+    };
+
+    this._setPersistence = <T>(mpid: MPID, key: string, value: T): void => {
+        if (!mpid) {
+            return;
+        }
+
+        this.syncPersistenceData();
+
+        if (this.persistenceData) {
+            if (this.persistenceData[mpid]) {
+                this.persistenceData[mpid][key] = value;
+            } else {
+                this.persistenceData[mpid] = {
+                    [key]: value,
+                };
+            }
+
+            // Clear out persistence attributes that are empty
+            // so that we don't upload empty or undefined values
+            if (
+                isObject(this.persistenceData[mpid][key]) &&
+                isEmpty(this.persistenceData[mpid][key])
+            ) {
+                delete this.persistenceData[mpid][key];
+            }
+
+            mpInstance._Persistence.savePersistence(this.persistenceData);
+        }
+    };
+
     this.hasInvalidIdentifyRequest = (): boolean => {
         const { identifyRequest } = this.SDKConfig;
         return (
@@ -487,6 +528,39 @@ export default function Store(
                 isEmpty(identifyRequest.userIdentities)) ||
             !identifyRequest
         );
+    }
+
+ 
+
+    this.getConsentState = (mpid: MPID): ConsentState => {
+        const {
+            fromMinifiedJsonObject,
+        } = mpInstance._Consent.ConsentSerialization;
+        
+        const serializedConsentState = this._getFromPersistence<
+            IMinifiedConsentJSONObject
+        >(mpid, 'con');
+
+        if (!isEmpty(serializedConsentState)) {
+            return fromMinifiedJsonObject(serializedConsentState);
+        }
+
+        return null;
+    };
+
+    this.setConsentState = (mpid: MPID, consentState: ConsentState) => {
+        const {
+            toMinifiedJsonObject,
+        } = mpInstance._Consent.ConsentSerialization;
+
+        // If ConsentState is null, we assume the intent is to clear out the consent state
+        if (consentState || consentState === null) {
+            this._setPersistence(
+                mpid,
+                'con',
+                toMinifiedJsonObject(consentState)
+            );
+        }
     };
 
     this.getDeviceId = () => this.deviceId;
@@ -494,6 +568,53 @@ export default function Store(
         this.deviceId = deviceId;
         this.persistenceData.gs.das = deviceId;
         mpInstance._Persistence.update();
+    };
+
+
+    this.getFirstSeenTime = (mpid: MPID) =>
+        this._getFromPersistence<number>(mpid, 'fst');
+
+    this.setFirstSeenTime = (mpid: MPID, _time?: number) => {
+        if (!mpid) {
+            return;
+        }
+
+        const time = _time || new Date().getTime();
+
+        this._setPersistence(mpid, 'fst', time);
+    };
+
+    this.getLastSeenTime = (mpid: MPID): number => {
+        if (!mpid) {
+            return null;
+        }
+        // https://go.mparticle.com/work/SQDSDKS-6315
+        const currentUser = mpInstance.Identity.getCurrentUser();
+        if (mpid === currentUser?.getMPID()) {
+            // if the mpid is the current user, its last seen time is the current time
+            return new Date().getTime();
+        }
+        return this._getFromPersistence<number>(mpid, 'lst');
+    };
+
+    this.setLastSeenTime = (mpid: MPID, _time?: number) => {
+        if (!mpid) {
+            return;
+        }
+
+        const time = _time || new Date().getTime();
+
+        this._setPersistence(mpid, 'lst', time);
+    };
+
+    this.syncPersistenceData = () => {
+        const persistenceData = mpInstance._Persistence.getPersistence();
+
+        this.persistenceData = mpInstance._Helpers.extend(
+            {},
+            this.persistenceData,
+            persistenceData,
+        );
     };
 
     this.addMpidToSessionHistory = (mpid: MPID, previousMPID?: MPID): void => {
@@ -509,78 +630,6 @@ export default function Store(
                 this.currentSessionMPIDs,
                 indexOfMPID
             );
-        }
-    };
-
-    this.getFirstSeenTime = (mpid: MPID) => {
-        if (!mpid) {
-            return null;
-        }
-
-        if (
-            this.persistenceData &&
-            this.persistenceData[mpid] &&
-            this.persistenceData[mpid].fst
-        ) {
-            return this.persistenceData[mpid].fst;
-        } else {
-            return null;
-        }
-    };
-
-    this.setFirstSeenTime = (mpid: MPID, _time?: number) => {
-        if (!mpid) {
-            return;
-        }
-
-        const time = _time || new Date().getTime();
-
-        if (this.persistenceData) {
-            if (!this.persistenceData[mpid]) {
-                this.persistenceData[mpid] = {};
-            }
-            if (!this.persistenceData[mpid].fst) {
-                this.persistenceData[mpid].fst = time;
-                mpInstance._Persistence.savePersistence(this.persistenceData);
-            }
-        }
-    };
-
-    this.getLastSeenTime = (mpid: MPID) => {
-        if (!mpid) {
-            return null;
-        }
-        //     // https://go.mparticle.com/work/SQDSDKS-6315
-        const currentUser = mpInstance.Identity.getCurrentUser();
-        if (mpid === currentUser?.getMPID()) {
-            // if the mpid is the current user, its last seen time is the current time
-            return new Date().getTime();
-        } else if (
-            this.persistenceData &&
-            this.persistenceData[mpid] &&
-            this.persistenceData[mpid].lst
-        ) {
-            return this.persistenceData[mpid].lst;
-        } else {
-            return null;
-        }
-    };
-
-    this.setLastSeenTime = (mpid: MPID, _time?: number) => {
-        if (!mpid) {
-            return;
-        }
-
-        const time = _time || new Date().getTime();
-
-        if (this.persistenceData) {
-            if (!this.persistenceData[mpid]) {
-                this.persistenceData[mpid] = {};
-            }
-            if (!this.persistenceData[mpid].lst) {
-                this.persistenceData[mpid].lst = time;
-                mpInstance._Persistence.savePersistence(this.persistenceData);
-            }
         }
     };
 

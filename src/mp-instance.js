@@ -1310,6 +1310,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
+        mpInstance._Store.syncPersistenceData();
 
         // Set up user identitiy variables for later use
         const currentUser = mpInstance.Identity.getCurrentUser();
