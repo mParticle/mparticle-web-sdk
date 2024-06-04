@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.26.7";
+    var version = "2.26.8";
 
     var Constants = {
       sdkVersion: version,
@@ -3912,23 +3912,7 @@ var mParticle = (function () {
         },
         // Placeholder for in-memory persistence model
         persistenceData: {
-          cu: null,
-          gs: {
-            sid: null,
-            ie: null,
-            sa: null,
-            ss: null,
-            dt: null,
-            av: null,
-            cgid: null,
-            das: null,
-            ia: null,
-            c: null,
-            csm: null,
-            les: null,
-            ssd: null
-          },
-          l: null
+          gs: {}
         }
       };
       for (var key in defaultStore) {
@@ -4072,9 +4056,55 @@ var mParticle = (function () {
           }
         }
       }
+      this._getFromPersistence = function (mpid, key) {
+        if (!mpid) {
+          return null;
+        }
+        _this.syncPersistenceData();
+        if (_this.persistenceData && _this.persistenceData[mpid] && _this.persistenceData[mpid][key]) {
+          return _this.persistenceData[mpid][key];
+        } else {
+          return null;
+        }
+      };
+      this._setPersistence = function (mpid, key, value) {
+        var _a;
+        if (!mpid) {
+          return;
+        }
+        _this.syncPersistenceData();
+        if (_this.persistenceData) {
+          if (_this.persistenceData[mpid]) {
+            _this.persistenceData[mpid][key] = value;
+          } else {
+            _this.persistenceData[mpid] = (_a = {}, _a[key] = value, _a);
+          }
+          // Clear out persistence attributes that are empty
+          // so that we don't upload empty or undefined values
+          if (isObject(_this.persistenceData[mpid][key]) && isEmpty(_this.persistenceData[mpid][key])) {
+            delete _this.persistenceData[mpid][key];
+          }
+          mpInstance._Persistence.savePersistence(_this.persistenceData);
+        }
+      };
       this.hasInvalidIdentifyRequest = function () {
         var identifyRequest = _this.SDKConfig.identifyRequest;
         return isObject(identifyRequest) && isObject(identifyRequest.userIdentities) && isEmpty(identifyRequest.userIdentities) || !identifyRequest;
+      };
+      this.getConsentState = function (mpid) {
+        var fromMinifiedJsonObject = mpInstance._Consent.ConsentSerialization.fromMinifiedJsonObject;
+        var serializedConsentState = _this._getFromPersistence(mpid, 'con');
+        if (!isEmpty(serializedConsentState)) {
+          return fromMinifiedJsonObject(serializedConsentState);
+        }
+        return null;
+      };
+      this.setConsentState = function (mpid, consentState) {
+        var toMinifiedJsonObject = mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject;
+        // If ConsentState is null, we assume the intent is to clear out the consent state
+        if (consentState || consentState === null) {
+          _this._setPersistence(mpid, 'con', toMinifiedJsonObject(consentState));
+        }
       };
       this.getDeviceId = function () {
         return _this.deviceId;
@@ -4084,6 +4114,39 @@ var mParticle = (function () {
         _this.persistenceData.gs.das = deviceId;
         mpInstance._Persistence.update();
       };
+      this.getFirstSeenTime = function (mpid) {
+        return _this._getFromPersistence(mpid, 'fst');
+      };
+      this.setFirstSeenTime = function (mpid, _time) {
+        if (!mpid) {
+          return;
+        }
+        var time = _time || new Date().getTime();
+        _this._setPersistence(mpid, 'fst', time);
+      };
+      this.getLastSeenTime = function (mpid) {
+        if (!mpid) {
+          return null;
+        }
+        // https://go.mparticle.com/work/SQDSDKS-6315
+        var currentUser = mpInstance.Identity.getCurrentUser();
+        if (mpid === (currentUser === null || currentUser === void 0 ? void 0 : currentUser.getMPID())) {
+          // if the mpid is the current user, its last seen time is the current time
+          return new Date().getTime();
+        }
+        return _this._getFromPersistence(mpid, 'lst');
+      };
+      this.setLastSeenTime = function (mpid, _time) {
+        if (!mpid) {
+          return;
+        }
+        var time = _time || new Date().getTime();
+        _this._setPersistence(mpid, 'lst', time);
+      };
+      this.syncPersistenceData = function () {
+        var persistenceData = mpInstance._Persistence.getPersistence();
+        _this.persistenceData = mpInstance._Helpers.extend({}, _this.persistenceData, persistenceData);
+      };
       this.addMpidToSessionHistory = function (mpid, previousMPID) {
         var indexOfMPID = _this.currentSessionMPIDs.indexOf(mpid);
         if (mpid && previousMPID !== mpid && indexOfMPID < 0) {
@@ -4092,61 +4155,6 @@ var mParticle = (function () {
         }
         if (indexOfMPID >= 0) {
           _this.currentSessionMPIDs = moveElementToEnd(_this.currentSessionMPIDs, indexOfMPID);
-        }
-      };
-      this.getFirstSeenTime = function (mpid) {
-        if (!mpid) {
-          return null;
-        }
-        if (_this.persistenceData && _this.persistenceData[mpid] && _this.persistenceData[mpid].fst) {
-          return _this.persistenceData[mpid].fst;
-        } else {
-          return null;
-        }
-      };
-      this.setFirstSeenTime = function (mpid, _time) {
-        if (!mpid) {
-          return;
-        }
-        var time = _time || new Date().getTime();
-        if (_this.persistenceData) {
-          if (!_this.persistenceData[mpid]) {
-            _this.persistenceData[mpid] = {};
-          }
-          if (!_this.persistenceData[mpid].fst) {
-            _this.persistenceData[mpid].fst = time;
-            mpInstance._Persistence.savePersistence(_this.persistenceData);
-          }
-        }
-      };
-      this.getLastSeenTime = function (mpid) {
-        if (!mpid) {
-          return null;
-        }
-        //     // https://go.mparticle.com/work/SQDSDKS-6315
-        var currentUser = mpInstance.Identity.getCurrentUser();
-        if (mpid === (currentUser === null || currentUser === void 0 ? void 0 : currentUser.getMPID())) {
-          // if the mpid is the current user, its last seen time is the current time
-          return new Date().getTime();
-        } else if (_this.persistenceData && _this.persistenceData[mpid] && _this.persistenceData[mpid].lst) {
-          return _this.persistenceData[mpid].lst;
-        } else {
-          return null;
-        }
-      };
-      this.setLastSeenTime = function (mpid, _time) {
-        if (!mpid) {
-          return;
-        }
-        var time = _time || new Date().getTime();
-        if (_this.persistenceData) {
-          if (!_this.persistenceData[mpid]) {
-            _this.persistenceData[mpid] = {};
-          }
-          if (!_this.persistenceData[mpid].lst) {
-            _this.persistenceData[mpid].lst = time;
-            mpInstance._Persistence.savePersistence(_this.persistenceData);
-          }
         }
       };
       this.nullifySession = function () {
@@ -5014,23 +5022,6 @@ var mParticle = (function () {
           self.savePersistence(persistence);
         }
       };
-      this.saveUserConsentStateToCookies = function (mpid, consentState) {
-        //it's currently not supported to set persistence
-        //for any MPID that's not the current one.
-        if (consentState || consentState === null) {
-          var persistence = self.getPersistence();
-          if (persistence) {
-            if (persistence[mpid]) {
-              persistence[mpid].con = mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(consentState);
-            } else {
-              persistence[mpid] = {
-                con: mpInstance._Consent.ConsentSerialization.toMinifiedJsonObject(consentState)
-              };
-            }
-            self.savePersistence(persistence);
-          }
-        }
-      };
       this.swapCurrentUser = function (previousMPID, currentMPID, currentSessionMPIDs) {
         if (previousMPID && currentMPID && previousMPID !== currentMPID) {
           var persistence = self.getPersistence();
@@ -5067,14 +5058,6 @@ var mParticle = (function () {
       this.getPersistence = function () {
         var persistence = this.useLocalStorage() ? this.getLocalStorage() : this.getCookie();
         return persistence;
-      };
-      this.getConsentState = function (mpid) {
-        var persistence = self.getPersistence();
-        if (persistence && persistence[mpid] && persistence[mpid].con) {
-          return mpInstance._Consent.ConsentSerialization.fromMinifiedJsonObject(persistence[mpid].con);
-        } else {
-          return null;
-        }
       };
       this.getFirstSeenTime = function (mpid) {
         if (!mpid) {
@@ -7300,7 +7283,7 @@ var mParticle = (function () {
            * @return a ConsentState object
            */
           getConsentState: function getConsentState() {
-            return mpInstance._Persistence.getConsentState(mpid);
+            return mpInstance._Store.getConsentState(mpid);
           },
           /**
            * Sets the Consent State stored locally for this user.
@@ -7308,7 +7291,7 @@ var mParticle = (function () {
            * @param {Object} consent state
            */
           setConsentState: function setConsentState(state) {
-            mpInstance._Persistence.saveUserConsentStateToCookies(mpid, state);
+            mpInstance._Store.setConsentState(mpid, state);
             mpInstance._Forwarders.initForwarders(this.getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
             mpInstance._CookieSyncManager.attemptCookieSync(null, this.getMPID());
           },
@@ -7516,6 +7499,7 @@ var mParticle = (function () {
               // https://go.mparticle.com/work/SQDSDKS-6041
               mpInstance._Persistence.saveUserIdentitiesToPersistence(identityApiResult.mpid, newIdentitiesByType);
               mpInstance._Persistence.update();
+              mpInstance._Store.syncPersistenceData();
               mpInstance._Persistence.findPrevCookiesBasedOnUI(identityApiData);
 
               // https://go.mparticle.com/work/SQDSDKS-6357
@@ -9488,6 +9472,7 @@ var mParticle = (function () {
 
         // Load any settings/identities/attributes from cookie or localStorage
         mpInstance._Persistence.initializeStorage();
+        mpInstance._Store.syncPersistenceData();
 
         // Set up user identitiy variables for later use
         var currentUser = mpInstance.Identity.getCurrentUser();
