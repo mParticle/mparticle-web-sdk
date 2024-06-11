@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.26.8";
+    var version = "2.26.9";
 
     var Constants = {
       sdkVersion: version,
@@ -4147,6 +4147,12 @@ var mParticle = (function () {
         var persistenceData = mpInstance._Persistence.getPersistence();
         _this.persistenceData = mpInstance._Helpers.extend({}, _this.persistenceData, persistenceData);
       };
+      this.getUserAttributes = function (mpid) {
+        return _this._getFromPersistence(mpid, 'ua') || {};
+      };
+      this.setUserAttributes = function (mpid, userAttributes) {
+        return _this._setPersistence(mpid, 'ua', userAttributes);
+      };
       this.addMpidToSessionHistory = function (mpid, previousMPID) {
         var indexOfMPID = _this.currentSessionMPIDs.indexOf(mpid);
         if (mpid && previousMPID !== mpid && indexOfMPID < 0) {
@@ -4945,14 +4951,6 @@ var mParticle = (function () {
           return {};
         }
       };
-      this.getAllUserAttributes = function (mpid) {
-        var persistence = self.getPersistence();
-        if (persistence && persistence[mpid] && persistence[mpid].ua) {
-          return persistence[mpid].ua;
-        } else {
-          return {};
-        }
-      };
       this.getCartProducts = function (mpid) {
         var allCartProducts,
           cartProductsString = localStorage.getItem(mpInstance._Store.prodStorageName);
@@ -4987,24 +4985,6 @@ var mParticle = (function () {
             }
             self.savePersistence(persistence);
           }
-        }
-      };
-      this.saveUserAttributesToPersistence = function (mpid, userAttributes) {
-        var persistence = self.getPersistence();
-        if (userAttributes) {
-          if (persistence) {
-            if (persistence[mpid]) {
-              // TODO: Investigate why setting this to UI still shows up as UA
-              //       when running `mParticle.getInstance()._Persistence.getLocalStorage()`
-              // https://go.mparticle.com/work/SQDSDKS-5195
-              persistence[mpid].ui = userAttributes;
-            } else {
-              persistence[mpid] = {
-                ui: userAttributes
-              };
-            }
-          }
-          self.savePersistence(persistence);
         }
       };
       this.saveUserCookieSyncDatesToPersistence = function (mpid, csd) {
@@ -5473,7 +5453,7 @@ var mParticle = (function () {
         },
         getAllUserAttributes: function getAllUserAttributes() {
           var userAttributesCopy = {};
-          var userAttributes = mpInstance._Persistence.getAllUserAttributes(mpid);
+          var userAttributes = mpInstance._Store.getUserAttributes(mpid);
           if (userAttributes) {
             for (var prop in userAttributes) {
               if (userAttributes.hasOwnProperty(prop)) {
@@ -7054,8 +7034,9 @@ var mParticle = (function () {
            * @param {String} key
            * @param {String} value
            */
+          // https://go.mparticle.com/work/SQDSDKS-4576
+          // https://go.mparticle.com/work/SQDSDKS-6373
           setUserAttribute: function setUserAttribute(key, newValue) {
-            var cookies, userAttributes, previousUserAttributeValue, isNewAttribute;
             mpInstance._SessionManager.resetSessionTimer();
             if (mpInstance._Helpers.canLog()) {
               if (!mpInstance._Helpers.Validators.isValidAttributeValue(newValue)) {
@@ -7072,8 +7053,9 @@ var mParticle = (function () {
                   value: newValue
                 }));
               } else {
-                cookies = mpInstance._Persistence.getPersistence();
-                userAttributes = this.getAllUserAttributes();
+                var userAttributes = this.getAllUserAttributes();
+                var previousUserAttributeValue;
+                var isNewAttribute;
                 var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
                 if (existingProp) {
                   isNewAttribute = false;
@@ -7083,10 +7065,7 @@ var mParticle = (function () {
                   isNewAttribute = true;
                 }
                 userAttributes[key] = newValue;
-                if (cookies && cookies[mpid]) {
-                  cookies[mpid].ua = userAttributes;
-                  mpInstance._Persistence.savePersistence(cookies, mpid);
-                }
+                mpInstance._Store.setUserAttributes(mpid, userAttributes);
                 self.sendUserAttributeChangeEvent(key, newValue, previousUserAttributeValue, isNewAttribute, false, this);
                 mpInstance._Forwarders.initForwarders(self.IdentityAPI.getCurrentUser().getUserIdentities(), mpInstance._APIClient.prepareForwardingStats);
                 mpInstance._Forwarders.handleForwarderUserAttributes('setUserAttribute', key, newValue);
@@ -7098,6 +7077,7 @@ var mParticle = (function () {
            * @method setUserAttributes
            * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
            */
+          // https://go.mparticle.com/work/SQDSDKS-6373
           setUserAttributes: function setUserAttributes(userAttributes) {
             mpInstance._SessionManager.resetSessionTimer();
             if (isObject(userAttributes)) {
@@ -7153,8 +7133,8 @@ var mParticle = (function () {
            * @param {String} key
            * @param {Array} value an array of values
            */
+          // https://go.mparticle.com/work/SQDSDKS-6373
           setUserAttributeList: function setUserAttributeList(key, newValue) {
-            var cookies, userAttributes, previousUserAttributeValue, isNewAttribute, userAttributeChange;
             mpInstance._SessionManager.resetSessionTimer();
             if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
               mpInstance.Logger.error(Messages$2.ErrorMessages.BadKey);
@@ -7171,8 +7151,10 @@ var mParticle = (function () {
                 value: arrayCopy
               }));
             } else {
-              cookies = mpInstance._Persistence.getPersistence();
-              userAttributes = this.getAllUserAttributes();
+              var userAttributes = this.getAllUserAttributes();
+              var previousUserAttributeValue;
+              var isNewAttribute;
+              var userAttributeChange;
               var existingProp = mpInstance._Helpers.findKeyInObject(userAttributes, key);
               if (existingProp) {
                 isNewAttribute = false;
@@ -7182,12 +7164,9 @@ var mParticle = (function () {
                 isNewAttribute = true;
               }
               userAttributes[key] = arrayCopy;
-              if (cookies && cookies[mpid]) {
-                cookies[mpid].ua = userAttributes;
-                mpInstance._Persistence.savePersistence(cookies, mpid);
-              }
+              mpInstance._Store.setUserAttributes(mpid, userAttributes);
 
-              // If the new attributeList length is different previous, then there is a change event.
+              // If the new attributeList length is different than the previous, then there is a change event.
               // Loop through new attributes list, see if they are all in the same index as previous user attributes list
               // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
               if (!previousUserAttributeValue || !Array.isArray(previousUserAttributeValue)) {
@@ -7253,8 +7232,9 @@ var mParticle = (function () {
            * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
            */
           getAllUserAttributes: function getAllUserAttributes() {
+            var getUserAttributes = mpInstance._Store.getUserAttributes;
             var userAttributesCopy = {};
-            var userAttributes = mpInstance._Persistence.getAllUserAttributes(mpid);
+            var userAttributes = getUserAttributes(mpid);
             if (userAttributes) {
               for (var prop in userAttributes) {
                 if (userAttributes.hasOwnProperty(prop)) {
