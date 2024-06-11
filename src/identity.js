@@ -866,12 +866,9 @@ export default function Identity(mpInstance) {
              * @param {String} key
              * @param {String} value
              */
+            // https://go.mparticle.com/work/SQDSDKS-4576
+            // https://go.mparticle.com/work/SQDSDKS-6373
             setUserAttribute: function(key, newValue) {
-                var cookies,
-                    userAttributes,
-                    previousUserAttributeValue,
-                    isNewAttribute;
-
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (mpInstance._Helpers.canLog()) {
@@ -896,11 +893,11 @@ export default function Identity(mpInstance) {
                             JSON.stringify({ key: key, value: newValue })
                         );
                     } else {
-                        cookies = mpInstance._Persistence.getPersistence();
+                        const userAttributes = this.getAllUserAttributes();
+                        let previousUserAttributeValue;
+                        let isNewAttribute;
 
-                        userAttributes = this.getAllUserAttributes();
-
-                        var existingProp = mpInstance._Helpers.findKeyInObject(
+                        const existingProp = mpInstance._Helpers.findKeyInObject(
                             userAttributes,
                             key
                         );
@@ -915,13 +912,10 @@ export default function Identity(mpInstance) {
                         }
 
                         userAttributes[key] = newValue;
-                        if (cookies && cookies[mpid]) {
-                            cookies[mpid].ua = userAttributes;
-                            mpInstance._Persistence.savePersistence(
-                                cookies,
-                                mpid
-                            );
-                        }
+                        mpInstance._Store.setUserAttributes(
+                            mpid,
+                            userAttributes
+                        );
 
                         self.sendUserAttributeChangeEvent(
                             key,
@@ -949,6 +943,7 @@ export default function Identity(mpInstance) {
              * @method setUserAttributes
              * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
              */
+            // https://go.mparticle.com/work/SQDSDKS-6373
             setUserAttributes: function(userAttributes) {
                 mpInstance._SessionManager.resetSessionTimer();
                 if (isObject(userAttributes)) {
@@ -1036,13 +1031,8 @@ export default function Identity(mpInstance) {
              * @param {String} key
              * @param {Array} value an array of values
              */
+            // https://go.mparticle.com/work/SQDSDKS-6373
             setUserAttributeList: function(key, newValue) {
-                var cookies,
-                    userAttributes,
-                    previousUserAttributeValue,
-                    isNewAttribute,
-                    userAttributeChange;
-
                 mpInstance._SessionManager.resetSessionTimer();
 
                 if (!mpInstance._Helpers.Validators.isValidKeyValue(key)) {
@@ -1058,7 +1048,7 @@ export default function Identity(mpInstance) {
                     return;
                 }
 
-                var arrayCopy = newValue.slice();
+                const arrayCopy = newValue.slice();
 
                 if (mpInstance._Store.webviewBridgeEnabled) {
                     mpInstance._NativeSdkHelpers.sendToNative(
@@ -1066,11 +1056,12 @@ export default function Identity(mpInstance) {
                         JSON.stringify({ key: key, value: arrayCopy })
                     );
                 } else {
-                    cookies = mpInstance._Persistence.getPersistence();
+                    const userAttributes = this.getAllUserAttributes();
+                    let previousUserAttributeValue;
+                    let isNewAttribute;
+                    let userAttributeChange;
 
-                    userAttributes = this.getAllUserAttributes();
-
-                    var existingProp = mpInstance._Helpers.findKeyInObject(
+                    const existingProp = mpInstance._Helpers.findKeyInObject(
                         userAttributes,
                         key
                     );
@@ -1085,12 +1076,9 @@ export default function Identity(mpInstance) {
                     }
 
                     userAttributes[key] = arrayCopy;
-                    if (cookies && cookies[mpid]) {
-                        cookies[mpid].ua = userAttributes;
-                        mpInstance._Persistence.savePersistence(cookies, mpid);
-                    }
+                    mpInstance._Store.setUserAttributes(mpid, userAttributes);
 
-                    // If the new attributeList length is different previous, then there is a change event.
+                    // If the new attributeList length is different than the previous, then there is a change event.
                     // Loop through new attributes list, see if they are all in the same index as previous user attributes list
                     // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
                     if (
@@ -1194,13 +1182,12 @@ export default function Identity(mpInstance) {
              * @return {Object} an object of all user attributes. Example: { attr1: 'value1', attr2: ['a', 'b', 'c'] }
              */
             getAllUserAttributes: function() {
-                var userAttributesCopy = {};
-                var userAttributes = mpInstance._Persistence.getAllUserAttributes(
-                    mpid
-                );
+                const { getUserAttributes } = mpInstance._Store;
+                const userAttributesCopy = {};
+                const userAttributes = getUserAttributes(mpid);
 
                 if (userAttributes) {
-                    for (var prop in userAttributes) {
+                    for (const prop in userAttributes) {
                         if (userAttributes.hasOwnProperty(prop)) {
                             if (Array.isArray(userAttributes[prop])) {
                                 userAttributesCopy[prop] = userAttributes[
