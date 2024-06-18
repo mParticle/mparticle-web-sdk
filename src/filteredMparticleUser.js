@@ -10,7 +10,7 @@ export default function filteredMparticleUser(
     return {
         getUserIdentities: function() {
             var currentUserIdentities = {};
-            var identities = mpInstance._Persistence.getUserIdentities(mpid);
+            var identities = mpInstance._Store.getUserIdentities(mpid);
 
             for (var identityType in identities) {
                 if (identities.hasOwnProperty(identityType)) {
