@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.26.9";
+    var version = "2.26.10";
 
     var Constants = {
       sdkVersion: version,
@@ -4153,6 +4153,12 @@ var mParticle = (function () {
       this.setUserAttributes = function (mpid, userAttributes) {
         return _this._setPersistence(mpid, 'ua', userAttributes);
       };
+      this.getUserIdentities = function (mpid) {
+        return _this._getFromPersistence(mpid, 'ui') || {};
+      };
+      this.setUserIdentities = function (mpid, userIdentities) {
+        _this._setPersistence(mpid, 'ui', userIdentities);
+      };
       this.addMpidToSessionHistory = function (mpid, previousMPID) {
         var indexOfMPID = _this.currentSessionMPIDs.indexOf(mpid);
         if (mpid && previousMPID !== mpid && indexOfMPID < 0) {
@@ -4943,14 +4949,6 @@ var mParticle = (function () {
         }
         return '';
       };
-      this.getUserIdentities = function (mpid) {
-        var persistence = self.getPersistence();
-        if (persistence && persistence[mpid] && persistence[mpid].ui) {
-          return persistence[mpid].ui;
-        } else {
-          return {};
-        }
-      };
       this.getCartProducts = function (mpid) {
         var allCartProducts,
           cartProductsString = localStorage.getItem(mpInstance._Store.prodStorageName);
@@ -4970,21 +4968,6 @@ var mParticle = (function () {
           window.localStorage.setItem(encodeURIComponent(mpInstance._Store.prodStorageName), Base64.encode(JSON.stringify(allProducts)));
         } catch (e) {
           mpInstance.Logger.error('Error with setting products on localStorage.');
-        }
-      };
-      this.saveUserIdentitiesToPersistence = function (mpid, userIdentities) {
-        if (userIdentities) {
-          var persistence = self.getPersistence();
-          if (persistence) {
-            if (persistence[mpid]) {
-              persistence[mpid].ui = userIdentities;
-            } else {
-              persistence[mpid] = {
-                ui: userIdentities
-              };
-            }
-            self.savePersistence(persistence);
-          }
         }
       };
       this.saveUserCookieSyncDatesToPersistence = function (mpid, csd) {
@@ -5420,7 +5403,7 @@ var mParticle = (function () {
       return {
         getUserIdentities: function getUserIdentities() {
           var currentUserIdentities = {};
-          var identities = mpInstance._Persistence.getUserIdentities(mpid);
+          var identities = mpInstance._Store.getUserIdentities(mpid);
           for (var identityType in identities) {
             if (identities.hasOwnProperty(identityType)) {
               var identityName = Types.IdentityType.getIdentityName(mpInstance._Helpers.parseNumber(identityType));
@@ -6986,7 +6969,7 @@ var mParticle = (function () {
            */
           getUserIdentities: function getUserIdentities() {
             var currentUserIdentities = {};
-            var identities = mpInstance._Persistence.getUserIdentities(mpid);
+            var identities = mpInstance._Store.getUserIdentities(mpid);
             for (var identityType in identities) {
               if (identities.hasOwnProperty(identityType)) {
                 currentUserIdentities[Types.IdentityType.getIdentityName(mpInstance._Helpers.parseNumber(identityType))] = identities[identityType];
@@ -7459,7 +7442,7 @@ var mParticle = (function () {
             var incomingUIByName = incomingUser ? incomingUser.getUserIdentities().userIdentities : {};
             if (method === Modify$1) {
               newIdentitiesByType = mpInstance._Identity.IdentityRequest.combineUserIdentities(previousUIByName, identityApiData.userIdentities);
-              mpInstance._Persistence.saveUserIdentitiesToPersistence(previousMPID, newIdentitiesByType);
+              mpInstance._Store.setUserIdentities(previousMPID, newIdentitiesByType);
             } else {
               // https://go.mparticle.com/work/SQDSDKS-6356
               //this covers an edge case where, users stored before "firstSeenTime" was introduced
@@ -7477,7 +7460,7 @@ var mParticle = (function () {
               }
 
               // https://go.mparticle.com/work/SQDSDKS-6041
-              mpInstance._Persistence.saveUserIdentitiesToPersistence(identityApiResult.mpid, newIdentitiesByType);
+              mpInstance._Store.setUserIdentities(identityApiResult.mpid, newIdentitiesByType);
               mpInstance._Persistence.update();
               mpInstance._Store.syncPersistenceData();
               mpInstance._Persistence.findPrevCookiesBasedOnUI(identityApiData);
