@@ -11,6 +11,19 @@ let mockServer;
 describe('/config self-hosting integration tests', function() {
     beforeEach(function() {
         fetchMock.post(urls.events, 200);
+
+        fetchMock.get(
+            urls.config,
+            {
+                status: 200,
+                body: JSON.stringify({
+                    appName: 'Test App',
+                    kitConfigs: [],
+                }),
+            }
+            // QUESTION: Is this how we handle delays?
+            // { delay: 100 }
+        );
         mockServer = sinon.createFakeServer();
     });
 
@@ -56,11 +69,14 @@ describe('/config self-hosting integration tests', function() {
         // config and identify now get triggered, which runs through the event queue
         clock.tick(300);
 
+        setTimeout(() => {
         event = findBatch(fetchMock.calls(), 'Test');
+
         event.should.be.ok();
         event.mpid.should.equal('identifyMPID');
 
         done();
+        }, 150);
     });
 
     it('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
