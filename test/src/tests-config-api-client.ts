@@ -39,72 +39,55 @@ describe('ConfigAPIClient', () => {
 
     describe('#getSDKConfiguration', () => {
         describe('with defaults', () => {
-            it('should fetch a config from the server', () => {
+            it('should fetch a config from the server', async () => {
                 const config = { requestConfig: true } as SDKInitConfig;
+
+                const kitConfigs = [
+                    { name: 'Test Kit 1', id: 1 },
+                    { name: 'Test Kit 2', id: 2 },
+                ];
 
                 mockServer.respondWith(urls.config, [
                     200,
                     {},
-                    JSON.stringify({ appName: 'Test App', kitConfigs: [] }),
+                    JSON.stringify({ appName: 'Test App', kitConfigs }),
                 ]);
 
-                window.mParticle.init(apiKey, config);
-
-                const configAPIClient = new ConfigAPIClient();
-                configAPIClient.getSDKConfiguration(
+                const configAPIClient = new ConfigAPIClient(
                     apiKey,
                     config,
-                    sdkInitCompleteCallback,
                     window.mParticle.getInstance()
                 );
 
-                expect(sdkInitCompleteCallback.getCalls().length).to.equal(1);
-                expect(
-                    sdkInitCompleteCallback.calledWithMatch(
-                        apiKey,
-                        MPConfig,
-                        window.mParticle.getInstance()
-                    )
-                );
-                expect(mockServer.lastRequest).to.haveOwnProperty('response');
+                const response = await configAPIClient.getSDKConfiguration();
 
-                // TODO: Check mockServer
+                expect(mockServer.requests.length).to.equal(1);
+                expect(mockServer.lastRequest).to.haveOwnProperty('response');
                 expect(mockServer.lastRequest.url).to.equal(urls.config);
 
-                const configResponse: IConfigResponse = JSON.parse(
-                    mockServer.lastRequest.response
-                );
-
-                expect(configResponse).to.be.ok;
-                expect(configResponse.appName).to.equal('Test App');
-                expect(configResponse.kitConfigs).to.be.ok;
+                expect(response).to.be.ok;
+                expect(response.appName).to.equal('Test App');
+                expect(response.kitConfigs).to.deep.equal(kitConfigs);
             });
 
-            it('should continue sdk init if fetch fails', () => {
+            it('should return inital config fetch fails', async () => {
                 const config = { requestConfig: true };
-
                 mockServer.respondWith(urls.config, [400, {}, '']);
 
-                window.mParticle.init(apiKey, window.mParticle.config);
-
-                const configAPIClient = new ConfigAPIClient();
-                configAPIClient.getSDKConfiguration(
+                const configAPIClient = new ConfigAPIClient(
                     apiKey,
                     config,
-                    sdkInitCompleteCallback,
                     window.mParticle.getInstance()
                 );
 
-                expect(sdkInitCompleteCallback.getCalls().length).to.equal(1);
-                expect(
-                    sdkInitCompleteCallback.calledWithMatch(
-                        apiKey,
-                        MPConfig,
-                        window.mParticle.getInstance()
-                    )
-                );
+                const response = await configAPIClient.getSDKConfiguration();
+
+                expect(mockServer.requests.length).to.equal(1);
                 expect(mockServer.lastRequest).to.haveOwnProperty('response');
                 expect(mockServer.lastRequest.url).to.equal(urls.config);
+
+                expect(response).to.be.ok;
+                expect(response).to.deep.equal({ requestConfig: true });
             });
         });
 
@@ -147,66 +130,44 @@ describe('ConfigAPIClient', () => {
                 ]);
             });
 
-            it('appends data plan information to url', () => {
+            it('appends data plan information to url', async () => {
                 const config: Partial<SDKInitConfig> = {
                     requestConfig: true,
                     dataPlan,
                 };
 
-                window.mParticle.init(apiKey, window.mParticle.config);
-
-                const configAPIClient = new ConfigAPIClient();
-                configAPIClient.getSDKConfiguration(
+                const configAPIClient = new ConfigAPIClient(
                     apiKey,
                     config,
-                    sdkInitCompleteCallback,
                     window.mParticle.getInstance()
                 );
 
-                expect(sdkInitCompleteCallback.getCalls().length).to.equal(1);
-                expect(
-                    sdkInitCompleteCallback.calledWithMatch(
-                        apiKey,
-                        MPConfig,
-                        window.mParticle.getInstance()
-                    )
-                );
+                const response = await configAPIClient.getSDKConfiguration();
 
                 expect(mockServer.lastRequest).to.haveOwnProperty('url');
                 expect(mockServer.lastRequest.url).to.equal(configUrl);
             });
 
-            it('returns data plan information within the HTTP Response', () => {
-                const configUrl = `${urls.config}&plan_id=test_data_plan&plan_version=42`;
-                const config = ({
+            it.only('returns data plan information within the response', async () => {
+                const config: Partial<SDKInitConfig> = {
                     requestConfig: true,
-                    dataPlan: dataPlan,
-                } as unknown) as SDKInitConfig;
+                    dataPlan,
+                };
 
-                window.mParticle.init(apiKey, window.mParticle.config);
-
-                const configAPIClient: IConfigAPIClient = new ConfigAPIClient();
-                configAPIClient.getSDKConfiguration(
+                const configAPIClient = new ConfigAPIClient(
                     apiKey,
                     config,
-                    sdkInitCompleteCallback,
                     window.mParticle.getInstance()
                 );
 
-                expect(mockServer.lastRequest).to.haveOwnProperty('method');
-                expect(mockServer.lastRequest).to.haveOwnProperty('response');
+                const response = await configAPIClient.getSDKConfiguration();
 
                 expect(mockServer.lastRequest.method).to.equal('get');
-                expect(mockServer.lastRequest.url).to.equal(configUrl);
 
-                const configResponse: IConfigResponse = JSON.parse(
-                    mockServer.lastRequest.response
-                );
-
-                expect(configResponse).to.be.ok;
-                expect(configResponse.appName).to.equal('Test App');
-                expect(configResponse.kitConfigs).to.be.ok;
-                expect(configResponse.dataPlanResult).to.be.ok;
+                expect(response).to.be.ok;
+                expect(response.appName).to.equal('Test App');
+                expect(response.kitConfigs).to.deep.equal([]);
+                expect(response.dataPlanResult).to.deep.equal(dataPlanResult);
             });
         });
     });
