@@ -143,6 +143,8 @@ export default function ConfigAPIClient(
     const { isDevelopmentMode } = config;
     const dataPlan = config.dataPlan as DataPlanConfig;
     const uploadUrl = buildUrl(baseUrl, apiKey, dataPlan, isDevelopmentMode);
+
+    // TODO: Use this instead of the one in getSDKConfiguration
     const uploader = window.fetch
         ? new FetchUploader(uploadUrl)
         : new XHRUploader(uploadUrl);
@@ -167,24 +169,34 @@ export default function ConfigAPIClient(
             body: null,
         };
 
-        const xhr = new XHRUploader(url);
+        // TODO: move this to the constructor
+        const uploader = window.fetch
+            ? new FetchUploader(url)
+            : new XHRUploader(url);
 
         try {
-            const response = await xhr.upload(fetchPayload);
+            const response = await uploader.upload(fetchPayload);
 
-            console.log('response', response);
-            console.log('response.status', response.status);
+            // // TODO: Will this work?
+            // return response as unknown as IConfigResponse;
 
             // TODO: Does fetch also return responseText?
             //@ts-ignore
             console.log('response.responseText', response.responseText);
             if (response.status === 200) {
+                // debugger;
                 console.log(
                     'Config API Client - returning successful response'
                 );
                 mpInstance?.Logger?.verbose(
                     'Successfully received configuration from server'
                 );
+
+                // Will this work with XHR?
+                if (response.json) {
+                    // debugger;
+                    return (await response.json()) as IConfigResponse;
+                }
 
                 return JSON.parse(
                     // @ts-ignore
@@ -198,6 +210,7 @@ export default function ConfigAPIClient(
             );
             console.log('Config API Client - returning original config');
         } catch (e) {
+            // debugger;
             mpInstance?.Logger?.error(
                 'Error getting forwarder configuration from mParticle servers.'
             );

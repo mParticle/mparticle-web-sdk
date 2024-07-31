@@ -117,12 +117,22 @@ export default function mParticleInstance(instanceName) {
                 !config.hasOwnProperty('requestConfig') ||
                 config.requestConfig
             ) {
-                new ConfigAPIClient().getSDKConfiguration(
+                const configApiClient = new ConfigAPIClient(
                     apiKey,
                     config,
-                    completeSDKInitialization,
                     this
                 );
+
+                configApiClient.getSDKConfiguration().then(result => {
+                    const mergedConfig = this._Helpers.extend(
+                        {},
+                        config,
+                        result
+                    );
+                    debugger;
+
+                    completeSDKInitialization(apiKey, mergedConfig, this);
+                });
             } else {
                 completeSDKInitialization(apiKey, config, this);
             }
