@@ -129,7 +129,6 @@ export default function mParticleInstance(instanceName) {
                         config,
                         result
                     );
-                    debugger;
 
                     completeSDKInitialization(apiKey, mergedConfig, this);
                 });
