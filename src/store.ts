@@ -83,6 +83,7 @@ export interface SDKConfig {
     useNativeSdk?: boolean;
     useCookieStorage?: boolean;
     v1SecureServiceUrl?: string;
+    // https://go.mparticle.com/work/SQDSDKS-6618
     v2SecureServiceUrl?: string;
     v3SecureServiceUrl?: string;
     webviewBridgeName?: string;
@@ -661,10 +662,20 @@ export default function Store(
     this.processConfig = (config: SDKInitConfig) => {
         const { workspaceToken, requiredWebviewBridgeName } = config;
 
-        // We should reprocess the flags in case they have changed when we request an updated config
+        // We should reprocess the flags and baseUrls in case they have changed when we request an updated config
         // such as if the SDK is being self-hosted and the flags are different on the server config
         // https://go.mparticle.com/work/SQDSDKS-6317
         this.SDKConfig.flags = processFlags(config);
+
+        const baseUrls: Dictionary<string> = processBaseUrls(
+            config,
+            this.SDKConfig.flags,
+            apiKey
+        );
+
+        for (const baseUrlKeys in baseUrls) {
+            this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
+        }
 
         if (workspaceToken) {
             this.SDKConfig.workspaceToken = workspaceToken;
