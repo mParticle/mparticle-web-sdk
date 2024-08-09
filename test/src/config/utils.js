@@ -222,6 +222,14 @@ var pluses = /\+/g,
     findRequest = function(requests, eventName) {
         let matchingRequest;
         requests.forEach(function(request) {
+            // Initial implementation of this function was to find the
+            // first request that contained a batch that matched the event name
+            // which would have been a post request. However, this was not
+            // we are now using 'get' requests for config api requests
+            // and will likey use them for other requests in the future
+            if (request[1].method.toLowerCase() === 'get') {
+                return null;
+            }
             var batch = JSON.parse(request[1].body);
             for (var i = 0; i<batch.events.length; i++) {
                 var foundEventFromBatch = findEventFromBatch(batch, eventName);

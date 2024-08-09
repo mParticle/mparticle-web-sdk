@@ -136,10 +136,7 @@ export default function ConfigAPIClient(
 ): void {
     console.log('ConfigAPIClient initialized');
 
-    // const { SDKConfig } = mpInstance._Store;
-    // TODO: Replace with service URL
-    // const baseUrl = 'https://' + mpInstance._Store.SDKConfig.configUrl;
-    const baseUrl = 'https://' + Constants.DefaultBaseUrls.configUrl;
+    const baseUrl = 'https://' + mpInstance._Store.SDKConfig.configUrl;
     const { isDevelopmentMode } = config;
     const dataPlan = config.dataPlan as DataPlanConfig;
     const uploadUrl = buildUrl(baseUrl, apiKey, dataPlan, isDevelopmentMode);
@@ -159,26 +156,24 @@ export default function ConfigAPIClient(
             isDevelopmentMode
         );
 
-        // try {
         const fetchPayload: fetchPayload = {
             method: 'get',
             headers: {
                 Accept: 'text/plain;charset=UTF-8',
-                'Content-Type': 'application/json',
+                'Content-Type': 'text/plain;charset=UTF-8',
             },
             body: null,
         };
 
         // TODO: move this to the constructor
-        const uploader = window.fetch
-            ? new FetchUploader(url)
-            : new XHRUploader(url);
+        // const uploader = window.fetch
+        //     ? new FetchUploader(url)
+        //     : new XHRUploader(url);
+        // const uploader = new XHRUploader(url);
+        const uploader = new FetchUploader(url);
 
         try {
             const response = await uploader.upload(fetchPayload);
-
-            // // TODO: Will this work?
-            // return response as unknown as IConfigResponse;
 
             // TODO: Does fetch also return responseText?
             //@ts-ignore

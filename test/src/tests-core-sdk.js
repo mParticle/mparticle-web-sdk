@@ -841,16 +841,18 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should use configUrl when specified on config object', function(done) {
+    it('should use configUrl when specified on config object', function (done) {
+        // Fetch mock converts the host portion to lowercase
+        const expectedConfigUrl = 'https://testconfigurl/test_key/config?env=0';
         mParticle.config.configUrl = 'testConfigUrl/';
         mParticle.config.requestConfig = true;
+
+        fetchMock.get(expectedConfigUrl, 200);
 
         mockServer.requests = [];
         mParticle.init(apiKey, window.mParticle.config);
 
-        mockServer.requests[0].url.should.equal(
-            'https://testConfigUrl/test_key/config?env=0'
-        );
+        expect(fetchMock.lastCall()[0]).to.equal(expectedConfigUrl);
 
         done();
     });
@@ -897,23 +899,48 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should hit url with query parameter of env=1 for debug mode for forwarders', function(done) {
+    it('should hit url with query parameter of env=1 for debug mode for forwarders', function (done) {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         mParticle.config.requestConfig = true;
         mockServer.requests = [];
 
+        fetchMock.get(
+            'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=1',
+            { status: 200 }
+        );
+
         mParticle.init(apiKey, window.mParticle.config);
 
-        (mockServer.requests[0].url.indexOf('?env=1') > 0).should.equal(true);
+        // Config Fetch is async, so we need to wait for it to finish
+        setTimeout(() => {
+            expect(fetchMock.calls()[2][0].indexOf('?env=1') > 0).to.equal(
+                true
+            );
+            done();
+        });
+    });
 
-        mockServer.requests = [];
-        mParticle.config.requestConfig = true;
+    it('should hit url with query parameter of env=0 for debug mode for forwarders', function (done) {
+        mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
+        mParticle.config.requestConfig = true;
+        mockServer.requests = [];
+
+        fetchMock.get(
+            'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0',
+            { status: 200 }
+        );
+
         mParticle.init(apiKey, window.mParticle.config);
 
-        (mockServer.requests[0].url.indexOf('?env=0') > 0).should.equal(true);
+        // Config Fetch is async, so we need to wait for it to finish
+        setTimeout(() => {
+            expect(fetchMock.calls()[2][0].indexOf('?env=0') > 0).to.equal(
+                true
+            );
         done();
+        });
     });
 
     // TODO - there are no actual tests here....what's going on?
@@ -943,15 +970,11 @@ describe('core SDK', function() {
         done();
     });
 
-    it('should initialize and log events even with a failed /config fetch and empty config', function(done) {
+    it('should initialize and log events even with a failed /config fetch and empty config', function async(done) {
         // this instance occurs when self hosting and the user only passes an object into init
         mParticle._resetForTests(MPConfig);
 
-        mockServer.respondWith(urls.identify, [
-            400,
-            {},
-            JSON.stringify(''),
-        ]);
+        mockServer.respondWith(urls.identify, [400, {}, JSON.stringify('')]);
 
         // force config to be only requestConfig = true;
         delete window.mParticle.config.kitConfigs;
@@ -962,22 +985,30 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
+        // fetching the config is async and we need to wait for it to finish
+        setTimeout(() => {
         mParticle.getInstance()._Store.isInitialized.should.equal(true);
 
         // have to manually call identify although it was called as part of init because we can only mock the server response once
         mockServer.respondWith(urls.identify, [
             200,
             {},
-            JSON.stringify({mpid: 'MPID1'}),
+                JSON.stringify({ mpid: 'MPID1' }),
         ]);
 
-        mParticle.Identity.identify({ userIdentities: { customerid: 'test' } });
+            mParticle.Identity.identify({
+                userIdentities: { customerid: 'test' },
+            });
         mParticle.logEvent('Test Event');
-        const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
+            const testEvent = findEventFromRequest(
+                fetchMock.calls(),
+                'Test Event'
+            );
 
         testEvent.should.be.ok();
 
         done();
+        }, 0);
     });
 
     it('should initialize without a config object passed to init', function(done) {
