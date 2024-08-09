@@ -1611,5 +1611,45 @@ describe('eCommerce', function() {
             productAction.ShippingAmount.should.equal(0)
             productAction.TaxAmount.should.equal(0)
         });
+
+        it('should allow a user to pass in a source_message_id to a commerce event', function() {
+             const product = mParticle.eCommerce.createProduct(
+                'iPhone',
+                '12345',
+                '400',
+                2,
+                'Plus',
+                'Phones',
+                'Apple',
+                1,
+                'my-coupon-code',
+                { customkey: 'customvalue' }
+            ),
+
+            transactionAttributes = mParticle.eCommerce.createTransactionAttributes(
+                '12345',
+                'test-affiliation',
+                'coupon-code',
+                44334,
+                600,
+                200
+            );
+            
+            fetchMock.resetHistory();
+            
+            mParticle.eCommerce.logProductAction(
+                mParticle.ProductActionType.Purchase,
+                product,
+                null,
+                null,
+                transactionAttributes,
+                {
+                    sourceMessageId: 'foo-bar'
+                }
+            );
+
+            const purchaseEvent1 = findEventFromRequest(fetchMock.calls(), 'purchase');
+            purchaseEvent1.data.source_message_id.should.equal('foo-bar');
+     });
     });
 });
