@@ -1635,7 +1635,6 @@ describe('eCommerce', function() {
                 200
             );
             
-            
             mParticle.eCommerce.logProductAction(
                 mParticle.ProductActionType.Purchase,
                 product,
