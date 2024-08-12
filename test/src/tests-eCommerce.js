@@ -1635,7 +1635,6 @@ describe('eCommerce', function() {
                 200
             );
             
-            fetchMock.resetHistory();
             
             mParticle.eCommerce.logProductAction(
                 mParticle.ProductActionType.Purchase,
