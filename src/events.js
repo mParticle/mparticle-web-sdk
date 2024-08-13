@@ -129,7 +129,8 @@ export default function Events(mpInstance) {
         options
     ) {
         var event = mpInstance._Ecommerce.createCommerceEventObject(
-            customFlags
+            customFlags,
+            options
         );
 
         var productList = Array.isArray(product) ? product : [product];

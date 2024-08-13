@@ -523,7 +523,7 @@ export default function Ecommerce(mpInstance) {
         return appEvents;
     };
 
-    this.createCommerceEventObject = function(customFlags) {
+    this.createCommerceEventObject = function(customFlags, options) {
         var baseEvent;
 
         mpInstance.Logger.verbose(
@@ -533,6 +533,7 @@ export default function Ecommerce(mpInstance) {
         if (mpInstance._Helpers.canLog()) {
             baseEvent = mpInstance._ServerModel.createEventObject({
                 messageType: Types.MessageType.Commerce,
+                sourceMessageId: options?.sourceMessageId,
             });
             baseEvent.EventName = 'eCommerce - ';
 
