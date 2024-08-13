@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.26.10";
+    var version = "2.27.0";
 
     var Constants = {
       sdkVersion: version,
@@ -3809,12 +3809,13 @@ var mParticle = (function () {
         });
         return appEvents;
       };
-      this.createCommerceEventObject = function (customFlags) {
+      this.createCommerceEventObject = function (customFlags, options) {
         var baseEvent;
         mpInstance.Logger.verbose(Messages$5.InformationMessages.StartingLogCommerceEvent);
         if (mpInstance._Helpers.canLog()) {
           baseEvent = mpInstance._ServerModel.createEventObject({
-            messageType: Types.MessageType.Commerce
+            messageType: Types.MessageType.Commerce,
+            sourceMessageId: options === null || options === void 0 ? void 0 : options.sourceMessageId
           });
           baseEvent.EventName = 'eCommerce - ';
           baseEvent.CurrencyCode = mpInstance._Store.currencyCode;
@@ -4178,10 +4179,14 @@ var mParticle = (function () {
       this.processConfig = function (config) {
         var workspaceToken = config.workspaceToken,
           requiredWebviewBridgeName = config.requiredWebviewBridgeName;
-        // We should reprocess the flags in case they have changed when we request an updated config
+        // We should reprocess the flags and baseUrls in case they have changed when we request an updated config
         // such as if the SDK is being self-hosted and the flags are different on the server config
         // https://go.mparticle.com/work/SQDSDKS-6317
         _this.SDKConfig.flags = processFlags(config);
+        var baseUrls = processBaseUrls(config, _this.SDKConfig.flags, apiKey);
+        for (var baseUrlKeys in baseUrls) {
+          _this.SDKConfig[baseUrlKeys] = baseUrls[baseUrlKeys];
+        }
         if (workspaceToken) {
           _this.SDKConfig.workspaceToken = workspaceToken;
         } else {
@@ -5220,7 +5225,7 @@ var mParticle = (function () {
         }
       };
       this.logProductActionEvent = function (productActionType, product, customAttrs, customFlags, transactionAttributes, options) {
-        var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags);
+        var event = mpInstance._Ecommerce.createCommerceEventObject(customFlags, options);
         var productList = Array.isArray(product) ? product : [product];
         productList.forEach(function (product) {
           if (product.TotalAmount) {
