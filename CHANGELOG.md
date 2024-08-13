@@ -1,3 +1,15 @@
+# [2.27.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.26.10...v2.27.0) (2024-08-13)
+
+
+### Bug Fixes
+
+* Respect directUrlRouting flag in self hosted environments ([#900](https://github.com/mParticle/mparticle-web-sdk/issues/900)) ([ae07504](https://github.com/mParticle/mparticle-web-sdk/commit/ae075040955b99af0e8052217c9b565f1e545eca))
+
+
+### Features
+
+* Enable passing sourceMessageId to logProductAction ([#901](https://github.com/mParticle/mparticle-web-sdk/issues/901)) ([3b10cb1](https://github.com/mParticle/mparticle-web-sdk/commit/3b10cb1f9e08b644dd3ddb880d48d05e0ef7cc07))
+
 ## [2.26.10](https://github.com/mParticle/mparticle-web-sdk/compare/v2.26.9...v2.26.10) (2024-06-18)
 
 ## [2.26.9](https://github.com/mParticle/mparticle-web-sdk/compare/v2.26.8...v2.26.9) (2024-06-11)
