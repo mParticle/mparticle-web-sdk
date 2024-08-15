@@ -140,7 +140,6 @@ export default function ConfigAPIClient(
     const { isDevelopmentMode } = config;
     const dataPlan = config.dataPlan as DataPlanConfig;
     const uploadUrl = buildUrl(baseUrl, apiKey, dataPlan, isDevelopmentMode);
-
     // TODO: Use this instead of the one in getSDKConfiguration
     const uploader = window.fetch
         ? new FetchUploader(uploadUrl)
@@ -170,16 +169,14 @@ export default function ConfigAPIClient(
         //     ? new FetchUploader(url)
         //     : new XHRUploader(url);
         // const uploader = new XHRUploader(url);
-        const uploader = new FetchUploader(url);
+        // const uploader = new FetchUploader(url);
 
         try {
             const response = await uploader.upload(fetchPayload);
-
             // TODO: Does fetch also return responseText?
             //@ts-ignore
-            console.log('response.responseText', response.responseText);
+            // console.log('response.responseText', response.responseText);
             if (response.status === 200) {
-                // debugger;
                 console.log(
                     'Config API Client - returning successful response'
                 );

@@ -182,7 +182,9 @@ describe('ConfigAPIClient', () => {
             });
         });
     });
-    describe('with XHRUploader', () => {
+
+
+    describe.only('with XHRUploader', () => {
         var fetchHolder = window.fetch;
         beforeEach(() => {
             delete window.fetch;
@@ -192,7 +194,7 @@ describe('ConfigAPIClient', () => {
             window.fetch = fetchHolder;
         });
 
-        describe('#getSDKConfiguration', () => {
+        describe.only('#getSDKConfiguration', () => {
             describe('with defaults', () => {
                 it('should fetch a config from the server', async () => {
                     const config = { requestConfig: true } as SDKInitConfig;
@@ -213,6 +215,8 @@ describe('ConfigAPIClient', () => {
                         config,
                         window.mParticle.getInstance()
                     );
+                    const previousFetch = window.fetch;
+                    delete window.fetch;
 
                     const response =
                         await configAPIClient.getSDKConfiguration();
@@ -226,6 +230,8 @@ describe('ConfigAPIClient', () => {
                     expect(response).to.be.ok;
                     expect(response.appName).to.equal('Test App');
                     expect(response.kitConfigs).to.deep.equal(kitConfigs);
+
+                    window.fetch = previousFetch;
                 });
 
                 it('should return inital config fetch fails', async () => {
