@@ -174,7 +174,7 @@ describe('mParticle instance manager', function() {
         done();
     });
 
-    describe('multiple instances testing', function() {
+    describe.only('multiple instances testing', function() {
         beforeEach(function() {
             //remove each of the instance's localStorage
             localStorage.removeItem('mprtcl-v4_wtTest1');
@@ -190,20 +190,22 @@ describe('mParticle instance manager', function() {
             mockServer.respondImmediately = true;
 
             //config default instance
-            mockServer.respondWith(
-                'https://jssdkcdns.mparticle.com/JS/v2/apiKey1/config?env=0',
-                [200, {}, JSON.stringify({ workspaceToken: 'wtTest1' })]
-            );
+            fetchMock.get('https://jssdkcdns.mparticle.com/JS/v2/apiKey1/config?env=0', {
+                status: 200,
+                body: JSON.stringify({ workspaceToken: 'wtTest1' }),
+            });
+
             //config instance 2
-            mockServer.respondWith(
-                'https://jssdkcdns.mparticle.com/JS/v2/apiKey2/config?env=0',
-                [200, {}, JSON.stringify({ workspaceToken: 'wtTest2' })]
-            );
+            fetchMock.get('https://jssdkcdns.mparticle.com/JS/v2/apiKey2/config?env=0', {
+                status: 200,
+                body: JSON.stringify({ workspaceToken: 'wtTest2' }),
+            });
+
             //config instance 3
-            mockServer.respondWith(
-                'https://jssdkcdns.mparticle.com/JS/v2/apiKey3/config?env=0',
-                [200, {}, JSON.stringify({ workspaceToken: 'wtTest3' })]
-            );
+            fetchMock.get('https://jssdkcdns.mparticle.com/JS/v2/apiKey3/config?env=0', {
+                status: 200,
+                body: JSON.stringify({ workspaceToken: 'wtTest3' }),
+            });
 
             // default instance event mock
             fetchMock.post(
@@ -239,89 +241,97 @@ describe('mParticle instance manager', function() {
 
         afterEach(function() {
             mockServer.restore();
+            fetchMock.restore();
         });
 
         it('creates multiple instances with their own cookies', function(done) {
-            const cookies1 = window.localStorage.getItem('mprtcl-v4_wtTest1');
-            const cookies2 = window.localStorage.getItem('mprtcl-v4_wtTest2');
-            const cookies3 = window.localStorage.getItem('mprtcl-v4_wtTest3');
-
-            cookies1.includes('apiKey1').should.equal(true);
-            cookies2.includes('apiKey2').should.equal(true);
-            cookies3.includes('apiKey3').should.equal(true);
-
-            done();
+            // setTimeout to allow config to come back from the beforeEach initialization
+            setTimeout(() => {
+                const cookies1 = window.localStorage.getItem('mprtcl-v4_wtTest1');
+                const cookies2 = window.localStorage.getItem('mprtcl-v4_wtTest2');
+                const cookies3 = window.localStorage.getItem('mprtcl-v4_wtTest3');
+    
+                cookies1.includes('apiKey1').should.equal(true);
+                cookies2.includes('apiKey2').should.equal(true);
+                cookies3.includes('apiKey3').should.equal(true);
+    
+                done();
+            }, 50)
         });
 
         it('logs events to their own instances', function(done) {
-            mParticle.getInstance('default_instance').logEvent('hi1');
-            mParticle.getInstance('instance2').logEvent('hi2');
-            mParticle.getInstance('instance3').logEvent('hi3');
+            // setTimeout to allow config to come back from the beforeEach initialization
+            setTimeout(() => {
+                mParticle.getInstance('default_instance').logEvent('hi1');
+                mParticle.getInstance('instance2').logEvent('hi2');
+                mParticle.getInstance('instance3').logEvent('hi3');
+                
+                const instance1Event = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey1',
+                    'hi1'
+                );
+                instance1Event.should.be.ok();
 
-            const instance1Event = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey1',
-                'hi1'
-            );
-            instance1Event.should.be.ok();
+                const instance2Event = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey2',
+                    'hi2'
+                );
+                instance2Event.should.be.ok();
 
-            const instance2Event = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey2',
-                'hi2'
-            );
-            instance2Event.should.be.ok();
+                const instance3Event = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey3',
+                    'hi3'
+                );
+                instance3Event.should.be.ok();
 
-            const instance3Event = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey3',
-                'hi3'
-            );
-            instance3Event.should.be.ok();
+                const instance1EventsFail1 = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey1',
+                    'hi2'
+                );
 
-            const instance1EventsFail1 = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey1',
-                'hi2'
-            );
-            Should(instance1EventsFail1).not.be.ok();
+                Should(instance1EventsFail1).not.be.ok();
 
-            const instance1EventsFail2 = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey1',
-                'hi3'
-            );
-            Should(instance1EventsFail2).not.be.ok();
+                const instance1EventsFail2 = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey1',
+                    'hi3'
+                );
+                Should(instance1EventsFail2).not.be.ok();
 
-            const instance2EventsFail1 = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey2',
-                'hi1'
-            );
-            Should(instance2EventsFail1).not.be.ok();
+                const instance2EventsFail1 = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey2',
+                    'hi1'
+                );
+                Should(instance2EventsFail1).not.be.ok();
 
-            const instance2EventsFail2 = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey2',
-                'hi3'
-            );
-            Should(instance2EventsFail2).not.be.ok();
+                const instance2EventsFail2 = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey2',
+                    'hi3'
+                );
+                Should(instance2EventsFail2).not.be.ok();
 
-            const instance3EventsFail1 = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey3',
-                'hi1'
-            );
-            Should(instance3EventsFail1).not.be.ok();
+                const instance3EventsFail1 = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey3',
+                    'hi1'
+                );
+                Should(instance3EventsFail1).not.be.ok();
 
-            const instance3EventsFail2 = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey3',
-                'hi2'
-            );
-            Should(instance3EventsFail2).not.be.ok();
+                const instance3EventsFail2 = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey3',
+                    'hi2'
+                );
+                Should(instance3EventsFail2).not.be.ok();
 
-            done();
+                done();
+            }, 50)
         });
 
         it('logs purchase events to their own instances', function(done) {
@@ -367,60 +377,63 @@ describe('mParticle instance manager', function() {
                 10,
                 5
             );
+
+            // setTimeout to allow config to come back from the beforeEach initialization
             mParticle
                 .getInstance()
                 .eCommerce.logPurchase(ta, [product1, product2]);
+            setTimeout(() => {
+                const instance1Event = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey1',
+                    'purchase'
+                );
+                let instance2Event = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey2',
+                    'purchase'
+                );
+                let instance3Event = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey3',
+                    'purchase'
+                );
+                instance1Event.should.be.ok();
+                Should(instance2Event).not.be.ok();
+                Should(instance3Event).not.be.ok();
 
-            const instance1Event = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey1',
-                'purchase'
-            );
-            let instance2Event = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey2',
-                'purchase'
-            );
-            let instance3Event = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey3',
-                'purchase'
-            );
-            instance1Event.should.be.ok();
-            Should(instance2Event).not.be.ok();
-            Should(instance3Event).not.be.ok();
+                mParticle
+                    .getInstance('instance2')
+                    .eCommerce.logPurchase(ta, [product1, product2]);
 
-            mParticle
-                .getInstance('instance2')
-                .eCommerce.logPurchase(ta, [product1, product2]);
+                instance2Event = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey2',
+                    'purchase'
+                );
+                instance3Event = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey3',
+                    'purchase'
+                );
 
-            instance2Event = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey2',
-                'purchase'
-            );
-            instance3Event = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey3',
-                'purchase'
-            );
+                instance2Event.should.be.ok();
+                Should(instance3Event).not.be.ok();
 
-            instance2Event.should.be.ok();
-            Should(instance3Event).not.be.ok();
+                mParticle
+                    .getInstance('instance3')
+                    .eCommerce.logPurchase(ta, [product1, product2]);
 
-            mParticle
-                .getInstance('instance3')
-                .eCommerce.logPurchase(ta, [product1, product2]);
+                instance3Event = returnEventForMPInstance(
+                    fetchMock.calls(),
+                    'apiKey3',
+                    'purchase'
+                );
 
-            instance3Event = returnEventForMPInstance(
-                fetchMock.calls(),
-                'apiKey3',
-                'purchase'
-            );
+                instance3Event.should.be.ok();
 
-            instance3Event.should.be.ok();
-
-            done();
+                done();
+            }, 50)
         });
     });
 });
