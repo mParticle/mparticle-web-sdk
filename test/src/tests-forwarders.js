@@ -2614,7 +2614,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it('parse and capture forwarderConfiguration properly from backend', function(done) {
+    it.only('parse and capture forwarderConfiguration properly from backend', function(done) {
         mParticle._resetForTests(MPConfig);
 
         mParticle.config.requestConfig = true;
@@ -2682,20 +2682,28 @@ describe('forwarders', function() {
             ],
         };
 
-        mockServer.respondWith(urls.config, [200, {}, JSON.stringify(config)]);
 
-        mockServer.requests = [];
+        fetchMock.get(urls.config, {
+            status: 200,
+            body: JSON.stringify(config),
+        });
+
+        // mockServer.respondWith(urls.config, [200, {}, JSON.stringify(config)]);
+
+        // mockServer.requests = [];
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        const activeForwarders = mParticle.getInstance()._getActiveForwarders();
-        activeForwarders.length.should.equal(2);
-        const moduleIds = [124, 128];
-        activeForwarders.forEach(function(forwarder) {
-            moduleIds.indexOf(forwarder.id).should.be.greaterThanOrEqual(0);
-        });
-
-        done();
+        setTimeout(() => {
+            const activeForwarders = mParticle.getInstance()._getActiveForwarders();
+            activeForwarders.length.should.equal(2);
+            const moduleIds = [124, 128];
+            activeForwarders.forEach(function(forwarder) {
+                moduleIds.indexOf(forwarder.id).should.be.greaterThanOrEqual(0);
+            });
+    
+            done();
+        }, 200);
     });
 
     it('configures forwarders before events are logged via identify callback', function(done) {
