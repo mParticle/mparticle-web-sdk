@@ -161,18 +161,12 @@ describe('/config self-hosting integration tests', function() {
         window.mParticle.config.logLevel = 'verbose';
         delete window.mParticle.config.workspaceToken;
 
-        fetchMock.mock(urls.config, () => {
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve({
-                        status: 200,
-                        body: JSON.stringify({
-                            workspaceToken: 'wtTest'
-                        }),
-                        headers: { 'Content-Type': 'application/json' },
-                    });
-                }, 50); // 100ms delay
-            })
+
+        fetchMock.get(urls.config, {
+            status: 200,
+            body: JSON.stringify({
+                workspaceToken: 'wtTest'
+            }),
         });
 
         mParticle.init(apiKey, window.mParticle.config);
