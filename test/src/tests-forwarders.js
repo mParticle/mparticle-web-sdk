@@ -2688,9 +2688,7 @@ describe('forwarders', function() {
             body: JSON.stringify(config),
         });
 
-        // mockServer.respondWith(urls.config, [200, {}, JSON.stringify(config)]);
 
-        // mockServer.requests = [];
 
         mParticle.init(apiKey, window.mParticle.config);
 

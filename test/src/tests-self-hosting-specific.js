@@ -38,7 +38,7 @@ describe('/config self-hosting integration tests', function() {
             {},
             JSON.stringify({ mpid: 'identifyMPID', is_logged_in: false }),
         ]);
-
+          // https://go.mparticle.com/work/SQDSDKS-6651
         fetchMock.mock(urls.config, () => {
             return new Promise((resolve) => {
                 setTimeout(() => {
