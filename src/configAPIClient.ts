@@ -13,13 +13,6 @@ import {
     FetchUploader,
     XHRUploader,
 } from './uploaders';
-import Constants from './constants';
-
-export type SDKCompleteInitCallback = (
-    apiKey: string,
-    config: SDKInitConfig,
-    mpInstance: MParticleWebSDK
-) => void;
 
 export interface IKitConfigs extends IKitFilterSettings {
     name: string;
@@ -103,15 +96,13 @@ export interface IConfigAPIClient {
     getSDKConfiguration: () => Promise<IConfigResponse>;
 }
 
-// QUESTION: Should the uploader care about building urls?
 const buildUrl = (
     configUrl: string,
     apiKey: string,
     dataPlanConfig?: DataPlanConfig | null,
     isDevelopmentMode?: boolean | null
 ): string => {
-    let url = configUrl + apiKey + '/config';
-
+    const url = configUrl + apiKey + '/config';
     const env = isDevelopmentMode ? '1' : '0';
     const queryParams = [`env=${env}`];
 
@@ -134,27 +125,16 @@ export default function ConfigAPIClient(
     config: SDKInitConfig,
     mpInstance: MParticleWebSDK
 ): void {
-    console.log('ConfigAPIClient initialized');
-
     const baseUrl = 'https://' + mpInstance._Store.SDKConfig.configUrl;
     const { isDevelopmentMode } = config;
     const dataPlan = config.dataPlan as DataPlanConfig;
     const uploadUrl = buildUrl(baseUrl, apiKey, dataPlan, isDevelopmentMode);
-    // TODO: Use this instead of the one in getSDKConfiguration
-    const uploader = window.fetch
+    const uploader: AsyncUploader = window.fetch
         ? new FetchUploader(uploadUrl)
         : new XHRUploader(uploadUrl);
 
     this.getSDKConfiguration = async (): Promise<IConfigResponse> => {
-        console.log('what is config', config);
-
-        const url: string = buildUrl(
-            baseUrl,
-            apiKey,
-            dataPlan,
-            isDevelopmentMode
-        );
-
+        let configResponse: IConfigResponse;
         const fetchPayload: fetchPayload = {
             method: 'get',
             headers: {
@@ -164,18 +144,8 @@ export default function ConfigAPIClient(
             body: null,
         };
 
-        // TODO: move this to the constructor
-        // const uploader = window.fetch
-        //     ? new FetchUploader(url)
-        //     : new XHRUploader(url);
-        // const uploader = new XHRUploader(url);
-        // const uploader = new FetchUploader(url);
-
         try {
             const response = await uploader.upload(fetchPayload);
-            // TODO: Does fetch also return responseText?
-            //@ts-ignore
-            // console.log('response.responseText', response.responseText);
             if (response.status === 200) {
                 console.log(
                     'Config API Client - returning successful response'
@@ -184,28 +154,31 @@ export default function ConfigAPIClient(
                     'Successfully received configuration from server'
                 );
 
-                // Will this work with XHR?
+                // https://go.mparticle.com/work/SQDSDKS-6568
+                // FetchUploader returns the response as a JSON object that we have to await
                 if (response.json) {
-                    return (await response.json()) as IConfigResponse;
+                    configResponse = await response.json();
+                    return configResponse;
                 }
 
-                return JSON.parse(
-                    // @ts-ignore
-                    response.responseText
-                ) as IConfigResponse;
+                // https://go.mparticle.com/work/SQDSDKS-6568
+                // XHRUploader returns the response as a string that we need to parse
+                const xhrResponse = response as unknown as XMLHttpRequest;
+                configResponse = JSON.parse(xhrResponse.responseText);
+                return configResponse;
             }
 
             mpInstance?.Logger?.verbose(
                 'Issue with receiving configuration from server, received HTTP Code of ' +
                     response.statusText
             );
-            console.log('Config API Client - returning original config');
         } catch (e) {
             mpInstance?.Logger?.error(
                 'Error getting forwarder configuration from mParticle servers.'
             );
         }
 
+        // Returns the original config object if we cannot retrieve the remote config
         return config as IConfigResponse;
     };
 }
