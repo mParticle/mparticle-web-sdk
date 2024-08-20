@@ -1665,6 +1665,7 @@ export default function Identity(mpInstance) {
 
             mpInstance.Logger.verbose('Successfully parsed Identity Response');
 
+            // https://go.mparticle.com/work/SQDSDKS-6654
             mpInstance._APIClient?.processQueuedEvents();
         } catch (e) {
             if (callback) {
