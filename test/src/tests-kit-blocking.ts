@@ -6,6 +6,7 @@ import Utils from './config/utils';
 import KitBlocker from '../../src/kitBlocking';
 import Types from '../../src/types';
 import { DataPlanVersion } from '@mparticle/data-planning-models';
+import fetchMock from 'fetch-mock/esm/client';
 
 let forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
@@ -1258,11 +1259,15 @@ describe('kit blocking', () => {
         });
 
         describe('integration tests - self hosting set up', () => {
+            afterEach(function() {
+                fetchMock.restore();
+            });
+
             it('should create a proper kitblocker on a self hosted set up', function(done) {
-                mockServer.respondWith(
-                    `${urls.config}&plan_id=robs_plan&plan_version=1`,
-                    [200, {}, JSON.stringify({ dataPlanResult: dataPlan })]
-                );
+                fetchMock.get(`${urls.config}&plan_id=robs_plan&plan_version=1`, {
+                    status: 200,
+                    body: JSON.stringify({ dataPlanResult: dataPlan }),
+                });
 
                 window.mParticle._resetForTests(MPConfig);
 
@@ -1281,20 +1286,25 @@ describe('kit blocking', () => {
 
                 window.mParticle.logEvent('Blocked event');
 
-                let event = window.MockForwarder1.instance.receivedEvent;
-                (event === null).should.equal(true);
-                
-                window.mParticle.config.requestConfig = false;
+                setTimeout(() => {
+                    let event = window.MockForwarder1.instance.receivedEvent;
+                    (event === null).should.equal(true);
+                    
+                    window.mParticle.config.requestConfig = false;
+    
+                    done();
+                    
+                }, 50);
 
-                done();
             });
 
             it('should log an error if the data plan has an error on it', function(done) {
                 const errorMessage = 'This is an error';
-                mockServer.respondWith(
-                    `${urls.config}&plan_id=robs_plan&plan_version=1`,
-                    [200, {}, JSON.stringify({ dataPlanResult: {error_message: errorMessage} })]
-                );
+
+                fetchMock.get(`${urls.config}&plan_id=robs_plan&plan_version=1`, {
+                    status: 200,
+                    body: JSON.stringify({ dataPlanResult: {error_message: errorMessage} }),
+                });
 
                 let errorMessages = [];
 
@@ -1320,10 +1330,12 @@ describe('kit blocking', () => {
                 }
 
                 window.mParticle.init(apiKey, window.mParticle.config);
-                errorMessages[0].should.equal(errorMessage);
-                window.mParticle.config.requestConfig = false;
-
-                done();
+                setTimeout(() => {
+                    errorMessages[0].should.equal(errorMessage);
+                    window.mParticle.config.requestConfig = false;
+    
+                    done();
+                }, 50);
             });
         })
     });

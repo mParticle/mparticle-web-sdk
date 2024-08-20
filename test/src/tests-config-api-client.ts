@@ -182,6 +182,8 @@ describe('ConfigAPIClient', () => {
             });
         });
     });
+
+
     describe('with XHRUploader', () => {
         var fetchHolder = window.fetch;
         beforeEach(() => {

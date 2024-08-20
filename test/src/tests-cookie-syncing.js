@@ -63,6 +63,7 @@ describe('cookie syncing', function() {
     });
 
     afterEach(function() {
+        fetchMock.restore();
         mockServer.restore();
         mParticle._resetForTests(MPConfig);
     });
@@ -286,13 +287,11 @@ describe('cookie syncing', function() {
             ],
         };
 
-        mockServer.respondWith(urls.config, [
-            200,
-            {},
-            JSON.stringify(forwarderConfigurationResult),
-        ]);
+        fetchMock.get(urls.config, {
+            status: 200,
+            body: JSON.stringify(forwarderConfigurationResult),
+        });
 
-        mockServer.requests = [];
         // add pixels to preInitConfig
         mParticle.init(apiKey, window.mParticle.config);
 
