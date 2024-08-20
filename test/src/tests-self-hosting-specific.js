@@ -51,7 +51,7 @@ describe('/config self-hosting integration tests', function() {
                         }),
                         headers: { 'Content-Type': 'application/json' },
                     });
-                }, 100); // 100ms delay
+                }, 50); // 100ms delay
             })
         });
 
@@ -61,16 +61,17 @@ describe('/config self-hosting integration tests', function() {
         mParticle.logEvent('Test');
         let event = findEventFromRequest(fetchMock.calls(), 'Test');
         Should(event).not.be.ok();
+
         setTimeout(() => {
             event = findBatch(fetchMock.calls(), 'Test');
-
+            
             event.should.be.ok();
             event.mpid.should.equal('identifyMPID');
-
+            
             mockServer.restore();
             window.mParticle.config.requestConfig = false;
             done();
-        }, 150);
+        }, 75);
     });
 
     it('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
@@ -92,7 +93,7 @@ describe('/config self-hosting integration tests', function() {
         };
 
         mockServer.autoRespond = true;
-        mockServer.autoRespondAfter = 150;
+        mockServer.autoRespondAfter = 100;
 
         fetchMock.mock(urls.config, () => {
             return new Promise((resolve) => {
@@ -106,7 +107,7 @@ describe('/config self-hosting integration tests', function() {
                         }),
                         headers: { 'Content-Type': 'application/json' },
                     });
-                }, 100); // 100ms delay
+                }, 50); // 100ms delay
             })
         });
 
@@ -151,7 +152,7 @@ describe('/config self-hosting integration tests', function() {
 
             done();
             
-        }, 200);
+        }, 150);
     });
 
     it('cookie name has workspace token in it in self hosting mode after config fetch', function(done) {
@@ -170,7 +171,7 @@ describe('/config self-hosting integration tests', function() {
                         }),
                         headers: { 'Content-Type': 'application/json' },
                     });
-                }, 100); // 100ms delay
+                }, 50); // 100ms delay
             })
         });
 
@@ -182,6 +183,6 @@ describe('/config self-hosting integration tests', function() {
             window.mParticle.config.requestConfig = false;
     
             done();
-        }, 200);
+        }, 75);
     });
 });
