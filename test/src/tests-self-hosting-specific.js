@@ -182,40 +182,36 @@ describe('/config self-hosting integration tests', function() {
         }, 75);
     });
 
-    describe('/config self-hosting with direct url routing', function() {
-        it('should return direct urls when no baseUrls are passed and directURLRouting is true', () => {
+    describe('/config self-hosting with direct url routing', function () {
+        it('should return direct urls when no baseUrls are passed and directURLRouting is true', (done) => {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.requestConfig = true;
             delete window.mParticle.config.workspaceToken;
 
             mockServer.respondImmediately = true;
 
-            mockServer.respondWith(
-                urls.config, 
-                [
-                    200,
-                    {},
-                    JSON.stringify({
+            fetchMock.get(urls.config, {
+                status: 200,
+                body: JSON.stringify({
                         workspaceToken: 'wtTest',
                         flags: {
-                            directURLRouting: 'True'
-                        }
-                    })
-                ]
-            );
+                        directURLRouting: 'True',
+                    },
+                }),
+            });
 
-            mockServer.respondWith(
-                urls.identify, [
+            mockServer.respondWith(urls.identify, [
                     200,
                     {},
                     JSON.stringify({
                         mpid: 'identifyMPID',
-                        is_logged_in: false
-                    })
+                    is_logged_in: false,
+                }),
                 ]);
 
             mParticle.init(apiKey, window.mParticle.config);
 
+            setTimeout(() => {
             const {
                 aliasUrl,
                 configUrl,
@@ -227,46 +223,53 @@ describe('/config self-hosting integration tests', function() {
             aliasUrl.should.equal('jssdks.us1.mparticle.com/v1/identity/');
             configUrl.should.equal('jssdkcdns.mparticle.com/JS/v2/');
             identityUrl.should.equal('identity.us1.mparticle.com/v1/');
-            v1SecureServiceUrl.should.equal('jssdks.us1.mparticle.com/v1/JS/');
-            v3SecureServiceUrl.should.equal('jssdks.us1.mparticle.com/v3/JS/');
+                v1SecureServiceUrl.should.equal(
+                    'jssdks.us1.mparticle.com/v1/JS/'
+                );
+                v3SecureServiceUrl.should.equal(
+                    'jssdks.us1.mparticle.com/v3/JS/'
+                );
+
+                done();
+            }, 150);
         });
 
-        it('should prioritize passed in baseUrls over direct urls', () => {
+        it('should prioritize passed in baseUrls over direct urls', (done) => {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.requestConfig = true;
-            window.mParticle.config.aliasUrl = 'jssdks.foo.mparticle.com/v1/identity/'
-            window.mParticle.config.identityUrl = 'identity.foo.mparticle.com/v1/';
-            window.mParticle.config.v1SecureServiceUrl = 'jssdks.foo.mparticle.com/v1/JS/';
-            window.mParticle.config.v3SecureServiceUrl = 'jssdks.foo.mparticle.com/v3/JS/'
+            window.mParticle.config.aliasUrl =
+                'jssdks.foo.mparticle.com/v1/identity/';
+            window.mParticle.config.identityUrl =
+                'identity.foo.mparticle.com/v1/';
+            window.mParticle.config.v1SecureServiceUrl =
+                'jssdks.foo.mparticle.com/v1/JS/';
+            window.mParticle.config.v3SecureServiceUrl =
+                'jssdks.foo.mparticle.com/v3/JS/';
 
             mockServer.respondImmediately = true;
 
-            mockServer.respondWith(
-                urls.config, 
-                [
-                    200,
-                    {},
-                    JSON.stringify({
+            fetchMock.get(urls.config, {
+                status: 200,
+                body: JSON.stringify({
                         workspaceToken: 'wtTest',
                         flags: {
-                            directURLRouting: 'True'
-                        }
-                    })
-                ]
-            );
+                        directURLRouting: 'True',
+                    },
+                }),
+            });
 
-            mockServer.respondWith(
-                urls.identify, [
+            mockServer.respondWith(urls.identify, [
                     200,
                     {},
                     JSON.stringify({
                         mpid: 'identifyMPID',
-                        is_logged_in: false
-                    })
+                    is_logged_in: false,
+                }),
                 ]);
 
             mParticle.init(apiKey, window.mParticle.config);
 
+            setTimeout(() => {
             const {
                 aliasUrl,
                 configUrl,
@@ -278,8 +281,15 @@ describe('/config self-hosting integration tests', function() {
             configUrl.should.equal('jssdkcdns.mparticle.com/JS/v2/');
             aliasUrl.should.equal('jssdks.foo.mparticle.com/v1/identity/');
             identityUrl.should.equal('identity.foo.mparticle.com/v1/');
-            v1SecureServiceUrl.should.equal('jssdks.foo.mparticle.com/v1/JS/');
-            v3SecureServiceUrl.should.equal('jssdks.foo.mparticle.com/v3/JS/');
+                v1SecureServiceUrl.should.equal(
+                    'jssdks.foo.mparticle.com/v1/JS/'
+                );
+                v3SecureServiceUrl.should.equal(
+                    'jssdks.foo.mparticle.com/v3/JS/'
+                );
+
+                done();
+            }, 150);
         });
     });
 });
