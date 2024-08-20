@@ -8,7 +8,7 @@ const { findEventFromRequest, findBatch } = Utils;
 let mockServer;
 
 // Calls to /config are specific to only the self hosting environment
-describe.only('/config self-hosting integration tests', function() {
+describe('/config self-hosting integration tests', function() {
     beforeEach(function() {
         fetchMock.post(urls.events, 200);
 
@@ -70,10 +70,10 @@ describe.only('/config self-hosting integration tests', function() {
             mockServer.restore();
             window.mParticle.config.requestConfig = false;
             done();
-        }, 200);
+        }, 150);
     });
 
-    it.only('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
+    it('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
         const messages = [];
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
@@ -87,20 +87,12 @@ describe.only('/config self-hosting integration tests', function() {
             },
         };
 
-        window.mParticle.config.identifyRequest = {
-            userIdentities: {
-                google: 'google123',
-            },
-        };
         window.mParticle.config.identityCallback = function() {
             mParticle.logEvent('identify callback event');
         };
 
-        // start fake timer and mock server
-        // const clock = sinon.useFakeTimers();
-        // mockServer.autoRespond = true;
-        // mockServer.autoRespondAfter = 100;
-        mockServer.respondImmediately = true;
+        mockServer.autoRespond = true;
+        mockServer.autoRespondAfter = 150;
 
         fetchMock.mock(urls.config, () => {
             return new Promise((resolve) => {
@@ -114,7 +106,7 @@ describe.only('/config self-hosting integration tests', function() {
                         }),
                         headers: { 'Content-Type': 'application/json' },
                     });
-                }, 500); // 100ms delay
+                }, 100); // 100ms delay
             })
         });
 
@@ -123,11 +115,13 @@ describe.only('/config self-hosting integration tests', function() {
             {},
             JSON.stringify({ mpid: 'identifyMPID', is_logged_in: false }),
         ]);
+
         mockServer.respondWith(urls.login, [
             200,
             {},
             JSON.stringify({ mpid: 'loginMPID', is_logged_in: false }),
         ]);
+
 
         mParticle.init(apiKey, window.mParticle.config);
         // call login before mParticle.identify is triggered, which happens after config returns
@@ -135,7 +129,6 @@ describe.only('/config self-hosting integration tests', function() {
         mParticle.logEvent('Test');
 
         // config triggers, login triggers immediately before identify
-        // clock.tick(300);
         setTimeout(() => {
             const event1 = findBatch(fetchMock.calls(), 'Test');
             event1.mpid.should.equal('loginMPID');
@@ -158,7 +151,7 @@ describe.only('/config self-hosting integration tests', function() {
 
             done();
             
-        }, 800);
+        }, 200);
     });
 
     it('cookie name has workspace token in it in self hosting mode after config fetch', function(done) {
@@ -173,9 +166,7 @@ describe.only('/config self-hosting integration tests', function() {
                     resolve({
                         status: 200,
                         body: JSON.stringify({
-                            success: true,
-                            appName: 'Test App',
-                            kitCOnfigs: []
+                            workspaceToken: 'wtTest'
                         }),
                         headers: { 'Content-Type': 'application/json' },
                     });
@@ -188,11 +179,9 @@ describe.only('/config self-hosting integration tests', function() {
         setTimeout(() => {
             const data = window.localStorage.getItem('mprtcl-v4_wtTest');
             (typeof data === 'string').should.equal(true);
+            window.mParticle.config.requestConfig = false;
+    
+            done();
         }, 200);
-
-
-        window.mParticle.config.requestConfig = false;
-
-        done();
     });
 });

@@ -186,7 +186,6 @@ export default function ConfigAPIClient(
 
                 // Will this work with XHR?
                 if (response.json) {
-                    // debugger;
                     return (await response.json()) as IConfigResponse;
                 }
 
@@ -202,7 +201,6 @@ export default function ConfigAPIClient(
             );
             console.log('Config API Client - returning original config');
         } catch (e) {
-            // debugger;
             mpInstance?.Logger?.error(
                 'Error getting forwarder configuration from mParticle servers.'
             );

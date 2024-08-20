@@ -909,30 +909,17 @@ describe('core SDK', function() {
             'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=1',
             { status: 200 }
         );
-        // const clock = sinon.useFakeTimers();
-
-        // fetchMock.get('https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=1', {
-        //     response: () => new Promise((resolve) => {
-        //         setTimeout(() => {
-        //             resolve({ status: 200, body: { success: true } });
-        //         }, 5000); // Simulate a 5-second delay
-        //     }),
-        // });
-
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        // debugger;
 
-        // Config Fetch is async, so we need to wait for it to finish
-        // setTimeout(() => {
 
-            // rob note - while config fetch is async, we are only testing what endpoint is hit here, and so we do not need to wait for anything to return
-            (fetchMock.calls()[2][0].indexOf('?env=1') > 0).should.equal(
-                true
-            );
-            done();
-        // });
+        // rob note - while config fetch is async, we are only testing what endpoint is hit here, and so we do not need to wait for anything to return
+        (fetchMock.calls()[2][0].indexOf('?env=1') > 0).should.equal(
+            true
+        );
+
+        done();
     });
 
     it('should hit url with query parameter of env=0 for debug mode for forwarders', function (done) {
@@ -948,16 +935,13 @@ describe('core SDK', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
-        // Config Fetch is async, so we need to wait for it to finish
-                    // rob note - while config fetch is async, we are only testing what endpoint is hit here, and so we do not need to wait for anything to return
+        // rob note - while config fetch is async, we are only testing what endpoint is hit here, and so we do not need to wait for anything to return
 
-        // setTimeout(() => {
         (fetchMock.calls()[2][0].indexOf('?env=0') > 0).should.equal(
             true
         );
         
         done();
-        // });
     });
 
     // TODO - there are no actual tests here....what's going on?

@@ -2614,7 +2614,7 @@ describe('forwarders', function() {
         done();
     });
 
-    it.only('parse and capture forwarderConfiguration properly from backend', function(done) {
+    it('parse and capture forwarderConfiguration properly from backend', function(done) {
         mParticle._resetForTests(MPConfig);
 
         mParticle.config.requestConfig = true;

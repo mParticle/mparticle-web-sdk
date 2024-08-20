@@ -174,7 +174,7 @@ describe('mParticle instance manager', function() {
         done();
     });
 
-    describe.only('multiple instances testing', function() {
+    describe('multiple instances testing', function() {
         beforeEach(function() {
             //remove each of the instance's localStorage
             localStorage.removeItem('mprtcl-v4_wtTest1');

@@ -184,7 +184,7 @@ describe('ConfigAPIClient', () => {
     });
 
 
-    describe.only('with XHRUploader', () => {
+    describe('with XHRUploader', () => {
         var fetchHolder = window.fetch;
         beforeEach(() => {
             delete window.fetch;
@@ -194,7 +194,7 @@ describe('ConfigAPIClient', () => {
             window.fetch = fetchHolder;
         });
 
-        describe.only('#getSDKConfiguration', () => {
+        describe('#getSDKConfiguration', () => {
             describe('with defaults', () => {
                 it('should fetch a config from the server', async () => {
                     const config = { requestConfig: true } as SDKInitConfig;
