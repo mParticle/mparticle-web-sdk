@@ -147,9 +147,6 @@ export default function ConfigAPIClient(
         try {
             const response = await uploader.upload(fetchPayload);
             if (response.status === 200) {
-                console.log(
-                    'Config API Client - returning successful response'
-                );
                 mpInstance?.Logger?.verbose(
                     'Successfully received configuration from server'
                 );
@@ -159,13 +156,13 @@ export default function ConfigAPIClient(
                 if (response.json) {
                     configResponse = await response.json();
                     return configResponse;
+                } else {
+                    // https://go.mparticle.com/work/SQDSDKS-6568
+                    // XHRUploader returns the response as a string that we need to parse
+                    const xhrResponse = response as unknown as XMLHttpRequest;
+                    configResponse = JSON.parse(xhrResponse.responseText);
+                    return configResponse;
                 }
-
-                // https://go.mparticle.com/work/SQDSDKS-6568
-                // XHRUploader returns the response as a string that we need to parse
-                const xhrResponse = response as unknown as XMLHttpRequest;
-                configResponse = JSON.parse(xhrResponse.responseText);
-                return configResponse;
             }
 
             mpInstance?.Logger?.verbose(
