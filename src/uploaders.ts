@@ -40,7 +40,7 @@ export class XHRUploader extends AsyncUploader {
     }
 
     // XHR Ready States
-    // https://stackoverflow.com/questions/30522565/what-is-meaning-of-xhr-readystate-4#:~:text=State%204%20means%20that%20the,finished%20downloading%20the%20response%20content.
+    // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/readyState
     // 0   UNSENT  open() has not been called yet.
     // 1   OPENED  send() has been called.
     // 2   HEADERS_RECEIVED    send() has been called, and headers and status are available.
