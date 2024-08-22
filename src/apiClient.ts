@@ -1,14 +1,19 @@
 import Constants from './constants';
 import Types from './types';
 import { BatchUploader } from './batchUploader';
-import { MParticleWebSDK, SDKEvent } from './sdkRuntimeModels';
+import { MParticleWebSDK, SDKEvent, SDKDataPlan } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
 import { Dictionary, getRampNumber, isEmpty, parseNumber } from './utils';
 import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
 import { IMParticleUser } from './identity-user-interfaces';
 
-export type ForwardingStatsData = Dictionary<any>;
+import {
+    AsyncUploader,
+    FetchUploader,
+    XHRUploader,
+    fetchPayload
+} from './uploaders';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -18,16 +23,30 @@ export interface IAPIClient {
     sendEventToServer: (event: SDKEvent, _options?: Dictionary<any>) => void;
     sendSingleEventToServer: (event: SDKEvent) => void;
     sendBatchForwardingStatsToServer: (
-        forwardingStatsData: ForwardingStatsData,
+        forwardingStatsData: IForwardingStatsData,
         xhr: XMLHttpRequest
     ) => void;
     sendSingleForwardingStatsToServer: (
-        forwardingStatsData: ForwardingStatsData
+        sendSingleForwardingStatsToServer: IForwardingStatsData
     ) => void;
     prepareForwardingStats: (
         forwarder: MPForwarder,
         event: IUploadObject
     ) => void;
+}
+
+export interface IForwardingStatsData {
+    mid: number;
+    esid: number;
+    n: string;
+    attrs: Dictionary<any>;
+    sdk: string;
+    dt: number;
+    et: number;
+    dbg: boolean;
+    ct: number;
+    eec: number;
+    dp: SDKDataPlan;
 }
 
 export default function APIClient(
@@ -161,37 +180,44 @@ export default function APIClient(
         }
     };
 
-    this.sendSingleForwardingStatsToServer = function(forwardingStatsData) {
-        let url;
-        let data;
-        try {
-            const xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 202) {
-                        mpInstance.Logger.verbose(
-                            'Successfully sent  ' +
-                                xhr.statusText +
-                                ' from server'
-                        );
-                    }
-                }
-            };
-            const xhr = mpInstance._Helpers.createXHR(xhrCallback);
-            url = mpInstance._Helpers.createServiceUrl(
-                mpInstance._Store.SDKConfig.v1SecureServiceUrl,
-                mpInstance._Store.devToken
-            );
-            data = forwardingStatsData;
+    this.sendSingleForwardingStatsToServer = async (
+        forwardingStatsData: IForwardingStatsData
+    ) => {
+        const { v1SecureServiceUrl: forwardingDomain} = mpInstance._Store.SDKConfig;
+        const { devToken } = mpInstance._Store;
 
-            if (xhr) {
-                xhr.open('post', url + '/Forwarding');
-                xhr.send(JSON.stringify(data));
-            }
-        } catch (e) {
-            mpInstance.Logger.error(
-                'Error sending forwarding stats to mParticle servers.'
+        const uploadUrl = `https://${forwardingDomain}${devToken}/Forwarding`;
+
+        let url: string;
+        const uploader: AsyncUploader = window.fetch
+            ? new FetchUploader(uploadUrl)
+            : new XHRUploader(uploadUrl);
+
+        const fetchPayload: fetchPayload = {
+            method: 'post',
+            body: JSON.stringify(forwardingStatsData),
+            headers: {
+                Accept: 'text/plain;charset=UTF-8',
+                'Content-Type': 'text/plain;charset=UTF-8',
+            },
+        };
+
+        const response = await uploader.upload(fetchPayload);
+        
+        // This is a fire and forget, so we only need to log the response based on the code, and not return any response body
+        if (response.status === 202) {
+            mpInstance?.Logger?.verbose(
+                'Successfully sent forwarding stats to mParticle Servers configuration from server'
+            );
+        } else {
+            mpInstance?.Logger?.verbose(
+                'Issue with receiving configuration from server, received HTTP Code of ' +
+                    response.statusText
             );
         }
+
+            
+
     };
 
     this.prepareForwardingStats = function(forwarder, event) {
@@ -221,6 +247,7 @@ export default function APIClient(
                 queue.push(forwardingStatsData);
                 mpInstance._Forwarders.setForwarderStatsQueue(queue);
             } else {
+                
                 self.sendSingleForwardingStatsToServer(forwardingStatsData);
             }
         }
