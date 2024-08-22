@@ -993,6 +993,11 @@ describe('forwarders', function() {
     });
 
     it('sends events to forwarder v1 endpoint when mParticle.config.isDevelopmentMode = config.isDebug = false', function(done) {
+        fetchMock.post(urls.forwarding, {
+            status: 200,
+            body: JSON.stringify({ mpid: testMPID, is_logged_in: false }),
+        });
+
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
         const mockForwarder = new MockForwarder();
@@ -1011,7 +1016,8 @@ describe('forwarders', function() {
             true
         );
 
-        mockServer.requests[mockServer.requests.length - 1].url.includes(
+        const calls = fetchMock.calls();
+        calls[calls.length-1].includes(
             '/v1/JS/test_key/Forwarding'
         );
 
