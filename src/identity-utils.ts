@@ -53,6 +53,24 @@ export const xhrIdentityResponseAdapter = (
     };
 };
 
+// https://go.mparticle.com/work/SQDSDKS-6568
+// Temporary adapter to convert the IIdentityResponse or xhr object to a response body
+export const identityResponseXhrAdapter = (
+    identityResponse: IIdentityResponse | XMLHttpRequest
+): IdentityResultBody => {
+    if ('responseText' in identityResponse) {
+        // XHR object returns responseText as a string and must be parsed
+        return JSON.parse(identityResponse.responseText);
+    }
+    if ('responseBody' in identityResponse) {
+        // a cached response body will be a string and must be parsed
+        return JSON.parse(
+            identityResponse.responseBody as unknown as string
+        ) as IdentityResultBody;
+    }
+    return null;
+};
+
 export const cacheOrClearIdCache = (
     method: string,
     knownIdentities: IKnownIdentities,
