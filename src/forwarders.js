@@ -3,11 +3,16 @@ import filteredMparticleUser from './filteredMparticleUser';
 import { isEmpty } from './utils';
 import KitFilterHelper from './kitFilterHelper';
 import Constants from './constants';
+import APIClient from './apiClient';
 
 const { Modify, Identify, Login, Logout } = Constants.IdentityMethods;
 
 export default function Forwarders(mpInstance, kitBlocker) {
     var self = this;
+    this.forwarderStatsUploader = new APIClient(
+        mpInstance,
+        kitBlocker
+    ).initializeForwarderStatsUploader();
 
     const UserAttributeActionTypes = {
         setUserAttribute: 'setUserAttribute',
@@ -768,6 +773,31 @@ export default function Forwarders(mpInstance, kitBlocker) {
             mpInstance.Logger.error(
                 'Cookie Sync configs not configured propertly. Cookie Sync may not be initialized. ' +
                     e
+            );
+        }
+    };
+
+    this.sendSingleForwardingStatsToServer = async forwardingStatsData => {
+        const fetchPayload = {
+            method: 'post',
+            body: JSON.stringify(forwardingStatsData),
+            headers: {
+                Accept: 'text/plain;charset=UTF-8',
+                'Content-Type': 'text/plain;charset=UTF-8',
+            },
+        };
+
+        const response = await this.forwarderStatsUploader.upload(fetchPayload);
+
+        // This is a fire and forget, so we only need to log the response based on the code, and not return any response body
+        if (response.status === 202) {
+            mpInstance?.Logger?.verbose(
+                'Successfully sent forwarding stats to mParticle Servers'
+            );
+        } else {
+            mpInstance?.Logger?.verbose(
+                'Issue with forwarding stats to mParticle Servers, received HTTP Code of ' +
+                    response.statusText
             );
         }
     };

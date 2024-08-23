@@ -65,6 +65,7 @@ export interface SDKEvent {
     CurrencyCode: string;
     DataPlan?: SDKDataPlan;
     LaunchReferral?: string;
+    ExpandedEventCount: number;
 }
 export interface SDKGeoLocation {
     lat: number | string;
