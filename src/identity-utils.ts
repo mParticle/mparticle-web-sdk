@@ -40,33 +40,6 @@ export interface ICachedIdentityCall {
     expireTimestamp: number;
 }
 
-// https://go.mparticle.com/work/SQDSDKS-6568
-// Temporary adapter to convert the XMLHttpRequest response to the IIdentityResponse interface
-export const xhrIdentityResponseAdapter = (
-    possiblyXhr: XMLHttpRequest | IIdentityResponse
-): IIdentityResponse => {
-    if (possiblyXhr.hasOwnProperty('expireTimestamp')) {
-        // If there is an `expireTimestamp`, it is an IIdentityResponse object, so just return it.  This indicates it was a previously cached value.
-        return possiblyXhr as IIdentityResponse;
-    } else {
-        // If there is no `expireTimestamp`, then it is an XHR object and needs to be parsed.
-        return {
-            status: possiblyXhr.status,
-
-            // Sometimes responseText can be an empty string, such as a 404 response
-            responseText: (possiblyXhr as XMLHttpRequest).responseText
-                ? JSON.parse((possiblyXhr as XMLHttpRequest).responseText)
-                : {},
-            cacheMaxAge: parseNumber(
-                (possiblyXhr as XMLHttpRequest)?.getResponseHeader(
-                    CACHE_HEADER
-                ) || ''
-            ),
-            expireTimestamp: 0,
-        };
-    }
-};
-
 export const cacheOrClearIdCache = (
     method: string,
     knownIdentities: IKnownIdentities,
@@ -303,6 +276,5 @@ export const tryCacheIdentity = (
 
 const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
     new Date().getTime() + maxAge * MILLIS_IN_ONE_SEC;
-
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
