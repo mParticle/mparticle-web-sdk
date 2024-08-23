@@ -778,6 +778,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
     };
 
     this.sendSingleForwardingStatsToServer = async forwardingStatsData => {
+        // https://go.mparticle.com/work/SQDSDKS-6568
         const fetchPayload = {
             method: 'post',
             body: JSON.stringify(forwardingStatsData),
@@ -789,16 +790,16 @@ export default function Forwarders(mpInstance, kitBlocker) {
 
         const response = await this.forwarderStatsUploader.upload(fetchPayload);
 
+        let message;
         // This is a fire and forget, so we only need to log the response based on the code, and not return any response body
         if (response.status === 202) {
-            mpInstance?.Logger?.verbose(
-                'Successfully sent forwarding stats to mParticle Servers'
-            );
+            message = 'Successfully sent forwarding stats to mParticle Servers';
         } else {
-            mpInstance?.Logger?.verbose(
+            message =
                 'Issue with forwarding stats to mParticle Servers, received HTTP Code of ' +
-                    response.statusText
-            );
+                response.statusText;
         }
+
+        mpInstance?.Logger?.verbose(message);
     };
 }

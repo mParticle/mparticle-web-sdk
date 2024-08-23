@@ -1016,8 +1016,7 @@ describe('forwarders', function() {
             true
         );
 
-        const calls = fetchMock.calls();
-        calls[calls.length-1].includes(
+        fetchMock.lastCall().includes(
             '/v1/JS/test_key/Forwarding'
         );
 

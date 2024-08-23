@@ -6,7 +6,7 @@ import KitBlocker from './kitBlocking';
 import { Dictionary, getRampNumber, isEmpty, parseNumber } from './utils';
 import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
-import { IMParticleUser } from './identity-user-interfaces';
+import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
 import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 
 export interface IAPIClient {
@@ -28,17 +28,17 @@ export interface IAPIClient {
 }
 
 export interface IForwardingStatsData {
-    mid: number;
-    esid: number;
-    n: string;
-    attrs: Dictionary<any>;
-    sdk: string;
-    dt: number;
-    et: number;
-    dbg: boolean;
-    ct: number;
-    eec: number;
-    dp: SDKDataPlan;
+    mid: number; // Module Id
+    esid: number; // Event Subscription Id
+    n: string; // Name
+    attrs: ISDKUserAttributes; // Attributes
+    sdk: string; // SDK Version
+    dt: number; // Data Type
+    et: number; // Event Type
+    dbg: boolean; // Debug (is it development mode?)
+    ct: number; // Timestamp
+    eec: number; // Expanded Event Count
+    dp: SDKDataPlan; // Data Plan
 }
 
 export default function APIClient(
