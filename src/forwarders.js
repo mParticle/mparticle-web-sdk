@@ -793,6 +793,7 @@ export default function Forwarders(mpInstance, kitBlocker) {
         let message;
         // This is a fire and forget, so we only need to log the response based on the code, and not return any response body
         if (response.status === 202) {
+            // https://go.mparticle.com/work/SQDSDKS-6670
             message = 'Successfully sent forwarding stats to mParticle Servers';
         } else {
             message =

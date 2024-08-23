@@ -30,13 +30,13 @@ export interface IAPIClient {
 export interface IForwardingStatsData {
     mid: number; // Module Id
     esid: number; // Event Subscription Id
-    n: string; // Name
-    attrs: ISDKUserAttributes; // Attributes
+    n: string; // Event Name
+    attrs: ISDKUserAttributes; // User Attributes
     sdk: string; // SDK Version
     dt: number; // Data Type
     et: number; // Event Type
-    dbg: boolean; // Debug (is it development mode?)
-    ct: number; // Timestamp
+    dbg: boolean; // Development Mode (for debugging in Live Stream)
+    ct: number; // Current Timestamp
     eec: number; // Expanded Event Count
     dp: SDKDataPlan; // Data Plan
 }
