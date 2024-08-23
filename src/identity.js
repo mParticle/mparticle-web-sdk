@@ -1515,14 +1515,11 @@ export default function Identity(mpInstance) {
 
             if (identityResponse.status === HTTP_SUCCESS) {
                 if (getFeatureFlag(CacheIdentity)) {
-                    const identityResponseForCache = xhrIdentityResponseAdapter(
-                        identityResponse
-                    );
                     cacheOrClearIdCache(
                         method,
                         knownIdentities,
                         self.idCache,
-                        identityResponseForCache,
+                        identityResponse,
                         parsingCachedResponse
                     );
                 }
