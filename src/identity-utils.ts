@@ -99,17 +99,12 @@ export const cacheIdentityRequest = (
     const cacheKey = concatenateIdentities(method, identities);
     const hashedKey = generateHash(cacheKey);
 
-    // TODO: This should be of type IdentityResultBody
     const { mpid, is_logged_in } = responseBody;
-    // TODO: Change this to response body?
     const cachedResponseBody = {
         mpid,
         is_logged_in,
     };
 
-    // QUESTION: Why are we storing the responseText as a string when vault already makes it a string?
-    // TODO: Investigate if keeping this as an object, and having vault stringify
-    //       will convert it to '[object Object]'
     cache[hashedKey] = {
         responseBody: JSON.stringify(cachedResponseBody),
         status,
