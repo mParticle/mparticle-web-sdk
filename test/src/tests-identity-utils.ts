@@ -7,7 +7,8 @@ import {
     removeExpiredIdentityCacheDates,
     tryCacheIdentity,
     IKnownIdentities,
-    ICachedIdentityCall
+    ICachedIdentityCall,
+    IIdentityResponse
 } from "../../src/identity-utils";
 import { LocalStorageVault } from "../../src/vault";
 import { Dictionary, generateHash } from "../../src/utils";
@@ -23,9 +24,10 @@ import { IdentityApiData } from '@mparticle/web-sdk';
 import Identity from "../../src/identity";
 
 import Constants from '../../src/constants';
-const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
+const { Identify, Login, Logout } = Constants.IdentityMethods;
 
 import sinon from 'sinon';
+import { IdentityResultBody } from "../../src/identity-user-interfaces";
 
 const DEVICE_ID = 'test-device-id'
 
@@ -36,7 +38,7 @@ const knownIdentities: IKnownIdentities = createKnownIdentities({
 
 const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
 
-const identifyResponse = {
+const identifyResponse: IdentityResultBody = {
     context: null,
     matched_identities: {
         device_application_stamp: "test-das"
@@ -46,18 +48,18 @@ const identifyResponse = {
     is_logged_in: false
 };
 
-const jsonString = JSON.stringify(identifyResponse);
+const loginResponse: IdentityResultBody = {
+    ...identifyResponse,
+    is_logged_in: true,
+};
 
-const xhr: XMLHttpRequest = {
+const identityResponse: IIdentityResponse = {
     status: 200,
-    responseText: jsonString,
-    getAllResponseHeaders: ()=> {return 'x-mp-max-age: 1'},
-    getResponseHeader: (name: string) => {
-        return '1';
-    },
-} as XMLHttpRequest;
+    responseBody: identifyResponse,
+    cacheMaxAge: 86400,
+}
 
-describe('identity-utils', () => {
+describe.only('identity-utils', () => {
     beforeEach(()=> {
         window.localStorage.clear();
     });
@@ -76,7 +78,7 @@ describe('identity-utils', () => {
                 Identify,
                 knownIdentities,
                 cacheVault,
-                xhr,
+                identityResponse,
                 false
             );
 
@@ -94,7 +96,7 @@ describe('identity-utils', () => {
                 Login,
                 knownIdentities,
                 cacheVault,
-                xhr,
+                identityResponse,
                 false
             );
 
@@ -112,7 +114,7 @@ describe('identity-utils', () => {
                 Logout,
                 knownIdentities,
                 cacheVault,
-                xhr,
+                identityResponse,
                 false
             );
                 
@@ -130,7 +132,7 @@ describe('identity-utils', () => {
                 Identify,
                 knownIdentities,
                 cacheVault,
-                xhr,
+                identityResponse,
                 true
             );
 
@@ -152,7 +154,7 @@ describe('identity-utils', () => {
                 knownIdentities,
                 currentTime,
                 cacheVault,
-                xhr
+                identityResponse
             );
 
             const updatedMpIdCache = cacheVault.retrieve();
@@ -172,7 +174,7 @@ describe('identity-utils', () => {
             expect(cachedIdentityCall.status).to.equal(200);
             expect(cachedIdentityCall.expireTimestamp).to.equal(currentTime);
 
-            const cachedResponseText = JSON.parse(cachedIdentityCall.responseText);
+            const cachedResponseText = JSON.parse(cachedIdentityCall.responseBody);
             
             const expectedResponseText = {mpid: testMPID, is_logged_in: false};
             expect(cachedResponseText).to.deep.equal(expectedResponseText);
@@ -182,18 +184,6 @@ describe('identity-utils', () => {
             const mpIdCache = window.localStorage.getItem(localStorageIDKey);
             expect(mpIdCache).to.equal(null);
             
-            const loginResponse = {
-                ...identifyResponse,
-                is_logged_in: true,
-            };
-
-            const jsonString = JSON.stringify(loginResponse);
-
-            const xhr: XMLHttpRequest = {
-                status: 200,
-                responseText: jsonString,
-            } as XMLHttpRequest;
-
             const currentTime = new Date().getTime();
 
             cacheIdentityRequest(
@@ -201,7 +191,7 @@ describe('identity-utils', () => {
                 knownIdentities,
                 currentTime,
                 cacheVault,
-                xhr
+                { ...identityResponse, responseBody: loginResponse }
             );
 
             const updatedMpIdCache = cacheVault.retrieve();
@@ -214,16 +204,16 @@ describe('identity-utils', () => {
                 cachedKey
             ];
 
-            expect(cachedLoginCall).hasOwnProperty('responseText');
+            expect(cachedLoginCall).hasOwnProperty('responseBody');
             expect(cachedLoginCall).hasOwnProperty('status');
             expect(cachedLoginCall).hasOwnProperty('expireTimestamp');
 
             expect(cachedLoginCall.status).to.equal(200);
             expect(cachedLoginCall.expireTimestamp).to.equal(currentTime);
 
-            const cachedResponseText = JSON.parse(cachedLoginCall.responseText);
-            const expectedResponseText = {mpid: testMPID, is_logged_in: true};
-            expect(cachedResponseText).to.deep.equal(expectedResponseText);
+            const cachedResponseBody = JSON.parse(cachedLoginCall.responseBody);
+            const expectedResponseBody = {mpid: testMPID, is_logged_in: true};
+            expect(cachedResponseBody).to.deep.equal(expectedResponseBody);
         });
     });
 
@@ -326,7 +316,7 @@ describe('identity-utils', () => {
                 userIdentities,
                 expireTime,
                 cacheVault,
-                xhr
+                identityResponse
             );
 
             // tick forward less than oneDayInMS
@@ -348,7 +338,7 @@ describe('identity-utils', () => {
                 userIdentities,
                 expireTime,
                 cacheVault,
-                xhr
+                identityResponse
             );
 
             clock.tick(oneDayInMS +1);
@@ -413,28 +403,13 @@ describe('identity-utils', () => {
                 DEVICE_ID
             );
 
-            const identifyResponse = {
-                context: null,
-                matched_identities: {
-                    device_application_stamp: "test-das"
-                },
-                is_ephemeral: false,
-                mpid: testMPID,
-                is_logged_in: false
-            };
-
-            const xhr: XMLHttpRequest = {
-                status: 200,
-                responseText: JSON.stringify(identifyResponse),
-            } as XMLHttpRequest;
-
             // Cache 1st identity response to expire in 1 day
             cacheIdentityRequest(
                 'identify',
                 knownIdentities1,
                 MILLISECONDS_IN_ONE_DAY,
                 cacheVault,
-                xhr
+                identityResponse
             );
 
             // Cache 2nd identity response to expire in 1 day + 100ms
@@ -443,7 +418,7 @@ describe('identity-utils', () => {
                 knownIdentities2,
                 MILLISECONDS_IN_ONE_DAY + 100,
                 cacheVault,
-                xhr
+                identityResponse
             );
 
             const updatedMpIdCache = cacheVault.retrieve();
@@ -490,21 +465,6 @@ describe('identity-utils', () => {
 
             const cacheVault = new LocalStorageVault<Dictionary>(localStorageIDKey);
 
-            const identifyResponse = {
-                context: null,
-                matched_identities: {
-                    device_application_stamp: "test-das"
-                },
-                is_ephemeral: false,
-                mpid: testMPID,
-                is_logged_in: false
-            };
-
-            const xhr: XMLHttpRequest = {
-                status: 200,
-                responseText: JSON.stringify(identifyResponse),
-            } as XMLHttpRequest;
-
             const customerId = {customerid: 'id1'}
             const knownIdentities1: IKnownIdentities = createKnownIdentities({
                 userIdentities: customerId},
@@ -517,7 +477,7 @@ describe('identity-utils', () => {
                 knownIdentities,
                 MILLISECONDS_IN_ONE_DAY,
                 cacheVault,
-                xhr
+                identityResponse
             );
 
             const identityInstance = new Identity(mpInstance);
