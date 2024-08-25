@@ -27,6 +27,7 @@ import Constants from '../../src/constants';
 const { Identify, Login, Logout } = Constants.IdentityMethods;
 
 import sinon from 'sinon';
+// https://go.mparticle.com/work/SQDSDKS-6671
 import { IdentityResultBody } from "../../src/identity-user-interfaces";
 
 const DEVICE_ID = 'test-device-id'
