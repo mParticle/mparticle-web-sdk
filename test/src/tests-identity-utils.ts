@@ -174,7 +174,7 @@ describe('identity-utils', () => {
             expect(cachedIdentityCall.status).to.equal(200);
             expect(cachedIdentityCall.expireTimestamp).to.equal(currentTime);
 
-            const cachedResponseText = JSON.parse(cachedIdentityCall.responseBody);
+            const cachedResponseText = JSON.parse(cachedIdentityCall.responseText);
             
             const expectedResponseText = {mpid: testMPID, is_logged_in: false};
             expect(cachedResponseText).to.deep.equal(expectedResponseText);
@@ -211,7 +211,7 @@ describe('identity-utils', () => {
             expect(cachedLoginCall.status).to.equal(200);
             expect(cachedLoginCall.expireTimestamp).to.equal(currentTime);
 
-            const cachedResponseBody = JSON.parse(cachedLoginCall.responseBody);
+            const cachedResponseBody = JSON.parse(cachedLoginCall.responseText);
             const expectedResponseBody = {mpid: testMPID, is_logged_in: true};
             expect(cachedResponseBody).to.deep.equal(expectedResponseBody);
         });

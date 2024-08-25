@@ -17,6 +17,7 @@ export interface IIdentityResponse {
     status: number;
     responseBody: IdentityResultBody;
     cacheMaxAge: number; // Default: 86400
+    expireTimestamp?: number;
 }
 
 export type IdentityCache = BaseVault<Dictionary<ICachedIdentityCall>>;
@@ -36,39 +37,35 @@ export interface IKnownIdentities extends UserIdentities {
 }
 
 export interface ICachedIdentityCall {
-    responseBody: string;
+    // https://go.mparticle.com/work/SQDSDKS-6672
+    responseText: string;
     status: number;
     expireTimestamp: number;
 }
 
 // https://go.mparticle.com/work/SQDSDKS-6568
-// Temporary adapter to convert the xhr response to the IIdentityResponse interface
+// Temporary adapter to convert the XMLHttpRequest response to the IIdentityResponse interface
 export const xhrIdentityResponseAdapter = (
-    xhr: XMLHttpRequest
+    possiblyXhr: XMLHttpRequest | IIdentityResponse
 ): IIdentityResponse => {
-    return {
-        status: xhr.status,
-        responseBody: JSON.parse(xhr.responseText),
-        cacheMaxAge: parseNumber(xhr.getResponseHeader(CACHE_HEADER)),
-    };
-};
-
-// https://go.mparticle.com/work/SQDSDKS-6568
-// Temporary adapter to convert the IIdentityResponse or xhr object to a response body
-export const identityResponseXhrAdapter = (
-    identityResponse: IIdentityResponse | XMLHttpRequest
-): IdentityResultBody => {
-    if ('responseText' in identityResponse) {
-        // XHR object returns responseText as a string and must be parsed
-        return JSON.parse(identityResponse.responseText);
+    // This might be an actual xhr object, so we need to parse it
+    if (!possiblyXhr.hasOwnProperty('expireTimestamp')) {
+        return {
+            status: possiblyXhr.status,
+            responseBody: JSON.parse(
+                (possiblyXhr as XMLHttpRequest).responseText
+            ),
+            cacheMaxAge: parseNumber(
+                (possiblyXhr as XMLHttpRequest)?.getResponseHeader(
+                    CACHE_HEADER
+                ) || ''
+            ),
+            expireTimestamp: 0,
+        };
+    } else {
+        // This is likely an IIdentityResponse object, just return it
+        return possiblyXhr as IIdentityResponse;
     }
-    if ('responseBody' in identityResponse) {
-        // a cached response body will be a string and must be parsed
-        return JSON.parse(
-            identityResponse.responseBody as unknown as string
-        ) as IdentityResultBody;
-    }
-    return null;
 };
 
 export const cacheOrClearIdCache = (
@@ -124,7 +121,7 @@ export const cacheIdentityRequest = (
     };
 
     cache[hashedKey] = {
-        responseBody: JSON.stringify(cachedResponseBody),
+        responseText: JSON.stringify(cachedResponseBody),
         status,
         expireTimestamp,
     };

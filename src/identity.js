@@ -5,7 +5,6 @@ import {
     createKnownIdentities,
     tryCacheIdentity,
     xhrIdentityResponseAdapter,
-    identityResponseXhrAdapter,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
@@ -1488,7 +1487,9 @@ export default function Identity(mpInstance) {
                 'Parsing "' + method + '" identity response from server'
             );
 
-            identityApiResult = identityResponseXhrAdapter(xhr);
+            identityApiResult = xhr.responseText
+                ? JSON.parse(xhr.responseText)
+                : null;
 
             mpInstance._Store.isLoggedIn =
                 identityApiResult?.is_logged_in || false;
