@@ -1665,7 +1665,8 @@ export default function Identity(mpInstance) {
 
             mpInstance.Logger.verbose('Successfully parsed Identity Response');
 
-            mpInstance._APIClient.processQueuedEvents();
+            // https://go.mparticle.com/work/SQDSDKS-6654
+            mpInstance._APIClient?.processQueuedEvents();
         } catch (e) {
             if (callback) {
                 mpInstance._Helpers.invokeCallback(
@@ -1716,7 +1717,7 @@ export default function Identity(mpInstance) {
                     isNewUserIdentityType,
                     currentUserInMemory
                 );
-                mpInstance._APIClient.sendEventToServer(
+                mpInstance._APIClient?.sendEventToServer(
                     userIdentityChangeEvent
                 );
             }
@@ -1770,7 +1771,7 @@ export default function Identity(mpInstance) {
             user
         );
         if (userAttributeChangeEvent) {
-            mpInstance._APIClient.sendEventToServer(userAttributeChangeEvent);
+            mpInstance._APIClient?.sendEventToServer(userAttributeChangeEvent);
         }
     };
 
@@ -1807,7 +1808,7 @@ export default function Identity(mpInstance) {
 
     this.reinitForwardersOnUserChange = function(prevUser, newUser) {
         if (hasMPIDAndUserLoginChanged(prevUser, newUser)) {
-            mpInstance._Forwarders.initForwarders(
+            mpInstance._Forwarders?.initForwarders(
                 newUser.getUserIdentities().userIdentities,
                 mpInstance._APIClient.prepareForwardingStats
             );
@@ -1816,11 +1817,11 @@ export default function Identity(mpInstance) {
 
     this.setForwarderCallbacks = function(user, method) {
         // https://go.mparticle.com/work/SQDSDKS-6036
-        mpInstance._Forwarders.setForwarderUserIdentities(
+        mpInstance._Forwarders?.setForwarderUserIdentities(
             user.getUserIdentities().userIdentities
         );
-        mpInstance._Forwarders.setForwarderOnIdentityComplete(user, method);
-        mpInstance._Forwarders.setForwarderOnUserIdentified(user);
+        mpInstance._Forwarders?.setForwarderOnIdentityComplete(user, method);
+        mpInstance._Forwarders?.setForwarderOnUserIdentified(user);
     };
 }
 

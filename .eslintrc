@@ -23,7 +23,8 @@
         "before": true,
         "beforeEach": true,
         "afterEach": true,
-        "after": true
+        "after": true,
+        "Promise": true
     },
     "extends": ["plugin:prettier/recommended", "eslint:recommended"],
     "plugins": ["prettier"],

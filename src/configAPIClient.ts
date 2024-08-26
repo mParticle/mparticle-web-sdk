@@ -7,12 +7,12 @@ import {
     SDKInitConfig,
 } from './sdkRuntimeModels';
 import { Dictionary } from './utils';
-
-export type SDKCompleteInitCallback = (
-    apiKey: string,
-    config: SDKInitConfig,
-    mpInstance: MParticleWebSDK
-) => void;
+import {
+    AsyncUploader,
+    fetchPayload,
+    FetchUploader,
+    XHRUploader,
+} from './uploaders';
 
 export interface IKitConfigs extends IKitFilterSettings {
     name: string;
@@ -47,13 +47,13 @@ export interface IKitFilterSettings {
 export interface IFilteringEventAttributeValue {
     eventAttributeName: string;
     eventAttributeValue: string;
-    includeOnMatch: boolean
+    includeOnMatch: boolean;
 }
 
 export interface IFilteringUserAttributeValue {
     userAttributeName: string;
     userAttributeValue: string;
-    includeOnMatch: boolean
+    includeOnMatch: boolean;
 }
 export interface IFilteringConsentRuleValues {
     includeOnMatch: boolean;
@@ -62,9 +62,8 @@ export interface IFilteringConsentRuleValues {
 
 export interface IConsentRuleValue {
     consentPurpose: string;
-    hasConsented: boolean
+    hasConsented: boolean;
 }
-
 
 export interface IPixelConfig {
     name: string;
@@ -91,78 +90,92 @@ export interface IConfigResponse {
 }
 
 export interface IConfigAPIClient {
-    getSDKConfiguration: (
-        apiKey: string,
-        config: SDKInitConfig,
-        completeSDKInitialization: SDKCompleteInitCallback,
-        mpInstance: MParticleWebSDK
-    ) => void;
+    apiKey: string;
+    config: SDKInitConfig;
+    mpInstance: MParticleWebSDK;
+    getSDKConfiguration: () => Promise<IConfigResponse>;
 }
 
-export default function ConfigAPIClient(this: IConfigAPIClient) {
-    this.getSDKConfiguration = (
-        apiKey,
-        config,
-        completeSDKInitialization,
-        mpInstance
-    ): void => {
-        let url: string;
+const buildUrl = (
+    configUrl: string,
+    apiKey: string,
+    dataPlanConfig?: DataPlanConfig | null,
+    isDevelopmentMode?: boolean | null
+): string => {
+    const url = configUrl + apiKey + '/config';
+    const env = isDevelopmentMode ? '1' : '0';
+    const queryParams = [`env=${env}`];
+
+    const { planId, planVersion } = dataPlanConfig || {};
+
+    if (planId) {
+        queryParams.push(`plan_id=${planId}`);
+    }
+
+    if (planVersion) {
+        queryParams.push(`plan_version=${planVersion}`);
+    }
+
+    return `${url}?${queryParams.join('&')}`;
+};
+
+export default function ConfigAPIClient(
+    this: IConfigAPIClient,
+    apiKey: string,
+    config: SDKInitConfig,
+    mpInstance: MParticleWebSDK
+): void {
+    const baseUrl = 'https://' + mpInstance._Store.SDKConfig.configUrl;
+    const { isDevelopmentMode } = config;
+    const dataPlan = config.dataPlan as DataPlanConfig;
+    const uploadUrl = buildUrl(baseUrl, apiKey, dataPlan, isDevelopmentMode);
+    const uploader: AsyncUploader = window.fetch
+        ? new FetchUploader(uploadUrl)
+        : new XHRUploader(uploadUrl);
+
+    this.getSDKConfiguration = async (): Promise<IConfigResponse> => {
+        let configResponse: IConfigResponse;
+        const fetchPayload: fetchPayload = {
+            method: 'get',
+            headers: {
+                Accept: 'text/plain;charset=UTF-8',
+                'Content-Type': 'text/plain;charset=UTF-8',
+            },
+            body: null,
+        };
+
         try {
-            const xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
-                    if (xhr.status === 200) {
-                        config = mpInstance._Helpers.extend(
-                            {},
-                            config,
-                            JSON.parse(xhr.responseText)
-                        );
-                        completeSDKInitialization(apiKey, config, mpInstance);
-                        mpInstance.Logger.verbose(
-                            'Successfully received configuration from server'
-                        );
-                    } else {
-                        // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
-                        completeSDKInitialization(apiKey, config, mpInstance);
-                        mpInstance.Logger.verbose(
-                            'Issue with receiving configuration from server, received HTTP Code of ' +
-                                xhr.status
-                        );
-                    }
-                }
-            };
+            const response = await uploader.upload(fetchPayload);
+            if (response.status === 200) {
+                mpInstance?.Logger?.verbose(
+                    'Successfully received configuration from server'
+                );
 
-            const xhr = mpInstance._Helpers.createXHR(xhrCallback);
-            url =
-                'https://' +
-                mpInstance._Store.SDKConfig.configUrl +
-                apiKey +
-                '/config?env=';
-            if (config.isDevelopmentMode) {
-                url = url + '1';
-            } else {
-                url = url + '0';
-            }
-
-            const dataPlan = config.dataPlan as DataPlanConfig;
-            if (dataPlan) {
-                if (dataPlan.planId) {
-                    url = url + '&plan_id=' + dataPlan.planId || '';
-                }
-                if (dataPlan.planVersion) {
-                    url = url + '&plan_version=' + dataPlan.planVersion || '';
+                // https://go.mparticle.com/work/SQDSDKS-6568
+                // FetchUploader returns the response as a JSON object that we have to await
+                if (response.json) {
+                    configResponse = await response.json();
+                    return configResponse;
+                } else {
+                    // https://go.mparticle.com/work/SQDSDKS-6568
+                    // XHRUploader returns the response as a string that we need to parse
+                    const xhrResponse = response as unknown as XMLHttpRequest;
+                    configResponse = JSON.parse(xhrResponse.responseText);
+                    return configResponse;
                 }
             }
 
-            if (xhr) {
-                xhr.open('get', url);
-                xhr.send(null);
-            }
+            mpInstance?.Logger?.verbose(
+                'Issue with receiving configuration from server, received HTTP Code of ' +
+                    response.statusText
+            );
         } catch (e) {
-            completeSDKInitialization(apiKey, config, mpInstance);
-            mpInstance.Logger.error(
+            mpInstance?.Logger?.error(
                 'Error getting forwarder configuration from mParticle servers.'
             );
         }
+
+        // Returns the original config object if we cannot retrieve the remote config
+        return config as IConfigResponse;
     };
 }

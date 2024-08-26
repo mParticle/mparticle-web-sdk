@@ -11,6 +11,7 @@ let mockServer;
 describe('/config self-hosting integration tests', function() {
     beforeEach(function() {
         fetchMock.post(urls.events, 200);
+
         mockServer = sinon.createFakeServer();
     });
 
@@ -24,6 +25,7 @@ describe('/config self-hosting integration tests', function() {
     it('queues events in the eventQueue while /config is in flight, then processes them afterwards with correct MPID', function(done) {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
+        window.mParticle.config.flags.eventBatchingIntervalMillis = 0; // trigger event uploads immediately
 
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -31,20 +33,29 @@ describe('/config self-hosting integration tests', function() {
             },
         };
 
-        // start fake timer and mock server in order to mock when certain events happen
-        const clock = sinon.useFakeTimers();
-        mockServer.autoRespond = true;
-        mockServer.autoRespondAfter = 100;
+        mockServer.respondImmediately = true;
 
         mockServer.respondWith(urls.identify, [
             200,
             {},
             JSON.stringify({ mpid: 'identifyMPID', is_logged_in: false }),
         ]);
-        mockServer.respondWith(
-            urls.config,
-            [200, {}, JSON.stringify({})]
-        );
+          // https://go.mparticle.com/work/SQDSDKS-6651
+        fetchMock.mock(urls.config, () => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve({
+                        status: 200,
+                        body: JSON.stringify({
+                            success: true,
+                            appName: 'Test App',
+                            kitCOnfigs: []
+                        }),
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                }, 50); // 100ms delay
+            })
+        });
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -53,20 +64,24 @@ describe('/config self-hosting integration tests', function() {
         let event = findEventFromRequest(fetchMock.calls(), 'Test');
         Should(event).not.be.ok();
 
-        // config and identify now get triggered, which runs through the event queue
-        clock.tick(300);
-
-        event = findBatch(fetchMock.calls(), 'Test');
-        event.should.be.ok();
-        event.mpid.should.equal('identifyMPID');
-
-        done();
+        setTimeout(() => {
+            event = findBatch(fetchMock.calls(), 'Test');
+            
+            event.should.be.ok();
+            event.mpid.should.equal('identifyMPID');
+            
+            mockServer.restore();
+            window.mParticle.config.requestConfig = false;
+            done();
+        }, 75);
     });
 
     it('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
         const messages = [];
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.requestConfig = true;
+        window.mParticle.config.flags.eventBatchingIntervalMillis = 0; // trigger event uploads immediately
+
         window.mParticle.config.logLevel = 'verbose';
         delete window.mParticle.config.workspaceToken;
         mParticle.config.logger = {
@@ -75,35 +90,41 @@ describe('/config self-hosting integration tests', function() {
             },
         };
 
-        window.mParticle.config.identifyRequest = {
-            userIdentities: {
-                google: 'google123',
-            },
-        };
         window.mParticle.config.identityCallback = function() {
             mParticle.logEvent('identify callback event');
         };
 
-        // start fake timer and mock server
-        const clock = sinon.useFakeTimers();
         mockServer.autoRespond = true;
         mockServer.autoRespondAfter = 100;
 
-        mockServer.respondWith(
-            urls.config,
-            [200, {}, JSON.stringify({ workspaceToken: 'workspaceTokenTest' })]
-        );
+        fetchMock.mock(urls.config, () => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve({
+                        status: 200,
+                        body: JSON.stringify({
+                            success: true,
+                            appName: 'Test App',
+                            kitCOnfigs: []
+                        }),
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                }, 50); // 100ms delay
+            })
+        });
 
         mockServer.respondWith(urls.identify, [
             200,
             {},
             JSON.stringify({ mpid: 'identifyMPID', is_logged_in: false }),
         ]);
+
         mockServer.respondWith(urls.login, [
             200,
             {},
             JSON.stringify({ mpid: 'loginMPID', is_logged_in: false }),
         ]);
+
 
         mParticle.init(apiKey, window.mParticle.config);
         // call login before mParticle.identify is triggered, which happens after config returns
@@ -111,27 +132,29 @@ describe('/config self-hosting integration tests', function() {
         mParticle.logEvent('Test');
 
         // config triggers, login triggers immediately before identify
-        clock.tick(300);
+        setTimeout(() => {
+            const event1 = findBatch(fetchMock.calls(), 'Test');
+            event1.mpid.should.equal('loginMPID');
+            messages
+                .indexOf('Parsing "login" identity response from server')
+                .should.be.above(0);
 
-        const event1 = findBatch(fetchMock.calls(), 'Test');
-        event1.mpid.should.equal('loginMPID');
-        messages
-            .indexOf('Parsing "login" identity response from server')
-            .should.be.above(0);
+            // when login is in flight, identify will not run, but callback still will
+            messages
+                .indexOf('Parsing "identify" identity response from server')
+                .should.equal(-1);
+            const event2 = findBatch(fetchMock.calls(), 'identify callback event', false, mockServer);
+            event2.mpid.should.equal('loginMPID');
 
-        // when login is in flight, identify will not run, but callback still will
-        messages
-            .indexOf('Parsing "identify" identity response from server')
-            .should.equal(-1);
-        const event2 = findBatch(fetchMock.calls(), 'identify callback event', false, mockServer);
-        event2.mpid.should.equal('loginMPID');
+            mockServer.restore();
+            // clock.restore();
 
-        clock.restore();
+            localStorage.removeItem('mprtcl-v4_workspaceTokenTest');
+            window.mParticle.config.requestConfig = false;
 
-        localStorage.removeItem('mprtcl-v4_workspaceTokenTest');
-        window.mParticle.config.requestConfig = false;
-
-        done();
+            done();
+            
+        }, 150);
     });
 
     it('cookie name has workspace token in it in self hosting mode after config fetch', function(done) {
@@ -140,63 +163,55 @@ describe('/config self-hosting integration tests', function() {
         window.mParticle.config.logLevel = 'verbose';
         delete window.mParticle.config.workspaceToken;
 
-        // start fake timer and mock server
-        const clock = sinon.useFakeTimers();
-        mockServer.autoRespond = true;
-        mockServer.autoRespondAfter = 100;
 
-        mockServer.respondWith(
-            urls.config,
-            [200, {}, JSON.stringify({ workspaceToken: 'wtTest' })]
-        );
+        fetchMock.get(urls.config, {
+            status: 200,
+            body: JSON.stringify({
+                workspaceToken: 'wtTest'
+            }),
+        });
 
         mParticle.init(apiKey, window.mParticle.config);
-        clock.tick(300);
 
-        const data = window.localStorage.getItem('mprtcl-v4_wtTest');
-        (typeof data === 'string').should.equal(true);
-
-        clock.restore();
-
-        window.mParticle.config.requestConfig = false;
-
-        done();
+        setTimeout(() => {
+            const data = window.localStorage.getItem('mprtcl-v4_wtTest');
+            (typeof data === 'string').should.equal(true);
+            window.mParticle.config.requestConfig = false;
+    
+            done();
+        }, 75);
     });
 
-    describe('/config self-hosting with direct url routing', function() {
-        it('should return direct urls when no baseUrls are passed and directURLRouting is true', () => {
+    describe('/config self-hosting with direct url routing', function () {
+        it('should return direct urls when no baseUrls are passed and directURLRouting is true', (done) => {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.requestConfig = true;
             delete window.mParticle.config.workspaceToken;
 
             mockServer.respondImmediately = true;
 
-            mockServer.respondWith(
-                urls.config, 
-                [
-                    200,
-                    {},
-                    JSON.stringify({
+            fetchMock.get(urls.config, {
+                status: 200,
+                body: JSON.stringify({
                         workspaceToken: 'wtTest',
                         flags: {
-                            directURLRouting: 'True'
-                        }
-                    })
-                ]
-            );
+                        directURLRouting: 'True',
+                    },
+                }),
+            });
 
-            mockServer.respondWith(
-                urls.identify, [
+            mockServer.respondWith(urls.identify, [
                     200,
                     {},
                     JSON.stringify({
                         mpid: 'identifyMPID',
-                        is_logged_in: false
-                    })
+                    is_logged_in: false,
+                }),
                 ]);
 
             mParticle.init(apiKey, window.mParticle.config);
 
+            setTimeout(() => {
             const {
                 aliasUrl,
                 configUrl,
@@ -208,46 +223,53 @@ describe('/config self-hosting integration tests', function() {
             aliasUrl.should.equal('jssdks.us1.mparticle.com/v1/identity/');
             configUrl.should.equal('jssdkcdns.mparticle.com/JS/v2/');
             identityUrl.should.equal('identity.us1.mparticle.com/v1/');
-            v1SecureServiceUrl.should.equal('jssdks.us1.mparticle.com/v1/JS/');
-            v3SecureServiceUrl.should.equal('jssdks.us1.mparticle.com/v3/JS/');
+                v1SecureServiceUrl.should.equal(
+                    'jssdks.us1.mparticle.com/v1/JS/'
+                );
+                v3SecureServiceUrl.should.equal(
+                    'jssdks.us1.mparticle.com/v3/JS/'
+                );
+
+                done();
+            }, 150);
         });
 
-        it('should prioritize passed in baseUrls over direct urls', () => {
+        it('should prioritize passed in baseUrls over direct urls', (done) => {
             mParticle._resetForTests(MPConfig);
             window.mParticle.config.requestConfig = true;
-            window.mParticle.config.aliasUrl = 'jssdks.foo.mparticle.com/v1/identity/'
-            window.mParticle.config.identityUrl = 'identity.foo.mparticle.com/v1/';
-            window.mParticle.config.v1SecureServiceUrl = 'jssdks.foo.mparticle.com/v1/JS/';
-            window.mParticle.config.v3SecureServiceUrl = 'jssdks.foo.mparticle.com/v3/JS/'
+            window.mParticle.config.aliasUrl =
+                'jssdks.foo.mparticle.com/v1/identity/';
+            window.mParticle.config.identityUrl =
+                'identity.foo.mparticle.com/v1/';
+            window.mParticle.config.v1SecureServiceUrl =
+                'jssdks.foo.mparticle.com/v1/JS/';
+            window.mParticle.config.v3SecureServiceUrl =
+                'jssdks.foo.mparticle.com/v3/JS/';
 
             mockServer.respondImmediately = true;
 
-            mockServer.respondWith(
-                urls.config, 
-                [
-                    200,
-                    {},
-                    JSON.stringify({
+            fetchMock.get(urls.config, {
+                status: 200,
+                body: JSON.stringify({
                         workspaceToken: 'wtTest',
                         flags: {
-                            directURLRouting: 'True'
-                        }
-                    })
-                ]
-            );
+                        directURLRouting: 'True',
+                    },
+                }),
+            });
 
-            mockServer.respondWith(
-                urls.identify, [
+            mockServer.respondWith(urls.identify, [
                     200,
                     {},
                     JSON.stringify({
                         mpid: 'identifyMPID',
-                        is_logged_in: false
-                    })
+                    is_logged_in: false,
+                }),
                 ]);
 
             mParticle.init(apiKey, window.mParticle.config);
 
+            setTimeout(() => {
             const {
                 aliasUrl,
                 configUrl,
@@ -259,8 +281,15 @@ describe('/config self-hosting integration tests', function() {
             configUrl.should.equal('jssdkcdns.mparticle.com/JS/v2/');
             aliasUrl.should.equal('jssdks.foo.mparticle.com/v1/identity/');
             identityUrl.should.equal('identity.foo.mparticle.com/v1/');
-            v1SecureServiceUrl.should.equal('jssdks.foo.mparticle.com/v1/JS/');
-            v3SecureServiceUrl.should.equal('jssdks.foo.mparticle.com/v3/JS/');
+                v1SecureServiceUrl.should.equal(
+                    'jssdks.foo.mparticle.com/v1/JS/'
+                );
+                v3SecureServiceUrl.should.equal(
+                    'jssdks.foo.mparticle.com/v3/JS/'
+                );
+
+                done();
+            }, 150);
         });
     });
 });
