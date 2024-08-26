@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.27.0";
+    var version = "2.28.0";
 
     var Constants = {
       sdkVersion: version,
@@ -2101,7 +2101,7 @@ var mParticle = (function () {
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
-                return [4 /*yield*/, this.makeRequest(this.url, fetchPayload.body)];
+                return [4 /*yield*/, this.makeRequest(this.url, fetchPayload.body, fetchPayload.method)];
               case 1:
                 response = _a.sent();
                 return [2 /*return*/, response];
@@ -2109,7 +2109,17 @@ var mParticle = (function () {
           });
         });
       };
-      XHRUploader.prototype.makeRequest = function (url, data) {
+      // XHR Ready States
+      // https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/readyState
+      // 0   UNSENT  open() has not been called yet.
+      // 1   OPENED  send() has been called.
+      // 2   HEADERS_RECEIVED    send() has been called, and headers and status are available.
+      // 3   LOADING Downloading; responseText holds partial data.
+      // 4   DONE    The operation is complete.
+      XHRUploader.prototype.makeRequest = function (url, data, method) {
+        if (method === void 0) {
+          method = 'post';
+        }
         return __awaiter(this, void 0, void 0, function () {
           var xhr;
           return __generator(this, function (_a) {
@@ -2124,7 +2134,7 @@ var mParticle = (function () {
                   reject(xhr);
                 }
               };
-              xhr.open('post', url);
+              xhr.open(method, url);
               xhr.send(data);
             })];
           });
@@ -7421,7 +7431,7 @@ var mParticle = (function () {
         var newIdentitiesByType = {};
         mpInstance._Store.identityCallInFlight = false;
         try {
-          var _identityApiResult;
+          var _identityApiResult, _mpInstance$_APIClien;
           mpInstance.Logger.verbose('Parsing "' + method + '" identity response from server');
           identityApiResult = xhr.responseText ? JSON.parse(xhr.responseText) : null;
           mpInstance._Store.isLoggedIn = ((_identityApiResult = identityApiResult) === null || _identityApiResult === void 0 ? void 0 : _identityApiResult.is_logged_in) || false;
@@ -7497,7 +7507,9 @@ var mParticle = (function () {
             mpInstance.Logger.error('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
           }
           mpInstance.Logger.verbose('Successfully parsed Identity Response');
-          mpInstance._APIClient.processQueuedEvents();
+
+          // https://go.mparticle.com/work/SQDSDKS-6654
+          (_mpInstance$_APIClien = mpInstance._APIClient) === null || _mpInstance$_APIClien === void 0 || _mpInstance$_APIClien.processQueuedEvents();
         } catch (e) {
           if (callback) {
             mpInstance._Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
@@ -7522,12 +7534,13 @@ var mParticle = (function () {
         for (var identityType in newUserIdentities) {
           // Verifies a change actually happened
           if (prevUserIdentities[identityType] !== newUserIdentities[identityType]) {
+            var _mpInstance$_APIClien2;
             // If a new identity type was introduced when the identity changes
             // we need to notify the server so that the user profile is updated in
             // the mParticle UI.
             var isNewUserIdentityType = !prevUserIdentities[identityType];
             var userIdentityChangeEvent = self.createUserIdentityChange(identityType, newUserIdentities[identityType], prevUserIdentities[identityType], isNewUserIdentityType, currentUserInMemory);
-            mpInstance._APIClient.sendEventToServer(userIdentityChangeEvent);
+            (_mpInstance$_APIClien2 = mpInstance._APIClient) === null || _mpInstance$_APIClien2 === void 0 || _mpInstance$_APIClien2.sendEventToServer(userIdentityChangeEvent);
           }
         }
       };
@@ -7556,7 +7569,8 @@ var mParticle = (function () {
       this.sendUserAttributeChangeEvent = function (attributeKey, newUserAttributeValue, previousUserAttributeValue, isNewAttribute, deleted, user) {
         var userAttributeChangeEvent = self.createUserAttributeChange(attributeKey, newUserAttributeValue, previousUserAttributeValue, isNewAttribute, deleted, user);
         if (userAttributeChangeEvent) {
-          mpInstance._APIClient.sendEventToServer(userAttributeChangeEvent);
+          var _mpInstance$_APIClien3;
+          (_mpInstance$_APIClien3 = mpInstance._APIClient) === null || _mpInstance$_APIClien3 === void 0 || _mpInstance$_APIClien3.sendEventToServer(userAttributeChangeEvent);
         }
       };
       this.createUserAttributeChange = function (key, newValue, previousUserAttributeValue, isNewAttribute, deleted, user) {
@@ -7581,14 +7595,16 @@ var mParticle = (function () {
       };
       this.reinitForwardersOnUserChange = function (prevUser, newUser) {
         if (hasMPIDAndUserLoginChanged(prevUser, newUser)) {
-          mpInstance._Forwarders.initForwarders(newUser.getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
+          var _mpInstance$_Forwarde;
+          (_mpInstance$_Forwarde = mpInstance._Forwarders) === null || _mpInstance$_Forwarde === void 0 || _mpInstance$_Forwarde.initForwarders(newUser.getUserIdentities().userIdentities, mpInstance._APIClient.prepareForwardingStats);
         }
       };
       this.setForwarderCallbacks = function (user, method) {
+        var _mpInstance$_Forwarde2, _mpInstance$_Forwarde3, _mpInstance$_Forwarde4;
         // https://go.mparticle.com/work/SQDSDKS-6036
-        mpInstance._Forwarders.setForwarderUserIdentities(user.getUserIdentities().userIdentities);
-        mpInstance._Forwarders.setForwarderOnIdentityComplete(user, method);
-        mpInstance._Forwarders.setForwarderOnUserIdentified(user);
+        (_mpInstance$_Forwarde2 = mpInstance._Forwarders) === null || _mpInstance$_Forwarde2 === void 0 || _mpInstance$_Forwarde2.setForwarderUserIdentities(user.getUserIdentities().userIdentities);
+        (_mpInstance$_Forwarde3 = mpInstance._Forwarders) === null || _mpInstance$_Forwarde3 === void 0 || _mpInstance$_Forwarde3.setForwarderOnIdentityComplete(user, method);
+        (_mpInstance$_Forwarde4 = mpInstance._Forwarders) === null || _mpInstance$_Forwarde4 === void 0 || _mpInstance$_Forwarde4.setForwarderOnUserIdentified(user);
       };
     }
 
@@ -8355,48 +8371,73 @@ var mParticle = (function () {
       return KitBlocker;
     }();
 
-    function ConfigAPIClient() {
-      this.getSDKConfiguration = function (apiKey, config, completeSDKInitialization, mpInstance) {
-        var url;
-        try {
-          var xhrCallback = function xhrCallback() {
-            if (xhr_1.readyState === 4) {
-              // when a 200 returns, merge current config with what comes back from config, prioritizing user inputted config
-              if (xhr_1.status === 200) {
-                config = mpInstance._Helpers.extend({}, config, JSON.parse(xhr_1.responseText));
-                completeSDKInitialization(apiKey, config, mpInstance);
-                mpInstance.Logger.verbose('Successfully received configuration from server');
-              } else {
-                // if for some reason a 200 doesn't return, then we initialize with the just the passed through config
-                completeSDKInitialization(apiKey, config, mpInstance);
-                mpInstance.Logger.verbose('Issue with receiving configuration from server, received HTTP Code of ' + xhr_1.status);
-              }
+    var buildUrl = function buildUrl(configUrl, apiKey, dataPlanConfig, isDevelopmentMode) {
+      var url = configUrl + apiKey + '/config';
+      var env = isDevelopmentMode ? '1' : '0';
+      var queryParams = ["env=".concat(env)];
+      var _a = dataPlanConfig || {},
+        planId = _a.planId,
+        planVersion = _a.planVersion;
+      if (planId) {
+        queryParams.push("plan_id=".concat(planId));
+      }
+      if (planVersion) {
+        queryParams.push("plan_version=".concat(planVersion));
+      }
+      return "".concat(url, "?").concat(queryParams.join('&'));
+    };
+    function ConfigAPIClient(apiKey, config, mpInstance) {
+      var _this = this;
+      var baseUrl = 'https://' + mpInstance._Store.SDKConfig.configUrl;
+      var isDevelopmentMode = config.isDevelopmentMode;
+      var dataPlan = config.dataPlan;
+      var uploadUrl = buildUrl(baseUrl, apiKey, dataPlan, isDevelopmentMode);
+      var uploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
+      this.getSDKConfiguration = function () {
+        return __awaiter(_this, void 0, void 0, function () {
+          var configResponse, fetchPayload, response, xhrResponse;
+          var _a, _b, _c;
+          return __generator(this, function (_d) {
+            switch (_d.label) {
+              case 0:
+                fetchPayload = {
+                  method: 'get',
+                  headers: {
+                    Accept: 'text/plain;charset=UTF-8',
+                    'Content-Type': 'text/plain;charset=UTF-8'
+                  },
+                  body: null
+                };
+                _d.label = 1;
+              case 1:
+                _d.trys.push([1, 6,, 7]);
+                return [4 /*yield*/, uploader.upload(fetchPayload)];
+              case 2:
+                response = _d.sent();
+                if (!(response.status === 200)) return [3 /*break*/, 5];
+                (_a = mpInstance === null || mpInstance === void 0 ? void 0 : mpInstance.Logger) === null || _a === void 0 ? void 0 : _a.verbose('Successfully received configuration from server');
+                if (!response.json) return [3 /*break*/, 4];
+                return [4 /*yield*/, response.json()];
+              case 3:
+                configResponse = _d.sent();
+                return [2 /*return*/, configResponse];
+              case 4:
+                xhrResponse = response;
+                configResponse = JSON.parse(xhrResponse.responseText);
+                return [2 /*return*/, configResponse];
+              case 5:
+                (_b = mpInstance === null || mpInstance === void 0 ? void 0 : mpInstance.Logger) === null || _b === void 0 ? void 0 : _b.verbose('Issue with receiving configuration from server, received HTTP Code of ' + response.statusText);
+                return [3 /*break*/, 7];
+              case 6:
+                _d.sent();
+                (_c = mpInstance === null || mpInstance === void 0 ? void 0 : mpInstance.Logger) === null || _c === void 0 ? void 0 : _c.error('Error getting forwarder configuration from mParticle servers.');
+                return [3 /*break*/, 7];
+              case 7:
+                // Returns the original config object if we cannot retrieve the remote config
+                return [2 /*return*/, config];
             }
-          };
-          var xhr_1 = mpInstance._Helpers.createXHR(xhrCallback);
-          url = 'https://' + mpInstance._Store.SDKConfig.configUrl + apiKey + '/config?env=';
-          if (config.isDevelopmentMode) {
-            url = url + '1';
-          } else {
-            url = url + '0';
-          }
-          var dataPlan = config.dataPlan;
-          if (dataPlan) {
-            if (dataPlan.planId) {
-              url = url + '&plan_id=' + dataPlan.planId || '';
-            }
-            if (dataPlan.planVersion) {
-              url = url + '&plan_version=' + dataPlan.planVersion || '';
-            }
-          }
-          if (xhr_1) {
-            xhr_1.open('get', url);
-            xhr_1.send(null);
-          }
-        } catch (e) {
-          completeSDKInitialization(apiKey, config, mpInstance);
-          mpInstance.Logger.error('Error getting forwarder configuration from mParticle servers.');
-        }
+          });
+        });
       };
     }
 
@@ -8539,6 +8580,7 @@ var mParticle = (function () {
         }
       }
       this.init = function (apiKey, config) {
+        var _this = this;
         if (!config) {
           console.warn('You did not pass a config object to init(). mParticle will not initialize properly');
         }
@@ -8549,7 +8591,11 @@ var mParticle = (function () {
         // to it for it to be run after fetched
         if (config) {
           if (!config.hasOwnProperty('requestConfig') || config.requestConfig) {
-            new ConfigAPIClient().getSDKConfiguration(apiKey, config, completeSDKInitialization, this);
+            var configApiClient = new ConfigAPIClient(apiKey, config, this);
+            configApiClient.getSDKConfiguration().then(function (result) {
+              var mergedConfig = _this._Helpers.extend({}, config, result);
+              completeSDKInitialization(apiKey, mergedConfig, _this);
+            });
           } else {
             completeSDKInitialization(apiKey, config, this);
           }
