@@ -276,5 +276,6 @@ export const tryCacheIdentity = (
 
 const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
     new Date().getTime() + maxAge * MILLIS_IN_ONE_SEC;
+
 const parseIdentityResponse = (responseText: string): IdentityResultBody =>
     responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);
