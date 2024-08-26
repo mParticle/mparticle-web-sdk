@@ -11,7 +11,7 @@ import { IdentityAPIMethod } from './identity.interfaces';
 import { IdentityResultBody } from './identity-user-interfaces';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
-const CACHE_HEADER = 'x-mp-max-age';
+const CACHE_HEADER = 'x-mp-max-age' as const;
 
 export interface IIdentityResponse {
     status: number;
@@ -48,8 +48,11 @@ export interface ICachedIdentityCall {
 export const xhrIdentityResponseAdapter = (
     possiblyXhr: XMLHttpRequest | IIdentityResponse
 ): IIdentityResponse => {
-    // This might be an actual xhr object, so we need to parse it
-    if (!possiblyXhr.hasOwnProperty('expireTimestamp')) {
+    if (possiblyXhr.hasOwnProperty('expireTimestamp')) {
+        // This is likely an IIdentityResponse object, just return it
+        return possiblyXhr as IIdentityResponse;
+    } else {
+        // This might be an actual xhr object, so we need to parse it
         return {
             status: possiblyXhr.status,
             responseBody: JSON.parse(
@@ -62,9 +65,6 @@ export const xhrIdentityResponseAdapter = (
             ),
             expireTimestamp: 0,
         };
-    } else {
-        // This is likely an IIdentityResponse object, just return it
-        return possiblyXhr as IIdentityResponse;
     }
 };
 
