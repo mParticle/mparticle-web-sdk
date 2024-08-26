@@ -8,7 +8,6 @@ import {
     tryCacheIdentity,
     IKnownIdentities,
     ICachedIdentityCall,
-    IIdentityResponse
 } from "../../src/identity-utils";
 import { LocalStorageVault } from "../../src/vault";
 import { Dictionary, generateHash } from "../../src/utils";
@@ -28,7 +27,7 @@ const { Identify, Login, Logout } = Constants.IdentityMethods;
 
 import sinon from 'sinon';
 // https://go.mparticle.com/work/SQDSDKS-6671
-import { IdentityResultBody } from "../../src/identity-user-interfaces";
+import { IdentityResultBody, IIdentityResponse } from "../../src/identity-user-interfaces";
 
 const DEVICE_ID = 'test-device-id'
 

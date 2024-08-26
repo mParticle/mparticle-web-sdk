@@ -8,23 +8,19 @@ import {
     IdentityCallback,
 } from '@mparticle/web-sdk';
 import { IdentityAPIMethod } from './identity.interfaces';
-import { IdentityResultBody } from './identity-user-interfaces';
+import {
+    IdentityResultBody,
+    IIdentityResponse,
+} from './identity-user-interfaces';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 const CACHE_HEADER = 'x-mp-max-age' as const;
 
-export interface IIdentityResponse {
-    // https://go.mparticle.com/work/SQDSDKS-6672
-    responseText: IdentityResultBody;
-    status: number;
-    cacheMaxAge: number; // Default: 86400
-    expireTimestamp?: number;
-}
-
 export type IdentityCache = BaseVault<Dictionary<ICachedIdentityCall>>;
 
+// https://go.mparticle.com/work/SQDSDKS-6675
 export type IParseCachedIdentityResponse = (
-    cachedIdentity: ICachedIdentityCall,
+    cachedIdentity: IIdentityResponse,
     mpid: string,
     callback: IdentityCallback,
     identityApiData: IdentityApiData,
@@ -56,6 +52,7 @@ export const xhrIdentityResponseAdapter = (
         // If there is no `expireTimestamp`, then it is an XHR object and needs to be parsed.
         return {
             status: possiblyXhr.status,
+
             // Sometimes responseText can be an empty string, such as a 404 response
             responseText: (possiblyXhr as XMLHttpRequest).responseText
                 ? JSON.parse((possiblyXhr as XMLHttpRequest).responseText)
@@ -212,7 +209,7 @@ export const getCachedIdentity = (
     method: IdentityAPIMethod,
     proposedUserIdentities: IKnownIdentities,
     idCache: IdentityCache
-): ICachedIdentityCall | null => {
+): IIdentityResponse | null => {
     const cacheKey: string = concatenateIdentities(
         method,
         proposedUserIdentities
@@ -222,7 +219,11 @@ export const getCachedIdentity = (
     const cache = idCache.retrieve();
     const cachedIdentity = cache ? cache[hashedKey] : null;
 
-    return cachedIdentity;
+    return {
+        responseText: parseIdentityResponse(cachedIdentity.responseText),
+        expireTimestamp: cachedIdentity.expireTimestamp,
+        status: cachedIdentity.status,
+    };
 };
 
 // https://go.mparticle.com/work/SQDSDKS-6079
@@ -302,3 +303,6 @@ export const tryCacheIdentity = (
 
 const getExpireTimestamp = (maxAge: number = ONE_DAY_IN_SECONDS): number =>
     new Date().getTime() + maxAge * MILLIS_IN_ONE_SEC;
+
+const parseIdentityResponse = (responseText: string): IdentityResultBody =>
+    responseText ? JSON.parse(responseText) : ({} as IdentityResultBody);

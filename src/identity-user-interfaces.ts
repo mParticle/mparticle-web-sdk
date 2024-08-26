@@ -84,6 +84,14 @@ export interface IdentityCallback {
     (result: IdentityResult): void;
 }
 
+export interface IIdentityResponse {
+    // https://go.mparticle.com/work/SQDSDKS-6672
+    responseText: IdentityResultBody;
+    status: number;
+    cacheMaxAge?: number; // Default: 86400
+    expireTimestamp?: number;
+}
+
 export interface IdentityResult {
     httpCode: typeof HTTPCodes;
     getPreviousUser(): User;
