@@ -1,3 +1,10 @@
+# [2.28.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.27.0...v2.28.0) (2024-08-26)
+
+
+### Features
+
+* Refactor usage of XHR for Config API ([#898](https://github.com/mParticle/mparticle-web-sdk/issues/898)) ([0b6fae6](https://github.com/mParticle/mparticle-web-sdk/commit/0b6fae68a6d499444736308b9fc00bf8d08d6706))
+
 # [2.27.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.26.10...v2.27.0) (2024-08-13)
 
 

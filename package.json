@@ -1,6 +1,6 @@
 {
     "name": "@mparticle/web-sdk",
-    "version": "2.27.0",
+    "version": "2.28.0",
     "description": "mParticle core SDK for web applications",
     "license": "Apache-2.0",
     "keywords": [
