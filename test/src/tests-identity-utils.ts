@@ -56,7 +56,7 @@ const loginResponse: IdentityResultBody = {
 
 const identityResponse: IIdentityResponse = {
     status: 200,
-    responseBody: identifyResponse,
+    responseText: identifyResponse,
     cacheMaxAge: 86400,
 }
 
@@ -192,7 +192,7 @@ describe('identity-utils', () => {
                 knownIdentities,
                 currentTime,
                 cacheVault,
-                { ...identityResponse, responseBody: loginResponse }
+                { ...identityResponse, responseText: loginResponse }
             );
 
             const updatedMpIdCache = cacheVault.retrieve();
@@ -205,7 +205,7 @@ describe('identity-utils', () => {
                 cachedKey
             ];
 
-            expect(cachedLoginCall).hasOwnProperty('responseBody');
+            expect(cachedLoginCall).hasOwnProperty('responseText');
             expect(cachedLoginCall).hasOwnProperty('status');
             expect(cachedLoginCall).hasOwnProperty('expireTimestamp');
 

@@ -14,8 +14,9 @@ const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
 const CACHE_HEADER = 'x-mp-max-age' as const;
 
 export interface IIdentityResponse {
+    // https://go.mparticle.com/work/SQDSDKS-6672
+    responseText: IdentityResultBody;
     status: number;
-    responseBody: IdentityResultBody;
     cacheMaxAge: number; // Default: 86400
     expireTimestamp?: number;
 }
@@ -55,9 +56,10 @@ export const xhrIdentityResponseAdapter = (
         // If there is no `expireTimestamp`, then it is an XHR object and needs to be parsed.
         return {
             status: possiblyXhr.status,
-            responseBody: JSON.parse(
-                (possiblyXhr as XMLHttpRequest).responseText
-            ),
+            // Sometimes responseText can be an empty string, such as a 404 response
+            responseText: (possiblyXhr as XMLHttpRequest).responseText
+                ? JSON.parse((possiblyXhr as XMLHttpRequest).responseText)
+                : {},
             cacheMaxAge: parseNumber(
                 (possiblyXhr as XMLHttpRequest)?.getResponseHeader(
                     CACHE_HEADER
@@ -108,13 +110,13 @@ export const cacheIdentityRequest = (
     idCache: IdentityCache,
     identityResponse: IIdentityResponse
 ): void => {
-    const { responseBody, status } = identityResponse;
+    const { responseText, status } = identityResponse;
     const cache: Dictionary<ICachedIdentityCall> =
         idCache.retrieve() || ({} as Dictionary<ICachedIdentityCall>);
     const cacheKey = concatenateIdentities(method, identities);
     const hashedKey = generateHash(cacheKey);
 
-    const { mpid, is_logged_in } = responseBody;
+    const { mpid, is_logged_in } = responseText;
     const cachedResponseBody = {
         mpid,
         is_logged_in,
