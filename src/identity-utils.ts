@@ -49,10 +49,10 @@ export const xhrIdentityResponseAdapter = (
     possiblyXhr: XMLHttpRequest | IIdentityResponse
 ): IIdentityResponse => {
     if (possiblyXhr.hasOwnProperty('expireTimestamp')) {
-        // This is likely an IIdentityResponse object, just return it
+        // If there is an `expireTimestamp`, it is an IIdentityResponse object, so just return it.  This indicates it was a previously cached value.
         return possiblyXhr as IIdentityResponse;
     } else {
-        // This might be an actual xhr object, so we need to parse it
+        // If there is no `expireTimestamp`, then it is an XHR object and needs to be parsed.
         return {
             status: possiblyXhr.status,
             responseBody: JSON.parse(
