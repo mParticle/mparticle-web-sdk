@@ -1,3 +1,5 @@
+type HTTPMethod = 'get' | 'post';
+
 export interface fetchPayload {
     method: string;
     headers: {
@@ -34,7 +36,8 @@ export class XHRUploader extends AsyncUploader {
         const response: Response = await this.makeRequest(
             this.url,
             fetchPayload.body,
-            fetchPayload.method as 'post' | 'get'
+            fetchPayload.method as HTTPMethod,
+            fetchPayload.headers
         );
         return response;
     }
@@ -50,7 +53,8 @@ export class XHRUploader extends AsyncUploader {
     private async makeRequest(
         url: string,
         data: string,
-        method: 'post' | 'get' = 'post'
+        method: HTTPMethod = 'post',
+        headers: Record<string, string> = {}
     ): Promise<Response> {
         const xhr: XMLHttpRequest = new XMLHttpRequest();
         return new Promise((resolve, reject) => {
@@ -60,16 +64,19 @@ export class XHRUploader extends AsyncUploader {
                 // Process the response
                 // We resolve all xhr responses whose ready state is 4 regardless of HTTP codes that may be errors (400+)
                 // because these are valid HTTP responses.
-                resolve((xhr as unknown) as Response);
+                resolve(xhr as unknown as Response);
             };
 
             // Reject a promise only when there is an xhr error
             xhr.onerror = () => {
-                reject((xhr as unknown) as Response);
+                reject(xhr as unknown as Response);
             };
 
-
             xhr.open(method, url);
+
+            Object.entries(headers).forEach(([key, value]) => {
+                xhr.setRequestHeader(key, value);
+            });
             xhr.send(data);
         });
     }

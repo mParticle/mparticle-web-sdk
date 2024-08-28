@@ -14,7 +14,7 @@ import {
 } from './identity-user-interfaces';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
-const CACHE_HEADER = 'x-mp-max-age' as const;
+export const CACHE_HEADER = 'x-mp-max-age' as const;
 
 export type IdentityCache = BaseVault<Dictionary<ICachedIdentityCall>>;
 
