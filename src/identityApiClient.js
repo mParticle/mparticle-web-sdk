@@ -1,4 +1,5 @@
 import Constants from './constants';
+import { xhrIdentityResponseAdapter } from './identity-utils';
 
 var HTTPCodes = Constants.HTTPCodes,
     Messages = Constants.Messages;
@@ -78,8 +79,11 @@ export default function IdentityAPIClient(mpInstance) {
                     mpInstance.Logger.verbose(
                         'Received ' + xhr.statusText + ' from server'
                     );
+
+                    // https://go.mparticle.com/work/SQDSDKS-6565
+                    const identityResponse = xhrIdentityResponseAdapter(xhr);
                     parseIdentityResponse(
-                        xhr,
+                        identityResponse,
                         previousMPID,
                         callback,
                         originalIdentityApiData,
