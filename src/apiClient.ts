@@ -1,14 +1,13 @@
 import Constants from './constants';
 import Types from './types';
 import { BatchUploader } from './batchUploader';
-import { MParticleWebSDK, SDKEvent } from './sdkRuntimeModels';
+import { MParticleWebSDK, SDKEvent, SDKDataPlan } from './sdkRuntimeModels';
 import KitBlocker from './kitBlocking';
 import { Dictionary, getRampNumber, isEmpty, parseNumber } from './utils';
 import { IUploadObject } from './serverModel';
 import { MPForwarder } from './forwarders.interfaces';
-import { IMParticleUser } from './identity-user-interfaces';
-
-export type ForwardingStatsData = Dictionary<any>;
+import { IMParticleUser, ISDKUserAttributes } from './identity-user-interfaces';
+import { AsyncUploader, FetchUploader, XHRUploader } from './uploaders';
 
 export interface IAPIClient {
     uploader: BatchUploader | null;
@@ -18,16 +17,28 @@ export interface IAPIClient {
     sendEventToServer: (event: SDKEvent, _options?: Dictionary<any>) => void;
     sendSingleEventToServer: (event: SDKEvent) => void;
     sendBatchForwardingStatsToServer: (
-        forwardingStatsData: ForwardingStatsData,
+        forwardingStatsData: IForwardingStatsData,
         xhr: XMLHttpRequest
     ) => void;
-    sendSingleForwardingStatsToServer: (
-        forwardingStatsData: ForwardingStatsData
-    ) => void;
+    initializeForwarderStatsUploader: () => AsyncUploader;
     prepareForwardingStats: (
         forwarder: MPForwarder,
         event: IUploadObject
     ) => void;
+}
+
+export interface IForwardingStatsData {
+    mid: number; // Module Id
+    esid: number; // Event Subscription Id
+    n: string; // Event Name
+    attrs: ISDKUserAttributes; // User Attributes
+    sdk: string; // SDK Version
+    dt: number; // Data Type
+    et: number; // Event Type
+    dbg: boolean; // Development Mode (for debugging in Live Stream)
+    ct: number; // Current Timestamp
+    eec: number; // Expanded Event Count
+    dp: SDKDataPlan; // Data Plan
 }
 
 export default function APIClient(
@@ -161,41 +172,26 @@ export default function APIClient(
         }
     };
 
-    this.sendSingleForwardingStatsToServer = function(forwardingStatsData) {
-        let url;
-        let data;
-        try {
-            const xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 202) {
-                        mpInstance.Logger.verbose(
-                            'Successfully sent  ' +
-                                xhr.statusText +
-                                ' from server'
-                        );
-                    }
-                }
-            };
-            const xhr = mpInstance._Helpers.createXHR(xhrCallback);
-            url = mpInstance._Helpers.createServiceUrl(
-                mpInstance._Store.SDKConfig.v1SecureServiceUrl,
-                mpInstance._Store.devToken
-            );
-            data = forwardingStatsData;
+    this.initializeForwarderStatsUploader = (): AsyncUploader => {
+        const {
+            v1SecureServiceUrl: forwardingDomain,
+        } = mpInstance._Store.SDKConfig;
+        const { devToken } = mpInstance._Store;
 
-            if (xhr) {
-                xhr.open('post', url + '/Forwarding');
-                xhr.send(JSON.stringify(data));
-            }
-        } catch (e) {
-            mpInstance.Logger.error(
-                'Error sending forwarding stats to mParticle servers.'
-            );
-        }
+        const uploadUrl: string = `https://${forwardingDomain}${devToken}/Forwarding`;
+
+        const uploader: AsyncUploader = window.fetch
+            ? new FetchUploader(uploadUrl)
+            : new XHRUploader(uploadUrl);
+
+        return uploader;
     };
 
-    this.prepareForwardingStats = function(forwarder, event) {
-        let forwardingStatsData;
+    this.prepareForwardingStats = function(
+        forwarder: MPForwarder,
+        event:SDKEvent,
+    ) : void {
+        let forwardingStatsData: IForwardingStatsData;
         const queue = mpInstance._Forwarders.getForwarderStatsQueue();
 
         if (forwarder && forwarder.isVisible) {
@@ -212,6 +208,11 @@ export default function APIClient(
                 eec: event.ExpandedEventCount,
                 dp: event.DataPlan,
             };
+            
+            const {
+                sendSingleForwardingStatsToServer,
+                setForwarderStatsQueue,
+            } = mpInstance._Forwarders;
 
             if (
                 mpInstance._Helpers.getFeatureFlag(
@@ -219,9 +220,9 @@ export default function APIClient(
                 )
             ) {
                 queue.push(forwardingStatsData);
-                mpInstance._Forwarders.setForwarderStatsQueue(queue);
+                setForwarderStatsQueue(queue);
             } else {
-                self.sendSingleForwardingStatsToServer(forwardingStatsData);
+                sendSingleForwardingStatsToServer(forwardingStatsData);
             }
         }
     };

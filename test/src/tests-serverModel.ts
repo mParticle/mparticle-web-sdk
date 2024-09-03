@@ -82,6 +82,7 @@ describe('ServerModel', () => {
             //       or set up an event factory
             const event: SDKEvent = {
                 EventName: 'Test Event',
+                ExpandedEventCount: 0,
                 MPID: '',
                 IsFirstRun: true,
                 DeviceId: 'test-device',

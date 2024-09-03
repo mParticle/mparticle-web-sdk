@@ -320,6 +320,7 @@ describe('Old model to batch model conversion', () => {
         const sdkEvent: SDKEvent = {
             EventName: 'eCommerce - Purchase',
             EventCategory: 16,
+            ExpandedEventCount: 0,
             EventAttributes: null,
             SDKVersion: '2.9.10',
             SourceMessageId: 'testSMID',
@@ -420,6 +421,7 @@ describe('Old model to batch model conversion', () => {
         const sdkEvent: SDKEvent = {
             EventName: "Pause Event",
             EventCategory: 9,
+            ExpandedEventCount: 0,
             EventDataType: 4,
             EventAttributes: {
                 content_duration: '120000',

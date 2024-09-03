@@ -5,7 +5,7 @@ import {
     Product,
     UserIdentities,
 } from '@mparticle/web-sdk';
-import { ForwardingStatsData } from './apiClient';
+import { IForwardingStatsData } from './apiClient';
 import {
     IntegrationAttributes,
     ServerSettings,
@@ -18,7 +18,7 @@ import { UserAttributes } from './identity-user-interfaces';
 export type UploadsTable = Dictionary<any>;
 export interface iForwardingStatsBatches {
     uploadsTable: UploadsTable;
-    forwardingStatsEventQueue: ForwardingStatsData[];
+    forwardingStatsEventQueue: IForwardingStatsData[];
 }
 
 export interface IGlobalStoreV2MinifiedKeys {
