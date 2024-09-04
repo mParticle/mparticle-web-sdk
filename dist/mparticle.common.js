@@ -15,22 +15,22 @@ map:function map(a,b){var c,d,e;if(null===this)throw new TypeError(" this is nul
 filter:function filter(a/*, thisArg*/){if(void 0===this||null===this)throw new TypeError;var b=Object(this),c=b.length>>>0;if("function"!=typeof a)throw new TypeError;for(var d=[],e=2<=arguments.length?arguments[1]:void 0,f=0;f<c;f++)if(f in b){var g=b[f];a.call(e,g,f,b)&&d.push(g);}return d},// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
 isArray:function isArray(a){return "[object Array]"===Object.prototype.toString.call(a)},Base64:Base64$1};
 
-function _typeof(o) {
+function _typeof$1(o) {
   "@babel/helpers - typeof";
 
-  return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
+  return _typeof$1 = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
     return typeof o;
   } : function (o) {
     return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
-  }, _typeof(o);
+  }, _typeof$1(o);
 }
 
 function _toPrimitive(input, hint) {
-  if (_typeof(input) !== "object" || input === null) return input;
+  if (_typeof$1(input) !== "object" || input === null) return input;
   var prim = input[Symbol.toPrimitive];
   if (prim !== undefined) {
     var res = prim.call(input, hint || "default");
-    if (_typeof(res) !== "object") return res;
+    if (_typeof$1(res) !== "object") return res;
     throw new TypeError("@@toPrimitive must return a primitive value.");
   }
   return (hint === "string" ? String : Number)(input);
@@ -38,7 +38,7 @@ function _toPrimitive(input, hint) {
 
 function _toPropertyKey(arg) {
   var key = _toPrimitive(arg, "string");
-  return _typeof(key) === "symbol" ? key : String(key);
+  return _typeof$1(key) === "symbol" ? key : String(key);
 }
 
 function _defineProperty(obj, key, value) {
@@ -154,7 +154,7 @@ typeof SuppressedError === "function" ? SuppressedError : function (error, suppr
     return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
 };
 
-var version = "2.28.0";
+var version = "2.28.1";
 
 var Constants={sdkVersion:version,sdkVendor:"mparticle",platform:"web",Messages:{DeprecationMessages:{MethodIsDeprecatedPostfix:"is a deprecated method and will be removed in future releases",AlternativeMethodPrefix:"Please use the alternate method:"},ErrorMessages:{NoToken:"A token must be specified.",EventNameInvalidType:"Event name must be a valid string value.",EventDataInvalidType:"Event data must be a valid object hash.",LoggingDisabled:"Event logging is currently disabled.",CookieParseError:"Could not parse cookie",EventEmpty:"Event object is null or undefined, cancelling send",APIRequestEmpty:"APIRequest is null or undefined, cancelling send",NoEventType:"Event type must be specified.",TransactionIdRequired:"Transaction ID is required",TransactionRequired:"A transaction attributes object is required",PromotionIdRequired:"Promotion ID is required",BadAttribute:"Attribute value cannot be object or array",BadKey:"Key value cannot be object or array",BadLogPurchase:"Transaction attributes and a product are both required to log a purchase, https://docs.mparticle.com/?javascript#measuring-transactions",AudienceAPINotEnabled:"Your workspace is not enabled to retrieve user audiences."},InformationMessages:{CookieSearch:"Searching for cookie",CookieFound:"Cookie found, parsing values",CookieNotFound:"Cookies not found",CookieSet:"Setting cookie",CookieSync:"Performing cookie sync",SendBegin:"Starting to send event",SendIdentityBegin:"Starting to send event to identity server",SendWindowsPhone:"Sending event to Windows Phone container",SendIOS:"Calling iOS path: ",SendAndroid:"Calling Android JS interface method: ",SendHttp:"Sending event to mParticle HTTP service",SendAliasHttp:"Sending alias request to mParticle HTTP service",SendIdentityHttp:"Sending event to mParticle HTTP service",StartingNewSession:"Starting new Session",StartingLogEvent:"Starting to log event",StartingLogOptOut:"Starting to log user opt in/out",StartingEndSession:"Starting to end session",StartingInitialization:"Starting to initialize",StartingLogCommerceEvent:"Starting to log commerce event",StartingAliasRequest:"Starting to Alias MPIDs",LoadingConfig:"Loading configuration options",AbandonLogEvent:"Cannot log event, logging disabled or developer token not set",AbandonAliasUsers:"Cannot Alias Users, logging disabled or developer token not set",AbandonStartSession:"Cannot start session, logging disabled or developer token not set",AbandonEndSession:"Cannot end session, logging disabled or developer token not set",NoSessionToEnd:"Cannot end session, no active session found"},ValidationMessages:{ModifyIdentityRequestUserIdentitiesPresent:"identityRequests to modify require userIdentities to be present. Request not sent to server. Please fix and try again",IdentityRequesetInvalidKey:"There is an invalid key on your identityRequest object. It can only contain a `userIdentities` object and a `onUserAlias` function. Request not sent to server. Please fix and try again.",OnUserAliasType:"The onUserAlias value must be a function.",UserIdentities:"The userIdentities key must be an object with keys of identityTypes and values of strings. Request not sent to server. Please fix and try again.",UserIdentitiesInvalidKey:"There is an invalid identity key on your `userIdentities` object within the identityRequest. Request not sent to server. Please fix and try again.",UserIdentitiesInvalidValues:"All user identity values must be strings or null. Request not sent to server. Please fix and try again.",AliasMissingMpid:"Alias Request must contain both a destinationMpid and a sourceMpid",AliasNonUniqueMpid:"Alias Request's destinationMpid and sourceMpid must be unique",AliasMissingTime:"Alias Request must have both a startTime and an endTime",AliasStartBeforeEndTime:"Alias Request's endTime must be later than its startTime"}},NativeSdkPaths:{LogEvent:"logEvent",SetUserTag:"setUserTag",RemoveUserTag:"removeUserTag",SetUserAttribute:"setUserAttribute",RemoveUserAttribute:"removeUserAttribute",SetSessionAttribute:"setSessionAttribute",AddToCart:"addToCart",RemoveFromCart:"removeFromCart",ClearCart:"clearCart",LogOut:"logOut",SetUserAttributeList:"setUserAttributeList",RemoveAllUserAttributes:"removeAllUserAttributes",GetUserAttributesLists:"getUserAttributesLists",GetAllUserAttributes:"getAllUserAttributes",Identify:"identify",Logout:"logout",Login:"login",Modify:"modify",Alias:"aliasUsers",Upload:"upload"},StorageNames:{localStorageName:"mprtcl-api",localStorageNameV3:"mprtcl-v3",cookieName:"mprtcl-api",cookieNameV2:"mprtcl-v2",cookieNameV3:"mprtcl-v3",localStorageNameV4:"mprtcl-v4",localStorageProductsV4:"mprtcl-prodv4",cookieNameV4:"mprtcl-v4",currentStorageName:"mprtcl-v4",currentStorageProductsName:"mprtcl-prodv4"},DefaultConfig:{cookieDomain:null,cookieExpiration:365,logLevel:null,timeout:300,sessionTimeout:30,maxProducts:20,forwarderStatsTimeout:5e3,integrationDelayTimeout:5e3,maxCookieSize:3e3,aliasMaxWindow:90,uploadInterval:0// Maximum milliseconds in between batch uploads, below 500 will mean immediate upload.  The server returns this as a string, but we are using it as a number internally
 },DefaultBaseUrls:{v1SecureServiceUrl:"jssdks.mparticle.com/v1/JS/",v2SecureServiceUrl:"jssdks.mparticle.com/v2/JS/",v3SecureServiceUrl:"jssdks.mparticle.com/v3/JS/",configUrl:"jssdkcdns.mparticle.com/JS/v2/",identityUrl:"identity.mparticle.com/v1/",aliasUrl:"jssdks.mparticle.com/v1/identity/",userAudienceUrl:"nativesdks.mparticle.com/v1/"},Base64CookieKeys:{csm:1,sa:1,ss:1,ua:1,ui:1,csd:1,ia:1,con:1},// https://go.mparticle.com/work/SQDSDKS-6039
@@ -182,6 +182,10 @@ var _TriggerUploadType;var MessageType$1={SessionStart:1,SessionEnd:2,PageView:3
 IdentityType.isValid=function(a){if("number"==typeof a)for(var b in IdentityType)if(IdentityType.hasOwnProperty(b)&&IdentityType[b]===a)return !0;return !1},IdentityType.getName=function(a){return a===window.mParticle.IdentityType.CustomerId?"Customer ID":a===window.mParticle.IdentityType.Facebook?"Facebook ID":a===window.mParticle.IdentityType.Twitter?"Twitter ID":a===window.mParticle.IdentityType.Google?"Google ID":a===window.mParticle.IdentityType.Microsoft?"Microsoft ID":a===window.mParticle.IdentityType.Yahoo?"Yahoo ID":a===window.mParticle.IdentityType.Email?"Email":a===window.mParticle.IdentityType.FacebookCustomAudienceId?"Facebook App User ID":"Other ID"},IdentityType.getIdentityType=function(a){return "other"===a?IdentityType.Other:"customerid"===a?IdentityType.CustomerId:"facebook"===a?IdentityType.Facebook:"twitter"===a?IdentityType.Twitter:"google"===a?IdentityType.Google:"microsoft"===a?IdentityType.Microsoft:"yahoo"===a?IdentityType.Yahoo:"email"===a?IdentityType.Email:"facebookcustomaudienceid"===a?IdentityType.FacebookCustomAudienceId:"other2"===a?IdentityType.Other2:"other3"===a?IdentityType.Other3:"other4"===a?IdentityType.Other4:"other5"===a?IdentityType.Other5:"other6"===a?IdentityType.Other6:"other7"===a?IdentityType.Other7:"other8"===a?IdentityType.Other8:"other9"===a?IdentityType.Other9:"other10"===a?IdentityType.Other10:"mobile_number"===a?IdentityType.MobileNumber:"phone_number_2"===a?IdentityType.PhoneNumber2:!("phone_number_3"!=a)&&IdentityType.PhoneNumber3},IdentityType.getIdentityName=function(a){return getIdentityName(a)};var ProductActionType={Unknown:0,AddToCart:1,RemoveFromCart:2,Checkout:3,CheckoutOption:4,Click:5,ViewDetail:6,Purchase:7,Refund:8,AddToWishlist:9,RemoveFromWishlist:10};ProductActionType.getName=function(a){return a===ProductActionType.AddToCart?"Add to Cart":a===ProductActionType.RemoveFromCart?"Remove from Cart":a===ProductActionType.Checkout?"Checkout":a===ProductActionType.CheckoutOption?"Checkout Option":a===ProductActionType.Click?"Click":a===ProductActionType.ViewDetail?"View Detail":a===ProductActionType.Purchase?"Purchase":a===ProductActionType.Refund?"Refund":a===ProductActionType.AddToWishlist?"Add to Wishlist":a===ProductActionType.RemoveFromWishlist?"Remove from Wishlist":"Unknown"},ProductActionType.getExpansionName=function(a){return a===ProductActionType.AddToCart?"add_to_cart":a===ProductActionType.RemoveFromCart?"remove_from_cart":a===ProductActionType.Checkout?"checkout":a===ProductActionType.CheckoutOption?"checkout_option":a===ProductActionType.Click?"click":a===ProductActionType.ViewDetail?"view_detail":a===ProductActionType.Purchase?"purchase":a===ProductActionType.Refund?"refund":a===ProductActionType.AddToWishlist?"add_to_wishlist":a===ProductActionType.RemoveFromWishlist?"remove_from_wishlist":"unknown"};var PromotionActionType={Unknown:0,PromotionView:1,PromotionClick:2};PromotionActionType.getName=function(a){return a===PromotionActionType.PromotionView?"view":a===PromotionActionType.PromotionClick?"click":"unknown"},PromotionActionType.getExpansionName=function(a){return a===PromotionActionType.PromotionView?"view":a===PromotionActionType.PromotionClick?"click":"unknown"};var ProfileMessageType={Logout:3},ApplicationTransitionType$1={AppInit:1},Environment={Production:"production",Development:"development"};var Types = {MessageType:MessageType$1,EventType:EventType,CommerceEventType:CommerceEventType,IdentityType:IdentityType,ProfileMessageType:ProfileMessageType,ApplicationTransitionType:ApplicationTransitionType$1,ProductActionType:ProductActionType,PromotionActionType:PromotionActionType,TriggerUploadType:TriggerUploadType,Environment:Environment};
 
 var SDKProductActionType;(function(a){a[a.Unknown=0]="Unknown",a[a.AddToCart=1]="AddToCart",a[a.RemoveFromCart=2]="RemoveFromCart",a[a.Checkout=3]="Checkout",a[a.CheckoutOption=4]="CheckoutOption",a[a.Click=5]="Click",a[a.ViewDetail=6]="ViewDetail",a[a.Purchase=7]="Purchase",a[a.Refund=8]="Refund",a[a.AddToWishlist=9]="AddToWishlist",a[a.RemoveFromWishlist=10]="RemoveFromWishlist";})(SDKProductActionType||(SDKProductActionType={}));
+
+function getDefaultExportFromCjs (x) {
+	return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, 'default') ? x['default'] : x;
+}
 
 var dist = {};
 
@@ -471,7 +475,7 @@ function APIClient(a,b){this.uploader=null;var c=this;this.queueEventForBatchUpl
 var c=parseNumber(a._Helpers.getFeatureFlag(Constants.FeatureFlags.EventBatchingIntervalMillis));this.uploader=new BatchUploader(a,c);}// https://go.mparticle.com/work/SQDSDKS-6038
 this.uploader.queueEvent(b),a._Persistence.update();},this.processQueuedEvents=function(){var b,d=a.Identity.getCurrentUser();if(d&&(b=d.getMPID()),a._Store.eventQueue.length&&b){var e=a._Store.eventQueue;a._Store.eventQueue=[],this.appendUserInfoToEvents(d,e),e.forEach(function(a){c.sendEventToServer(a);});}},this.appendUserInfoToEvents=function(b,c){c.forEach(function(c){c.MPID||a._ServerModel.appendUserInfo(b,c);});},this.sendEventToServer=function(c,d){var e=a._Helpers.extend({shouldUploadEvent:!0},d);if(a._Store.webviewBridgeEnabled)return void a._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.LogEvent,JSON.stringify(c));var f,g=a.Identity.getCurrentUser();// We queue events if there is no MPID (MPID is null, or === 0), or there are integrations that that require this to stall because integration attributes
 // need to be set, or if we are still fetching the config (self hosted only), and so require delaying events
-return (g&&(f=g.getMPID()),a._Store.requireDelay=a._Helpers.isDelayedByIntegration(a._preInit.integrationDelays,a._Store.integrationDelayTimeoutStart,Date.now()),!f||a._Store.requireDelay||!a._Store.configurationLoaded)?(a.Logger.verbose("Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay."),void a._Store.eventQueue.push(c)):void(this.processQueuedEvents(),isEmpty(c)||(e.shouldUploadEvent&&this.queueEventForBatchUpload(c),c.EventName!==Types.MessageType.AppStateTransition&&(b&&b.kitBlockingEnabled&&(c=b.createBlockedEvent(c)),c&&a._Forwarders.sendEventToForwarders(c))))},this.sendBatchForwardingStatsToServer=function(b,c){var d,e;try{d=a._Helpers.createServiceUrl(a._Store.SDKConfig.v2SecureServiceUrl,a._Store.devToken),e={uuid:a._Helpers.generateUniqueId(),data:b},c&&(c.open("post",d+"/Forwarding"),c.send(JSON.stringify(e)));}catch(b){a.Logger.error("Error sending forwarding stats to mParticle servers.");}},this.sendSingleForwardingStatsToServer=function(b){var c,d;try{var e=function(){4===f.readyState&&202===f.status&&a.Logger.verbose("Successfully sent  "+f.statusText+" from server");},f=a._Helpers.createXHR(e);c=a._Helpers.createServiceUrl(a._Store.SDKConfig.v1SecureServiceUrl,a._Store.devToken),d=b,f&&(f.open("post",c+"/Forwarding"),f.send(JSON.stringify(d)));}catch(b){a.Logger.error("Error sending forwarding stats to mParticle servers.");}},this.prepareForwardingStats=function(b,d){var e,f=a._Forwarders.getForwarderStatsQueue();b&&b.isVisible&&(e={mid:b.id,esid:b.eventSubscriptionId,n:d.EventName,attrs:d.EventAttributes,sdk:d.SDKVersion,dt:d.EventDataType,et:d.EventCategory,dbg:d.Debug,ct:d.Timestamp,eec:d.ExpandedEventCount,dp:d.DataPlan},a._Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)?(f.push(e),a._Forwarders.setForwarderStatsQueue(f)):c.sendSingleForwardingStatsToServer(e));};}
+return (g&&(f=g.getMPID()),a._Store.requireDelay=a._Helpers.isDelayedByIntegration(a._preInit.integrationDelays,a._Store.integrationDelayTimeoutStart,Date.now()),!f||a._Store.requireDelay||!a._Store.configurationLoaded)?(a.Logger.verbose("Event was added to eventQueue. eventQueue will be processed once a valid MPID is returned or there is no more integration imposed delay."),void a._Store.eventQueue.push(c)):void(this.processQueuedEvents(),isEmpty(c)||(e.shouldUploadEvent&&this.queueEventForBatchUpload(c),c.EventName!==Types.MessageType.AppStateTransition&&(b&&b.kitBlockingEnabled&&(c=b.createBlockedEvent(c)),c&&a._Forwarders.sendEventToForwarders(c))))},this.sendBatchForwardingStatsToServer=function(b,c){var d,e;try{d=a._Helpers.createServiceUrl(a._Store.SDKConfig.v2SecureServiceUrl,a._Store.devToken),e={uuid:a._Helpers.generateUniqueId(),data:b},c&&(c.open("post",d+"/Forwarding"),c.send(JSON.stringify(e)));}catch(b){a.Logger.error("Error sending forwarding stats to mParticle servers.");}},this.initializeForwarderStatsUploader=function(){var b=a._Store.SDKConfig.v1SecureServiceUrl,c=a._Store.devToken,d="https://".concat(b).concat(c,"/Forwarding"),e=window.fetch?new FetchUploader(d):new XHRUploader(d);return e},this.prepareForwardingStats=function(b,c){var d,e=a._Forwarders.getForwarderStatsQueue();if(b&&b.isVisible){d={mid:b.id,esid:b.eventSubscriptionId,n:c.EventName,attrs:c.EventAttributes,sdk:c.SDKVersion,dt:c.EventDataType,et:c.EventCategory,dbg:c.Debug,ct:c.Timestamp,eec:c.ExpandedEventCount,dp:c.DataPlan};var f=a._Forwarders,g=f.sendSingleForwardingStatsToServer,h=f.setForwarderStatsQueue;a._Helpers.getFeatureFlag(Constants.FeatureFlags.ReportBatching)?(e.push(d),h(e)):g(d);}};}
 
 var Modify$4=Constants.IdentityMethods.Modify,Validators={// From ./utils
 // Utility Functions for backwards compatability
@@ -494,7 +498,7 @@ this.canLog=function(){return !!(a._Store.isEnabled&&(a._Store.devToken||a._Stor
 m={hasOwn:Object.prototype.hasOwnProperty,class2type:{},type:function type(a){return null==a?a+"":m.class2type[Object.prototype.toString.call(a)]||"object"},isPlainObject:function isPlainObject(a){if(!a||"object"!==m.type(a)||a.nodeType||m.isWindow(a))return !1;try{if(a.constructor&&!m.hasOwn.call(a,"constructor")&&!m.hasOwn.call(a.constructor.prototype,"isPrototypeOf"))return !1}catch(a){return !1}for(var b in a);// eslint-disable-line no-empty
 return b===void 0||m.hasOwn.call(a,b)},isArray:Array.isArray||function(a){return "array"===m.type(a)},isFunction:function isFunction(a){return "function"===m.type(a)},isWindow:function isWindow(a){return null!=a&&a==a.window}};// end of objectHelper
 // Handle a deep copy situation
-for("boolean"==typeof h&&(l=h,h=arguments[1]||{},j=2),"object"===_typeof(h)||m.isFunction(h)||(h={}),k===j&&(h=this,--j);j<k;j++)// Only deal with non-null/undefined values
+for("boolean"==typeof h&&(l=h,h=arguments[1]||{},j=2),"object"===_typeof$1(h)||m.isFunction(h)||(h={}),k===j&&(h=this,--j);j<k;j++)// Only deal with non-null/undefined values
 if(null!=(a=arguments[j]))// Extend the base object
 for(c in a)// Prevent never-ending loop
 (d=h[c],e=a[c],h!==e)&&(l&&e&&(m.isPlainObject(e)||(f=m.isArray(e)))?(f?(f=!1,g=d&&m.isArray(d)?d:[]):g=d&&m.isPlainObject(d)?d:{},h[c]=b.extend(l,g,e)):void 0!==e&&(h[c]=e));// Recurse if we're merging plain objects or arrays
@@ -546,13 +550,13 @@ var d=a._Persistence.getPersistence();d&&!d.cu&&(a.Identity.identify(a._Store.SD
 if(g.gs.sid&&a._Store.sessionId!==g.gs.sid&&(a._Store.sessionId=g.gs.sid),null===(d=null===g||void 0===g?void 0:g.gs)||void 0===d?void 0:d.les){e=6e4*a._Store.SDKConfig.sessionTimeout;var h=new Date().getTime();f=h-g.gs.les,f<e?b.setSessionTimer():(a._Events.logEvent({messageType:Types.MessageType.SessionEnd}),a._Store.sessionStartDate=null,a._Store.nullifySession());}},this.setSessionTimer=function(){var c=6e4*a._Store.SDKConfig.sessionTimeout;a._Store.globalTimer=window.setTimeout(function(){b.endSession();},c);},this.resetSessionTimer=function(){a._Store.webviewBridgeEnabled||(!a._Store.sessionId&&b.startNewSession(),b.clearSessionTimeout(),b.setSessionTimer()),b.startNewSessionIfNeeded();},this.clearSessionTimeout=function(){clearTimeout(a._Store.globalTimer);},this.startNewSessionIfNeeded=function(){if(!a._Store.webviewBridgeEnabled){var c=a._Persistence.getPersistence();!a._Store.sessionId&&c&&(c.sid?a._Store.sessionId=c.sid:b.startNewSession());}};}
 
 var Messages$5=Constants.Messages;function Ecommerce(a){var b=this;// sanitizes any non number, non string value to 0
-this.convertTransactionAttributesToProductAction=function(a,b){a.hasOwnProperty("Id")&&(b.TransactionId=a.Id),a.hasOwnProperty("Affiliation")&&(b.Affiliation=a.Affiliation),a.hasOwnProperty("CouponCode")&&(b.CouponCode=a.CouponCode),a.hasOwnProperty("Revenue")&&(b.TotalAmount=this.sanitizeAmount(a.Revenue,"Revenue")),a.hasOwnProperty("Shipping")&&(b.ShippingAmount=this.sanitizeAmount(a.Shipping,"Shipping")),a.hasOwnProperty("Tax")&&(b.TaxAmount=this.sanitizeAmount(a.Tax,"Tax")),a.hasOwnProperty("Step")&&(b.CheckoutStep=a.Step),a.hasOwnProperty("Option")&&(b.CheckoutOptions=a.Option);},this.getProductActionEventName=function(a){switch(a){case Types.ProductActionType.AddToCart:return "AddToCart";case Types.ProductActionType.AddToWishlist:return "AddToWishlist";case Types.ProductActionType.Checkout:return "Checkout";case Types.ProductActionType.CheckoutOption:return "CheckoutOption";case Types.ProductActionType.Click:return "Click";case Types.ProductActionType.Purchase:return "Purchase";case Types.ProductActionType.Refund:return "Refund";case Types.ProductActionType.RemoveFromCart:return "RemoveFromCart";case Types.ProductActionType.RemoveFromWishlist:return "RemoveFromWishlist";case Types.ProductActionType.ViewDetail:return "ViewDetail";case Types.ProductActionType.Unknown:default:return "Unknown"}},this.getPromotionActionEventName=function(a){return a===Types.PromotionActionType.PromotionClick?"PromotionClick":a===Types.PromotionActionType.PromotionView?"PromotionView":"Unknown"},this.convertProductActionToEventType=function(b){return b===Types.ProductActionType.AddToCart?Types.CommerceEventType.ProductAddToCart:b===Types.ProductActionType.AddToWishlist?Types.CommerceEventType.ProductAddToWishlist:b===Types.ProductActionType.Checkout?Types.CommerceEventType.ProductCheckout:b===Types.ProductActionType.CheckoutOption?Types.CommerceEventType.ProductCheckoutOption:b===Types.ProductActionType.Click?Types.CommerceEventType.ProductClick:b===Types.ProductActionType.Purchase?Types.CommerceEventType.ProductPurchase:b===Types.ProductActionType.Refund?Types.CommerceEventType.ProductRefund:b===Types.ProductActionType.RemoveFromCart?Types.CommerceEventType.ProductRemoveFromCart:b===Types.ProductActionType.RemoveFromWishlist?Types.CommerceEventType.ProductRemoveFromWishlist:b===Types.ProductActionType.Unknown?Types.EventType.Unknown:b===Types.ProductActionType.ViewDetail?Types.CommerceEventType.ProductViewDetail:(a.Logger.error("Could not convert product action type "+b+" to event type"),null)},this.convertPromotionActionToEventType=function(b){return b===Types.PromotionActionType.PromotionClick?Types.CommerceEventType.PromotionClick:b===Types.PromotionActionType.PromotionView?Types.CommerceEventType.PromotionView:(a.Logger.error("Could not convert promotion action type "+b+" to event type"),null)},this.generateExpandedEcommerceName=function(a,b){return "eCommerce - "+a+" - "+(b?"Total":"Item")},this.extractProductAttributes=function(a,b){b.CouponCode&&(a["Coupon Code"]=b.CouponCode),b.Brand&&(a.Brand=b.Brand),b.Category&&(a.Category=b.Category),b.Name&&(a.Name=b.Name),b.Sku&&(a.Id=b.Sku),b.Price&&(a["Item Price"]=b.Price),b.Quantity&&(a.Quantity=b.Quantity),b.Position&&(a.Position=b.Position),b.Variant&&(a.Variant=b.Variant),a["Total Product Amount"]=b.TotalAmount||0;},this.extractTransactionId=function(a,b){b.TransactionId&&(a["Transaction Id"]=b.TransactionId);},this.extractActionAttributes=function(a,c){b.extractTransactionId(a,c),c.Affiliation&&(a.Affiliation=c.Affiliation),c.CouponCode&&(a["Coupon Code"]=c.CouponCode),c.TotalAmount&&(a["Total Amount"]=c.TotalAmount),c.ShippingAmount&&(a["Shipping Amount"]=c.ShippingAmount),c.TaxAmount&&(a["Tax Amount"]=c.TaxAmount),c.CheckoutOptions&&(a["Checkout Options"]=c.CheckoutOptions),c.CheckoutStep&&(a["Checkout Step"]=c.CheckoutStep);},this.extractPromotionAttributes=function(a,b){b.Id&&(a.Id=b.Id),b.Creative&&(a.Creative=b.Creative),b.Name&&(a.Name=b.Name),b.Position&&(a.Position=b.Position);},this.buildProductList=function(a,b){return b?Array.isArray(b)?b:[b]:a.ShoppingCart.ProductList},this.createProduct=function(b,c,d,e,f,g,h,i,j,k){return (k=a._Helpers.sanitizeAttributes(k,b),"string"!=typeof b)?(a.Logger.error("Name is required when creating a product"),null):a._Helpers.Validators.isStringOrNumber(c)?a._Helpers.Validators.isStringOrNumber(d)?(d=a._Helpers.parseNumber(d),i&&!a._Helpers.Validators.isNumber(i)&&(a.Logger.error("Position must be a number, it will be set to null."),i=null),e=a._Helpers.Validators.isStringOrNumber(e)?a._Helpers.parseNumber(e):1,{Name:b,Sku:c,Price:d,Quantity:e,Brand:h,Variant:f,Category:g,Position:i,CouponCode:j,TotalAmount:e*d,Attributes:k}):(a.Logger.error("Price is required when creating a product, and must be a string or a number"),null):(a.Logger.error("SKU is required when creating a product, and must be a string or a number"),null)},this.createPromotion=function(b,c,d,e){return a._Helpers.Validators.isStringOrNumber(b)?{Id:b,Creative:c,Name:d,Position:e}:(a.Logger.error(Messages$5.ErrorMessages.PromotionIdRequired),null)},this.createImpression=function(b,c){return "string"==typeof b?c?{Name:b,Product:c}:(a.Logger.error("Product is required when creating an impression."),null):(a.Logger.error("Name is required when creating an impression."),null)},this.createTransactionAttributes=function(b,c,d,e,f,g){return a._Helpers.Validators.isStringOrNumber(b)?{Id:b,Affiliation:c,CouponCode:d,Revenue:e,Shipping:f,Tax:g}:(a.Logger.error(Messages$5.ErrorMessages.TransactionIdRequired),null)},this.expandProductImpression=function(c){var d=[];return c.ProductImpressions?(c.ProductImpressions.forEach(function(e){e.ProductList&&e.ProductList.forEach(function(f){var g=a._Helpers.extend(!1,{},c.EventAttributes);if(f.Attributes)for(var h in f.Attributes)g[h]=f.Attributes[h];b.extractProductAttributes(g,f),e.ProductImpressionList&&(g["Product Impression List"]=e.ProductImpressionList);var i=a._ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:b.generateExpandedEcommerceName("Impression"),data:g,eventType:Types.EventType.Transaction});d.push(i);});}),d):d},this.expandCommerceEvent=function(a){return a?b.expandProductAction(a).concat(b.expandPromotionAction(a)).concat(b.expandProductImpression(a)):null},this.expandPromotionAction=function(c){var d=[];if(!c.PromotionAction)return d;var e=c.PromotionAction.PromotionList;return e.forEach(function(e){var f=a._Helpers.extend(!1,{},c.EventAttributes);b.extractPromotionAttributes(f,e);var g=a._ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:b.generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(c.PromotionAction.PromotionActionType)),data:f,eventType:Types.EventType.Transaction});d.push(g);}),d},this.expandProductAction=function(c){var d=[];if(!c.ProductAction)return d;var e=!1;if(c.ProductAction.ProductActionType===Types.ProductActionType.Purchase||c.ProductAction.ProductActionType===Types.ProductActionType.Refund){var f=a._Helpers.extend(!1,{},c.EventAttributes);f["Product Count"]=c.ProductAction.ProductList?c.ProductAction.ProductList.length:0,b.extractActionAttributes(f,c.ProductAction),c.CurrencyCode&&(f["Currency Code"]=c.CurrencyCode);var g=a._ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:b.generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(c.ProductAction.ProductActionType),!0),data:f,eventType:Types.EventType.Transaction});d.push(g);}else e=!0;var h=c.ProductAction.ProductList;return h?(h.forEach(function(f){var g=a._Helpers.extend(!1,c.EventAttributes,f.Attributes);e?b.extractActionAttributes(g,c.ProductAction):b.extractTransactionId(g,c.ProductAction),b.extractProductAttributes(g,f);var h=a._ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:b.generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(c.ProductAction.ProductActionType)),data:g,eventType:Types.EventType.Transaction});d.push(h);}),d):d},this.createCommerceEventObject=function(b,c){var d;return (a.Logger.verbose(Messages$5.InformationMessages.StartingLogCommerceEvent),a._Helpers.canLog())?(d=a._ServerModel.createEventObject({messageType:Types.MessageType.Commerce,sourceMessageId:null===c||void 0===c?void 0:c.sourceMessageId}),d.EventName="eCommerce - ",d.CurrencyCode=a._Store.currencyCode,d.ShoppingCart=[],d.CustomFlags=b,d):(a.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent),null)},this.sanitizeAmount=function(b,c){if(!a._Helpers.Validators.isStringOrNumber(b)){var d=[c,"must be of type number. A",_typeof(b),"was passed. Converting to 0"].join(" ");return a.Logger.warning(d),0}// if amount is a string, it will be parsed into a number if possible, or set to 0
+this.convertTransactionAttributesToProductAction=function(a,b){a.hasOwnProperty("Id")&&(b.TransactionId=a.Id),a.hasOwnProperty("Affiliation")&&(b.Affiliation=a.Affiliation),a.hasOwnProperty("CouponCode")&&(b.CouponCode=a.CouponCode),a.hasOwnProperty("Revenue")&&(b.TotalAmount=this.sanitizeAmount(a.Revenue,"Revenue")),a.hasOwnProperty("Shipping")&&(b.ShippingAmount=this.sanitizeAmount(a.Shipping,"Shipping")),a.hasOwnProperty("Tax")&&(b.TaxAmount=this.sanitizeAmount(a.Tax,"Tax")),a.hasOwnProperty("Step")&&(b.CheckoutStep=a.Step),a.hasOwnProperty("Option")&&(b.CheckoutOptions=a.Option);},this.getProductActionEventName=function(a){switch(a){case Types.ProductActionType.AddToCart:return "AddToCart";case Types.ProductActionType.AddToWishlist:return "AddToWishlist";case Types.ProductActionType.Checkout:return "Checkout";case Types.ProductActionType.CheckoutOption:return "CheckoutOption";case Types.ProductActionType.Click:return "Click";case Types.ProductActionType.Purchase:return "Purchase";case Types.ProductActionType.Refund:return "Refund";case Types.ProductActionType.RemoveFromCart:return "RemoveFromCart";case Types.ProductActionType.RemoveFromWishlist:return "RemoveFromWishlist";case Types.ProductActionType.ViewDetail:return "ViewDetail";case Types.ProductActionType.Unknown:default:return "Unknown"}},this.getPromotionActionEventName=function(a){return a===Types.PromotionActionType.PromotionClick?"PromotionClick":a===Types.PromotionActionType.PromotionView?"PromotionView":"Unknown"},this.convertProductActionToEventType=function(b){return b===Types.ProductActionType.AddToCart?Types.CommerceEventType.ProductAddToCart:b===Types.ProductActionType.AddToWishlist?Types.CommerceEventType.ProductAddToWishlist:b===Types.ProductActionType.Checkout?Types.CommerceEventType.ProductCheckout:b===Types.ProductActionType.CheckoutOption?Types.CommerceEventType.ProductCheckoutOption:b===Types.ProductActionType.Click?Types.CommerceEventType.ProductClick:b===Types.ProductActionType.Purchase?Types.CommerceEventType.ProductPurchase:b===Types.ProductActionType.Refund?Types.CommerceEventType.ProductRefund:b===Types.ProductActionType.RemoveFromCart?Types.CommerceEventType.ProductRemoveFromCart:b===Types.ProductActionType.RemoveFromWishlist?Types.CommerceEventType.ProductRemoveFromWishlist:b===Types.ProductActionType.Unknown?Types.EventType.Unknown:b===Types.ProductActionType.ViewDetail?Types.CommerceEventType.ProductViewDetail:(a.Logger.error("Could not convert product action type "+b+" to event type"),null)},this.convertPromotionActionToEventType=function(b){return b===Types.PromotionActionType.PromotionClick?Types.CommerceEventType.PromotionClick:b===Types.PromotionActionType.PromotionView?Types.CommerceEventType.PromotionView:(a.Logger.error("Could not convert promotion action type "+b+" to event type"),null)},this.generateExpandedEcommerceName=function(a,b){return "eCommerce - "+a+" - "+(b?"Total":"Item")},this.extractProductAttributes=function(a,b){b.CouponCode&&(a["Coupon Code"]=b.CouponCode),b.Brand&&(a.Brand=b.Brand),b.Category&&(a.Category=b.Category),b.Name&&(a.Name=b.Name),b.Sku&&(a.Id=b.Sku),b.Price&&(a["Item Price"]=b.Price),b.Quantity&&(a.Quantity=b.Quantity),b.Position&&(a.Position=b.Position),b.Variant&&(a.Variant=b.Variant),a["Total Product Amount"]=b.TotalAmount||0;},this.extractTransactionId=function(a,b){b.TransactionId&&(a["Transaction Id"]=b.TransactionId);},this.extractActionAttributes=function(a,c){b.extractTransactionId(a,c),c.Affiliation&&(a.Affiliation=c.Affiliation),c.CouponCode&&(a["Coupon Code"]=c.CouponCode),c.TotalAmount&&(a["Total Amount"]=c.TotalAmount),c.ShippingAmount&&(a["Shipping Amount"]=c.ShippingAmount),c.TaxAmount&&(a["Tax Amount"]=c.TaxAmount),c.CheckoutOptions&&(a["Checkout Options"]=c.CheckoutOptions),c.CheckoutStep&&(a["Checkout Step"]=c.CheckoutStep);},this.extractPromotionAttributes=function(a,b){b.Id&&(a.Id=b.Id),b.Creative&&(a.Creative=b.Creative),b.Name&&(a.Name=b.Name),b.Position&&(a.Position=b.Position);},this.buildProductList=function(a,b){return b?Array.isArray(b)?b:[b]:a.ShoppingCart.ProductList},this.createProduct=function(b,c,d,e,f,g,h,i,j,k){return (k=a._Helpers.sanitizeAttributes(k,b),"string"!=typeof b)?(a.Logger.error("Name is required when creating a product"),null):a._Helpers.Validators.isStringOrNumber(c)?a._Helpers.Validators.isStringOrNumber(d)?(d=a._Helpers.parseNumber(d),i&&!a._Helpers.Validators.isNumber(i)&&(a.Logger.error("Position must be a number, it will be set to null."),i=null),e=a._Helpers.Validators.isStringOrNumber(e)?a._Helpers.parseNumber(e):1,{Name:b,Sku:c,Price:d,Quantity:e,Brand:h,Variant:f,Category:g,Position:i,CouponCode:j,TotalAmount:e*d,Attributes:k}):(a.Logger.error("Price is required when creating a product, and must be a string or a number"),null):(a.Logger.error("SKU is required when creating a product, and must be a string or a number"),null)},this.createPromotion=function(b,c,d,e){return a._Helpers.Validators.isStringOrNumber(b)?{Id:b,Creative:c,Name:d,Position:e}:(a.Logger.error(Messages$5.ErrorMessages.PromotionIdRequired),null)},this.createImpression=function(b,c){return "string"==typeof b?c?{Name:b,Product:c}:(a.Logger.error("Product is required when creating an impression."),null):(a.Logger.error("Name is required when creating an impression."),null)},this.createTransactionAttributes=function(b,c,d,e,f,g){return a._Helpers.Validators.isStringOrNumber(b)?{Id:b,Affiliation:c,CouponCode:d,Revenue:e,Shipping:f,Tax:g}:(a.Logger.error(Messages$5.ErrorMessages.TransactionIdRequired),null)},this.expandProductImpression=function(c){var d=[];return c.ProductImpressions?(c.ProductImpressions.forEach(function(e){e.ProductList&&e.ProductList.forEach(function(f){var g=a._Helpers.extend(!1,{},c.EventAttributes);if(f.Attributes)for(var h in f.Attributes)g[h]=f.Attributes[h];b.extractProductAttributes(g,f),e.ProductImpressionList&&(g["Product Impression List"]=e.ProductImpressionList);var i=a._ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:b.generateExpandedEcommerceName("Impression"),data:g,eventType:Types.EventType.Transaction});d.push(i);});}),d):d},this.expandCommerceEvent=function(a){return a?b.expandProductAction(a).concat(b.expandPromotionAction(a)).concat(b.expandProductImpression(a)):null},this.expandPromotionAction=function(c){var d=[];if(!c.PromotionAction)return d;var e=c.PromotionAction.PromotionList;return e.forEach(function(e){var f=a._Helpers.extend(!1,{},c.EventAttributes);b.extractPromotionAttributes(f,e);var g=a._ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:b.generateExpandedEcommerceName(Types.PromotionActionType.getExpansionName(c.PromotionAction.PromotionActionType)),data:f,eventType:Types.EventType.Transaction});d.push(g);}),d},this.expandProductAction=function(c){var d=[];if(!c.ProductAction)return d;var e=!1;if(c.ProductAction.ProductActionType===Types.ProductActionType.Purchase||c.ProductAction.ProductActionType===Types.ProductActionType.Refund){var f=a._Helpers.extend(!1,{},c.EventAttributes);f["Product Count"]=c.ProductAction.ProductList?c.ProductAction.ProductList.length:0,b.extractActionAttributes(f,c.ProductAction),c.CurrencyCode&&(f["Currency Code"]=c.CurrencyCode);var g=a._ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:b.generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(c.ProductAction.ProductActionType),!0),data:f,eventType:Types.EventType.Transaction});d.push(g);}else e=!0;var h=c.ProductAction.ProductList;return h?(h.forEach(function(f){var g=a._Helpers.extend(!1,c.EventAttributes,f.Attributes);e?b.extractActionAttributes(g,c.ProductAction):b.extractTransactionId(g,c.ProductAction),b.extractProductAttributes(g,f);var h=a._ServerModel.createEventObject({messageType:Types.MessageType.PageEvent,name:b.generateExpandedEcommerceName(Types.ProductActionType.getExpansionName(c.ProductAction.ProductActionType)),data:g,eventType:Types.EventType.Transaction});d.push(h);}),d):d},this.createCommerceEventObject=function(b,c){var d;return (a.Logger.verbose(Messages$5.InformationMessages.StartingLogCommerceEvent),a._Helpers.canLog())?(d=a._ServerModel.createEventObject({messageType:Types.MessageType.Commerce,sourceMessageId:null===c||void 0===c?void 0:c.sourceMessageId}),d.EventName="eCommerce - ",d.CurrencyCode=a._Store.currencyCode,d.ShoppingCart=[],d.CustomFlags=b,d):(a.Logger.verbose(Messages$5.InformationMessages.AbandonLogEvent),null)},this.sanitizeAmount=function(b,c){if(!a._Helpers.Validators.isStringOrNumber(b)){var d=[c,"must be of type number. A",_typeof$1(b),"was passed. Converting to 0"].join(" ");return a.Logger.warning(d),0}// if amount is a string, it will be parsed into a number if possible, or set to 0
 return a._Helpers.parseNumber(b)};}
 
 function createSDKConfig(a){// TODO: Refactor to create a default config object
 var b={};for(var c in Constants.DefaultConfig)Constants.DefaultConfig.hasOwnProperty(c)&&(b[c]=Constants.DefaultConfig[c]);if(a)for(var c in a)a.hasOwnProperty(c)&&(b[c]=a[c]);for(var c in Constants.DefaultBaseUrls)b[c]=Constants.DefaultBaseUrls[c];return b}// TODO: Merge this with SDKStoreApi in sdkRuntimeModels
 function Store(a,b,c){var d=this,e=b._Helpers,f=e.createMainStorageName,g=e.createProductStorageName,h=b._NativeSdkHelpers.isWebviewEnabled,i={isEnabled:!0,sessionAttributes:{},currentSessionMPIDs:[],consentState:null,sessionId:null,isFirstRun:null,clientId:null,deviceId:null,devToken:null,serverSettings:{},dateLastEventSent:null,sessionStartDate:null,currentPosition:null,isTracking:!1,watchPositionId:null,cartProducts:[],eventQueue:[],currencyCode:null,globalTimer:null,context:null,configurationLoaded:!1,identityCallInFlight:!1,SDKConfig:{},nonCurrentUserMPIDs:{},identifyCalled:!1,isLoggedIn:!1,cookieSyncDates:{},integrationAttributes:{},requireDelay:!0,isLocalStorageAvailable:null,storageName:null,prodStorageName:null,activeForwarders:[],kits:{},sideloadedKits:[],configuredForwarders:[],pixelConfigurations:[],wrapperSDKInfo:{name:"none",version:null,isInfoSet:!1},// Placeholder for in-memory persistence model
-persistenceData:{gs:{}}};for(var j in i)this[j]=i[j];if(this.devToken=c||null,this.integrationDelayTimeoutStart=Date.now(),this.SDKConfig=createSDKConfig(a),a){a.hasOwnProperty("flags")||(this.SDKConfig.flags={}),this.SDKConfig.flags=processFlags(a),a.deviceId&&(this.deviceId=a.deviceId),this.SDKConfig.isDevelopmentMode=!!a.hasOwnProperty("isDevelopmentMode")&&returnConvertedBoolean(a.isDevelopmentMode);var k=processBaseUrls(a,this.SDKConfig.flags,c);for(var l in k)this.SDKConfig[l]=k[l];if(a.hasOwnProperty("logLevel")&&(this.SDKConfig.logLevel=a.logLevel),this.SDKConfig.useNativeSdk=!!a.useNativeSdk,this.SDKConfig.kits=a.kits||{},this.SDKConfig.sideloadedKits=a.sideloadedKits||[],this.SDKConfig.isIOS=a.hasOwnProperty("isIOS")?a.isIOS:!!(window.mParticle&&window.mParticle.isIOS)&&window.mParticle.isIOS,this.SDKConfig.useCookieStorage=!!a.hasOwnProperty("useCookieStorage")&&a.useCookieStorage,this.SDKConfig.maxProducts=a.hasOwnProperty("maxProducts")?a.maxProducts:Constants.DefaultConfig.maxProducts,this.SDKConfig.maxCookieSize=a.hasOwnProperty("maxCookieSize")?a.maxCookieSize:Constants.DefaultConfig.maxCookieSize,a.hasOwnProperty("appName")&&(this.SDKConfig.appName=a.appName),a.hasOwnProperty("package")&&(this.SDKConfig["package"]=a["package"]),this.SDKConfig.integrationDelayTimeout=a.hasOwnProperty("integrationDelayTimeout")?a.integrationDelayTimeout:Constants.DefaultConfig.integrationDelayTimeout,a.hasOwnProperty("identifyRequest")&&(this.SDKConfig.identifyRequest=a.identifyRequest),a.hasOwnProperty("identityCallback")){var m=a.identityCallback;b._Helpers.Validators.isFunction(m)?this.SDKConfig.identityCallback=a.identityCallback:b.Logger.warning("The optional callback must be a function. You tried entering a(n) "+_typeof(m)+" . Callback not set. Please set your callback again.");}if(a.hasOwnProperty("appVersion")&&(this.SDKConfig.appVersion=a.appVersion),a.hasOwnProperty("appName")&&(this.SDKConfig.appName=a.appName),a.hasOwnProperty("sessionTimeout")&&(this.SDKConfig.sessionTimeout=a.sessionTimeout),a.hasOwnProperty("dataPlan")){this.SDKConfig.dataPlan={PlanVersion:null,PlanId:null};var n=a.dataPlan;n.planId&&(isDataPlanSlug(n.planId)?this.SDKConfig.dataPlan.PlanId=n.planId:b.Logger.error("Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)")),n.planVersion&&(isNumber(n.planVersion)?this.SDKConfig.dataPlan.PlanVersion=n.planVersion:b.Logger.error("Your data plan version must be a number"));}else this.SDKConfig.dataPlan={};if(this.SDKConfig.forceHttps=!a.hasOwnProperty("forceHttps")||a.forceHttps,this.SDKConfig.customFlags=a.customFlags||{},this.SDKConfig.minWebviewBridgeVersion=a.hasOwnProperty("minWebviewBridgeVersion")?a.minWebviewBridgeVersion:1,this.SDKConfig.aliasMaxWindow=a.hasOwnProperty("aliasMaxWindow")?a.aliasMaxWindow:Constants.DefaultConfig.aliasMaxWindow,a.hasOwnProperty("dataPlanOptions")){var o=a.dataPlanOptions;o.hasOwnProperty("dataPlanVersion")&&o.hasOwnProperty("blockUserAttributes")&&o.hasOwnProperty("blockEventAttributes")&&o.hasOwnProperty("blockEvents")&&o.hasOwnProperty("blockUserIdentities")||b.Logger.error("Ensure your config.dataPlanOptions object has the following keys: a \"dataPlanVersion\" object, and \"blockUserAttributes\", \"blockEventAttributes\", \"blockEvents\", \"blockUserIdentities\" booleans");}a.hasOwnProperty("onCreateBatch")&&("function"==typeof a.onCreateBatch?this.SDKConfig.onCreateBatch=a.onCreateBatch:(b.Logger.error("config.onCreateBatch must be a function"),this.SDKConfig.onCreateBatch=void 0));}this._getFromPersistence=function(a,b){return a?(d.syncPersistenceData(),d.persistenceData&&d.persistenceData[a]&&d.persistenceData[a][b]?d.persistenceData[a][b]:null):null},this._setPersistence=function(a,c,e){var f;a&&(d.syncPersistenceData(),d.persistenceData&&(d.persistenceData[a]?d.persistenceData[a][c]=e:d.persistenceData[a]=(f={},f[c]=e,f),isObject(d.persistenceData[a][c])&&isEmpty(d.persistenceData[a][c])&&delete d.persistenceData[a][c],b._Persistence.savePersistence(d.persistenceData)));},this.hasInvalidIdentifyRequest=function(){var a=d.SDKConfig.identifyRequest;return isObject(a)&&isObject(a.userIdentities)&&isEmpty(a.userIdentities)||!a},this.getConsentState=function(a){var c=b._Consent.ConsentSerialization.fromMinifiedJsonObject,e=d._getFromPersistence(a,"con");return isEmpty(e)?null:c(e)},this.setConsentState=function(a,c){var e=b._Consent.ConsentSerialization.toMinifiedJsonObject;// If ConsentState is null, we assume the intent is to clear out the consent state
+persistenceData:{gs:{}}};for(var j in i)this[j]=i[j];if(this.devToken=c||null,this.integrationDelayTimeoutStart=Date.now(),this.SDKConfig=createSDKConfig(a),a){a.hasOwnProperty("flags")||(this.SDKConfig.flags={}),this.SDKConfig.flags=processFlags(a),a.deviceId&&(this.deviceId=a.deviceId),this.SDKConfig.isDevelopmentMode=!!a.hasOwnProperty("isDevelopmentMode")&&returnConvertedBoolean(a.isDevelopmentMode);var k=processBaseUrls(a,this.SDKConfig.flags,c);for(var l in k)this.SDKConfig[l]=k[l];if(a.hasOwnProperty("logLevel")&&(this.SDKConfig.logLevel=a.logLevel),this.SDKConfig.useNativeSdk=!!a.useNativeSdk,this.SDKConfig.kits=a.kits||{},this.SDKConfig.sideloadedKits=a.sideloadedKits||[],this.SDKConfig.isIOS=a.hasOwnProperty("isIOS")?a.isIOS:!!(window.mParticle&&window.mParticle.isIOS)&&window.mParticle.isIOS,this.SDKConfig.useCookieStorage=!!a.hasOwnProperty("useCookieStorage")&&a.useCookieStorage,this.SDKConfig.maxProducts=a.hasOwnProperty("maxProducts")?a.maxProducts:Constants.DefaultConfig.maxProducts,this.SDKConfig.maxCookieSize=a.hasOwnProperty("maxCookieSize")?a.maxCookieSize:Constants.DefaultConfig.maxCookieSize,a.hasOwnProperty("appName")&&(this.SDKConfig.appName=a.appName),a.hasOwnProperty("package")&&(this.SDKConfig["package"]=a["package"]),this.SDKConfig.integrationDelayTimeout=a.hasOwnProperty("integrationDelayTimeout")?a.integrationDelayTimeout:Constants.DefaultConfig.integrationDelayTimeout,a.hasOwnProperty("identifyRequest")&&(this.SDKConfig.identifyRequest=a.identifyRequest),a.hasOwnProperty("identityCallback")){var m=a.identityCallback;b._Helpers.Validators.isFunction(m)?this.SDKConfig.identityCallback=a.identityCallback:b.Logger.warning("The optional callback must be a function. You tried entering a(n) "+_typeof$1(m)+" . Callback not set. Please set your callback again.");}if(a.hasOwnProperty("appVersion")&&(this.SDKConfig.appVersion=a.appVersion),a.hasOwnProperty("appName")&&(this.SDKConfig.appName=a.appName),a.hasOwnProperty("sessionTimeout")&&(this.SDKConfig.sessionTimeout=a.sessionTimeout),a.hasOwnProperty("dataPlan")){this.SDKConfig.dataPlan={PlanVersion:null,PlanId:null};var n=a.dataPlan;n.planId&&(isDataPlanSlug(n.planId)?this.SDKConfig.dataPlan.PlanId=n.planId:b.Logger.error("Your data plan id must be a string and match the data plan slug format (i.e. under_case_slug)")),n.planVersion&&(isNumber(n.planVersion)?this.SDKConfig.dataPlan.PlanVersion=n.planVersion:b.Logger.error("Your data plan version must be a number"));}else this.SDKConfig.dataPlan={};if(this.SDKConfig.forceHttps=!a.hasOwnProperty("forceHttps")||a.forceHttps,this.SDKConfig.customFlags=a.customFlags||{},this.SDKConfig.minWebviewBridgeVersion=a.hasOwnProperty("minWebviewBridgeVersion")?a.minWebviewBridgeVersion:1,this.SDKConfig.aliasMaxWindow=a.hasOwnProperty("aliasMaxWindow")?a.aliasMaxWindow:Constants.DefaultConfig.aliasMaxWindow,a.hasOwnProperty("dataPlanOptions")){var o=a.dataPlanOptions;o.hasOwnProperty("dataPlanVersion")&&o.hasOwnProperty("blockUserAttributes")&&o.hasOwnProperty("blockEventAttributes")&&o.hasOwnProperty("blockEvents")&&o.hasOwnProperty("blockUserIdentities")||b.Logger.error("Ensure your config.dataPlanOptions object has the following keys: a \"dataPlanVersion\" object, and \"blockUserAttributes\", \"blockEventAttributes\", \"blockEvents\", \"blockUserIdentities\" booleans");}a.hasOwnProperty("onCreateBatch")&&("function"==typeof a.onCreateBatch?this.SDKConfig.onCreateBatch=a.onCreateBatch:(b.Logger.error("config.onCreateBatch must be a function"),this.SDKConfig.onCreateBatch=void 0));}this._getFromPersistence=function(a,b){return a?(d.syncPersistenceData(),d.persistenceData&&d.persistenceData[a]&&d.persistenceData[a][b]?d.persistenceData[a][b]:null):null},this._setPersistence=function(a,c,e){var f;a&&(d.syncPersistenceData(),d.persistenceData&&(d.persistenceData[a]?d.persistenceData[a][c]=e:d.persistenceData[a]=(f={},f[c]=e,f),isObject(d.persistenceData[a][c])&&isEmpty(d.persistenceData[a][c])&&delete d.persistenceData[a][c],b._Persistence.savePersistence(d.persistenceData)));},this.hasInvalidIdentifyRequest=function(){var a=d.SDKConfig.identifyRequest;return isObject(a)&&isObject(a.userIdentities)&&isEmpty(a.userIdentities)||!a},this.getConsentState=function(a){var c=b._Consent.ConsentSerialization.fromMinifiedJsonObject,e=d._getFromPersistence(a,"con");return isEmpty(e)?null:c(e)},this.setConsentState=function(a,c){var e=b._Consent.ConsentSerialization.toMinifiedJsonObject;// If ConsentState is null, we assume the intent is to clear out the consent state
 (c||null===c)&&d._setPersistence(a,"con",e(c));},this.getDeviceId=function(){return d.deviceId},this.setDeviceId=function(a){d.deviceId=a,d.persistenceData.gs.das=a,b._Persistence.update();},this.getFirstSeenTime=function(a){return d._getFromPersistence(a,"fst")},this.setFirstSeenTime=function(a,b){if(a){var c=b||new Date().getTime();d._setPersistence(a,"fst",c);}},this.getLastSeenTime=function(a){if(!a)return null;// https://go.mparticle.com/work/SQDSDKS-6315
 var c=b.Identity.getCurrentUser();return a===(null===c||void 0===c?void 0:c.getMPID())?new Date().getTime():d._getFromPersistence(a,"lst")},this.setLastSeenTime=function(a,b){if(a){var c=b||new Date().getTime();d._setPersistence(a,"lst",c);}},this.syncPersistenceData=function(){var a=b._Persistence.getPersistence();d.persistenceData=b._Helpers.extend({},d.persistenceData,a);},this.getUserAttributes=function(a){return d._getFromPersistence(a,"ua")||{}},this.setUserAttributes=function(a,b){return d._setPersistence(a,"ua",b)},this.getUserIdentities=function(a){return d._getFromPersistence(a,"ui")||{}},this.setUserIdentities=function(a,b){d._setPersistence(a,"ui",b);},this.addMpidToSessionHistory=function(a,b){var c=d.currentSessionMPIDs.indexOf(a);return a&&b!==a&&0>c?void d.currentSessionMPIDs.push(a):void(0<=c&&(d.currentSessionMPIDs=moveElementToEnd(d.currentSessionMPIDs,c)))},this.nullifySession=function(){d.sessionId=null,d.dateLastEventSent=null,d.sessionAttributes={},b._Persistence.update();},this.processConfig=function(a){var e=a.workspaceToken,i=a.requiredWebviewBridgeName;// We should reprocess the flags and baseUrls in case they have changed when we request an updated config
 // such as if the SDK is being self-hosted and the flags are different on the server config
@@ -640,10 +644,390 @@ c(b),b=null,a._Store.isTracking=!1;}));else {var d={coords:{latitude:a._Store.cu
 return a.Logger.verbose(Messages$3.InformationMessages.StartingLogCommerceEvent),b.ProductAction&&null===b.EventCategory?void a.Logger.error("Commerce event not sent.  The mParticle.ProductActionType you passed was invalid. Re-check your code."):void(c=a._Helpers.sanitizeAttributes(c,b.EventName),a._Helpers.canLog()?(a._Store.webviewBridgeEnabled&&(b.ShoppingCart={}),c&&(b.EventAttributes=c),a._APIClient.sendEventToServer(b,d),a._Persistence.update()):a.Logger.verbose(Messages$3.InformationMessages.AbandonLogEvent))},this.addEventHandler=function(c,d,f,g,h){var j,k,e=[],l=function handler(c){var d=function timeoutHandler(){j.href?window.location.href=j.href:j.submit&&j.submit();};a.Logger.verbose("DOM event triggered, handling event"),b.logEvent({messageType:Types.MessageType.PageEvent,name:"function"==typeof f?f(j):f,data:"function"==typeof g?g(j):g,eventType:h||Types.EventType.Other}),(j.href&&"_blank"!==j.target||j.submit)&&(c.preventDefault?c.preventDefault():c.returnValue=!1,setTimeout(d,a._Store.SDKConfig.timeout));};if(!d)return void a.Logger.error("Can't bind event, selector is required");// Handle a css selector string or a dom element
 if("string"==typeof d?e=document.querySelectorAll(d):d.nodeType&&(e=[d]),e.length)for(a.Logger.verbose("Found "+e.length+" element"+(1<e.length?"s":"")+", attaching event handlers"),k=0;k<e.length;k++)j=e[k],j.addEventListener?j.addEventListener(c,l,!1):j.attachEvent?j.attachEvent("on"+c,l):j["on"+c]=l;else a.Logger.verbose("No elements found");};}
 
+function asyncGeneratorStep(gen, resolve, reject, _next, _throw, key, arg) {
+  try {
+    var info = gen[key](arg);
+    var value = info.value;
+  } catch (error) {
+    reject(error);
+    return;
+  }
+  if (info.done) {
+    resolve(value);
+  } else {
+    Promise.resolve(value).then(_next, _throw);
+  }
+}
+function _asyncToGenerator(fn) {
+  return function () {
+    var self = this,
+      args = arguments;
+    return new Promise(function (resolve, reject) {
+      var gen = fn.apply(self, args);
+      function _next(value) {
+        asyncGeneratorStep(gen, resolve, reject, _next, _throw, "next", value);
+      }
+      function _throw(err) {
+        asyncGeneratorStep(gen, resolve, reject, _next, _throw, "throw", err);
+      }
+      _next(undefined);
+    });
+  };
+}
+
+var regeneratorRuntime$1 = {exports: {}};
+
+var _typeof = {exports: {}};
+
+_typeof.exports;
+
+(function (module) {
+	function _typeof(o) {
+	  "@babel/helpers - typeof";
+
+	  return (module.exports = _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
+	    return typeof o;
+	  } : function (o) {
+	    return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
+	  }, module.exports.__esModule = true, module.exports["default"] = module.exports), _typeof(o);
+	}
+	module.exports = _typeof, module.exports.__esModule = true, module.exports["default"] = module.exports; 
+} (_typeof));
+
+var _typeofExports = _typeof.exports;
+
+regeneratorRuntime$1.exports;
+
+(function (module) {
+	var _typeof = _typeofExports["default"];
+	function _regeneratorRuntime() {
+	  module.exports = _regeneratorRuntime = function _regeneratorRuntime() {
+	    return e;
+	  }, module.exports.__esModule = true, module.exports["default"] = module.exports;
+	  var t,
+	    e = {},
+	    r = Object.prototype,
+	    n = r.hasOwnProperty,
+	    o = Object.defineProperty || function (t, e, r) {
+	      t[e] = r.value;
+	    },
+	    i = "function" == typeof Symbol ? Symbol : {},
+	    a = i.iterator || "@@iterator",
+	    c = i.asyncIterator || "@@asyncIterator",
+	    u = i.toStringTag || "@@toStringTag";
+	  function define(t, e, r) {
+	    return Object.defineProperty(t, e, {
+	      value: r,
+	      enumerable: !0,
+	      configurable: !0,
+	      writable: !0
+	    }), t[e];
+	  }
+	  try {
+	    define({}, "");
+	  } catch (t) {
+	    define = function define(t, e, r) {
+	      return t[e] = r;
+	    };
+	  }
+	  function wrap(t, e, r, n) {
+	    var i = e && e.prototype instanceof Generator ? e : Generator,
+	      a = Object.create(i.prototype),
+	      c = new Context(n || []);
+	    return o(a, "_invoke", {
+	      value: makeInvokeMethod(t, r, c)
+	    }), a;
+	  }
+	  function tryCatch(t, e, r) {
+	    try {
+	      return {
+	        type: "normal",
+	        arg: t.call(e, r)
+	      };
+	    } catch (t) {
+	      return {
+	        type: "throw",
+	        arg: t
+	      };
+	    }
+	  }
+	  e.wrap = wrap;
+	  var h = "suspendedStart",
+	    l = "suspendedYield",
+	    f = "executing",
+	    s = "completed",
+	    y = {};
+	  function Generator() {}
+	  function GeneratorFunction() {}
+	  function GeneratorFunctionPrototype() {}
+	  var p = {};
+	  define(p, a, function () {
+	    return this;
+	  });
+	  var d = Object.getPrototypeOf,
+	    v = d && d(d(values([])));
+	  v && v !== r && n.call(v, a) && (p = v);
+	  var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p);
+	  function defineIteratorMethods(t) {
+	    ["next", "throw", "return"].forEach(function (e) {
+	      define(t, e, function (t) {
+	        return this._invoke(e, t);
+	      });
+	    });
+	  }
+	  function AsyncIterator(t, e) {
+	    function invoke(r, o, i, a) {
+	      var c = tryCatch(t[r], t, o);
+	      if ("throw" !== c.type) {
+	        var u = c.arg,
+	          h = u.value;
+	        return h && "object" == _typeof(h) && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) {
+	          invoke("next", t, i, a);
+	        }, function (t) {
+	          invoke("throw", t, i, a);
+	        }) : e.resolve(h).then(function (t) {
+	          u.value = t, i(u);
+	        }, function (t) {
+	          return invoke("throw", t, i, a);
+	        });
+	      }
+	      a(c.arg);
+	    }
+	    var r;
+	    o(this, "_invoke", {
+	      value: function value(t, n) {
+	        function callInvokeWithMethodAndArg() {
+	          return new e(function (e, r) {
+	            invoke(t, n, e, r);
+	          });
+	        }
+	        return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg();
+	      }
+	    });
+	  }
+	  function makeInvokeMethod(e, r, n) {
+	    var o = h;
+	    return function (i, a) {
+	      if (o === f) throw new Error("Generator is already running");
+	      if (o === s) {
+	        if ("throw" === i) throw a;
+	        return {
+	          value: t,
+	          done: !0
+	        };
+	      }
+	      for (n.method = i, n.arg = a;;) {
+	        var c = n.delegate;
+	        if (c) {
+	          var u = maybeInvokeDelegate(c, n);
+	          if (u) {
+	            if (u === y) continue;
+	            return u;
+	          }
+	        }
+	        if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) {
+	          if (o === h) throw o = s, n.arg;
+	          n.dispatchException(n.arg);
+	        } else "return" === n.method && n.abrupt("return", n.arg);
+	        o = f;
+	        var p = tryCatch(e, r, n);
+	        if ("normal" === p.type) {
+	          if (o = n.done ? s : l, p.arg === y) continue;
+	          return {
+	            value: p.arg,
+	            done: n.done
+	          };
+	        }
+	        "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg);
+	      }
+	    };
+	  }
+	  function maybeInvokeDelegate(e, r) {
+	    var n = r.method,
+	      o = e.iterator[n];
+	    if (o === t) return r.delegate = null, "throw" === n && e.iterator["return"] && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y;
+	    var i = tryCatch(o, e.iterator, r.arg);
+	    if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y;
+	    var a = i.arg;
+	    return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y);
+	  }
+	  function pushTryEntry(t) {
+	    var e = {
+	      tryLoc: t[0]
+	    };
+	    1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e);
+	  }
+	  function resetTryEntry(t) {
+	    var e = t.completion || {};
+	    e.type = "normal", delete e.arg, t.completion = e;
+	  }
+	  function Context(t) {
+	    this.tryEntries = [{
+	      tryLoc: "root"
+	    }], t.forEach(pushTryEntry, this), this.reset(!0);
+	  }
+	  function values(e) {
+	    if (e || "" === e) {
+	      var r = e[a];
+	      if (r) return r.call(e);
+	      if ("function" == typeof e.next) return e;
+	      if (!isNaN(e.length)) {
+	        var o = -1,
+	          i = function next() {
+	            for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next;
+	            return next.value = t, next.done = !0, next;
+	          };
+	        return i.next = i;
+	      }
+	    }
+	    throw new TypeError(_typeof(e) + " is not iterable");
+	  }
+	  return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", {
+	    value: GeneratorFunctionPrototype,
+	    configurable: !0
+	  }), o(GeneratorFunctionPrototype, "constructor", {
+	    value: GeneratorFunction,
+	    configurable: !0
+	  }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) {
+	    var e = "function" == typeof t && t.constructor;
+	    return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name));
+	  }, e.mark = function (t) {
+	    return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t;
+	  }, e.awrap = function (t) {
+	    return {
+	      __await: t
+	    };
+	  }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () {
+	    return this;
+	  }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) {
+	    void 0 === i && (i = Promise);
+	    var a = new AsyncIterator(wrap(t, r, n, o), i);
+	    return e.isGeneratorFunction(r) ? a : a.next().then(function (t) {
+	      return t.done ? t.value : a.next();
+	    });
+	  }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () {
+	    return this;
+	  }), define(g, "toString", function () {
+	    return "[object Generator]";
+	  }), e.keys = function (t) {
+	    var e = Object(t),
+	      r = [];
+	    for (var n in e) r.push(n);
+	    return r.reverse(), function next() {
+	      for (; r.length;) {
+	        var t = r.pop();
+	        if (t in e) return next.value = t, next.done = !1, next;
+	      }
+	      return next.done = !0, next;
+	    };
+	  }, e.values = values, Context.prototype = {
+	    constructor: Context,
+	    reset: function reset(e) {
+	      if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t);
+	    },
+	    stop: function stop() {
+	      this.done = !0;
+	      var t = this.tryEntries[0].completion;
+	      if ("throw" === t.type) throw t.arg;
+	      return this.rval;
+	    },
+	    dispatchException: function dispatchException(e) {
+	      if (this.done) throw e;
+	      var r = this;
+	      function handle(n, o) {
+	        return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o;
+	      }
+	      for (var o = this.tryEntries.length - 1; o >= 0; --o) {
+	        var i = this.tryEntries[o],
+	          a = i.completion;
+	        if ("root" === i.tryLoc) return handle("end");
+	        if (i.tryLoc <= this.prev) {
+	          var c = n.call(i, "catchLoc"),
+	            u = n.call(i, "finallyLoc");
+	          if (c && u) {
+	            if (this.prev < i.catchLoc) return handle(i.catchLoc, !0);
+	            if (this.prev < i.finallyLoc) return handle(i.finallyLoc);
+	          } else if (c) {
+	            if (this.prev < i.catchLoc) return handle(i.catchLoc, !0);
+	          } else {
+	            if (!u) throw new Error("try statement without catch or finally");
+	            if (this.prev < i.finallyLoc) return handle(i.finallyLoc);
+	          }
+	        }
+	      }
+	    },
+	    abrupt: function abrupt(t, e) {
+	      for (var r = this.tryEntries.length - 1; r >= 0; --r) {
+	        var o = this.tryEntries[r];
+	        if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) {
+	          var i = o;
+	          break;
+	        }
+	      }
+	      i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null);
+	      var a = i ? i.completion : {};
+	      return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a);
+	    },
+	    complete: function complete(t, e) {
+	      if ("throw" === t.type) throw t.arg;
+	      return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y;
+	    },
+	    finish: function finish(t) {
+	      for (var e = this.tryEntries.length - 1; e >= 0; --e) {
+	        var r = this.tryEntries[e];
+	        if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y;
+	      }
+	    },
+	    "catch": function _catch(t) {
+	      for (var e = this.tryEntries.length - 1; e >= 0; --e) {
+	        var r = this.tryEntries[e];
+	        if (r.tryLoc === t) {
+	          var n = r.completion;
+	          if ("throw" === n.type) {
+	            var o = n.arg;
+	            resetTryEntry(r);
+	          }
+	          return o;
+	        }
+	      }
+	      throw new Error("illegal catch attempt");
+	    },
+	    delegateYield: function delegateYield(e, r, n) {
+	      return this.delegate = {
+	        iterator: values(e),
+	        resultName: r,
+	        nextLoc: n
+	      }, "next" === this.method && (this.arg = t), y;
+	    }
+	  }, e;
+	}
+	module.exports = _regeneratorRuntime, module.exports.__esModule = true, module.exports["default"] = module.exports; 
+} (regeneratorRuntime$1));
+
+var regeneratorRuntimeExports = regeneratorRuntime$1.exports;
+
+// TODO(Babel 8): Remove this file.
+
+var runtime = regeneratorRuntimeExports();
+var regenerator = runtime;
+
+// Copied from https://github.com/facebook/regenerator/blob/main/packages/runtime/runtime.js#L736=
+try {
+  regeneratorRuntime = runtime;
+} catch (accidentalStrictMode) {
+  if (typeof globalThis === "object") {
+    globalThis.regeneratorRuntime = runtime;
+  } else {
+    Function("r", "regeneratorRuntime = r")(runtime);
+  }
+}
+
+var _regeneratorRuntime = /*@__PURE__*/getDefaultExportFromCjs(regenerator);
+
 function filteredMparticleUser(a,b,c,d){var e=this;return {getUserIdentities:function getUserIdentities(){var e={},f=c._Store.getUserIdentities(a);for(var g in f)if(f.hasOwnProperty(g)){var h=Types.IdentityType.getIdentityName(c._Helpers.parseNumber(g));d&&(!d||d.isIdentityBlocked(h))||(//if identity type is not blocked
 e[h]=f[g]);}return e=c._Helpers.filterUserIdentitiesForForwarders(e,b.userIdentityFilters),{userIdentities:e}},getMPID:function getMPID(){return a},getUserAttributesLists:function getUserAttributesLists(a){var b,f={};for(var g in b=e.getAllUserAttributes(),b)b.hasOwnProperty(g)&&Array.isArray(b[g])&&(d&&(!d||d.isAttributeKeyBlocked(g))||(f[g]=b[g].slice()));return f=c._Helpers.filterUserAttributes(f,a.userAttributeFilters),f},getAllUserAttributes:function getAllUserAttributes(){var e={},f=c._Store.getUserAttributes(a);if(f)for(var g in f)f.hasOwnProperty(g)&&(d&&(!d||d.isAttributeKeyBlocked(g))||(Array.isArray(f[g])?e[g]=f[g].slice():e[g]=f[g]));return e=c._Helpers.filterUserAttributes(e,b.userAttributeFilters),e}}}
 
-var _Constants$IdentityMe=Constants.IdentityMethods,Modify$3=_Constants$IdentityMe.Modify,Identify$2=_Constants$IdentityMe.Identify,Login$2=_Constants$IdentityMe.Login,Logout$2=_Constants$IdentityMe.Logout;function Forwarders(a,b){var c=this,d={setUserAttribute:"setUserAttribute",removeUserAttribute:"removeUserAttribute"};// TODO: https://go.mparticle.com/work/SQDSDKS-6036
+var _Constants$IdentityMe=Constants.IdentityMethods,Modify$3=_Constants$IdentityMe.Modify,Identify$2=_Constants$IdentityMe.Identify,Login$2=_Constants$IdentityMe.Login,Logout$2=_Constants$IdentityMe.Logout;function Forwarders(a,b){var c=this,d=this;this.forwarderStatsUploader=new APIClient(a,b).initializeForwarderStatsUploader();var e={setUserAttribute:"setUserAttribute",removeUserAttribute:"removeUserAttribute"};// TODO: https://go.mparticle.com/work/SQDSDKS-6036
 // Processing forwarders is a 2 step process:
 //   1. Configure the kit
 //   2. Initialize the kit
@@ -663,7 +1047,7 @@ var _Constants$IdentityMe=Constants.IdentityMethods,Modify$3=_Constants$Identity
 // there being a separate process for MP configured kits and
 // sideloaded kits, this will need to be refactored.
 // kits can be included via mParticle UI, or via sideloaded kit config API
-this.initForwarders=function(b,d){var e=a.Identity.getCurrentUser();!a._Store.webviewBridgeEnabled&&a._Store.configuredForwarders&&(a._Store.configuredForwarders.sort(function(a,b){return a.settings.PriorityValue=a.settings.PriorityValue||0,b.settings.PriorityValue=b.settings.PriorityValue||0,-1*(a.settings.PriorityValue-b.settings.PriorityValue)}),a._Store.activeForwarders=a._Store.configuredForwarders.filter(function(f){if(!a._Consent.isEnabledForUserConsent(f.filteringConsentRuleValues,e))return !1;if(!c.isEnabledForUserAttributes(f.filteringUserAttributeValue,e))return !1;if(!c.isEnabledForUnknownUser(f.excludeAnonymousUser,e))return !1;var g=a._Helpers.filterUserIdentities(b,f.userIdentityFilters),h=a._Helpers.filterUserAttributes(e?e.getAllUserAttributes():{},f.userAttributeFilters);return f.initialized||(f.logger=a.Logger,f.init(f.settings,d,!1,null,h,g,a._Store.SDKConfig.appVersion,a._Store.SDKConfig.appName,a._Store.SDKConfig.customFlags,a._Store.clientId),f.initialized=!0),!0}));},this.isEnabledForUserAttributes=function(b,c){if(!b||!a._Helpers.isObject(b)||!Object.keys(b).length)return !0;var d,e,f;if(!c)return !1;f=c.getAllUserAttributes();var g=!1;try{if(f&&a._Helpers.isObject(f)&&Object.keys(f).length)for(var h in f)if(f.hasOwnProperty(h)&&(d=KitFilterHelper.hashAttributeConditionalForwarding(h),e=KitFilterHelper.hashAttributeConditionalForwarding(f[h]),d===b.userAttributeName&&e===b.userAttributeValue)){g=!0;break}return !b||b.includeOnMatch===g}catch(a){// in any error scenario, err on side of returning true and forwarding event
+this.initForwarders=function(b,c){var e=a.Identity.getCurrentUser();!a._Store.webviewBridgeEnabled&&a._Store.configuredForwarders&&(a._Store.configuredForwarders.sort(function(a,b){return a.settings.PriorityValue=a.settings.PriorityValue||0,b.settings.PriorityValue=b.settings.PriorityValue||0,-1*(a.settings.PriorityValue-b.settings.PriorityValue)}),a._Store.activeForwarders=a._Store.configuredForwarders.filter(function(f){if(!a._Consent.isEnabledForUserConsent(f.filteringConsentRuleValues,e))return !1;if(!d.isEnabledForUserAttributes(f.filteringUserAttributeValue,e))return !1;if(!d.isEnabledForUnknownUser(f.excludeAnonymousUser,e))return !1;var g=a._Helpers.filterUserIdentities(b,f.userIdentityFilters),h=a._Helpers.filterUserAttributes(e?e.getAllUserAttributes():{},f.userAttributeFilters);return f.initialized||(f.logger=a.Logger,f.init(f.settings,c,!1,null,h,g,a._Store.SDKConfig.appVersion,a._Store.SDKConfig.appName,a._Store.SDKConfig.customFlags,a._Store.clientId),f.initialized=!0),!0}));},this.isEnabledForUserAttributes=function(b,c){if(!b||!a._Helpers.isObject(b)||!Object.keys(b).length)return !0;var d,e,f;if(!c)return !1;f=c.getAllUserAttributes();var g=!1;try{if(f&&a._Helpers.isObject(f)&&Object.keys(f).length)for(var h in f)if(f.hasOwnProperty(h)&&(d=KitFilterHelper.hashAttributeConditionalForwarding(h),e=KitFilterHelper.hashAttributeConditionalForwarding(f[h]),d===b.userAttributeName&&e===b.userAttributeValue)){g=!0;break}return !b||b.includeOnMatch===g}catch(a){// in any error scenario, err on side of returning true and forwarding event
 return !0}},this.isEnabledForUnknownUser=function(a,b){return !!(b&&b.isLoggedIn()||!a)},this.applyToForwarders=function(b,c){a._Store.activeForwarders.length&&a._Store.activeForwarders.forEach(function(d){var e=d[b];if(e)try{var f=d[b](c);f&&a.Logger.verbose(f);}catch(b){a.Logger.verbose(b);}});},this.sendEventToForwarders=function(b){var c,d,e,f=function(b,c){b.UserIdentities&&b.UserIdentities.length&&b.UserIdentities.forEach(function(d,e){a._Helpers.inArray(c,KitFilterHelper.hashUserIdentity(d.Type))&&(b.UserIdentities.splice(e,1),0<e&&e--);});},g=function(b,c){var d;if(c)for(var e in b.EventAttributes)b.EventAttributes.hasOwnProperty(e)&&(d=KitFilterHelper.hashEventAttributeKey(b.EventCategory,b.EventName,e),a._Helpers.inArray(c,d)&&delete b.EventAttributes[e]);},h=function(b,c){return !!(b&&b.length&&a._Helpers.inArray(b,c))},j=[Types.MessageType.PageEvent,Types.MessageType.PageView,Types.MessageType.Commerce];if(!a._Store.webviewBridgeEnabled&&a._Store.activeForwarders){d=KitFilterHelper.hashEventName(b.EventName,b.EventCategory),e=KitFilterHelper.hashEventType(b.EventCategory);for(var k=0;k<a._Store.activeForwarders.length;k++){// Check attribute forwarding rule. This rule allows users to only forward an event if a
 // specific attribute exists and has a specific value. Alternatively, they can specify
 // that an event not be forwarded if the specified attribute name and value exists.
@@ -673,7 +1057,7 @@ if(-1<j.indexOf(b.EventDataType)&&a._Store.activeForwarders[k].filteringEventAtt
 if(b.EventAttributes)for(var m in b.EventAttributes){var n;if(n=KitFilterHelper.hashAttributeConditionalForwarding(m),n===a._Store.activeForwarders[k].filteringEventAttributeValue.eventAttributeName&&(l={name:n,value:KitFilterHelper.hashAttributeConditionalForwarding(b.EventAttributes[m])}),l)break}var o=null!==l&&l.value===a._Store.activeForwarders[k].filteringEventAttributeValue.eventAttributeValue,p=!0===a._Store.activeForwarders[k].filteringEventAttributeValue.includeOnMatch?o:!o;if(!p)continue}// Clone the event object, as we could be sending different attributes to each forwarder
 // Check event filtering rules
 if(c={},c=a._Helpers.extend(!0,c,b),b.EventDataType===Types.MessageType.PageEvent&&(h(a._Store.activeForwarders[k].eventNameFilters,d)||h(a._Store.activeForwarders[k].eventTypeFilters,e)))continue;else if(b.EventDataType===Types.MessageType.Commerce&&h(a._Store.activeForwarders[k].eventTypeFilters,e))continue;else if(b.EventDataType===Types.MessageType.PageView&&h(a._Store.activeForwarders[k].screenNameFilters,d))continue;// Check attribute filtering rules
-if(c.EventAttributes&&(b.EventDataType===Types.MessageType.PageEvent?g(c,a._Store.activeForwarders[k].attributeFilters):b.EventDataType===Types.MessageType.PageView&&g(c,a._Store.activeForwarders[k].screenAttributeFilters)),f(c,a._Store.activeForwarders[k].userIdentityFilters),c.UserAttributes=a._Helpers.filterUserAttributes(c.UserAttributes,a._Store.activeForwarders[k].userAttributeFilters),a._Store.activeForwarders[k].process){a.Logger.verbose("Sending message to forwarder: "+a._Store.activeForwarders[k].name);var q=a._Store.activeForwarders[k].process(c);q&&a.Logger.verbose(q);}}}},this.handleForwarderUserAttributes=function(c,e,f){b&&b.isAttributeKeyBlocked(e)||!a._Store.activeForwarders.length||a._Store.activeForwarders.forEach(function(b){var g=b[c];if(g&&!a._Helpers.isFilteredUserAttribute(e,b.userAttributeFilters))try{var h;c===d.setUserAttribute?h=b.setUserAttribute(e,f):c===d.removeUserAttribute&&(h=b.removeUserAttribute(e)),h&&a.Logger.verbose(h);}catch(b){a.Logger.error(b);}});},this.setForwarderUserIdentities=function(b){a._Store.activeForwarders.forEach(function(c){var d=a._Helpers.filterUserIdentities(b,c.userIdentityFilters);c.setUserIdentity&&d.forEach(function(b){var d=c.setUserIdentity(b.Identity,b.Type);d&&a.Logger.verbose(d);});});},this.setForwarderOnUserIdentified=function(c){a._Store.activeForwarders.forEach(function(d){var e=filteredMparticleUser(c.getMPID(),d,a,b);if(d.onUserIdentified){var f=d.onUserIdentified(e);f&&a.Logger.verbose(f);}});},this.setForwarderOnIdentityComplete=function(c,d){var e;a._Store.activeForwarders.forEach(function(f){var g=filteredMparticleUser(c.getMPID(),f,a,b),h=g.getUserIdentities();d===Identify$2?f.onIdentifyComplete&&(e=f.onIdentifyComplete(g,h),e&&a.Logger.verbose(e)):d===Login$2?f.onLoginComplete&&(e=f.onLoginComplete(g,h),e&&a.Logger.verbose(e)):d===Logout$2?f.onLogoutComplete&&(e=f.onLogoutComplete(g,h),e&&a.Logger.verbose(e)):d===Modify$3&&f.onModifyComplete&&(e=f.onModifyComplete(g,h),e&&a.Logger.verbose(e));});},this.getForwarderStatsQueue=function(){return a._Persistence.forwardingStatsBatches.forwardingStatsEventQueue},this.setForwarderStatsQueue=function(b){a._Persistence.forwardingStatsBatches.forwardingStatsEventQueue=b;},this.processForwarders=function(b,d){b?(this.processUIEnabledKits(b),this.processSideloadedKits(b),c.initForwarders(a._Store.SDKConfig.identifyRequest.userIdentities,d)):a.Logger.warning("No config was passed. Cannot process forwarders");},this.processUIEnabledKits=function(b){var d=this.returnKitConstructors();try{Array.isArray(b.kitConfigs)&&b.kitConfigs.length&&b.kitConfigs.forEach(function(a){c.configureUIEnabledKit(a,d);});}catch(b){a.Logger.error("MP Kits not configured propertly. Kits may not be initialized. "+b);}},this.returnKitConstructors=function(){var b={};// If there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
+if(c.EventAttributes&&(b.EventDataType===Types.MessageType.PageEvent?g(c,a._Store.activeForwarders[k].attributeFilters):b.EventDataType===Types.MessageType.PageView&&g(c,a._Store.activeForwarders[k].screenAttributeFilters)),f(c,a._Store.activeForwarders[k].userIdentityFilters),c.UserAttributes=a._Helpers.filterUserAttributes(c.UserAttributes,a._Store.activeForwarders[k].userAttributeFilters),a._Store.activeForwarders[k].process){a.Logger.verbose("Sending message to forwarder: "+a._Store.activeForwarders[k].name);var q=a._Store.activeForwarders[k].process(c);q&&a.Logger.verbose(q);}}}},this.handleForwarderUserAttributes=function(c,d,f){b&&b.isAttributeKeyBlocked(d)||!a._Store.activeForwarders.length||a._Store.activeForwarders.forEach(function(b){var g=b[c];if(g&&!a._Helpers.isFilteredUserAttribute(d,b.userAttributeFilters))try{var h;c===e.setUserAttribute?h=b.setUserAttribute(d,f):c===e.removeUserAttribute&&(h=b.removeUserAttribute(d)),h&&a.Logger.verbose(h);}catch(b){a.Logger.error(b);}});},this.setForwarderUserIdentities=function(b){a._Store.activeForwarders.forEach(function(c){var d=a._Helpers.filterUserIdentities(b,c.userIdentityFilters);c.setUserIdentity&&d.forEach(function(b){var d=c.setUserIdentity(b.Identity,b.Type);d&&a.Logger.verbose(d);});});},this.setForwarderOnUserIdentified=function(c){a._Store.activeForwarders.forEach(function(d){var e=filteredMparticleUser(c.getMPID(),d,a,b);if(d.onUserIdentified){var f=d.onUserIdentified(e);f&&a.Logger.verbose(f);}});},this.setForwarderOnIdentityComplete=function(c,d){var e;a._Store.activeForwarders.forEach(function(f){var g=filteredMparticleUser(c.getMPID(),f,a,b),h=g.getUserIdentities();d===Identify$2?f.onIdentifyComplete&&(e=f.onIdentifyComplete(g,h),e&&a.Logger.verbose(e)):d===Login$2?f.onLoginComplete&&(e=f.onLoginComplete(g,h),e&&a.Logger.verbose(e)):d===Logout$2?f.onLogoutComplete&&(e=f.onLogoutComplete(g,h),e&&a.Logger.verbose(e)):d===Modify$3&&f.onModifyComplete&&(e=f.onModifyComplete(g,h),e&&a.Logger.verbose(e));});},this.getForwarderStatsQueue=function(){return a._Persistence.forwardingStatsBatches.forwardingStatsEventQueue},this.setForwarderStatsQueue=function(b){a._Persistence.forwardingStatsBatches.forwardingStatsEventQueue=b;},this.processForwarders=function(b,c){b?(this.processUIEnabledKits(b),this.processSideloadedKits(b),d.initForwarders(a._Store.SDKConfig.identifyRequest.userIdentities,c)):a.Logger.warning("No config was passed. Cannot process forwarders");},this.processUIEnabledKits=function(b){var c=this.returnKitConstructors();try{Array.isArray(b.kitConfigs)&&b.kitConfigs.length&&b.kitConfigs.forEach(function(a){d.configureUIEnabledKit(a,c);});}catch(b){a.Logger.error("MP Kits not configured propertly. Kits may not be initialized. "+b);}},this.returnKitConstructors=function(){var b={};// If there are kits inside of mpInstance._Store.SDKConfig.kits, then mParticle is self hosted
 return isEmpty(a._Store.SDKConfig.kits)?!isEmpty(a._preInit.forwarderConstructors)&&a._preInit.forwarderConstructors.forEach(function(a){// A suffix is added to a kitConstructor and kit config if there are multiple different
 // versions of a client kit.  This matches the suffix in the DB.  As an example
 // the GA4 kit has a client kit and a server side kit which has a client side
@@ -683,11 +1067,11 @@ return isEmpty(a._Store.SDKConfig.kits)?!isEmpty(a._preInit.forwarderConstructor
 // a suffix allows the SDK to distinguish the two.
 if(a.suffix){var c="".concat(a.name,"-").concat(a.suffix);b[c]=a;}else b[a.name]=a;}):b=a._Store.SDKConfig.kits,b},this.configureUIEnabledKit=function(b,c){var d=null,e=b;for(var f in c){// Configs are returned with suffixes also. We need to consider the
 // config suffix here to match the constructor suffix
-var g=void 0;if(e.suffix&&(g="".concat(e.name,"-").concat(e.suffix)),(f===g||f===e.name)&&(e.isDebug===a._Store.SDKConfig.isDevelopmentMode||e.isSandbox===a._Store.SDKConfig.isDevelopmentMode)){d=this.returnConfiguredKit(c[f],e),a._Store.configuredForwarders.push(d);break}}},this.processSideloadedKits=function(b){try{if(Array.isArray(b.sideloadedKits)){var d={kits:{}},e=b.sideloadedKits;// Then configure each registered kit
-for(var f in e.forEach(function(a){try{a.kitInstance.register(d);var b=a.kitInstance.name;// Then add the kit filters to each registered kit.
-d.kits[b].filters=a.filterDictionary;}catch(b){console.error("Error registering sideloaded kit "+a.kitInstance.name);}}),d.kits){var g=d.kits[f];c.configureSideloadedKit(g);}// If Sideloaded Kits are successfully registered,
+var g=void 0;if(e.suffix&&(g="".concat(e.name,"-").concat(e.suffix)),(f===g||f===e.name)&&(e.isDebug===a._Store.SDKConfig.isDevelopmentMode||e.isSandbox===a._Store.SDKConfig.isDevelopmentMode)){d=this.returnConfiguredKit(c[f],e),a._Store.configuredForwarders.push(d);break}}},this.processSideloadedKits=function(b){try{if(Array.isArray(b.sideloadedKits)){var c={kits:{}},e=b.sideloadedKits;// Then configure each registered kit
+for(var f in e.forEach(function(a){try{a.kitInstance.register(c);var b=a.kitInstance.name;// Then add the kit filters to each registered kit.
+c.kits[b].filters=a.filterDictionary;}catch(b){console.error("Error registering sideloaded kit "+a.kitInstance.name);}}),c.kits){var g=c.kits[f];d.configureSideloadedKit(g);}// If Sideloaded Kits are successfully registered,
 // record this in the Store.
-if(!isEmpty(d.kits)){var h=Object.keys(d.kits);a._Store.sideloadedKitsCount=h.length;}}}catch(b){a.Logger.error("Sideloaded Kits not configured propertly. Kits may not be initialized. "+b);}},this.configureSideloadedKit=function(b){a._Store.configuredForwarders.push(this.returnConfiguredKit(b,b.filters));},this.returnConfiguredKit=function(a){var b=1<arguments.length&&void 0!==arguments[1]?arguments[1]:{},c=new a.constructor;return c.id=b.moduleId,c.isSandbox=b.isDebug||b.isSandbox,c.hasSandbox="true"===b.hasDebugString,c.isVisible=b.isVisible||!0,c.settings=b.settings||{},c.eventNameFilters=b.eventNameFilters||[],c.eventTypeFilters=b.eventTypeFilters||[],c.attributeFilters=b.attributeFilters||[],c.screenNameFilters=b.screenNameFilters||[],c.screenAttributeFilters=b.screenAttributeFilters||[],c.userIdentityFilters=b.userIdentityFilters||[],c.userAttributeFilters=b.userAttributeFilters||[],c.filteringEventAttributeValue=b.filteringEventAttributeValue||{},c.filteringUserAttributeValue=b.filteringUserAttributeValue||{},c.eventSubscriptionId=b.eventSubscriptionId||null,c.filteringConsentRuleValues=b.filteringConsentRuleValues||{},c.excludeAnonymousUser=b.excludeAnonymousUser||!1,c},this.configurePixel=function(b){(b.isDebug===a._Store.SDKConfig.isDevelopmentMode||b.isProduction!==a._Store.SDKConfig.isDevelopmentMode)&&a._Store.pixelConfigurations.push(b);},this.processPixelConfigs=function(b){try{isEmpty(b.pixelConfigs)||b.pixelConfigs.forEach(function(a){c.configurePixel(a);});}catch(b){a.Logger.error("Cookie Sync configs not configured propertly. Cookie Sync may not be initialized. "+b);}};}
+if(!isEmpty(c.kits)){var h=Object.keys(c.kits);a._Store.sideloadedKitsCount=h.length;}}}catch(b){a.Logger.error("Sideloaded Kits not configured propertly. Kits may not be initialized. "+b);}},this.configureSideloadedKit=function(b){a._Store.configuredForwarders.push(this.returnConfiguredKit(b,b.filters));},this.returnConfiguredKit=function(a){var b=1<arguments.length&&void 0!==arguments[1]?arguments[1]:{},c=new a.constructor;return c.id=b.moduleId,c.isSandbox=b.isDebug||b.isSandbox,c.hasSandbox="true"===b.hasDebugString,c.isVisible=b.isVisible||!0,c.settings=b.settings||{},c.eventNameFilters=b.eventNameFilters||[],c.eventTypeFilters=b.eventTypeFilters||[],c.attributeFilters=b.attributeFilters||[],c.screenNameFilters=b.screenNameFilters||[],c.screenAttributeFilters=b.screenAttributeFilters||[],c.userIdentityFilters=b.userIdentityFilters||[],c.userAttributeFilters=b.userAttributeFilters||[],c.filteringEventAttributeValue=b.filteringEventAttributeValue||{},c.filteringUserAttributeValue=b.filteringUserAttributeValue||{},c.eventSubscriptionId=b.eventSubscriptionId||null,c.filteringConsentRuleValues=b.filteringConsentRuleValues||{},c.excludeAnonymousUser=b.excludeAnonymousUser||!1,c},this.configurePixel=function(b){(b.isDebug===a._Store.SDKConfig.isDevelopmentMode||b.isProduction!==a._Store.SDKConfig.isDevelopmentMode)&&a._Store.pixelConfigurations.push(b);},this.processPixelConfigs=function(b){try{isEmpty(b.pixelConfigs)||b.pixelConfigs.forEach(function(a){d.configurePixel(a);});}catch(b){a.Logger.error("Cookie Sync configs not configured propertly. Cookie Sync may not be initialized. "+b);}},this.sendSingleForwardingStatsToServer=/*#__PURE__*/function(){var b=_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime.mark(function d(b){var e,f,g,h;return _regeneratorRuntime.wrap(function(d){for(;;)switch(d.prev=d.next){case 0:return f={method:"post",body:JSON.stringify(b),headers:{Accept:"text/plain;charset=UTF-8","Content-Type":"text/plain;charset=UTF-8"}},d.next=3,c.forwarderStatsUploader.upload(f);case 3:g=d.sent,h=202===g.status?"Successfully sent forwarding stats to mParticle Servers":"Issue with forwarding stats to mParticle Servers, received HTTP Code of "+g.statusText,null===a||void 0===a||null===(e=a.Logger)||void 0===e||e.verbose(h);case 6:case"end":return d.stop()}},d)}));return function(){return b.apply(this,arguments)}}();}
 
 // TODO: This file is no longer the server model because the web SDK payload
 var MessageType=Types.MessageType,ApplicationTransitionType=Types.ApplicationTransitionType;// TODO: Make this a pure function that returns a new object
@@ -753,7 +1137,7 @@ var Messages$2=Constants.Messages,HTTPCodes$2=Constants.HTTPCodes,FeatureFlags$1
 // send a user identity change request on identify, login, logout, modify when any values change.
 // compare what identities exist vs what is previously was for the specific user if they were in memory before.
 // if it's the first time the user is logging in, send a user identity change request with
-this.idCache=null,this.audienceManager=null,this.IdentityRequest={preProcessIdentityRequest:function preProcessIdentityRequest(e,r,s){t.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent+": "+s);var i=t._Helpers.Validators.validateIdentities(e,s);if(!i.valid)return t.Logger.error("ERROR: "+i.error),{valid:!1,error:i.error};if(r&&!t._Helpers.Validators.isFunction(r)){var n="The optional callback must be a function. You tried entering a(n) "+_typeof(r);return t.Logger.error(n),{valid:!1,error:n}}return {valid:!0}},createIdentityRequest:function createIdentityRequest(e,r,s,i,n,a,d){var o={client_sdk:{platform:r,sdk_vendor:s,sdk_version:i},context:a,environment:t._Store.SDKConfig.isDevelopmentMode?"development":"production",request_id:t._Helpers.generateUniqueId(),request_timestamp_ms:new Date().getTime(),previous_mpid:d||null,known_identities:createKnownIdentities(e,n)};return o},createModifyIdentityRequest:function createModifyIdentityRequest(e,r,s,i,n,a){return {client_sdk:{platform:s,sdk_vendor:i,sdk_version:n},context:a,environment:t._Store.SDKConfig.isDevelopmentMode?"development":"production",request_id:t._Helpers.generateUniqueId(),request_timestamp_ms:new Date().getTime(),identity_changes:this.createIdentityChanges(e,r)}},createIdentityChanges:function createIdentityChanges(e,t){var r,s=[];if(t&&isObject(t)&&e&&isObject(e))for(r in t)s.push({old_value:e[r]||null,new_value:t[r],identity_type:r});return s},// takes 2 UI objects keyed by name, combines them, returns them keyed by type
+this.idCache=null,this.audienceManager=null,this.IdentityRequest={preProcessIdentityRequest:function preProcessIdentityRequest(e,r,s){t.Logger.verbose(Messages$2.InformationMessages.StartingLogEvent+": "+s);var i=t._Helpers.Validators.validateIdentities(e,s);if(!i.valid)return t.Logger.error("ERROR: "+i.error),{valid:!1,error:i.error};if(r&&!t._Helpers.Validators.isFunction(r)){var n="The optional callback must be a function. You tried entering a(n) "+_typeof$1(r);return t.Logger.error(n),{valid:!1,error:n}}return {valid:!0}},createIdentityRequest:function createIdentityRequest(e,r,s,i,n,a,d){var o={client_sdk:{platform:r,sdk_vendor:s,sdk_version:i},context:a,environment:t._Store.SDKConfig.isDevelopmentMode?"development":"production",request_id:t._Helpers.generateUniqueId(),request_timestamp_ms:new Date().getTime(),previous_mpid:d||null,known_identities:createKnownIdentities(e,n)};return o},createModifyIdentityRequest:function createModifyIdentityRequest(e,r,s,i,n,a){return {client_sdk:{platform:s,sdk_vendor:i,sdk_version:n},context:a,environment:t._Store.SDKConfig.isDevelopmentMode?"development":"production",request_id:t._Helpers.generateUniqueId(),request_timestamp_ms:new Date().getTime(),identity_changes:this.createIdentityChanges(e,r)}},createIdentityChanges:function createIdentityChanges(e,t){var r,s=[];if(t&&isObject(t)&&e&&isObject(e))for(r in t)s.push({old_value:e[r]||null,new_value:t[r],identity_type:r});return s},// takes 2 UI objects keyed by name, combines them, returns them keyed by type
 combineUserIdentities:function combineUserIdentities(e,t){var r={},s=i({},e,t);for(var n in s){var a=Types.IdentityType.getIdentityType(n);// this check removes anything that is not whitelisted as an identity type
 !1!==a&&0<=a&&(r[Types.IdentityType.getIdentityType(n)]=s[n]);}return r},createAliasNetworkRequest:function createAliasNetworkRequest(e){return {request_id:t._Helpers.generateUniqueId(),request_type:"alias",environment:t._Store.SDKConfig.isDevelopmentMode?"development":"production",api_key:t._Store.devToken,data:{destination_mpid:e.destinationMpid,source_mpid:e.sourceMpid,start_unixtime_ms:e.startTime,end_unixtime_ms:e.endTime,scope:e.scope,device_application_stamp:t._Store.deviceId}}},convertAliasToNative:function convertAliasToNative(e){return {DestinationMpid:e.destinationMpid,SourceMpid:e.sourceMpid,StartUnixtimeMs:e.startTime,EndUnixtimeMs:e.endTime}},convertToNative:function convertToNative(e){var t=[];if(e&&e.userIdentities){for(var r in e.userIdentities)e.userIdentities.hasOwnProperty(r)&&t.push({Type:Types.IdentityType.getIdentityType(r),Identity:e.userIdentities[r]});return {UserIdentities:t}}}},this.IdentityAPI={HTTPCodes:HTTPCodes$2,/**
          * Initiate a logout request to the mParticle server
@@ -841,7 +1225,7 @@ setUserAttribute:function setUserAttribute(r,i){if(t._SessionManager.resetSessio
              * @method setUserAttributes
              * @param {Object} user attribute object with keys of the attribute type, and value of the attribute value
              */ // https://go.mparticle.com/work/SQDSDKS-6373
-setUserAttributes:function setUserAttributes(e){if(t._SessionManager.resetSessionTimer(),!isObject(e))t.Logger.error("Must pass an object into setUserAttributes. You passed a "+_typeof(e));else if(t._Helpers.canLog())for(var r in e)e.hasOwnProperty(r)&&this.setUserAttribute(r,e[r]);},/**
+setUserAttributes:function setUserAttributes(e){if(t._SessionManager.resetSessionTimer(),!isObject(e))t.Logger.error("Must pass an object into setUserAttributes. You passed a "+_typeof$1(e));else if(t._Helpers.canLog())for(var r in e)e.hasOwnProperty(r)&&this.setUserAttribute(r,e[r]);},/**
              * Removes a specific user attribute
              * @method removeUserAttribute
              * @param {String} key
@@ -851,7 +1235,7 @@ setUserAttributes:function setUserAttributes(e){if(t._SessionManager.resetSessio
              * @param {String} key
              * @param {Array} value an array of values
              */ // https://go.mparticle.com/work/SQDSDKS-6373
-setUserAttributeList:function setUserAttributeList(r,n){if(t._SessionManager.resetSessionTimer(),!t._Helpers.Validators.isValidKeyValue(r))return void t.Logger.error(Messages$2.ErrorMessages.BadKey);if(!Array.isArray(n))return void t.Logger.error("The value you passed in to setUserAttributeList must be an array. You passed in a "+("undefined"==typeof value?"undefined":_typeof(value)));var a=n.slice();if(t._Store.webviewBridgeEnabled)t._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList,JSON.stringify({key:r,value:a}));else {var d,o,g,l=this.getAllUserAttributes(),u=t._Helpers.findKeyInObject(l,r);// If the new attributeList length is different than the previous, then there is a change event.
+setUserAttributeList:function setUserAttributeList(r,n){if(t._SessionManager.resetSessionTimer(),!t._Helpers.Validators.isValidKeyValue(r))return void t.Logger.error(Messages$2.ErrorMessages.BadKey);if(!Array.isArray(n))return void t.Logger.error("The value you passed in to setUserAttributeList must be an array. You passed in a "+("undefined"==typeof value?"undefined":_typeof$1(value)));var a=n.slice();if(t._Store.webviewBridgeEnabled)t._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetUserAttributeList,JSON.stringify({key:r,value:a}));else {var d,o,g,l=this.getAllUserAttributes(),u=t._Helpers.findKeyInObject(l,r);// If the new attributeList length is different than the previous, then there is a change event.
 // Loop through new attributes list, see if they are all in the same index as previous user attributes list
 // If there are any changes, break, and immediately send a userAttributeChangeEvent with full array as a value
 if(u?(o=!1,d=l[u],delete l[u]):o=!0,l[r]=a,t._Store.setUserAttributes(e,l),!d||!Array.isArray(d))g=!0;else if(n.length!==d.length)g=!0;else for(var p=0;p<n.length;p++)if(d[p]!==n[p]){g=!0;break}g&&s.sendUserAttributeChangeEvent(r,n,d,o,!1,this),t._Forwarders.initForwarders(s.IdentityAPI.getCurrentUser().getUserIdentities(),t._APIClient.prepareForwardingStats),t._Forwarders.handleForwarderUserAttributes("setUserAttribute",r,a);}},/**
@@ -1187,7 +1571,7 @@ this._instanceName=a,this._NativeSdkHelpers=new NativeSdkHelpers(this),this._Ses
 // Since fetching the configuration is asynchronous, we must pass completeSDKInitialization
 // to it for it to be run after fetched
 if(b||console.warn("You did not pass a config object to init(). mParticle will not initialize properly"),runPreConfigFetchInitialization(this,a,b),!b)return void console.error("No config available on the window, please pass a config object to mParticle.init()");if(!b.hasOwnProperty("requestConfig")||b.requestConfig){var d=new ConfigAPIClient(a,b,this);d.getSDKConfiguration().then(function(d){var e=c._Helpers.extend({},b,d);completeSDKInitialization(a,e,c);});}else completeSDKInitialization(a,b,this);},this.setLogLevel=function(a){b.Logger.setLogLevel(a);},this.reset=function(a){try{a._Persistence.resetPersistence(),a._Store&&delete a._Store;}catch(a){console.error("Cannot reset mParticle",a);}},this._resetForTests=function(a,b,c){c._Store&&delete c._Store,c._Store=new Store(a,c),c._Store.isLocalStorageAvailable=c._Persistence.determineLocalStorageAvailability(window.localStorage),c._Events.stopTracking(),b||c._Persistence.resetPersistence(),c._Persistence.forwardingStatsBatches.uploadsTable={},c._Persistence.forwardingStatsBatches.forwardingStatsEventQueue=[],c._preInit={readyQueue:[],pixelConfigurations:[],integrationDelays:{},forwarderConstructors:[],isDevelopmentMode:!1};},this.ready=function(a){b.isInitialized()&&"function"==typeof a?a():b._preInit.readyQueue.push(a);},this.getEnvironment=function(){return b._Store.SDKConfig.isDevelopmentMode?Types.Environment.Development:Types.Environment.Production},this.getVersion=function(){return Constants.sdkVersion},this.setAppVersion=function(a){var c=queueIfNotInitialized(function(){b.setAppVersion(a);},b);c||(b._Store.SDKConfig.appVersion=a,b._Persistence.update());},this.setDeviceId=function(a){var c=queueIfNotInitialized(function(){b.setDeviceId(a);},b);c||this._Store.setDeviceId(a);},this.isInitialized=function(){return !!b._Store&&b._Store.isInitialized},this.getAppName=function(){return b._Store.SDKConfig.appName},this.setAppName=function(a){var c=queueIfNotInitialized(function(){b.setAppName(a);},b);c||(b._Store.SDKConfig.appName=a);},this.getAppVersion=function(){return b._Store.SDKConfig.appVersion},this.stopTrackingLocation=function(){b._SessionManager.resetSessionTimer(),b._Events.stopTracking();},this.startTrackingLocation=function(a){isFunction(a)||b.Logger.warning("Warning: Location tracking is triggered, but not including a callback into the `startTrackingLocation` may result in events logged too quickly and not being associated with a location."),b._SessionManager.resetSessionTimer(),b._Events.startTracking(a);},this.setPosition=function(a,c){var d=queueIfNotInitialized(function(){b.setPosition(a,c);},b);d||(b._SessionManager.resetSessionTimer(),"number"==typeof a&&"number"==typeof c?b._Store.currentPosition={lat:a,lng:c}:b.Logger.error("Position latitude and/or longitude must both be of type number"));},this.startNewSession=function(){b._SessionManager.startNewSession();},this.endSession=function(){// Sends true as an over ride vs when endSession is called from the setInterval
-b._SessionManager.endSession(!0);},this.logBaseEvent=function(a,c){var d=queueIfNotInitialized(function(){b.logBaseEvent(a,c);},b);if(!d)return (b._SessionManager.resetSessionTimer(),"string"!=typeof a.name)?void b.Logger.error(Messages.ErrorMessages.EventNameInvalidType):(a.eventType||(a.eventType=Types.EventType.Unknown),b._Helpers.canLog()?void b._Events.logEvent(a,c):void b.Logger.error(Messages.ErrorMessages.LoggingDisabled))},this.logEvent=function(a,c,d,e,f){var g=queueIfNotInitialized(function(){b.logEvent(a,c,d,e,f);},b);if(!g)return (b._SessionManager.resetSessionTimer(),"string"!=typeof a)?void b.Logger.error(Messages.ErrorMessages.EventNameInvalidType):(c||(c=Types.EventType.Unknown),b._Helpers.isEventType(c)?b._Helpers.canLog()?void b._Events.logEvent({messageType:Types.MessageType.PageEvent,name:a,data:d,eventType:c,customFlags:e},f):void b.Logger.error(Messages.ErrorMessages.LoggingDisabled):void b.Logger.error("Invalid event type: "+c+", must be one of: \n"+JSON.stringify(Types.EventType)))},this.logError=function(a,c){var d=queueIfNotInitialized(function(){b.logError(a,c);},b);if(!d&&(b._SessionManager.resetSessionTimer(),!!a)){"string"==typeof a&&(a={message:a});var e={m:a.message?a.message:a,s:"Error",t:a.stack||null};if(c){var f=b._Helpers.sanitizeAttributes(c,e.m);for(var g in f)e[g]=f[g];}b._Events.logEvent({messageType:Types.MessageType.CrashReport,name:a.name?a.name:"Error",data:e,eventType:Types.EventType.Other});}},this.logLink=function(a,c,d,e){b._Events.addEventHandler("click",a,c,e,d);},this.logForm=function(a,c,d,e){b._Events.addEventHandler("submit",a,c,e,d);},this.logPageView=function(a,c,d,e){var f=queueIfNotInitialized(function(){b.logPageView(a,c,d,e);},b);if(!f){if(b._SessionManager.resetSessionTimer(),b._Helpers.canLog()){if(b._Helpers.Validators.isStringOrNumber(a)||(a="PageView"),!c)c={hostname:window.location.hostname,title:window.document.title};else if(!b._Helpers.isObject(c))return void b.Logger.error("The attributes argument must be an object. A "+_typeof(c)+" was entered. Please correct and retry.");if(d&&!b._Helpers.isObject(d))return void b.Logger.error("The customFlags argument must be an object. A "+_typeof(d)+" was entered. Please correct and retry.")}b._Events.logEvent({messageType:Types.MessageType.PageView,name:a,data:c,eventType:Types.EventType.Unknown,customFlags:d},e);}},this.upload=function(){b._Helpers.canLog()&&(b._Store.webviewBridgeEnabled?b._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Upload):b._APIClient.uploader.prepareAndUpload(!1,!1));},this.Consent={/**
+b._SessionManager.endSession(!0);},this.logBaseEvent=function(a,c){var d=queueIfNotInitialized(function(){b.logBaseEvent(a,c);},b);if(!d)return (b._SessionManager.resetSessionTimer(),"string"!=typeof a.name)?void b.Logger.error(Messages.ErrorMessages.EventNameInvalidType):(a.eventType||(a.eventType=Types.EventType.Unknown),b._Helpers.canLog()?void b._Events.logEvent(a,c):void b.Logger.error(Messages.ErrorMessages.LoggingDisabled))},this.logEvent=function(a,c,d,e,f){var g=queueIfNotInitialized(function(){b.logEvent(a,c,d,e,f);},b);if(!g)return (b._SessionManager.resetSessionTimer(),"string"!=typeof a)?void b.Logger.error(Messages.ErrorMessages.EventNameInvalidType):(c||(c=Types.EventType.Unknown),b._Helpers.isEventType(c)?b._Helpers.canLog()?void b._Events.logEvent({messageType:Types.MessageType.PageEvent,name:a,data:d,eventType:c,customFlags:e},f):void b.Logger.error(Messages.ErrorMessages.LoggingDisabled):void b.Logger.error("Invalid event type: "+c+", must be one of: \n"+JSON.stringify(Types.EventType)))},this.logError=function(a,c){var d=queueIfNotInitialized(function(){b.logError(a,c);},b);if(!d&&(b._SessionManager.resetSessionTimer(),!!a)){"string"==typeof a&&(a={message:a});var e={m:a.message?a.message:a,s:"Error",t:a.stack||null};if(c){var f=b._Helpers.sanitizeAttributes(c,e.m);for(var g in f)e[g]=f[g];}b._Events.logEvent({messageType:Types.MessageType.CrashReport,name:a.name?a.name:"Error",data:e,eventType:Types.EventType.Other});}},this.logLink=function(a,c,d,e){b._Events.addEventHandler("click",a,c,e,d);},this.logForm=function(a,c,d,e){b._Events.addEventHandler("submit",a,c,e,d);},this.logPageView=function(a,c,d,e){var f=queueIfNotInitialized(function(){b.logPageView(a,c,d,e);},b);if(!f){if(b._SessionManager.resetSessionTimer(),b._Helpers.canLog()){if(b._Helpers.Validators.isStringOrNumber(a)||(a="PageView"),!c)c={hostname:window.location.hostname,title:window.document.title};else if(!b._Helpers.isObject(c))return void b.Logger.error("The attributes argument must be an object. A "+_typeof$1(c)+" was entered. Please correct and retry.");if(d&&!b._Helpers.isObject(d))return void b.Logger.error("The customFlags argument must be an object. A "+_typeof$1(d)+" was entered. Please correct and retry.")}b._Events.logEvent({messageType:Types.MessageType.PageView,name:a,data:c,eventType:Types.EventType.Unknown,customFlags:d},e);}},this.upload=function(){b._Helpers.canLog()&&(b._Store.webviewBridgeEnabled?b._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.Upload):b._APIClient.uploader.prepareAndUpload(!1,!1));},this.Consent={/**
          * Creates a CCPA Opt Out Consent State.
          *
          * @method createCCPAConsent
@@ -1335,7 +1719,7 @@ b._SessionManager.endSession(!0);},this.logBaseEvent=function(a,c){var d=queueIf
          */logRefund:function logRefund(a,c,d,e,f){return b.Logger.warning("mParticle.logRefund is deprecated, please use mParticle.logProductAction instead"),b._Store.isInitialized?void(b._SessionManager.resetSessionTimer(),b._Events.logRefundEvent(a,c,e,f)):void b.ready(function(){b.eCommerce.logRefund(a,c,d,e,f);})},expandCommerceEvent:function expandCommerceEvent(a){return b._Ecommerce.expandCommerceEvent(a)}},this.setSessionAttribute=function(a,c){var d=queueIfNotInitialized(function(){b.setSessionAttribute(a,c);},b);if(!d&&b._Helpers.canLog())// Logs to cookie
 // And logs to in-memory object
 // Example: mParticle.setSessionAttribute('location', '33431');
-{if(!b._Helpers.Validators.isValidAttributeValue(c))return void b.Logger.error(Messages.ErrorMessages.BadAttribute);if(!b._Helpers.Validators.isValidKeyValue(a))return void b.Logger.error(Messages.ErrorMessages.BadKey);if(b._Store.webviewBridgeEnabled)b._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:a,value:c}));else {var e=b._Helpers.findKeyInObject(b._Store.sessionAttributes,a);e&&(a=e),b._Store.sessionAttributes[a]=c,b._Persistence.update(),b._Forwarders.applyToForwarders("setSessionAttribute",[a,c]);}}},this.setOptOut=function(a){var c=queueIfNotInitialized(function(){b.setOptOut(a);},b);c||(b._SessionManager.resetSessionTimer(),b._Store.isEnabled=!a,b._Events.logOptOut(),b._Persistence.update(),b._Store.activeForwarders.length&&b._Store.activeForwarders.forEach(function(c){if(c.setOptOut){var d=c.setOptOut(a);d&&b.Logger.verbose(d);}}));},this.setIntegrationAttribute=function(a,c){var d=queueIfNotInitialized(function(){b.setIntegrationAttribute(a,c);},b);if(!d){if("number"!=typeof a)return void b.Logger.error("integrationId must be a number");if(null===c)b._Store.integrationAttributes[a]={};else {if(!b._Helpers.isObject(c))return void b.Logger.error("Attrs must be an object with keys and values. You entered a "+_typeof(c));if(0===Object.keys(c).length)b._Store.integrationAttributes[a]={};else for(var e in c)if("string"!=typeof e){b.Logger.error("Keys must be strings, you entered a "+_typeof(e));continue}else if("string"==typeof c[e])b._Helpers.isObject(b._Store.integrationAttributes[a])?b._Store.integrationAttributes[a][e]=c[e]:(b._Store.integrationAttributes[a]={},b._Store.integrationAttributes[a][e]=c[e]);else {b.Logger.error("Values for integration attributes must be strings. You entered a "+_typeof(c[e]));continue}}b._Persistence.update();}},this.getIntegrationAttributes=function(a){return b._Store.integrationAttributes[a]?b._Store.integrationAttributes[a]:{}},this.addForwarder=function(a){b._preInit.forwarderConstructors.push(a);},this.configurePixel=function(a){b._Forwarders.configurePixel(a);},this._getActiveForwarders=function(){return b._Store.activeForwarders},this._getIntegrationDelays=function(){return b._preInit.integrationDelays},this._setIntegrationDelay=function(a,c){// If the integration delay is set to true, no further action needed
+{if(!b._Helpers.Validators.isValidAttributeValue(c))return void b.Logger.error(Messages.ErrorMessages.BadAttribute);if(!b._Helpers.Validators.isValidKeyValue(a))return void b.Logger.error(Messages.ErrorMessages.BadKey);if(b._Store.webviewBridgeEnabled)b._NativeSdkHelpers.sendToNative(Constants.NativeSdkPaths.SetSessionAttribute,JSON.stringify({key:a,value:c}));else {var e=b._Helpers.findKeyInObject(b._Store.sessionAttributes,a);e&&(a=e),b._Store.sessionAttributes[a]=c,b._Persistence.update(),b._Forwarders.applyToForwarders("setSessionAttribute",[a,c]);}}},this.setOptOut=function(a){var c=queueIfNotInitialized(function(){b.setOptOut(a);},b);c||(b._SessionManager.resetSessionTimer(),b._Store.isEnabled=!a,b._Events.logOptOut(),b._Persistence.update(),b._Store.activeForwarders.length&&b._Store.activeForwarders.forEach(function(c){if(c.setOptOut){var d=c.setOptOut(a);d&&b.Logger.verbose(d);}}));},this.setIntegrationAttribute=function(a,c){var d=queueIfNotInitialized(function(){b.setIntegrationAttribute(a,c);},b);if(!d){if("number"!=typeof a)return void b.Logger.error("integrationId must be a number");if(null===c)b._Store.integrationAttributes[a]={};else {if(!b._Helpers.isObject(c))return void b.Logger.error("Attrs must be an object with keys and values. You entered a "+_typeof$1(c));if(0===Object.keys(c).length)b._Store.integrationAttributes[a]={};else for(var e in c)if("string"!=typeof e){b.Logger.error("Keys must be strings, you entered a "+_typeof$1(e));continue}else if("string"==typeof c[e])b._Helpers.isObject(b._Store.integrationAttributes[a])?b._Store.integrationAttributes[a][e]=c[e]:(b._Store.integrationAttributes[a]={},b._Store.integrationAttributes[a][e]=c[e]);else {b.Logger.error("Values for integration attributes must be strings. You entered a "+_typeof$1(c[e]));continue}}b._Persistence.update();}},this.getIntegrationAttributes=function(a){return b._Store.integrationAttributes[a]?b._Store.integrationAttributes[a]:{}},this.addForwarder=function(a){b._preInit.forwarderConstructors.push(a);},this.configurePixel=function(a){b._Forwarders.configurePixel(a);},this._getActiveForwarders=function(){return b._Store.activeForwarders},this._getIntegrationDelays=function(){return b._preInit.integrationDelays},this._setIntegrationDelay=function(a,c){// If the integration delay is set to true, no further action needed
 if(b._preInit.integrationDelays[a]=c,!0!==c){// If the integration delay is set to false, check to see if there are any
 // other integration delays set to true.  It not, process the queued events/.
 var d=Object.keys(b._preInit.integrationDelays);if(0!==d.length){var e=d.some(function(a){return !0===b._preInit.integrationDelays[a]});e||b._APIClient.processQueuedEvents();}}},this._setWrapperSDKInfo=function(a,c){var d=queueIfNotInitialized(function(){b._setWrapperSDKInfo(a,c);},b);d||(b._Store.wrapperSDKInfo===void 0||!b._Store.wrapperSDKInfo.isInfoSet)&&(b._Store.wrapperSDKInfo={name:a,version:c,isInfoSet:!0});};}// Some (server) config settings need to be returned before they are set on SDKConfig in a self hosted environment
