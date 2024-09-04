@@ -1,5 +1,6 @@
 import Constants from './constants';
 import { xhrIdentityResponseAdapter } from './identity-utils';
+import { FetchUploader, XHRUploader } from './uploaders';
 
 var HTTPCodes = Constants.HTTPCodes,
     Messages = Constants.Messages;
@@ -7,58 +8,47 @@ var HTTPCodes = Constants.HTTPCodes,
 const { Modify } = Constants.IdentityMethods;
 
 export default function IdentityAPIClient(mpInstance) {
-    this.sendAliasRequest = function(aliasRequest, callback) {
-        var xhr,
-            xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    // https://go.mparticle.com/work/SQDSDKS-6368
-                    mpInstance.Logger.verbose(
-                        'Received ' + xhr.statusText + ' from server'
-                    );
-                    //only parse error messages from failing requests
-                    if (xhr.status !== 200 && xhr.status !== 202) {
-                        if (xhr.responseText) {
-                            var response = JSON.parse(xhr.responseText);
-                            if (response.hasOwnProperty('message')) {
-                                var errorMessage = response.message;
-                                mpInstance._Helpers.invokeAliasCallback(
-                                    callback,
-                                    xhr.status,
-                                    errorMessage
-                                );
-                                return;
-                            }
-                        }
-                    }
-                    mpInstance._Helpers.invokeAliasCallback(
-                        callback,
-                        xhr.status
-                    );
-                }
-            };
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendAliasHttp);
+    this.sendAliasRequest = async function(aliasRequest, callback) {
+        const { verbose, error } = mpInstance.Logger;
+        const { invokeAliasCallback } = mpInstance._Helpers;
+        const { aliasUrl } = mpInstance._Store.SDKConfig;
+        const { devToken } = mpInstance._Store;
 
-        xhr = mpInstance._Helpers.createXHR(xhrCallback);
-        if (xhr) {
-            try {
-                xhr.open(
-                    'post',
-                    mpInstance._Helpers.createServiceUrl(
-                        mpInstance._Store.SDKConfig.aliasUrl,
-                        mpInstance._Store.devToken
-                    ) + '/Alias'
-                );
-                xhr.send(JSON.stringify(aliasRequest));
-            } catch (e) {
-                mpInstance._Helpers.invokeAliasCallback(
-                    callback,
-                    HTTPCodes.noHttpCoverage,
-                    e
-                );
-                mpInstance.Logger.error(
-                    'Error sending alias request to mParticle servers. ' + e
-                );
+        verbose(Messages.InformationMessages.SendAliasHttp);
+
+        const uploadUrl = `https://${aliasUrl}${devToken}/Alias`;
+
+        const uploader = window.fetch
+            ? new FetchUploader(uploadUrl)
+            : new XHRUploader(uploadUrl);
+
+        const uploadPayload = {
+            method: 'post',
+            headers: {
+                Accept: 'text/plain;charset=UTF-8',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(aliasRequest),
+        };
+        try {
+            const response = await uploader.upload(uploadPayload);
+            debugger;
+            let message;
+            // This is a fire and forget, so we only need to log the response based on the code, and not return any response body
+            if (response.status === 202 || response.status === 200) {
+                // https://go.mparticle.com/work/SQDSDKS-6670
+                message =
+                    'Successfully sent forwarding stats to mParticle Servers';
+            } else {
+                message =
+                    'Issue with forwarding stats to mParticle Servers, received HTTP Code of ' +
+                    response.status;
             }
+            verbose(message);
+            invokeAliasCallback(callback, response.status);
+        } catch (e) {
+            error('Error sending alias request to mParticle servers. ' + e);
+            invokeAliasCallback(callback, HTTPCodes.noHttpCoverage, e.message);
         }
     };
 

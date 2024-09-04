@@ -47,6 +47,7 @@ export class XHRUploader extends AsyncUploader {
     // 3   LOADING Downloading; responseText holds partial data.
     // 4   DONE    The operation is complete.
 
+    // https://go.mparticle.com/work/SQDSDKS-6736
     private async makeRequest(
         url: string,
         data: string,
