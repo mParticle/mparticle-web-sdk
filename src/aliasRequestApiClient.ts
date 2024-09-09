@@ -1,5 +1,4 @@
-import { IdentityCallback } from "./identity-user-interfaces";
-import { IAliasRequest } from "./identity.interfaces";
+import { IAliasRequest, IAliasCallback } from "./identity.interfaces";
 import { MParticleWebSDK } from "./sdkRuntimeModels";
 import Constants from './constants';
 import { FetchUploader, XHRUploader } from './uploaders';
@@ -8,7 +7,11 @@ import { FetchUploader, XHRUploader } from './uploaders';
 var HTTPCodes = Constants.HTTPCodes,
     Messages = Constants.Messages;
 
-export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasRequest: IAliasRequest, callback: IdentityCallback) {
+interface IAliasResponseBody {
+    message?: string
+}
+
+export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasRequest: IAliasRequest, aliasCallback: IAliasCallback) {
         const { verbose, error } = mpInstance.Logger;
         const { invokeAliasCallback } = mpInstance._Helpers;
         const { aliasUrl } = mpInstance._Store.SDKConfig;
@@ -32,8 +35,8 @@ export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasReques
         try {
             const response = await uploader.upload(uploadPayload);
 
-            let message;
-            let aliasResponseBody;
+            let message: string;
+            let aliasResponseBody: IAliasResponseBody;
 
             // FetchUploader returns the response as a JSON object that we have to await
             if (response.json) {
@@ -74,10 +77,10 @@ export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasReques
             }
 
             verbose(message);
-            invokeAliasCallback(callback, response.status, errorMessage);
+            invokeAliasCallback(aliasCallback, response.status, errorMessage);
         } catch (e) {
             const err = e as Error;
             error('Error sending alias request to mParticle servers. ' + err);
-            invokeAliasCallback(callback, HTTPCodes.noHttpCoverage, (err.message));
+            invokeAliasCallback(aliasCallback, HTTPCodes.noHttpCoverage, (err.message));
         }
     };
