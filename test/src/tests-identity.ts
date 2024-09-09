@@ -72,7 +72,7 @@ const BadCallbackAsString = ('badCallbackString' as unknown) as Callback;
 
 const EmptyUserIdentities = ({} as unknown) as IdentityApiData;
 
-describe.only('identity', function() {
+describe('identity', function() {
     let mockServer;
     let clock;
 
@@ -2963,7 +2963,11 @@ describe.only('identity', function() {
             endTime: 4,
         };
 
-        fetchMock.post(urls.alias, 200);
+        fetchMock.post(urls.alias, {
+            status: 200,
+            body: JSON.stringify({}),
+        });
+
         fetchMock.resetHistory();
 
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
@@ -2977,25 +2981,20 @@ describe.only('identity', function() {
         });
     });
 
-    it.only('should parse error info from Alias Requests', function(done) {
+    it('should parse error info from Alias Requests', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         const errorMessage = 'this is a sample error message';
         let callbackResult;
-        fetchMock.post(urls.alias, {
-            status: 400,
-            body: JSON.stringify({
-                message: errorMessage,
-                code: 'ignored code',
-            }),
-        })
-        // mockServer.respondWith(urls.alias, [
-        //     400,
-        //     {},
-        //     JSON.stringify({
-        //         message: errorMessage,
-        //         code: 'ignored code',
-        //     }),
-        // ]);
+        fetchMock.post(
+            urls.alias, 
+            {
+                status: 400,
+                body: JSON.stringify({
+                    message: errorMessage,
+                    code: 'ignored code',
+                }),
+            }
+        );
 
         const aliasRequest = {
             destinationMpid: 'destinationMpid',
@@ -3005,7 +3004,6 @@ describe.only('identity', function() {
         };
 
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
-            debugger;
             callbackResult = callback;
             callbackResult.httpCode.should.equal(400);
             callbackResult.message.should.equal(errorMessage);

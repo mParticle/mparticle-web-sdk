@@ -17,7 +17,6 @@ export default function IdentityAPIClient(mpInstance) {
         verbose(Messages.InformationMessages.SendAliasHttp);
 
         const uploadUrl = `https://${aliasUrl}${devToken}/Alias`;
-
         const uploader = window.fetch
             ? new FetchUploader(uploadUrl)
             : new XHRUploader(uploadUrl);
@@ -32,20 +31,48 @@ export default function IdentityAPIClient(mpInstance) {
         };
         try {
             const response = await uploader.upload(uploadPayload);
-            debugger;
+
             let message;
-            // This is a fire and forget, so we only need to log the response based on the code, and not return any response body
-            if (response.status === 202 || response.status === 200) {
-                // https://go.mparticle.com/work/SQDSDKS-6670
-                message =
-                    'Successfully sent forwarding stats to mParticle Servers';
+            let aliasResponseBody;
+
+            // set aliasResponseBody based on if it is an XHR or Fetch
+            if (response.json) {
+                // HTTP responses of 202, 200, and 403 do not have a response.  response.json will always exist on a fetch, but can only be await-ed when the response is not empty, otherwise it will throw an error.
+                try {
+                    aliasResponseBody = await response.json();
+                } catch (e) {
+                    verbose('The request has no response body');
+                }
             } else {
-                message =
-                    'Issue with forwarding stats to mParticle Servers, received HTTP Code of ' +
-                    response.status;
+                // as unknown as xhrresponse (copy config)
+                const xhrResponse = response;
+                // debugger;
+                aliasResponseBody = xhrResponse.responseText
+                    ? JSON.parse(xhrResponse.responseText)
+                    : '';
             }
+
+            let errorMessage;
+
+            switch (response.status) {
+                case 200:
+                case 202:
+                    // https://go.mparticle.com/work/SQDSDKS-6670
+                    message =
+                        'Successfully sent forwarding stats to mParticle Servers';
+                    break;
+                default:
+                    // 400 has an error message, but 403 doesn't
+                    if (aliasResponseBody?.message) {
+                        errorMessage = aliasResponseBody.message;
+                    }
+                    message =
+                        'Issue with sending Alias Request to mParticle Servers, received HTTP Code of ' +
+                        response.status;
+            }
+
             verbose(message);
-            invokeAliasCallback(callback, response.status);
+            invokeAliasCallback(callback, response.status, errorMessage);
         } catch (e) {
             error('Error sending alias request to mParticle servers. ' + e);
             invokeAliasCallback(callback, HTTPCodes.noHttpCoverage, e.message);

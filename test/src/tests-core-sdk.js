@@ -797,7 +797,7 @@ describe('core SDK', function() {
         window.mParticle.config.configUrl =
             'foo-custom-configUrl/v2/JS/';
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
-        window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
+        window.mParticle.config.aliasUrl = 'custom-alias/';
 
         fetchMock.post('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', 200)
 
@@ -826,19 +826,20 @@ describe('core SDK', function() {
         );
 
         // test alias endpoint
-        mockServer.requests = [];
+        fetchMock.post('https://custom-alias/test_key/Alias', 202);
+
         mParticle.Identity.aliasUsers({
             destinationMpid: 1,
             sourceMpid: 2,
             startTime: 3,
             endTime: 4,
+        }, function() {
+            (fetchMock.lastCall()[0]).should.equal(
+                'https://' + window.mParticle.config.aliasUrl + 'test_key/Alias'
+            );
+    
+            done();
         });
-
-        mockServer.requests[0].url.should.equal(
-            'https://' + window.mParticle.config.aliasUrl + 'test_key/Alias'
-        );
-
-        done();
     });
 
     it('should use configUrl when specified on config object', function (done) {
