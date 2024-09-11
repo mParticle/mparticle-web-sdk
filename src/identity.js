@@ -4,6 +4,7 @@ import {
     cacheOrClearIdCache,
     createKnownIdentities,
     tryCacheIdentity,
+    xhrIdentityResponseAdapter,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
@@ -12,6 +13,7 @@ const { CacheIdentity } = FeatureFlags;
 const { Identify, Modify, Login, Logout } = IdentityMethods;
 import {
     generateDeprecationMessage,
+    HTTP_SUCCESS,
     isEmpty,
     isFunction,
     isObject,
@@ -1460,7 +1462,7 @@ export default function Identity(mpInstance) {
 
     // https://go.mparticle.com/work/SQDSDKS-6355
     this.parseIdentityResponse = function(
-        xhr,
+        identityResponse,
         previousMPID,
         callback,
         identityApiData,
@@ -1486,9 +1488,7 @@ export default function Identity(mpInstance) {
                 'Parsing "' + method + '" identity response from server'
             );
 
-            identityApiResult = xhr.responseText
-                ? JSON.parse(xhr.responseText)
-                : null;
+            identityApiResult = identityResponse.responseText ?? null;
 
             mpInstance._Store.isLoggedIn =
                 identityApiResult?.is_logged_in || false;
@@ -1513,13 +1513,16 @@ export default function Identity(mpInstance) {
                 );
             }
 
-            if (xhr.status === 200) {
+            if (identityResponse.status === HTTP_SUCCESS) {
                 if (getFeatureFlag(CacheIdentity)) {
+                    const identityResponseForCache = xhrIdentityResponseAdapter(
+                        identityResponse
+                    );
                     cacheOrClearIdCache(
                         method,
                         knownIdentities,
                         self.idCache,
-                        xhr,
+                        identityResponseForCache,
                         parsingCachedResponse
                     );
                 }
@@ -1642,7 +1645,9 @@ export default function Identity(mpInstance) {
 
             if (callback) {
                 const callbackCode =
-                    xhr.status === 0 ? HTTPCodes.noHttpCoverage : xhr.status;
+                    identityResponse.status === 0
+                        ? HTTPCodes.noHttpCoverage
+                        : identityResponse.status;
 
                 mpInstance._Helpers.invokeCallback(
                     callback,
@@ -1657,7 +1662,7 @@ export default function Identity(mpInstance) {
                 // https://go.mparticle.com/work/SQDSDKS-6500
                 mpInstance.Logger.error(
                     'Received HTTP response code of ' +
-                        xhr.status +
+                        identityResponse.status +
                         ' - ' +
                         identityApiResult.errors[0].message
                 );
@@ -1671,7 +1676,7 @@ export default function Identity(mpInstance) {
             if (callback) {
                 mpInstance._Helpers.invokeCallback(
                     callback,
-                    xhr.status,
+                    identityResponse.status,
                     identityApiResult || null
                 );
             }

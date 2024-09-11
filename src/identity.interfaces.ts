@@ -10,6 +10,7 @@ import {
     IUserIdentityChangeEvent,
     IMParticleUser,
     mParticleUserCart,
+    IIdentityResponse,
 } from './identity-user-interfaces';
 const { platform, sdkVendor, sdkVersion, HTTPCodes } = Constants;
 
@@ -170,7 +171,7 @@ export interface IIdentity {
         userInMemory: IMParticleUser
     ): IUserIdentityChangeEvent;
     parseIdentityResponse(
-        xhr: XMLHttpRequest,
+        identityResponse: IIdentityResponse,
         previousMPID: MPID,
         callback: IdentityCallback,
         identityApiData: IdentityApiData,
