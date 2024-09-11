@@ -4,7 +4,6 @@ import {
     cacheOrClearIdCache,
     createKnownIdentities,
     tryCacheIdentity,
-    xhrIdentityResponseAdapter,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
