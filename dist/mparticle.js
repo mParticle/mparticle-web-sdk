@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.28.1";
+    var version = "2.28.2";
 
     var Constants = {
       sdkVersion: version,
@@ -568,6 +568,7 @@ var mParticle = (function () {
     var MILLIS_IN_ONE_SEC = 1000;
 
     var Messages$9 = Constants.Messages;
+    var HTTP_SUCCESS = 200;
     var createCookieString = function createCookieString(value) {
       return replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
     };
@@ -6715,22 +6716,35 @@ var mParticle = (function () {
       Modify$2 = _a.Modify,
       Login$1 = _a.Login,
       Logout$1 = _a.Logout;
-    var cacheOrClearIdCache = function cacheOrClearIdCache(method, knownIdentities, idCache, xhr, parsingCachedResponse) {
+    var CACHE_HEADER = 'x-mp-max-age';
+    // https://go.mparticle.com/work/SQDSDKS-6568
+    // Temporary adapter to convert the XMLHttpRequest response to the IIdentityResponse interface
+    var xhrIdentityResponseAdapter = function xhrIdentityResponseAdapter(possiblyXhr) {
+      if (possiblyXhr.hasOwnProperty('expireTimestamp')) {
+        // If there is an `expireTimestamp`, it is an IIdentityResponse object, so just return it.  This indicates it was a previously cached value.
+        return possiblyXhr;
+      } else {
+        // If there is no `expireTimestamp`, then it is an XHR object and needs to be parsed.
+        return {
+          status: possiblyXhr.status,
+          // Sometimes responseText can be an empty string, such as a 404 response
+          responseText: possiblyXhr.responseText ? JSON.parse(possiblyXhr.responseText) : {},
+          cacheMaxAge: parseNumber((possiblyXhr === null || possiblyXhr === void 0 ? void 0 : possiblyXhr.getResponseHeader(CACHE_HEADER)) || ''),
+          expireTimestamp: 0
+        };
+      }
+    };
+    var cacheOrClearIdCache = function cacheOrClearIdCache(method, knownIdentities, idCache, identityResponse, parsingCachedResponse) {
       // when parsing a response that has already been cached, simply return instead of attempting another cache
       if (parsingCachedResponse) {
         return;
       }
-      var CACHE_HEADER = 'x-mp-max-age';
       // default the expire timestamp to one day in milliseconds unless a header comes back
-      var now = new Date().getTime();
-      var expireTimestamp = now + ONE_DAY_IN_SECONDS * MILLIS_IN_ONE_SEC;
-      if (xhr.getAllResponseHeaders().includes(CACHE_HEADER)) {
-        expireTimestamp = now + parseNumber(xhr.getResponseHeader(CACHE_HEADER)) * MILLIS_IN_ONE_SEC;
-      }
+      var expireTimestamp = getExpireTimestamp(identityResponse === null || identityResponse === void 0 ? void 0 : identityResponse.cacheMaxAge);
       switch (method) {
         case Login$1:
         case Identify$1:
-          cacheIdentityRequest(method, knownIdentities, expireTimestamp, idCache, xhr);
+          cacheIdentityRequest(method, knownIdentities, expireTimestamp, idCache, identityResponse);
           break;
         case Modify$2:
         case Logout$1:
@@ -6738,20 +6752,21 @@ var mParticle = (function () {
           break;
       }
     };
-    var cacheIdentityRequest = function cacheIdentityRequest(method, identities, expireTimestamp, idCache, xhr) {
+    var cacheIdentityRequest = function cacheIdentityRequest(method, identities, expireTimestamp, idCache, identityResponse) {
+      var responseText = identityResponse.responseText,
+        status = identityResponse.status;
       var cache = idCache.retrieve() || {};
       var cacheKey = concatenateIdentities(method, identities);
       var hashedKey = generateHash(cacheKey);
-      var _a = JSON.parse(xhr.responseText),
-        mpid = _a.mpid,
-        is_logged_in = _a.is_logged_in;
-      var cachedResponseText = {
+      var mpid = responseText.mpid,
+        is_logged_in = responseText.is_logged_in;
+      var cachedResponseBody = {
         mpid: mpid,
         is_logged_in: is_logged_in
       };
       cache[hashedKey] = {
-        responseText: JSON.stringify(cachedResponseText),
-        status: xhr.status,
+        responseText: JSON.stringify(cachedResponseBody),
+        status: status,
         expireTimestamp: expireTimestamp
       };
       idCache.store(cache);
@@ -6783,10 +6798,10 @@ var mParticle = (function () {
       return concatenatedIdentities;
     };
     var hasValidCachedIdentity = function hasValidCachedIdentity(method, proposedUserIdentities, idCache) {
-      // There is an edge case where multiple identity calls are taking place 
-      // before identify fires, so there may not be a cache.  See what happens when 
+      // There is an edge case where multiple identity calls are taking place
+      // before identify fires, so there may not be a cache.  See what happens when
       // the ? in idCache is removed to the following test
-      // "queued events contain login mpid instead of identify mpid when calling 
+      // "queued events contain login mpid instead of identify mpid when calling
       // login immediately after mParticle initializes"
       var cache = idCache === null || idCache === void 0 ? void 0 : idCache.retrieve();
       // if there is no cache, then there is no valid cached identity
@@ -6814,7 +6829,11 @@ var mParticle = (function () {
       var hashedKey = generateHash(cacheKey);
       var cache = idCache.retrieve();
       var cachedIdentity = cache ? cache[hashedKey] : null;
-      return cachedIdentity;
+      return {
+        responseText: parseIdentityResponse(cachedIdentity.responseText),
+        expireTimestamp: cachedIdentity.expireTimestamp,
+        status: cachedIdentity.status
+      };
     };
     // https://go.mparticle.com/work/SQDSDKS-6079
     var createKnownIdentities = function createKnownIdentities(identityApiData, deviceId) {
@@ -6848,6 +6867,15 @@ var mParticle = (function () {
         return true;
       }
       return false;
+    };
+    var getExpireTimestamp = function getExpireTimestamp(maxAge) {
+      if (maxAge === void 0) {
+        maxAge = ONE_DAY_IN_SECONDS;
+      }
+      return new Date().getTime() + maxAge * MILLIS_IN_ONE_SEC;
+    };
+    var parseIdentityResponse = function parseIdentityResponse(responseText) {
+      return responseText ? JSON.parse(responseText) : {};
     };
 
     var AudienceManager = /** @class */function () {
@@ -7833,7 +7861,7 @@ var mParticle = (function () {
       };
 
       // https://go.mparticle.com/work/SQDSDKS-6355
-      this.parseIdentityResponse = function (xhr, previousMPID, callback, identityApiData, method, knownIdentities, parsingCachedResponse) {
+      this.parseIdentityResponse = function (identityResponse, previousMPID, callback, identityApiData, method, knownIdentities, parsingCachedResponse) {
         var prevUser = mpInstance.Identity.getUser(previousMPID);
         var prevUserMPID = prevUser ? prevUser.getMPID() : null;
         var previousUIByName = prevUser ? prevUser.getUserIdentities().userIdentities : {};
@@ -7843,9 +7871,9 @@ var mParticle = (function () {
         var newIdentitiesByType = {};
         mpInstance._Store.identityCallInFlight = false;
         try {
-          var _identityApiResult, _mpInstance$_APIClien;
+          var _identityResponse$res, _identityApiResult, _mpInstance$_APIClien;
           mpInstance.Logger.verbose('Parsing "' + method + '" identity response from server');
-          identityApiResult = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+          identityApiResult = (_identityResponse$res = identityResponse.responseText) !== null && _identityResponse$res !== void 0 ? _identityResponse$res : null;
           mpInstance._Store.isLoggedIn = ((_identityApiResult = identityApiResult) === null || _identityApiResult === void 0 ? void 0 : _identityApiResult.is_logged_in) || false;
 
           // https://go.mparticle.com/work/SQDSDKS-6504
@@ -7861,9 +7889,10 @@ var mParticle = (function () {
             // https://go.mparticle.com/work/SQDSDKS-6329
             mpInstance._Persistence.setFirstSeenTime(identityApiResult.mpid);
           }
-          if (xhr.status === 200) {
+          if (identityResponse.status === HTTP_SUCCESS) {
             if (getFeatureFlag(CacheIdentity)) {
-              cacheOrClearIdCache(method, knownIdentities, self.idCache, xhr, parsingCachedResponse);
+              var identityResponseForCache = xhrIdentityResponseAdapter(identityResponse);
+              cacheOrClearIdCache(method, knownIdentities, self.idCache, identityResponseForCache, parsingCachedResponse);
             }
             var incomingUser = self.IdentityAPI.getUser(identityApiResult.mpid);
             var incomingUIByName = incomingUser ? incomingUser.getUserIdentities().userIdentities : {};
@@ -7912,11 +7941,11 @@ var mParticle = (function () {
             self.sendUserIdentityChangeEvent(newIdentitiesByName, method, identityApiResult.mpid, uiByName);
           }
           if (callback) {
-            var callbackCode = xhr.status === 0 ? HTTPCodes$2.noHttpCoverage : xhr.status;
+            var callbackCode = identityResponse.status === 0 ? HTTPCodes$2.noHttpCoverage : identityResponse.status;
             mpInstance._Helpers.invokeCallback(callback, callbackCode, identityApiResult || null, newUser);
           } else if (identityApiResult && !isEmpty(identityApiResult.errors)) {
             // https://go.mparticle.com/work/SQDSDKS-6500
-            mpInstance.Logger.error('Received HTTP response code of ' + xhr.status + ' - ' + identityApiResult.errors[0].message);
+            mpInstance.Logger.error('Received HTTP response code of ' + identityResponse.status + ' - ' + identityApiResult.errors[0].message);
           }
           mpInstance.Logger.verbose('Successfully parsed Identity Response');
 
@@ -7924,7 +7953,7 @@ var mParticle = (function () {
           (_mpInstance$_APIClien = mpInstance._APIClient) === null || _mpInstance$_APIClien === void 0 || _mpInstance$_APIClien.processQueuedEvents();
         } catch (e) {
           if (callback) {
-            mpInstance._Helpers.invokeCallback(callback, xhr.status, identityApiResult || null);
+            mpInstance._Helpers.invokeCallback(callback, identityResponse.status, identityApiResult || null);
           }
           mpInstance.Logger.error('Error parsing JSON response from Identity server: ' + e);
         }
@@ -8896,7 +8925,10 @@ var mParticle = (function () {
             if (xhr.readyState === 4) {
               // https://go.mparticle.com/work/SQDSDKS-6368
               mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server');
-              parseIdentityResponse(xhr, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
+
+              // https://go.mparticle.com/work/SQDSDKS-6565
+              var identityResponse = xhrIdentityResponseAdapter(xhr);
+              parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
             }
           };
         mpInstance.Logger.verbose(Messages$1.InformationMessages.SendIdentityBegin);
