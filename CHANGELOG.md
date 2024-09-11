@@ -1,3 +1,10 @@
+## [2.28.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.1...v2.28.2) (2024-09-11)
+
+
+### Bug Fixes
+
+* Remove XHR References from Identity Utils ([#905](https://github.com/mParticle/mparticle-web-sdk/issues/905)) ([8beebc7](https://github.com/mParticle/mparticle-web-sdk/commit/8beebc7be5379eacbbf91b3ece2b9f85fbfcdfcb))
+
 ## [2.28.1](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.0...v2.28.1) (2024-09-04)
 
 # [2.28.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.27.0...v2.28.0) (2024-08-26)
