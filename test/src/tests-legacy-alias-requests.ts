@@ -1,7 +1,7 @@
 import sinon from 'sinon';
 import { expect } from 'chai';
 import Utils from './config/utils';
-import Constants from '../../src/constants';
+import Constants, { HTTP_ACCEPTED, HTTP_BAD_REQUEST, HTTP_OK } from '../../src/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import {
     urls,
@@ -45,13 +45,13 @@ describe('legacy Alias Requests', function() {
         });
 
         mockServer.respondWith(urls.events, [
-            200,
+            HTTP_OK,
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
 
         mockServer.respondWith(urls.identify, [
-            200,
+            HTTP_OK,
             {},
             JSON.stringify({ mpid: testMPID, is_logged_in: false }),
         ]);
@@ -69,7 +69,7 @@ describe('legacy Alias Requests', function() {
 
     it('Alias request should be received when API is called validly', function(done) {
         mockServer.requests = [];
-        mockServer.respondWith(urls.alias, [200, {}, JSON.stringify({})]);
+        mockServer.respondWith(urls.alias, [HTTP_OK, {}, JSON.stringify({})]);
 
         const aliasRequest: IAliasRequest = {
             destinationMpid: 'destinationMpid',
@@ -104,7 +104,7 @@ describe('legacy Alias Requests', function() {
 
     it('Alias request should include scope if specified', function(done) {
         mockServer.requests = [];
-        mockServer.respondWith(urls.alias, [200, {}, JSON.stringify({})]);
+        mockServer.respondWith(urls.alias, [HTTP_OK, {}, JSON.stringify({})]);
 
         const aliasRequest: IAliasRequest = {
             destinationMpid: 'destinationMpid',
@@ -247,11 +247,11 @@ describe('legacy Alias Requests', function() {
             endTime: 4,
         };
 
-        mockServer.respondWith(urls.alias, [200, {}, JSON.stringify({})]);
+        mockServer.respondWith(urls.alias, [HTTP_ACCEPTED, {}, JSON.stringify({})]);
 
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
-            callbackResult.httpCode.should.equal(200);
+            callbackResult.httpCode.should.equal(HTTP_ACCEPTED);
             expect(callbackResult.message).to.equal(undefined);
             expect(warnMessage).to.equal(null);
             callbackResult = null;
@@ -267,7 +267,7 @@ describe('legacy Alias Requests', function() {
         let callbackResult;
 
         mockServer.respondWith(urls.alias, [
-            400,
+            HTTP_BAD_REQUEST,
             {},
             JSON.stringify({
                 message: errorMessage,
@@ -285,7 +285,7 @@ describe('legacy Alias Requests', function() {
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             // debugger;
             callbackResult = callback;
-            callbackResult.httpCode.should.equal(400);
+            callbackResult.httpCode.should.equal(HTTP_BAD_REQUEST);
             callbackResult.message.should.equal(errorMessage);
     
             done();
@@ -481,7 +481,7 @@ describe('legacy Alias Requests', function() {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
 
-        mockServer.respondWith(urls.alias, [202, {}, JSON.stringify({})]);
+        mockServer.respondWith(urls.alias, [HTTP_ACCEPTED, {}, JSON.stringify({})]);
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -511,7 +511,7 @@ describe('legacy Alias Requests', function() {
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
         window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
 
-        mockServer.respondWith('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', 200, JSON.stringify({ mpid: testMPID, Store: {}}));
+        mockServer.respondWith('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', HTTP_OK, JSON.stringify({ mpid: testMPID, Store: {}}));
 
         mParticle.init(apiKey, window.mParticle.config);
 

@@ -2,6 +2,7 @@ import { IAliasRequest, IAliasCallback } from "./identity.interfaces";
 import { MParticleWebSDK } from "./sdkRuntimeModels";
 import Constants from './constants';
 import { FetchUploader, XHRUploader } from './uploaders';
+import { HTTP_ACCEPTED, HTTP_OK } from "./constants";
 
 
 var HTTPCodes = Constants.HTTPCodes,
@@ -15,11 +16,12 @@ export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasReques
         const { verbose, error } = mpInstance.Logger;
         const { invokeAliasCallback } = mpInstance._Helpers;
         const { aliasUrl } = mpInstance._Store.SDKConfig;
-        const { devToken } = mpInstance._Store;
+        const { devToken: apiKey } = mpInstance._Store;
 
         verbose(Messages.InformationMessages.SendAliasHttp);
 
-        const uploadUrl = `https://${aliasUrl}${devToken}/Alias`;
+        // https://go.mparticle.com/work/SQDSDKS-6750
+        const uploadUrl = `https://${aliasUrl}${apiKey}/Alias`;
         const uploader = window.fetch
             ? new FetchUploader(uploadUrl)
             : new XHRUploader(uploadUrl);
@@ -32,6 +34,7 @@ export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasReques
             },
             body: JSON.stringify(aliasRequest),
         };
+
         try {
             const response = await uploader.upload(uploadPayload);
 
@@ -47,7 +50,6 @@ export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasReques
                     verbose('The request has no response body');
                 }
             } else {
-                // as unknown as xhrresponse (copy config)
                 // https://go.mparticle.com/work/SQDSDKS-6568
                 // XHRUploader returns the response as a string that we need to parse
                 const xhrResponse = response as unknown as XMLHttpRequest;
@@ -57,11 +59,11 @@ export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasReques
                     : '';
             }
 
-            let errorMessage;
+            let errorMessage: string;
 
             switch (response.status) {
-                case 200:
-                case 202:
+                case HTTP_OK:
+                case HTTP_ACCEPTED:
                     // https://go.mparticle.com/work/SQDSDKS-6670
                     message =
                         'Successfully sent forwarding stats to mParticle Servers';

@@ -190,3 +190,8 @@ export default Constants;
 // https://go.mparticle.com/work/SQDSDKS-6080
 export const ONE_DAY_IN_SECONDS = 60 * 60 * 24;
 export const MILLIS_IN_ONE_SEC = 1000;
+
+export const HTTP_OK = 200 as const;
+export const HTTP_ACCEPTED = 202 as const;
+export const HTTP_BAD_REQUEST = 400 as const;
+export const HTTP_FORBIDDEN = 403 as const;

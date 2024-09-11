@@ -1,6 +1,7 @@
 import Constants from './constants';
 import { xhrIdentityResponseAdapter } from './identity-utils';
 import { sendAliasRequest } from './aliasRequestApiClient';
+
 var HTTPCodes = Constants.HTTPCodes,
     Messages = Constants.Messages;
 

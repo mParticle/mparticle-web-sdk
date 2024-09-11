@@ -2,7 +2,7 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import Utils from './config/utils';
-import Constants from '../../src/constants';
+import Constants, { HTTP_ACCEPTED } from '../../src/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import {
     urls,
@@ -2783,7 +2783,7 @@ describe('identity', function() {
     });
 
     it('Alias request should be received when API is called validly', function(done) {
-        fetchMock.post(urls.alias, 202);
+        fetchMock.post(urls.alias, HTTP_ACCEPTED);
         fetchMock.resetHistory();
 
         const aliasRequest: IAliasRequest = {
@@ -2818,7 +2818,7 @@ describe('identity', function() {
     });
 
     it('Alias request should include scope if specified', function(done) {
-        fetchMock.post(urls.alias, 202);
+        fetchMock.post(urls.alias, HTTP_ACCEPTED);
         fetchMock.resetHistory();
 
         const aliasRequest: IAliasRequest = {
@@ -2964,7 +2964,7 @@ describe('identity', function() {
         };
 
         fetchMock.post(urls.alias, {
-            status: 200,
+            status: HTTP_ACCEPTED,
             body: JSON.stringify({}),
         });
 
@@ -2972,7 +2972,7 @@ describe('identity', function() {
 
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
-            callbackResult.httpCode.should.equal(200);
+            callbackResult.httpCode.should.equal(HTTP_ACCEPTED);
             expect(callbackResult.message).to.equal(undefined);
             expect(warnMessage).to.equal(null);
             callbackResult = null;
@@ -3201,7 +3201,7 @@ describe('identity', function() {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
 
-        fetchMock.post(urls.alias, 202);
+        fetchMock.post(urls.alias, HTTP_ACCEPTED);
 
         mParticle.init(apiKey, window.mParticle.config);
         

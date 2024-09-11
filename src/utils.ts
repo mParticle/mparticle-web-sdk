@@ -9,8 +9,6 @@ export type Dictionary<V = any> = Record<string, V>;
 
 export type Environment = 'development' | 'production';
 
-export const HTTP_SUCCESS = 200 as const;
-
 const createCookieString = (value: string): string =>
     replaceCommasWithPipes(replaceQuotesWithApostrophes(value));
 
