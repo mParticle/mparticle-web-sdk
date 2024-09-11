@@ -58,12 +58,16 @@ export class XHRUploader extends AsyncUploader {
                 if (xhr.readyState !== 4) return;
 
                 // Process the response
-                if (xhr.status >= 200 && xhr.status < 300) {
-                    resolve(xhr as unknown as Response);
-                } else {
-                    reject(xhr);
-                }
+                // We resolve all xhr responses whose ready state is 4 regardless of HTTP codes that may be errors (400+)
+                // because these are valid HTTP responses.
+                resolve((xhr as unknown) as Response);
             };
+
+            // Reject a promise only when there is an xhr error
+            xhr.onerror = () => {
+                reject((xhr as unknown) as Response);
+            };
+
 
             xhr.open(method, url);
             xhr.send(data);
