@@ -89,10 +89,11 @@ const fetchMockSuccess = (url: string, body: any) => {
 };
 
 describe('identity', function() {
-
     let mockServer;
     let clock;
     let hasIdentifyReturned;
+    let hasLoginReturned;
+    let hasLogOutReturned;
 
     beforeEach(function () {
         delete mParticle.config.useCookieStorage;
@@ -112,6 +113,20 @@ describe('identity', function() {
 
         hasIdentifyReturned = (mpid = testMPID) => {
             return mParticle.Identity.getCurrentUser()?.getMPID() === mpid;
+        };
+
+        hasLoginReturned = () => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() ===
+                'logged-in-user'
+            );
+        };
+
+        hasLogOutReturned = () => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() ===
+                'logged-out-user'
+            );
         };
     });
 
@@ -678,7 +693,7 @@ describe('identity', function() {
     });
 
     // TODO: These should be unit tests
-    describe.only('identity request validation', function () {
+    describe('identity request validation', function () {
         it('should swap property identityType for identityName', function (done) {
         const data: IdentityApiData = { userIdentities: {} };
         data.userIdentities.other = 'id1';
@@ -1100,16 +1115,17 @@ describe('identity', function() {
         expect(identityRequest.identity_changes[20].new_value).to.equal('id34');
 
         done();
+        });
     });
 
         // TODO: Complete but check why passing string still generates a request
-        describe.skip('#login', function () {
+    describe('#login', function () {
             beforeEach(function () {
                 // Resets fetchMock so we can isolate calls for this tests
                 fetchMock.restore();
             });
 
-            it('should not make a request when an invalid request is sent as as string', function (done) {
+        it('should not make a request when an invalid request is sent as a string', function (done) {
                 const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
                 mParticle.Identity.login(identityAPIRequest);
 
@@ -1133,7 +1149,7 @@ describe('identity', function() {
                 done();
             });
 
-            it('should not make a request when an invalid request is sent as array', function (done) {
+        it('should not make a request when an invalid request is sent as an array', function (done) {
                 const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
                 mParticle.Identity.login(identityAPIRequest);
 
@@ -1144,6 +1160,19 @@ describe('identity', function() {
                     })
                     .catch(done);
             });
+
+        it('should not make a request when an invalid request is sent as a null', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
+            mParticle.Identity.login(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
             it('should not make a request when an invalid request is sent as undefined', function (done) {
                 const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
                 mParticle.Identity.login(identityAPIRequest);
@@ -1156,9 +1185,28 @@ describe('identity', function() {
                     .catch(done);
             });
 
-            it('should not make a request when an invalid request is sent as boolean', function (done) {
+        it('should not make a request when an invalid request is sent as a boolean', function (done) {
                 const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
                 mParticle.Identity.login(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid callback is sent', function (done) {
+            const identityRequest: IdentityApiData = {
+                userIdentities: {
+                    customerid: '123',
+                },
+            };
+            const badCallback = BadCallbackAsString;
+
+            mParticle.Identity.login(identityRequest, badCallback);
 
                 waitForCondition(hasIdentifyReturned)
                     .then(() => {
@@ -1201,6 +1249,18 @@ describe('identity', function() {
                     .catch(done);
             });
 
+        it('should not make a request when an invalid request is sent as a null', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
+            mParticle.Identity.logout(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
             it('should not make a request when an invalid request is sent as undefined', function (done) {
                 const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
                 mParticle.Identity.logout(identityAPIRequest);
@@ -1224,106 +1284,203 @@ describe('identity', function() {
                     })
                     .catch(done);
             });
-    });
 
-        // TODO: ****** .    Left off here ******
-        describe.skip('#modify', function () {
-            it('should not make a request when an invalid request is sent to modify', function (done) {
-        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
-        mParticle.Identity.modify(identityAPIRequest1);
+        it('should not make a request when an invalid callback is sent', function (done) {
+            const identityRequest: IdentityApiData = {
+                userIdentities: {
+                    customerid: '123',
+                },
+            };
+            const badCallback = BadCallbackAsString;
 
-                const badData1 = getIdentityEvent(
-                    mockServer.requests,
-                    'modify'
-                );
-        expect(badData1).to.not.be.ok;
+            mParticle.Identity.logout(identityRequest, badCallback);
 
-        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
-        mParticle.Identity.modify(identityAPIRequest2);
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
 
-                const badData2 = getIdentityEvent(
-                    mockServer.requests,
-                    'modify'
-                );
-        expect(badData2).to.not.be.ok;
-
-        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_NULL;
-        mParticle.Identity.modify(identityAPIRequest3);
-
-                const badData3 = getIdentityEvent(
-                    mockServer.requests,
-                    'modify'
-                );
-        expect(badData3).to.not.be.ok;
-
-        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_UNDEFINED;
-        mParticle.Identity.modify(identityAPIRequest4);
-
-                const badData4 = getIdentityEvent(
-                    mockServer.requests,
-                    'modify'
-                );
-        expect(badData4).to.not.be.ok;
-
-        const identityAPIRequest5 = BAD_USER_IDENTITIES_AS_BOOLEAN;
-        mParticle.Identity.modify(identityAPIRequest5);
-
-                const badData5 = getIdentityEvent(
-                    mockServer.requests,
-                    'modify'
-                );
-        expect(badData5).to.not.be.ok;
-
-        done();
-            });
-    });
-
-        // TODO:
-        describe.skip('#identify', function () {
-            it('should not make a request when an invalid request is sent to identify', function (done) {
-        mockServer.requests = [];
-        const identityAPIRequest1 = BAD_USER_IDENTITIES_AS_STRING;
-        mParticle.Identity.identify(identityAPIRequest1);
-
-                const badData1 = getIdentityEvent(
-                    mockServer.requests,
-                    'identify'
-                );
-        expect(badData1).to.not.be.ok;
-
-        const identityAPIRequest2 = BAD_USER_IDENTITIES_AS_ARRAY;
-        mParticle.Identity.identify(identityAPIRequest2);
-
-                const badData2 = getIdentityEvent(
-                    mockServer.requests,
-                    'identify'
-                );
-        expect(badData2).to.not.be.ok;
-
-        const identityAPIRequest3 = BAD_USER_IDENTITIES_AS_UNDEFINED;
-        mParticle.Identity.identify(identityAPIRequest3);
-
-                const badData3 = getIdentityEvent(
-                    mockServer.requests,
-                    'identify'
-                );
-        expect(badData3).to.not.be.ok;
-
-        const identityAPIRequest4 = BAD_USER_IDENTITIES_AS_BOOLEAN;
-        mParticle.Identity.identify(identityAPIRequest4);
-
-                const badData4 = getIdentityEvent(
-                    mockServer.requests,
-                    'identify'
-                );
-        expect(badData4).to.not.be.ok;
-
-        done();
-            });
+                    done();
+                })
+                .catch(done);
         });
     });
 
-    it('should have old_value === null when there is no previous identity of a certain type and a new identity of that type', function(done) {
+    // TODO: Complete
+    describe('#modify', function () {
+        beforeEach(function () {
+            // Resets fetchMock so we can isolate calls for this tests
+            fetchMock.restore();
+        });
+
+        it('should not make a request when an invalid request is sent as a string', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
+            mParticle.Identity.modify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid request is sent as an array', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
+            mParticle.Identity.modify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid request is sent as a null', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
+            mParticle.Identity.modify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid request is sent as a undefined', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
+            mParticle.Identity.modify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid request is sent as a boolean', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
+            mParticle.Identity.modify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+        done();
+                })
+                .catch(done);
+            });
+
+        it('should not make a request when an invalid callback is sent', function (done) {
+            const identityRequest: IdentityApiData = {
+                userIdentities: {
+                    customerid: '123',
+                },
+            };
+            const badCallback = BadCallbackAsString;
+
+            mParticle.Identity.modify(identityRequest, badCallback);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+
+                    done();
+                })
+                .catch(done);
+        });
+    });
+
+    // TODO: Complete
+    describe('#identify', function () {
+        beforeEach(function () {
+            // Resets fetchMock so we can isolate calls for this tests
+            fetchMock.restore();
+        });
+
+        it('should not make a request when an invalid request is sent as a string', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_STRING;
+            mParticle.Identity.identify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid request is sent as an array', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_ARRAY;
+            mParticle.Identity.identify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid request is sent as a null', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_NULL;
+            mParticle.Identity.identify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid request is sent as a undefined', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_UNDEFINED;
+            mParticle.Identity.identify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+        done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid request is sent as a boolean', function (done) {
+            const identityAPIRequest = BAD_USER_IDENTITIES_AS_BOOLEAN;
+            mParticle.Identity.identify(identityAPIRequest);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+                    done();
+                })
+                .catch(done);
+        });
+
+        it('should not make a request when an invalid callback is sent', function (done) {
+            const identityRequest: IdentityApiData = {
+                userIdentities: {
+                    customerid: '123',
+                },
+            };
+            const badCallback = BadCallbackAsString;
+
+            mParticle.Identity.identify(identityRequest, badCallback);
+
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    expect(fetchMock.calls().length).to.equal(0);
+
+                    done();
+                })
+                .catch(done);
+        });
+    });
+
+    // TODO: Complete
+    it('should have old_value === null when there is no previous identity of a certain type and a new identity of that type', function (done) {
         const oldIdentities: UserIdentities = {};
         oldIdentities['facebook'] = 'old_facebook_id';
 
@@ -1771,28 +1928,6 @@ describe('identity', function() {
         done();
     });
 
-    // TODO: Should be grouped as Identity Request Validation
-    it('should reject a callback that is not a function', function (done) {
-        fetchMock.restore();
-
-        const identityRequest: IdentityApiData = {
-            userIdentities: {
-                customerid: '123',
-            },
-        };
-        const badCallback = BadCallbackAsString;
-
-        mParticle.Identity.login(identityRequest, badCallback);
-        mParticle.Identity.logout(identityRequest, badCallback);
-        mParticle.Identity.modify(identityRequest, badCallback);
-        mParticle.Identity.identify(identityRequest, badCallback);
-
-        // mockServer.requests.length.should.equal(0);
-        expect(fetchMock.calls().length).to.equal(0);
-
-        done();
-    });
-
     it.skip("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", function (done) {
         mParticle._resetForTests(MPConfig);
         fetchMock.restore();
@@ -2194,39 +2329,60 @@ describe('identity', function() {
         done();
     });
 
-    it('should have no user identities when logging out or in with no object', function(done) {
-        mParticle.init(apiKey, window.mParticle.config);
+    // FIXME: Can we change the callbcks to async/await
+    // TODO: Complete
+    it('should have no user identities when logging out or in with no object', function (done) {
         const user = {
             userIdentities: {
                 customerid: '123',
             },
         };
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
-        ]);
+        mParticle.init(apiKey, window.mParticle.config);
 
-        mParticle.Identity.login(user);
-        const userIdentities1 = mParticle.Identity.getCurrentUser().getUserIdentities();
+        fetchMockSuccess(urls.login, {
+            mpid: 'logged-in-user',
+            is_logged_in: true,
+        });
 
-        mockServer.respondWith(urls.logout, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
-        ]);
+        // We are changing the mpid so we can catch the logout event
+        // asyncronously
+        fetchMockSuccess(urls.logout, {
+            mpid: 'logged-out-user',
+            is_logged_in: false,
+        });
 
-        mParticle.Identity.logout();
-        const userIdentities2 = mParticle.Identity.getCurrentUser().getUserIdentities();
+        waitForCondition(hasIdentifyReturned)
+            .then(() => {
+                mParticle.Identity.login(user);
 
-        userIdentities1.userIdentities.should.have.property(
-            'customerid',
-            '123'
-        );
-        Object.keys(userIdentities2.userIdentities).length.should.equal(0);
+                waitForCondition(hasLoginReturned)
+                    .then(() => {
+                        const userIdentities1 =
+                            mParticle.Identity.getCurrentUser().getUserIdentities();
 
-        done();
+                        expect(userIdentities1.userIdentities).to.deep.equal({
+                            customerid: '123',
+                        });
+
+                        mParticle.Identity.logout();
+
+                        waitForCondition(hasLogOutReturned)
+                            .then(() => {
+                                const userIdentities2 =
+                                    mParticle.Identity.getCurrentUser().getUserIdentities();
+
+                                expect(
+                                    userIdentities2.userIdentities
+                                ).to.deep.equal({});
+
+                                done();
+                            })
+                            .catch(done);
+                    })
+                    .catch(done);
+            })
+            .catch(done);
     });
 
     it("saves proper cookies for each user's products, and purchases record cartProducts correctly", function(done) {
@@ -2324,29 +2480,54 @@ describe('identity', function() {
             },
         };
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'logged-in-user',
+            is_logged_in: true,
+        });
 
-        mockServer.respondWith(urls.modify, [
-            200,
-            {},
-            JSON.stringify({
+        fetchMockSuccess(
+            'https://identity.mparticle.com/v1/logged-in-user/modify',
+            {
                 change_results: [
-                    { identity_type: 'customerid', modified_mpid: testMPID },
+                    {
+                        identity_type: 'customerid',
+                        modified_mpid: 'modified-mpid',
+                    },
                 ],
-            }),
-        ]);
+            }
+        );
 
-        mParticle.Identity.login(user);
-        mParticle.Identity.modify(modifiedUser);
+        waitForCondition(hasIdentifyReturned)
+            .then(() => {
+                mParticle.Identity.login(user);
 
-        const cookie = mParticle.getInstance()._Persistence.getLocalStorage();
-        cookie.testMPID.ui[1].should.equal('customerId2');
+                waitForCondition(hasLoginReturned)
+                    .then(() => {
+                        mParticle.Identity.modify(modifiedUser);
 
-        done();
+                        waitForCondition(() => {
+                            return (
+                                mParticle.Identity.getCurrentUser()?.getUserIdentities()
+                                    .userIdentities['customerid'] ===
+                                'customerId2'
+                            );
+                        })
+                            .then(() => {
+                                const cookie = mParticle
+                                    .getInstance()
+                                    ._Persistence.getLocalStorage();
+
+                                cookie['logged-in-user'].ui[1].should.equal(
+                                    'customerId2'
+                                );
+
+                                done();
+                            })
+                            .catch(done);
+                    })
+                    .catch(done);
+            })
+            .catch(done);
     });
 
     it('does not run onUserAlias if it is not a function', function(done) {
