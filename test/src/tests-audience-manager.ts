@@ -8,6 +8,8 @@ import AudienceManager, {
     IAudienceMemberships, IAudienceMembershipsServerResponse
 } from '../../src/audienceManager';
 import Logger from '../../src/logger.js';
+import Utils from './config/utils';
+const { fetchMockSuccess } = Utils;
 
 declare global {
     interface Window {
@@ -16,10 +18,10 @@ declare global {
     }
 }
 
+
 const userAudienceUrl = `https://${Constants.DefaultBaseUrls.userAudienceUrl}${apiKey}/audience`;
 
-describe('AudienceManager', () => {
-    let mockServer;
+describe.only('AudienceManager', () => {
     before(function() {
         fetchMock.restore();
         sinon.restore();
@@ -27,14 +29,10 @@ describe('AudienceManager', () => {
 
     beforeEach(function() {
         fetchMock.restore();
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.identify, {
+            mpid: testMPID, is_logged_in: false
+        });
 
         window.mParticle.config.flags = {
             eventBatchingIntervalMillis: 1000,
@@ -43,7 +41,6 @@ describe('AudienceManager', () => {
 
     afterEach(() => {
         sinon.restore();
-        mockServer.reset();
         fetchMock.restore();
     });
 
