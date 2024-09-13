@@ -9,6 +9,7 @@ import {
     workspaceCookieName,
     das,
 } from './constants';
+import fetchMock from 'fetch-mock/esm/client';
 
 var pluses = /\+/g,
     getLocalStorageProducts = function getLocalStorageProducts() {
@@ -608,7 +609,18 @@ var pluses = /\+/g,
                 }
             })();
         });
+    },
+    fetchMockSuccess = function (url, body) {
+        fetchMock.post(
+            url,
+            {
+                status: 200,
+                body: JSON.stringify(body),
+            },
+            { overwriteRoutes: true }
+        );
     };
+
 
 var TestsCore = {
     getLocalStorageProducts: getLocalStorageProducts,
@@ -634,6 +646,7 @@ var TestsCore = {
     forwarderDefaultConfiguration: forwarderDefaultConfiguration,
     deleteAllCookies: deleteAllCookies,
     waitForCondition: waitForCondition,
+    fetchMockSuccess: fetchMockSuccess,
 };
 
 export default TestsCore;

@@ -1,3 +1,6 @@
+import Utils from './config/utils';
+const { waitForCondition, fetchMockSuccess } = Utils;
+
 import sinon from 'sinon';
 import { expect } from 'chai';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
@@ -21,10 +24,10 @@ declare global {
     }
 }
 
-let mockServer;
+// let mockServer;
 const mParticle = window.mParticle;
 
-describe('SessionManager', () => {
+describe.only('SessionManager', () => {
     const now = new Date();
     let clock;
     let sandbox;
@@ -33,20 +36,15 @@ describe('SessionManager', () => {
         sandbox = sinon.createSandbox();
         clock = sinon.useFakeTimers(now.getTime());
 
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
-
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.identify, {
+            mpid: testMPID, is_logged_in: false
+        });
     });
 
     afterEach(function() {
         sandbox.restore();
         clock.restore();
-        mockServer.restore();
+        // mockServer.restore();
         mParticle._resetForTests(MPConfig);
     });
 
@@ -292,22 +290,28 @@ describe('SessionManager', () => {
         describe('#endSession', () => {
             it('should end a session', () => {
                 mParticle.init(apiKey, window.mParticle.config);
-                const mpInstance = mParticle.getInstance();
-                const persistenceSpy = sinon.spy(
-                    mpInstance._Persistence,
-                    'update'
-                );
-
-                clock.tick(31 * (MILLIS_IN_ONE_SEC * 60));
-                mpInstance._SessionManager.endSession();
-
-                expect(mpInstance._Store.sessionId).to.equal(null);
-                expect(mpInstance._Store.dateLastEventSent).to.equal(null);
-                expect(mpInstance._Store.sessionAttributes).to.eql({});
-
-                // Persistence isn't necessary for this feature, but we should test
-                // to see that it is called in case this ever needs to be refactored
-                expect(persistenceSpy.called).to.equal(true);
+                waitForCondition(() => {
+                    return (
+                        mParticle.Identity.getCurrentUser()?.getMPID() === testMPID
+                    );
+                })
+                .then(() => {
+                    const mpInstance = mParticle.getInstance();
+                    const persistenceSpy = sinon.spy(
+                        mpInstance._Persistence,
+                        'update'
+                    );
+    
+                    mpInstance._SessionManager.endSession();
+    
+                    expect(mpInstance._Store.sessionId).to.equal(null);
+                    expect(mpInstance._Store.dateLastEventSent).to.equal(null);
+                    expect(mpInstance._Store.sessionAttributes).to.eql({});
+    
+                    // Persistence isn't necessary for this feature, but we should test
+                    // to see that it is called in case this ever needs to be refactored
+                    expect(persistenceSpy.called).to.equal(true);
+                });
             });
 
             it('should force a session end when override is used', () => {

@@ -2,7 +2,7 @@ import Utils from './config/utils';
 import { urls, apiKey, MPConfig } from './config/constants';
 import fetchMock from 'fetch-mock/esm/client';
 
-const { waitForCondition } = Utils;
+const { waitForCondition, fetchMockSuccess } = Utils;
 
 const hasIdentifyReturned = () => {
     return mParticle.Identity.getCurrentUser()?.getMPID() === 'identifyMPID';
@@ -11,22 +11,10 @@ const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
 // let mockServer;
 
-const fetchMockSuccess = (url, body) => {
-    fetchMock.post(
-        url,
-        {
-            status: 200,
-            body: JSON.stringify(body),
-        },
-        { overwriteRoutes: true }
-    );
-};
-// https://go.mparticle.com/work/SQDSDKS-6508
-describe.only('mParticleUser', function() {
-    beforeEach(function() {
-        // TODO - for some reason when these MPIDs are all testMPID, the following test breaks:
-        // onIdentifyComplete/onLoginComplete/onLogoutComplete/onModifyComplete 
 
+// https://go.mparticle.com/work/SQDSDKS-6508
+describe('mParticleUser', function() {
+    beforeEach(function() {
         fetchMockSuccess(urls.identify, {
             mpid: 'identifyMPID', is_logged_in: false
         });
