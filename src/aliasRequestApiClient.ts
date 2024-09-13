@@ -5,8 +5,7 @@ import { FetchUploader, XHRUploader } from './uploaders';
 import { HTTP_ACCEPTED, HTTP_OK } from "./constants";
 
 
-var HTTPCodes = Constants.HTTPCodes,
-    Messages = Constants.Messages;
+const { HTTPCodes, Messages } = Constants;
 
 interface IAliasResponseBody {
     message?: string
@@ -23,9 +22,11 @@ export async function sendAliasRequest (mpInstance: MParticleWebSDK, aliasReques
         // https://go.mparticle.com/work/SQDSDKS-6750
         const uploadUrl = `https://${aliasUrl}${apiKey}/Alias`;
         const uploader = window.fetch
-            ? new FetchUploader(uploadUrl)
-            : new XHRUploader(uploadUrl);
-
+        ? new FetchUploader(uploadUrl)
+        : new XHRUploader(uploadUrl);
+        
+        
+        // https://go.mparticle.com/work/SQDSDKS-6568
         const uploadPayload = {
             method: 'post',
             headers: {

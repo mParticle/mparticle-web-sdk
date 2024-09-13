@@ -100,8 +100,6 @@ describe('Alias Request Api Client', function() {
         expect(callbackArgs[0]).to.deep.equal({httpCode: HTTP_BAD_REQUEST});
     });
 
-
-    // this needs to be updated.  why is it passing?
     it('should have an httpCode and an error message passed to the callback on a 403', async () => {
         const mpInstance: MParticleWebSDK = mParticle.getInstance();
         const aliasRequest: IAliasRequest = {
