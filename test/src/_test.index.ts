@@ -18,19 +18,19 @@ import './config/setup';
 // import './tests-consent';
 // import './tests-serverModel';
 
-import './tests-mockBatchCreator'; //done
-import './tests-mParticleUser'; //done
-import './tests-self-hosting-specific';  // to do - config will need to be refactored to wait for condition if possible.  is there something that can be triggered from config to know if it has returned?
-import './tests-runtimeToBatchEventsDTO';  // done
-import './tests-apiClient'; //done
-import './tests-mparticle-instance-manager'; // this has tests that relate to the config, similar to above, will need to be refactored to wait for condition if possible.  is there something that can be triggered from config to know if it has returned?
-import './tests-queue-public-methods';  // done
-import './tests-validators';  // done
-import './tests-utils';  // done
+import './tests-mockBatchCreator';
+import './tests-mParticleUser';
+import './tests-self-hosting-specific';
+import './tests-runtimeToBatchEventsDTO';
+import './tests-apiClient'
+import './tests-mparticle-instance-manager'
+import './tests-queue-public-methods';
+import './tests-validators';
+import './tests-utils';
 import './tests-session-manager';
 import './tests-store';
 import './tests-config-api-client';
-import './tests-identity-utils';
+import './tests-identity-utils'
 import './tests-audience-manager';
 import './tests-feature-flags';
 import './tests-user';

@@ -90,12 +90,17 @@ describe('feature-flags', function() {
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
-            const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
 
-            window.mParticle.Identity.getCurrentUser().getUserAudiences((result) => {
-                    console.log(result);   
-            });
-            bond.called.should.eql(false);
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
+                const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
+    
+                window.mParticle.Identity.getCurrentUser().getUserAudiences((result) => {
+                        console.log(result);   
+                });
+                bond.called.should.eql(false);
+
+            })
         });
     });
 });

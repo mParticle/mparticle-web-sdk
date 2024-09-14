@@ -7,7 +7,7 @@ const { findEventFromRequest, findBatch, waitForCondition, fetchMockSuccess } = 
 
 
 // Calls to /config are specific to only the self hosting environment
-describe.only('/config self-hosting integration tests', function() {
+describe('/config self-hosting integration tests', function() {
     beforeEach(function() {
         fetchMock.post(urls.events, 200);
     });
@@ -71,7 +71,6 @@ describe.only('/config self-hosting integration tests', function() {
             window.mParticle.config.requestConfig = false;
             done();
         })
-
     });
 
     // it is difficult to reproduce the original intent of this test.  it may not actually be valid/realistic
