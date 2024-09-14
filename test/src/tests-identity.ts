@@ -706,9 +706,9 @@ describe.only('identity', function() {
     });
     });
 
-    // TODO: Complete
+    // TODO: These should be unit tests
     describe('identity request validation', function () {
-    it('should swap property identityType for identityName', function (done) {
+        it('should swap property identityType for identityName', function (done) {
         const data: IdentityApiData = { userIdentities: {} };
         data.userIdentities.other = 'id1';
         data.userIdentities.customerid = 'id2';

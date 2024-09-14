@@ -10,11 +10,11 @@ var HTTPCodes = Constants.HTTPCodes,
 const { Modify } = Constants.IdentityMethods;
 
 export default function IdentityAPIClient(mpInstance) {
-    this.sendAliasRequest = async function (aliasRequest, callback) {
+    this.sendAliasRequest = async function(aliasRequest, callback) {
         await sendAliasRequest(mpInstance, aliasRequest, callback);
     };
 
-    this.sendIdentityRequest = async function (
+    this.sendIdentityRequest = async function(
         identityApiRequest,
         method,
         callback,
@@ -118,7 +118,7 @@ export default function IdentityAPIClient(mpInstance) {
         expireTimestamp: 0,
     });
 
-    this.getIdentityResponseFromXHR = (response) => ({
+    this.getIdentityResponseFromXHR = response => ({
         status: response.status,
         responseText: response.responseText
             ? JSON.parse(response.responseText)

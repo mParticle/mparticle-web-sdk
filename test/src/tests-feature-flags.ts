@@ -19,7 +19,7 @@ const hasIdentifyReturned = () => {
     return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
 };
 
-describe.only('feature-flags', function() {
+describe('feature-flags', function() {
     describe('user audiences', function() {
         beforeEach(function() {
             fetchMock.post(urls.events, 200);
@@ -36,7 +36,7 @@ describe.only('feature-flags', function() {
             fetchMock.restore();
         });
 
-        it.only('should not be able to access user audience API if feature flag is false', function() {
+        it('should not be able to access user audience API if feature flag is false', function() {
             window.mParticle.config.flags = {
                 audienceAPI: 'False'
             };
