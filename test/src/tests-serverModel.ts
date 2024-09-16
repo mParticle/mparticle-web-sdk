@@ -12,12 +12,18 @@ import {
     SDKGDPRConsentState,
 } from '../../src/consent';
 import { IMParticleUser, ISDKUserAttributes } from '../../src/identity-user-interfaces';
+import Utils from './config/utils';
+const { waitForCondition, fetchMockSuccess } = Utils;
 
-let mockServer;
+// let mockServer;
 let initialEvent = {};
 
 const mParticle = window.mParticle;
 const ServerModel = mParticle.getInstance()._ServerModel;
+
+const hasIdentifyReturned = () => {
+    return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
+};
 
 describe('ServerModel', () => {
     beforeEach(() => {
@@ -333,20 +339,14 @@ describe('ServerModel', () => {
         beforeEach(() => {
             // TODO: Create Event Object is tightly coupled with mp Init and Store
             // This should be refactored to make the function more pure
-            mockServer = sinon.createFakeServer();
-            mockServer.respondImmediately = true;
-
-            mockServer.respondWith(urls.identify, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-            ]);
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID, is_logged_in: false
+            });
 
             mParticle.init(apiKey, mParticle.config);
         });
 
         afterEach(function() {
-            mockServer.restore();
         });
 
         it('should create an event object without a user', () => {
@@ -601,54 +601,58 @@ describe('ServerModel', () => {
             ]);
         });
 
-        it('should set necessary attributes if MessageType is SessionEnd', () => {
-            const mPStore = mParticle.getInstance()._Store;
+        it('should set necessary attributes if MessageType is SessionEnd', () => {    
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
 
-            mPStore.sessionAttributes = {
-                fooSessionAttr: 'session-foo',
-                barSessionAttr: 'session-bar',
-            };
-
-            const event: BaseEvent = {
-                name: 'Test Event',
-                messageType: Types.MessageType.SessionEnd,
-                eventType: Types.EventType.Other,
-                data: {
-                    fooEventAttr: 'bar',
-                    barEventAttr: 'bazz',
-                },
-            };
-
-            const actualEventObject = mParticle
+                const mPStore = mParticle.getInstance()._Store;
+                
+                mPStore.sessionAttributes = {
+                    fooSessionAttr: 'session-foo',
+                    barSessionAttr: 'session-bar',
+                };
+                
+                const event: BaseEvent = {
+                    name: 'Test Event',
+                    messageType: Types.MessageType.SessionEnd,
+                    eventType: Types.EventType.Other,
+                    data: {
+                        fooEventAttr: 'bar',
+                        barEventAttr: 'bazz',
+                    },
+                };
+                
+                const actualEventObject = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event) as IUploadObject;
-
-            expect(
-                actualEventObject.currentSessionMPIDs,
-                'currentSessionMPIDs'
-            ).to.eql(['testMPID']);
-
-            // A SessionEnd event appends SessionLength
-            expect(actualEventObject).to.have.property('SessionLength');
-
-            // A SessionEnd event should ignore Event Attributes and use Session Attributes instead
-            expect(actualEventObject.EventAttributes, 'EventAttributes').to.eql(
-                { fooSessionAttr: 'session-foo', barSessionAttr: 'session-bar' }
-            );
-            expect(
-                actualEventObject.EventAttributes,
-                'EventAttributes'
-            ).to.not.have.property('fooEventAttr');
-            expect(
-                actualEventObject.EventAttributes,
-                'EventAttributes'
-            ).to.not.have.property('barEventAttr');
-
-            // A SessionEnd event resets currentSessionMPIDs and sessionStartDate.  When a new session starts, these are filled again
-            expect(mPStore.currentSessionMPIDs).to.eql([]);
-            expect(mPStore.sessionStartDate).to.eql(null);
+                
+                expect(
+                    actualEventObject.currentSessionMPIDs,
+                    'currentSessionMPIDs'
+                ).to.eql(['testMPID']);
+                
+                // A SessionEnd event appends SessionLength
+                expect(actualEventObject).to.have.property('SessionLength');
+                
+                // A SessionEnd event should ignore Event Attributes and use Session Attributes instead
+                expect(actualEventObject.EventAttributes, 'EventAttributes').to.eql(
+                    { fooSessionAttr: 'session-foo', barSessionAttr: 'session-bar' }
+                );
+                expect(
+                    actualEventObject.EventAttributes,
+                    'EventAttributes'
+                ).to.not.have.property('fooEventAttr');
+                expect(
+                    actualEventObject.EventAttributes,
+                    'EventAttributes'
+                ).to.not.have.property('barEventAttr');
+                
+                // A SessionEnd event resets currentSessionMPIDs and sessionStartDate.  When a new session starts, these are filled again
+                expect(mPStore.currentSessionMPIDs).to.eql([]);
+                expect(mPStore.sessionStartDate).to.eql(null);
+            })
         });
-
+            
         it('should set necessary attributes if MessageType is AppStateTransition', () => {
             const event: BaseEvent = {
                 name: 'Test Event',
@@ -1307,19 +1311,15 @@ describe('ServerModel', () => {
         };
 
         beforeEach(function() {
-            mockServer = sinon.createFakeServer();
-            mockServer.respondImmediately = true;
-
-            mockServer.respondWith(urls.identify, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-            ]);
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID, is_logged_in: false
+            });
+            
             mParticle.init(apiKey, mParticle.config);
         });
 
         afterEach(function() {
-            mockServer.restore();
+            // mockServer.restore();
         });
 
         it('Should not convert data plan object to server DTO when no id or version is set', function(done) {
@@ -1433,17 +1433,20 @@ describe('ServerModel', () => {
         });
 
         it('Should not append user info when no user exists', function(done) {
-            mParticle.getInstance()._Store.should.be.ok;
-
-            let sdkEvent = mParticle
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
+                mParticle.getInstance()._Store.should.be.ok;
+                
+                let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);
-
-            sdkEvent.should.be.ok;
-            expect(sdkEvent.UserIdentities).to.eql([]);
-            expect(sdkEvent.UserAttributes).to.eql({});
-            expect(sdkEvent.ConsentState === null).to.eql(true);
-            done();
+                
+                sdkEvent.should.be.ok;
+                expect(sdkEvent.UserIdentities).to.eql([]);
+                expect(sdkEvent.UserAttributes).to.eql({});
+                expect(sdkEvent.ConsentState === null).to.eql(true);
+                done();
+            })
         });
 
         it('Should append all user info when user is present', function(done) {
@@ -1520,118 +1523,130 @@ describe('ServerModel', () => {
         });
 
         it('Should append identities when user is present', function(done) {
-            let sdkEvent = mParticle
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
+
+                let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);
-
-            sdkEvent.should.be.ok;
-            expect(sdkEvent.UserIdentities).to.eql([]);
-
-            const user: IMParticleUser = ({
-                getUserIdentities: () => {
-                    return {
-                        userIdentities: {
-                            customerid: '1234567',
-                            email: 'foo-email',
-                            other: 'foo-other',
-                            other2: 'foo-other2',
-                            other3: 'foo-other3',
-                            other4: 'foo-other4',
-                            not_a_valid_id: 'foo',
-                        },
-                    };
-                },
-                getAllUserAttributes: () => {
-                    return null;
-                },
-                getMPID: () => {
-                    return null;
-                },
-                getConsentState: () => {
-                    return null;
-                },
-            } as unknown) as IMParticleUser;
-
-            const identityMapping = {};
-            identityMapping[Types.IdentityType.CustomerId] = '1234567';
-            identityMapping[Types.IdentityType.Email] = 'foo-email';
-            identityMapping[Types.IdentityType.Other] = 'foo-other';
-            identityMapping[Types.IdentityType.Other2] = 'foo-other2';
-            identityMapping[Types.IdentityType.Other3] = 'foo-other3';
-            identityMapping[Types.IdentityType.Other4] = 'foo-other4';
-
-            mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
-            sdkEvent.UserIdentities.should.be.ok;
-            sdkEvent.UserIdentities.length.should.equal(6);
-
-            sdkEvent.UserIdentities.forEach(function(id) {
-                const type = id.Type;
-                const value = id.Identity;
-                identityMapping[type].should.equal(value);
-            });
-
-            done();
+                
+                sdkEvent.should.be.ok;
+                expect(sdkEvent.UserIdentities).to.eql([]);
+                
+                const user: IMParticleUser = ({
+                    getUserIdentities: () => {
+                        return {
+                            userIdentities: {
+                                customerid: '1234567',
+                                email: 'foo-email',
+                                other: 'foo-other',
+                                other2: 'foo-other2',
+                                other3: 'foo-other3',
+                                other4: 'foo-other4',
+                                not_a_valid_id: 'foo',
+                            },
+                        };
+                    },
+                    getAllUserAttributes: () => {
+                        return null;
+                    },
+                    getMPID: () => {
+                        return null;
+                    },
+                    getConsentState: () => {
+                        return null;
+                    },
+                } as unknown) as IMParticleUser;
+                
+                const identityMapping = {};
+                identityMapping[Types.IdentityType.CustomerId] = '1234567';
+                identityMapping[Types.IdentityType.Email] = 'foo-email';
+                identityMapping[Types.IdentityType.Other] = 'foo-other';
+                identityMapping[Types.IdentityType.Other2] = 'foo-other2';
+                identityMapping[Types.IdentityType.Other3] = 'foo-other3';
+                identityMapping[Types.IdentityType.Other4] = 'foo-other4';
+                
+                mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
+                sdkEvent.UserIdentities.should.be.ok;
+                sdkEvent.UserIdentities.length.should.equal(6);
+                
+                sdkEvent.UserIdentities.forEach(function(id) {
+                    const type = id.Type;
+                    const value = id.Identity;
+                    identityMapping[type].should.equal(value);
+                });
+                
+                done();
+            })
         });
 
         it('Should append user attributes when user present', function(done) {
-            let sdkEvent = mParticle
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
+                debugger;
+                let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);
-
-            sdkEvent.should.be.ok;
-            expect(sdkEvent.UserAttributes).to.eql({});
-            const attributes = { foo: 'bar', 'foo-arr': ['bar1', 'bar2'] };
-            const user: IMParticleUser = {
-                getUserIdentities: (): IdentityApiData => ({
-                    userIdentities: {},
-                }),
-                getAllUserAttributes: (): ISDKUserAttributes => {
-                    return attributes;
-                },
-                getMPID: () => {
-                    return null;
-                },
-                getConsentState: () => {
-                    return null;
-                },
-            } as IMParticleUser;
-
-            mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
-            expect(sdkEvent.UserAttributes).to.be.ok;
-            expect(sdkEvent.UserAttributes).to.eql(attributes);
-
-            done();
+                
+                sdkEvent.should.be.ok;
+                expect(sdkEvent.UserAttributes).to.eql({});
+                const attributes = { foo: 'bar', 'foo-arr': ['bar1', 'bar2'] };
+                const user: IMParticleUser = {
+                    getUserIdentities: (): IdentityApiData => ({
+                        userIdentities: {},
+                    }),
+                    getAllUserAttributes: (): ISDKUserAttributes => {
+                        return attributes;
+                    },
+                    getMPID: () => {
+                        return null;
+                    },
+                    getConsentState: () => {
+                        return null;
+                    },
+                } as IMParticleUser;
+                
+                mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
+                expect(sdkEvent.UserAttributes).to.be.ok;
+                expect(sdkEvent.UserAttributes).to.eql(attributes);
+                
+                done();
+            });
         });
 
         it('Should update mpid when user info is appended with a new mpid', function(done) {
-            let sdkEvent = mParticle
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
+                
+                let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);
-
-            sdkEvent.should.be.ok;
-
-            // By default, all tests instances have 'testMPID'
-            expect(sdkEvent.MPID).to.equal('testMPID');
-
-            const user: IMParticleUser = {
-                getUserIdentities: () => {
-                    return ({
-                        userIdentites: {},
-                    } as unknown) as IdentityApiData;
-                },
-                getAllUserAttributes: () => {
-                    return null;
-                },
-                getMPID: () => {
-                    return '98765';
-                },
-                getConsentState: () => {
-                    return null;
-                },
-            } as IMParticleUser;
-            mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
-            expect(sdkEvent.MPID).to.equal('98765');
-            done();
+                
+                sdkEvent.should.be.ok;
+                
+                // By default, all tests instances have 'testMPID'
+                expect(sdkEvent.MPID).to.equal('testMPID');
+                
+                const user: IMParticleUser = {
+                    getUserIdentities: () => {
+                        return ({
+                            userIdentites: {},
+                        } as unknown) as IdentityApiData;
+                    },
+                    getAllUserAttributes: () => {
+                        return null;
+                    },
+                    getMPID: () => {
+                        return '98765';
+                    },
+                    getConsentState: () => {
+                        return null;
+                    },
+                } as IMParticleUser;
+                mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
+                expect(sdkEvent.MPID).to.equal('98765');
+                done();
+            })
         });
 
         it('convertEventToDTO should contain launch referral', function(done) {
