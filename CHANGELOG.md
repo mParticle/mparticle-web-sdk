@@ -1,3 +1,10 @@
+## [2.28.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.2...v2.28.3) (2024-09-16)
+
+
+### Bug Fixes
+
+* Reject xhr only on errors ([#917](https://github.com/mParticle/mparticle-web-sdk/issues/917)) ([1d6cbdd](https://github.com/mParticle/mparticle-web-sdk/commit/1d6cbdd74a9b2d11c087c3f917898450c4b0697e))
+
 ## [2.28.2](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.1...v2.28.2) (2024-09-11)
 
 
