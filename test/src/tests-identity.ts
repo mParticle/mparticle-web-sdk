@@ -2,7 +2,7 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { expect } from 'chai';
 import Utils from './config/utils';
-import Constants from '../../src/constants';
+import Constants, { HTTP_ACCEPTED } from '../../src/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import {
     urls,
@@ -1608,7 +1608,7 @@ describe('identity', function() {
         done();
     });
 
-    it('Should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous one will keep the last MPID ', function(done) {
+    it('should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous one will keep the last MPID ', function(done) {
         mParticle._resetForTests(MPConfig);
         const user1 = {
             userIdentities: {
@@ -2783,22 +2783,24 @@ describe('identity', function() {
     });
 
     it('Alias request should be received when API is called validly', function(done) {
-        mockServer.requests = [];
+        fetchMock.post(urls.alias, HTTP_ACCEPTED);
+        fetchMock.resetHistory();
+
         const aliasRequest: IAliasRequest = {
             destinationMpid: 'destinationMpid',
             sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
         };
-        mockServer.respondWith(urls.alias, [200, {}, JSON.stringify({})]);
 
         mParticle.Identity.aliasUsers(aliasRequest);
-        mockServer.requests.length.should.equal(1);
+        expect(fetchMock.calls().length).to.equal(1);
 
-        const request = mockServer.requests[0];
-        request.url.should.equal(urls.alias);
+        const lastCall = fetchMock.lastCall();
+        const url = lastCall[0];
+        url.should.equal(urls.alias);
 
-        const requestBody = JSON.parse(request.requestBody);
+        const requestBody = JSON.parse(lastCall[1].body as string);
         expect(requestBody['request_id']).to.not.equal(null);
         expect(requestBody['request_type']).to.equal('alias');
         expect(requestBody['environment']).to.equal('production');
@@ -2816,7 +2818,9 @@ describe('identity', function() {
     });
 
     it('Alias request should include scope if specified', function(done) {
-        mockServer.requests = [];
+        fetchMock.post(urls.alias, HTTP_ACCEPTED);
+        fetchMock.resetHistory();
+
         const aliasRequest: IAliasRequest = {
             destinationMpid: 'destinationMpid',
             sourceMpid: 'sourceMpid',
@@ -2824,22 +2828,22 @@ describe('identity', function() {
             endTime: 4,
             scope: 'mpid',
         };
-        mockServer.respondWith(urls.alias, [200, {}, JSON.stringify({})]);
 
         mParticle.Identity.aliasUsers(aliasRequest);
-        mockServer.requests.length.should.equal(1);
+        expect(fetchMock.calls().length).to.equal(1);
 
-        const request = mockServer.requests[0];
-        expect(request.url).to.equal(urls.alias);
+        const lastCall = fetchMock.lastCall();
+        const url = lastCall[0];
+        url.should.equal(urls.alias);
 
-        const requestBody = JSON.parse(request.requestBody);
+        const requestBody = JSON.parse(lastCall[1].body as string);
         const dataBody = requestBody['data'];
         expect(dataBody['scope']).to.equal('mpid');
 
         done();
     });
 
-    it('Should reject malformed Alias Requests', function(done) {
+    it('should reject malformed Alias Requests', function(done) {
         mParticle.config.logLevel = 'verbose';
         let warnMessage = null;
 
@@ -2959,32 +2963,38 @@ describe('identity', function() {
             endTime: 4,
         };
 
-        mockServer.respondWith(urls.alias, [200, {}, JSON.stringify({})]);
+        fetchMock.post(urls.alias, {
+            status: HTTP_ACCEPTED,
+            body: JSON.stringify({}),
+        });
+
+        fetchMock.resetHistory();
 
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
+            callbackResult.httpCode.should.equal(HTTP_ACCEPTED);
+            expect(callbackResult.message).to.equal(undefined);
+            expect(warnMessage).to.equal(null);
+            callbackResult = null;
+    
+            done();
         });
-        callbackResult.httpCode.should.equal(200);
-        expect(callbackResult.message).to.equal(undefined);
-        expect(warnMessage).to.equal(null);
-        callbackResult = null;
-
-        done();
     });
 
     it('should parse error info from Alias Requests', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         const errorMessage = 'this is a sample error message';
         let callbackResult;
-
-        mockServer.respondWith(urls.alias, [
-            400,
-            {},
-            JSON.stringify({
-                message: errorMessage,
-                code: 'ignored code',
-            }),
-        ]);
+        fetchMock.post(
+            urls.alias, 
+            {
+                status: 400,
+                body: JSON.stringify({
+                    message: errorMessage,
+                    code: 'ignored code',
+                }),
+            }
+        );
 
         const aliasRequest = {
             destinationMpid: 'destinationMpid',
@@ -2995,12 +3005,11 @@ describe('identity', function() {
 
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
             callbackResult = callback;
+            callbackResult.httpCode.should.equal(400);
+            callbackResult.message.should.equal(errorMessage);
+    
+            done();
         });
-
-        callbackResult.httpCode.should.equal(400);
-        callbackResult.message.should.equal(errorMessage);
-
-        done();
     });
 
     it('should properly create AliasRequest', function(done) {
@@ -3192,23 +3201,26 @@ describe('identity', function() {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
 
-        mParticle.init(apiKey, window.mParticle.config);
+        fetchMock.post(urls.alias, HTTP_ACCEPTED);
 
-        mockServer.requests = [];
+        mParticle.init(apiKey, window.mParticle.config);
+        
         const aliasRequest = {
             destinationMpid: 'destinationMpid',
             sourceMpid: 'sourceMpid',
             startTime: 3,
             endTime: 4,
         };
-        mParticle.Identity.aliasUsers(aliasRequest);
-        mockServer.requests.length.should.equal(1);
 
-        const request = mockServer.requests[0];
-        const requestBody = JSON.parse(request.requestBody);
-        expect(requestBody['environment']).to.equal('development');
+        // reset history to remove all calls from fetchMock.calls so that after alias-ing users, it will have a single call
+        fetchMock.resetHistory();
+        mParticle.Identity.aliasUsers(aliasRequest)
 
-        done();
+        expect(fetchMock.calls().length).to.equal(1);
+
+        const requestBody = JSON.parse(fetchMock.lastCall()[1].body as string);
+        expect(requestBody.environment).to.equal('development');
+        done()
     });
 
     it('should set isFirtRun to false after an app is initialized', function(done) {

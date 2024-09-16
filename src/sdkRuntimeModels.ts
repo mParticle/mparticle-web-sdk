@@ -16,7 +16,11 @@ import { IPersistence } from './persistence.interfaces';
 import { IMPSideloadedKit } from './sideloadedKit';
 import { ISessionManager } from './sessionManager';
 import { Kit, MPForwarder } from './forwarders.interfaces';
-import { IIdentity, SDKIdentityApi } from './identity.interfaces';
+import {
+    IIdentity,
+    SDKIdentityApi,
+    IAliasCallback,
+} from './identity.interfaces';
 import {
     ISDKUserAttributeChangeData,
     ISDKUserIdentityChanges,
@@ -265,6 +269,11 @@ export interface SDKHelpersApi {
     generateHash?(value: string): string;
     // https://go.mparticle.com/work/SQDSDKS-6317
     getFeatureFlag?(feature: string): boolean | string; // TODO: Feature Constants should be converted to enum
+    invokeAliasCallback(
+        aliasCallback: IAliasCallback,
+        number: number,
+        errorMessage: string
+    ): void;
     isDelayedByIntegration?(
         delayedIntegrations: Dictionary<boolean>,
         timeoutStart: number,

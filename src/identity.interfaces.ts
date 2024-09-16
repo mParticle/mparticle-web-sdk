@@ -115,6 +115,15 @@ export interface IAliasRequest {
     scope?: string;
 }
 
+export interface IAliasCallback {
+    (result: IAliasResult): void;
+}
+
+export interface IAliasResult {
+    httpCode: number;
+    message: string;
+}
+
 export interface SDKIdentityApi {
     HTTPCodes: typeof HTTPCodes;
     identify?(

@@ -1,5 +1,6 @@
 import Constants from './constants';
 import { xhrIdentityResponseAdapter } from './identity-utils';
+import { sendAliasRequest } from './aliasRequestApiClient';
 
 var HTTPCodes = Constants.HTTPCodes,
     Messages = Constants.Messages;
@@ -7,59 +8,8 @@ var HTTPCodes = Constants.HTTPCodes,
 const { Modify } = Constants.IdentityMethods;
 
 export default function IdentityAPIClient(mpInstance) {
-    this.sendAliasRequest = function(aliasRequest, callback) {
-        var xhr,
-            xhrCallback = function() {
-                if (xhr.readyState === 4) {
-                    // https://go.mparticle.com/work/SQDSDKS-6368
-                    mpInstance.Logger.verbose(
-                        'Received ' + xhr.statusText + ' from server'
-                    );
-                    //only parse error messages from failing requests
-                    if (xhr.status !== 200 && xhr.status !== 202) {
-                        if (xhr.responseText) {
-                            var response = JSON.parse(xhr.responseText);
-                            if (response.hasOwnProperty('message')) {
-                                var errorMessage = response.message;
-                                mpInstance._Helpers.invokeAliasCallback(
-                                    callback,
-                                    xhr.status,
-                                    errorMessage
-                                );
-                                return;
-                            }
-                        }
-                    }
-                    mpInstance._Helpers.invokeAliasCallback(
-                        callback,
-                        xhr.status
-                    );
-                }
-            };
-        mpInstance.Logger.verbose(Messages.InformationMessages.SendAliasHttp);
-
-        xhr = mpInstance._Helpers.createXHR(xhrCallback);
-        if (xhr) {
-            try {
-                xhr.open(
-                    'post',
-                    mpInstance._Helpers.createServiceUrl(
-                        mpInstance._Store.SDKConfig.aliasUrl,
-                        mpInstance._Store.devToken
-                    ) + '/Alias'
-                );
-                xhr.send(JSON.stringify(aliasRequest));
-            } catch (e) {
-                mpInstance._Helpers.invokeAliasCallback(
-                    callback,
-                    HTTPCodes.noHttpCoverage,
-                    e
-                );
-                mpInstance.Logger.error(
-                    'Error sending alias request to mParticle servers. ' + e
-                );
-            }
-        }
+    this.sendAliasRequest = async function(aliasRequest, callback) {
+        await sendAliasRequest(mpInstance, aliasRequest, callback);
     };
 
     this.sendIdentityRequest = function(

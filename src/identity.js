@@ -1,4 +1,4 @@
-import Constants from './constants';
+import Constants, { HTTP_OK } from './constants';
 import Types from './types';
 import {
     cacheOrClearIdCache,
@@ -13,7 +13,6 @@ const { CacheIdentity } = FeatureFlags;
 const { Identify, Modify, Login, Logout } = IdentityMethods;
 import {
     generateDeprecationMessage,
-    HTTP_SUCCESS,
     isEmpty,
     isFunction,
     isObject,
@@ -1513,7 +1512,7 @@ export default function Identity(mpInstance) {
                 );
             }
 
-            if (identityResponse.status === HTTP_SUCCESS) {
+            if (identityResponse.status === HTTP_OK) {
                 if (getFeatureFlag(CacheIdentity)) {
                     const identityResponseForCache = xhrIdentityResponseAdapter(
                         identityResponse

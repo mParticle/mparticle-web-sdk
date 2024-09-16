@@ -1,6 +1,6 @@
 import Utils from './config/utils';
 import Store from '../../src/store';
-import Constants from '../../src/constants';
+import Constants, { HTTP_ACCEPTED, HTTP_OK } from '../../src/constants';
 import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey, das, MPConfig, testMPID, workspaceCookieName } from './config/constants';
@@ -797,9 +797,9 @@ describe('core SDK', function() {
         window.mParticle.config.configUrl =
             'foo-custom-configUrl/v2/JS/';
         window.mParticle.config.identityUrl = 'custom-identityUrl/';
-        window.mParticle.config.aliasUrl = 'custom-aliasUrl/';
+        window.mParticle.config.aliasUrl = 'custom-alias/';
 
-        fetchMock.post('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', 200)
+        fetchMock.post('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', HTTP_OK)
 
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -826,19 +826,24 @@ describe('core SDK', function() {
         );
 
         // test alias endpoint
-        mockServer.requests = [];
+        // https://go.mparticle.com/work/SQDSDKS-6751
+        fetchMock.post('https://custom-alias/test_key/Alias', HTTP_ACCEPTED);
+
         mParticle.Identity.aliasUsers({
             destinationMpid: 1,
             sourceMpid: 2,
             startTime: 3,
             endTime: 4,
-        });
+        }, aliasCallback);
 
-        mockServer.requests[0].url.should.equal(
-            'https://' + window.mParticle.config.aliasUrl + 'test_key/Alias'
-        );
+        function aliasCallback() {
+            const lastFetchCallUrl = fetchMock.lastCall()[0];
+            const expectedUrl = `https://${window.mParticle.config.aliasUrl}test_key/Alias`;
 
-        done();
+            lastFetchCallUrl.should.equal(expectedUrl);
+    
+            done();
+        }
     });
 
     it('should use configUrl when specified on config object', function (done) {
