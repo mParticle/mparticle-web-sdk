@@ -13,17 +13,13 @@ import {
 } from '../../src/consent';
 import { IMParticleUser, ISDKUserAttributes } from '../../src/identity-user-interfaces';
 import Utils from './config/utils';
-const { waitForCondition, fetchMockSuccess } = Utils;
+const { hasIdentifyReturned, waitForCondition, fetchMockSuccess } = Utils;
 
 // let mockServer;
 let initialEvent = {};
 
 const mParticle = window.mParticle;
 const ServerModel = mParticle.getInstance()._ServerModel;
-
-const hasIdentifyReturned = () => {
-    return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
-};
 
 describe('ServerModel', () => {
     beforeEach(() => {

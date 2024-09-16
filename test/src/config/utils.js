@@ -619,6 +619,9 @@ var pluses = /\+/g,
             },
             { overwriteRoutes: true }
         );
+    },
+    hasIdentifyReturned = () => {
+        return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
     };
 
 
@@ -647,6 +650,7 @@ var TestsCore = {
     deleteAllCookies: deleteAllCookies,
     waitForCondition: waitForCondition,
     fetchMockSuccess: fetchMockSuccess,
+    hasIdentifyReturned: hasIdentifyReturned,
 };
 
 export default TestsCore;

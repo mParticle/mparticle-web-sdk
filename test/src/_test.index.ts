@@ -13,10 +13,11 @@ import './config/setup';
 // import './tests-event-logging';
 // import './tests-eCommerce';
 // import './tests-cookie-syncing';
-// import './tests-identities-attributes';
-// import './tests-native-sdk';
-// import './tests-consent';
-// import './tests-serverModel';
+import './tests-identities-attributes'; // done
+// import './tests-native-sdk'; // done
+// import './tests-consent';  // done
+// import './tests-serverModel'; // done
+
 
 import './tests-mockBatchCreator';
 import './tests-mParticleUser';

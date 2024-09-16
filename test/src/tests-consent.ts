@@ -6,7 +6,7 @@ import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 import { GDPRConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
 import { Dictionary } from '../../src/utils';
-const { findEventFromRequest, waitForCondition, fetchMockSuccess } = Utils;
+const { hasIdentifyReturned, waitForCondition, fetchMockSuccess } = Utils;
 
 declare global {
     interface Window {
@@ -24,13 +24,8 @@ const EmptyObjectAsPrivacyConsentState = ({} as unknown) as PrivacyConsentState;
 const EmptyStringAsPrivacyConsentState = ('' as unknown) as PrivacyConsentState;
 
 const findBatch = Utils.findBatch;
-// let mockServer;
+
 const mParticle = window.mParticle;
-
-
-const hasIdentifyReturned = () => {
-    return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
-};
 
 describe('Consent', function() {
     beforeEach(function() {
@@ -43,7 +38,6 @@ describe('Consent', function() {
     });
 
     afterEach(function() {
-        // mockServer.restore();
         fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
