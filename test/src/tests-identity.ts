@@ -3908,31 +3908,33 @@ describe('identity', function() {
     });
 
     describe('identity caching', function() {
-        beforeEach(function() {
+        beforeEach(function () {
             // Reset clock so we can use simple integers for time
-            clock.restore();
-            clock = sinon.useFakeTimers();
+            // clock.restore();
+            // clock = sinon.useFakeTimers();
         });
 
-        afterEach(function() {
-            clock.restore();
-            sinon.restore();
+        afterEach(function () {
+            // clock.restore();
+            // sinon.restore();
         });
 
-        it('should use header `x-mp-max-age` as expiration date for cache', function() {
-            // tick forward 1 second
-            clock.tick(1);
-
+            // Set the Max Age to be 1 second in the future for testing
             const X_MP_MAX_AGE = '1';
 
             mParticle._resetForTests(MPConfig);
-            mockServer.respondWith(urls.identify, [
-                200,
-                { 'x-mp-max-age': X_MP_MAX_AGE },
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-            ]);
+            fetchMock.resetHistory();
 
-            mockServer.requests = [];
+            waitForCondition(hasIdentifyReturned)
+                .then(() => {
+                    fetchMockSuccess(
+                        urls.identify,
+                        {
+                            mpid: testMPID,
+                            is_logged_in: false,
+                        },
+                        { 'x-mp-max-age': X_MP_MAX_AGE }
+                    );
 
             const identities = {
                 userIdentities: {
@@ -3946,10 +3948,24 @@ describe('identity', function() {
             localStorage.clear();
             mParticle.config.flags.cacheIdentity = 'True';
 
+                    const initCache: IdentityCache = JSON.parse(
+                        localStorage.getItem('mprtcl-v4_abcdef-id-cache')
+                    );
+
             mParticle.init(apiKey, window.mParticle.config);
 
+                    waitForCondition(() => {
+                        return (
+                            mParticle.Identity.getCurrentUser()?.getUserIdentities()
+                                ?.userIdentities?.email === 'test@gmail.com'
+                        );
+                    })
+                        .then(() => {
+                            const now = new Date();
             const idCache: IdentityCache = JSON.parse(
-                localStorage.getItem('mprtcl-v4_abcdef-id-cache')
+                                localStorage.getItem(
+                                    'mprtcl-v4_abcdef-id-cache'
+                                )
             );
 
             // a single identify cache key will be on the idCache
@@ -3961,12 +3977,23 @@ describe('identity', function() {
                 const expectedExpiredTimestamp =
                     parseInt(X_MP_MAX_AGE) * 1000 + 1;
 
-                // we previously ticked forward 1 second, so the expire timestamp
-                // should be 1 second more than the X_MP_MAX_AGE
-                expect(idCache[key].expireTimestamp).to.equal(
-                    expectedExpiredTimestamp
-                );
+                                // Because identity is async, we cannot use sinon.useFakeTimers
+                                // to tick the clock forward or be exact in our timing.
+                                // Instead, we can expect the expireTimestamp to be within 1 second
+                                // of the max age
+                                expect(
+                                    idCache[key].expireTimestamp
+                                ).to.greaterThan(expectedExpiredTimestamp);
+                                expect(
+                                    idCache[key].expireTimestamp - now.getTime()
+                                ).to.lessThan(1000);
             }
+
+                            done();
+                        })
+                        .catch(done);
+                })
+                .catch(done);
         });
 
         it('should not call identify if no identities have changed within the expiration time', function() {
