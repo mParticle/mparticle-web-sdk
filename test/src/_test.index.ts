@@ -12,8 +12,8 @@ import './config/setup';
 // import './tests-identity';
 // import './tests-event-logging';
 // import './tests-eCommerce';
-// import './tests-cookie-syncing';
-import './tests-identities-attributes'; // done
+import './tests-cookie-syncing';
+// import './tests-identities-attributes'; // done
 // import './tests-native-sdk'; // done
 // import './tests-consent';  // done
 // import './tests-serverModel'; // done
