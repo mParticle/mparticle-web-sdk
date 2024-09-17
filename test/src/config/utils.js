@@ -231,7 +231,12 @@ var pluses = /\+/g,
                 return null;
             }
             var batch = JSON.parse(request[1].body);
-            for (var i = 0; i<batch.events.length; i++) {
+
+            if (!batch.events) {
+                return null;
+            }
+
+            for (var i = 0; i < batch.events.length; i++) {
                 var foundEventFromBatch = findEventFromBatch(batch, eventName);
                 if (foundEventFromBatch) {
                     matchingRequest = request;
