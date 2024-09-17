@@ -10,8 +10,8 @@ import './config/setup';
 // import './tests-forwarders';
 // import './tests-helpers';
 // import './tests-identity';
-// import './tests-event-logging';
-import './tests-eCommerce';  // done
+import './tests-event-logging';
+// import './tests-eCommerce';  // done
 
 // import './tests-cookie-syncing';
 // import './tests-identities-attributes'; // done
