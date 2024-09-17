@@ -274,13 +274,22 @@ var pluses = /\+/g,
             fullPath = 'https://identity.mparticle.com/v1/' + path;
         if (path !== 'modify') {
             requests.forEach(function(item) {
+                if (!item.url && item[0] === fullPath) {
+                    returnedRequests.push(item);
+                }
                 if (item.url === fullPath) {
                     returnedRequests.push(item);
                 }
             });
         } else {
             requests.forEach(function(item) {
-                if (item.url.slice(-6) === 'modify') {
+                let url;
+                if (!item.url) {
+                    url = item[0];
+                } else {
+                    url = item.url;
+                }
+                if (url.slice(-6) === 'modify') {
                     returnedRequests.push(item);
                 }
             });
@@ -290,8 +299,8 @@ var pluses = /\+/g,
     },
     getIdentityEvent = function(mockRequests, endpoint) {
         var returnedReqs = getIdentityRequests(mockRequests, endpoint);
-        if (returnedReqs[0] && returnedReqs[0].requestBody) {
-            return JSON.parse(returnedReqs[0].requestBody);
+        if (returnedReqs[0] && returnedReqs[0][1].body) {
+            return JSON.parse(returnedReqs[0][1].body);
         }
         return null;
     },
