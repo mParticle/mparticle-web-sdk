@@ -77,7 +77,7 @@ const BadCallbackAsString = ('badCallbackString' as unknown) as Callback;
 
 const EmptyUserIdentities = ({} as unknown) as IdentityApiData;
 
-const fetchMockSuccess = (url: string, body: any) => {
+const fetchMockSuccess = (url: string, body: any, headers: any = {}) => {
     fetchMock.post(
         url,
         {
