@@ -10,16 +10,13 @@ import './tests-batchUploader';
 // import './tests-forwarders';
 // import './tests-helpers';
 // import './tests-identity';
-// import './tests-event-logging'; // done
-// import './tests-eCommerce';  // done
-
-// import './tests-cookie-syncing';
-// import './tests-identities-attributes'; // done
-// import './tests-native-sdk'; // done
-// import './tests-consent';  // done
-// import './tests-serverModel'; // done
-
-
+import './tests-event-logging'; // done
+import './tests-eCommerce';  // done
+import './tests-cookie-syncing';
+import './tests-identities-attributes'; // done
+import './tests-native-sdk'; // done
+import './tests-consent';  // done
+import './tests-serverModel'; // done
 import './tests-mockBatchCreator';
 import './tests-mParticleUser';
 import './tests-self-hosting-specific';

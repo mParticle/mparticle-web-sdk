@@ -782,7 +782,6 @@ describe('event logging', function() {
     it('should log modify event', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() => {
-            debugger;
         fetchMockSuccess('https://identity.mparticle.com/v1/testMPID/modify', {
             change_results: [
                     {
@@ -974,10 +973,8 @@ describe('event logging', function() {
     });
 
     it('should pass the found or existing position to the callback in startTrackingLocation', function(done) {
-        debugger;
         waitForCondition(hasIdentifyReturned)
         .then(() => {
-            debugger;
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
@@ -985,7 +982,6 @@ describe('event logging', function() {
             );
         })
         .then(() => {
-            debugger;
         let currentPosition;
 
         function callback(position) {

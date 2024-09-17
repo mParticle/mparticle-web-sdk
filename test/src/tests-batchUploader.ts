@@ -567,7 +567,7 @@ describe('batch uploader', () => {
         });
     });
 
-    describe.only('Offline Storage Enabled', () => {
+    describe('Offline Storage Enabled', () => {
         beforeEach(() => {
             window.mParticle.config.flags = {
                 offlineStorage: '100',
@@ -821,7 +821,7 @@ describe('batch uploader', () => {
         });
         });
 
-        it.only('should save batches in sequence to Local Storage when upload is interrupted', async () => {
+        it('should save batches in sequence to Local Storage when upload is interrupted', async () => {
             // Interruption in this context means that the first upload is successful, but
             // the next upload in sequence is not. For example, on a mobile device on the
             // subway or if a connection is rate limited. In this case, we should save

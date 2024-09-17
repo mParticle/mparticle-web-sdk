@@ -2236,7 +2236,7 @@ describe.only('identity', function() {
         done();
     });
 
-    it.only('should not send requests to the server with invalid userIdentity values', function(done) {
+    it('should not send requests to the server with invalid userIdentity values', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         mockServer.requests = [];
         let result: IdentityResult;
