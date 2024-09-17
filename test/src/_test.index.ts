@@ -3,14 +3,14 @@ import './config/setup';
 
 // Import each test module
 // import './tests-core-sdk';
-// import './tests-batchUploader';
+import './tests-batchUploader';
 // import './tests-beaconUpload';
 // import './tests-kit-blocking';
 // import './tests-persistence';
 // import './tests-forwarders';
 // import './tests-helpers';
 // import './tests-identity';
-import './tests-event-logging';
+// import './tests-event-logging'; // done
 // import './tests-eCommerce';  // done
 
 // import './tests-cookie-syncing';
