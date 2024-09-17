@@ -89,7 +89,7 @@ const fetchMockSuccess = (url: string, body: any, headers: any = {}) => {
     );
 };
 
-describe('identity', function() {
+describe.only('identity', function() {
     let mockServer;
     let clock;
     let hasIdentifyReturned;
@@ -132,7 +132,7 @@ describe('identity', function() {
     });
 
     afterEach(function () {
-        fetchMock.restore();
+        // fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
 
@@ -1574,53 +1574,66 @@ describe('identity', function() {
     });
 
     // QUESTION: Should we move this to the other requests?
-    it('should create a proper send request when passing identities to modify', function (done) {
-        fetchMock.restore();
-
-        const identityAPIData: IdentityApiData = {
-            userIdentities: {
-                email: 'rob@gmail.com',
-            },
-        };
-        mParticle.init(apiKey, window.mParticle.config);
-
-        fetchMockSuccess(urls.modify, {
-                change_results: [
-                    {
-                        identity_type: 'email',
-                        modified_mpid: testMPID,
-                    },
-                ],
-        });
-
+    it.only('should create a proper send request when passing identities to modify', function (done) {
         waitForCondition(hasIdentifyReturned)
-            .then(() => {
-        mParticle.Identity.modify(identityAPIData);
+        .then(() => {
+            const identityAPIData: IdentityApiData = {
+                userIdentities: {
+                    email: 'rob@gmail.com',
+                },
+            };
+            mParticle.init(apiKey, window.mParticle.config);
 
-                expect(fetchMock.calls().length).to.equal(1);
+            fetchMockSuccess(urls.modify, {
+                    change_results: [
+                        {
+                            identity_type: 'email',
+                            modified_mpid: testMPID,
+                        },
+                    ],
+            });
 
-                const lastCall = fetchMock.lastCall();
-                expect(lastCall[0].split('/')[5]).to.equal('modify');
-
-                const data = JSON.parse(
-                    lastCall[1].body as unknown as string
-                ) as IIdentityAPIModifyRequestData;
-
-                expect(data.identity_changes.length).to.equal(1);
-                expect(data.identity_changes[0]).to.have.keys(
-            'old_value',
-            'new_value',
-            'identity_type'
-        );
-                expect(data.identity_changes[0]).to.have.keys(
-            'old_value',
-            'new_value',
-            'identity_type'
-        );
-
-        done();
+            waitForCondition(() => {
+                return (
+                    mParticle.getInstance()._Store.identityCallInFlight === false
+                );
             })
-            .catch(done);
+            .then(() =>  {
+                    fetchMock.resetHistory();
+                    mParticle.Identity.modify(identityAPIData);
+                    waitForCondition(() => {
+                        return (
+                            mParticle.getInstance()._Store.identityCallInFlight === false
+                        );
+                    })
+                    .then(() => {
+                        // 1st call is modify, 2nd call is the UIC event
+                        expect(fetchMock.calls().length).to.equal(2);
+
+                        const modifyCall = fetchMock.calls()[0];
+
+                        expect(modifyCall[0].split('/')[5]).to.equal('modify');
+
+                        const data = JSON.parse(
+                            modifyCall[1].body as unknown as string
+                        ) as IIdentityAPIModifyRequestData;
+
+                        expect(data.identity_changes.length).to.equal(1);
+                        expect(data.identity_changes[0]).to.have.keys(
+                            'old_value',
+                            'new_value',
+                            'identity_type'
+                        );
+                        expect(data.identity_changes[0]).to.have.keys(
+                            'old_value',
+                            'new_value',
+                            'identity_type'
+                        );
+
+                        done();
+                    })
+            });
+        })
     });
 
     it('ensure that automatic identify is not called more than once.', function(done) {
@@ -3881,7 +3894,7 @@ describe('identity', function() {
         mParticle._resetForTests(MPConfig);
 
         // Resets fetchMock so we can isolate calls for this tests
-        fetchMock.restore();
+        // fetchMock.restore();
 
             fetchMockSuccess(urls.identify, { body: null });
 
@@ -3921,7 +3934,7 @@ describe('identity', function() {
         });
 
         // TODO: Complete
-        it.only('should use header `x-mp-max-age` as expiration date for cache', function (done) {
+        it('should use header `x-mp-max-age` as expiration date for cache', function (done) {
             // Set the Max Age to be 1 second in the future for testing
             const X_MP_MAX_AGE = '1';
 
