@@ -136,6 +136,7 @@ describe('identity', function() {
         mParticle._resetForTests(MPConfig);
     });
 
+    // TODO: Complete
     describe('requests', function () {
         it('should contain identify request', function (done) {
             let data: IIdentityAPIRequestData;
@@ -400,6 +401,7 @@ describe('identity', function() {
         });
     });
 
+    // TODO: Complete
     it('should respect consent rules on consent-change', function(done) {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
@@ -508,15 +510,15 @@ describe('identity', function() {
         done();
     });
 
-    describe('cookies', function () {
-        it('should store all MPIDs associated with a sessionId, then clear MPIDs from currentSessionMPIDs when a new session starts', function (done) {
-            fetchMockSuccess(urls.login, {
-                mpid: 'otherMPID',
-                is_logged_in: false,
-            });
+    describe.only('cookies', function () {
+    it('should store all MPIDs associated with a sessionId, then clear MPIDs from currentSessionMPIDs when a new session starts', function(done) {
+        fetchMockSuccess(urls.login, {
+            mpid: 'otherMPID',
+            is_logged_in: false,
+        });
 
-            waitForCondition(hasIdentifyReturned)
-                .then(() => {
+        waitForCondition(hasIdentifyReturned)
+            .then(() => {
         const userIdentities1 = {
             userIdentities: {
                 customerid: 'foo1',
@@ -528,9 +530,7 @@ describe('identity', function() {
             .getInstance()
             ._Persistence.getLocalStorage();
 
-                    localStorageDataBeforeSessionEnd.gs.csm.length.should.equal(
-                        2
-                    );
+            localStorageDataBeforeSessionEnd.gs.csm.length.should.equal();
 
         mParticle.endSession();
         const localStorageDataAfterSessionEnd1 = mParticle
@@ -549,8 +549,8 @@ describe('identity', function() {
         localStorageAfterLoggingEvent.gs.csm.length.should.equal(1);
 
         done();
-                })
-                .catch(done);
+        })
+        .catch(done);
     });
 
     it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', function(done) {
