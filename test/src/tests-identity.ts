@@ -89,7 +89,7 @@ const fetchMockSuccess = (url: string, body: any, headers: any = {}) => {
     );
 };
 
-describe.only('identity', function() {
+describe('identity', function() {
     let mockServer;
     let clock;
     let hasIdentifyReturned;
@@ -1574,7 +1574,7 @@ describe.only('identity', function() {
     });
 
     // QUESTION: Should we move this to the other requests?
-    it.only('should create a proper send request when passing identities to modify', function (done) {
+    it('should create a proper send request when passing identities to modify', function (done) {
         waitForCondition(hasIdentifyReturned)
         .then(() => {
             const identityAPIData: IdentityApiData = {
@@ -1598,7 +1598,7 @@ describe.only('identity', function() {
                     mParticle.getInstance()._Store.identityCallInFlight === false
                 );
             })
-            .then(() =>  {
+            .then(() => {
                     fetchMock.resetHistory();
                     mParticle.Identity.modify(identityAPIData);
                     waitForCondition(() => {
@@ -1631,9 +1631,9 @@ describe.only('identity', function() {
                         );
 
                         done();
-                    })
             });
-        })
+            });
+        });
     });
 
     it('ensure that automatic identify is not called more than once.', function(done) {
@@ -3894,7 +3894,7 @@ describe.only('identity', function() {
         mParticle._resetForTests(MPConfig);
 
         // Resets fetchMock so we can isolate calls for this tests
-        // fetchMock.restore();
+            fetchMock.restore();
 
             fetchMockSuccess(urls.identify, { body: null });
 
