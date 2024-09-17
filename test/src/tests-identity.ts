@@ -83,6 +83,7 @@ const fetchMockSuccess = (url: string, body: any) => {
         {
             status: 200,
             body: JSON.stringify(body),
+            headers,
         },
         { overwriteRoutes: true }
     );
