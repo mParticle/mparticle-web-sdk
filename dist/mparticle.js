@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.28.3";
+    var version = "2.28.4-rc.1";
 
     var Constants = {
       sdkVersion: version,
@@ -2108,7 +2108,7 @@ var mParticle = (function () {
           return __generator(this, function (_a) {
             switch (_a.label) {
               case 0:
-                return [4 /*yield*/, this.makeRequest(this.url, fetchPayload.body, fetchPayload.method)];
+                return [4 /*yield*/, this.makeRequest(this.url, fetchPayload.body, fetchPayload.method, fetchPayload.headers)];
               case 1:
                 response = _a.sent();
                 return [2 /*return*/, response];
@@ -2124,9 +2124,12 @@ var mParticle = (function () {
       // 3   LOADING Downloading; responseText holds partial data.
       // 4   DONE    The operation is complete.
       // https://go.mparticle.com/work/SQDSDKS-6736
-      XHRUploader.prototype.makeRequest = function (url, data, method) {
+      XHRUploader.prototype.makeRequest = function (url, data, method, headers) {
         if (method === void 0) {
           method = 'post';
+        }
+        if (headers === void 0) {
+          headers = {};
         }
         return __awaiter(this, void 0, void 0, function () {
           var xhr;
@@ -2145,6 +2148,11 @@ var mParticle = (function () {
                 reject(xhr);
               };
               xhr.open(method, url);
+              Object.entries(headers).forEach(function (_a) {
+                var key = _a[0],
+                  value = _a[1];
+                xhr.setRequestHeader(key, value);
+              });
               xhr.send(data);
             })];
           });
@@ -6722,23 +6730,6 @@ var mParticle = (function () {
       Login$1 = _a.Login,
       Logout$1 = _a.Logout;
     var CACHE_HEADER = 'x-mp-max-age';
-    // https://go.mparticle.com/work/SQDSDKS-6568
-    // Temporary adapter to convert the XMLHttpRequest response to the IIdentityResponse interface
-    var xhrIdentityResponseAdapter = function xhrIdentityResponseAdapter(possiblyXhr) {
-      if (possiblyXhr.hasOwnProperty('expireTimestamp')) {
-        // If there is an `expireTimestamp`, it is an IIdentityResponse object, so just return it.  This indicates it was a previously cached value.
-        return possiblyXhr;
-      } else {
-        // If there is no `expireTimestamp`, then it is an XHR object and needs to be parsed.
-        return {
-          status: possiblyXhr.status,
-          // Sometimes responseText can be an empty string, such as a 404 response
-          responseText: possiblyXhr.responseText ? JSON.parse(possiblyXhr.responseText) : {},
-          cacheMaxAge: parseNumber((possiblyXhr === null || possiblyXhr === void 0 ? void 0 : possiblyXhr.getResponseHeader(CACHE_HEADER)) || ''),
-          expireTimestamp: 0
-        };
-      }
-    };
     var cacheOrClearIdCache = function cacheOrClearIdCache(method, knownIdentities, idCache, identityResponse, parsingCachedResponse) {
       // when parsing a response that has already been cached, simply return instead of attempting another cache
       if (parsingCachedResponse) {
@@ -7896,8 +7887,7 @@ var mParticle = (function () {
           }
           if (identityResponse.status === HTTP_OK) {
             if (getFeatureFlag(CacheIdentity)) {
-              var identityResponseForCache = xhrIdentityResponseAdapter(identityResponse);
-              cacheOrClearIdCache(method, knownIdentities, self.idCache, identityResponseForCache, parsingCachedResponse);
+              cacheOrClearIdCache(method, knownIdentities, self.idCache, identityResponse, parsingCachedResponse);
             }
             var incomingUser = self.IdentityAPI.getUser(identityApiResult.mpid);
             var incomingUIByName = incomingUser ? incomingUser.getUserIdentities().userIdentities : {};
@@ -7954,6 +7944,7 @@ var mParticle = (function () {
           }
           mpInstance.Logger.verbose('Successfully parsed Identity Response');
 
+          // debugger;
           // https://go.mparticle.com/work/SQDSDKS-6654
           (_mpInstance$_APIClien = mpInstance._APIClient) === null || _mpInstance$_APIClien === void 0 || _mpInstance$_APIClien.processQueuedEvents();
         } catch (e) {
@@ -8989,48 +8980,102 @@ var mParticle = (function () {
           return _ref.apply(this, arguments);
         };
       }();
-      this.sendIdentityRequest = function (identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
-        var xhr,
-          previousMPID,
-          xhrCallback = function xhrCallback() {
-            if (xhr.readyState === 4) {
-              // https://go.mparticle.com/work/SQDSDKS-6368
-              mpInstance.Logger.verbose('Received ' + xhr.statusText + ' from server');
-
-              // https://go.mparticle.com/work/SQDSDKS-6565
-              var identityResponse = xhrIdentityResponseAdapter(xhr);
-              parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
+      this.sendIdentityRequest = /*#__PURE__*/function () {
+        var _ref2 = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime.mark(function _callee2(identityApiRequest, method, callback, originalIdentityApiData, parseIdentityResponse, mpid, knownIdentities) {
+          var _mpInstance$Logger, verbose, error, invokeCallback, previousMPID, uploadUrl, uploader, fetchPayload, response, identityResponse, responseBody;
+          return _regeneratorRuntime.wrap(function _callee2$(_context2) {
+            while (1) switch (_context2.prev = _context2.next) {
+              case 0:
+                _mpInstance$Logger = mpInstance.Logger, verbose = _mpInstance$Logger.verbose, error = _mpInstance$Logger.error;
+                invokeCallback = mpInstance._Helpers.invokeCallback;
+                verbose(Messages$1.InformationMessages.SendIdentityBegin);
+                if (identityApiRequest) {
+                  _context2.next = 6;
+                  break;
+                }
+                error(Messages$1.ErrorMessages.APIRequestEmpty);
+                return _context2.abrupt("return");
+              case 6:
+                verbose(Messages$1.InformationMessages.SendIdentityHttp);
+                if (!mpInstance._Store.identityCallInFlight) {
+                  _context2.next = 10;
+                  break;
+                }
+                invokeCallback(callback, HTTPCodes$1.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
+                return _context2.abrupt("return");
+              case 10:
+                previousMPID = mpid || null;
+                uploadUrl = this.getUploadUrl(method, mpid);
+                uploader = window.fetch ? new FetchUploader(uploadUrl) : new XHRUploader(uploadUrl);
+                fetchPayload = {
+                  method: 'post',
+                  headers: {
+                    Accept: 'text/plain;charset=UTF-8',
+                    'Content-Type': 'application/json',
+                    'x-mp-key': mpInstance._Store.devToken
+                  },
+                  body: JSON.stringify(identityApiRequest)
+                };
+                _context2.prev = 14;
+                mpInstance._Store.identityCallInFlight = true;
+                _context2.next = 18;
+                return uploader.upload(fetchPayload);
+              case 18:
+                response = _context2.sent;
+                if (!response.json) {
+                  _context2.next = 26;
+                  break;
+                }
+                _context2.next = 22;
+                return response.json();
+              case 22:
+                responseBody = _context2.sent;
+                identityResponse = this.getIdentityResponseFromFetch(response, responseBody);
+                _context2.next = 27;
+                break;
+              case 26:
+                identityResponse = this.getIdentityResponseFromXHR(response);
+              case 27:
+                verbose('Received Identity Response from server: ' + JSON.stringify(identityResponse.responseText));
+                parseIdentityResponse(identityResponse, previousMPID, callback, originalIdentityApiData, method, knownIdentities, false);
+                _context2.next = 36;
+                break;
+              case 31:
+                _context2.prev = 31;
+                _context2.t0 = _context2["catch"](14);
+                mpInstance._Store.identityCallInFlight = false;
+                invokeCallback(callback, HTTPCodes$1.noHttpCoverage, _context2.t0);
+                error('Error sending identity request to servers' + ' - ' + _context2.t0);
+              case 36:
+              case "end":
+                return _context2.stop();
             }
-          };
-        mpInstance.Logger.verbose(Messages$1.InformationMessages.SendIdentityBegin);
-        if (!identityApiRequest) {
-          mpInstance.Logger.error(Messages$1.ErrorMessages.APIRequestEmpty);
-          return;
-        }
-        mpInstance.Logger.verbose(Messages$1.InformationMessages.SendIdentityHttp);
-        xhr = mpInstance._Helpers.createXHR(xhrCallback);
-        if (xhr) {
-          try {
-            if (mpInstance._Store.identityCallInFlight) {
-              mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.activeIdentityRequest, 'There is currently an Identity request processing. Please wait for this to return before requesting again');
-            } else {
-              previousMPID = mpid || null;
-              if (method === Modify) {
-                xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl) + mpid + '/' + method);
-              } else {
-                xhr.open('post', mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl) + method);
-              }
-              xhr.setRequestHeader('Content-Type', 'application/json');
-              xhr.setRequestHeader('x-mp-key', mpInstance._Store.devToken);
-              mpInstance._Store.identityCallInFlight = true;
-              xhr.send(JSON.stringify(identityApiRequest));
-            }
-          } catch (e) {
-            mpInstance._Store.identityCallInFlight = false;
-            mpInstance._Helpers.invokeCallback(callback, HTTPCodes$1.noHttpCoverage, e);
-            mpInstance.Logger.error('Error sending identity request to servers with status code ' + xhr.status + ' - ' + e);
-          }
-        }
+          }, _callee2, this, [[14, 31]]);
+        }));
+        return function (_x3, _x4, _x5, _x6, _x7, _x8, _x9) {
+          return _ref2.apply(this, arguments);
+        };
+      }();
+      this.getUploadUrl = function (method, mpid) {
+        var uploadServiceUrl = mpInstance._Helpers.createServiceUrl(mpInstance._Store.SDKConfig.identityUrl);
+        var uploadUrl = method === Modify ? uploadServiceUrl + mpid + '/' + method : uploadServiceUrl + method;
+        return uploadUrl;
+      };
+      this.getIdentityResponseFromFetch = function (response, responseBody) {
+        return {
+          status: response.status,
+          responseText: responseBody,
+          cacheMaxAge: parseInt(response.headers.get(CACHE_HEADER)) || 0,
+          expireTimestamp: 0
+        };
+      };
+      this.getIdentityResponseFromXHR = function (response) {
+        return {
+          status: response.status,
+          responseText: response.responseText ? JSON.parse(response.responseText) : {},
+          cacheMaxAge: parseNumber(response.getResponseHeader(CACHE_HEADER) || ''),
+          expireTimestamp: 0
+        };
       };
     }
 
