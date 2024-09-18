@@ -2,9 +2,9 @@
 import './config/setup';
 
 // Import each test module
-import './tests-core-sdk';
+// import './tests-core-sdk';
 // import './tests-batchUploader';
-// import './tests-beaconUpload';
+import './tests-beaconUpload';
 // import './tests-kit-blocking';
 // import './tests-persistence';
 // import './tests-forwarders';

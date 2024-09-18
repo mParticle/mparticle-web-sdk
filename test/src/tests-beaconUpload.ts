@@ -6,6 +6,8 @@ import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { event0 } from '../fixtures/events';
 import { batch1, batch2, batch3 } from '../fixtures/batches';
 import _BatchValidator from '../../src/mockBatchCreator';
+import Utils from './config/utils';
+const { findEventFromRequest, findBatch, waitForCondition, fetchMockSuccess, hasIdentifyReturned } = Utils;
 
 declare global {
     interface Window {
@@ -18,10 +20,8 @@ const enableBatchingConfigFlags = {
     eventBatchingIntervalMillis: 1000,
 };
 
-let clock;
 
 describe('Beacon Upload', () => {
-    let mockServer;
     before(function() {
         fetchMock.restore();
         sinon.restore();
@@ -29,15 +29,12 @@ describe('Beacon Upload', () => {
 
     beforeEach(function() {
         fetchMock.restore();
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
+        fetchMockSuccess(urls.identify, {
+            mpid: testMPID,
+            is_logged_in: false,
+        });
 
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
-
+        fetchMock.post(urls.events, 200);
         window.mParticle.config.flags = {
             eventBatchingIntervalMillis: 1000,
         };
@@ -45,7 +42,6 @@ describe('Beacon Upload', () => {
 
     afterEach(() => {
         sinon.restore();
-        mockServer.reset();
         fetchMock.restore();
     });
 
@@ -55,6 +51,9 @@ describe('Beacon Upload', () => {
         const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
 
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
+
         // visibility change is a document property, not window
         document.dispatchEvent(new Event('visibilitychange'));
 
@@ -62,6 +61,7 @@ describe('Beacon Upload', () => {
         bond.lastCall.args[0].should.eql(urls.events);
 
         done();
+        })
     });
 
     it('should trigger beacon on page beforeunload events', function(done) {
@@ -69,6 +69,9 @@ describe('Beacon Upload', () => {
 
         const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         // karma fails if onbeforeunload is not set to null
         window.onbeforeunload = null;
@@ -78,6 +81,7 @@ describe('Beacon Upload', () => {
         bond.getCalls()[0].args[0].should.eql(urls.events);
 
         done();
+        });
     });
 
     it('should trigger beacon on pagehide events', function(done) {
@@ -85,6 +89,9 @@ describe('Beacon Upload', () => {
 
         const bond = sinon.spy(navigator, 'sendBeacon');
         window.mParticle.init(apiKey, window.mParticle.config);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         window.dispatchEvent(new Event('pagehide'));
 
@@ -94,6 +101,7 @@ describe('Beacon Upload', () => {
         (typeof bond.getCalls()[0].args[1]).should.eql('object');
 
         done();
+        });
     });
 
     describe('Offline Storage Enabled', () => {
@@ -103,28 +111,26 @@ describe('Beacon Upload', () => {
                 ...enableBatchingConfigFlags,
             };
 
-            clock = sinon.useFakeTimers({
-                now: new Date().getTime(),
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID,
+                is_logged_in: false,
             });
-            fetchMock.restore();
 
             window.sessionStorage.clear();
             window.localStorage.clear();
         });
 
         afterEach(() => {
-            sinon.restore();
             fetchMock.restore();
-            clock.restore();
         });
 
         it('`visibilitychange` should purge events and batches from Offline Storage after dispatch', function(done) {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
             const batchStorageKey = 'mprtcl-v4_abcdef-batches';
-
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -132,7 +138,6 @@ describe('Beacon Upload', () => {
             uploader.batchesQueuedForProcessing.push(batch1);
             uploader.batchesQueuedForProcessing.push(batch2);
             uploader.batchesQueuedForProcessing.push(batch3);
-
             uploader.queueEvent(event0);
 
             expect(
@@ -171,6 +176,7 @@ describe('Beacon Upload', () => {
             ).to.equal(0);
 
             done();
+            });
         });
 
         it('`beforeunload` should purge events and batches from Offline Storage after dispatch', function(done) {
@@ -179,7 +185,9 @@ describe('Beacon Upload', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
-
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
+            
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
 
@@ -226,6 +234,7 @@ describe('Beacon Upload', () => {
 
             done();
         });
+        });
 
         it('`pagehide` should purge events and batches from Offline Storage after dispatch', function(done) {
             const eventStorageKey = 'mprtcl-v4_abcdef-events';
@@ -233,6 +242,8 @@ describe('Beacon Upload', () => {
 
             window.mParticle._resetForTests(MPConfig);
             window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
 
             const mpInstance = window.mParticle.getInstance();
             const uploader = mpInstance._APIClient.uploader;
@@ -279,6 +290,7 @@ describe('Beacon Upload', () => {
             ).to.equal(0);
 
             done();
+            });
         });
     });
 });
