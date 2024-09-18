@@ -6,9 +6,9 @@ import './config/setup';
 // import './tests-batchUploader';
 // import './tests-beaconUpload';
 // import './tests-kit-blocking';
-import './tests-persistence';
-// import './tests-forwarders';
-// import './tests-helpers';
+// import './tests-persistence';
+import './tests-forwarders';
+import './tests-helpers';
 // import './tests-identity';
 // import './tests-event-logging'; // done
 // import './tests-eCommerce';  // done
