@@ -1,3 +1,10 @@
+## [2.28.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.3...v2.28.4-rc.1) (2024-09-18)
+
+### Refactor
+
+* Refactor usage of XHR for Identity Requests
+
+
 ## [2.28.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.2...v2.28.3) (2024-09-16)
 
 
