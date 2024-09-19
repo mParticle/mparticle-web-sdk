@@ -55,7 +55,7 @@ export interface IIdentityAPIRequestData {
     context: string | null;
     environment: Environment;
     request_id: string;
-    reqest_timestamp_unixtime_ms: number;
+    request_timestamp_unixtime_ms: number;
     previous_mpid: MPID | null;
     known_identities: IKnownIdentities;
 }

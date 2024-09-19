@@ -123,7 +123,7 @@ describe('Identity', () => {
                 context: 'test-context',
                 environment: 'development',
                 request_id: '123',
-                reqest_timestamp_unixtime_ms: Date.now(),
+                request_timestamp_unixtime_ms: Date.now(),
                 previous_mpid: null,
                 known_identities: {
                     email: 'user@mparticle.com',
@@ -143,7 +143,7 @@ describe('Identity', () => {
                 context: 'test-context',
                 environment: 'development',
                 request_id: '123',
-                reqest_timestamp_unixtime_ms: Date.now(),
+                request_timestamp_unixtime_ms: Date.now(),
                 identity_changes: [
                     {
                         identity_type: SDKIdentityTypeEnum.google,
