@@ -320,6 +320,32 @@ export default function ServerModel(
             if (event.hasOwnProperty('toEventAPIObject')) {
                 eventObject = event.toEventAPIObject();
             } else {
+
+                // TODO: Add click ids to custom flags
+                // console.log('configured click ids', mpInstance._Store.configuredClickIds);
+
+                // const clickIdTransform = {
+                //     'ttclid': 'TikTok.ClickId',
+                //     'fbclid': 'Facebook.ClickId',
+                //     'fbp': 'FaceBook.BrowserId',
+                // };
+
+                // let transformedClickIDs = {};
+
+                // // TODO: Maybe use Object.entries?
+                // Object.keys(mpInstance._Store.configuredClickIds).forEach((clickId) => {
+                //     console.log('clickId', clickId);
+                //     transformedClickIDs[clickIdTransform[clickId]] = mpInstance._Store.configuredClickIds[clickId];
+                // });
+
+                const transformedClickIDs = mpInstance._CapturedIntegrations.getClickIdsAsCustomFlags();
+
+                console.log('transformed click ids', transformedClickIDs);
+
+                const customFlags = {...transformedClickIDs, ...event.customFlags};
+
+                console.log('updated custom flags', customFlags);
+
                 eventObject = {
                     // This is an artifact from v2 events where SessionStart/End and AST event
                     //  names are numbers (1, 2, or 10), but going forward with v3, these lifecycle
@@ -336,7 +362,7 @@ export default function ServerModel(
                         event.sourceMessageId ||
                         mpInstance._Helpers.generateUniqueId(),
                     EventDataType: event.messageType,
-                    CustomFlags: event.customFlags || {},
+                    CustomFlags: customFlags,
                     UserAttributeChanges: event.userAttributeChanges,
                     UserIdentityChanges: event.userIdentityChanges,
                 };
