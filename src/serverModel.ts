@@ -323,9 +323,7 @@ export default function ServerModel(
             } else {
                 let customFlags: SDKEventCustomFlags = {...event.customFlags};
 
-                // FIXME: In our testing framework, there is a case where `createEventObject` is called
-                // before the Web SDK is initialized by the BatchValidator. This should be refactored or
-                // decoupled.
+                // https://go.mparticle.com/work/SQDSDKS-5053
                 if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
                     const transformedClickIDs = mpInstance._CapturedIntegrations.getClickIdsAsCustomFlags();
                     customFlags = {...transformedClickIDs, ...customFlags};
