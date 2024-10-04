@@ -125,6 +125,7 @@ describe('feature-flags', function() {
             deleteAllCookies();
             sinon.restore(); // Restore all stubs and spies
 
+            deleteAllCookies();
         });
 
         it('should capture click ids when feature flag is true', () => {

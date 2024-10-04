@@ -1,4 +1,4 @@
-import IntegrationCapture from "../../src/integrationCapture";
+import IntegrationCapture, { facebookClickIdProcessor } from "../../src/integrationCapture";
 import { deleteAllCookies } from "./utils";
 
 describe('Integration Capture', () => {
@@ -10,6 +10,25 @@ describe('Integration Capture', () => {
     });
 
     describe('#capture', () => {
+        const originalLocation = window.location;
+
+        beforeEach(() => {
+            delete (window as any).location;
+            (window as any).location = {
+                href: '',
+                search: '',
+                assign: jest.fn(),
+                replace: jest.fn(),
+                reload: jest.fn(),
+            };
+
+            deleteAllCookies();
+        });
+
+        afterEach(() => {
+            window.location = originalLocation;
+        });
+
         it('should call captureCookies and captureQueryParams', () => {
             const integrationCapture = new IntegrationCapture();
             integrationCapture.captureCookies = jest.fn();
@@ -19,6 +38,67 @@ describe('Integration Capture', () => {
 
             expect(integrationCapture.captureCookies).toHaveBeenCalled();
             expect(integrationCapture.captureQueryParams).toHaveBeenCalled();
+        });
+
+        it('should prioritize fbclid over _fbc', () => {
+
+            const url = new URL("https://www.example.com/?fbclid=12345&");
+
+            window.document.cookie = '_cookie1=1234';
+            window.document.cookie = '_cookie2=39895811.9165333198';
+            window.document.cookie = '_fbc=654321';
+            window.document.cookie = 'baz=qux';
+
+            window.location.href = url.href;
+            window.location.search = url.search;
+
+            const integrationCapture = new IntegrationCapture();
+            integrationCapture.capture();
+
+            expect(integrationCapture.clickIds).toEqual({
+               fbclid: '12345', 
+            });
+        });
+
+        it('should format fbclid correctly', () => {
+            const url = new URL("https://www.example.com/?fbclid=fb.1.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890");
+
+            window.document.cookie = '_cookie1=1234';
+            window.document.cookie = '_cookie2=39895811.9165333198';
+            window.document.cookie = '_fbp=54321';
+            window.document.cookie = 'baz=qux';
+
+            window.location.href = url.href;
+            window.location.search = url.search;
+
+            const integrationCapture = new IntegrationCapture();
+            integrationCapture.capture();
+
+            expect(integrationCapture.clickIds).toEqual({
+                fbclid: 'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
+                '_fbp': '54321',
+            });
+        });
+
+        it('should format _fbc correctly', () => {
+            const url = new URL("https://www.example.com/?foo=bar");
+
+            window.document.cookie = '_cookie1=1234';
+            window.document.cookie = '_cookie2=39895811.9165333198';
+            window.document.cookie = '_fbp=54321';
+            window.document.cookie = '_fbc=fb.1.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+            window.document.cookie = 'baz=qux';
+
+            window.location.href = url.href;
+            window.location.search = url.search;
+
+            const integrationCapture = new IntegrationCapture();
+            integrationCapture.capture();
+
+            expect(integrationCapture.clickIds).toEqual({
+                '_fbc': 'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890',
+                '_fbp': '54321',
+            });
         });
     });
 
@@ -41,17 +121,16 @@ describe('Integration Capture', () => {
         });
 
         it('should capture specific query params into clickIds object', () => {
-            const url = new URL("https://www.example.com/?ttclid=12345&fbclid=67890&_fbp=54321");
+            const url = new URL("https://www.example.com/?ttclid=12345&fbclid=67890&gclid=54321");
 
             window.location.href = url.href;
             window.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureQueryParams();
+            const clickIds = integrationCapture.captureQueryParams();
 
-            expect(integrationCapture.clickIds).toEqual({
+            expect(clickIds).toEqual({
                 fbclid: '67890',
-                '_fbp': '54321',
             });
         });
 
@@ -62,9 +141,9 @@ describe('Integration Capture', () => {
             window.location.search = url.search;
 
             const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureQueryParams();
+            const clickIds = integrationCapture.captureQueryParams();
 
-            expect(integrationCapture.clickIds).toEqual({});
+            expect(clickIds).toEqual({});
         });
     });
 
@@ -80,9 +159,9 @@ describe('Integration Capture', () => {
             window.document.cookie = 'baz=qux';
 
             const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureCookies();
+            const clickIds = integrationCapture.captureCookies();
 
-            expect(integrationCapture.clickIds).toEqual({
+            expect(clickIds).toEqual({
                 '_fbp': '54321',
             });
         });
@@ -93,9 +172,9 @@ describe('Integration Capture', () => {
             window.document.cookie = 'baz=qux';
 
             const integrationCapture = new IntegrationCapture();
-            integrationCapture.captureCookies();
+            const clickIds = integrationCapture.captureCookies();
 
-            expect(integrationCapture.clickIds).toEqual({});
+            expect(clickIds).toEqual({});
         });
     });
 
@@ -120,6 +199,37 @@ describe('Integration Capture', () => {
             const customFlags = integrationCapture.getClickIdsAsCustomFlags();
 
             expect(customFlags).toEqual({});
+        });
+    });
+
+    describe('#facebookClickIdProcessor', () => {
+        it('returns a formatted clickId if it is passed in as a full click id', () => {
+            const fullClickId = 'fb.1.1554763741205.AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+
+            const expectedClickId = 'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+
+            expect(facebookClickIdProcessor(fullClickId)).toEqual(expectedClickId);
+        });
+
+        it('returns a formatted clickId if it is passed in as a partial click id', () => {
+            const partialClickId = 'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+
+            const expectedClickId = 'AbCdEfGhIjKlMnOpQrStUvWxYz1234567890';
+
+            expect(facebookClickIdProcessor(partialClickId)).toEqual(expectedClickId);
+        });
+
+        it('returns an empty string if the clickId is not valid', () => {
+            const expectedClickId = '';
+
+            expect(facebookClickIdProcessor(null)).toEqual(expectedClickId);
+            expect(facebookClickIdProcessor(undefined)).toEqual(expectedClickId);
+            expect(facebookClickIdProcessor('')).toEqual(expectedClickId);
+
+            // @ts-ignore
+            expect(facebookClickIdProcessor(NaN)).toEqual(expectedClickId);
+            // @ts-ignore
+            expect(facebookClickIdProcessor(0)).toEqual(expectedClickId);
         });
     });
 });
