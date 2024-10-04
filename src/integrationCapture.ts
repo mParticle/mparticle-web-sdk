@@ -1,41 +1,58 @@
-import { SDKEventCustomFlags } from "./sdkRuntimeModels";
-import { Dictionary } from "./utils";
+import { SDKEventCustomFlags } from './sdkRuntimeModels';
+import { Dictionary, queryStringParser, getCookies, getHref } from './utils';
 
-const integrationIdMapping = {
-    'ttclid': 'TikTok.ClickId',
-    'fbclid': 'Facebook.ClickId',
-    'fbp': 'FaceBook.BrowserId',
+const integrationIdMapping: Dictionary<string> = {
+    fbclid: 'Facebook.ClickId',
+    _fbp: 'FaceBook.BrowserId',
 };
 
-// TODO: Do we need to put this in the store?
 export default class IntegrationCapture {
-    public clickIds: Dictionary<string> = {};
+    public clickIds: Dictionary<string>;
 
-    public captureQueryParams(): void {
-        // TODO: Make this a utility with a fallback
-        const urlParams = new URLSearchParams(window.location.search);
-
-        Object.keys(integrationIdMapping).forEach((key) => {
-            const value = urlParams.get(key);
-            if (value) {
-                this.clickIds[key] = value;
-            }
-        });
-
-        console.log('captured params', this.clickIds);
+    /**
+     * Captures Integration Ids from cookies and query params and stores them in clickIds object
+     */
+    public capture(): void {
+        this.captureCookies();
+        this.captureQueryParams();
     }
 
+    /**
+     * Captures cookies based on the integration ID mapping.
+     */
+    public captureCookies(): void {
+        const cookies = getCookies(Object.keys(integrationIdMapping));
+        this.clickIds = { ...this.clickIds, ...cookies };
+    }
+
+    /**
+     * Captures query parameters based on the integration ID mapping.
+     */
+    public captureQueryParams(): void {
+        const parsedQueryParams = queryStringParser(
+            getHref(),
+            Object.keys(integrationIdMapping)
+        );
+        this.clickIds = { ...this.clickIds, ...parsedQueryParams };
+    }
+
+    /**
+     * Converts captured click IDs to custom flags for SDK events.
+     * @returns {SDKEventCustomFlags} The custom flags.
+     */
     public getClickIdsAsCustomFlags(): SDKEventCustomFlags {
-        let customFlags: SDKEventCustomFlags = {};
+        const customFlags: SDKEventCustomFlags = {};
 
-        debugger;
-
-        for(const [key, value] of Object.entries(this.clickIds)) {
-            customFlags[integrationIdMapping[key]] = value;
+        if (!this.clickIds) {
+            return customFlags;
         }
 
-        console.log('returning custom flags', customFlags);
-
+        for (const [key, value] of Object.entries(this.clickIds)) {
+            const mappedKey = integrationIdMapping[key];
+            if (mappedKey) {
+                customFlags[mappedKey] = value;
+            }
+        }
         return customFlags;
     }
 }
