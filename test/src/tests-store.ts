@@ -1239,6 +1239,7 @@ describe('Store', () => {
                     directURLRouting: 'False',
                     cacheIdentity: 'False',
                     audienceAPI: 'False',
+                    captureIntegrationSpecificIds: 'False',
                 },
             };
 
@@ -1256,6 +1257,7 @@ describe('Store', () => {
                 directURLRouting: false,
                 cacheIdentity: false,
                 audienceAPI: false,
+                captureIntegrationSpecificIds: false,
             };
 
             expect(store.SDKConfig.flags).to.deep.equal(expectedResult);
@@ -1456,6 +1458,7 @@ describe('Store', () => {
                 directURLRouting: false,
                 cacheIdentity: false,
                 audienceAPI: false,
+                captureIntegrationSpecificIds: false,
             };
 
             expect(flags).to.deep.equal(expectedResult);
@@ -1469,6 +1472,7 @@ describe('Store', () => {
                 directURLRouting: 'True',
                 cacheIdentity: 'True',
                 audienceAPI: 'True',
+                captureIntegrationSpecificIds: 'True',
             };
 
             const flags = processFlags(
@@ -1482,6 +1486,7 @@ describe('Store', () => {
                 directURLRouting: true,
                 cacheIdentity: true,
                 audienceAPI: true,
+                captureIntegrationSpecificIds: true,
             };
 
             expect(flags).to.deep.equal(expectedResult);

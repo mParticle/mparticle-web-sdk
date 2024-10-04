@@ -321,14 +321,14 @@ export default function ServerModel(
             if (event.hasOwnProperty('toEventAPIObject')) {
                 eventObject = event.toEventAPIObject();
             } else {
-                let customFlags: SDKEventCustomFlags = {};
+                let customFlags: SDKEventCustomFlags = {...event.customFlags};
 
                 // FIXME: In our testing framework, there is a case where `createEventObject` is called
                 // before the Web SDK is initialized by the BatchValidator. This should be refactored or
                 // decoupled.
                 if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
                     const transformedClickIDs = mpInstance._CapturedIntegrations.getClickIdsAsCustomFlags();
-                    customFlags = {...transformedClickIDs, ...event.customFlags};
+                    customFlags = {...transformedClickIDs, ...customFlags};
                 }
 
                 eventObject = {
