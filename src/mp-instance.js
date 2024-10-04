@@ -1376,33 +1376,6 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
     if (mpInstance._Store.isFirstRun) {
         mpInstance._Store.isFirstRun = false;
     }
-
-    // TODO: CAPI CHECKLIST
-    // Check for capi setting
-    // Parse URL for Click ID
-    // Place in store
-    // On event creation, add capi data to event
-
-    // *** Quick solution
-    // const urlParams = new URLSearchParams(window.location.search);
-    // const fbClickId = urlParams.get('fbclid');
-    // const tikTokId = urlParams.get('ttclid');
-    // console.warn('fbClickId', fbClickId);
-
-    // if (fbClickId) {
-    //     mpInstance._Store.configuredClickIds['fbclid'] = fbClickId;
-    // }
-
-    // if (tikTokId) {
-    //     mpInstance._Store.configuredClickIds['ttclid'] = tikTokId;
-    // }
-    // *** End Quick Solution
-
-    // *** Long term solution
-
-    mpInstance._CapturedIntegrations.captureQueryParams();
-
-    // *** End Long term solution
 }
 
 function createKitBlocker(config, mpInstance) {
