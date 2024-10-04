@@ -34,7 +34,7 @@ describe('Integration Capture', () => {
 
 
         // Mock the query params capture function because we cannot mock window.location.href
-        sinon.stub(window.mParticle.getInstance()._CapturedIntegrations, 'getQueryParams').returns({
+        sinon.stub(window.mParticle.getInstance()._IntegrationCapture, 'getQueryParams').returns({
             fbclid: '1234',
         });
 

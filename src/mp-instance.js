@@ -78,7 +78,7 @@ export default function mParticleInstance(instanceName) {
         integrationDelays: {},
         forwarderConstructors: [],
     };
-    this._CapturedIntegrations = new IntegrationCapture();
+    this._IntegrationCapture = new IntegrationCapture();
 
     // required for forwarders once they reference the mparticle instance
     this.IdentityType = Types.IdentityType;
@@ -1339,7 +1339,7 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         }
 
         if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
-            mpInstance._CapturedIntegrations.capture();
+            mpInstance._IntegrationCapture.capture();
         }
 
         mpInstance._Forwarders.processForwarders(

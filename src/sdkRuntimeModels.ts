@@ -151,7 +151,7 @@ interface IEvents {
 
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
-    _CapturedIntegrations: IntegrationCapture;
+    _IntegrationCapture: IntegrationCapture;
     IdentityType: IIdentityType;
     _Identity: IIdentity;
     Identity: SDKIdentityApi;
