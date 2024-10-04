@@ -232,6 +232,78 @@ const mergeObjects = <T extends object>(...objects: T[]): T => {
 const moveElementToEnd = <T>(array: T[], index: number): T[] =>
     array.slice(0, index).concat(array.slice(index + 1), array[index]);
 
+const queryStringParser = (url: string, keys: string[]): Dictionary<string> => {
+    let urlParams;
+    let results = {};
+
+    if (!url) return results;
+
+    if (typeof URL !== 'undefined' && typeof URLSearchParams !== 'undefined') {
+        const urlObject = new URL(url);
+        urlParams = new URLSearchParams(urlObject.search);
+    } else {
+        console.log('use fallback')
+        urlParams = queryStringParserFallback(url);
+    }
+
+    keys.forEach((key) => {
+        const value = urlParams.get(key);
+        if (value) {
+            results[key] = value;
+        }
+    });
+
+    return results;
+};
+
+interface URLSearchParamsFallback {
+    get: (key: string) => string | null;
+}
+
+const queryStringParserFallback = (url: string): URLSearchParamsFallback=> {
+    var params = {};
+    var queryString = url.split('?')[1];
+    var paris = queryString.split('&');
+
+    paris.forEach((pair) => {
+        var [key, value] = pair.split('=');
+        if (key && value) {
+            params[key] = decodeURIComponent(value || '');
+        };
+    });
+
+    return {
+        get: function(key: string) {
+            return params[key];
+        }
+    };
+};
+
+// Get cookies as a dictionary
+const getCookies = (keys?: string[]): Dictionary<string> => {
+    // TODO: Make a fallback
+    console.log('document.cookie', document.cookie);
+    const cookies = window.document.cookie.split(';').map((cookie) => cookie.trim());
+    const results = {};
+
+    console.log('cookies', cookies);
+
+    for (const cookie of cookies) {
+        const [key, value] = cookie.split('=');
+        if (isEmpty(keys)) {
+            results[key] = value;
+        } else if (keys.includes(key)) {
+            results[key] = value;
+        }
+    }
+
+    return results;
+};
+
+const getHref = (): string => {
+    return typeof window !== "undefined" && window.location ? window.location.href : '';
+}
+
 export {
     createCookieString,
     revertCookieString,
@@ -262,4 +334,7 @@ export {
     isValidCustomFlagProperty,
     mergeObjects,
     moveElementToEnd,
+    queryStringParser,
+    getCookies,
+    getHref,
 };
