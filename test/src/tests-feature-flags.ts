@@ -1,6 +1,7 @@
 import Constants from '../../src/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import sinon from 'sinon';
+import { expect } from 'chai';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, apiKey,
     testMPID,
@@ -13,6 +14,14 @@ declare global {
     interface Window {
         mParticle: MParticleWebSDK;
     }
+}
+
+function deleteAllCookies() {
+    document.cookie.split(';').forEach(cookie => {
+        const eqPos = cookie.indexOf('=');
+        const name = eqPos > -1 ? cookie.substring(0, eqPos) : cookie;
+        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    });
 }
 
 describe('feature-flags', function() {
@@ -100,6 +109,68 @@ describe('feature-flags', function() {
                     console.log(result);   
             });
             bond.called.should.eql(false);
+        });
+    });
+
+    describe('capture integration specific ids', () => {
+        beforeEach(() => {
+            fetchMock.post(urls.events, 200);
+            mockServer = sinon.createFakeServer();
+            mockServer.respondImmediately = true;
+
+            window.document.cookie = '_cookie1=1234';
+            window.document.cookie = '_cookie2=39895811.9165333198';
+            window.document.cookie = 'foo=bar';
+            window.document.cookie = '_fbp=54321';
+            window.document.cookie = 'baz=qux';
+        });
+
+        afterEach(() => {
+            fetchMock.restore();
+            deleteAllCookies();
+            sinon.restore(); // Restore all stubs and spies
+
+        });
+
+        it('should capture click ids when feature flag is true', () => {
+            window.mParticle.config.flags = {
+                captureIntegrationSpecificIds: 'True'
+            };
+            window.mParticle._resetForTests(MPConfig);
+
+            sinon.stub(window.mParticle.getInstance()._CapturedIntegrations, 'getQueryParams').returns({
+                fbclid: '1234',
+            });
+
+            const captureSpy = sinon.spy(window.mParticle.getInstance()._CapturedIntegrations, 'capture');
+            const clickIdSpy = sinon.spy(window.mParticle.getInstance()._CapturedIntegrations, 'getClickIdsAsCustomFlags');
+
+            // initialize mParticle with feature flag 
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            expect(window.mParticle.getInstance()._CapturedIntegrations.clickIds).to.deep.equal({
+                fbclid: '1234',
+                '_fbp': '54321',
+            });
+            expect(captureSpy.called, 'capture()').to.equal(true);
+            expect(clickIdSpy.called, 'getClickIdsAsCustomFlags').to.equal(true);
+        });
+
+        it('should NOT capture click ids when feature flag is false', () => {
+            window.mParticle.config.flags = {
+                captureIntegrationSpecificIds: 'False'
+            };
+            window.mParticle._resetForTests(MPConfig);
+
+            const captureSpy = sinon.spy(window.mParticle.getInstance()._CapturedIntegrations, 'capture');
+            const clickIdSpy = sinon.spy(window.mParticle.getInstance()._CapturedIntegrations, 'getClickIdsAsCustomFlags');
+
+            // initialize mParticle with feature flag 
+            window.mParticle.init(apiKey, window.mParticle.config);
+
+            expect(window.mParticle.getInstance()._CapturedIntegrations.clickIds).not.be.ok;
+            expect(captureSpy.called, 'capture()').to.equal(false);
+            expect(clickIdSpy.called, 'getClickIdsAsCustomFlags').to.equal(false);
         });
     });
 });

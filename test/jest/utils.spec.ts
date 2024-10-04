@@ -19,12 +19,9 @@ describe('Utils', () => {
 
         afterEach(() => {
             deleteAllCookies();
-            console.log('window.document.cookie after', window.document.cookie);
         });
 
         it('returns all cookies as an object', () => {
-
-            console.log('window.document.cookie', window.document.cookie);
 
             const expectedResult = {
                 foo: 'bar',
@@ -43,6 +40,25 @@ describe('Utils', () => {
             };
 
             expect(getCookies(['foo', 'baz'])).toEqual(expectedResult);
+        });
+
+        it('returns an empty object if no keys are found', () => {
+            expect(getCookies(['quux', 'corge'])).toEqual({});
+        });
+
+        it('returns an empty object if there are no cookies', () => {
+            deleteAllCookies();
+
+            expect(getCookies()).toEqual({});
+        });
+
+        it('returns an empty object if window is undefined', () => {
+            const originalWindow = global.window;
+            delete global.window;
+
+            expect(getCookies()).toEqual({});
+
+            global.window = originalWindow
         });
     });
 

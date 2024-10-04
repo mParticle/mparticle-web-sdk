@@ -242,11 +242,10 @@ const queryStringParser = (url: string, keys: string[]): Dictionary<string> => {
         const urlObject = new URL(url);
         urlParams = new URLSearchParams(urlObject.search);
     } else {
-        console.log('use fallback')
         urlParams = queryStringParserFallback(url);
     }
 
-    keys.forEach((key) => {
+    keys.forEach(key => {
         const value = urlParams.get(key);
         if (value) {
             results[key] = value;
@@ -260,49 +259,59 @@ interface URLSearchParamsFallback {
     get: (key: string) => string | null;
 }
 
-const queryStringParserFallback = (url: string): URLSearchParamsFallback=> {
+const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
     var params = {};
     var queryString = url.split('?')[1];
-    var paris = queryString.split('&');
+    var pairs = queryString.split('&');
 
-    paris.forEach((pair) => {
+    pairs.forEach(pair => {
         var [key, value] = pair.split('=');
         if (key && value) {
             params[key] = decodeURIComponent(value || '');
-        };
+        }
     });
 
     return {
         get: function(key: string) {
             return params[key];
-        }
+        },
     };
 };
 
 // Get cookies as a dictionary
 const getCookies = (keys?: string[]): Dictionary<string> => {
-    // TODO: Make a fallback
-    console.log('document.cookie', document.cookie);
-    const cookies = window.document.cookie.split(';').map((cookie) => cookie.trim());
-    const results = {};
+    // Helper function to parse cookies from document.cookie
+    const parseCookies = (): string[] => {
+        if (typeof window === 'undefined') {
+            return [];
+        }
+        return window.document.cookie.split(';').map(cookie => cookie.trim());
+    };
 
-    console.log('cookies', cookies);
-
+    // Helper function to filter cookies by keys
+    const filterCookies = (cookies: string[], keys?: string[]): Dictionary<string> => {
+        const results: Dictionary<string> = {};
     for (const cookie of cookies) {
         const [key, value] = cookie.split('=');
-        if (isEmpty(keys)) {
-            results[key] = value;
-        } else if (keys.includes(key)) {
+            if (!keys || keys.includes(key)) {
             results[key] = value;
         }
     }
-
     return results;
+    };
+
+    // Parse cookies from document.cookie
+    const cookies = parseCookies();
+
+    // Filter cookies by keys if provided
+    return filterCookies(cookies, keys);
 };
 
 const getHref = (): string => {
-    return typeof window !== "undefined" && window.location ? window.location.href : '';
-}
+    return typeof window !== 'undefined' && window.location
+        ? window.location.href
+        : '';
+};
 
 export {
     createCookieString,

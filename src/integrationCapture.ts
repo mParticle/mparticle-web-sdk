@@ -3,7 +3,7 @@ import { Dictionary, queryStringParser, getCookies, getHref } from './utils';
 
 const integrationIdMapping: Dictionary<string> = {
     fbclid: 'Facebook.ClickId',
-    _fbp: 'FaceBook.BrowserId',
+    _fbp: 'Facebook.BrowserId',
 };
 
 export default class IntegrationCapture {
@@ -29,11 +29,16 @@ export default class IntegrationCapture {
      * Captures query parameters based on the integration ID mapping.
      */
     public captureQueryParams(): void {
-        const parsedQueryParams = queryStringParser(
-            getHref(),
-            Object.keys(integrationIdMapping)
-        );
+        const parsedQueryParams = this.getQueryParams();
         this.clickIds = { ...this.clickIds, ...parsedQueryParams };
+    }
+
+    /**
+     * Gets the query parameters based on the integration ID mapping.
+     * @returns {Dictionary<string>} The query parameters.
+     */
+    public getQueryParams(): Dictionary<string> {
+        return queryStringParser(getHref(), Object.keys(integrationIdMapping));
     }
 
     /**

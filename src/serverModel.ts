@@ -8,6 +8,7 @@ import {
     BaseEvent,
     MParticleWebSDK,
     SDKEvent,
+    SDKEventCustomFlags,
     SDKGeoLocation,
     SDKProduct,
 } from './sdkRuntimeModels';
@@ -320,31 +321,15 @@ export default function ServerModel(
             if (event.hasOwnProperty('toEventAPIObject')) {
                 eventObject = event.toEventAPIObject();
             } else {
+                let customFlags: SDKEventCustomFlags = {};
 
-                // TODO: Add click ids to custom flags
-                // console.log('configured click ids', mpInstance._Store.configuredClickIds);
-
-                // const clickIdTransform = {
-                //     'ttclid': 'TikTok.ClickId',
-                //     'fbclid': 'Facebook.ClickId',
-                //     'fbp': 'FaceBook.BrowserId',
-                // };
-
-                // let transformedClickIDs = {};
-
-                // // TODO: Maybe use Object.entries?
-                // Object.keys(mpInstance._Store.configuredClickIds).forEach((clickId) => {
-                //     console.log('clickId', clickId);
-                //     transformedClickIDs[clickIdTransform[clickId]] = mpInstance._Store.configuredClickIds[clickId];
-                // });
-
-                const transformedClickIDs = mpInstance._CapturedIntegrations.getClickIdsAsCustomFlags();
-
-                console.log('transformed click ids', transformedClickIDs);
-
-                const customFlags = {...transformedClickIDs, ...event.customFlags};
-
-                console.log('updated custom flags', customFlags);
+                // FIXME: In our testing framework, there is a case where `createEventObject` is called
+                // before the Web SDK is initialized by the BatchValidator. This should be refactored or
+                // decoupled.
+                if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+                    const transformedClickIDs = mpInstance._CapturedIntegrations.getClickIdsAsCustomFlags();
+                    customFlags = {...transformedClickIDs, ...event.customFlags};
+                }
 
                 eventObject = {
                     // This is an artifact from v2 events where SessionStart/End and AST event

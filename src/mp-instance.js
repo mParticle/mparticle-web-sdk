@@ -42,7 +42,7 @@ import { removeExpiredIdentityCacheDates } from './identity-utils';
 import IntegrationCapture from './integrationCapture';
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
-const { ReportBatching } = FeatureFlags;
+const { ReportBatching, CaptureIntegrationSpecificIds } = FeatureFlags;
 const { StartingInitialization } = Messages.InformationMessages;
 
 /**
@@ -1336,6 +1336,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
         if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
+        }
+
+        if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
+            mpInstance._CapturedIntegrations.capture();
         }
 
         mpInstance._Forwarders.processForwarders(

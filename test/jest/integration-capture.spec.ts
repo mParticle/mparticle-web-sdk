@@ -118,7 +118,7 @@ describe('Integration Capture', () => {
 
             expect(customFlags).toEqual({
                 'Facebook.ClickId': '67890',
-                'FaceBook.BrowserId': '54321',
+                'Facebook.BrowserId': '54321',
             });
         });
 

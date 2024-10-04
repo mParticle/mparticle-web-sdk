@@ -710,6 +710,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
         DirectUrlRouting,
         CacheIdentity,
         AudienceAPI,
+        CaptureIntegrationSpecificIds,
     } = Constants.FeatureFlags;
 
     if (!config.flags) {
@@ -727,6 +728,7 @@ export function processFlags(config: SDKInitConfig): IFeatureFlags {
     flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
     flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
     flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
+    flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
 
     return flags;
 }
