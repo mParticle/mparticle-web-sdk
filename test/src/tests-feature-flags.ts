@@ -124,7 +124,6 @@ describe('feature-flags', function() {
             fetchMock.restore();
             deleteAllCookies();
             sinon.restore(); // Restore all stubs and spies
-
             deleteAllCookies();
         });
 
@@ -144,8 +143,11 @@ describe('feature-flags', function() {
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
 
+            const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+
+            expect(initialTimestamp).to.be.a('number');
             expect(window.mParticle.getInstance()._IntegrationCapture.clickIds).to.deep.equal({
-                fbclid: '1234',
+                fbclid: `fb.1.${initialTimestamp}.1234`,
                 '_fbp': '54321',
             });
             expect(captureSpy.called, 'capture()').to.equal(true);

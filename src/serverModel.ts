@@ -325,6 +325,7 @@ export default function ServerModel(
 
                 // https://go.mparticle.com/work/SQDSDKS-5053
                 if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+                    mpInstance._IntegrationCapture.capture();
                     const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
                     customFlags = {...transformedClickIDs, ...customFlags};
                 }

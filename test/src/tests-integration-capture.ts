@@ -58,11 +58,13 @@ describe('Integration Capture', () => {
 
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
 
+        const initialTimestamp = window.mParticle.getInstance()._IntegrationCapture.initialTimestamp;
+
         expect(testEvent).to.have.property('data');
         expect(testEvent.data).to.have.property('event_name', 'Test Event');
         expect(testEvent.data).to.have.property('custom_flags');
         expect(testEvent.data.custom_flags).to.deep.equal({
-            'Facebook.ClickId': '1234',
+            'Facebook.ClickId': `fb.1.${initialTimestamp}.1234`,
             'Facebook.BrowserId': '54321',
         });
 

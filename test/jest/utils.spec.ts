@@ -16,7 +16,6 @@ describe('Utils', () => {
         });
 
         it('returns all cookies as an object', () => {
-
             const expectedResult = {
                 foo: 'bar',
                 '_cookie1': '1234',
@@ -56,31 +55,49 @@ describe('Utils', () => {
         });
     });
 
-    describe('queryyStringParser', () => {
+    describe('queryStringParser', () => {
         const url = 'https://www.example.com?q=z&foo=bar&baz=qux&narf=poit';
 
-        it('returns an object with the query string parameters that match an array of keys', () => {
-            const keys = ['foo', 'narf'];
+        describe('with URLSearchParams', () => {
+            it('returns an object with the query string parameters that match an array of keys', () => {
+                const keys = ['foo', 'narf'];
+    
+                const expectedResult = {
+                    foo: 'bar',
+                    narf: 'poit',
+                };
+    
+                expect(queryStringParser(url, keys)).toEqual(expectedResult);
+            });
+    
+            it('returns an empty object if no keys are found', () => {
+                const keys = ['quux', 'corge'];
+    
+                expect(queryStringParser(url, keys)).toEqual({});
+            });
+    
+            it('returns an empty object if the URL is empty', () => {
+                const keys = ['foo', 'narf'];
+    
+                expect(queryStringParser('', keys)).toEqual({});
+            });
+    
+            it('returns an empty object if there are no query parameters', () => {
+                expect(queryStringParser('https://www.example.com', ['foo', 'narf'])).toEqual({});
+            });
 
-            const expectedResult = {
-                foo: 'bar',
-                narf: 'poit',
-            };
+            it('returns an object with all the query string parameters if no keys are passed', () => {
+                const expectedResult = {
+                    q: 'z',
+                    foo: 'bar',
+                    baz: 'qux',
+                    narf: 'poit',
+                };
 
-            expect(queryStringParser(url, keys)).toEqual(expectedResult);
+                expect(queryStringParser(url)).toEqual(expectedResult);
+            });
         });
 
-        it('returns an empty object if no keys are found', () => {
-            const keys = ['quux', 'corge'];
-
-            expect(queryStringParser(url, keys)).toEqual({});
-        });
-
-        it('returns an empty object if the URL is empty', () => {
-            const keys = ['foo', 'narf'];
-
-            expect(queryStringParser('', keys)).toEqual({});
-        });
 
         describe('without URLSearchParams', () => {
             beforeEach(() => {
@@ -108,6 +125,21 @@ describe('Utils', () => {
                 const keys = ['foo', 'narf'];
     
                 expect(queryStringParser('', keys)).toEqual({});
+            });
+
+            it('returns an empty object if there are no query parameters', () => {
+                expect(queryStringParser('https://www.example.com', ['foo', 'narf'])).toEqual({});
+            });
+
+            it('returns an object with all the query string parameters if no keys are passed', () => {
+                const expectedResult = {
+                    q: 'z',
+                    foo: 'bar',
+                    baz: 'qux',
+                    narf: 'poit',
+                };
+
+                expect(queryStringParser(url, [])).toEqual(expectedResult);
             });
         });
     });

@@ -1,45 +1,80 @@
 import { SDKEventCustomFlags } from './sdkRuntimeModels';
-import { Dictionary, queryStringParser, getCookies, getHref } from './utils';
+import {
+    Dictionary,
+    queryStringParser,
+    getCookies,
+    getHref,
+    isEmpty,
+} from './utils';
 
+export interface IntegrationCaptureProcessorFunction {
+    (clickId: string, url: string, timestamp?: number): string;
+}
 
-export const facebookClickIdProcessor = (clickId: string): string => {
-    if (!clickId) {
+// Facebook Click ID has specific formatting rules
+// The formatted ClickID value must be of the form version.subdomainIndex.creationTime.<fbclid>, where:
+// - version is always this prefix: fb
+// - subdomainIndex is which domain the cookie is defined on ('com' = 0, 'example.com' = 1, 'www.example.com' = 2)
+// - creationTime is the UNIX time since epoch in milliseconds when the _fbc was stored. If you don't save the _fbc cookie, use the timestamp when you first observed or received this fbclid value
+// - <fbclid> is the value for the fbclid query parameter in the page URL.
+// https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc
+export const facebookClickIdProcessor: IntegrationCaptureProcessorFunction = (
+    clickId: string,
+    url: string,
+    timestamp?: number,
+): string => {
+    if (!clickId && !url) {
         return '';
     }
 
-    const clickIdParts = clickId.split('.');
-    if (clickIdParts.length === 4) {
-        return clickIdParts[3];
-    };
+    const urlPrefix = url?.split('//')
+    if (!urlPrefix) {
+        return '';
+    }
 
-    return clickId;
+    const urlParts = urlPrefix[1].split('/');
+    const hostParts = urlParts[0].split('.');
+    let subdomainIndex: number = 1;
+
+    // The rules for subdomainIndex are for parsing the domain portion
+    // of the URL for cookies, but in this case we are parsing the URL 
+    // itself, so we can ignore the use of 0 for 'com'
+    if (hostParts.length >= 3) {
+        subdomainIndex = 2;
+    }
+
+    // If timestamp is not provided, use the current time
+    const _timestamp = timestamp || Date.now();
+
+    return `fb.${subdomainIndex}.${_timestamp}.${clickId}`;
 };
-interface ProcessorFunction {
-    (clickId: string): string;
-}
 interface IntegrationIdMapping {
     [key: string]: {
-        mappingValue: string;
-        processor?: ProcessorFunction;
+        mappedKey: string;
+        processor?: IntegrationCaptureProcessorFunction;
     };
 }
 
 const integrationMapping: IntegrationIdMapping = {
     fbclid: {
-        mappingValue: 'Facebook.ClickId',
+        mappedKey: 'Facebook.ClickId',
         processor: facebookClickIdProcessor,
     },
     _fbp: {
-        mappingValue: 'Facebook.BrowserId',
+        mappedKey: 'Facebook.BrowserId',
     },
     _fbc: {
-        mappingValue: 'Facebook.ClickId',
-        processor: facebookClickIdProcessor,
+        mappedKey: 'Facebook.ClickId',
     },
 };
 
 export default class IntegrationCapture {
     public clickIds: Dictionary<string>;
+    public readonly initialTimestamp: number;
+
+    constructor() {
+        this.initialTimestamp = Date.now();
+    }
 
     /**
      * Captures Integration Ids from cookies and query params and stores them in clickIds object
@@ -48,8 +83,9 @@ export default class IntegrationCapture {
         const queryParams = this.captureQueryParams() || {};
         const cookies = this.captureCookies() || {};
 
+        // Exclude _fbc if fbclid is present
+        // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
         if (queryParams['fbclid'] && cookies['_fbc']) {
-            // Exclude fbclid if _fbc is present
             delete cookies['_fbc'];
         }
 
@@ -69,7 +105,7 @@ export default class IntegrationCapture {
      */
     public captureQueryParams(): Dictionary<string> {
         const queryParams = this.getQueryParams();
-        return this.applyProcessors(queryParams);
+        return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
     }
 
     /**
@@ -92,26 +128,26 @@ export default class IntegrationCapture {
         }
 
         for (const [key, value] of Object.entries(this.clickIds)) {
-            const mappedKey = integrationMapping[key]?.mappingValue;
-            if (mappedKey) {
+            const mappedKey = integrationMapping[key]?.mappedKey;
+            if (!isEmpty(mappedKey)) {
                 customFlags[mappedKey] = value;
             }
         }
         return customFlags;
     }
 
-    private applyProcessors(clickIds: Dictionary<string>): Dictionary<string> {
+    private applyProcessors(clickIds: Dictionary<string>, url?: string, timestamp?: number): Dictionary<string> {
         const processedClickIds: Dictionary<string> = {};
 
         for (const [key, value] of Object.entries(clickIds)) {
             const processor = integrationMapping[key]?.processor;
             if (processor) {
-                processedClickIds[key] = processor(value);
+                processedClickIds[key] = processor(value, url, timestamp);
             } else {
                 processedClickIds[key] = value;
             }
         }
 
         return processedClickIds;
-    };
+    }
 }

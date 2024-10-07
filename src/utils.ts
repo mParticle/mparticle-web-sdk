@@ -222,7 +222,7 @@ const isDataPlanSlug = (str: string): boolean => str === toDataPlanSlug(str);
 const isStringOrNumber = (value: any): boolean =>
     isString(value) || isNumber(value);
 
-const isEmpty = (value: Dictionary<any> | null | undefined): boolean =>
+const isEmpty = (value: Dictionary<any> | string | null | undefined): boolean =>
     value == null || !(Object.keys(value) || value).length;
 
 const mergeObjects = <T extends object>(...objects: T[]): T => {
@@ -232,9 +232,12 @@ const mergeObjects = <T extends object>(...objects: T[]): T => {
 const moveElementToEnd = <T>(array: T[], index: number): T[] =>
     array.slice(0, index).concat(array.slice(index + 1), array[index]);
 
-const queryStringParser = (url: string, keys: string[]): Dictionary<string> => {
-    let urlParams;
-    let results = {};
+const queryStringParser = (
+    url: string,
+    keys: string[] = []
+): Dictionary<string> => {
+    let urlParams: URLSearchParams | URLSearchParamsFallback;
+    let results: Dictionary<string> = {};
 
     if (!url) return results;
 
@@ -245,24 +248,31 @@ const queryStringParser = (url: string, keys: string[]): Dictionary<string> => {
         urlParams = queryStringParserFallback(url);
     }
 
-    keys.forEach(key => {
-        const value = urlParams.get(key);
-        if (value) {
+    if (isEmpty(keys)) {
+        urlParams.forEach((value, key) => {
             results[key] = value;
-        }
-    });
+        });
+    } else {
+        keys.forEach(key => {
+            const value = urlParams.get(key);
+            if (value) {
+                results[key] = value;
+            }
+        });
+    }
 
     return results;
 };
 
 interface URLSearchParamsFallback {
     get: (key: string) => string | null;
+    forEach: (callback: (value: string, key: string) => void) => void;
 }
 
 const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
-    var params = {};
-    var queryString = url.split('?')[1];
-    var pairs = queryString.split('&');
+    let params: Dictionary<string> = {};
+    const queryString = url.split('?')[1] || '';
+    const pairs = queryString.split('&');
 
     pairs.forEach(pair => {
         var [key, value] = pair.split('=');
@@ -274,6 +284,13 @@ const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
     return {
         get: function(key: string) {
             return params[key];
+        },
+        forEach: function(callback: (value: string, key: string) => void) {
+            for (var key in params) {
+                if (params.hasOwnProperty(key)) {
+                    callback(params[key], key);
+                }
+            }
         },
     };
 };
@@ -289,22 +306,25 @@ const getCookies = (keys?: string[]): Dictionary<string> => {
     };
 
     // Helper function to filter cookies by keys
-    const filterCookies = (cookies: string[], keys?: string[]): Dictionary<string> => {
+    const filterCookies = (
+        cookies: string[],
+        keys?: string[]
+    ): Dictionary<string> => {
         const results: Dictionary<string> = {};
-    for (const cookie of cookies) {
-        const [key, value] = cookie.split('=');
+        for (const cookie of cookies) {
+            const [key, value] = cookie.split('=');
             if (!keys || keys.includes(key)) {
-            results[key] = value;
+                results[key] = value;
+            }
         }
-    }
-    return results;
+        return results;
     };
 
     // Parse cookies from document.cookie
-    const cookies = parseCookies();
+    const parsedCookies: string[] = parseCookies();
 
     // Filter cookies by keys if provided
-    return filterCookies(cookies, keys);
+    return filterCookies(parsedCookies, keys);
 };
 
 const getHref = (): string => {
