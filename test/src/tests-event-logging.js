@@ -1270,4 +1270,71 @@ describe('event logging', function() {
 
         done();
     });
+
+    it('should use a default batch timestamp', function(done) {
+        const now = new Date().getTime();
+
+        window.mParticle.logEvent(
+            'Test Standard Upload',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' },
+            {},
+            {
+                batchTimestampUnixtimeMsOverride: undefined,
+            }
+        );
+
+        const uploadEventBatch = findBatch(
+            fetchMock.calls(),
+            'Test Standard Upload'
+        );
+
+        uploadEventBatch.should.have.property('timestamp_unixtime_ms').greaterThanOrEqual(now);
+
+        done();
+    });
+
+    it('should allow overriding the batch event timestamp with a value', function(done) {
+        const oneDayAgo = new Date().getTime() - (24 * 3600 * 1000);
+
+        window.mParticle.logEvent(
+            'Test Standard Upload',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' },
+            {},
+            {
+                batchTimestampUnixtimeMsOverride: oneDayAgo,
+            }
+        );
+
+        const uploadEventBatch = findBatch(
+            fetchMock.calls(),
+            'Test Standard Upload'
+        );
+
+        uploadEventBatch.should.have.property('timestamp_unixtime_ms', oneDayAgo);
+
+        done();
+    });
+
+    it('should allow overriding the batch event timestamp with null', function(done) {
+        window.mParticle.logEvent(
+            'Test Standard Upload',
+            mParticle.EventType.Navigation,
+            { mykey: 'myvalue' },
+            {},
+            {
+                batchTimestampUnixtimeMsOverride: null,
+            }
+        );
+
+        const uploadEventBatch = findBatch(
+            fetchMock.calls(),
+            'Test Standard Upload'
+        );
+
+        uploadEventBatch.should.have.property('timestamp_unixtime_ms', null);
+
+        done();
+    });
 });

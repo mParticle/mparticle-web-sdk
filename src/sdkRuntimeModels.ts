@@ -70,6 +70,7 @@ export interface SDKEvent {
     DataPlan?: SDKDataPlan;
     LaunchReferral?: string;
     ExpandedEventCount: number;
+    BatchTimestampUnixtimeMsOverride?: number;
 }
 export interface SDKGeoLocation {
     lat: number | string;
