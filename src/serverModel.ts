@@ -318,21 +318,21 @@ export default function ServerModel(
             event.messageType === Types.MessageType.OptOut ||
             mpInstance._Store.webviewBridgeEnabled
         ) {
+            let customFlags: SDKEventCustomFlags = {...event.customFlags};
+
+            // https://go.mparticle.com/work/SQDSDKS-5053
+            if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+
+                // Attempt to recapture click IDs in case a third party integration
+                // has added or updated  new click IDs since the last event was sent.
+                mpInstance._IntegrationCapture.capture();
+                const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+                customFlags = {...transformedClickIDs, ...customFlags};
+            }
+
             if (event.hasOwnProperty('toEventAPIObject')) {
                 eventObject = event.toEventAPIObject();
             } else {
-                let customFlags: SDKEventCustomFlags = {...event.customFlags};
-
-                // https://go.mparticle.com/work/SQDSDKS-5053
-                if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
-
-                    // Attempt to recapture click IDs in case a third party integration
-                    // has added or updated  new click IDs since the last event was sent.
-                    mpInstance._IntegrationCapture.capture();
-                    const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
-                    customFlags = {...transformedClickIDs, ...customFlags};
-                }
-
                 eventObject = {
                     // This is an artifact from v2 events where SessionStart/End and AST event
                     //  names are numbers (1, 2, or 10), but going forward with v3, these lifecycle
