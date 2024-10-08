@@ -88,7 +88,7 @@ const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
     );
 };
 
-describe('identity', function() {
+describe.only('identity', function() {
     let clock;
     let hasIdentifyReturned;
     let hasLoginReturned;
@@ -151,7 +151,6 @@ describe('identity', function() {
         mParticle._resetForTests(MPConfig);
     });
 
-    // TODO: Complete
     describe('requests', function() {
         it('should contain identify request', function(done) {
             fetchMockSuccess(urls.logout, {
@@ -270,19 +269,20 @@ describe('identity', function() {
                 },
             });
 
-            waitForCondition(hasIdentifyReturned)
+            waitForCondition(hasIdentityCallInflightReturned)
             .then(() => {
-            // 4 Calls should be expected
+            // Calls that should be expected:
             // 1. Identify
             // 2. Session Start
             // 3. AST
             // 4. Login 
-            expect(fetchMock.calls().length).to.equal(4);
+            // 5. UIC
+            expect(fetchMock.calls().length).to.equal(5);
 
-            const lastCall = fetchMock.lastCall();
-            expect(lastCall[0].split('/')[4]).to.equal('login');
+            const loginCall = fetchMock.calls()[3];
+            expect(loginCall[0].split('/')[4]).to.equal('login');
 
-            const data: IIdentityAPIRequestData = JSON.parse(lastCall[1].body as unknown as string); 
+            const data: IIdentityAPIRequestData = JSON.parse(loginCall[1].body as unknown as string); 
 
             expect(data).to.have.keys(
                 'client_sdk',
@@ -426,7 +426,6 @@ describe('identity', function() {
 
     });
 
-    // TODO: Complete
     it('should respect consent rules on consent-change', function(done) {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
@@ -518,7 +517,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     describe('cookies', function () {
     it('should store all MPIDs associated with a sessionId, then clear MPIDs from currentSessionMPIDs when a new session starts', function(done) {
         waitForCondition(hasIdentifyReturned)
@@ -536,34 +534,34 @@ describe('identity', function() {
 
         mParticle.Identity.login(userIdentities1);
         waitForCondition(hasLoginReturned)
-            .then(() => {
+        .then(() => {
         const localStorageDataBeforeSessionEnd = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
 
-            localStorageDataBeforeSessionEnd.gs.csm.length.should.equal(2);
+        localStorageDataBeforeSessionEnd.gs.csm.length.should.equal(2);
 
         mParticle.endSession();
         const localStorageDataAfterSessionEnd1 = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
-                    localStorageDataAfterSessionEnd1.gs.should.not.have.property(
-                        'csm'
-                    );
+        localStorageDataAfterSessionEnd1.gs.should.not.have.property('csm');
 
         mParticle.logEvent('hi');
         mParticle.Identity.login(userIdentities1);
 
+        waitForCondition(hasIdentityCallInflightReturned)
+        .then(() => {
+
         const localStorageAfterLoggingEvent = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
-            localStorageDataAfterSessionEnd1.gs.should.not.have.property('csm');
+        localStorageAfterLoggingEvent.gs.csm.length.should.equal(1);
 
         done();
-        })
-        .catch(done);
-        })
-        .catch(done);
+        }).catch(done);
+        }).catch(done);
+        }).catch(done);
     });
 
     it('localStorage - should switch user cookies to new mpid details from cookies when a new mpid is provided', function(done) {
@@ -710,7 +708,6 @@ describe('identity', function() {
     });
     });
 
-    // TODO: Complete
     describe('identity request validation', function () {
     it('should swap property identityType for identityName', function (done) {
         const data: IdentityApiData = { userIdentities: {} };
@@ -1136,7 +1133,6 @@ describe('identity', function() {
         });
     });
 
-    // TODO: Complete
     describe('#login', function () {
         beforeEach(function () {
             // Resets fetchMock so we can isolate calls for this tests
@@ -1203,7 +1199,7 @@ describe('identity', function() {
             .catch(done);
     });
 
-    it('should not make a request when an invalid callback is sent', function (done) {
+    it('should not make a request when an invalid callback is set', function (done) {
         const identityRequest: IdentityApiData = {
             userIdentities: {
                 customerid: '123',
@@ -1222,7 +1218,6 @@ describe('identity', function() {
     });
     });
 
-    // TODO: Complete
     describe('#logout', function () {
         beforeEach(function () {
             // Resets fetchMock so we can isolate calls for this tests
@@ -1308,7 +1303,6 @@ describe('identity', function() {
     });
     });
 
-    // TODO: Complete
     describe('#modify', function () {
         beforeEach(function () {
             // Resets fetchMock so we can isolate calls for this tests
@@ -1375,7 +1369,7 @@ describe('identity', function() {
             .catch(done);
         });
 
-    it('should not make a request when an invalid callback is sent', function (done) {
+    it('should not make a request when an invalid callback is set', function (done) {
         const identityRequest: IdentityApiData = {
             userIdentities: {
                 customerid: '123',
@@ -1394,7 +1388,6 @@ describe('identity', function() {
     });
     });
 
-    // TODO: Complete
     describe('#identify', function () {
         beforeEach(function () {
             // Resets fetchMock so we can isolate calls for this tests
@@ -1461,7 +1454,7 @@ describe('identity', function() {
             .catch(done);
     });
 
-    it('should not make a request when an invalid callback is sent', function (done) {
+    it('should not make a request when an invalid callback is set', function (done) {
         const identityRequest: IdentityApiData = {
             userIdentities: {
                 customerid: '123',
@@ -1480,7 +1473,6 @@ describe('identity', function() {
     });
     });
 
-    // TODO: Complete
     it('should have old_value === null when there is no previous identity of a certain type and a new identity of that type', function (done) {
         const oldIdentities: UserIdentities = {};
         oldIdentities['facebook'] = 'old_facebook_id';
@@ -1535,7 +1527,6 @@ describe('identity', function() {
         done();
     });
 
-    // TODO: Complete
     it('should have new_value === null when there is a previous identity of a certain type and no new identity of that type', function(done) {
         const oldIdentities: UserIdentities = {};
         oldIdentities['other'] = 'old_other_id';
@@ -1574,8 +1565,7 @@ describe('identity', function() {
         done();
     });
 
-    // QUESTION: Should we move this to the other requests?
-    // TODO: Complete
+    // https://go.mparticle.com/work/SQDSDKS-6568
     it('should create a proper send request when passing identities to modify', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() => {
@@ -1629,7 +1619,6 @@ describe('identity', function() {
         });
     });
 
-    // TODO: Complete
     it('ensure that automatic identify is not called more than once.', function(done) {
         mParticle._resetForTests(MPConfig);
         const spy = sinon.spy();
@@ -1656,15 +1645,11 @@ describe('identity', function() {
         .then(() => {
         spy.calledOnce.should.be.ok();
         done();
-        })
-        .catch(done);
-        })
-        .catch(done);
-        })
-        .catch(done);
+        }).catch(done);
+        }).catch(done);
+        }).catch(done);
     });
 
-    // TODO: Complete
     it('queue events when MPID is 0, and then flush events once MPID changes', function(done) {
         mParticle._resetForTests(MPConfig);
         fetchMock.resetHistory();
@@ -1750,7 +1735,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('getUsers should return all mpids available in local storage', function (done) {
         mParticle._resetForTests(MPConfig);
 
@@ -1843,7 +1827,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should only update its own cookies, not any other mpids when initializing with a different set of credentials', function (done) {
         mParticle._resetForTests(MPConfig);
 
@@ -1954,8 +1937,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // Move these to IdentiyRequest unit tests
-    // TODO: Complete
     it('should create a new modified user identity object, removing any invalid identity types', function(done) {
         const previousUIByName = {
             customerid: 'customerid1',
@@ -1990,7 +1971,6 @@ describe('identity', function() {
         done();
     });
 
-    // TODO: Complete
     it("should find the related MPID's cookies when given a UI with fewer IDs when passed to login, logout, and identify, and then log events with updated cookies", function(done) {
         mParticle._resetForTests(MPConfig);
         fetchMock.restore();
@@ -2154,7 +2134,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should maintain cookie structure when initializing multiple identity requests, and reinitializing with a previous one will keep the last MPID ', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -2265,8 +2244,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
-    // FIXME: Refactor this test to be more readable and put the loop external to the test
     it('should not send requests to the server with invalid userIdentity values', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -2426,7 +2403,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should have no user identities when logging out or in with no object', function (done) {
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -2472,7 +2448,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it("saves proper cookies for each user's products, and purchases record cartProducts correctly", function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -2524,6 +2499,7 @@ describe('identity', function() {
         cartProducts2[0].Name.should.equal('Windows');
         cartProducts2[1].Name.should.equal('HTC');
 
+        // https://go.mparticle.com/work/SQDSDKS-6846
         mParticle.eCommerce.logCheckout(1);
 
         const checkoutEvent = findEventFromRequest(
@@ -2548,7 +2524,7 @@ describe('identity', function() {
 
         fetchMock.resetHistory();
 
-        // QUESTION: Why are we logging a checkout of "1"?
+        // https://go.mparticle.com/work/SQDSDKS-6846
         mParticle.eCommerce.logCheckout(1);
 
         const checkoutEvent2 = findEventFromRequest(
@@ -2567,7 +2543,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should update cookies after modifying identities', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         const user = {
@@ -2621,7 +2596,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     describe('#onUserAlias', function() {
     it('does not run onUserAlias if it is not a function', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
@@ -2847,7 +2821,6 @@ describe('identity', function() {
     });
     });
 
-    // TODO: Complete 
     it('should return an empty array when no cart products exist', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(hasIdentifyReturned)
@@ -2879,7 +2852,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete 
     it('should make a request when copyUserAttributes is included on the identity request', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
 
@@ -2961,7 +2933,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should trigger the identifyCallback when a successful identify call is sent', function(done) {
         // MP.sessionID does not exist yet because we perform an mParticle._resetForTests(MPConfig);
         mParticle._resetForTests(MPConfig);
@@ -2988,7 +2959,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should trigger the identityCallback before eventQueue is flushed', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -3053,7 +3023,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should still trigger the identifyCallback when no identify request is sent because there are already cookies', function(done) {
         mParticle._resetForTests(MPConfig);
         const les = new Date().getTime();
@@ -3129,7 +3098,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('identifyCallback response should have a getUser function on the result object', function(done) {
         let result;
         mParticle._resetForTests(MPConfig);
@@ -3159,9 +3127,8 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     describe('identityCallback responses', function () {
-    it('should have a getUser function on identify result object', function(done) {
+    it.only('should have a getUser function on identify result object', function(done) {
         let result;
 
         mParticle._resetForTests(MPConfig);
@@ -3186,7 +3153,7 @@ describe('identity', function() {
 
         result.should.have.properties('body', 'httpCode', 'getUser');
         result.httpCode.should.equal(200);
-        result.body.should.have.properties('mpid');
+        result.body.should.have.properties('mpid', 'is_logged_in');
         result.body.mpid.should.equal('MPID1');
         result
             .getUser()
@@ -3361,7 +3328,6 @@ describe('identity', function() {
     });
     });
 
-    // TODO: Complete
     it('should call identify when there is an active session but no current user', function(done) {
         // this broken cookie state occurs when an initial identify request is made, fails, and the
         // client had no programmatic handling of a failed identify request
@@ -3416,8 +3382,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Group this with user specific tests
-    // TODO: Complete
     it('Users should have firstSeenTime and lastSeenTime', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -3454,7 +3418,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('firstSeenTime should stay the same for a user', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -3515,6 +3478,7 @@ describe('identity', function() {
         const user1 = mParticle.Identity.getUser(testMPID);
         user1.getFirstSeenTime().should.equal(user1FirstSeen);
 
+        // Log in as the same user again to verify expected behavior
         fetchMockSuccess(urls.login, {
             mpid: testMPID,
             is_logged_in: true,
@@ -3538,7 +3502,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('list returned by Identity.getUsers() should be sorted by lastSeenTime, with nulls last', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -3584,7 +3547,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('does not error when simultaneous identity calls are out', function(done) {
         const errorMessages = [];
         mParticle._resetForTests(MPConfig);
@@ -3606,7 +3568,6 @@ describe('identity', function() {
         done();
     });
 
-    // TODO: Complete
     it('Startup identity callback should include getPreviousUser()', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -3648,7 +3609,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('Identity callback should include getPreviousUser()', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -3692,7 +3652,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should return the correct user for Previous User', function(done) {
         mParticle._resetForTests(MPConfig);
         let callbackCalled = false;
@@ -3759,7 +3718,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('Alias request should be received when API is called validly', function(done) {
         fetchMock.post(urls.alias, HTTP_ACCEPTED);
         fetchMock.resetHistory();
@@ -3795,7 +3753,6 @@ describe('identity', function() {
         done();
     });
 
-    // TODO: Complete
     it('Alias request should include scope if specified', function(done) {
         fetchMock.post(urls.alias, HTTP_ACCEPTED);
         fetchMock.resetHistory();
@@ -3822,7 +3779,6 @@ describe('identity', function() {
         done();
     });
 
-    // TODO: Complete
     it('should reject malformed Alias Requests', function(done) {
         mParticle.config.logLevel = 'verbose';
         let warnMessage = null;
@@ -3961,7 +3917,6 @@ describe('identity', function() {
         });
     });
 
-    // TODO: Complete
     it('should parse error info from Alias Requests', function(done) {
         mParticle.init(apiKey, window.mParticle.config);
         const errorMessage = 'this is a sample error message';
@@ -3993,7 +3948,6 @@ describe('identity', function() {
         });
     });
 
-    // TODO: Complete
     it('should properly create AliasRequest', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -4016,8 +3970,7 @@ describe('identity', function() {
         waitForCondition(hasIdentityCallInflightReturned)
         .then(() => {
 
-        // Reset clock so we can use simple integers for time
-        // clock.restore();
+        // Mock clock so we can use simple integers for time
         clock = sinon.useFakeTimers();
         clock.tick(1000);
 
@@ -4038,7 +3991,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should fill in missing fst and lst in createAliasRequest', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -4061,7 +4013,7 @@ describe('identity', function() {
         waitForCondition(hasIdentityCallInflightReturned)
         .then(() => {
 
-        // Reset clock so we can use simple integers for time
+        // Mock clock so we can use simple integers for time
         clock = sinon.useFakeTimers();
         clock.tick(1000);
 
@@ -4085,7 +4037,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should fix startTime when default is outside max window create AliasRequest', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -4135,7 +4086,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should warn if legal aliasRequest cannot be created with MParticleUser', function(done) {
         const millisPerDay = 24 * 60 * 60 * 1000;
 
@@ -4169,7 +4119,7 @@ describe('identity', function() {
         waitForCondition(hasIdentityCallInflightReturned)
         .then(() => {
 
-        // Reset clock so we can use simple integers for time
+        // Mock clock so we can use simple integers for time
         clock = sinon.useFakeTimers();
         clock.tick(millisPerDay * 2);
 
@@ -4199,7 +4149,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it("alias request should have environment 'development' when isDevelopmentMode is true", function(done) {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.isDevelopmentMode = true;
@@ -4226,7 +4175,6 @@ describe('identity', function() {
         done()
     });
 
-    // TODO: Complete
     it('should set isFirtRun to false after an app is initialized', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -4255,7 +4203,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should send back an httpCode of -1 when there is a no coverage (http code returns 0)', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -4285,13 +4232,11 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     describe('custom device', function () {
         beforeEach(function () {
             fetchMock.restore();
         });
 
-    // TODO: Complete
     it('should use the custom device id in known_identities when passed via setDeviceId', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -4336,7 +4281,6 @@ describe('identity', function() {
         }).catch(done);
     });
 
-    // TODO: Complete
     it('should use the custom device id in known_identities when set via mParticle.config', function(done) {
         mParticle._resetForTests(MPConfig);
 
@@ -4355,26 +4299,18 @@ describe('identity', function() {
             lastCall[1].body as unknown as string
         ) as IIdentityAPIRequestData;
 
-        console.log('data', data);
-
-            expect(data.known_identities).to.have.keys(
-                'device_application_stamp'
-            );
-        expect(data.known_identities.device_application_stamp).to.equal(
-            'foo-guid'
-        );
+        expect(data.known_identities).to.have.keys('device_application_stamp');
+        expect(data.known_identities.device_application_stamp).to.equal('foo-guid');
 
         done();
     });
     });
 
-    // TODO: Complete
     describe('identity caching', function() {
         beforeEach(function () {
             fetchMock.restore();
         });
 
-        // TODO: Complete
         it('should use header `x-mp-max-age` as expiration date for cache', function (done) {
             // Set the Max Age to be 1 second in the future for testing
             const X_MP_MAX_AGE = '1';
@@ -4404,7 +4340,6 @@ describe('identity', function() {
 
             localStorage.clear();
             mParticle.config.flags.cacheIdentity = 'True';
-
 
             mParticle.init(apiKey, window.mParticle.config);
 
@@ -4446,7 +4381,6 @@ describe('identity', function() {
             }).catch(done);
         });
 
-        // TODO: Complete
         it('should not call identify if no identities have changed within the expiration time', function(done) {
             const X_MP_MAX_AGE = '1';
 
@@ -4497,7 +4431,6 @@ describe('identity', function() {
             }).catch(done);
         });
 
-        // TODO: Complete
         it('should call identify if no identities have changed but we are outside the expiration time', function(done) {
             const X_MP_MAX_AGE = '1';
 
@@ -4559,7 +4492,6 @@ describe('identity', function() {
             }).catch(done);
         });
 
-        // TODO: Complete
         it('should not call login if previously cached within the expiration time', function(done) {
             const X_MP_MAX_AGE = '1';
 
@@ -4634,7 +4566,6 @@ describe('identity', function() {
             }).catch(done);
         });
 
-        // TODO: Complete
         it('should call login if duplicate login happens after expiration time', function(done) {
             const X_MP_MAX_AGE = '1';
 
@@ -4673,7 +4604,6 @@ describe('identity', function() {
             waitForCondition(hasIdentityCallInflightReturned)
             .then(() => {
 
-                // TODO: Delete this b/c it's unnecessary
             const initialIdentityCall = fetchMock.calls()[0];
             expect(initialIdentityCall[0].split('/')[4]).to.equal('identify');
 
@@ -4719,7 +4649,6 @@ describe('identity', function() {
             }).catch(done);
         });
 
-        // TODO: Complete
         it('should clear cache when modify is called', function(done) {
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
@@ -4780,7 +4709,6 @@ describe('identity', function() {
             }).catch(done);
         });
 
-        // TODO: Complete
         it('should clear cache when logout is called', function(done) {
             const X_MP_MAX_AGE = '1';
             mParticle._resetForTests(MPConfig);
@@ -4834,7 +4762,6 @@ describe('identity', function() {
         });
     });
 
-    // TODO: Complete
     describe('Deprecate Cart', function() {
         afterEach(function() {
             sinon.restore();
