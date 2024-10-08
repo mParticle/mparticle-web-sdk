@@ -30,6 +30,7 @@ import {
     ISDKUserAttributes,
 } from './identity-user-interfaces';
 import { IIdentityType } from './types.interfaces';
+import IntegrationCapture from './integrationCapture';
 
 // TODO: Resolve this with version in @mparticle/web-sdk
 export type SDKEventCustomFlags = Dictionary<any>;
@@ -150,6 +151,7 @@ interface IEvents {
 
 export interface MParticleWebSDK {
     addForwarder(mockForwarder: MPForwarder): void;
+    _IntegrationCapture: IntegrationCapture;
     IdentityType: IIdentityType;
     _Identity: IIdentity;
     Identity: SDKIdentityApi;

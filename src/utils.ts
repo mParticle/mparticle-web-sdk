@@ -222,7 +222,7 @@ const isDataPlanSlug = (str: string): boolean => str === toDataPlanSlug(str);
 const isStringOrNumber = (value: any): boolean =>
     isString(value) || isNumber(value);
 
-const isEmpty = (value: Dictionary<any> | null | undefined): boolean =>
+const isEmpty = (value: Dictionary<any> | string | null | undefined): boolean =>
     value == null || !(Object.keys(value) || value).length;
 
 const mergeObjects = <T extends object>(...objects: T[]): T => {
@@ -231,6 +231,107 @@ const mergeObjects = <T extends object>(...objects: T[]): T => {
 
 const moveElementToEnd = <T>(array: T[], index: number): T[] =>
     array.slice(0, index).concat(array.slice(index + 1), array[index]);
+
+const queryStringParser = (
+    url: string,
+    keys: string[] = []
+): Dictionary<string> => {
+    let urlParams: URLSearchParams | URLSearchParamsFallback;
+    let results: Dictionary<string> = {};
+
+    if (!url) return results;
+
+    if (typeof URL !== 'undefined' && typeof URLSearchParams !== 'undefined') {
+        const urlObject = new URL(url);
+        urlParams = new URLSearchParams(urlObject.search);
+    } else {
+        urlParams = queryStringParserFallback(url);
+    }
+
+    if (isEmpty(keys)) {
+        urlParams.forEach((value, key) => {
+            results[key] = value;
+        });
+    } else {
+        keys.forEach(key => {
+            const value = urlParams.get(key);
+            if (value) {
+                results[key] = value;
+            }
+        });
+    }
+
+    return results;
+};
+
+interface URLSearchParamsFallback {
+    get: (key: string) => string | null;
+    forEach: (callback: (value: string, key: string) => void) => void;
+}
+
+const queryStringParserFallback = (url: string): URLSearchParamsFallback => {
+    let params: Dictionary<string> = {};
+    const queryString = url.split('?')[1] || '';
+    const pairs = queryString.split('&');
+
+    pairs.forEach(pair => {
+        var [key, value] = pair.split('=');
+        if (key && value) {
+            params[key] = decodeURIComponent(value || '');
+        }
+    });
+
+    return {
+        get: function(key: string) {
+            return params[key];
+        },
+        forEach: function(callback: (value: string, key: string) => void) {
+            for (var key in params) {
+                if (params.hasOwnProperty(key)) {
+                    callback(params[key], key);
+                }
+            }
+        },
+    };
+};
+
+// Get cookies as a dictionary
+const getCookies = (keys?: string[]): Dictionary<string> => {
+    // Helper function to parse cookies from document.cookie
+    const parseCookies = (): string[] => {
+        if (typeof window === 'undefined') {
+            return [];
+        }
+        return window.document.cookie.split(';').map(cookie => cookie.trim());
+    };
+
+    // Helper function to filter cookies by keys
+    const filterCookies = (
+        cookies: string[],
+        keys?: string[]
+    ): Dictionary<string> => {
+        const results: Dictionary<string> = {};
+        for (const cookie of cookies) {
+            const [key, value] = cookie.split('=');
+            if (!keys || keys.includes(key)) {
+                results[key] = value;
+            }
+        }
+        return results;
+    };
+
+    // Parse cookies from document.cookie
+    const parsedCookies: string[] = parseCookies();
+
+    // Filter cookies by keys if provided
+    return filterCookies(parsedCookies, keys);
+};
+
+const getHref = (): string => {
+    return typeof window !== 'undefined' && window.location
+        ? window.location.href
+        : '';
+};
 
 export {
     createCookieString,
@@ -262,4 +363,7 @@ export {
     isValidCustomFlagProperty,
     mergeObjects,
     moveElementToEnd,
+    queryStringParser,
+    getCookies,
+    getHref,
 };

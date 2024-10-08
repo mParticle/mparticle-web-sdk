@@ -39,9 +39,10 @@ import IdentityAPIClient from './identityApiClient';
 import { isEmpty, isFunction } from './utils';
 import { LocalStorageVault } from './vault';
 import { removeExpiredIdentityCacheDates } from './identity-utils';
+import IntegrationCapture from './integrationCapture';
 
 const { Messages, HTTPCodes, FeatureFlags } = Constants;
-const { ReportBatching } = FeatureFlags;
+const { ReportBatching, CaptureIntegrationSpecificIds } = FeatureFlags;
 const { StartingInitialization } = Messages.InformationMessages;
 
 /**
@@ -77,6 +78,7 @@ export default function mParticleInstance(instanceName) {
         integrationDelays: {},
         forwarderConstructors: [],
     };
+    this._IntegrationCapture = new IntegrationCapture();
 
     // required for forwarders once they reference the mparticle instance
     this.IdentityType = Types.IdentityType;
@@ -1334,6 +1336,10 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
 
         if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
             mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
+        }
+
+        if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
+            mpInstance._IntegrationCapture.capture();
         }
 
         mpInstance._Forwarders.processForwarders(

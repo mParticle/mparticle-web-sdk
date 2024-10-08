@@ -174,6 +174,7 @@ const Constants = {
         DirectUrlRouting: 'directURLRouting',
         CacheIdentity: 'cacheIdentity',
         AudienceAPI: 'audienceAPI',
+        CaptureIntegrationSpecificIds: 'captureIntegrationSpecificIds',
     },
     DefaultInstance: 'default_instance',
     CCPAPurpose: 'data_sale_opt_out',

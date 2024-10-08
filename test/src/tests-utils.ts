@@ -354,6 +354,14 @@ describe('Utils', () => {
         it('returns true if object is undefined', () => {
             expect(isEmpty(undefined)).to.equal(true);
         });
+
+        it('returns true if object is an empty string', () => {
+            expect(isEmpty('')).to.equal(true);
+        });
+
+        it('returns false if object is a string', () => {
+            expect(isEmpty('string')).to.equal(false);
+        });
     });
     
     describe('#isValidCustomFlagProperty', () => {
