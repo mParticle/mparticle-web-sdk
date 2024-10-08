@@ -1,3 +1,15 @@
+# [2.29.0](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.3...v2.29.0) (2024-10-08)
+
+
+### Bug Fixes
+
+* Fix typo in identity interface ([#923](https://github.com/mParticle/mparticle-web-sdk/issues/923)) ([f1e0ec9](https://github.com/mParticle/mparticle-web-sdk/commit/f1e0ec96f09995e7933400cbefbb06bc376b49da))
+
+
+### Features
+
+* Capture Integration Ids and assign to events ([#926](https://github.com/mParticle/mparticle-web-sdk/issues/926)) ([a916262](https://github.com/mParticle/mparticle-web-sdk/commit/a91626295abbc55f1dfd05069e7a5c676d9f86bc))
+
 ## [2.28.3](https://github.com/mParticle/mparticle-web-sdk/compare/v2.28.2...v2.28.3) (2024-09-16)
 
 
