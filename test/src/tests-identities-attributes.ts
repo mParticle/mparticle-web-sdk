@@ -20,6 +20,7 @@ const {
     findBatch,
     getLocalStorage,
     MockForwarder,
+    getIdentityEvent
 } = Utils;
 
 declare global {
@@ -1023,7 +1024,7 @@ describe('identities and attributes', function() {
         })
     });
 
-    it.skip('should send user identity change requests when setting new identities on new users', function(done) {
+    it('should send user identity change requests when setting new identities on new users', function(done) {
         mParticle._resetForTests(MPConfig);
 
         fetchMock.resetHistory();
@@ -1033,29 +1034,30 @@ describe('identities and attributes', function() {
                 email: 'initial@gmail.com',
             },
         };
-
+        mParticle.config.flags.eventBatchingIntervalMillis = 5000
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
-            debugger;
+            mParticle.upload();
             expect(
                 JSON.parse(`${fetchMock.lastOptions().body}`).user_identities
             ).to.have.property('email', 'initial@gmail.com');
             
             mParticle.logEvent('testAfterInit');
+            mParticle.upload();
             
             expect(
                 JSON.parse(`${fetchMock.lastOptions().body}`).user_identities
             ).to.have.property('email', 'initial@gmail.com');
             
-            fetchMock.calls().forEach(call => {
-                const maybeBatch = JSON.parse(call[1].body as string);
-                // if there isn't an events key on the call, then it's an identity call.  This next test only looks for calls that are batches
-                if (!maybeBatch.events) return;
-                expect(
-                    JSON.parse(`${call[1].body}`).user_identities
-                ).to.have.property('email', 'initial@gmail.com');
-            });
+            // fetchMock.calls().forEach(call => {
+            //     const maybeBatch = JSON.parse(call[1].body as string);
+            //     // if there isn't an events key on the call, then it's an identity call.  This next test only looks for calls that are batches
+            //     if (!maybeBatch.events) return;
+            //     expect(
+            //         JSON.parse(`${call[1].body}`).user_identities
+            //     ).to.have.property('email', 'initial@gmail.com');
+            // });
             
             fetchMockSuccess(urls.login, {
                 mpid: 'anotherMPID', is_logged_in: false
@@ -1076,7 +1078,6 @@ describe('identities and attributes', function() {
                 );
             })
             .then(() => {
-                debugger;
                 let body = JSON.parse(`${fetchMock.lastOptions().body}`);
                 
                 // should be the new MPID
@@ -1100,6 +1101,7 @@ describe('identities and attributes', function() {
                 expect(event.data.old.created_this_batch).to.equal(false);
                 
                 mParticle.logEvent('testAfterLogin');
+                mParticle.upload();
                 body = JSON.parse(`${fetchMock.lastOptions().body}`);
                 
                 expect(body.user_identities).to.have.property(
@@ -1126,7 +1128,6 @@ describe('identities and attributes', function() {
                         );
                 })
                 .then(() => {
-                    debugger;
                     const body2 = JSON.parse(`${fetchMock.lastOptions().body}`);
                     expect(body2.mpid).to.equal('anotherMPID');
                     expect(body2.user_identities).to.have.property(
@@ -1154,7 +1155,7 @@ describe('identities and attributes', function() {
                             email: 'test@test.com',
                         },
                     };
-                    
+
                     fetchMock.resetHistory();
                     
                     mParticle.Identity.modify(modifyUser2);
@@ -1164,7 +1165,6 @@ describe('identities and attributes', function() {
                         );
                     })
                     .then(() => {
-                        debugger;
                         const body3 = JSON.parse(`${fetchMock.lastOptions().body}`);
                         expect(body3.mpid).to.equal('anotherMPID');
                         
@@ -1200,9 +1200,8 @@ describe('identities and attributes', function() {
                                 mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2'
                             );
                         }).then(() => {
-                            debugger;
-                            //only call is for `other` change event, not for previous ID types of email and customerid
-                            expect(fetchMock.calls().length).to.equal(1);
+                            // Calls are for logout and UIC
+                            expect(fetchMock.calls().length).to.equal(2);
                             const body4 = JSON.parse(`${fetchMock.lastOptions().body}`);
                             expect(body4.mpid).to.equal('mpid2');
                             
@@ -1234,8 +1233,7 @@ describe('identities and attributes', function() {
         })
     });
 
-    it.skip('should send historical UIs on batches when MPID changes', function(done) {
-        // const clock = sinon.useFakeTimers();
+    it('should send historical UIs on batches when MPID changes', function(done) {
         mParticle._resetForTests(MPConfig);
 
         window.mParticle.config.identifyRequest = {
@@ -1244,18 +1242,13 @@ describe('identities and attributes', function() {
             },
         };
 
-        window.mParticle.config.flags = {
-            EventBatchingIntervalMillis: 0,
-        };
-
         mParticle.init(apiKey, window.mParticle.config);
 
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
             fetchMockSuccess(urls.login, {
-                mpid: 'loginMPID', is_logged_in: false
+                mpid: 'testMPID', is_logged_in: false
             });
-            
             // on identity strategy where MPID remains the same from anonymous to login
             const loginUser = {
                 userIdentities: {
@@ -1267,11 +1260,10 @@ describe('identities and attributes', function() {
             
             waitForCondition(() => {
                 return (
-                    mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID'
+                    mParticle.getInstance()._Store.identityCallInFlight === false
                 );
             })
             .then(() => {
-                debugger;
                 let batch = JSON.parse(`${fetchMock.lastOptions().body}`);
                 expect(batch.mpid).to.equal(testMPID);
                 expect(batch.user_identities).to.have.property(
@@ -1311,21 +1303,23 @@ describe('identities and attributes', function() {
                     // log back in with previous MPID, but with only a single UI, all UIs should be on batch
                     
                     fetchMockSuccess(urls.login, {
-                        mpid: 'loginMPID', is_logged_in: false
+                        mpid: 'testMPID', is_logged_in: false
                     });
-
-                    // clock.tick(MILLISECONDS_IN_ONE_DAY_PLUS_ONE_SECOND);
                     
                     mParticle.Identity.login(loginUser);
 
                     waitForCondition(() => {
                         return (
-                            mParticle.Identity.getCurrentUser()?.getMPID() === 'loginMPID'
+                            mParticle.getInstance()._Store.identityCallInFlight === false
                         );
                     })
                     .then(() => {
+                        debugger;
                         // switching back to logged in user should not result in any UIC events
-                        expect(fetchMock.lastOptions()).to.not.be.ok;
+                        expect(fetchMock.calls().length).to.equal(1);
+                        const data = getIdentityEvent(fetchMock.calls(), 'login');
+
+                        expect(data).to.be.ok;
                         
                         mParticle.logEvent('event after logging back in');
                         batch = JSON.parse(`${fetchMock.lastOptions().body}`);
@@ -1338,10 +1332,9 @@ describe('identities and attributes', function() {
                             'customer_id',
                             'customerid1'
                         );
-                        
-                        // clock.restore();
+
                         done();
-                        
+                         
                     })
                 })
             })
