@@ -393,7 +393,7 @@ var mParticle = (function () {
         return e.name = "SuppressedError", e.error = error, e.suppressed = suppressed, e;
     };
 
-    var version = "2.28.3";
+    var version = "2.29.0";
 
     var Constants = {
       sdkVersion: version,
@@ -552,7 +552,8 @@ var mParticle = (function () {
         OfflineStorage: 'offlineStorage',
         DirectUrlRouting: 'directURLRouting',
         CacheIdentity: 'cacheIdentity',
-        AudienceAPI: 'audienceAPI'
+        AudienceAPI: 'audienceAPI',
+        CaptureIntegrationSpecificIds: 'captureIntegrationSpecificIds'
       },
       DefaultInstance: 'default_instance',
       CCPAPurpose: 'data_sale_opt_out',
@@ -754,6 +755,91 @@ var mParticle = (function () {
     };
     var moveElementToEnd = function moveElementToEnd(array, index) {
       return array.slice(0, index).concat(array.slice(index + 1), array[index]);
+    };
+    var queryStringParser = function queryStringParser(url, keys) {
+      if (keys === void 0) {
+        keys = [];
+      }
+      var urlParams;
+      var results = {};
+      if (!url) return results;
+      if (typeof URL !== 'undefined' && typeof URLSearchParams !== 'undefined') {
+        var urlObject = new URL(url);
+        urlParams = new URLSearchParams(urlObject.search);
+      } else {
+        urlParams = queryStringParserFallback(url);
+      }
+      if (isEmpty(keys)) {
+        urlParams.forEach(function (value, key) {
+          results[key] = value;
+        });
+      } else {
+        keys.forEach(function (key) {
+          var value = urlParams.get(key);
+          if (value) {
+            results[key] = value;
+          }
+        });
+      }
+      return results;
+    };
+    var queryStringParserFallback = function queryStringParserFallback(url) {
+      var params = {};
+      var queryString = url.split('?')[1] || '';
+      var pairs = queryString.split('&');
+      pairs.forEach(function (pair) {
+        var _a = pair.split('='),
+          key = _a[0],
+          value = _a[1];
+        if (key && value) {
+          params[key] = decodeURIComponent(value || '');
+        }
+      });
+      return {
+        get: function get(key) {
+          return params[key];
+        },
+        forEach: function forEach(callback) {
+          for (var key in params) {
+            if (params.hasOwnProperty(key)) {
+              callback(params[key], key);
+            }
+          }
+        }
+      };
+    };
+    // Get cookies as a dictionary
+    var getCookies = function getCookies(keys) {
+      // Helper function to parse cookies from document.cookie
+      var parseCookies = function parseCookies() {
+        if (typeof window === 'undefined') {
+          return [];
+        }
+        return window.document.cookie.split(';').map(function (cookie) {
+          return cookie.trim();
+        });
+      };
+      // Helper function to filter cookies by keys
+      var filterCookies = function filterCookies(cookies, keys) {
+        var results = {};
+        for (var _i = 0, cookies_1 = cookies; _i < cookies_1.length; _i++) {
+          var cookie = cookies_1[_i];
+          var _a = cookie.split('='),
+            key = _a[0],
+            value = _a[1];
+          if (!keys || keys.includes(key)) {
+            results[key] = value;
+          }
+        }
+        return results;
+      };
+      // Parse cookies from document.cookie
+      var parsedCookies = parseCookies();
+      // Filter cookies by keys if provided
+      return filterCookies(parsedCookies, keys);
+    };
+    var getHref = function getHref() {
+      return typeof window !== 'undefined' && window.location ? window.location.href : '';
     };
 
     function getNewIdentitiesByName(newIdentitiesByType) {
@@ -4217,7 +4303,8 @@ var mParticle = (function () {
         OfflineStorage = _a.OfflineStorage,
         DirectUrlRouting = _a.DirectUrlRouting,
         CacheIdentity = _a.CacheIdentity,
-        AudienceAPI = _a.AudienceAPI;
+        AudienceAPI = _a.AudienceAPI,
+        CaptureIntegrationSpecificIds = _a.CaptureIntegrationSpecificIds;
       if (!config.flags) {
         return {};
       }
@@ -4230,6 +4317,7 @@ var mParticle = (function () {
       flags[DirectUrlRouting] = config.flags[DirectUrlRouting] === 'True';
       flags[CacheIdentity] = config.flags[CacheIdentity] === 'True';
       flags[AudienceAPI] = config.flags[AudienceAPI] === 'True';
+      flags[CaptureIntegrationSpecificIds] = config.flags[CaptureIntegrationSpecificIds] === 'True';
       return flags;
     }
     function processBaseUrls(config, flags, apiKey) {
@@ -6510,6 +6598,15 @@ var mParticle = (function () {
         var optOut = event.messageType === Types.MessageType.OptOut ? !mpInstance._Store.isEnabled : null;
         // TODO: Why is Webview Bridge Enabled or Opt Out necessary here?
         if (mpInstance._Store.sessionId || event.messageType === Types.MessageType.OptOut || mpInstance._Store.webviewBridgeEnabled) {
+          var customFlags = __assign({}, event.customFlags);
+          // https://go.mparticle.com/work/SQDSDKS-5053
+          if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+            // Attempt to recapture click IDs in case a third party integration
+            // has added or updated  new click IDs since the last event was sent.
+            mpInstance._IntegrationCapture.capture();
+            var transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
+            customFlags = __assign(__assign({}, transformedClickIDs), customFlags);
+          }
           if (event.hasOwnProperty('toEventAPIObject')) {
             eventObject = event.toEventAPIObject();
           } else {
@@ -6522,7 +6619,7 @@ var mParticle = (function () {
               EventAttributes: mpInstance._Helpers.sanitizeAttributes(event.data, event.name),
               SourceMessageId: event.sourceMessageId || mpInstance._Helpers.generateUniqueId(),
               EventDataType: event.messageType,
-              CustomFlags: event.customFlags || {},
+              CustomFlags: customFlags,
               UserAttributeChanges: event.userAttributeChanges,
               UserIdentityChanges: event.userIdentityChanges
             };
@@ -9034,10 +9131,129 @@ var mParticle = (function () {
       };
     }
 
+    // Facebook Click ID has specific formatting rules
+    // The formatted ClickID value must be of the form version.subdomainIndex.creationTime.<fbclid>, where:
+    // - version is always this prefix: fb
+    // - subdomainIndex is which domain the cookie is defined on ('com' = 0, 'example.com' = 1, 'www.example.com' = 2)
+    // - creationTime is the UNIX time since epoch in milliseconds when the _fbc was stored. If you don't save the _fbc cookie, use the timestamp when you first observed or received this fbclid value
+    // - <fbclid> is the value for the fbclid query parameter in the page URL.
+    // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc
+    var facebookClickIdProcessor = function facebookClickIdProcessor(clickId, url, timestamp) {
+      if (!clickId || !url) {
+        return '';
+      }
+      var urlSegments = url === null || url === void 0 ? void 0 : url.split('//');
+      if (!urlSegments) {
+        return '';
+      }
+      var urlParts = urlSegments[1].split('/');
+      var domainParts = urlParts[0].split('.');
+      var subdomainIndex = 1;
+      // The rules for subdomainIndex are for parsing the domain portion
+      // of the URL for cookies, but in this case we are parsing the URL 
+      // itself, so we can ignore the use of 0 for 'com'
+      if (domainParts.length >= 3) {
+        subdomainIndex = 2;
+      }
+      // If timestamp is not provided, use the current time
+      var _timestamp = timestamp || Date.now();
+      return "fb.".concat(subdomainIndex, ".").concat(_timestamp, ".").concat(clickId);
+    };
+    var integrationMapping = {
+      fbclid: {
+        mappedKey: 'Facebook.ClickId',
+        processor: facebookClickIdProcessor
+      },
+      _fbp: {
+        mappedKey: 'Facebook.BrowserId'
+      },
+      _fbc: {
+        mappedKey: 'Facebook.ClickId'
+      }
+    };
+    var IntegrationCapture = /** @class */function () {
+      function IntegrationCapture() {
+        this.initialTimestamp = Date.now();
+      }
+      /**
+       * Captures Integration Ids from cookies and query params and stores them in clickIds object
+       */
+      IntegrationCapture.prototype.capture = function () {
+        var queryParams = this.captureQueryParams() || {};
+        var cookies = this.captureCookies() || {};
+        // Exclude _fbc if fbclid is present
+        // https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/fbp-and-fbc#retrieve-from-fbclid-url-query-parameter
+        if (queryParams['fbclid'] && cookies['_fbc']) {
+          delete cookies['_fbc'];
+        }
+        this.clickIds = __assign(__assign(__assign({}, this.clickIds), queryParams), cookies);
+      };
+      /**
+       * Captures cookies based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureCookies = function () {
+        var cookies = getCookies(Object.keys(integrationMapping));
+        return this.applyProcessors(cookies);
+      };
+      /**
+       * Captures query parameters based on the integration ID mapping.
+       */
+      IntegrationCapture.prototype.captureQueryParams = function () {
+        var queryParams = this.getQueryParams();
+        return this.applyProcessors(queryParams, getHref(), this.initialTimestamp);
+      };
+      /**
+       * Gets the query parameters based on the integration ID mapping.
+       * @returns {Dictionary<string>} The query parameters.
+       */
+      IntegrationCapture.prototype.getQueryParams = function () {
+        return queryStringParser(getHref(), Object.keys(integrationMapping));
+      };
+      /**
+       * Converts captured click IDs to custom flags for SDK events.
+       * @returns {SDKEventCustomFlags} The custom flags.
+       */
+      IntegrationCapture.prototype.getClickIdsAsCustomFlags = function () {
+        var _a;
+        var customFlags = {};
+        if (!this.clickIds) {
+          return customFlags;
+        }
+        for (var _i = 0, _b = Object.entries(this.clickIds); _i < _b.length; _i++) {
+          var _c = _b[_i],
+            key = _c[0],
+            value = _c[1];
+          var mappedKey = (_a = integrationMapping[key]) === null || _a === void 0 ? void 0 : _a.mappedKey;
+          if (!isEmpty(mappedKey)) {
+            customFlags[mappedKey] = value;
+          }
+        }
+        return customFlags;
+      };
+      IntegrationCapture.prototype.applyProcessors = function (clickIds, url, timestamp) {
+        var _a;
+        var processedClickIds = {};
+        for (var _i = 0, _b = Object.entries(clickIds); _i < _b.length; _i++) {
+          var _c = _b[_i],
+            key = _c[0],
+            value = _c[1];
+          var processor = (_a = integrationMapping[key]) === null || _a === void 0 ? void 0 : _a.processor;
+          if (processor) {
+            processedClickIds[key] = processor(value, url, timestamp);
+          } else {
+            processedClickIds[key] = value;
+          }
+        }
+        return processedClickIds;
+      };
+      return IntegrationCapture;
+    }();
+
     var Messages = Constants.Messages,
       HTTPCodes = Constants.HTTPCodes,
       FeatureFlags = Constants.FeatureFlags;
-    var ReportBatching = FeatureFlags.ReportBatching;
+    var ReportBatching = FeatureFlags.ReportBatching,
+      CaptureIntegrationSpecificIds = FeatureFlags.CaptureIntegrationSpecificIds;
     var StartingInitialization = Messages.InformationMessages.StartingInitialization;
 
     /**
@@ -9073,6 +9289,7 @@ var mParticle = (function () {
         integrationDelays: {},
         forwarderConstructors: []
       };
+      this._IntegrationCapture = new IntegrationCapture();
 
       // required for forwarders once they reference the mparticle instance
       this.IdentityType = Types.IdentityType;
@@ -10012,6 +10229,9 @@ var mParticle = (function () {
         } : mpInstance._Store.SDKConfig.identifyRequest;
         if (mpInstance._Helpers.getFeatureFlag(ReportBatching)) {
           mpInstance._ForwardingStatsUploader.startForwardingStatsTimer();
+        }
+        if (mpInstance._Helpers.getFeatureFlag(CaptureIntegrationSpecificIds)) {
+          mpInstance._IntegrationCapture.capture();
         }
         mpInstance._Forwarders.processForwarders(config, mpInstance._APIClient.prepareForwardingStats);
         mpInstance._Forwarders.processPixelConfigs(config);
