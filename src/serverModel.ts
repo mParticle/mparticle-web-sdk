@@ -325,6 +325,9 @@ export default function ServerModel(
 
                 // https://go.mparticle.com/work/SQDSDKS-5053
                 if (mpInstance._Helpers.getFeatureFlag && mpInstance._Helpers.getFeatureFlag(Constants.FeatureFlags.CaptureIntegrationSpecificIds)) {
+
+                    // Attempt to recapture click IDs in case a third party integration
+                    // has added or updated  new click IDs since the last event was sent.
                     mpInstance._IntegrationCapture.capture();
                     const transformedClickIDs = mpInstance._IntegrationCapture.getClickIdsAsCustomFlags();
                     customFlags = {...transformedClickIDs, ...customFlags};

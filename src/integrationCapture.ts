@@ -23,23 +23,23 @@ export const facebookClickIdProcessor: IntegrationCaptureProcessorFunction = (
     url: string,
     timestamp?: number,
 ): string => {
-    if (!clickId && !url) {
+    if (!clickId || !url) {
         return '';
     }
 
-    const urlPrefix = url?.split('//')
-    if (!urlPrefix) {
+    const urlSegments = url?.split('//')
+    if (!urlSegments) {
         return '';
     }
 
-    const urlParts = urlPrefix[1].split('/');
-    const hostParts = urlParts[0].split('.');
+    const urlParts = urlSegments[1].split('/');
+    const domainParts = urlParts[0].split('.');
     let subdomainIndex: number = 1;
 
     // The rules for subdomainIndex are for parsing the domain portion
     // of the URL for cookies, but in this case we are parsing the URL 
     // itself, so we can ignore the use of 0 for 'com'
-    if (hostParts.length >= 3) {
+    if (domainParts.length >= 3) {
         subdomainIndex = 2;
     }
 
