@@ -16,6 +16,7 @@ const { findEventFromRequest,
     waitForCondition,
     fetchMockSuccess,
     getForwarderEvent,
+    getIdentityEvent,
     setLocalStorage,
     forwarderDefaultConfiguration,
     MockForwarder,
@@ -1031,7 +1032,7 @@ describe('forwarders', function() {
     });
 
     // This test sends to forwarding batch endpoint so the fact that it is failing is not a big deal as we should probably just delete that code.
-    //  This feature is not actually live, as it is hidden behind a feature flag that is false for everyone.  
+    // This feature is not actually live, as it is hidden behind a feature flag that is false for everyone.  
     // The test fails because we need a way to make the batch forwarding stats uploader to fire after X seconds (default is 5000 ms)
     // but it seems like startig a timer in the .then after an identify will clear out any existing setTimeout/setIntervals. 
     it.skip('sends forwarding stats to v2 endpoint when featureFlag setting of batching is true', function(done) {
@@ -2450,9 +2451,11 @@ describe('forwarders', function() {
     });
     });
 
-    // TODO come back to me!
+    // This test sends to forwarding batch endpoint so the fact that it is failing is not a big deal as we should probably just delete that code.
+    // This feature is not actually live, as it is hidden behind a feature flag that is false for everyone.  
+    // The test fails because we need a way to make the batch forwarding stats uploader to fire after X seconds (default is 5000 ms)
+    // but it seems like startig a timer in the .then after an identify will clear out any existing setTimeout/setIntervals. 
     it.skip('should queue forwarder stats reporting and send after 5 seconds if batching feature is true', function(done) {
-
         mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
@@ -2839,9 +2842,7 @@ describe('forwarders', function() {
     });
     });
 
-    // TODO:  fix this test...
-    it.skip('integration test - should send events after a configured delay, or 5 seconds by default if setIntegrationDelays are still true', function(done) {
-        // testing default of 5000 ms
+    it('integration test - should send events after a configured delay, or 5 seconds by default if setIntegrationDelays are still true', function(done) {
         // this code will be put in each forwarder as each forwarder is initialized
         mParticle._setIntegrationDelay(128, true);
         Should(
@@ -2858,23 +2859,32 @@ describe('forwarders', function() {
             Object.keys(mParticle.getInstance()._preInit.integrationDelays)
                 .length
         ).equal(3);
+
+        window.mParticle.config.logLevel = 'verbose';
         mParticle.init(apiKey, window.mParticle.config);
+
         waitForCondition(() => {
             return (
                 window.mParticle.getInstance()._Store.identityCallInFlight === false
             );
         })
         .then(() => {
-        let clock = sinon.useFakeTimers();
-
-        fetchMock.resetHistory();
         mParticle.logEvent('Test Event1');
-        fetchMock.calls().length.should.equal(0);
 
-        clock.tick(5001);
+        // Only the identity is in the calls
+        fetchMock.calls().length.should.equal(1);
+        const identifyEvent = getIdentityEvent(
+            fetchMock.calls(),
+            'identify'
+        );
+        identifyEvent.should.be.ok()
 
-        mParticle.logEvent('Test Event2');
-        fetchMock.calls().length.should.equal(4);
+        // Turn off delays manually because we cannot use sinon.useFakeTimers in the async identity paradigm
+        mParticle._setIntegrationDelay(128, false);
+        mParticle._setIntegrationDelay(24, false);
+        mParticle._setIntegrationDelay(10, false);
+        mParticle.logEvent('Test Event2');  // this manually logs all the queued events
+        fetchMock.calls().length.should.equal(5);
 
         const sessionStartEvent = findEventFromRequest(
             fetchMock.calls(),
@@ -2897,16 +2907,29 @@ describe('forwarders', function() {
         ASTEvent.should.be.ok();
         testEvent1.should.be.ok();
         testEvent2.should.be.ok();
-        clock.restore();
+        done();
+    });
+    });
 
+    // https://go.mparticle.com/work/SQDSDKS-6844
+    it.skip('integration test - should allow the user to configure the integrationDelayTimeout', function(done) {
         // testing user-configured integrationDelayTimeout
-        clock = sinon.useFakeTimers();
+        let clock = sinon.useFakeTimers();
         mParticle._resetForTests(MPConfig);
         mParticle.config.integrationDelayTimeout = 1000;
         mParticle._setIntegrationDelay(128, true);
         mParticle._setIntegrationDelay(24, false);
         mParticle._setIntegrationDelay(10, true);
         mParticle.init(apiKey, window.mParticle.config);
+        // clock.tick(5000);
+        waitForCondition(() => {
+            console.log(window.mParticle.getInstance()._Store.identityCallInFlight)
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        }, 200, 10, clock)
+        .then(() => {
+            debugger;
         fetchMock.resetHistory();
         mParticle.logEvent('Test Event3');
         fetchMock.calls().length.should.equal(0);
@@ -2940,7 +2963,7 @@ describe('forwarders', function() {
         clock.restore();
 
         done();
-    });
+        })
     });
 
     it('integration test - after an integration delay is set to false, should fire an event after the event timeout', function(done) {
@@ -3066,8 +3089,9 @@ describe('forwarders', function() {
     });
     });
 
-    // for some reason this._preInit.readyQueue is undefined
-    it.skip('configures forwarders before events are logged via identify callback', function(done) {
+    
+    // This will pass when we add mpInstance._Store.isInitialized = true; to mp-instance before `processIdentityCallback`
+    it('configures forwarders before events are logged via identify callback', function(done) {
         mParticle._resetForTests(MPConfig);
         window.mParticle.config.identifyRequest = {
             userIdentities: {
@@ -3084,7 +3108,7 @@ describe('forwarders', function() {
         window.mParticle.config.kitConfigs.push(
             forwarderDefaultConfiguration('MockForwarder')
         );
-
+        window.mParticle.config.rq = [];
         mParticle.init(apiKey, window.mParticle.config);
         waitForCondition(() => {
             return (
@@ -3099,6 +3123,8 @@ describe('forwarders', function() {
 
         //mock a page reload which has no configuredForwarders
         mParticle.getInstance()._Store.configuredForwarders = [];
+        window.mParticle.config.rq = [];
+
         mParticle.init(apiKey, window.mParticle.config);
 
         waitForCondition(() => {

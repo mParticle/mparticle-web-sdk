@@ -24,7 +24,6 @@ describe('core SDK', function() {
     });
 
     afterEach(function() {
-        // mockServer.reset();
         mParticle._resetForTests(MPConfig);
         fetchMock.restore();
         sinon.restore();
@@ -605,11 +604,11 @@ describe('core SDK', function() {
         })
     });
 
-    it.skip('should update session start date when session times out, then starting a new one', function(done) {
+    it('should update session start date when session times out, then start a new one', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() => {
         mParticle._resetForTests(MPConfig);
-        // mParticle.config.sessionTimeout = 1;
+        mParticle.config.sessionTimeout = 1;
 
         mParticle.init(apiKey, mParticle.config);
         waitForCondition(() => {
@@ -619,7 +618,7 @@ describe('core SDK', function() {
         })
         .then(() => {
         const clock = sinon.useFakeTimers();
-        // clock.tick(10);
+        clock.tick(10);
 
         mParticle.logEvent('Test Event');
         const testEvent = findEventFromRequest(fetchMock.calls(), 'Test Event');
@@ -627,21 +626,17 @@ describe('core SDK', function() {
 
         // trigger session timeout which ends session automatically
         clock.tick(60000);
-        mParticle.upload();
         // note to self - session end event not being triggered, could be the same bug
         const sessionEndEvent = findEventFromRequest(fetchMock.calls(), 'session_end');
         const sessionEndEventSessionStartDate = sessionEndEvent.data.session_start_unixtime_ms;
         sessionEndEventSessionStartDate.should.equal(testEventSessionStartDate);
 
-        clock.tick(100);
-
+        clock.restore();
         mParticle.logEvent('Test Event2');
         const testEvent2 = findEventFromRequest(fetchMock.calls(), 'Test Event2');
 
         const testEvent2SessionStartDate = testEvent2.data.session_start_unixtime_ms;
         testEvent2SessionStartDate.should.be.above(sessionEndEventSessionStartDate);
-
-        clock.restore();
 
         done();
         })
