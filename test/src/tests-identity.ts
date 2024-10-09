@@ -426,6 +426,7 @@ describe.only('identity', function() {
 
     });
 
+    // This test passes with no issue when it is run on its own, but fails when forwarding tests are also ran.
     it('should respect consent rules on consent-change', function(done) {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = false;
