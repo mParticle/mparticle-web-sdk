@@ -55,6 +55,7 @@ describe.only('forwarders', function() {
 
         fetchMockSuccess(urls.forwarding, { mpid: testMPID, is_logged_in: false })
 
+        // https://go.mparticle.com/work/SQDSDKS-6850
         mockServer.respondWith(urls.forwarding, [
             202,
             {},
