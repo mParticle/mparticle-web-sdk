@@ -6,6 +6,7 @@ import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
 import { GDPRConsentState, PrivacyConsentState } from '@mparticle/web-sdk';
 import { Dictionary } from '../../src/utils';
+const { hasIdentifyReturned, waitForCondition, fetchMockSuccess } = Utils;
 
 declare global {
     interface Window {
@@ -23,25 +24,20 @@ const EmptyObjectAsPrivacyConsentState = ({} as unknown) as PrivacyConsentState;
 const EmptyStringAsPrivacyConsentState = ('' as unknown) as PrivacyConsentState;
 
 const findBatch = Utils.findBatch;
-let mockServer;
+
 const mParticle = window.mParticle;
 
-describe('Consent', function() {
+describe.only('Consent', function() {
     beforeEach(function() {
         fetchMock.post(urls.events, 200);
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
+        fetchMockSuccess(urls.identify, {
+            mpid: testMPID, is_logged_in: false
+        });
 
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
         mParticle.init(apiKey, window.mParticle.config);
     });
 
     afterEach(function() {
-        mockServer.restore();
         fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
@@ -642,6 +638,9 @@ describe('Consent', function() {
             'hardware'
         );
         consentState.setCCPAConsentState(ccpaConsent);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() =>  {
         const user = mParticle.Identity.getCurrentUser();
         user.setConsentState(consentState);
 
@@ -658,6 +657,7 @@ describe('Consent', function() {
         testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('hardware_id', 'hardware');
 
         done();
+        })
     });
 
     it('should have CCPA and GDPR in payload', done => {
@@ -679,14 +679,17 @@ describe('Consent', function() {
         );
         consentState.setCCPAConsentState(ccpaConsent);
         consentState.addGDPRConsentState('test purpose', gdprConsent);
+        waitForCondition(hasIdentifyReturned)
+        .then(() =>  {
+
         const user = mParticle.Identity.getCurrentUser();
         user.setConsentState(consentState);
-
-
+        
+        
         mParticle.logEvent('Test Event');
-
+        
         const testEvent = findBatch(fetchMock.calls(), 'Test Event');
-
+        
         testEvent.should.have.property('consent_state');
         testEvent.consent_state.should.have.property('ccpa');
         testEvent.consent_state.ccpa.should.have.property('data_sale_opt_out');
@@ -695,7 +698,7 @@ describe('Consent', function() {
         testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('document', 'consentDoc');
         testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('location', 'location');
         testEvent.consent_state.ccpa.data_sale_opt_out.should.have.property('hardware_id', 'hardware');
-
+        
         testEvent.consent_state.should.have.property('gdpr');
         testEvent.consent_state.gdpr.should.have.property('test purpose');
         testEvent.consent_state.gdpr['test purpose'].should.have.property('consented', false);
@@ -703,8 +706,9 @@ describe('Consent', function() {
         testEvent.consent_state.gdpr['test purpose'].should.have.property('document', 'consentDoc');
         testEvent.consent_state.gdpr['test purpose'].should.have.property('location', 'location');
         testEvent.consent_state.gdpr['test purpose'].should.have.property('hardware_id', 'hardware');
-
+        
         done();
+        })
     });
 
     // TODO: Deprecate in next major version
