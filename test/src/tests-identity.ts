@@ -88,7 +88,7 @@ const fetchMockSuccess = (url: string, body: any = {}, headers: any = {}) => {
     );
 };
 
-describe.only('identity', function() {
+describe('identity', function() {
     let clock;
     let hasIdentifyReturned;
     let hasLoginReturned;
@@ -3128,7 +3128,7 @@ describe.only('identity', function() {
     });
 
     describe('identityCallback responses', function () {
-    it.only('should have a getUser function on identify result object', function(done) {
+    it('should have a getUser function on identify result object', function(done) {
         let result;
 
         mParticle._resetForTests(MPConfig);
