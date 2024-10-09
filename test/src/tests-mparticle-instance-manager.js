@@ -2,7 +2,8 @@ import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, MPConfig } from './config/constants';
 import Utils from './config/utils';
-const findEventFromRequest = Utils.findEventFromRequest;
+const { findEventFromRequest, waitForCondition, fetchMockSuccess } = Utils;
+
 let mockServer;
 
 function returnEventForMPInstance(calls, apiKey, eventName) {
@@ -12,7 +13,7 @@ function returnEventForMPInstance(calls, apiKey, eventName) {
     return findEventFromRequest(requestsPerApiKey, eventName);
 }
 
-describe('mParticle instance manager', function() {
+describe.only('mParticle instance manager', function() {
     it('has all public apis on it', function(done) {
         mParticle.ProductActionType.should.have.properties([
             'Unknown',
@@ -222,14 +223,9 @@ describe('mParticle instance manager', function() {
             );
 
             // identity mock
-            mockServer.respondWith(
-                urls.identify,
-                [
-                    200,
-                    {},
-                    JSON.stringify({ mpid: 'testMPID', is_logged_in: false }),
-                ]
-            );
+            fetchMockSuccess(urls.identify, {
+                mpid: 'testMPID', is_logged_in: false
+            });
 
             window.mParticle.config.requestConfig = true;
             delete window.mParticle.config.workspaceToken;
@@ -261,7 +257,14 @@ describe('mParticle instance manager', function() {
 
         it('logs events to their own instances', function(done) {
             // setTimeout to allow config to come back from the beforeEach initialization
-            setTimeout(() => {
+            waitForCondition(() => {
+                return (
+                    mParticle.getInstance('default_instance')._Store.configurationLoaded === true &&
+                    mParticle.getInstance('instance2')._Store.configurationLoaded === true &&
+                    mParticle.getInstance('instance3')._Store.configurationLoaded === true
+                );
+            })
+            .then(() => {
                 mParticle.getInstance('default_instance').logEvent('hi1');
                 mParticle.getInstance('instance2').logEvent('hi2');
                 mParticle.getInstance('instance3').logEvent('hi3');
@@ -331,7 +334,7 @@ describe('mParticle instance manager', function() {
                 Should(instance3EventsFail2).not.be.ok();
 
                 done();
-            }, 50)
+            })
         });
 
         it('logs purchase events to their own instances', function(done) {
