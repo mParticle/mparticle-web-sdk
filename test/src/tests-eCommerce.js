@@ -70,7 +70,7 @@ describe.only('eCommerce', function() {
     it('should log ecommerce event', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
-            const product = mParticle.eCommerce.createProduct(
+        const product = mParticle.eCommerce.createProduct(
                 'iPhone',
                 '12345',
                 '400',
@@ -462,10 +462,10 @@ describe.only('eCommerce', function() {
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
         const product = mParticle.eCommerce.createProduct('iPhone', '12345', 400),
-        impression = mParticle.eCommerce.createImpression(
-            'impression-name',
-            product
-        );
+            impression = mParticle.eCommerce.createImpression(
+                'impression-name',
+                product
+            );
 
         mParticle.eCommerce.logImpression(impression, null, null, { shouldUploadEvent: false });
 
