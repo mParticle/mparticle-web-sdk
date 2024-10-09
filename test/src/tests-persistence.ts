@@ -27,32 +27,34 @@ const {
     setCookie,
     setLocalStorage,
     findBatch,
+    fetchMockSuccess,
+    hasIdentifyReturned,
+    waitForCondition
 } = Utils;
 
-let mockServer;
-
-describe('persistence', () => {
+describe.only('persistence', () => {
     beforeEach(() => {
         fetchMock.post(urls.events, 200);
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
 
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
-        mParticle.init(apiKey, mParticle.config);
+        fetchMockSuccess(urls.identify, {
+            mpid: testMPID,
+            is_logged_in: false,
+        });
     });
 
     afterEach(() => {
-        mockServer.restore();
         fetchMock.restore();
     });
 
     describe('#swapCurrentUser', () => {
         it('should not swap a user if there is no MPID change', function(done) {
             mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(() => {
+                return (
+                    window.mParticle.getInstance()._Store.identityCallInFlight === false
+                );
+            })
+            .then(() => {
             const cookiesBefore = getLocalStorage();
             mParticle.getInstance()._Persistence.swapCurrentUser(testMPID, testMPID);
     
@@ -63,10 +65,17 @@ describe('persistence', () => {
             cookiesBefore.cu.should.equal(cookiesAfter.cu);
     
             done();
+            });
         });
     
         it('should swap a user if there is an MPID change', function(done) {
             mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(() => {
+                return (
+                    window.mParticle.getInstance()._Store.identityCallInFlight === false
+                );
+            })
+            .then(() => {
             const cookiesBefore = getLocalStorage();
     
             mParticle.getInstance()._Persistence.swapCurrentUser(testMPID, 'currentMPID');
@@ -80,8 +89,7 @@ describe('persistence', () => {
     
             done();
         });
-
-
+        });
     });
 
     it('should move new schema from cookies to localStorage with useCookieStorage = false', done => {
@@ -145,9 +153,10 @@ describe('persistence', () => {
     });
 
     it('localStorage - should key cookies on mpid on first run', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
         const cookies1 = mParticle.getInstance()._Persistence.getLocalStorage();
         const props1 = [
             'ie',
@@ -187,14 +196,17 @@ describe('persistence', () => {
             'cp',
         ];
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'otherMPID', is_logged_in: false
+        });
 
         mParticle.Identity.login();
-
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'otherMPID'
+            );
+        })
+        .then(() => {
         const cookies2 = mParticle.getInstance()._Persistence.getLocalStorage();
         cookies2.should.have.property('cu', 'otherMPID', 'gs');
         props2.forEach(function(prop) {
@@ -203,13 +215,16 @@ describe('persistence', () => {
             cookies2['otherMPID'].should.not.have.property(prop);
         });
 
-        done();
+        done();    
+        });
+        });
     });
 
     it('cookies - should key cookies on mpid when there are no cookies yet', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         const cookies1 = findCookie();
 
@@ -250,13 +265,17 @@ describe('persistence', () => {
             'cp',
         ];
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'otherMPID', is_logged_in: false
+        });
 
         mParticle.Identity.login();
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'otherMPID'
+            );
+        })
+        .then(() => {
         const cookies2 = findCookie();
 
         cookies2.should.have.property('cu', 'otherMPID', testMPID);
@@ -269,10 +288,14 @@ describe('persistence', () => {
 
         done();
     });
+    });
+    });
 
     it('puts data into cookies when init-ing with useCookieStorage = true', done => {
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         const cookieData = findCookie();
 
@@ -305,10 +328,12 @@ describe('persistence', () => {
 
         done();
     });
+    });
 
     it('puts data into localStorage when running initializeStorage with useCookieStorage = false', done => {
         mParticle.init(apiKey, mParticle.config);
-
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {   
         const cookieData = mParticle.getInstance()._Persistence.getCookie();
 
         const localStorageData = mParticle
@@ -339,6 +364,7 @@ describe('persistence', () => {
         expect(cookieData).to.not.be.ok;
 
         done();
+        });
     });
 
     it('puts data into cookies when updating persistence with useCookieStorage = true', done => {
@@ -347,6 +373,8 @@ describe('persistence', () => {
 
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {   
 
         cookieData = findCookie();
         expect(cookieData).to.include.keys('gs', 'cu', testMPID);
@@ -375,6 +403,7 @@ describe('persistence', () => {
         expect(localStorageData).to.not.be.ok;
 
         done();
+        });
     });
 
     it('puts data into localStorage when updating persistence with useCookieStorage = false', done => {
@@ -384,6 +413,8 @@ describe('persistence', () => {
         // Flush out anything in expire before updating in order to silo testing persistence.update()
         // mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {   
 
         localStorageData = getLocalStorage();
         cookieData = findCookie();
@@ -411,6 +442,7 @@ describe('persistence', () => {
         expect(cookieData).to.not.be.ok;
 
         done();
+        });
     });
 
     it('should revert to cookie storage if localStorage is not available and useCookieStorage is set to false', done => {
@@ -420,6 +452,8 @@ describe('persistence', () => {
         };
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {   
 
         mParticle
             .getInstance()
@@ -434,12 +468,14 @@ describe('persistence', () => {
         };
 
         done();
+        });
     });
 
     it('should set certain attributes onto global localStorage, while setting user specific to the MPID', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = false;
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {   
         mParticle
             .getInstance()
             .Identity.getCurrentUser()
@@ -460,11 +496,14 @@ describe('persistence', () => {
         data.testMPID.ua.should.have.property('gender', 'male');
 
         done();
+        });
     });
 
     it('should save integration attributes properly on a page refresh', done => {
         mParticle.setIntegrationAttribute(128, { MCID: 'abcedfg' });
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {   
 
         mParticle.logEvent('Test Event');
         const testEvent = findBatch(fetchMock.calls(), 'Test Event');
@@ -472,11 +511,14 @@ describe('persistence', () => {
         testEvent.integration_attributes['128'].should.have.property('MCID', 'abcedfg');
 
         done();
+        });
     });
 
     it('should set certain attributes onto global cookies, while setting user specific to the MPID', done => {
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {   
         mParticle
             .getInstance()
             .Identity.getCurrentUser()
@@ -496,35 +538,46 @@ describe('persistence', () => {
         data.testMPID.ua.should.have.property('gender', 'male');
 
         done();
+        });
     });
 
     it('should add new MPID to cookies when returned MPID does not match anything in cookies, and have empty UI and UA', done => {
         mParticle._resetForTests(MPConfig);
 
         mParticle.init(apiKey, mParticle.config);
-
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
-        ]);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {   
+        fetchMockSuccess(urls.login, {
+            mpid: 'mpid1', is_logged_in: false
+        });
 
         const user1 = { userIdentities: { customerid: 'customerid1' } };
 
         mParticle.Identity.login(user1);
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid1'
+            );
+        })
+        .then(() => {
+            
         const user1Result = mParticle
             .getInstance()
             .Identity.getCurrentUser()
             .getUserIdentities();
         user1Result.userIdentities.customerid.should.equal('customerid1');
 
-        mockServer.respondWith(urls.logout, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid2', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.logout, {
+            mpid: 'mpid2', is_logged_in: false
+        });
 
         mParticle.Identity.logout();
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2'
+            );
+        })
+        .then(() => {
 
         const user2Result = mParticle.getInstance().Identity.getCurrentUser();
         Object.keys(
@@ -542,9 +595,11 @@ describe('persistence', () => {
 
         done();
     });
+    });
+    });
+    });
 
     it('should have the same currentUserMPID as the last browser session when a reload occurs and no identityRequest is provided', done => {
-        mParticle._resetForTests(MPConfig);
         const user1 = {
             userIdentities: {
                 customerid: '1',
@@ -565,42 +620,61 @@ describe('persistence', () => {
 
         mParticle.init(apiKey, mParticle.config);
 
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {   
+
         const data = mParticle.getInstance()._Persistence.getLocalStorage();
         data.cu.should.equal(testMPID);
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'mpid1', is_logged_in: false
+        });
 
         mParticle.Identity.login(user1);
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid1'
+            );
+        })
+        .then(() => {
+            
         const user1Data = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
 
         user1Data.cu.should.equal('mpid1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid2', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'mpid2', is_logged_in: false
+        });
 
         mParticle.Identity.login(user2);
+
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2'
+            );
+        })
+        .then(() => {
+            
         const user2Data = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
 
         user2Data.cu.should.equal('mpid2');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid3', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'mpid3', is_logged_in: false
+        });
 
         mParticle.Identity.login(user3);
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid3'
+            );
+        })
+        .then(() => {
+            
         const user3data = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -611,14 +685,19 @@ describe('persistence', () => {
         data3.cu.should.equal('mpid3');
 
         done();
+        })
+    });
+    });
+    });
     });
 
     it('should transfer user attributes and revert to user identities properly', done => {
-        mParticle._resetForTests(MPConfig);
         const user1 = { userIdentities: { customerid: 'customerid1' } };
 
         const user2 = { userIdentities: { customerid: 'customerid2' } };
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         // set user attributes on testMPID
         mParticle
@@ -630,24 +709,34 @@ describe('persistence', () => {
 
         data.cu.should.equal(testMPID);
         data.testMPID.ua.should.have.property('test1', 'test1');
+        
+        fetchMockSuccess(urls.login, {
+            mpid: 'mpid1', is_logged_in: false
+        });
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
-        ]);
-
-        mockServer.respondWith(
-            'https://identity.mparticle.com/v1/mpid1/modify',
-            [200, {}, JSON.stringify({ mpid: 'mpid1', is_logged_in: false })]
-        );
+        fetchMockSuccess('https://identity.mparticle.com/v1/mpid1/modify', {
+            mpid: 'mpid1', is_logged_in: false
+        });
+        
 
         mParticle.Identity.login(user1);
-
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid1'
+            );
+        })
+        .then(() => {
+                            
         // modify user1's identities
         mParticle.Identity.modify({
             userIdentities: { email: 'email@test.com' },
         });
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
 
         // set user attributes on mpid1
         mParticle
@@ -662,13 +751,17 @@ describe('persistence', () => {
         user1Data.mpid1.ui.should.have.property('7', 'email@test.com');
         user1Data.mpid1.ui.should.have.property('1', 'customerid1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid2', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'mpid2', is_logged_in: false
+        });
 
         mParticle.Identity.login(user2);
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid2'
+            );
+        })
+        .then(() => {
 
         // set user attributes on user 2
         mParticle
@@ -683,13 +776,17 @@ describe('persistence', () => {
         user2Data.mpid2.ui.should.have.property('1', 'customerid2');
         user2Data.mpid2.ua.should.have.property('test3', 'test3');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'mpid1', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'mpid1', is_logged_in: false
+        });
 
         mParticle.Identity.login(user1);
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'mpid1'
+            );
+        })
+        .then(() => {
         const user1RelogInData = mParticle
             .getInstance()
             ._Persistence.getLocalStorage();
@@ -703,9 +800,16 @@ describe('persistence', () => {
 
         done();
     });
+    });
+    });
+    });
+    });
+    });
 
     it('should remove MPID as keys if the cookie size is beyond the setting', done => {
-        mParticle._resetForTests(MPConfig);
+        mParticle.init(apiKey, window.mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
         mParticle.config.maxCookieSize = 700;
 
         const cookies: IPersistenceMinified = {
@@ -778,36 +882,38 @@ describe('persistence', () => {
 
         done();
     });
+    });
 
     it('integration test - will change the order of the CSM when a previous MPID logs in again', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
         mParticle.config.maxCookieSize = 1000;
         mParticle.init(apiKey, mParticle.config);
-
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
         const userIdentities1 = {
             userIdentities: {
                 customerid: 'foo1'
             }
         }
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID1', is_logged_in: false
+        });
 
         mParticle.Identity.login(userIdentities1);
-
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1'
+            );
+        })
+        .then(() => {
         let cookieData: Partial<IPersistenceMinified> = findCookie();
         cookieData.gs.csm[0].should.be.equal('testMPID');
         cookieData.gs.csm[1].should.be.equal('MPID1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID2', is_logged_in: false
+        });
 
         const userIdentities2 = {
             userIdentities: {
@@ -816,17 +922,20 @@ describe('persistence', () => {
         };
 
         mParticle.Identity.login(userIdentities2);
-
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2'
+            );
+        })
+        .then(() => {
         cookieData = findCookie();
         cookieData.gs.csm[0].should.be.equal('testMPID');
         cookieData.gs.csm[1].should.be.equal('MPID1');
         cookieData.gs.csm[2].should.be.equal('MPID2');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'testMPID', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'testMPID', is_logged_in: false
+        });
 
         const userIdentities3 = {
             userIdentities: {
@@ -835,6 +944,12 @@ describe('persistence', () => {
         };
 
         mParticle.Identity.login(userIdentities3);
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'testMPID'
+            );
+        })
+        .then(() => {
 
         cookieData = findCookie();
         cookieData.gs.csm[0].should.be.equal('MPID1');
@@ -843,13 +958,18 @@ describe('persistence', () => {
 
         done();
     });
+    });
+    });
+    });
+    });
 
     it('integration test - should remove a previous MPID as a key from cookies if new user attribute added and exceeds the size of the max cookie size', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
         mParticle.config.maxCookieSize = 700;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -872,11 +992,9 @@ describe('persistence', () => {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID1', is_logged_in: false
+        });
 
         const userIdentities1 = {
             userIdentities: {
@@ -885,6 +1003,12 @@ describe('persistence', () => {
         };
 
         mParticle.Identity.login(userIdentities1);
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1'
+            );
+        })
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -911,11 +1035,9 @@ describe('persistence', () => {
         cookieData.gs.csm[0].should.equal('testMPID');
         cookieData.gs.csm[1].should.equal('MPID1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID2', is_logged_in: false
+        });
 
         const userIdentities2 = {
             userIdentities: {
@@ -924,6 +1046,12 @@ describe('persistence', () => {
         };
 
         mParticle.Identity.login(userIdentities2);
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2'
+            );
+        })
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -964,9 +1092,11 @@ describe('persistence', () => {
 
         done();
     });
+    });
+    });
+    });
 
     it('should remove a random MPID from storage if there is a new session and there are no other MPIDs in currentSessionMPIDs except for the currentUser mpid', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.maxCookieSize = 400;
 
         const cookies: IPersistenceMinified = {
@@ -1043,11 +1173,12 @@ describe('persistence', () => {
     });
 
     it('integration test - should remove a random MPID from storage if there is a new session and there are no MPIDs in currentSessionMPIDs', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
         mParticle.config.maxCookieSize = 600;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -1070,13 +1201,17 @@ describe('persistence', () => {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID1', is_logged_in: false
+        });
 
         mParticle.Identity.login();
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1'
+            );
+        })
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -1104,14 +1239,18 @@ describe('persistence', () => {
         cookieData.gs.csm[0].should.equal('testMPID');
         cookieData.gs.csm[1].should.equal('MPID1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID2', is_logged_in: false
+        });
 
         mParticle.endSession();
         mParticle.Identity.login();
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2'
+            );
+        })
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -1150,6 +1289,9 @@ describe('persistence', () => {
 
         done();
     });
+    });
+    });
+    });
 
     it('integration test - migrates a large localStorage cookie to cookies and properly remove MPIDs', done => {
         mParticle._resetForTests(MPConfig);
@@ -1157,6 +1299,9 @@ describe('persistence', () => {
         mParticle.config.maxCookieSize = 700;
 
         mParticle.init(apiKey, mParticle.config);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
         mParticle
             .getInstance()
             .Identity.getCurrentUser()
@@ -1178,13 +1323,17 @@ describe('persistence', () => {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID1', is_logged_in: false
+        });
 
         mParticle.Identity.login();
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1'
+            );
+        })
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -1207,13 +1356,17 @@ describe('persistence', () => {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id2');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
-        ]);
+            fetchMockSuccess(urls.login, {
+                mpid: 'MPID2', is_logged_in: false
+            });
 
         mParticle.Identity.login();
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2'
+            );
+        })
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -1239,6 +1392,12 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
         const cookieData = findCookie();
 
         expect(cookieData['testMPID']).to.not.be.ok;
@@ -1247,12 +1406,17 @@ describe('persistence', () => {
 
         done();
     });
+    });
+    });
+    });
+    });
 
     it('integration test - migrates all cookie MPIDs to localStorage', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
         mParticle
             .getInstance()
             .Identity.getCurrentUser()
@@ -1274,11 +1438,9 @@ describe('persistence', () => {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-        ]);
+            fetchMockSuccess(urls.login, {
+                mpid: 'MPID1', is_logged_in: false
+            });
 
         const userIdentities1 = {
             userIdentities: {
@@ -1286,6 +1448,12 @@ describe('persistence', () => {
             },
         };
         mParticle.Identity.login(userIdentities1);
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1'
+            );
+        })
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -1308,11 +1476,9 @@ describe('persistence', () => {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id2');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID2', is_logged_in: false
+        });
 
         const userIdentities2 = {
             userIdentities: {
@@ -1320,6 +1486,12 @@ describe('persistence', () => {
             },
         };
         mParticle.Identity.login(userIdentities2);
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2'
+            );
+        })
+        .then(() => {
 
         mParticle
             .getInstance()
@@ -1345,6 +1517,12 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = false;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
         const lsData = getLocalStorage(v4LSKey);
 
         lsData.should.have.properties([
@@ -1378,12 +1556,17 @@ describe('persistence', () => {
 
         done();
     });
+    });
+    });
+    });
+    });
 
     it('integration test - migrates all LS MPIDs to cookies', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.config.useCookieStorage = false;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         // testMPID
         mParticle
@@ -1407,11 +1590,9 @@ describe('persistence', () => {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id1');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID1', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID1', is_logged_in: false
+        });
 
         const userIdentities1 = {
             userIdentities: {
@@ -1420,6 +1601,12 @@ describe('persistence', () => {
         };
 
         mParticle.Identity.login(userIdentities1);
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1'
+            );
+        })
+        .then(() => {
 
         // MPID1
         mParticle
@@ -1443,11 +1630,9 @@ describe('persistence', () => {
             .Identity.getCurrentUser()
             .setUserAttribute('id', 'id2');
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'MPID2', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'MPID2', is_logged_in: false
+        });
 
         const userIdentities2 = {
             userIdentities: {
@@ -1456,6 +1641,12 @@ describe('persistence', () => {
         };
 
         mParticle.Identity.login(userIdentities2);
+                waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID2'
+            );
+        })
+        .then(() => {
 
         // MPID2
         mParticle
@@ -1482,6 +1673,12 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(() => {
+                    return (
+                        window.mParticle.getInstance()._Store.identityCallInFlight === false
+                    );
+                })
+                .then(() => {
         const cookieData = findCookie();
 
         cookieData.should.have.properties([
@@ -1515,11 +1712,13 @@ describe('persistence', () => {
 
         done();
     });
+    });
+    });
+    });
+    });
 
     it('integration test - clears and creates new LS on reload if LS is corrupt', done => {
         const les = new Date().getTime();
-
-        mParticle._resetForTests(MPConfig);
 
         //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
         const LS =
@@ -1529,6 +1728,8 @@ describe('persistence', () => {
         setLocalStorage(v4LSKey, LS, true);
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+                .then(() => {
 
         const sessionId = mParticle.sessionManager.getSession();
         const das = mParticle.getDeviceId();
@@ -1540,11 +1741,10 @@ describe('persistence', () => {
 
         done();
     });
+    });
 
     it('integration test - clears and creates new cookies on reload if cookies is corrupt', done => {
         const les = new Date().getTime();
-
-        mParticle._resetForTests(MPConfig);
 
         //an extra apostrophe is added to ua here to force a corrupt cookie. On init, cookies will clear and there will be a new cgid, sid, and das to exist
         const cookies =
@@ -1556,6 +1756,9 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
         mParticle.init(apiKey, mParticle.config);
 
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
+
         const sessionId = mParticle.sessionManager.getSession();
         const das = mParticle.getDeviceId();
         const cgid = mParticle.getInstance()._Persistence.getCookie().gs.cgid;
@@ -1565,26 +1768,29 @@ describe('persistence', () => {
 
         done();
     });
+    });
 
     it('integration test - clears LS products on reload if LS products are corrupt', done => {
-        mParticle._resetForTests(MPConfig);
-
         // randomly added gibberish to a Base64 encoded cart product array to force a corrupt product array
         const products =
             'eyItOTE4MjY2NTAzNTA1ODg1NjAwMyI6eyasdjfiojasdifojfsdfJjcCI6W3siTmFtZSI6ImFuZHJvaWQiLCJTa3UiOiI1MTg3MDkiLCJQcmljZSI6MjM0LCJRdWFudGl0eSI6MSwiQnJhbmQiOm51bGwsIlZhcmlhbnQiOm51bGwsIkNhdGVnb3J5IjpudWxsLCJQb3NpdGlvbiI6bnVsbCwiQ291cG9uQ29kZSI6bnVsbCwiVG90YWxBbW91bnQiOjIzNCwiQXR0cmlidXRlcyI6eyJwcm9kYXR0cjEiOiJoaSJ9fSx7Ik5hbWUiOiJ3aW5kb3dzIiwiU2t1IjoiODMzODYwIiwiUHJpY2UiOjM0NSwiUXVhbnRpdHkiOjEsIlRvdGFsQW1vdW50IjozNDUsIkF0dHJpYnV0ZXMiOm51bGx9XX19';
 
         localStorage.setItem(localStorageProductsV4, products);
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         const productsAfterInit = getLocalStorageProducts().testMPID;
         expect(productsAfterInit.length).to.not.be.ok;
 
         done();
     });
+    });
 
     it('should save products to persistence correctly when adding and removing products', done => {
-        mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         const iphone = mParticle.eCommerce.createProduct(
             'iphone',
@@ -1617,10 +1823,9 @@ describe('persistence', () => {
         parsedProductsAfter['testMPID'].cp.length.should.equal(0);
         done();
     });
+    });
 
     it('should only set setFirstSeenTime() once', done => {
-        mParticle._resetForTests(MPConfig);
-
         const cookies = JSON.stringify({
             gs: {
                 sid: 'fst Test',
@@ -1639,6 +1844,12 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
 
         mParticle.getInstance()._Persistence.setFirstSeenTime('current', 10000);
         const currentFirstSeenTime = mParticle
@@ -1674,6 +1885,7 @@ describe('persistence', () => {
             .should.equal(100);
         done();
     });
+    });
 
     it('should properly set setLastSeenTime()', done => {
         mParticle._resetForTests(MPConfig);
@@ -1693,6 +1905,12 @@ describe('persistence', () => {
         setCookie(workspaceCookieName, cookies, true);
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
 
         const clock = sinon.useFakeTimers();
         clock.tick(100);
@@ -1720,10 +1938,9 @@ describe('persistence', () => {
         clock.restore();
         done();
     });
+    });
 
     it("should set firstSeenTime() for a user that doesn't have storage yet", done => {
-        mParticle._resetForTests(MPConfig);
-
         const cookies = JSON.stringify({
             gs: {
                 sid: 'fst Test',
@@ -1754,8 +1971,6 @@ describe('persistence', () => {
     });
 
     it('fst should be set when the user does not change, after an identify request', done => {
-        mParticle._resetForTests(MPConfig);
-
         const cookies = JSON.stringify({
             gs: {
                 sid: 'fst Test',
@@ -1765,28 +1980,42 @@ describe('persistence', () => {
             cu: 'current',
         });
 
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'current', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.identify, {
+            mpid: 'current',
+            is_logged_in: false,
+        });
+
 
         setCookie(workspaceCookieName, cookies, true);
         // FIXME: Should this be in configs or global?
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
         expect(
             mParticle.getInstance()._Persistence.getFirstSeenTime('current')
         ).to.equal(null);
 
         mParticle.Identity.identify();
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
 
         expect(
             mParticle.getInstance()._Persistence.getFirstSeenTime('current')
         ).to.not.equal(null);
 
         done();
+    });
+    });
     });
 
     it('lastSeenTime should be null for users in storage without an lst value', done => {
@@ -1803,11 +2032,18 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
         expect(
             mParticle.getInstance()._Persistence.getFirstSeenTime('previous')
         ).to.equal(null);
 
         done();
+    });
     });
 
     it('should save to persistence a device id set with setDeviceId', done => {
@@ -1874,17 +2110,22 @@ describe('persistence', () => {
     // with a special character in it results in a cookie decode error, which only happened
     // when config.useCookieStorage was true
     it('should save special characters to persistence when on cookies or local storage', done => {
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: testMPID,
+            is_logged_in: false,
+        });
 
         // first test local storage
         mParticle.config.useCookieStorage = false;
 
         mParticle._resetForTests(MPConfig);
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
 
         const user = mParticle.Identity.getCurrentUser();
 
@@ -1901,6 +2142,12 @@ describe('persistence', () => {
         mParticle.config.useCookieStorage = true;
 
         mParticle.init(apiKey, mParticle.config);
+        waitForCondition(() => {
+            return (
+                window.mParticle.getInstance()._Store.identityCallInFlight === false
+            );
+        })
+        .then(() => {
 
         const user2 = mParticle.Identity.getCurrentUser();
 
@@ -1912,5 +2159,7 @@ describe('persistence', () => {
         user2.getAllUserAttributes()['ua-1'].should.equal('a');
 
         done();
+    });
+    });
     });
 });
