@@ -776,7 +776,7 @@ describe.only('event logging', function() {
         })
     });
 
-    it.only('should log modify event', function(done) {
+    it('should log modify event', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() => {
         fetchMockSuccess(urls.modify, {

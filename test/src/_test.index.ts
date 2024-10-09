@@ -2,16 +2,16 @@
 import './config/setup';
 
 // Import each test module
+import './tests-identity';
+import './tests-batchUploader';
 import './tests-core-sdk';
-// import './tests-batchUploader';
 import './tests-beaconUpload';
 import './tests-kit-blocking';
+import './tests-event-logging';
+import './tests-eCommerce';
 import './tests-persistence';
 import './tests-forwarders';
 import './tests-helpers';
-import './tests-identity';
-import './tests-event-logging';
-import './tests-eCommerce';
 import './tests-cookie-syncing';
 import './tests-identities-attributes';
 import './tests-native-sdk';

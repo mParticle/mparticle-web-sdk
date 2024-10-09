@@ -1057,7 +1057,7 @@ describe.only('core SDK', function() {
         done();
     });
 
-    it.only('should hit url with query parameter of env=1 for debug mode for forwarders', function (done) {
+    it('should hit url with query parameter of env=1 for debug mode for forwarders', function (done) {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         mParticle.config.requestConfig = true;
