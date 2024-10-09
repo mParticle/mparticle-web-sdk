@@ -46,11 +46,9 @@ describe('mParticle User', function() {
             mParticle._resetForTests(MPConfig);
 
             mParticle.init(apiKey, mParticle.config);
-                debugger;
 
             waitForCondition(hasIdentifyReturned)
             .then(() => {
-                debugger;
                 let consentState = mParticle
                     .getInstance()
                     .Identity.getCurrentUser()
@@ -97,7 +95,6 @@ describe('mParticle User', function() {
 
             waitForCondition(hasIdentifyReturned)
             .then(() => {
-                debugger;
                 const userIdentities1 = {
                     userIdentities: {
                         customerid: 'foo1',
@@ -115,7 +112,6 @@ describe('mParticle User', function() {
                     );
                 })
                 .then(() => {
-                    debugger;
                     let user1StoredConsentState = mParticle
                         .getInstance()
                         .Identity.getCurrentUser()

@@ -628,8 +628,6 @@ describe('Consent', function() {
     });
 
     it('should have CCPA in payload', done => {
-        debugger;
-
         const consentState = mParticle.Consent.createConsentState();
         const timestamp = new Date().getTime();
         const ccpaConsent = mParticle.Consent.createCCPAConsent(
@@ -643,7 +641,6 @@ describe('Consent', function() {
 
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
-            debugger;
             const user = mParticle.Identity.getCurrentUser();
             user.setConsentState(consentState);
     

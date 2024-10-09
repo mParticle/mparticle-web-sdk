@@ -1579,7 +1579,6 @@ describe('ServerModel', () => {
         it('Should append user attributes when user present', function(done) {
             waitForCondition(hasIdentifyReturned)
             .then(() =>  {
-                debugger;
                 let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);

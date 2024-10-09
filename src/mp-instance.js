@@ -1347,6 +1347,9 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
+        // Perhaps this is needed in order for events to be logged within a callback successfully?
+        mpInstance._Store.isInitialized = true;
+
         processIdentityCallback(
             mpInstance,
             currentUser,

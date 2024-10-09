@@ -33,6 +33,7 @@ describe('event logging', function() {
     });
 
     it('should log an event', function(done) {
+        debugger
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
         window.mParticle.logEvent(

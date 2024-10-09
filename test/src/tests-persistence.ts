@@ -2105,7 +2105,6 @@ describe('persistence', () => {
             );
         })
         .then(() => {
-            debugger;
         expect(
             mParticle.getInstance()._Persistence.getFirstSeenTime('current')
         ).to.equal(null);

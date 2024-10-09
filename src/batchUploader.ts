@@ -321,6 +321,7 @@ export class BatchUploader {
             batchesToUpload,
             useBeacon
         );
+        // debugger;
 
         // Batches that do not successfully upload are added back to the process queue
         // in the order they were created so that we can attempt re-transmission in
@@ -393,6 +394,7 @@ export class BatchUploader {
                         response.status >= 500 ||
                         response.status === 429
                     ) {
+                        // debugger;
                         logger.error(
                             `HTTP error status ${response.status} received`
                         );
