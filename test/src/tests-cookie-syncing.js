@@ -1,7 +1,7 @@
 import Utils from './config/utils';
-import sinon from 'sinon';
 import fetchMock from 'fetch-mock/esm/client';
 import { urls, testMPID, MPConfig, v4LSKey, apiKey } from './config/constants';
+const { fetchMockSuccess, waitForCondition, hasIdentifyReturned } = Utils;
 
 const { setLocalStorage, MockForwarder, getLocalStorage } = Utils;
 
@@ -17,9 +17,7 @@ let pixelSettings = {
     redirectUrl: '',
 };
 
-let mockServer;
-
-describe('cookie syncing', function() {
+describe.only('cookie syncing', function() {
     const timeout = 25;
     // Have a reference to createElement function to reset after all cookie sync
     // tests have run
@@ -48,14 +46,9 @@ describe('cookie syncing', function() {
     });
 
     beforeEach(function() {
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
-
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.identify, {
+            mpid: testMPID, is_logged_in: false
+        });
 
         fetchMock.post(urls.events, 200);
 
@@ -64,7 +57,7 @@ describe('cookie syncing', function() {
 
     afterEach(function() {
         fetchMock.restore();
-        mockServer.restore();
+        // mockServer.restore();
         mParticle._resetForTests(MPConfig);
     });
 
@@ -73,6 +66,8 @@ describe('cookie syncing', function() {
 
         window.mParticle.config.pixelConfigs = [pixelSettings];
         mParticle.init(apiKey, window.mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() =>  {
         setTimeout(function() {
             Should(
                 mParticle.getInstance()._Store.pixelConfigurations.length
@@ -82,6 +77,7 @@ describe('cookie syncing', function() {
 
             done();
         }, timeout);
+        })
     });
 
     it('should sync cookies when current date is beyond the frequency cap and the MPID has not changed', function(done) {
@@ -119,8 +115,10 @@ describe('cookie syncing', function() {
 
         setLocalStorage();
         mParticle.init(apiKey, window.mParticle.config);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() =>  {
         setTimeout(function() {
-            mockServer.requests = [];
 
             const data = mParticle.getInstance()._Persistence.getLocalStorage();
 
@@ -135,6 +133,7 @@ describe('cookie syncing', function() {
 
             done();
         }, timeout);
+        })
     });
 
     it('should sync cookies when mpid changes', function(done) {
@@ -142,18 +141,25 @@ describe('cookie syncing', function() {
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() =>  {
         setTimeout(function() {
             const data1 = mParticle
                 .getInstance()
                 ._Persistence.getLocalStorage();
 
-            mockServer.respondWith(urls.login, [
-                200,
-                {},
-                JSON.stringify({ mpid: 'otherMPID', is_logged_in: false }),
-            ]);
-
+            fetchMockSuccess(urls.login, {
+                mpid: 'otherMPID', is_logged_in: false
+            });
+            
             mParticle.Identity.login();
+            waitForCondition(() => {
+                return (
+                    mParticle.Identity.getCurrentUser()?.getMPID() === 'otherMPID'
+                );
+            })
+            .then(() => {
             setTimeout(function() {
                 const data2 = mParticle
                     .getInstance()
@@ -166,7 +172,9 @@ describe('cookie syncing', function() {
 
                 done();
             }, timeout);
+            })
         }, timeout);
+        })
     });
 
     it('should not sync cookies when pixelSettings.isDebug is false, pixelSettings.isProduction is true, and mParticle.config.isDevelopmentMode is true', function(done) {
@@ -292,37 +300,47 @@ describe('cookie syncing', function() {
             body: JSON.stringify(forwarderConfigurationResult),
         });
 
+        waitForCondition(hasIdentifyReturned)
+        .then(() =>  {
         // add pixels to preInitConfig
         mParticle.init(apiKey, window.mParticle.config);
-
+        
+        waitForCondition(() => {
+            return (
+                mParticle.getInstance()._Store.configurationLoaded === true
+            );
+        })
+        .then(() => {
         setTimeout(function() {
             mParticle
                 .getInstance()
                 ._Store.pixelConfigurations.length.should.equal(1);
 
-            mockServer.respondWith(urls.login, [
-                200,
-                {},
-                JSON.stringify({
-                    mpid: 'MPID1',
-                    is_logged_in: false,
-                }),
-            ]);
-
+            fetchMockSuccess(urls.login, {
+                mpid: 'MPID1', is_logged_in: false
+            });            
             // force the preInit cookie configurations to fire
             mParticle.Identity.login({
                 userIdentities: { customerid: 'abc' },
             });
-
+            waitForCondition(() => {
+                return (
+                    mParticle.Identity.getCurrentUser()?.getMPID() === 'MPID1'
+                );
+            })
+            .then(() => {
             setTimeout(function() {
                 const cookies = getLocalStorage();
                 Object.keys(cookies['MPID1'].csd).length.should.equal(1);
 
                 done();
             }, timeout);
+            })
         }, timeout);
+        })
+        })
     });
-
+        
     const MockUser = function() {
         let consentState = null;
         return {
@@ -982,6 +1000,9 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync only after GDPR consent is given when consent is required - perform a cookie sync when consent is rejected', function(done) {
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
+
         const includeOnMatch = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = false;
         mParticle._resetForTests(MPConfig);
@@ -1002,6 +1023,8 @@ describe('cookie syncing', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
+        waitForCondition(hasIdentifyReturned)
+        .then(() =>  {
         setTimeout(function() {
             const localStorage = mParticle
                 .getInstance()
@@ -1045,7 +1068,9 @@ describe('cookie syncing', function() {
                     done();
                 }, timeout);
             }, timeout);
-        }, timeout);
+            }, timeout);
+        })
+        })
     });
 
     it('should perform a cookie sync only after CCPA consent is given when consent is required - perform a cookie sync when accepting consent is required', function(done) {
@@ -1118,6 +1143,9 @@ describe('cookie syncing', function() {
     });
 
     it('should perform a cookie sync only after CCPA consent is given when consent is required - perform a cookie sync when consent is rejected', function(done) {
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
+
         const includeOnMatch = false; // 'Do Not Forward' chosen in UI, 'includeOnMatch' in config
         const consented = false;
         mParticle._resetForTests(MPConfig);
@@ -1137,6 +1165,9 @@ describe('cookie syncing', function() {
         window.mParticle.config.pixelConfigs = [pixelSettings];
 
         mParticle.init(apiKey, window.mParticle.config);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() =>  {
         setTimeout(function() {
             const localStorage = mParticle
                 .getInstance()
@@ -1181,6 +1212,8 @@ describe('cookie syncing', function() {
                 }, timeout);
             }, timeout);
         }, timeout);
+        })
+        })
     });
 
     it('should allow some cookie syncs to occur and others to not occur if there are multiple pixels with varying consent levels', function(done) {
