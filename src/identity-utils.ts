@@ -14,7 +14,7 @@ import {
 } from './identity-user-interfaces';
 
 const { Identify, Modify, Login, Logout } = Constants.IdentityMethods;
-const CACHE_HEADER = 'x-mp-max-age' as const;
+export const CACHE_HEADER = 'x-mp-max-age' as const;
 
 export type IdentityCache = BaseVault<Dictionary<ICachedIdentityCall>>;
 
@@ -39,33 +39,6 @@ export interface ICachedIdentityCall {
     status: number;
     expireTimestamp: number;
 }
-
-// https://go.mparticle.com/work/SQDSDKS-6568
-// Temporary adapter to convert the XMLHttpRequest response to the IIdentityResponse interface
-export const xhrIdentityResponseAdapter = (
-    possiblyXhr: XMLHttpRequest | IIdentityResponse
-): IIdentityResponse => {
-    if (possiblyXhr.hasOwnProperty('expireTimestamp')) {
-        // If there is an `expireTimestamp`, it is an IIdentityResponse object, so just return it.  This indicates it was a previously cached value.
-        return possiblyXhr as IIdentityResponse;
-    } else {
-        // If there is no `expireTimestamp`, then it is an XHR object and needs to be parsed.
-        return {
-            status: possiblyXhr.status,
-
-            // Sometimes responseText can be an empty string, such as a 404 response
-            responseText: (possiblyXhr as XMLHttpRequest).responseText
-                ? JSON.parse((possiblyXhr as XMLHttpRequest).responseText)
-                : {},
-            cacheMaxAge: parseNumber(
-                (possiblyXhr as XMLHttpRequest)?.getResponseHeader(
-                    CACHE_HEADER
-                ) || ''
-            ),
-            expireTimestamp: 0,
-        };
-    }
-};
 
 export const cacheOrClearIdCache = (
     method: string,

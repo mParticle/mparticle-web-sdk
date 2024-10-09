@@ -4,7 +4,6 @@ import {
     cacheOrClearIdCache,
     createKnownIdentities,
     tryCacheIdentity,
-    xhrIdentityResponseAdapter,
 } from './identity-utils';
 import AudienceManager from './audienceManager';
 const { Messages, HTTPCodes, FeatureFlags, IdentityMethods } = Constants;
@@ -1514,14 +1513,11 @@ export default function Identity(mpInstance) {
 
             if (identityResponse.status === HTTP_OK) {
                 if (getFeatureFlag(CacheIdentity)) {
-                    const identityResponseForCache = xhrIdentityResponseAdapter(
-                        identityResponse
-                    );
                     cacheOrClearIdCache(
                         method,
                         knownIdentities,
                         self.idCache,
-                        identityResponseForCache,
+                        identityResponse,
                         parsingCachedResponse
                     );
                 }
