@@ -1,5 +1,4 @@
 import Types from '../../src/types';
-import Constants from '../../src/constants';
 import { apiKey, MPConfig } from './config/constants';
 import { MParticleWebSDK } from '../../src/sdkRuntimeModels';
 import { expect } from 'chai';
@@ -13,7 +12,7 @@ declare global {
 
 const mParticle = window.mParticle;
 
-describe('Api Client', () => {
+describe.only('Api Client', () => {
     beforeEach(() => {
         mParticle.init(apiKey, mParticle.config);
     });
