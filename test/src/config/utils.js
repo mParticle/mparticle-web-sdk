@@ -294,6 +294,7 @@ var pluses = /\+/g,
                 }
             });
         }
+        return returnedRequests;
     },
     getIdentityEvent = function(mockRequests, endpoint) {
         var returnedReqs = getIdentityRequests(mockRequests, endpoint);
