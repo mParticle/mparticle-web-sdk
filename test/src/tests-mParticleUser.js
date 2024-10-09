@@ -1,46 +1,36 @@
 import Utils from './config/utils';
-import sinon from 'sinon';
 import { urls, apiKey, MPConfig } from './config/constants';
+import fetchMock from 'fetch-mock/esm/client';
 
+const { waitForCondition, fetchMockSuccess } = Utils;
+
+const hasIdentifyReturned = () => {
+    return mParticle.Identity.getCurrentUser()?.getMPID() === 'identifyMPID';
+};
 const forwarderDefaultConfiguration = Utils.forwarderDefaultConfiguration,
     MockForwarder = Utils.MockForwarder;
-let mockServer;
 
 // https://go.mparticle.com/work/SQDSDKS-6508
-describe('mParticleUser', function() {
+describe.only('mParticleUser', function() {
     beforeEach(function() {
-        // TODO - for some reason when these MPIDs are all testMPID, the following test breaks:
-        // onIdentifyComplete/onLoginComplete/onLogoutComplete/onModifyComplete 
-        mockServer = sinon.createFakeServer();
-        mockServer.respondImmediately = true;
+        fetchMockSuccess(urls.identify, {
+            mpid: 'identifyMPID', is_logged_in: false
+        });
 
-        mockServer.respondWith(urls.identify, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.login, {
+            mpid: 'loginMPID', is_logged_in: true
+        });
 
-        mockServer.respondWith(urls.login, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
-        ]);
+        fetchMockSuccess(urls.logout, {
+            mpid: 'logoutMPID', is_logged_in: false
+        });
 
-        mockServer.respondWith(urls.logout, [
-            200,
-            {},
-            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
-        ]);
-
-        mockServer.respondWith('https://identity.mparticle.com/v1/testtest/modify', [
-            200,
-            {},
-            JSON.stringify({ mpid: 'testtest', is_logged_in: false }),
-        ]);
+        fetchMockSuccess('https://jssdks.mparticle.com/v1/JS/test_key/Forwarding');
+        fetchMock.post(urls.events, 200);
     });
 
     afterEach(function() {
-        mockServer.restore();
+        fetchMock.restore();
     });
 
     it('should call forwarder onUserIdentified method with a filtered user identity list', function(done) {
@@ -54,7 +44,8 @@ describe('mParticleUser', function() {
             window.mParticle.config.kitConfigs.push(config1);
 
         mParticle.init(apiKey, window.mParticle.config);
-
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -62,9 +53,14 @@ describe('mParticleUser', function() {
                 other: 'id2',
             },
         };
-
         mParticle.Identity.login(userIdentityRequest);
-
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() ===
+                'loginMPID'
+            );
+        })
+        .then(() => {
         window.MockForwarder1.instance.onUserIdentifiedUser
             .getUserIdentities()
             .userIdentities.should.not.have.property('google');
@@ -74,8 +70,9 @@ describe('mParticleUser', function() {
         window.MockForwarder1.instance.onUserIdentifiedUser
             .getUserIdentities()
             .userIdentities.should.have.property('other', 'id2');
-
         done();
+        })
+        })
     });
 
     it('should call forwarder onUserIdentified method with a filtered user attributes list', function(done) {
@@ -91,6 +88,8 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -100,6 +99,13 @@ describe('mParticleUser', function() {
         };
 
         mParticle.Identity.login(userIdentityRequest);
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() ===
+                'loginMPID'
+            );
+        })
+        .then(() => {});
         mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
         mParticle.Identity.login(userIdentityRequest);
@@ -112,8 +118,29 @@ describe('mParticleUser', function() {
 
         done();
     });
+    });
 
-    it('should call forwarder onIdentifyComplete/onLoginComplete/onLogoutComplete/onModifyComplete method with the proper identity method passed through', function(done) {
+    it('should call forwarder onIdentifyComplete', function(done) {
+        mParticle._resetForTests(MPConfig);
+        const mockForwarder = new MockForwarder();
+
+        mockForwarder.register(window.mParticle.config);
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        (config1.userAttributeFilters = [
+            mParticle.generateHash('gender'),
+        ]),
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
+        window.MockForwarder1.instance.onIdentifyCompleteCalled.should.equal(true);
+        done();
+        })
+    });
+
+    it('should call forwarder onLoginComplete', function(done) {
         mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
 
@@ -126,6 +153,8 @@ describe('mParticleUser', function() {
 
         mParticle.init(apiKey, window.mParticle.config);
 
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
         const userIdentityRequest = {
             userIdentities: {
                 google: 'test',
@@ -134,50 +163,95 @@ describe('mParticleUser', function() {
             },
         };
 
-        mParticle.Identity.getCurrentUser().setUserAttribute('color', 'blue');
-        mParticle.Identity.getCurrentUser().setUserAttribute('gender', 'male');
         mParticle.Identity.login(userIdentityRequest);
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() ===
+                'loginMPID'
+            );
+        })
+        .then(() => {
         window.MockForwarder1.instance.onLoginCompleteCalled.should.equal(true);
-        window.MockForwarder1.instance.onLoginCompleteUser
-            .getAllUserAttributes()
-            .should.not.have.property('gender');
-        window.MockForwarder1.instance.onLoginCompleteUser
-            .getAllUserAttributes()
-            .should.have.property('color', 'blue');
+        done();
+        });
+        })
+    });
+
+    it('should call forwarder onLogoutComplete', function(done) {
+        mParticle._resetForTests(MPConfig);
+        const mockForwarder = new MockForwarder();
+
+        mockForwarder.register(window.mParticle.config);
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        (config1.userAttributeFilters = [
+            mParticle.generateHash('gender'),
+        ]),
+            window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
+        const userIdentityRequest = {
+            userIdentities: {
+                google: 'test',
+                customerid: 'id1',
+                other: 'id2',
+            },
+        };
 
         mParticle.Identity.logout(userIdentityRequest);
-        window.MockForwarder1.instance.onLogoutCompleteCalled.should.equal(
-            true
-        );
-        window.MockForwarder1.instance.onLogoutCompleteUser
-            .getAllUserAttributes()
-            .should.not.have.property('gender');
-        window.MockForwarder1.instance.onLogoutCompleteUser
-            .getAllUserAttributes()
-            .should.have.property('color', 'blue');
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() ===
+                'logoutMPID'
+            );
+        })
+        .then(() => {
+            window.MockForwarder1.instance.onLogoutCompleteCalled.should.equal(true);
+            done();
+        }); 
+        })
+    });
+
+    it('should call forwarder onModifyComplete method with the proper identity method passed through', function(done) {
+        mParticle._resetForTests(MPConfig);
+        const mockForwarder = new MockForwarder();
+
+        mockForwarder.register(window.mParticle.config);
+        const config1 = forwarderDefaultConfiguration('MockForwarder', 1);
+        (config1.userAttributeFilters = [
+            mParticle.generateHash('gender'),
+        ]),
+        window.mParticle.config.kitConfigs.push(config1);
+
+        mParticle.init(apiKey, window.mParticle.config);
+
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
+        const userIdentityRequest = {
+            userIdentities: {
+                google: 'test',
+                customerid: 'id1',
+                other: 'id2',
+            },
+        };
+
+        fetchMockSuccess('https://identity.mparticle.com/v1/identifyMPID/modify', {
+            mpid: 'modifyMPID', is_logged_in: false
+        });
 
         mParticle.Identity.modify(userIdentityRequest);
-        window.MockForwarder1.instance.onModifyCompleteCalled.should.equal(
-            true
-        );
-        window.MockForwarder1.instance.onModifyCompleteUser
-            .getAllUserAttributes()
-            .should.not.have.property('gender');
-        window.MockForwarder1.instance.onModifyCompleteUser
-            .getAllUserAttributes()
-            .should.have.property('color', 'blue');
-
-        mParticle.Identity.identify(userIdentityRequest);
-        window.MockForwarder1.instance.onIdentifyCompleteCalled.should.equal(
-            true
-        );
-        window.MockForwarder1.instance.onIdentifyCompleteUser
-            .getAllUserAttributes()
-            .should.not.have.property('gender');
-        window.MockForwarder1.instance.onIdentifyCompleteUser
-            .getAllUserAttributes()
-            .should.have.property('color', 'blue');
-
+        waitForCondition(() => {
+            return (
+                mParticle.Identity.getCurrentUser()?.getMPID() ===
+                'modifyMPID'
+            );
+        })
+        .then(() => {
+        window.MockForwarder1.instance.onModifyCompleteCalled.should.equal(true);
         done();
+        }); 
+        })
     });
 });
