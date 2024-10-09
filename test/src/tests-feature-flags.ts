@@ -9,9 +9,8 @@ import { urls, apiKey,
 } from './config/constants';
 import Utils from './config/utils';
 
-const { deleteAllCookies } = Utils;
-
 let mockServer;
+const { waitForCondition, fetchMockSuccess, deleteAllCookies } = Utils;
 
 declare global {
     interface Window {
@@ -19,24 +18,24 @@ declare global {
     }
 }
 
+const hasIdentifyReturned = () => {
+    return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
+};
+
 describe('feature-flags', function() {
     describe('user audiences', function() {
         beforeEach(function() {
             fetchMock.post(urls.events, 200);
-            mockServer = sinon.createFakeServer();
-            mockServer.respondImmediately = true;
 
-            mockServer.respondWith(urls.identify, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-            ]);
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID, is_logged_in: false
+            });
+
             window.mParticle.init(apiKey, window.mParticle.config);
         });
 
         afterEach(() => {
             sinon.restore();
-            mockServer.reset();
             fetchMock.restore();
         });
 
@@ -46,15 +45,11 @@ describe('feature-flags', function() {
             };
 
             window.mParticle._resetForTests(MPConfig);
-            mockServer.respondWith(urls.identify, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-            ]);
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
-            
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
             window.mParticle.Identity.getCurrentUser().getUserAudiences();
 
@@ -62,6 +57,7 @@ describe('feature-flags', function() {
             bond.getCalls()[0].args[0].should.eql(
                 Constants.Messages.ErrorMessages.AudienceAPINotEnabled
             );
+            })
         });
 
         it('should be able to call user audience API if feature flag is false', function() {
@@ -86,11 +82,6 @@ describe('feature-flags', function() {
             });
             
             window.mParticle._resetForTests(MPConfig);
-            mockServer.respondWith(urls.identify, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-            ]);
 
             window.mParticle.config.flags = {
                 audienceAPI: 'True'
@@ -98,20 +89,23 @@ describe('feature-flags', function() {
 
             // initialize mParticle with feature flag 
             window.mParticle.init(apiKey, window.mParticle.config);
+            waitForCondition(hasIdentifyReturned)
+            .then(() => {
             const bond = sinon.spy(window.mParticle.getInstance().Logger, 'error');
 
             window.mParticle.Identity.getCurrentUser().getUserAudiences((result) => {
                     console.log(result);   
             });
             bond.called.should.eql(false);
+            })
         });
     });
 
     describe('capture integration specific ids', () => {
         beforeEach(() => {
             fetchMock.post(urls.events, 200);
-            mockServer = sinon.createFakeServer();
-            mockServer.respondImmediately = true;
+            // mockServer = sinon.createFakeServer();
+            // mockServer.respondImmediately = true;
 
             window.document.cookie = '_cookie1=1234';
             window.document.cookie = '_cookie2=39895811.9165333198';
@@ -121,7 +115,7 @@ describe('feature-flags', function() {
         });
 
         afterEach(() => {
-            fetchMock.restore();
+            // fetchMock.restore();
             deleteAllCookies();
             sinon.restore(); // Restore all stubs and spies
             deleteAllCookies();
@@ -171,4 +165,5 @@ describe('feature-flags', function() {
             expect(clickIdSpy.called, 'getClickIdsAsCustomFlags').to.equal(false);
         });
     });
+});
 });

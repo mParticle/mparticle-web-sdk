@@ -1353,6 +1353,8 @@ function completeSDKInitialization(apiKey, config, mpInstance) {
         mpInstance._SessionManager.initialize();
         mpInstance._Events.logAST();
 
+        mpInstance._Store.isInitialized = true;
+
         processIdentityCallback(
             mpInstance,
             currentUser,

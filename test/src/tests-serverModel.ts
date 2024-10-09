@@ -12,8 +12,9 @@ import {
     SDKGDPRConsentState,
 } from '../../src/consent';
 import { IMParticleUser, ISDKUserAttributes } from '../../src/identity-user-interfaces';
+import Utils from './config/utils';
+const { hasIdentifyReturned, waitForCondition, fetchMockSuccess } = Utils;
 
-let mockServer;
 let initialEvent = {};
 
 const mParticle = window.mParticle;
@@ -333,20 +334,14 @@ describe('ServerModel', () => {
         beforeEach(() => {
             // TODO: Create Event Object is tightly coupled with mp Init and Store
             // This should be refactored to make the function more pure
-            mockServer = sinon.createFakeServer();
-            mockServer.respondImmediately = true;
-
-            mockServer.respondWith(urls.identify, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-            ]);
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID, is_logged_in: false
+            });
 
             mParticle.init(apiKey, mParticle.config);
         });
 
         afterEach(function() {
-            mockServer.restore();
         });
 
         it('should create an event object without a user', () => {
@@ -601,9 +596,12 @@ describe('ServerModel', () => {
             ]);
         });
 
-        it('should set necessary attributes if MessageType is SessionEnd', () => {
-            const mPStore = mParticle.getInstance()._Store;
+        it('should set necessary attributes if MessageType is SessionEnd', () => {    
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
 
+            const mPStore = mParticle.getInstance()._Store;
+            
             mPStore.sessionAttributes = {
                 fooSessionAttr: 'session-foo',
                 barSessionAttr: 'session-bar',
@@ -620,8 +618,8 @@ describe('ServerModel', () => {
             };
 
             const actualEventObject = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event) as IUploadObject;
+            .getInstance()
+            ._ServerModel.createEventObject(event) as IUploadObject;
 
             expect(
                 actualEventObject.currentSessionMPIDs,
@@ -647,6 +645,7 @@ describe('ServerModel', () => {
             // A SessionEnd event resets currentSessionMPIDs and sessionStartDate.  When a new session starts, these are filled again
             expect(mPStore.currentSessionMPIDs).to.eql([]);
             expect(mPStore.sessionStartDate).to.eql(null);
+            })
         });
 
         it('should set necessary attributes if MessageType is AppStateTransition', () => {
@@ -1307,19 +1306,14 @@ describe('ServerModel', () => {
         };
 
         beforeEach(function() {
-            mockServer = sinon.createFakeServer();
-            mockServer.respondImmediately = true;
+            fetchMockSuccess(urls.identify, {
+                mpid: testMPID, is_logged_in: false
+            });
 
-            mockServer.respondWith(urls.identify, [
-                200,
-                {},
-                JSON.stringify({ mpid: testMPID, is_logged_in: false }),
-            ]);
             mParticle.init(apiKey, mParticle.config);
         });
 
         afterEach(function() {
-            mockServer.restore();
         });
 
         it('Should not convert data plan object to server DTO when no id or version is set', function(done) {
@@ -1433,17 +1427,20 @@ describe('ServerModel', () => {
         });
 
         it('Should not append user info when no user exists', function(done) {
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
             mParticle.getInstance()._Store.should.be.ok;
 
             let sdkEvent = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
+            .getInstance()
+            ._ServerModel.createEventObject(event);
 
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserIdentities).to.eql([]);
             expect(sdkEvent.UserAttributes).to.eql({});
             expect(sdkEvent.ConsentState === null).to.eql(true);
             done();
+            })
         });
 
         it('Should append all user info when user is present', function(done) {
@@ -1520,9 +1517,11 @@ describe('ServerModel', () => {
         });
 
         it('Should append identities when user is present', function(done) {
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
             let sdkEvent = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
+            .getInstance()
+            ._ServerModel.createEventObject(event);
 
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserIdentities).to.eql([]);
@@ -1571,12 +1570,15 @@ describe('ServerModel', () => {
             });
 
             done();
+            })
         });
 
         it('Should append user attributes when user present', function(done) {
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
             let sdkEvent = mParticle
-                .getInstance()
-                ._ServerModel.createEventObject(event);
+            .getInstance()
+            ._ServerModel.createEventObject(event);
 
             sdkEvent.should.be.ok;
             expect(sdkEvent.UserAttributes).to.eql({});
@@ -1601,9 +1603,12 @@ describe('ServerModel', () => {
             expect(sdkEvent.UserAttributes).to.eql(attributes);
 
             done();
+            });
         });
 
         it('Should update mpid when user info is appended with a new mpid', function(done) {
+            waitForCondition(hasIdentifyReturned)
+            .then(() =>  {
             let sdkEvent = mParticle
                 .getInstance()
                 ._ServerModel.createEventObject(event);
@@ -1632,6 +1637,7 @@ describe('ServerModel', () => {
             mParticle.getInstance()._ServerModel.appendUserInfo(user, sdkEvent);
             expect(sdkEvent.MPID).to.equal('98765');
             done();
+            })
         });
 
         it('convertEventToDTO should contain launch referral', function(done) {
