@@ -1,3 +1,5 @@
+type HTTPMethod = 'get' | 'post';
+
 export interface fetchPayload {
     method: string;
     headers: {
@@ -34,7 +36,8 @@ export class XHRUploader extends AsyncUploader {
         const response: Response = await this.makeRequest(
             this.url,
             fetchPayload.body,
-            fetchPayload.method as 'post' | 'get'
+            fetchPayload.method as HTTPMethod,
+            fetchPayload.headers
         );
         return response;
     }
@@ -51,7 +54,8 @@ export class XHRUploader extends AsyncUploader {
     private async makeRequest(
         url: string,
         data: string,
-        method: 'post' | 'get' = 'post'
+        method: HTTPMethod = 'post',
+        headers: Record<string, string> = {}
     ): Promise<Response> {
         const xhr: XMLHttpRequest = new XMLHttpRequest();
         return new Promise((resolve, reject) => {
@@ -69,8 +73,12 @@ export class XHRUploader extends AsyncUploader {
                 reject((xhr as unknown) as Response);
             };
 
-
             xhr.open(method, url);
+
+            Object.entries(headers).forEach(([key, value]) => {
+                xhr.setRequestHeader(key, value);
+            });
+
             xhr.send(data);
         });
     }
