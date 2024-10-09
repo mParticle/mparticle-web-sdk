@@ -34,7 +34,7 @@ describe.only('Beacon Upload', () => {
             is_logged_in: false,
         });
 
-        fetchMock.post(urls.events, 200);
+        fetchMockSuccess(urls.events);
         window.mParticle.config.flags = {
             eventBatchingIntervalMillis: 1000,
         };

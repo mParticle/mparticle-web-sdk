@@ -25,7 +25,6 @@ describe.only('event logging', function() {
     });
 
     afterEach(function() {
-        // mockServer.restore();
         fetchMock.restore();
         mParticle._resetForTests(MPConfig);
     });
@@ -986,7 +985,6 @@ describe.only('event logging', function() {
             currentPosition = position;
         }
         const clock = sinon.useFakeTimers();
-// 
         mParticle.startTrackingLocation(callback);
 
         // mock geo will successfully run after 1 second (geomock.js // navigator.geolocation.delay)

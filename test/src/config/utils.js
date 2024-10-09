@@ -629,7 +629,6 @@ var pluses = /\+/g,
         );
     },
     hasIdentifyReturned = () => {
-        console.log(window.mParticle.Identity.getCurrentUser()?.getMPID());
         return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
     };
 

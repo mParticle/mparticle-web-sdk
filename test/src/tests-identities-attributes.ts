@@ -953,7 +953,7 @@ describe.only('identities and attributes', function() {
         };
 
         fetchMockSuccess(urls.login, {
-            mpid: 'anotherMPID', is_logged_in: false
+            mpid: 'anotherMPID', is_logged_in: true
         });
     
         mParticle.Identity.login(loginUser);

@@ -1297,7 +1297,7 @@ describe.only('eCommerce', function() {
 
         done();
     });
-    })
+    });
     });
 
     it('expand checkout commerce event', function(done) {

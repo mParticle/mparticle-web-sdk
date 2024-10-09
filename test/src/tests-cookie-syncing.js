@@ -57,7 +57,6 @@ describe.only('cookie syncing', function() {
 
     afterEach(function() {
         fetchMock.restore();
-        // mockServer.restore();
         mParticle._resetForTests(MPConfig);
     });
 
