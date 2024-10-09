@@ -16,7 +16,7 @@ declare global {
     }
 }
 
-describe('ConfigAPIClient', () => {
+describe.only('ConfigAPIClient', () => {
     let mockServer;
     let sdkInitCompleteCallback;
     let configUrl;

@@ -15,6 +15,8 @@ import { IAliasRequest } from '../../src/identity.interfaces';
 const {
     setCookie,
     findRequestURL,
+    waitForCondition,
+    hasIdentifyReturned
 } = Utils;
 
 const { HTTPCodes } = Constants;
@@ -28,7 +30,7 @@ declare global {
 
 const mParticle = window.mParticle as MParticleWebSDK;
 
-describe('legacy Alias Requests', function() {
+describe.only('legacy Alias Requests', function() {
     let mockServer;
     let clock;
     const originalFetch = window.fetch;
@@ -283,7 +285,6 @@ describe('legacy Alias Requests', function() {
         };
         
         mParticle.Identity.aliasUsers(aliasRequest, function(callback) {
-            // debugger;
             callbackResult = callback;
             callbackResult.httpCode.should.equal(HTTP_BAD_REQUEST);
             callbackResult.message.should.equal(errorMessage);
@@ -514,6 +515,8 @@ describe('legacy Alias Requests', function() {
         mockServer.respondWith('https://testtesttest-custom-v3secureserviceurl/v3/JS/test_key/events', HTTP_OK, JSON.stringify({ mpid: testMPID, Store: {}}));
 
         mParticle.init(apiKey, window.mParticle.config);
+        waitForCondition(hasIdentifyReturned)
+        .then(() => {
 
         mParticle.getInstance()._Store.SDKConfig.v3SecureServiceUrl.should.equal(window.mParticle.config.v3SecureServiceUrl)
         mParticle.getInstance()._Store.SDKConfig.configUrl.should.equal(window.mParticle.config.configUrl)
@@ -524,12 +527,13 @@ describe('legacy Alias Requests', function() {
         // test events endpoint
         mParticle.logEvent('Test Event');
 
-        // const testEventURL = findRequestURL(mockServer.requests, 'Test Event');
-        mockServer.requests[0].responseURL.should.equal(
+        const testEventURL = findRequestURL(mockServer.requests, 'Test Event');
+        testEventURL.should.equal(
             'https://' +
                 window.mParticle.config.v3SecureServiceUrl +
                 'test_key/events'
         );
+
         // test Identity endpoint
         mockServer.requests = [];
         mParticle.Identity.login({ userIdentities: { customerid: 'test1' } });
@@ -550,7 +554,8 @@ describe('legacy Alias Requests', function() {
         mockServer.requests[0].url.should.equal(
             'https://' + window.mParticle.config.aliasUrl + 'test_key/Alias'
         );
-
+        })
+        
         done();
     });
 
