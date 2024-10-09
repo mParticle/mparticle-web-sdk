@@ -1057,7 +1057,7 @@ describe.only('core SDK', function() {
         done();
     });
 
-    it('should hit url with query parameter of env=1 for debug mode for forwarders', function (done) {
+    it.only('should hit url with query parameter of env=1 for debug mode for forwarders', function (done) {
         mParticle._resetForTests(MPConfig);
         mParticle.config.isDevelopmentMode = true;
         mParticle.config.requestConfig = true;
@@ -1069,13 +1069,10 @@ describe.only('core SDK', function() {
         );
 
         mParticle.init(apiKey, window.mParticle.config);
-
-        // rob note - while config fetch is async, we are only testing what endpoint is hit here, and so we do not need to wait for anything to return
-        // why did this change from 2 to 0 when going through this identity code refactor?
+        // While config fetch is async, we are only testing what endpoint is hit here, and so we do not need to wait for anything to return
         (fetchMock.calls()[0][0].indexOf('?env=1') > 0).should.equal(
             true
         );
-
         done();
     });
 
@@ -1084,15 +1081,13 @@ describe.only('core SDK', function() {
         mParticle.config.isDevelopmentMode = false;
         mParticle.config.requestConfig = true;
 
-        fetchMock.get(
-            'https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0',
+        fetchMock.get(urls.config,
             { status: 200 }
         );
         fetchMock.resetHistory();
         mParticle.init(apiKey, window.mParticle.config);
 
         // rob note - while config fetch is async, we are only testing what endpoint is hit here, and so we do not need to wait for anything to return
-
         (fetchMock.calls()[0][0].indexOf('?env=0') > 0).should.equal(
             true
         );
@@ -1109,7 +1104,7 @@ describe.only('core SDK', function() {
             workspaceToken: 'token1',
         };
 
-        fetchMock.get('https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0', {
+        fetchMock.get(urls.config, {
             status: 200,
             body: JSON.stringify({ config }),
         });
@@ -1142,7 +1137,7 @@ describe.only('core SDK', function() {
             minWebviewBridgeVersion: 1,
             workspaceToken: 'token1',
         };
-        fetchMock.get('https://jssdkcdns.mparticle.com/JS/v2/test_key/config?env=0', {
+        fetchMock.get(urls.config, {
             status: 200,
             body: JSON.stringify({ config }),
         });

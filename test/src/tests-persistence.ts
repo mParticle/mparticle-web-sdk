@@ -934,7 +934,7 @@ describe.only('persistence', () => {
         cookieData.gs.csm[2].should.be.equal('MPID2');
 
         fetchMockSuccess(urls.login, {
-            mpid: 'testMPID', is_logged_in: false
+            mpid: 'testMPID', is_logged_in: true
         });
 
         const userIdentities3 = {

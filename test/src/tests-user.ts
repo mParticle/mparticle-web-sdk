@@ -18,6 +18,7 @@ declare global {
 
 const mParticle = window.mParticle as MParticleWebSDK;
 
+// https://go.mparticle.com/work/SQDSDKS-6849
 const hasIdentifyReturned = () => {
     return window.mParticle.Identity.getCurrentUser()?.getMPID() === testMPID;
 };
@@ -126,7 +127,6 @@ describe.only('mParticle User', function() {
             fetchMockSuccess(urls.login, {
                 mpid: 'loginMPID2', is_logged_in: false
             });
-
 
             const userIdentities2 = {
                 userIdentities: {

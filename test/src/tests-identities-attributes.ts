@@ -1232,12 +1232,17 @@ describe.only('identities and attributes', function() {
             },
         };
 
+        
+        window.mParticle.config.flags = {
+            EventBatchingIntervalMillis: 0,
+        }
+
         mParticle.init(apiKey, window.mParticle.config);
 
         waitForCondition(hasIdentifyReturned)
         .then(() =>  {
         fetchMockSuccess(urls.login, {
-            mpid: 'testMPID', is_logged_in: false
+            mpid: 'testMPID', is_logged_in: true
         });
         // on identity strategy where MPID remains the same from anonymous to login
         const loginUser = {
@@ -1293,7 +1298,7 @@ describe.only('identities and attributes', function() {
         // log back in with previous MPID, but with only a single UI, all UIs should be on batch
 
         fetchMockSuccess(urls.login, {
-            mpid: 'testMPID', is_logged_in: false
+            mpid: 'testMPID', is_logged_in: true
         });
         
         mParticle.Identity.login(loginUser);
@@ -1306,7 +1311,7 @@ describe.only('identities and attributes', function() {
         .then(() => {
         // switching back to logged in user should not result in any UIC events
         expect(fetchMock.calls().length).to.equal(1);
-        debugger;
+
         const data = getIdentityEvent(fetchMock.calls(), 'login');
 
         expect(data).to.be.ok;

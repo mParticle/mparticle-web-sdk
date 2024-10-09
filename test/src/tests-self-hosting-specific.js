@@ -73,8 +73,7 @@ describe.only('/config self-hosting integration tests', function() {
         })
     });
 
-    // it is difficult to reproduce the original intent of this test.  it may not actually be valid/realistic
-    // i believe it's in a self hosted environment when customers are calling login directly, but really they should be calling login in the callback of identify
+    // https://go.mparticle.com/work/SQDSDKS-6852
     it.skip('queued events contain login mpid instead of identify mpid when calling login immediately after mParticle initializes', function(done) {
         const messages = [];
         mParticle._resetForTests(MPConfig);
@@ -158,8 +157,6 @@ describe.only('/config self-hosting integration tests', function() {
                     .indexOf('Parsing "identify" identity response from server')
                     .should.equal(-1);
 
-
-                    // TODO - COME BACK TO ME
                 // const event2 = findBatch(fetchMock.calls(), 'identify callback event', false, mockServer);
                 // event2.mpid.should.equal('loginMPID');
 

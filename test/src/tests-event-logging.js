@@ -776,10 +776,10 @@ describe.only('event logging', function() {
         })
     });
 
-    it('should log modify event', function(done) {
+    it.only('should log modify event', function(done) {
         waitForCondition(hasIdentifyReturned)
         .then(() => {
-        fetchMockSuccess('https://identity.mparticle.com/v1/testMPID/modify', {
+        fetchMockSuccess(urls.modify, {
             change_results: [
                     {
                         identity_type: 'email',

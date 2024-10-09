@@ -1024,10 +1024,7 @@ describe.only('forwarders', function() {
     });
     });
 
-    // This test sends to forwarding batch endpoint so the fact that it is failing is not a big deal as we should probably just delete that code.
-    // This feature is not actually live, as it is hidden behind a feature flag that is false for everyone.  
-    // The test fails because we need a way to make the batch forwarding stats uploader to fire after X seconds (default is 5000 ms)
-    // but it seems like startig a timer in the .then after an identify will clear out any existing setTimeout/setIntervals. 
+    // https://mparticle-eng.atlassian.net/browse/SQDSDKS-6850
     it.skip('sends forwarding stats to v2 endpoint when featureFlag setting of batching is true', function(done) {
         mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
@@ -2443,10 +2440,7 @@ describe.only('forwarders', function() {
     });
     });
 
-    // This test sends to forwarding batch endpoint so the fact that it is failing is not a big deal as we should probably just delete that code.
-    // This feature is not actually live, as it is hidden behind a feature flag that is false for everyone.  
-    // The test fails because we need a way to make the batch forwarding stats uploader to fire after X seconds (default is 5000 ms)
-    // but it seems like startig a timer in the .then after an identify will clear out any existing setTimeout/setIntervals. 
+    // https://mparticle-eng.atlassian.net/browse/SQDSDKS-6850
     it.skip('should queue forwarder stats reporting and send after 5 seconds if batching feature is true', function(done) {
         mParticle._resetForTests(MPConfig);
         const mockForwarder = new MockForwarder();
@@ -2852,7 +2846,6 @@ describe.only('forwarders', function() {
                 .length
         ).equal(3);
 
-        window.mParticle.config.logLevel = 'verbose';
         mParticle.init(apiKey, window.mParticle.config);
 
         waitForCondition(() => {
